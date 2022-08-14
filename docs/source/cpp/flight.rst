@@ -172,6 +172,108 @@ request/response. On the server, they can inspect incoming headers and
 fail the request; hence, they can be used to implement custom
 authentication methods.
 
+Best practices
+==============
+
+gRPC
+----
+
+When using default gRPC transport options can be passed to it via
+:func:`arrow::flight::FlightClientOptions.generic_options`. For example:
+
+.. code-block:: cpp
+
+   auto options = FlightClientOptions::Defaults();
+   // Set a very low limit at the gRPC layer to fail all calls
+   options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
+
+See available `gRPC keys_`.
+Best gRPC practices are described here_.
+
+
+Re-use clients whenever possible
+
+
+Closing clients causes gRPC to close and clean up connections which can take
+several seconds per connection. This will stall server and client threads if
+done too frequently. Client reuse will avoid this issue.
+
+Don’t round-robin load balance
+------------------------------
+
+Round robin balancing can cause every client to have an open connection to
+every server causing an unexpected number of open connections and a depletion
+of resources.
+
+Debugging
+---------
+
+Use netstat to see the number of open connections.
+For debug - env GRPC_VERBOSITY=info GRPC_TRACE=http will print the initial
+headers (on both sides) so you can see if grpc established the connection or
+not. It will also print when a message is sent, so you can tell if the
+connection is open or not.
+Note: "connect" isn't really a connect and we’ve observed that gRPC does not
+give you the actual error until you first try to make a call. This can cause
+error being reported at unexpected times.
+
+Use ListFlights sparingly
+-------------------------
+
+ListFlights endpoint is largely just implemented as a normal GRPC stream
+endpoint and can hit transfer bottlenecks if used too much. To estimate data
+transfer bottleneck:
+5k schemas will serialize to about 1-5 MB/call. Assuming a gRPC localhost
+bottleneck of 3GB/s you can at best serve 600-3000 clients/s.
+
+ARROW-15764_ proposes a caching optimisation for server side, but it was not
+yet implemented.
+
+
+Memory cache client-side
+------------------------
+
+Flight uses gRPC allocator wherever possible.
+
+gRPC will spawn an unbounded number of threads for concurrent clients. Those
+threads are not necessarily cleaned up (cached thread pool in java parlance).
+glibc malloc clears some per thread state and the default tuning never clears
+caches in some workloads. But you can explicitly tell malloc to dump caches.
+See ARROW-16697_ as an example.
+
+A quick way of testing: attach to the process with a debugger and call malloc_trim
+
+
+Excessive traffic
+-----------------
+
+There are basically two ways to handle excessive traffic:
+* unbounded thread pool -> everyone gets serviced, but it might take forever.
+This is what you are seeing now.
+bounded thread pool -> Reject connections / requests when under load, and have
+clients retry with backoff. This also gives an opportunity to retry with a
+different node. Not everyone gets serviced but quality of service stays consistent.
+
+Closing unresponsive connections
+--------------------------------
+
+* A stale connection can be closed using FlightCallOptions.stop_token. This requires
+recording the stop token at connection establishment time.
+* Use client timeout
+* here is a long standing ticket for a per-write/per-read timeout instead of a per
+call timeout (ARROW-6062_), but this is not (easily) possible to implement with the
+blocking gRPC API. For now one can also do something like set up a background thread
+that calls cancel() on a timer and have the main thread reset the timer every time a
+write operation completes successfully (that means one needs to use to_batches() +
+write_batch and not write_table).
+
+.. _here: https://grpc.io/docs/guides/performance/#general
+.. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
+.. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
+.. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
+.. _ARROW-6062: https://issues.apache.org/jira/browse/ARROW-6062
+
+
 Alternative Transports
 ======================
 
