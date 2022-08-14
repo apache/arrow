@@ -50,6 +50,6 @@ require (
 	modernc.org/ccgo/v3 v3.16.8 // indirect
 	modernc.org/libc v1.16.19 // indirect
 	modernc.org/opt v0.1.3 // indirect
-	modernc.org/sqlite v1.18.0 // indirect
+	modernc.org/sqlite v1.18.0
 	modernc.org/strutil v1.1.2 // indirect
 )

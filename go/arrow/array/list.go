@@ -367,9 +367,9 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 
 // NewLargeListBuilderWithField takes a field rather than just an element type
 // to allow for more customization of the final type of the LargeList Array
-func NewLargeListBuilderWithField(mem memory.Allocator, field arrow.Field) *ListBuilder {
+func NewLargeListBuilderWithField(mem memory.Allocator, field arrow.Field) *LargeListBuilder {
 	offsetBldr := NewInt64Builder(mem)
-	return &ListBuilder{
+	return &LargeListBuilder{
 		baseListBuilder{
 			builder:         builder{refCount: 1, mem: mem},
 			values:          NewBuilder(mem, field.Type),
@@ -398,7 +398,6 @@ func (b *baseListBuilder) Release() {
 
 func (b *baseListBuilder) appendNextOffset() {
 	b.appendOffsetVal(b.values.Len())
-	// b.offsets.Append(int32(b.values.Len()))
 }
 
 func (b *baseListBuilder) Append(v bool) {

@@ -82,7 +82,7 @@ func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, row
 		switch f.Type.ID() {
 		case arrow.UINT8:
 			if f.Nullable {
-				rowdest[i] = &sql.NullInt16{}
+				rowdest[i] = &sql.NullInt32{}
 			} else {
 				rowdest[i] = new(uint8)
 			}
@@ -143,7 +143,7 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 		switch fields[i].Type.ID() {
 		case arrow.UINT8:
 			if fields[i].Nullable {
-				rowdest[i] = &sql.NullInt16{}
+				rowdest[i] = &sql.NullInt32{}
 			} else {
 				rowdest[i] = new(uint8)
 			}
@@ -248,7 +248,12 @@ func (r *SqlBatchReader) Next() bool {
 				if !v.Valid {
 					fb.AppendNull()
 				} else {
-					fb.(*array.Int32Builder).Append(v.Int32)
+					switch b := fb.(type) {
+					case *array.Int32Builder:
+						b.Append(v.Int32)
+					case *array.Uint8Builder:
+						b.Append(uint8(v.Int32))
+					}
 				}
 			case *float64:
 				fb.(*array.Float64Builder).Append(*v)
