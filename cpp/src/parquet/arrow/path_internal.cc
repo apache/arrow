@@ -802,7 +802,7 @@ class PathBuilder {
     return Status::OK();
   }
 
-  Status Visit(const ::arrow::StructArray& array) {
+  Status Visit(const ::arrow::RunLengthEncodedArray& array) {
     return Status::NotImplemented("arrow rle array in Parquet");
   }
 
