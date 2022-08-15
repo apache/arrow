@@ -128,16 +128,16 @@ class MergedRunsIterator {
   MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
     static_assert(NUM_INPUTS == 2, "incorrect number of inputs");
 
-    inputs[0] = std::ref(a);
-    inputs[1] = std::ref(b);
+    inputs[0] = &a;
+    inputs[1] = &b;
 
     ARROW_DCHECK_EQ(a.length, b.length);
     logical_length = a.length;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
-      ArraySpan& input = inputs[input_id];
+      const ArraySpan* input = inputs[input_id];
       run_index[input_id] = rle_util::FindPhysicalOffset(
-          RunEnds(input), RunEndsArray(input).length, input.offset);
+          RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
   }
 
@@ -159,8 +159,9 @@ class MergedRunsIterator {
   }
 
   MergedRunsIterator& operator++(int) {
-    auto result = *this;
-    ++(this);
+    MergedRunsIterator& result = *this;
+    ++(*this);
+    return result;
   }
 
   bool operator==(const MergedRunsIterator& other) const {
@@ -178,7 +179,7 @@ class MergedRunsIterator {
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
       // logical indices of the end of the run we are currently in each input
       run_end[input_id] =
-          RunEnds(inputs[input_id])[run_index[input_id]] - inputs[input_id].offset;
+          RunEnds(*inputs[input_id])[run_index[input_id]] - inputs[input_id]->offset;
       // the logical length may end in the middle of a run, in case the array was sliced
       run_end[input_id] = std::min(run_end[input_id], logical_length);
       ARROW_DCHECK_GT(run_end[input_id], logical_position);
@@ -190,7 +191,7 @@ class MergedRunsIterator {
 
   bool isEnd() const { return logical_position == logical_length; }
 
-  std::array<std::reference_wrapper<const ArraySpan>, NUM_INPUTS> inputs;
+  std::array<const ArraySpan*, NUM_INPUTS> inputs;
   std::array<int64_t, NUM_INPUTS> physical_offset;
   std::array<int64_t, NUM_INPUTS> run_index;
   // logical indices of the end of the run we are currently in each input
