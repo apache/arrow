@@ -19,13 +19,16 @@
 
 package example
 
-import "github.com/apache/arrow/go/v10/arrow/flight/flightsql"
+import (
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql"
+)
 
 func SqlInfoResultMap() flightsql.SqlInfoResultMap {
 	return flightsql.SqlInfoResultMap{
 		uint32(flightsql.SqlInfoFlightSqlServerName):         "db_name",
 		uint32(flightsql.SqlInfoFlightSqlServerVersion):      "sqlite 3",
-		uint32(flightsql.SqlInfoFlightSqlServerArrowVersion): "10.0.0-SNAPSHOT",
+		uint32(flightsql.SqlInfoFlightSqlServerArrowVersion): arrow.PkgVersion,
 		uint32(flightsql.SqlInfoFlightSqlServerReadOnly):     false,
 		uint32(flightsql.SqlInfoDDLCatalog):                  false,
 		uint32(flightsql.SqlInfoDDLSchema):                   false,

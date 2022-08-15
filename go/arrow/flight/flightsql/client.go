@@ -236,10 +236,6 @@ func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.Ca
 // The resulting PreparedStatement object should be Closed when no longer
 // needed. It will maintain a reference to this Client for use to execute
 // and use the specified allocator for any allocations it needs to perform.
-// Prepare creates a PreparedStatement object for the specified query.
-// The resulting PreparedStatement object should be Closed when no longer
-// needed. It will maintain a reference to this Client for use to execute
-// and use the specified allocator for any allocations it needs to perform.
 func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
 	const actionType = CreatePreparedStatementActionType
 

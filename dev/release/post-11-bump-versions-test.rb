@@ -206,6 +206,11 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
           "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
         ]
+      else if path == "go/arrow/doc.go"
+        hunks << [
+          "-const PkgVersion = \"#{@snapshot_version}\"",
+          "+const PkgVersion = \"#{@next_snapshot_version}\"",
+        ]
       end
       expected_changes << {hunks: hunks, path: path}
     end

@@ -64,7 +64,7 @@ var (
 		{Name: "fk_key_name", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "pk_key_name", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "update_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: false},
-		{Name: "delete_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: true},
+		{Name: "delete_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: false},
 	}, nil)
 	ImportedKeys   = ImportedExportedKeysAndCrossReference
 	ExportedKeys   = ImportedExportedKeysAndCrossReference
