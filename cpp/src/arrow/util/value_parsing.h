@@ -31,6 +31,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -770,7 +771,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   return true;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(ARROW_WITH_MUSL)
 static constexpr bool kStrptimeSupportsZone = false;
 #else
 static constexpr bool kStrptimeSupportsZone = true;

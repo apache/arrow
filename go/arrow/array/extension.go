@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -130,6 +130,10 @@ type ExtensionArrayBase struct {
 	storage arraymarshal
 }
 
+func (e *ExtensionArrayBase) String() string {
+	return fmt.Sprintf("(%s)%s", e.data.dtype, e.storage)
+}
+
 func (e *ExtensionArrayBase) getOneForMarshal(i int) interface{} {
 	return e.storage.getOneForMarshal(i)
 }
@@ -223,6 +227,8 @@ type ExtensionBuilder struct {
 func NewExtensionBuilder(mem memory.Allocator, dt arrow.ExtensionType) *ExtensionBuilder {
 	return &ExtensionBuilder{Builder: NewBuilder(mem, dt.StorageType()), dt: dt}
 }
+
+func (b *ExtensionBuilder) Type() arrow.DataType { return b.dt }
 
 // StorageBuilder returns the builder for the underlying storage type.
 func (b *ExtensionBuilder) StorageBuilder() Builder { return b.Builder }

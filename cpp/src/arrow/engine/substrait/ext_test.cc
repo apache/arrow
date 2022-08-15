@@ -56,11 +56,9 @@ struct DefaultExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
 
 struct NestedExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
   virtual ~NestedExtensionIdRegistryProvider() {}
-  std::shared_ptr<ExtensionIdRegistry> registry_ = substrait::MakeExtensionIdRegistry();
+  std::shared_ptr<ExtensionIdRegistry> registry_ = MakeExtensionIdRegistry();
   ExtensionIdRegistry* get() const override { return &*registry_; }
 };
-
-using Id = ExtensionIdRegistry::Id;
 
 bool operator==(const Id& id1, const Id& id2) {
   return id1.uri == id2.uri && id1.name == id2.name;
@@ -85,8 +83,8 @@ static const std::vector<TypeName> kTypeNames = {
     TypeName{month_day_nano_interval(), "interval_month_day_nano"},
 };
 
-static const std::vector<util::string_view> kFunctionNames = {
-    "add",
+static const std::vector<Id> kFunctionIds = {
+    {kSubstraitArithmeticFunctionsUri, "add"},
 };
 
 static const std::vector<util::string_view> kTempFunctionNames = {
@@ -141,15 +139,12 @@ TEST_P(ExtensionIdRegistryTest, GetFunctions) {
   auto provider = std::get<0>(GetParam());
   auto registry = provider->get();
 
-  for (util::string_view name : kFunctionNames) {
-    auto id = Id{kArrowExtTypesUri, name};
-    for (auto funcrec_opt : {registry->GetFunction(id), registry->GetFunction(name)}) {
-      ASSERT_TRUE(funcrec_opt);
-      auto funcrec = funcrec_opt.value();
-      ASSERT_EQ(id, funcrec.id);
-      ASSERT_EQ(name, funcrec.function_name);
-    }
+  for (Id func_id : kFunctionIds) {
+    ASSERT_OK_AND_ASSIGN(ExtensionIdRegistry::SubstraitCallToArrow converter,
+                         registry->GetSubstraitCallToArrow(func_id));
+    ASSERT_TRUE(converter);
   }
+  ASSERT_RAISES(NotImplemented, registry->GetSubstraitCallToArrow(kNonExistentId));
   ASSERT_FALSE(registry->GetType(kNonExistentId));
   ASSERT_FALSE(registry->GetType(*kNonExistentTypeName.type));
 }
@@ -158,10 +153,10 @@ TEST_P(ExtensionIdRegistryTest, ReregisterFunctions) {
   auto provider = std::get<0>(GetParam());
   auto registry = provider->get();
 
-  for (util::string_view name : kFunctionNames) {
-    auto id = Id{kArrowExtTypesUri, name};
-    ASSERT_RAISES(Invalid, registry->CanRegisterFunction(id, name.to_string()));
-    ASSERT_RAISES(Invalid, registry->RegisterFunction(id, name.to_string()));
+  for (Id function_id : kFunctionIds) {
+    ASSERT_RAISES(Invalid, registry->CanAddSubstraitCallToArrow(function_id));
+    ASSERT_RAISES(Invalid, registry->AddSubstraitCallToArrow(
+                               function_id, function_id.name.to_string()));
   }
 }
 
@@ -173,11 +168,26 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(std::make_shared<NestedExtensionIdRegistryProvider>(),
                         "nested")));
 
+TEST(ExtensionIdRegistryTest, GetSupportedSubstraitFunctions) {
+  ExtensionIdRegistry* default_registry = default_extension_id_registry();
+  std::vector<std::string> supported_functions =
+      default_registry->GetSupportedSubstraitFunctions();
+  std::size_t num_functions = supported_functions.size();
+  ASSERT_GT(num_functions, 0);
+
+  std::shared_ptr<ExtensionIdRegistry> nested =
+      nested_extension_id_registry(default_registry);
+  ASSERT_OK(nested->AddSubstraitCallToArrow(kNonExistentId, "some_function"));
+
+  std::size_t num_nested_functions = nested->GetSupportedSubstraitFunctions().size();
+  ASSERT_EQ(num_functions + 1, num_nested_functions);
+}
+
 TEST(ExtensionIdRegistryTest, RegisterTempTypes) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry = substrait::MakeExtensionIdRegistry();
+    auto registry = MakeExtensionIdRegistry();
 
     for (TypeName e : kTempTypeNames) {
       auto id = Id{kArrowExtTypesUri, e.name};
@@ -194,15 +204,15 @@ TEST(ExtensionIdRegistryTest, RegisterTempFunctions) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry = substrait::MakeExtensionIdRegistry();
+    auto registry = MakeExtensionIdRegistry();
 
     for (util::string_view name : kTempFunctionNames) {
       auto id = Id{kArrowExtTypesUri, name};
-      ASSERT_OK(registry->CanRegisterFunction(id, name.to_string()));
-      ASSERT_OK(registry->RegisterFunction(id, name.to_string()));
-      ASSERT_RAISES(Invalid, registry->CanRegisterFunction(id, name.to_string()));
-      ASSERT_RAISES(Invalid, registry->RegisterFunction(id, name.to_string()));
-      ASSERT_OK(default_registry->CanRegisterFunction(id, name.to_string()));
+      ASSERT_OK(registry->CanAddSubstraitCallToArrow(id));
+      ASSERT_OK(registry->AddSubstraitCallToArrow(id, name.to_string()));
+      ASSERT_RAISES(Invalid, registry->CanAddSubstraitCallToArrow(id));
+      ASSERT_RAISES(Invalid, registry->AddSubstraitCallToArrow(id, name.to_string()));
+      ASSERT_OK(default_registry->CanAddSubstraitCallToArrow(id));
     }
   }
 }
@@ -246,24 +256,24 @@ TEST(ExtensionIdRegistryTest, RegisterNestedFunctions) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry1 = substrait::MakeExtensionIdRegistry();
+    auto registry1 = MakeExtensionIdRegistry();
 
-    ASSERT_OK(registry1->CanRegisterFunction(id1, name1.to_string()));
-    ASSERT_OK(registry1->RegisterFunction(id1, name1.to_string()));
+    ASSERT_OK(registry1->CanAddSubstraitCallToArrow(id1));
+    ASSERT_OK(registry1->AddSubstraitCallToArrow(id1, name1.to_string()));
 
     for (int j = 0; j < rounds; j++) {
-      auto registry2 = substrait::MakeExtensionIdRegistry();
+      auto registry2 = MakeExtensionIdRegistry();
 
-      ASSERT_OK(registry2->CanRegisterFunction(id2, name2.to_string()));
-      ASSERT_OK(registry2->RegisterFunction(id2, name2.to_string()));
-      ASSERT_RAISES(Invalid, registry2->CanRegisterFunction(id2, name2.to_string()));
-      ASSERT_RAISES(Invalid, registry2->RegisterFunction(id2, name2.to_string()));
-      ASSERT_OK(default_registry->CanRegisterFunction(id2, name2.to_string()));
+      ASSERT_OK(registry2->CanAddSubstraitCallToArrow(id2));
+      ASSERT_OK(registry2->AddSubstraitCallToArrow(id2, name2.to_string()));
+      ASSERT_RAISES(Invalid, registry2->CanAddSubstraitCallToArrow(id2));
+      ASSERT_RAISES(Invalid, registry2->AddSubstraitCallToArrow(id2, name2.to_string()));
+      ASSERT_OK(default_registry->CanAddSubstraitCallToArrow(id2));
     }
 
-    ASSERT_RAISES(Invalid, registry1->CanRegisterFunction(id1, name1.to_string()));
-    ASSERT_RAISES(Invalid, registry1->RegisterFunction(id1, name1.to_string()));
-    ASSERT_OK(default_registry->CanRegisterFunction(id1, name1.to_string()));
+    ASSERT_RAISES(Invalid, registry1->CanAddSubstraitCallToArrow(id1));
+    ASSERT_RAISES(Invalid, registry1->AddSubstraitCallToArrow(id1, name1.to_string()));
+    ASSERT_OK(default_registry->CanAddSubstraitCallToArrow(id1));
   }
 }
 

@@ -56,6 +56,27 @@ buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALS
 \item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
 buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
 }
+
+\code{GcsFileSystem$create()} optionally takes arguments:
+\itemize{
+\item \code{anonymous}: logical, default \code{FALSE}. If true, will not attempt to look up
+credentials using standard GCS configuration methods.
+\item \code{access_token}: optional string for authentication. Should be provided along
+with \code{expiration}
+\item \code{expiration}: optional date representing point at which \code{access_token} will
+expire.
+\item \code{json_credentials}: optional string for authentication. Point to a JSON
+credentials file downloaded from GCS.
+\item \code{endpoint_override}: if non-empty, will connect to provided host name / port,
+such as "localhost:9001", instead of default GCS ones. This is primarily useful
+for testing purposes.
+\item \code{scheme}: connection transport (default "https")
+\item \code{default_bucket_location}: the default location (or "region") to create new
+buckets in.
+\item \code{retry_limit_seconds}: the maximum amount of time to spend retrying if
+the filesystem encounters errors. Default is 15 seconds.
+\item \code{default_metadata}: default metadata to write in new objects.
+}
 }
 
 \section{Methods}{

@@ -408,12 +408,20 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
+ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
+}
+
 ExecPlan_StopProducing <- function(plan) {
   invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
 }
 
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
+}
+
+ExecPlan_BuildAndShow <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_BuildAndShow`, plan, final_node, sort_options, head)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
@@ -478,6 +486,10 @@ compute__CallFunction <- function(func_name, args, options) {
 
 compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
+}
+
+RegisterScalarUDF <- function(name, func_sexp) {
+  invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
 
 build_info <- function() {
@@ -1108,12 +1120,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
+ipc___feather___Reader__Read <- function(reader, columns) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
 }
 
-ipc___feather___Reader__Open <- function(stream, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
+ipc___feather___Reader__Open <- function(stream) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
 }
 
 ipc___feather___Reader__schema <- function(reader) {
@@ -1728,6 +1740,10 @@ RecordBatchReader__from_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
 }
 
+RecordBatchReader__from_function <- function(fun_sexp, schema) {
+  .Call(`_arrow_RecordBatchReader__from_function`, fun_sexp, schema)
+}
+
 RecordBatchReader__from_Table <- function(table) {
   .Call(`_arrow_RecordBatchReader__from_Table`, table)
 }
@@ -1790,6 +1806,10 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
 
 InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+CanRunWithCapturedR <- function() {
+  .Call(`_arrow_CanRunWithCapturedR`)
 }
 
 TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {

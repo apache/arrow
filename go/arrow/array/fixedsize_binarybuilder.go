@@ -23,9 +23,9 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -45,6 +45,8 @@ func NewFixedSizeBinaryBuilder(mem memory.Allocator, dtype *arrow.FixedSizeBinar
 	}
 	return b
 }
+
+func (b *FixedSizeBinaryBuilder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -79,6 +81,12 @@ func (b *FixedSizeBinaryBuilder) AppendNull() {
 	b.Reserve(1)
 	b.values.Advance(b.dtype.ByteWidth)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.values.Advance(b.dtype.ByteWidth)
+	b.UnsafeAppendBoolToBitmap(true)
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values

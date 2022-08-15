@@ -140,5 +140,31 @@ TEST(SplitString, OnlyDemiliter) {
   EXPECT_EQ(parts[1], "");
 }
 
+TEST(SplitString, Limit) {
+  std::string input = "a:b:c";
+  auto parts = SplitString(input, ':', 2);
+  ASSERT_EQ(parts.size(), 2);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b:c");
+}
+
+TEST(SplitString, LimitOver) {
+  std::string input = "a:b:c";
+  auto parts = SplitString(input, ':', 4);
+  ASSERT_EQ(parts.size(), 3);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+}
+
+TEST(SplitString, LimitZero) {
+  std::string input = "a:b:c";
+  auto parts = SplitString(input, ':', 0);
+  ASSERT_EQ(parts.size(), 3);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+}
+
 }  // namespace internal
 }  // namespace arrow

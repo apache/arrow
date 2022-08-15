@@ -22,7 +22,7 @@ arrow_dir=${1}
 source_dir=${1}/java
 build_dir=${2}
 cpp_build_dir=${build_dir}/cpp/${ARROW_BUILD_TYPE:-debug}
-cdata_dist_dir=${build_dir}/java/c
+java_jni_dist_dir=${3}
 
 : ${BUILD_DOCS_JAVA:=OFF}
 
@@ -76,7 +76,7 @@ if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
-  ${mvn} -Darrow.c.jni.dist.dir=${cdata_dist_dir} -Parrow-c-data install
+  ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
 fi
 
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then

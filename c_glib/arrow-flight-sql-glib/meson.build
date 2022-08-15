@@ -73,6 +73,7 @@ if have_gi
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                          '--include-uninstalled=./arrow-flight-glib/ArrowFlight-1.0.gir',
                        ],
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-flight-sql-glib/arrow-flight-sql-glib.h',
                        identifier_prefix: 'GAFlightSQL',
                        includes: [

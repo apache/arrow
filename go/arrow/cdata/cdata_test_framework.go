@@ -53,8 +53,8 @@ import "C"
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 )
 
 const (
@@ -205,6 +205,10 @@ func createCArr(arr arrow.Array) *CArrowArray {
 
 	switch arr := arr.(type) {
 	case *array.List:
+		clist := []*CArrowArray{createCArr(arr.ListValues())}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
+		nchildren += 1
+	case *array.LargeList:
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1

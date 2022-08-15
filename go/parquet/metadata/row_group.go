@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v9/parquet/schema"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 )
 
 // RowGroupMetaData is a proxy around the thrift RowGroup meta data object

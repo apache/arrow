@@ -27,7 +27,7 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     }
     file.copy(localfile, "lib.zip")
   } else {
-    # Download static arrow from rwinlib
+    # Download static arrow from the apache artifactory
     quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
     get_file <- function(template, version) {
       try(
@@ -37,28 +37,29 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
         silent = quietly
       )
     }
+
     # URL templates
     nightly <- paste0(
       getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"),
       "/libarrow/bin/windows/arrow-%s.zip"
     )
+    # %1$s uses the first variable for both substitutions
+    artifactory <- "https://apache.jfrog.io/artifactory/arrow/r/%1$s/libarrow/bin/windows/arrow-%1$s.zip"
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
-    # First look for a nightly
-    get_file(nightly, VERSION)
-    # If not found, then check rwinlib
-    if (!file.exists("lib.zip")) {
+
+    dev_version <- package_version(VERSION)[1, 4]
+    
+    # Small dev versions are added for R-only changes during CRAN submission.
+    if (is.na(dev_version) || dev_version < 100) {
+      VERSION <- package_version(VERSION)[1, 1:3]
       get_file(rwinlib, VERSION)
-    }
-    if (!file.exists("lib.zip")) {
-      # Try a different version
-      # First, try pruning off a dev number, i.e. go from 0.14.1.1 to 0.14.1
-      VERSION <- sub("^([0-9]+\\.[0-9]+\\.[0-9]+).*$", "\\1", VERSION)
-      get_file(rwinlib, VERSION)
-    }
-    if (!file.exists("lib.zip")) {
-      # Next, try without a patch release, i.e. go from 0.14.1 to 0.14.0
-      VERSION <- sub("^([0-9]+\\.[0-9]+\\.).*$", "\\10", VERSION)
-      get_file(rwinlib, VERSION)
+
+      # If not found, fall back to apache artifactory
+      if (!file.exists("lib.zip")) {
+        get_file(artifactory, VERSION)
+      }
+    } else {
+      get_file(nightly, VERSION)
     }
   }
   dir.create("windows", showWarnings = FALSE)
