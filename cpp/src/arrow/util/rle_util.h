@@ -116,7 +116,7 @@ class MergedRunsIterator {
 
     inputs[0] = &a;
 
-    logical_length = a->length;
+    logical_length = a.length;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
       const ArraySpan* input = inputs[input_id];
