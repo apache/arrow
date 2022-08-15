@@ -887,6 +887,99 @@
       </reporting>
     </profile>
 
+    <profile>
+      <id>generate-jnicpp-dylib_so</id>
+      <properties>
+        <ARROW_DATASET>OFF</ARROW_DATASET>
+        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
+        <ARROW_ORC>OFF</ARROW_ORC>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>jnicppdir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p java-dist java-native-cpp</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jnicppdefine</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -DARROW_BOOST_USE_SHARED=OFF
+                    -DARROW_BROTLI_USE_SHARED=OFF
+                    -DARROW_BZ2_USE_SHARED=OFF
+                    -DARROW_GFLAGS_USE_SHARED=OFF
+                    -DARROW_GRPC_USE_SHARED=OFF
+                    -DARROW_LZ4_USE_SHARED=OFF
+                    -DARROW_OPENSSL_USE_SHARED=OFF
+                    -DARROW_PROTOBUF_USE_SHARED=OFF
+                    -DARROW_SNAPPY_USE_SHARED=OFF
+                    -DARROW_THRIFT_USE_SHARED=OFF
+                    -DARROW_UTF8PROC_USE_SHARED=OFF
+                    -DARROW_ZSTD_USE_SHARED=OFF
+                    -DARROW_JNI=ON
+                    -DARROW_PARQUET=ON
+                    -DARROW_FILESYSTEM=ON
+                    -DARROW_DATASET=${ARROW_DATASET}
+                    -DARROW_GANDIVA_JAVA=ON
+                    -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_GANDIVA=${ARROW_GANDIVA}
+                    -DARROW_ORC=${ARROW_ORC}
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=../java-dist
+                    -DCMAKE_UNITY_BUILD=ON
+                    -Dre2_SOURCE=BUNDLED
+                    -DBoost_SOURCE=BUNDLED
+                    -Dutf8proc_SOURCE=BUNDLED
+                    -DSnappy_SOURCE=BUNDLED
+                    -DORC_SOURCE=BUNDLED
+                    -DZLIB_SOURCE=BUNDLED
+                    -Dxsimd_SOURCE=BUNDLED
+                    -Dzstd_SOURCE=BUNDLED
+                    -Dlz4_SOURCE=BUNDLED
+                    ../cpp
+                  </commandlineArgs>
+                  <workingDirectory>../java-native-cpp</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jnicppbuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build . --target install
+                  </commandlineArgs>
+                  <workingDirectory>../java-native-cpp</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 
 </project>
