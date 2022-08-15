@@ -611,12 +611,18 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  # this is valid is neither R nor Arrow
   expect_error(
-    tbl %>%
-      arrow_table() %>%
-      mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
-      collect(),
-    regexp = "add in a decent error message"
+    expect_warning(
+      compare_dplyr_binding(
+        .input %>%
+          arrow_table() %>%
+          mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
+          collect(),
+        tbl,
+        warning = TRUE
+      )
+    )
   )
 
   # across() arguments not in default order
