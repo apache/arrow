@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# nolint start: cyclocomp_linter,
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -191,7 +192,9 @@ ExecPlan <- R6Class("ExecPlan",
       }
       node
     },
-    Run = function(node) {
+    Run = function(node, as_table = FALSE) {
+      # a section of this code is used by `BuildAndShow()` too - the 2 need to be in sync
+      # Start of chunk used in `BuildAndShow()`
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -209,7 +212,16 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      out <- ExecPlan_run(
+      # End of chunk used in `BuildAndShow()`
+
+      # If we are going to return a Table anyway, we do this in one step and
+      # entirely in one C++ call to ensure that we can execute user-defined
+      # functions from the worker threads spawned by the ExecPlan. If not, we
+      # use ExecPlan_run which returns a RecordBatchReader that can be
+      # manipulated in R code (but that right now won't work with
+      # user-defined functions).
+      exec_fun <- if (as_table) ExecPlan_read_table else ExecPlan_run
+      out <- exec_fun(
         self,
         node,
         sorting,
@@ -232,10 +244,12 @@ ExecPlan <- R6Class("ExecPlan",
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
-        out <- out$read_table()
+        out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
         # Put back into RBR
-        out <- as_record_batch_reader(out)
+        if (!as_table) {
+          out <- as_record_batch_reader(out)
+        }
       }
 
       # If arrange() created $temp_columns, make sure to omit them from the result
@@ -243,9 +257,13 @@ ExecPlan <- R6Class("ExecPlan",
       # happens in the end (SinkNode) so nothing comes after it.
       # TODO(ARROW-16631): move into ExecPlan
       if (length(node$extras$sort$temp_columns) > 0) {
-        tab <- out$read_table()
+        tab <- as_arrow_table(out)
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
-        out <- as_record_batch_reader(tab)
+        if (!as_table) {
+          out <- as_record_batch_reader(tab)
+        } else {
+          out <- tab
+        }
       }
 
       out
@@ -259,9 +277,44 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
+    # SinkNodes (involved in arrange and/or head/tail operations) are created in
+    # ExecPlan_run and are not captured by the regulat print method. We take a
+    # similar approach to expose them before calling the print method.
+    BuildAndShow = function(node) {
+      # a section of this code is copied from `Run()` - the 2 need to be in sync
+      # Start of chunk copied from `Run()`
+
+      assert_is(node, "ExecNode")
+
+      # Sorting and head/tail (if sorted) are handled in the SinkNode,
+      # created in ExecPlan_run
+      sorting <- node$extras$sort %||% list()
+      select_k <- node$extras$head %||% -1L
+      has_sorting <- length(sorting) > 0
+      if (has_sorting) {
+        if (!is.null(node$extras$tail)) {
+          # Reverse the sort order and take the top K, then after we'll reverse
+          # the resulting rows so that it is ordered as expected
+          sorting$orders <- !sorting$orders
+          select_k <- node$extras$tail
+        }
+        sorting$orders <- as.integer(sorting$orders)
+      }
+
+      # End of chunk copied from `Run()`
+
+      ExecPlan_BuildAndShow(
+        self,
+        node,
+        sorting,
+        select_k
+      )
+    },
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
+# nolint end.
+
 ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }

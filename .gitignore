@@ -87,3 +87,6 @@ cpp/Brewfile.lock.json
 java-dist/
 java-native-c/
 java-native-cpp/
+
+# archery files
+dev/archery/build

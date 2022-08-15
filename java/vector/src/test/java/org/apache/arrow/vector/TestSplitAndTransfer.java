@@ -29,8 +29,10 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -406,5 +408,25 @@ public class TestSplitAndTransfer {
     }
   }
 
+  @Test
+  public void testMapVectorZeroStartIndexAndLength() {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, new ArrowType.Map(false), null, metadata);
+    try (final MapVector mapVector = new MapVector("mapVec", allocator, type, null);
+         final MapVector newMapVector = new MapVector("newMapVec", allocator, type, null)) {
+
+      mapVector.allocateNew();
+      final int valueCount = 0;
+      mapVector.setValueCount(valueCount);
+
+      final TransferPair tp = mapVector.makeTransferPair(newMapVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newMapVector.getValueCount());
+
+      newMapVector.clear();
+    }
+  }
 
 }

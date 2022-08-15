@@ -23,8 +23,8 @@ import (
 	sync "sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/flight"
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

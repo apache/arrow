@@ -155,6 +155,26 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
 #'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
 #'
+#' `GcsFileSystem$create()` optionally takes arguments:
+#'
+#' - `anonymous`: logical, default `FALSE`. If true, will not attempt to look up
+#'    credentials using standard GCS configuration methods.
+#' - `access_token`: optional string for authentication. Should be provided along
+#'   with `expiration`
+#' - `expiration`: optional date representing point at which `access_token` will
+#'   expire.
+#' - `json_credentials`: optional string for authentication. Point to a JSON
+#'   credentials file downloaded from GCS.
+#' - `endpoint_override`: if non-empty, will connect to provided host name / port,
+#'   such as "localhost:9001", instead of default GCS ones. This is primarily useful
+#'   for testing purposes.
+#' - `scheme`: connection transport (default "https")
+#' - `default_bucket_location`: the default location (or "region") to create new
+#'   buckets in.
+#' - `retry_limit_seconds`: the maximum amount of time to spend retrying if
+#'   the filesystem encounters errors. Default is 15 seconds.
+#' - `default_metadata`: default metadata to write in new objects.
+#'
 #' @section Methods:
 #'
 #' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
@@ -426,7 +446,7 @@ default_s3_options <- list(
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- s3_bucket("ursa-labs-taxi-data")
+#' bucket <- s3_bucket("voltrondata-labs-datasets")
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
@@ -446,6 +466,28 @@ s3_bucket <- function(bucket, ...) {
   }
   # Return a subtree pointing at that bucket path
   SubTreeFileSystem$create(fs_and_path$path, fs)
+}
+
+#' Connect to a Google Cloud Storage (GCS) bucket
+#'
+#' `gs_bucket()` is a convenience function to create an `GcsFileSystem` object
+#' that holds onto its relative path
+#'
+#' @param bucket string GCS bucket name or path
+#' @param ... Additional connection options, passed to `GcsFileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `GcsFileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examplesIf FALSE
+#' bucket <- gs_bucket("voltrondata-labs-datasets")
+#' @export
+gs_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  fs <- exec(GcsFileSystem$create, !!!args)
+
+  SubTreeFileSystem$create(bucket, fs)
 }
 
 #' @usage NULL

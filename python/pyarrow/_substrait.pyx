@@ -19,6 +19,7 @@
 from cython.operator cimport dereference as deref
 
 from pyarrow import Buffer
+from pyarrow.lib import frombytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
@@ -77,3 +78,27 @@ def _parse_json_plan(plan):
     with nogil:
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
+
+
+def get_supported_functions():
+    """
+    Get a list of Substrait functions that the underlying
+    engine currently supports.
+
+    Returns
+    -------
+    list[str]
+        A list of function ids encoded as '{uri}#{name}'
+    """
+
+    cdef:
+        ExtensionIdRegistry* c_id_registry
+        std_vector[c_string] c_ids
+
+    c_id_registry = default_extension_id_registry()
+    c_ids = c_id_registry.GetSupportedSubstraitFunctions()
+
+    functions_list = []
+    for c_id in c_ids:
+        functions_list.append(frombytes(c_id))
+    return functions_list

@@ -24,7 +24,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '9.0.0-SNAPSHOT'
+version = '10.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -55,6 +55,7 @@ base_include_directories = [
   include_directories('.')
 ]
 
+gi_fatal_warnings = (build_machine.system() != 'windows')
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
 if have_gi
   pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
