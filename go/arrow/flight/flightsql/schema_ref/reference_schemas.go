@@ -88,7 +88,7 @@ var (
 		{Name: "column_size", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
 		{Name: "literal_prefix", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "literal_suffix", Type: arrow.BinaryTypes.String, Nullable: true},
-		{Name: "create_params", Type: arrow.ListOfField(arrow.Field{Name: "item", Type: arrow.BinaryTypes.String, Nullable: false})},
+		{Name: "create_params", Type: arrow.ListOfField(arrow.Field{Name: "item", Type: arrow.BinaryTypes.String, Nullable: false}), Nullable: true},
 		{Name: "nullable", Type: arrow.PrimitiveTypes.Int32, Nullable: false},
 		{Name: "case_sensitive", Type: arrow.FixedWidthTypes.Boolean, Nullable: false},
 		{Name: "searchable", Type: arrow.PrimitiveTypes.Int32, Nullable: false},
