@@ -185,6 +185,17 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     ]
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+      if path == "go/arrow/doc.go"
+        expected_changes << {
+          path: path,
+          hunks: [
+          [
+            "-const PkgVersion = \"#{@snapshot_version}\"",
+            "+const PkgVersion = \"#{@next_snapshot_version}\"",
+          ],
+        ]}
+        next
+      end
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)

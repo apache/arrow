@@ -42,13 +42,15 @@ func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.C
 	if err != nil {
 		return nil, err
 	}
-	return &Client{cl}, nil
+	return &Client{cl, memory.DefaultAllocator}, nil
 }
 
 // Client wraps a regular Flight RPC Client to provide the FlightSQL
 // interface functions and methods.
 type Client struct {
 	Client flight.Client
+
+	Alloc memory.Allocator
 }
 
 func descForCommand(cmd proto.Message) (*flight.FlightDescriptor, error) {
@@ -141,7 +143,7 @@ func (c *Client) DoGet(ctx context.Context, in *flight.Ticket, opts ...grpc.Call
 		return nil, err
 	}
 
-	return flight.NewRecordReader(stream)
+	return flight.NewRecordReader(stream, ipc.WithAllocator(c.Alloc))
 }
 
 // GetTables requests a list of tables from the server, with the provided
@@ -236,6 +238,7 @@ func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.Ca
 // and use the specified allocator for any allocations it needs to perform.
 func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
 	const actionType = CreatePreparedStatementActionType
+
 	var (
 		cmd, cmdResult        anypb.Any
 		res                   *pb.Result

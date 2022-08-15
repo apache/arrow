@@ -156,6 +156,9 @@ update_versions() {
   sed -i.bak -E -e \
     "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
     parquet/writer_properties.go
+  sed -i.bak -E -e \
+    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
+    arrow/doc.go  
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
