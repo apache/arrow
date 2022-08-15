@@ -192,7 +192,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           [
             "-const PkgVersion = \"#{@snapshot_version}\"",
             "+const PkgVersion = \"#{@next_snapshot_version}\"",
-          ]
+          ],
         ]}
         next
       end

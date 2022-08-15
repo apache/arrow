@@ -175,7 +175,7 @@ class PrepareTest < Test::Unit::TestCase
           ["-const PkgVersion = \"#{@snapshot_version}\"",
            "+const PkgVersion = \"#{@release_version}\""],
         ],
-      }.
+      },
       {
         path: "go/parquet/writer_properties.go",
         hunks: [
