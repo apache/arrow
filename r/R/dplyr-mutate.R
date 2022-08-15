@@ -165,7 +165,7 @@ unfold_across <- function(.data, quos_in) {
 
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
-      across_call <- match.call(dplyr::across, quo_expr)
+      across_call <- call_match(quo_expr, dplyr::across, defaults = TRUE)
 
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
         abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
@@ -176,16 +176,16 @@ unfold_across <- function(.data, quos_in) {
         abort("`.names` argument to `across()` not yet supported in Arrow")
       }
 
-      # use select() to get the column names so we can take advantage of tidyselect
-      cols <- names(dplyr::select(.data, !!across_call[[".cols"]]))
-      funcs <- as.character(across_call[[".fns"]])
+      # use select() to get the columns so we can take advantage of tidyselect
+      source_cols <- names(dplyr::select(.data, !!across_call[[".cols"]]))
+      funcs <- across_call[[".fns"]]
 
       # calling across() with .fns = NULL returns all columns unchanged
       if (is_empty(funcs)) {
         return()
       }
 
-      if (funcs[[1]] == "~") {
+      if (!is_list(funcs) && as.character(funcs)[[1]] == "~") {
         abort(
           paste(
             "purrr-style lambda functions as `.fns` argument to `across()`",
@@ -195,17 +195,15 @@ unfold_across <- function(.data, quos_in) {
       }
 
       # if only 1 function, we overwrite the old columns with the new values
-      if (length(funcs) == 1) {
+      if (length(funcs) == 1 && is.name(funcs)) {
         # work out the quosures from the call
-        col_syms <- syms(cols)
+        col_syms <- syms(source_cols)
         new_quos <- map(col_syms, ~ quo(!!call2(funcs, .x)))
-        new_quos <- set_names(new_quos, cols)
+        new_quos <- set_names(new_quos, source_cols)
       } else {
-        # remove `c()` and `list()` which have been used to specify functions
-        extracted_funcs <- funcs[map_lgl(funcs, ~ !.x %in% c("c", "list"))]
-
+        extracted_funcs <- call_args(funcs)
         func_list <- ensure_named_funcs(extracted_funcs)
-        new_quos <- quosures_from_func_list(func_list, cols)
+        new_quos <- quosures_from_func_list(func_list, source_cols)
       }
 
       quos_out <- append(quos_out, new_quos)
