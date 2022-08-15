@@ -14,11 +14,11 @@ int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
 }
 
 void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
-  auto& child = array->child_data[0];
+  auto& child = array->child_data[1];
   auto builder = MakeBuilder(child->type).ValueOrDie();
   ARROW_CHECK_OK(builder->AppendNulls(offset));
   ARROW_CHECK_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
-  array->child_data[0] = builder->Finish().ValueOrDie()->Slice(offset)->data();
+  array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
 }
 
 int64_t GetPhysicalOffset(const ArraySpan& span) {

@@ -42,6 +42,15 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
             10);
 }
 
+TEST(TestRleUtil, ArtificalOffset) {
+  const auto values = ArrayFromJSON(int32(), "[1, 2, 3]");
+  const auto run_ends = ArrayFromJSON(int32(), "[10, 20, 30]");
+  ASSERT_OK_AND_ASSIGN(auto array, RunLengthEncodedArray::Make(run_ends, values, 30));
+  AddArtificialOffsetInChildArray(array->data().get(), 100);
+  ASSERT_ARRAYS_EQUAL(*values, *array->values_array());
+  ASSERT_EQ(array->values_array()->offset(), 100);
+}
+
 TEST(TestRleUtil, VisitMergedRuns) {
   const auto left_run_ends = ArrayFromJSON(
       int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
