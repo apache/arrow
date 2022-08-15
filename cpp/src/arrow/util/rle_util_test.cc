@@ -106,6 +106,7 @@ TEST(TestRleUtil, VisitMergedRuns) {
     ASSERT_EQ(it.physical_index(1), expected_right_visits[position]);
     position++;
   }
+  ASSERT_EQ(position, expected_run_lengths.size());
 }
 
 }  // namespace rle_util

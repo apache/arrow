@@ -123,6 +123,7 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
+    FindMergedRun();
   }
 
   MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
@@ -139,6 +140,7 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
+    FindMergedRun();
   }
 
   MergedRunsIterator(const MergedRunsIterator& other) = default;
@@ -165,12 +167,15 @@ class MergedRunsIterator {
   }
 
   bool operator==(const MergedRunsIterator& other) const {
-    return (isEnd() && other.isEnd()) || (logical_position == other.logical_position);
+    return (isEnd() && other.isEnd()) ||
+           (!isEnd() && !other.isEnd() && logical_position == other.logical_position);
   }
 
   bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
-  int64_t physical_index(int64_t input_id) const { return run_index[input_id]; }
+  int64_t physical_index(int64_t input_id) const {
+    return run_index[input_id] + DataArray(*inputs[input_id]).offset;
+  }
   int64_t run_length() const { return merged_run_length; }
 
  private:
