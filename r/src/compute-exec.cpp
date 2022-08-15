@@ -115,8 +115,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   void StopProducing() {
     if (status_ == 1 && !plan_->finished().is_finished()) {
       plan_->StopProducing();
-      status_ = 2;
     }
+
+    status_ = 2;
   }
 };
 
