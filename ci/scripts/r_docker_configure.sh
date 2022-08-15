@@ -67,6 +67,10 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
+if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
+  echo "CXX11STD=c++11" >> /root/.R/Makevars
+fi
+
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
