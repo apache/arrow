@@ -71,6 +71,20 @@ arrow::Status RunMain() {
   // This time, we get a ChunkedArray, not a scalar.
   std::cout << element_wise_sum.chunked_array()->ToString() << std::endl;
 
+  // Use an options struct to set up searching for 2223 in column A (the third item).
+  arrow::Datum third_item;
+  // An options struct is used in lieu of passing an arbitrary amount of arguments.
+  arrow::compute::IndexOptions index_options;
+  // We need an Arrow Scalar, not a raw value.
+  index_options.value = arrow::MakeScalar(2223);
+  ARROW_ASSIGN_OR_RAISE(third_item, arrow::compute::CallFunction(
+          "index", {table->GetColumnByName("A")}, &index_options));
+  // Get the kind of Datum and what it holds -- this is a Scalar, with int64
+  std::cout << "Datum kind: " << third_item.ToString()
+            << " content type: " << third_item.type()->ToString() << std::endl;
+  // We get a scalar -- the location of 2223 in column A, which is 2 in 0-based indexing.
+  std::cout << third_item.scalar_as<arrow::Int64Scalar>().value << std::endl;
+
   return arrow::Status::OK();
 }
 
