@@ -80,32 +80,6 @@ TEST(TestRleUtil, VisitMergedRuns) {
   left_array = left_array->Slice(left_parent_offset);
   right_array = right_array->Slice(right_parent_offset);
 
-  size_t position = 0;
-  rle_util::VisitMergedRuns(
-      ArraySpan(*left_array->data()), ArraySpan(*right_array->data()),
-      [&position, &expected_run_lengths, &expected_left_visits, &expected_right_visits](
-          int64_t run_length, int64_t left_index, int64_t right_index) {
-        ASSERT_EQ(run_length, expected_run_lengths[position]);
-        ASSERT_EQ(left_index, expected_left_visits[position]);
-        ASSERT_EQ(right_index, expected_right_visits[position]);
-        position++;
-      });
-  ASSERT_EQ(position, expected_run_lengths.size());
-
-  // test the same data with left/right swapped
-  position = 0;
-  rle_util::VisitMergedRuns(
-      ArraySpan(*right_array->data()), ArraySpan(*left_array->data()),
-      [&position, &expected_run_lengths, &expected_left_visits, &expected_right_visits](
-          int64_t run_length, int64_t right_index, int64_t left_index) {
-        ASSERT_EQ(run_length, expected_run_lengths[position]);
-        ASSERT_EQ(left_index, expected_left_visits[position]);
-        ASSERT_EQ(right_index, expected_right_visits[position]);
-        position++;
-      });
-
-  ASSERT_EQ(position, expected_run_lengths.size());
-
   position = 0;
   for (auto it = MergedRunsIterator<2>(ArraySpan(*left_array->data()),
                                        ArraySpan(*right_array->data()));
