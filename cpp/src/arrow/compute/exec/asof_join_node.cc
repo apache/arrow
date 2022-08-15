@@ -17,15 +17,17 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <set>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/light_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -37,13 +39,41 @@
 namespace arrow {
 namespace compute {
 
-// Remove this when multiple keys and/or types is supported
-typedef int32_t KeyType;
+template <typename T, typename V = typename T::value_type>
+inline typename T::const_iterator std_find(const T& container, const V& val) {
+  return std::find(container.begin(), container.end(), val);
+}
+
+template <typename T, typename V = typename T::value_type>
+inline bool std_has(const T& container, const V& val) {
+  return container.end() != std_find(container, val);
+}
+
+typedef uint64_t KeyType;
+typedef uint64_t TimeType;
+typedef uint64_t HashType;
 
 // Maximum number of tables that can be joined
 #define MAX_JOIN_TABLES 64
 typedef uint64_t row_index_t;
 typedef int col_index_t;
+typedef std::vector<col_index_t> vec_col_index_t;
+
+template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
+static inline uint64_t norm_value(T t) {
+  uint64_t bias = std::is_signed<T>::value ? (uint64_t)1 << (8 * sizeof(T) - 1) : 0;
+  return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t);
+}
+
+template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
+static inline uint64_t time_value(T t) {
+  return norm_value(t);
+}
+
+template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
+static inline uint64_t key_value(T t) {
+  return norm_value(t);
+}
 
 /**
  * Simple implementation for an unbound concurrent queue
@@ -99,7 +129,7 @@ struct MemoStore {
 
   struct Entry {
     // Timestamp associated with the entry
-    int64_t time;
+    TimeType time;
 
     // Batch associated with the entry (perf is probably OK for this; batches change
     // rarely)
@@ -111,7 +141,7 @@ struct MemoStore {
 
   std::unordered_map<KeyType, Entry> entries_;
 
-  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, TimeType time,
              KeyType key) {
     auto& e = entries_[key];
     // that we can do this assignment optionally, is why we
@@ -128,7 +158,7 @@ struct MemoStore {
     return util::optional<const Entry*>(&e->second);
   }
 
-  void RemoveEntriesWithLesserTime(int64_t ts) {
+  void RemoveEntriesWithLesserTime(TimeType ts) {
     for (auto e = entries_.begin(); e != entries_.end();)
       if (e->second.time < ts)
         e = entries_.erase(e);
@@ -137,18 +167,84 @@ struct MemoStore {
   }
 };
 
+// a specialized higher-performance variation of Hashing64 logic
+class KeyHasher {
+  static constexpr int kMiniBatchLength = util::MiniBatch::kMiniBatchLength;
+
+ public:
+  explicit KeyHasher(const vec_col_index_t& indices)
+      : indices_(indices),
+        metadata_(indices.size()),
+        batch_(NULLPTR),
+        hashes_(),
+        ctx_(),
+        column_arrays_(),
+        stack_() {
+    ctx_.stack = &stack_;
+    column_arrays_.resize(indices.size());
+  }
+
+  Status Init(ExecContext* exec_context, const std::shared_ptr<arrow::Schema>& schema) {
+    ctx_.hardware_flags = exec_context->cpu_info()->hardware_flags();
+    const auto& fields = schema->fields();
+    for (size_t k = 0; k < metadata_.size(); k++) {
+      ARROW_ASSIGN_OR_RAISE(metadata_[k],
+                            ColumnMetadataFromDataType(fields[indices_[k]]->type()));
+    }
+    return stack_.Init(exec_context->memory_pool(),
+                       4 * kMiniBatchLength * sizeof(uint32_t));
+  }
+
+  const std::vector<HashType>& HashesFor(const RecordBatch* batch) {
+    if (batch_ == batch) {
+      return hashes_;
+    }
+    batch_ = NULLPTR;  // invalidate cached hashes for batch
+    size_t batch_length = batch->num_rows();
+    hashes_.resize(batch_length);
+    for (int64_t i = 0; i < static_cast<int64_t>(batch_length); i += kMiniBatchLength) {
+      int64_t length = std::min(static_cast<int64_t>(batch_length - i),
+                                static_cast<int64_t>(kMiniBatchLength));
+      for (size_t k = 0; k < indices_.size(); k++) {
+        auto array_data = batch->column_data(indices_[k]);
+        column_arrays_[k] =
+            ColumnArrayFromArrayDataAndMetadata(array_data, metadata_[k], i, length);
+      }
+      Hashing64::HashMultiColumn(column_arrays_, &ctx_, hashes_.data() + i);
+    }
+    batch_ = batch;
+    return hashes_;
+  }
+
+ private:
+  vec_col_index_t indices_;
+  std::vector<KeyColumnMetadata> metadata_;
+  const RecordBatch* batch_;
+  std::vector<HashType> hashes_;
+  LightContext ctx_;
+  std::vector<KeyColumnArray> column_arrays_;
+  util::TempVectorStack stack_;
+};
+
 class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
   // turned into output record batches.
 
  public:
-  InputState(const std::shared_ptr<arrow::Schema>& schema,
-             const std::string& time_col_name, const std::string& key_col_name)
+  InputState(KeyHasher* key_hasher, const std::shared_ptr<arrow::Schema>& schema,
+             const col_index_t time_col_index, const vec_col_index_t& key_col_index)
       : queue_(),
         schema_(schema),
-        time_col_index_(schema->GetFieldIndex(time_col_name)),
-        key_col_index_(schema->GetFieldIndex(key_col_name)) {}
+        time_col_index_(time_col_index),
+        key_col_index_(key_col_index),
+        time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
+        key_type_id_(schema_->num_fields()),
+        key_hasher_(key_hasher) {
+    for (size_t k = 0; k < key_col_index_.size(); k++) {
+      key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
+    }
+  }
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
@@ -164,7 +260,7 @@ class InputState {
 
   bool IsTimeOrKeyColumn(col_index_t i) const {
     DCHECK_LT(i, schema_->num_fields());
-    return (i == time_col_index_) || (i == key_col_index_);
+    return (i == time_col_index_) || std_has(key_col_index_, i);
   }
 
   // Gets the latest row index,  assuming the queue isn't empty
@@ -184,17 +280,50 @@ class InputState {
     return queue_.UnsyncFront();
   }
 
-  KeyType GetLatestKey() const {
-    return queue_.UnsyncFront()
-        ->column_data(key_col_index_)
-        ->GetValues<KeyType>(1)[latest_ref_row_];
+#define LATEST_VAL_CASE(id, val)                            \
+  case Type::id: {                                          \
+    using T = typename TypeIdTraits<Type::id>::Type;        \
+    using CType = typename TypeTraits<T>::CType;            \
+    return val(data->GetValues<CType>(1)[latest_ref_row_]); \
   }
 
-  int64_t GetLatestTime() const {
-    return queue_.UnsyncFront()
-        ->column_data(time_col_index_)
-        ->GetValues<int64_t>(1)[latest_ref_row_];
+  KeyType GetLatestKey() const {
+    if (key_hasher_ != NULLPTR) {
+      return key_hasher_->HashesFor(queue_.UnsyncFront().get())[latest_ref_row_];
+    }
+    auto data = queue_.UnsyncFront()->column_data(key_col_index_[0]);
+    switch (key_type_id_[0]) {
+      LATEST_VAL_CASE(INT8, key_value)
+      LATEST_VAL_CASE(INT16, key_value)
+      LATEST_VAL_CASE(INT32, key_value)
+      LATEST_VAL_CASE(INT64, key_value)
+      LATEST_VAL_CASE(UINT8, key_value)
+      LATEST_VAL_CASE(UINT16, key_value)
+      LATEST_VAL_CASE(UINT32, key_value)
+      LATEST_VAL_CASE(UINT64, key_value)
+      default:
+        return 0;  // cannot happen
+    }
   }
+
+  TimeType GetLatestTime() const {
+    auto data = queue_.UnsyncFront()->column_data(time_col_index_);
+    switch (time_type_id_) {
+      LATEST_VAL_CASE(INT8, time_value)
+      LATEST_VAL_CASE(INT16, time_value)
+      LATEST_VAL_CASE(INT32, time_value)
+      LATEST_VAL_CASE(INT64, time_value)
+      LATEST_VAL_CASE(UINT8, time_value)
+      LATEST_VAL_CASE(UINT16, time_value)
+      LATEST_VAL_CASE(UINT32, time_value)
+      LATEST_VAL_CASE(UINT64, time_value)
+      LATEST_VAL_CASE(TIMESTAMP, time_value)
+      default:
+        return 0;  // cannot happen
+    }
+  }
+
+#undef LATEST_VAL_CASE
 
   bool Finished() const { return batches_processed_ == total_batches_; }
 
@@ -222,28 +351,25 @@ class InputState {
   // latest_time and latest_ref_row to the value that immediately pass the
   // specified timestamp.
   // Returns true if updates were made, false if not.
-  bool AdvanceAndMemoize(int64_t ts) {
+  bool AdvanceAndMemoize(TimeType ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
 
     // Check if already updated for TS (or if there is no latest)
     if (Empty()) return false;  // can't advance if empty
-    auto latest_time = GetLatestTime();
-    if (latest_time > ts) return false;  // already advanced
 
     // Not updated.  Try to update and possibly advance.
     bool updated = false;
     do {
-      latest_time = GetLatestTime();
+      auto latest_time = GetLatestTime();
       // if Advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
-      if (latest_time <= ts) {
-        memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
-      } else {
+      if (latest_time > ts) {
         break;  // hit a future timestamp -- done updating for now
       }
+      memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
       updated = true;
     } while (Advance());
     return updated;
@@ -261,7 +387,7 @@ class InputState {
     return memo_.GetEntryForKey(key);
   }
 
-  util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
+  util::optional<TimeType> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
     if (r.has_value()) {
       return (*r)->time;
@@ -270,7 +396,7 @@ class InputState {
     }
   }
 
-  void RemoveMemoEntriesWithLesserTime(int64_t ts) {
+  void RemoveMemoEntriesWithLesserTime(TimeType ts) {
     memo_.RemoveEntriesWithLesserTime(ts);
   }
 
@@ -294,7 +420,13 @@ class InputState {
   // Index of the time col
   col_index_t time_col_index_;
   // Index of the key col
-  col_index_t key_col_index_;
+  vec_col_index_t key_col_index_;
+  // Type id of the time column
+  Type::type time_type_id_;
+  // Type id of the key column
+  std::vector<Type::type> key_type_id_;
+  // Buffer for key elements
+  mutable KeyHasher* key_hasher_;
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
   // Must be < queue_.front()->num_rows() if queue_ is non-empty
   row_index_t latest_ref_row_ = 0;
@@ -336,7 +468,7 @@ class CompositeReferenceTable {
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
-  void Emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
+  void Emplace(std::vector<std::unique_ptr<InputState>>& in, TimeType tolerance) {
     DCHECK_EQ(in.size(), n_tables_);
 
     // Get the LHS key
@@ -347,7 +479,7 @@ class CompositeReferenceTable {
     DCHECK(!in[0]->Empty());
     const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch = in[0]->GetLatestBatch();
     row_index_t lhs_latest_row = in[0]->GetLatestRow();
-    int64_t lhs_latest_time = in[0]->GetLatestTime();
+    TimeType lhs_latest_time = in[0]->GetLatestTime();
     if (0 == lhs_latest_row) {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
@@ -407,29 +539,34 @@ class CompositeReferenceTable {
           DCHECK_EQ(src_field->name(), dst_field->name());
           const auto& field_type = src_field->type();
 
-          if (field_type->Equals(arrow::int32())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(
-                    memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::int64())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(
-                    memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::float32())) {
-            ARROW_ASSIGN_OR_RAISE(arrays.at(i_dst_col),
-                                  (MaterializePrimitiveColumn<arrow::FloatBuilder, float>(
-                                      memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::float64())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(
-                    memory_pool, i_table, i_src_col)));
-          } else {
-            ARROW_RETURN_NOT_OK(
-                Status::Invalid("Unsupported data type: ", src_field->name()));
+#define ASOFJOIN_MATERIALIZE_CASE(id)                                       \
+  case Type::id: {                                                          \
+    using T = typename TypeIdTraits<Type::id>::Type;                        \
+    ARROW_ASSIGN_OR_RAISE(                                                  \
+        arrays.at(i_dst_col),                                               \
+        MaterializeColumn<T>(memory_pool, field_type, i_table, i_src_col)); \
+    break;                                                                  \
+  }
+
+          switch (field_type->id()) {
+            ASOFJOIN_MATERIALIZE_CASE(INT8)
+            ASOFJOIN_MATERIALIZE_CASE(INT16)
+            ASOFJOIN_MATERIALIZE_CASE(INT32)
+            ASOFJOIN_MATERIALIZE_CASE(INT64)
+            ASOFJOIN_MATERIALIZE_CASE(UINT8)
+            ASOFJOIN_MATERIALIZE_CASE(UINT16)
+            ASOFJOIN_MATERIALIZE_CASE(UINT32)
+            ASOFJOIN_MATERIALIZE_CASE(UINT64)
+            ASOFJOIN_MATERIALIZE_CASE(FLOAT)
+            ASOFJOIN_MATERIALIZE_CASE(DOUBLE)
+            ASOFJOIN_MATERIALIZE_CASE(TIMESTAMP)
+            default:
+              return Status::Invalid("Unsupported data type ",
+                                     src_field->type()->ToString(), " for field ",
+                                     src_field->name());
           }
+
+#undef ASOFJOIN_MATERIALIZE_CASE
         }
       }
     }
@@ -459,11 +596,13 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
-  template <class Builder, class PrimitiveType>
-  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool* memory_pool,
-                                                            size_t i_table,
-                                                            col_index_t i_col) {
-    Builder builder(memory_pool);
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType,
+            class PrimitiveType = typename TypeTraits<Type>::CType>
+  Result<std::shared_ptr<Array>> MaterializeColumn(MemoryPool* memory_pool,
+                                                   const std::shared_ptr<DataType>& type,
+                                                   size_t i_table, col_index_t i_col) {
+    ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool));
+    Builder& builder = *checked_cast<Builder*>(a_builder.get());
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
@@ -495,7 +634,7 @@ class AsofJoinNode : public ExecNode {
   bool IsUpToDateWithLhsRow() const {
     auto& lhs = *state_[0];
     if (lhs.Empty()) return false;  // can't proceed if nothing on the LHS
-    int64_t lhs_ts = lhs.GetLatestTime();
+    TimeType lhs_ts = lhs.GetLatestTime();
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
       if (!rhs.Finished()) {
@@ -531,7 +670,7 @@ class AsofJoinNode : public ExecNode {
       // the LHS and adding joined row to rows_ (done by Emplace). Finally,
       // input batches that are no longer needed are removed to free up memory.
       if (IsUpToDateWithLhsRow()) {
-        dst.Emplace(state_, options_.tolerance);
+        dst.Emplace(state_, tolerance_);
         if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if (!any_rhs_advanced) break;  // need to wait for new data
@@ -541,8 +680,7 @@ class AsofJoinNode : public ExecNode {
     // Prune memo entries that have expired (to bound memory consumption)
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
-        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
-                                                   options_.tolerance);
+        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() - tolerance_);
       }
     }
 
@@ -602,52 +740,110 @@ class AsofJoinNode : public ExecNode {
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-               const AsofJoinNodeOptions& join_options,
+               const vec_col_index_t& indices_of_on_key,
+               const std::vector<vec_col_index_t>& indices_of_by_key, TimeType tolerance,
                std::shared_ptr<Schema> output_schema);
+
+  Status Init(std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
+    key_hashers_.swap(key_hashers);
+    bool has_kp = key_hashers_.size() > 0;
+    auto inputs = this->inputs();
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      state_.push_back(::arrow::internal::make_unique<InputState>(
+          has_kp ? key_hashers_[i].get() : NULLPTR, inputs[i]->output_schema(),
+          indices_of_on_key_[i], indices_of_by_key_[i]));
+    }
+
+    col_index_t dst_offset = 0;
+    for (auto& state : state_)
+      dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);
+
+    return Status::OK();
+  }
 
   virtual ~AsofJoinNode() {
     process_.Push(false);  // poison pill
     process_thread_.join();
   }
 
+  const vec_col_index_t& indices_of_on_key() { return indices_of_on_key_; }
+  const std::vector<vec_col_index_t>& indices_of_by_key() { return indices_of_by_key_; }
+
+  static bool find_type(std::unordered_set<std::shared_ptr<DataType>> type_set,
+                        const std::shared_ptr<DataType>& type) {
+    for (auto ty : type_set) {
+      if (*ty.get() == *type.get()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
-      const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
+      const std::vector<ExecNode*>& inputs, const vec_col_index_t& indices_of_on_key,
+      const std::vector<vec_col_index_t>& indices_of_by_key) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
-    const auto& on_field_name = *options.on_key.name();
-    const auto& by_field_name = *options.by_key.name();
-
+    size_t n_by = indices_of_by_key[0].size();
+    const DataType* on_key_type = NULLPTR;
+    std::vector<const DataType*> by_key_type(n_by, NULLPTR);
     // Take all non-key, non-time RHS fields
     for (size_t j = 0; j < inputs.size(); ++j) {
       const auto& input_schema = inputs[j]->output_schema();
-      const auto& on_field_ix = input_schema->GetFieldIndex(on_field_name);
-      const auto& by_field_ix = input_schema->GetFieldIndex(by_field_name);
+      const auto& on_field_ix = indices_of_on_key[j];
+      const auto& by_field_ix = indices_of_by_key[j];
 
-      if ((on_field_ix == -1) | (by_field_ix == -1)) {
+      if ((on_field_ix == -1) || std_has(by_field_ix, -1)) {
         return Status::Invalid("Missing join key on table ", j);
+      }
+
+      const auto& on_field = input_schema->fields()[on_field_ix];
+      std::vector<const Field*> by_field(n_by);
+      for (size_t k = 0; k < n_by; k++) {
+        by_field[k] = input_schema->fields()[by_field_ix[k]].get();
+      }
+
+      if (on_key_type == NULLPTR) {
+        on_key_type = on_field->type().get();
+      } else if (*on_key_type != *on_field->type()) {
+        return Status::Invalid("Expected on-key type ", *on_key_type, " but got ",
+                               *on_field->type(), " for field ", on_field->name(),
+                               " in input ", j);
+      }
+      for (size_t k = 0; k < n_by; k++) {
+        if (by_key_type[k] == NULLPTR) {
+          by_key_type[k] = by_field[k]->type().get();
+        } else if (*by_key_type[k] != *by_field[k]->type()) {
+          return Status::Invalid("Expected on-key type ", *by_key_type[k], " but got ",
+                                 *by_field[k]->type(), " for field ", by_field[k]->name(),
+                                 " in input ", j);
+        }
       }
 
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
-        if (field->name() == on_field_name) {
-          if (kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
-            return Status::Invalid("Unsupported type for on key: ", field->name());
+        if (i == on_field_ix) {
+          if (!find_type(kSupportedOnTypes_, field->type())) {
+            return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
+                                   field->type()->ToString());
           }
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
-        } else if (field->name() == by_field_name) {
-          if (kSupportedByTypes_.find(field->type()) == kSupportedByTypes_.end()) {
-            return Status::Invalid("Unsupported type for by key: ", field->name());
+        } else if (std_has(by_field_ix, i)) {
+          if (!find_type(kSupportedByTypes_, field->type())) {
+            return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
+                                   field->type()->ToString());
           }
           // Only add by field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else {
-          if (kSupportedDataTypes_.find(field->type()) == kSupportedDataTypes_.end()) {
-            return Status::Invalid("Unsupported data type: ", field->name());
+          if (!find_type(kSupportedDataTypes_, field->type())) {
+            return Status::Invalid("Unsupported type for field ", field->name(), " : ",
+                                   field->type()->ToString());
           }
 
           fields.push_back(field);
@@ -662,25 +858,67 @@ class AsofJoinNode : public ExecNode {
     DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
 
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
-                          MakeOutputSchema(inputs, join_options));
-
-    std::vector<std::string> input_labels(inputs.size());
-    input_labels[0] = "left";
-    for (size_t i = 1; i < inputs.size(); ++i) {
-      input_labels[i] = "right_" + std::to_string(i);
+    if (join_options.tolerance < 0) {
+      return Status::Invalid("AsOfJoin tolerance must be non-negative but is ",
+                             join_options.tolerance);
     }
 
-    return plan->EmplaceNode<AsofJoinNode>(plan, inputs, std::move(input_labels),
-                                           join_options, std::move(output_schema));
+    size_t n_input = inputs.size(), n_by = join_options.by_key.size();
+    std::vector<std::string> input_labels(n_input);
+    vec_col_index_t indices_of_on_key(n_input);
+    std::vector<vec_col_index_t> indices_of_by_key(n_input, vec_col_index_t(n_by));
+    for (size_t i = 0; i < n_input; ++i) {
+      input_labels[i] = i == 0 ? "left" : "right_" + std::to_string(i);
+      const auto& input_schema = inputs[i]->output_schema();
+
+#define ASOFJOIN_KEY_MATCH(kopt, kacc)                                              \
+  auto kopt##_match_res = (join_options.kopt)kacc.FindOne(*input_schema);           \
+  if (!kopt##_match_res.ok()) {                                                     \
+    return Status::Invalid("Bad join key on table : ",                              \
+                           kopt##_match_res.status().message());                    \
+  }                                                                                 \
+  auto kopt##_match = kopt##_match_res.ValueOrDie();                                \
+  if (kopt##_match.indices().size() != 1) {                                         \
+    return Status::Invalid("AsOfJoinNode does not support a nested " #kopt "-key ", \
+                           (join_options.kopt)kacc.ToString());                     \
+  }                                                                                 \
+  (indices_of_##kopt[i]) kacc = kopt##_match.indices()[0];
+
+      ASOFJOIN_KEY_MATCH(on_key, )
+      for (size_t k = 0; k < n_by; k++) {
+        ASOFJOIN_KEY_MATCH(by_key, [k])
+      }
+
+#undef ASOFJOIN_KEY_MATCH
+    }
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
+                          MakeOutputSchema(inputs, indices_of_on_key, indices_of_by_key));
+
+    auto node = plan->EmplaceNode<AsofJoinNode>(
+        plan, inputs, std::move(input_labels), std::move(indices_of_on_key),
+        std::move(indices_of_by_key), time_value(join_options.tolerance),
+        std::move(output_schema));
+    auto node_output_schema = node->output_schema();
+    auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
+    std::vector<std::unique_ptr<KeyHasher>> key_hashers;
+    if (n_by > 1) {
+      for (size_t i = 0; i < n_input; i++) {
+        key_hashers.push_back(
+            ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
+        RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
+      }
+    }
+    RETURN_NOT_OK(node->Init(std::move(key_hashers)));
+    return node;
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     // Get the input
-    ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
-    size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
+    ARROW_DCHECK(std_has(inputs_, input));
+    size_t k = std_find(inputs_, input) - inputs_.begin();
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
@@ -694,8 +932,8 @@ class AsofJoinNode : public ExecNode {
   void InputFinished(ExecNode* input, int total_batches) override {
     {
       std::lock_guard<std::mutex> guard(gate_);
-      ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
-      size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
+      ARROW_DCHECK(std_has(inputs_, input));
+      size_t k = std_find(inputs_, input) - inputs_.begin();
       state_.at(k)->set_total_batches(total_batches);
     }
     // Trigger a process call
@@ -718,16 +956,19 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedOnTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedByTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedDataTypes_;
 
   arrow::Future<> finished_;
+  std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
+  vec_col_index_t indices_of_on_key_;
+  std::vector<vec_col_index_t> indices_of_by_key_;
   // InputStates
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
   std::mutex gate_;
-  AsofJoinNodeOptions options_;
+  TimeType tolerance_;
 
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
@@ -741,29 +982,62 @@ class AsofJoinNode : public ExecNode {
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
-                           const AsofJoinNodeOptions& join_options,
-                           std::shared_ptr<Schema> output_schema)
+                           const vec_col_index_t& indices_of_on_key,
+                           const std::vector<vec_col_index_t>& indices_of_by_key,
+                           TimeType tolerance, std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
-      options_(join_options),
+      indices_of_on_key_(std::move(indices_of_on_key)),
+      indices_of_by_key_(std::move(indices_of_by_key)),
+      tolerance_(tolerance),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
-  for (size_t i = 0; i < inputs.size(); ++i)
-    state_.push_back(::arrow::internal::make_unique<InputState>(
-        inputs[i]->output_schema(), *options_.on_key.name(), *options_.by_key.name()));
-  col_index_t dst_offset = 0;
-  for (auto& state : state_)
-    dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);
-
   finished_ = arrow::Future<>::MakeFinished();
 }
 
 // Currently supported types
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {int64()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {int32()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
-    int32(), int64(), float32(), float64()};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC")};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC")};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC"),
+    float32(),
+    float64()};
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {

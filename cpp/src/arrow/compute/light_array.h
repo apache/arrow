@@ -187,6 +187,17 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
 
+/// \brief Create KeyColumnArray from ArrayData and KeyColumnMetadata
+///
+/// If `type` is a dictionary type then this will return the KeyColumnArray for
+/// the indices array
+///
+/// The caller should ensure this is only called on "key" columns.
+/// \see ColumnMetadataFromDataType for details
+ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+    const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
+    int64_t start_row, int64_t num_rows);
+
 /// \brief Create KeyColumnMetadata instances from an ExecBatch
 ///
 /// column_metadatas will be resized to fit

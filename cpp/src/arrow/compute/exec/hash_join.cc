@@ -26,7 +26,6 @@
 #include <vector>
 
 #include "arrow/compute/exec/hash_join_dict.h"
-#include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/row/encode_internal.h"
