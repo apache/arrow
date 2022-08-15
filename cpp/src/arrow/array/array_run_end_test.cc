@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_run_end.h"
 #include "arrow/chunked_array.h"
 #include "arrow/pretty_print.h"
 #include "arrow/scalar.h"
@@ -134,6 +135,46 @@ TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
       std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(500, 0));
   ASSERT_EQ(zero_length_at_end->FindPhysicalOffset(), 5);
   ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
+}
+
+TEST_P(TestRunEndEncodedArray, Builder) {
+  auto expected_run_ends =
+      ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
+  auto expected_values = ArrayFromJSON(
+      utf8(),
+      R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
+  auto appended_run_ends = ArrayFromJSON(run_end_type, "[100, 200]");
+  auto appended_values = ArrayFromJSON(utf8(), R"(["common", "appended"])");
+  ASSERT_OK_AND_ASSIGN(auto appended_array,
+                       RunEndEncodedArray::Make(200, appended_run_ends, appended_values));
+  auto appended_span = ArraySpan(*appended_array->data());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder,
+                       MakeBuilder(run_end_encoded(run_end_type, utf8())));
+  auto ree_builder = std::dynamic_pointer_cast<RunEndEncodedBuilder>(builder);
+  ASSERT_NE(ree_builder, NULLPTR);
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("unique")));
+  ASSERT_OK(builder->AppendNull());
+  ASSERT_OK(builder->AppendScalar(*MakeNullScalar(utf8())));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common"), 100));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("common")));
+  // Append span that starts with the same value as the previous run ends. They
+  // are currently not merged for simplicity and performance. This is still a
+  // valid REE array
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 40, 100));
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, 100));
+  // Append an entire array
+  ASSERT_OK(builder->AppendArraySlice(appended_span, 0, appended_span.length));
+  ASSERT_EQ(builder->length(), 505);
+  ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
+  ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
+  ASSERT_NE(ree_array, NULLPTR);
+  ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
+  ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
+  ASSERT_EQ(array->length(), 505);
+  ASSERT_EQ(array->offset(), 0);
 }
 
 TEST_P(TestRunEndEncodedArray, Validate) {

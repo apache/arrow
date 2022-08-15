@@ -138,13 +138,13 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
   //                                 logical offset: 2000
   //                                  physical offset: 5
   //
-  const std::shared_ptr<DataType> run_ends_type =
+  const std::shared_ptr<DataType> run_end_type =
       std::make_shared<typename CTypeTraits<TypeParam>::ArrowType>();
 
   const auto left_run_ends = ArrayFromJSON(
-      run_ends_type, "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
+      run_end_type, "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
   const auto right_run_ends =
-      ArrayFromJSON(run_ends_type, "[1, 2, 3, 4, 5, 2005, 2009, 2025, 2050]");
+      ArrayFromJSON(run_end_type, "[1, 2, 3, 4, 5, 2005, 2009, 2025, 2050]");
   const std::vector<int32_t> expected_run_ends = {5, 4, 6, 5, 5, 25};
   const std::vector<int32_t> expected_left_visits = {110, 111, 111, 112, 113, 114};
   const std::vector<int32_t> expected_right_visits = {205, 206, 207, 207, 207, 208};
