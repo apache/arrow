@@ -43,15 +43,19 @@ int64_t GetPhysicalOffset(const ArraySpan& span);
 int64_t GetPhysicalLength(const ArraySpan& span);
 
 /// \brief Get the child array holding the data values from an RLE array
-static const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
+static inline const ArraySpan& RunEndsArray(const ArraySpan& span) {
+  return span.child_data[0];
+}
 
 /// \brief Get a pointer to run ends values of an RLE array
-static const int32_t* RunEnds(const ArraySpan& span) {
+static inline const int32_t* RunEnds(const ArraySpan& span) {
   return RunEndsArray(span).GetValues<int32_t>(1);
 }
 
 /// \brief Get the child array holding the data values from an RLE array
-static const ArraySpan& ValuesArray(const ArraySpan& span) { return span.child_data[1]; }
+static inline const ArraySpan& ValuesArray(const ArraySpan& span) {
+  return span.child_data[1];
+}
 
 /// \brief Iterate over two run-length encoded arrays in segments of runs that are inside
 /// run boundaries in each input
