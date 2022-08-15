@@ -80,8 +80,10 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
                                  run_ends_buffer + encoded->child_data[0]->length),
             data.expected_run_lengths);
   ASSERT_OK(values_array->ValidateFull());
+  ASSERT_OK(run_ends_array->ValidateFull());
   ASSERT_TRUE(values_array->Equals(data.expected_values));
-  ASSERT_EQ(encoded->buffers.size(), 0);
+  ASSERT_EQ(encoded->buffers.size(), 1);
+  ASSERT_EQ(encoded->buffers[0], NULLPTR);
   ASSERT_EQ(encoded->child_data.size(), 2);
   ASSERT_EQ(run_ends_array->data()->buffers[1]->size(),
             data.expected_run_lengths.size() * sizeof(int32_t));
