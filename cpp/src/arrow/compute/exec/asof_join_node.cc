@@ -744,7 +744,7 @@ class AsofJoinNode : public ExecNode {
                const std::vector<vec_col_index_t>& indices_of_by_key, TimeType tolerance,
                std::shared_ptr<Schema> output_schema);
 
-  Status Init(std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
+  Status InternalInit(std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
     key_hashers_.swap(key_hashers);
     bool has_kp = key_hashers_.size() > 0;
     auto inputs = this->inputs();
@@ -909,7 +909,7 @@ class AsofJoinNode : public ExecNode {
         RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
       }
     }
-    RETURN_NOT_OK(node->Init(std::move(key_hashers)));
+    RETURN_NOT_OK(node->InternalInit(std::move(key_hashers)));
     return node;
   }
 
