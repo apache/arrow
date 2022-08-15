@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"math"
 	"reflect"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
@@ -223,6 +225,8 @@ type PrimitiveWriterTestSuite struct {
 	metadata   *metadata.ColumnChunkMetaDataBuilder
 	sink       *encoding.BufferWriter
 	readbuffer *memory.Buffer
+
+	bufferPool sync.Pool
 }
 
 func (p *PrimitiveWriterTestSuite) SetupTest() {
@@ -230,12 +234,26 @@ func (p *PrimitiveWriterTestSuite) SetupTest() {
 	p.props = parquet.NewWriterProperties()
 	p.SetupSchema(parquet.Repetitions.Required, 1)
 	p.descr = p.Schema.Column(0)
+
+	p.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(mem)
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
+}
+
+func (p *PrimitiveWriterTestSuite) TearDownTest() {
+	p.bufferPool = sync.Pool{}
 }
 
 func (p *PrimitiveWriterTestSuite) buildReader(nrows int64, compression compress.Compression) file.ColumnChunkReader {
 	p.readbuffer = p.sink.Finish()
 	pagereader, _ := file.NewPageReader(arrutils.NewBufferedReader(bytes.NewReader(p.readbuffer.Bytes()), p.readbuffer.Len()), nrows, compression, mem, nil)
-	return file.NewColumnReader(p.descr, pagereader, mem)
+	return file.NewColumnReader(p.descr, pagereader, mem, &p.bufferPool)
 }
 
 func (p *PrimitiveWriterTestSuite) buildWriter(_ int64, columnProps parquet.ColumnProperties, version parquet.Version) file.ColumnChunkWriter {

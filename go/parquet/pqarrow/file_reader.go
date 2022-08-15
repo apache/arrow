@@ -210,7 +210,7 @@ func (fr *FileReader) GetFieldReaders(ctx context.Context, colIndices, rowGroups
 	// greatly improves performance.
 	// GetFieldReader causes read operations, when issued serially on large numbers of columns,
 	// this is super time consuming. Get field readers concurrently.
-	g,gctx := errgroup.WithContext(ctx)
+	g, gctx := errgroup.WithContext(ctx)
 	if !fr.Props.Parallel {
 		g.SetLimit(1)
 	}
@@ -482,7 +482,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 			return nil, nil
 		}
 
-		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo, fr.Props)
+		out, err = newLeafReader(&rctx, field.Field, rctx.colFactory(field.ColIndex, rctx.rdr), field.LevelInfo, fr.Props, fr.rdr.BufferPool())
 		return
 	}
 
@@ -499,7 +499,7 @@ func (fr *FileReader) getReader(ctx context.Context, field *SchemaField, arrowFi
 		// When reading structs with large numbers of columns, the serial load is very slow.
 		// This is especially true when reading Cloud Storage. Loading concurrently
 		// greatly improves performance.
-		g,gctx := errgroup.WithContext(ctx)
+		g, gctx := errgroup.WithContext(ctx)
 		if !fr.Props.Parallel {
 			g.SetLimit(1)
 		}

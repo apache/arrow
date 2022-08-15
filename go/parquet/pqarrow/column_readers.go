@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -50,13 +51,13 @@ type leafReader struct {
 	refCount int64
 }
 
-func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties) (*ColumnReader, error) {
+func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties, bufferPool *sync.Pool) (*ColumnReader, error) {
 	ret := &leafReader{
 		rctx:      rctx,
 		field:     field,
 		input:     input,
 		descr:     input.Descr(),
-		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem),
+		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem, bufferPool),
 		props:     props,
 		refCount:  1,
 	}
