@@ -69,6 +69,7 @@ jobs:
           sudo apt install -y \
             apt-utils \
             createrepo-c \
+            curl \
             devscripts \
             gpg \
             rpm
