@@ -116,6 +116,52 @@ TEST(TestRleUtil, VisitMergedRuns) {
     position++;
   }
   ASSERT_EQ(position, expected_run_lengths.size());
+
+  // left array only
+  const std::vector<int32_t> left_only_run_lengths = {5, 10, 5, 5, 25};
+
+  position = 0;
+  for (auto it = MergedRunsIterator<2>(ArraySpan(*left_array->data()),
+                                       ArraySpan(*left_array->data()));
+       it != MergedRunsIterator<2>(); ++it) {
+    ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
+    ASSERT_EQ(it.physical_index(0), 110 + position);
+    ASSERT_EQ(it.physical_index(1), 110 + position);
+    position++;
+  }
+  ASSERT_EQ(position, left_only_run_lengths.size());
+
+  position = 0;
+  for (auto it = MergedRunsIterator<1>(ArraySpan(*left_array->data()));
+       it != MergedRunsIterator<1>(); ++it) {
+    ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
+    ASSERT_EQ(it.physical_index(0), 110 + position);
+    position++;
+  }
+  ASSERT_EQ(position, left_only_run_lengths.size());
+
+  // right array only
+  const std::vector<int32_t> right_only_run_lengths = {5, 4, 16, 25};
+
+  position = 0;
+  for (auto it = MergedRunsIterator<2>(ArraySpan(*right_array->data()),
+                                       ArraySpan(*right_array->data()));
+       it != MergedRunsIterator<2>(); ++it) {
+    ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
+    ASSERT_EQ(it.physical_index(0), 205 + position);
+    ASSERT_EQ(it.physical_index(1), 205 + position);
+    position++;
+  }
+  ASSERT_EQ(position, right_only_run_lengths.size());
+
+  position = 0;
+  for (auto it = MergedRunsIterator<1>(ArraySpan(*right_array->data()));
+       it != MergedRunsIterator<1>(); ++it) {
+    ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
+    ASSERT_EQ(it.physical_index(0), 205 + position);
+    position++;
+  }
+  ASSERT_EQ(position, right_only_run_lengths.size());
 }
 
 }  // namespace rle_util
