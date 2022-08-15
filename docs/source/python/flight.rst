@@ -129,7 +129,5 @@ request/response. On the server, they can inspect incoming headers and
 fail the request; hence, they can be used to implement custom
 authentication methods.
 
-Best practices
-==============
-
-TODO
+:ref:`Flight best practices <flight-best-practices>`
+====================================================

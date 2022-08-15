@@ -172,6 +172,8 @@ request/response. On the server, they can inspect incoming headers and
 fail the request; hence, they can be used to implement custom
 authentication methods.
 
+.. _flight-best-practices:
+
 Best practices
 ==============
 
@@ -179,7 +181,7 @@ gRPC
 ----
 
 When using default gRPC transport options can be passed to it via
-:func:`arrow::flight::FlightClientOptions.generic_options`. For example:
+:member:`arrow::flight::FlightClientOptions::generic_options`. For example:
 
 .. code-block:: cpp
 
@@ -187,12 +189,11 @@ When using default gRPC transport options can be passed to it via
    // Set a very low limit at the gRPC layer to fail all calls
    options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
 
-See available `gRPC keys_`.
-Best gRPC practices are described here_.
+Also see `best gRPC practices`_ and available `gRPC keys`_.
 
 
 Re-use clients whenever possible
-
+--------------------------------
 
 Closing clients causes gRPC to close and clean up connections which can take
 several seconds per connection. This will stall server and client threads if
@@ -257,17 +258,18 @@ different node. Not everyone gets serviced but quality of service stays consiste
 Closing unresponsive connections
 --------------------------------
 
-* A stale connection can be closed using FlightCallOptions.stop_token. This requires
-recording the stop token at connection establishment time.
-* Use client timeout
-* here is a long standing ticket for a per-write/per-read timeout instead of a per
-call timeout (ARROW-6062_), but this is not (easily) possible to implement with the
-blocking gRPC API. For now one can also do something like set up a background thread
-that calls cancel() on a timer and have the main thread reset the timer every time a
-write operation completes successfully (that means one needs to use to_batches() +
-write_batch and not write_table).
+1. A stale connection can be closed using
+   :member:`arrow::flight::FlightClientOptions::stop_token`. This requires recording the
+   stop token at connection establishment time.
+2. Use client timeout.
+3. There is a long standing ticket for a per-write/per-read timeout instead of a per
+   call timeout (ARROW-6062_), but this is not (easily) possible to implement with the
+   blocking gRPC API. For now one can also do something like set up a background thread
+   that calls cancel() on a timer and have the main thread reset the timer every time a
+   write operation completes successfully (that means one needs to use to_batches() +
+   write_batch and not write_table).
 
-.. _here: https://grpc.io/docs/guides/performance/#general
+.. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
 .. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
 .. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
