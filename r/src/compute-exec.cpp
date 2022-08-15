@@ -94,17 +94,11 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 
   arrow::Status Close() {
-    if (status_ == 2) {
-      return arrow::Status::Invalid("ExecPlanReader has been closed");
-    }
-
     StopProducing();
     return arrow::Status::OK();
   }
 
   const std::shared_ptr<arrow::compute::ExecPlan>& Plan() { return plan_; }
-
-  ~ExecPlanReader() { StopProducing(); }
 
  private:
   std::shared_ptr<arrow::Schema> schema_;
@@ -119,15 +113,8 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 
   void StopProducing() {
-    if (status_ >= 1) {
-      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
-      bool not_finished_yet = plan_->finished().TryAddCallback(
-          [&plan] { return [plan](const arrow::Status&) {}; });
-
-      if (not_finished_yet) {
-        plan_->StopProducing();
-      }
-
+    if (status_ == 1 && !plan_->finished().is_finished()) {
+      plan_->StopProducing();
       status_ = 2;
     }
   }
