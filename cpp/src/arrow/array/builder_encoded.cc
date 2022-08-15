@@ -110,14 +110,13 @@ Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t
   const int64_t physical_offset = rle_util::GetPhysicalOffset(to_append);
   int64_t physical_length = 0;
 
-  rle_util::VisitRuns(
-      to_append,
-      [this, &physical_length](int64_t run_length, int64_t) {
-        physical_length++;
-        length_ += run_length;
-        assert(run_end_builder().Append(length_).ok());
-      });
-  RETURN_NOT_OK(value_builder().AppendArraySlice(rle_util::DataArray(to_append),
+  for (auto it = rle_util::MergedRunsIterator<1>(to_append);
+       it != rle_util::MergedRunsIterator<1>(); ++it) {
+    physical_length++;
+    length_ += it.run_length();
+    RETURN_NOT_OK(run_end_builder().Append(length_));
+  }
+  RETURN_NOT_OK(value_builder().AppendArraySlice(rle_util::ValuesArray(to_append),
                                                  physical_offset, physical_length));
   // next run is not merged either
   run_start_ = length_;
