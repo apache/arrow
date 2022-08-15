@@ -51,7 +51,7 @@ static const int32_t* RunEnds(const ArraySpan& span) {
 }
 
 /// \brief Get the child array holding the data values from an RLE array
-static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_data[1]; }
+static const ArraySpan& ValuesArray(const ArraySpan& span) { return span.child_data[1]; }
 
 /// \brief Iterate over two run-length encoded arrays in segments of runs that are inside
 /// run boundaries in each input. A callback is called on each of these segments
@@ -91,8 +91,8 @@ void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callba
 
     // callback to code that wants to work on the data - we give it physical indices
     // including all offsets. This includes the additional offset the data array may have.
-    callback(merged_run_length, a_run_index + DataArray(a).offset,
-             b_run_index + DataArray(b).offset);
+    callback(merged_run_length, a_run_index + ValuesArray(a).offset,
+             b_run_index + ValuesArray(b).offset);
 
     logical_position = merged_run_end;
     if (logical_position == a_run_end) {
@@ -114,31 +114,33 @@ class MergedRunsIterator {
   MergedRunsIterator(const ArraySpan& a) {
     static_assert(NUM_INPUTS == 1, "incorrect number of inputs");
 
-    inputs[0] = std::ref(a);
+    inputs[0] = &a;
 
     logical_length = a.length;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
-      ArraySpan& input = inputs[input_id];
+      const ArraySpan* input = inputs[input_id];
       run_index[input_id] = rle_util::FindPhysicalOffset(
-          RunEnds(input), RunEndsArray(input).length, input.offset);
+          RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
+    FindMergedRun();
   }
 
   MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
     static_assert(NUM_INPUTS == 2, "incorrect number of inputs");
 
-    inputs[0] = std::ref(a);
-    inputs[1] = std::ref(b);
+    inputs[0] = &a;
+    inputs[1] = &b;
 
     ARROW_DCHECK_EQ(a.length, b.length);
     logical_length = a.length;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
-      ArraySpan& input = inputs[input_id];
+      const ArraySpan* input = inputs[input_id];
       run_index[input_id] = rle_util::FindPhysicalOffset(
-          RunEnds(input), RunEndsArray(input).length, input.offset);
+          RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
+    FindMergedRun();
   }
 
   MergedRunsIterator(const MergedRunsIterator& other) = default;
@@ -159,17 +161,21 @@ class MergedRunsIterator {
   }
 
   MergedRunsIterator& operator++(int) {
-    auto result = *this;
-    ++(this);
+    MergedRunsIterator& result = *this;
+    ++(*this);
+    return result;
   }
 
   bool operator==(const MergedRunsIterator& other) const {
-    return (isEnd() && other.isEnd()) || (logical_position == other.logical_position);
+    return (isEnd() && other.isEnd()) ||
+           (!isEnd() && !other.isEnd() && logical_position == other.logical_position);
   }
 
   bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
-  int64_t physical_index(int64_t input_id) const { return run_index[input_id]; }
+  int64_t physical_index(int64_t input_id) const {
+    return run_index[input_id] + ValuesArray(*inputs[input_id]).offset;
+  }
   int64_t run_length() const { return merged_run_length; }
 
  private:
@@ -178,7 +184,7 @@ class MergedRunsIterator {
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
       // logical indices of the end of the run we are currently in each input
       run_end[input_id] =
-          RunEnds(inputs[input_id])[run_index[input_id]] - inputs[input_id].offset;
+          RunEnds(*inputs[input_id])[run_index[input_id]] - inputs[input_id]->offset;
       // the logical length may end in the middle of a run, in case the array was sliced
       run_end[input_id] = std::min(run_end[input_id], logical_length);
       ARROW_DCHECK_GT(run_end[input_id], logical_position);
@@ -190,7 +196,7 @@ class MergedRunsIterator {
 
   bool isEnd() const { return logical_position == logical_length; }
 
-  std::array<std::reference_wrapper<const ArraySpan>, NUM_INPUTS> inputs;
+  std::array<const ArraySpan*, NUM_INPUTS> inputs;
   std::array<int64_t, NUM_INPUTS> physical_offset;
   std::array<int64_t, NUM_INPUTS> run_index;
   // logical indices of the end of the run we are currently in each input
@@ -225,7 +231,7 @@ void VisitRuns(const ArraySpan& span, CallbackType callback) {
 
     // callback to code that wants to work on the data - we give it physical indices
     // including all offsets. This includes the additional offset the data array may have.
-    callback(run_length, run_index + DataArray(span).offset);
+    callback(run_length, run_index + ValuesArray(span).offset);
 
     logical_position = run_end;
     run_index++;
