@@ -216,10 +216,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         hunks << [
           "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
           "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
-        ]      
+        ]
       end
       expected_changes << {hunks: hunks, path: path}
-    end    
+    end
 
     Dir.glob("java/**/pom.xml") do |path|
       version = "<version>#{@snapshot_version}</version>"
