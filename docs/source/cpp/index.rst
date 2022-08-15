@@ -21,6 +21,6 @@ C++ Implementation
 .. toctree::
    :maxdepth: 2
 
-   getting_started
+   user_guide
    Examples <examples/index>
    api
