@@ -27,6 +27,8 @@ ARG go=1.15
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
+
+# Pin zlib to 1.2.11 due to ARROW-17410 until the patch is released
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         "python>=3.7" \
@@ -35,7 +37,8 @@ RUN mamba install -q -y \
         maven=${maven} \
         nodejs=${node} \
         yarn \
-        openjdk=${jdk} && \
+        openjdk=${jdk} \
+        zlib=1.2.11 && \ 
     mamba clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
