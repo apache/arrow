@@ -139,7 +139,7 @@ type columnChunkReader struct {
 // NewColumnReader returns a column reader for the provided column initialized with the given pagereader that will
 // provide the pages of data for this column. The type is determined from the column passed in.
 func NewColumnReader(descr *schema.Column, pageReader PageReader, mem memory.Allocator, bufferPool *sync.Pool) ColumnChunkReader {
-	base := columnChunkReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder)}
+	base := columnChunkReader{descr: descr, rdr: pageReader, mem: mem, decoders: make(map[format.Encoding]encoding.TypedDecoder), bufferPool: bufferPool}
 	switch descr.PhysicalType() {
 	case parquet.Types.FixedLenByteArray:
 		base.decoderTraits = &encoding.FixedLenByteArrayDecoderTraits
@@ -438,6 +438,10 @@ func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, b
 			)
 
 			scratch := c.bufferPool.Get().(*memory.Buffer)
+			defer func() {
+				scratch.ResizeNoShrink(0)
+				c.bufferPool.Put(scratch)
+			}()
 			bufMult := 1
 			if c.descr.PhysicalType() == parquet.Types.Boolean {
 				// for bools, BytesRequired returns 1 byte per 8 bool, but casting []byte to []bool requires 1 byte per 1 bool
