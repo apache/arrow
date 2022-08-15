@@ -24,7 +24,6 @@ require (
 	github.com/apache/thrift v0.16.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/goccy/go-json v0.9.10
-	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/klauspost/asmfmt v1.3.2

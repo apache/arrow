@@ -109,8 +109,7 @@ function run_test() {
   # XML output from gtest. We assume that gtest knows better than us and our
   # regexes in most cases, but for certain errors we delete the resulting xml
   # file and let our own post-processing step regenerate it.
-  export GREP=$(which egrep)
-  if zgrep --silent "ThreadSanitizer|Leak check.*detected leaks" $LOGFILE ; then
+  if grep -E -q "ThreadSanitizer|Leak check.*detected leaks" $LOGFILE ; then
     echo ThreadSanitizer or leak check failures in $LOGFILE
     STATUS=1
     rm -f $XMLFILE
@@ -157,7 +156,7 @@ function post_process_tests() {
   # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
   # us which tests had LSAN errors.
-  if zgrep --silent "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
+  if grep -E -q "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
       echo Test had memory leaks. Editing XML
       perl -p -i -e '
       if (m#</testsuite>#) {

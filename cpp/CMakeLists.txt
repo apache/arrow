@@ -753,9 +753,9 @@ if(ARROW_WITH_BZ2)
 endif()
 
 if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS lz4::lz4)
+  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
   if(lz4_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4::lz4)
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
   endif()
 endif()
 
@@ -822,6 +822,17 @@ if(ARROW_WITH_OPENTELEMETRY)
        opentelemetry-cpp::trace
        opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
+  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
+    list(APPEND
+         ARROW_STATIC_INSTALL_INTERFACE_LIBS
+         opentelemetry-cpp::trace
+         opentelemetry-cpp::ostream_span_exporter
+         opentelemetry-cpp::otlp_http_exporter)
+  endif()
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
 endif()
 
 if(ARROW_WITH_UTF8PROC)

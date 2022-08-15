@@ -430,7 +430,6 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
         ),
         Scenario(
             "flight_sql",
