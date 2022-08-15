@@ -114,14 +114,14 @@ class MergedRunsIterator {
   MergedRunsIterator(const ArraySpan& a) {
     static_assert(NUM_INPUTS == 1, "incorrect number of inputs");
 
-    inputs[0] = std::ref(a);
+    inputs[0] = &a;
 
-    logical_length = a.length;
+    logical_length = a->length;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
-      ArraySpan& input = inputs[input_id];
+      const ArraySpan* input = inputs[input_id];
       run_index[input_id] = rle_util::FindPhysicalOffset(
-          RunEnds(input), RunEndsArray(input).length, input.offset);
+          RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
   }
 
