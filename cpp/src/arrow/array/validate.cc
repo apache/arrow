@@ -241,7 +241,7 @@ struct ValidateArrayImpl {
           []() { return Status::OK(); });
     }
     return Status::OK();
-  }
+}
 
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }
 
@@ -414,7 +414,25 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("validating RLE");
+    if (data.child_data.size() != 1) {
+      return Status::Invalid("RLE array must have exactly one child, but has ", data.child_data.size());
+    }
+    const ArrayData& values_data = *data.child_data[0];
+    if (!values_data) {
+      return Status::Invalid("RLE child is null pointer");
+    }
+    const Status values_valid = RecurseInto(values_data);
+    if (!values_valid.ok()) {
+      return Status::Invalid("Values array invalid: ", values_valid.ToString());
+    }
+    int64_t physical_length = values_data.length;
+    // having 1 buffer is part of layout validation
+    const Buffer& run_ends_buffer = *data.buffers[0];
+    int64_t min_buffer_size;
+    if (MultiplyWithOverflow(physical_length, sizeof(uint32_t))
+    if (run_ends_buffer.size() < logical_length + data.offset) {
+      return Status::Invalid("")
+    }
   }
 
   Status Visit(const ExtensionType& type) {
