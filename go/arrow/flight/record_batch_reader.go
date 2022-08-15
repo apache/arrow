@@ -153,12 +153,13 @@ func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*Reader, error) {
 		return nil, err
 	}
 
-	rdr := &Reader{dmr: &dataMessageReader{rdr: r}}
+	rdr := &Reader{dmr: &dataMessageReader{rdr: r, refCount: 1}}
 	rdr.dmr.descr = data.FlightDescriptor
 	if len(data.DataHeader) > 0 {
 		rdr.dmr.peeked = data
 	}
 
+	rdr.dmr.Retain()
 	if rdr.Reader, err = ipc.NewReaderFromMessageReader(rdr.dmr, opts...); err != nil {
 		return nil, fmt.Errorf("arrow/flight: could not create flight reader: %w", err)
 	}
@@ -201,6 +202,10 @@ type MessageReader interface {
 	LatestAppMetadata() []byte
 }
 
+type haserr interface {
+	Err() error
+}
+
 // StreamChunksFromReader is a convenience function to populate a channel
 // from a record reader. It is intended to be run using a separate goroutine
 // by calling `go flight.StreamChunksFromReader(rdr, ch)`.
@@ -221,5 +226,11 @@ func StreamChunksFromReader(rdr array.RecordReader, ch chan<- StreamChunk) {
 		rec := rdr.Record()
 		rec.Retain()
 		ch <- StreamChunk{Data: rec}
+	}
+
+	if e, ok := rdr.(haserr); ok {
+		if e.Err() != nil {
+			ch <- StreamChunk{Err: e.Err()}
+		}
 	}
 }

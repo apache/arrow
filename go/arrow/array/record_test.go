@@ -135,7 +135,7 @@ func TestRecord(t *testing.T) {
 		{
 			schema: schema,
 			cols:   nil,
-			rows:   0,			
+			rows:   0,
 		},
 		{
 			schema: schema,

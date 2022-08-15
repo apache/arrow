@@ -142,6 +142,11 @@ func NewColumnMetadataBuilder() *ColumnMetadataBuilder {
 	return &ColumnMetadataBuilder{make([]string, 0), make([]string, 0)}
 }
 
+func (c *ColumnMetadataBuilder) Clear() {
+	c.keys = c.keys[:0]
+	c.vals = c.vals[:0]
+}
+
 func (c *ColumnMetadataBuilder) Build() ColumnMetadata {
 	md := c.Metadata()
 	return ColumnMetadata{&md}
