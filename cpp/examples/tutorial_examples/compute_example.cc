@@ -77,8 +77,9 @@ arrow::Status RunMain() {
   arrow::compute::IndexOptions index_options;
   // We need an Arrow Scalar, not a raw value.
   index_options.value = arrow::MakeScalar(2223);
-  ARROW_ASSIGN_OR_RAISE(third_item, arrow::compute::CallFunction(
-          "index", {table->GetColumnByName("A")}, &index_options));
+  ARROW_ASSIGN_OR_RAISE(
+      third_item, arrow::compute::CallFunction("index", {table->GetColumnByName("A")},
+                                               &index_options));
   // Get the kind of Datum and what it holds -- this is a Scalar, with int64
   std::cout << "Datum kind: " << third_item.ToString()
             << " content type: " << third_item.type()->ToString() << std::endl;

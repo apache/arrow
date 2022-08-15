@@ -99,10 +99,8 @@ arrow::Status RunMain() {
   auto read_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   // Now, we get a factory that will let us get our dataset -- we don't have the
   // dataset yet!
-  ARROW_ASSIGN_OR_RAISE(auto factory,
-                        arrow::dataset::FileSystemDatasetFactory::Make(fs, selector,
-                                                                       read_format,
-                                                                       options));
+  ARROW_ASSIGN_OR_RAISE(auto factory, arrow::dataset::FileSystemDatasetFactory::Make(
+                                          fs, selector, read_format, options));
   // Now we read into our dataset from the factory.
   ARROW_ASSIGN_OR_RAISE(auto read_dataset, factory->Finish());
   // Print out the fragments
@@ -110,7 +108,7 @@ arrow::Status RunMain() {
   for (const auto& fragment : fragments) {
     std::cout << "Found fragment: " << (*fragment)->ToString() << std::endl;
     std::cout << "Partition expression: "
-    << (*fragment)->partition_expression().ToString() << std::endl;
+              << (*fragment)->partition_expression().ToString() << std::endl;
   }
 
   // Scan dataset into a Table -- once this is done, you can do
@@ -152,7 +150,7 @@ arrow::Status RunMain() {
   // Set behavior to overwrite existing data -- specifically, this lets this example
   // be run more than once, and allows whatever code you have to overwrite what's there.
   write_options.existing_data_behavior =
-          arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore;
+      arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore;
   // Write to disk!
   ARROW_RETURN_NOT_OK(
       arrow::dataset::FileSystemDataset::Write(write_options, write_scanner));
