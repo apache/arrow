@@ -30,6 +30,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_util.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -241,7 +242,7 @@ struct ValidateArrayImpl {
           []() { return Status::OK(); });
     }
     return Status::OK();
-}
+  }
 
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }
 
@@ -414,25 +415,66 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    if (data.child_data.size() != 1) {
-      return Status::Invalid("RLE array must have exactly one child, but has ", data.child_data.size());
+    if (data.child_data.size() != 2) {
+      return Status::Invalid("RLE array must have exactly two childs, but has ",
+                             data.child_data.size());
     }
-    const ArrayData& values_data = *data.child_data[0];
-    if (!values_data) {
-      return Status::Invalid("RLE child is null pointer");
+    if (!data.child_data[0]) {
+      return Status::Invalid("Run ends array is null pointer");
+    }
+    if (!data.child_data[1]) {
+      return Status::Invalid("Values array is null pointer");
+    }
+    const ArrayData& run_ends_data = *data.child_data[0];
+    const ArrayData& values_data = *data.child_data[1];
+    if (run_ends_data.type != int32()) {
+      return Status::Invalid("Run ends array must be int32 type, but is ",
+                             run_ends_data.type);
+    }
+    if (values_data.type != type.encoded_type()) {
+      return Status::Invalid("Parent type says this array encodes ", type.encoded_type(),
+                             " values, but values array has type", values_data);
+    }
+    const Status run_ends_valid = RecurseInto(run_ends_data);
+    if (!run_ends_valid.ok()) {
+      return Status::Invalid("Run ends array invalid: ", run_ends_valid.ToString());
     }
     const Status values_valid = RecurseInto(values_data);
     if (!values_valid.ok()) {
       return Status::Invalid("Values array invalid: ", values_valid.ToString());
     }
-    int64_t physical_length = values_data.length;
-    // having 1 buffer is part of layout validation
-    const Buffer& run_ends_buffer = *data.buffers[0];
-    int64_t min_buffer_size;
-    if (MultiplyWithOverflow(physical_length, sizeof(uint32_t))
-    if (run_ends_buffer.size() < logical_length + data.offset) {
-      return Status::Invalid("")
+    if (data.null_count != 0) {
+      return Status::Invalid("Null count must be 0 for RLE, but was ", data.null_count);
     }
+    if (full_validation && data.length != 0) {
+      ArraySpan span(data);
+      const int32_t* run_ends = rle_util::RunEnds(span);
+      const int64_t run_ends_length = rle_util::RunEndsArray(span).length;
+      int32_t last_run_end = 0;
+      for (int64_t index = 0; index < run_ends_length; index++) {
+        int32_t run_end = run_ends[index];
+        if (run_end < 1) {
+          return Status::Invalid(
+              "Run ends array invalid: All run ends must be a positive integer but run "
+              "end ",
+              index, " is ", run_end);
+        }
+        if (run_end <= last_run_end) {
+          return Status::Invalid(
+              "Run ends array invalid: Each run end must be greater than the prevous "
+              "one, while run end ",
+              index, " is ", run_end, " and run end ", index - 1, " is ", last_run_end);
+        }
+        last_run_end = run_end;
+      };
+      if (last_run_end < data.offset + data.length) {
+        return Status::Invalid("Last run in run ends array ends at ", last_run_end,
+                               " but this array requires at least ",
+                               data.offset + data.length, " (offset ", data.offset,
+                               ", length ", data.length, ")");
+      }
+    }
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
