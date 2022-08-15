@@ -127,11 +127,15 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// allocated because of null values
   static Result<std::shared_ptr<ListArray>> FromArrays(
       const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      int64_t null_count = -1,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   static Result<std::shared_ptr<ListArray>> FromArrays(
       std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      int64_t null_count = -1,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///

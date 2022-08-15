@@ -1890,7 +1890,7 @@ cdef class ListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct ListArray from arrays of int32 offsets and values.
 
@@ -1943,21 +1943,24 @@ cdef class ListArray(BaseListArray):
         cdef:
             Array _offsets, _values
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
 
+        c_mask = c_mask_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArraysAndType(
-                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, -1, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArrays(
-                        _offsets.ap[0], _values.ap[0], cpool))
+                        _offsets.ap[0], _values.ap[0], cpool, -1, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -2652,17 +2655,7 @@ cdef class StructArray(Array):
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
 
-        if mask is None:
-            c_mask = shared_ptr[CBuffer]()
-        elif isinstance(mask, Array):
-            if mask.type.id != Type_BOOL:
-                raise ValueError('Mask must be a pyarrow.Array of type bool')
-            if mask.null_count != 0:
-                raise ValueError('Mask must not contain nulls')
-            inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
-            c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
-        else:
-            raise ValueError('Mask must be a pyarrow.Array of type bool')
+        c_mask = c_mask_from_obj(mask, memory_pool)
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
@@ -2810,6 +2803,22 @@ cdef dict _array_classes = {
     _Type_STRUCT: StructArray,
     _Type_EXTENSION: ExtensionArray,
 }
+
+
+cdef inline shared_ptr[CBuffer] c_mask_from_obj(object mask, MemoryPool pool) except *:
+    cdef shared_ptr[CBuffer] c_mask
+    if mask is None:
+        c_mask = shared_ptr[CBuffer]()
+    elif isinstance(mask, Array):
+        if mask.type.id != Type_BOOL:
+            raise ValueError('Mask must be a pyarrow.Array of type bool')
+        if mask.null_count != 0:
+            raise ValueError('Mask must not contain nulls')
+        inverted_mask = _pc().invert(mask, memory_pool=pool)
+        c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
+    else:
+        raise ValueError('Mask must be a pyarrow.Array of type bool')
+    return c_mask
 
 
 cdef object get_array_class_from_type(
