@@ -102,92 +102,92 @@ Maven
 
 - To build only the C Data Interface library:
 
-.. code-block::
+    .. code-block::
 
-    $ cd arrow/java
-    $ export JAVA_HOME=<absolute path to your java home>
-    $ java --version
-    $ mvn clean generate-resources -Pgenerate-cdata-dylib_so -N
-    $ ls ../java-dist/lib
-    |__ libarrow_cdata_jni.dylib
+        $ cd arrow/java
+        $ export JAVA_HOME=<absolute path to your java home>
+        $ java --version
+        $ mvn clean generate-resources -Pgenerate-cdata-dylib_so -N
+        $ ls ../java-dist/lib
+        |__ libarrow_cdata_jni.dylib
 
 - To build other JNI libraries:
 
-Not options available on Maven.
+    Not options available on Maven.
 
 CMake
 ~~~~~
 
 - To build only the C Data Interface library:
 
-.. code-block::
+    .. code-block::
 
-    $ cd arrow
-    $ brew bundle --file=cpp/Brewfile
-    Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ export JAVA_HOME=<absolute path to your java home>
-    $ mkdir -p java-dist java-native-c
-    $ cd java-native-c
-    $ cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=../java-dist/lib \
-        ../java
-    $ cmake --build . --target install
-    $ ls -latr ../java-dist/lib
-    |__ libarrow_cdata_jni.dylib
+        $ cd arrow
+        $ brew bundle --file=cpp/Brewfile
+        Homebrew Bundle complete! 25 Brewfile dependencies now installed.
+        $ export JAVA_HOME=<absolute path to your java home>
+        $ mkdir -p java-dist java-native-c
+        $ cd java-native-c
+        $ cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=../java-dist/lib \
+            ../java
+        $ cmake --build . --target install
+        $ ls -latr ../java-dist/lib
+        |__ libarrow_cdata_jni.dylib
 
 - To build other JNI libraries:
 
-.. code-block::
+    .. code-block::
 
-    $ cd arrow
-    $ brew bundle --file=cpp/Brewfile
-    Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ export JAVA_HOME=<absolute path to your java home>
-    $ mkdir -p java-dist java-native-cpp
-    $ cd java-native-cpp
-    $ cmake \
-        -DARROW_BOOST_USE_SHARED=OFF \
-        -DARROW_BROTLI_USE_SHARED=OFF \
-        -DARROW_BZ2_USE_SHARED=OFF \
-        -DARROW_GFLAGS_USE_SHARED=OFF \
-        -DARROW_GRPC_USE_SHARED=OFF \
-        -DARROW_LZ4_USE_SHARED=OFF \
-        -DARROW_OPENSSL_USE_SHARED=OFF \
-        -DARROW_PROTOBUF_USE_SHARED=OFF \
-        -DARROW_SNAPPY_USE_SHARED=OFF \
-        -DARROW_THRIFT_USE_SHARED=OFF \
-        -DARROW_UTF8PROC_USE_SHARED=OFF \
-        -DARROW_ZSTD_USE_SHARED=OFF \
-        -DARROW_JNI=ON \
-        -DARROW_PARQUET=ON \
-        -DARROW_FILESYSTEM=ON \
-        -DARROW_DATASET=ON \
-        -DARROW_GANDIVA_JAVA=ON \
-        -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-        -DARROW_GANDIVA=ON \
-        -DARROW_ORC=ON \
-        -DARROW_PLASMA_JAVA_CLIENT=ON \
-        -DARROW_PLASMA=ON \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=../java-dist \
-        -DCMAKE_UNITY_BUILD=ON \
-        -Dre2_SOURCE=BUNDLED \
-        -DBoost_SOURCE=BUNDLED \
-        -Dutf8proc_SOURCE=BUNDLED \
-        -DSnappy_SOURCE=BUNDLED \
-        -DORC_SOURCE=BUNDLED \
-        -DZLIB_SOURCE=BUNDLED \
-        -Dxsimd_SOURCE=BUNDLED \
-        -Dzstd_SOURCE=BUNDLED \
-        -Dlz4_SOURCE=BUNDLED \
-        ../cpp
-    $ cmake --build . --target install
-    $ ls -latr  ../java-dist/lib
-    |__ libarrow_dataset_jni.dylib
-    |__ libarrow_orc_jni.dylib
-    |__ libgandiva_jni.dylib
+        $ cd arrow
+        $ brew bundle --file=cpp/Brewfile
+        Homebrew Bundle complete! 25 Brewfile dependencies now installed.
+        $ export JAVA_HOME=<absolute path to your java home>
+        $ mkdir -p java-dist java-native-cpp
+        $ cd java-native-cpp
+        $ cmake \
+            -DARROW_BOOST_USE_SHARED=OFF \
+            -DARROW_BROTLI_USE_SHARED=OFF \
+            -DARROW_BZ2_USE_SHARED=OFF \
+            -DARROW_GFLAGS_USE_SHARED=OFF \
+            -DARROW_GRPC_USE_SHARED=OFF \
+            -DARROW_LZ4_USE_SHARED=OFF \
+            -DARROW_OPENSSL_USE_SHARED=OFF \
+            -DARROW_PROTOBUF_USE_SHARED=OFF \
+            -DARROW_SNAPPY_USE_SHARED=OFF \
+            -DARROW_THRIFT_USE_SHARED=OFF \
+            -DARROW_UTF8PROC_USE_SHARED=OFF \
+            -DARROW_ZSTD_USE_SHARED=OFF \
+            -DARROW_JNI=ON \
+            -DARROW_PARQUET=ON \
+            -DARROW_FILESYSTEM=ON \
+            -DARROW_DATASET=ON \
+            -DARROW_GANDIVA_JAVA=ON \
+            -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
+            -DARROW_GANDIVA=ON \
+            -DARROW_ORC=ON \
+            -DARROW_PLASMA_JAVA_CLIENT=ON \
+            -DARROW_PLASMA=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_PREFIX=../java-dist \
+            -DCMAKE_UNITY_BUILD=ON \
+            -Dre2_SOURCE=BUNDLED \
+            -DBoost_SOURCE=BUNDLED \
+            -Dutf8proc_SOURCE=BUNDLED \
+            -DSnappy_SOURCE=BUNDLED \
+            -DORC_SOURCE=BUNDLED \
+            -DZLIB_SOURCE=BUNDLED \
+            -Dxsimd_SOURCE=BUNDLED \
+            -Dzstd_SOURCE=BUNDLED \
+            -Dlz4_SOURCE=BUNDLED \
+            ../cpp
+        $ cmake --build . --target install
+        $ ls -latr  ../java-dist/lib
+        |__ libarrow_dataset_jni.dylib
+        |__ libarrow_orc_jni.dylib
+        |__ libgandiva_jni.dylib
 
 Archery
 ~~~~~~~
@@ -210,17 +210,17 @@ Maven
 
 - To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
-.. code-block::
+    .. code-block::
 
-    $ cd arrow/java
-    $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
+        $ cd arrow/java
+        $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
 - To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
-.. code-block::
+    .. code-block::
 
-    $ cd arrow/java
-    $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install
+        $ cd arrow/java
+        $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install
 
 IDE Configuration
 =================

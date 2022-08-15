@@ -889,6 +889,9 @@
 
     <profile>
       <id>generate-cdata-dylib_so</id>
+      <properties>
+        <arrow.c.jni.dist.dir>../java-dist/lib</arrow.c.jni.dist.dir>
+      </properties>
       <build>
         <plugins>
           <plugin>
@@ -918,7 +921,7 @@
                   <executable>cmake</executable>
                   <commandlineArgs>
                     -DCMAKE_BUILD_TYPE=release
-                    -DCMAKE_INSTALL_PREFIX=../java-dist/lib
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
                     ../java
                   </commandlineArgs>
                   <workingDirectory>../java-native-c</workingDirectory>
