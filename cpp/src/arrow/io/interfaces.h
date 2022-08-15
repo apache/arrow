@@ -262,8 +262,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] file_offset the starting position in the file
   /// \param[in] nbytes the extent of bytes to read. The file should have
   /// sufficient bytes available
-  static std::shared_ptr<InputStream> GetStream(std::shared_ptr<RandomAccessFile> file,
-                                                int64_t file_offset, int64_t nbytes);
+  static Result<std::shared_ptr<InputStream>> GetStream(
+      std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes);
 
   /// \brief Return the total file size in bytes.
   ///

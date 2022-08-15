@@ -23,7 +23,8 @@ Using Arrow C++ in your own project
 ===================================
 
 This section assumes you already have the Arrow C++ libraries on your
-system, either after installing them using a package manager or after
+system, either after `installing them using a package manager
+<https://arrow.apache.org/install/>`_ or after
 :ref:`building them yourself <building-arrow-cpp>`.
 
 The recommended way to integrate the Arrow C++ libraries in your own

@@ -4,7 +4,6 @@ usr/lib/*/cmake/arrow/ArrowOptions.cmake
 usr/lib/*/cmake/arrow/ArrowTargets*.cmake
 usr/lib/*/cmake/arrow/Find*Alt.cmake
 usr/lib/*/cmake/arrow/FindArrow.cmake
-usr/lib/*/cmake/arrow/Findjemalloc.cmake
 usr/lib/*/cmake/arrow/Find[BTuz]*.cmake
 usr/lib/*/cmake/arrow/arrow-config.cmake
 usr/lib/*/libarrow.a

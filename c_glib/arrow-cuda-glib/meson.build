@@ -71,6 +71,7 @@ if have_gi
                        dependencies: gir_dependencies,
                        export_packages: 'arrow-cuda-glib',
                        extra_args: gir_extra_args,
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-cuda-glib/arrow-cuda-glib.h',
                        identifier_prefix: 'GArrowCUDA',
                        includes: [

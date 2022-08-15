@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 type TypeToScalar interface {
@@ -375,8 +375,12 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(buf, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(buf), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(buf), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(buf), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if buf.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(buf, dt), nil
@@ -387,8 +391,12 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(v, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(v), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(v), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(v), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if v.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(v, dt), nil
@@ -408,6 +416,11 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 				return nil, fmt.Errorf("inconsistent type for list scalar array and data type")
 			}
 			return NewListScalar(v), nil
+		case arrow.LARGE_LIST:
+			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.LargeListType).Elem()) {
+				return nil, fmt.Errorf("inconsistent type for large list scalar array and data type")
+			}
+			return NewLargeListScalar(v), nil
 		case arrow.FIXED_SIZE_LIST:
 			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.FixedSizeListType).Elem()) {
 				return nil, fmt.Errorf("inconsistent type for list scalar array and data type")
@@ -419,6 +432,19 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			}
 			return NewMapScalar(v), nil
 		}
+	}
+
+	if arrow.IsInteger(dt.ID()) {
+		bits := dt.(arrow.FixedWidthDataType).BitWidth()
+		val := reflect.ValueOf(val)
+		if arrow.IsUnsignedInteger(dt.ID()) {
+			return MakeUnsignedIntegerScalar(val.Convert(reflect.TypeOf(uint64(0))).Uint(), bits)
+		}
+		return MakeIntegerScalar(val.Convert(reflect.TypeOf(int64(0))).Int(), bits)
+	}
+
+	if dt.ID() == arrow.DICTIONARY {
+		return MakeScalarParam(val, dt.(*arrow.DictionaryType).ValueType)
 	}
 	return MakeScalar(val), nil
 }
@@ -631,6 +657,8 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		}
 
 		return NewTime64Scalar(tm, dt), nil
+	case arrow.DICTIONARY:
+		return ParseScalar(dt.(*arrow.DictionaryType).ValueType, val)
 	}
 
 	return nil, fmt.Errorf("parsing of scalar for type %s not implemented", dt)

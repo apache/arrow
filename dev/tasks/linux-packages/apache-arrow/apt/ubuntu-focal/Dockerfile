@@ -50,7 +50,6 @@ RUN \
     libgmock-dev \
     libgoogle-glog-dev \
     libgtest-dev \
-    libjemalloc-dev \
     liblz4-dev \
     libre2-dev \
     libsnappy-dev \

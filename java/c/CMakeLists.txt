@@ -15,38 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-# arrow_cdata_java
-#
-
-cmake_minimum_required(VERSION 3.11)
-message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
-project(arrow_cdata_java)
-
-# Find java/jni
-include(UseJava)
-
-find_package(Java REQUIRED)
-find_package(JNI REQUIRED)
-
-set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
-
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
                     ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
-add_jar(${PROJECT_NAME}
+add_jar(arrow_cdata_jar
         src/main/java/org/apache/arrow/c/jni/CDataJniException.java
         src/main/java/org/apache/arrow/c/jni/JniLoader.java
         src/main/java/org/apache/arrow/c/jni/JniWrapper.java
         src/main/java/org/apache/arrow/c/jni/PrivateData.java
         GENERATE_NATIVE_HEADERS
-        arrow_cdata_java-native
-        DESTINATION
-        ${JNI_HEADERS_DIR})
+        arrow_cdata_jni_headers)
 
-set(SOURCES src/main/cpp/jni_wrapper.cc)
-add_library(arrow_cdata_jni SHARED ${SOURCES})
-target_link_libraries(arrow_cdata_jni ${JAVA_JVM_LIBRARY})
-add_dependencies(arrow_cdata_jni ${PROJECT_NAME})
+set(ARROW_CDATA_JNI_SOURCES src/main/cpp/jni_wrapper.cc)
+add_library(arrow_cdata_jni SHARED ${ARROW_CDATA_JNI_SOURCES})
+target_link_libraries(arrow_cdata_jni arrow_cdata_jni_headers jni)
 
-install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_PREFIX})
