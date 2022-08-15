@@ -599,6 +599,18 @@ test_that("Can use across() within mutate()", {
 
   compare_dplyr_binding(
     .input %>%
+      mutate(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+        ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
       mutate(across(c(dbl, dbl2), list(exp, sqrt))) %>%
       collect(),
     tbl
