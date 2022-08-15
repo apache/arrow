@@ -46,10 +46,16 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
     const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-    if (enum_val.has_specified()) {
-      call->SetEnumArg(idx, enum_val.specified());
-    } else {
-      call->SetEnumArg(idx, util::nullopt);
+    switch (enum_val.enum_kind_case()) {
+      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
+        call->SetEnumArg(idx, enum_val.specified());
+        break;
+      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
+        call->SetEnumArg(idx, util::nullopt);
+        break;
+      default:
+        return Status::Invalid("Unrecognized enum kind case: ",
+                               enum_val.enum_kind_case());
     }
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
