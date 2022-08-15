@@ -162,6 +162,7 @@ unfold_across <- function(.data, quos_in) {
   for (quo_i in seq_along(quos_in)) {
     quo_in <- quos_in[quo_i]
     quo_expr <- quo_get_expr(quo_in[[1]])
+    quo_env <- quo_get_env(quo_in[[1]])
 
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
@@ -203,7 +204,7 @@ unfold_across <- function(.data, quos_in) {
       } else {
         extracted_funcs <- call_args(funcs)
         func_list <- ensure_named_funcs(extracted_funcs)
-        new_quos <- quosures_from_func_list(func_list, source_cols)
+        new_quos <- quosures_from_func_list(func_list, source_cols, quo_env)
       }
 
       quos_out <- append(quos_out, new_quos)
@@ -225,7 +226,7 @@ ensure_named_funcs <- function(funcs) {
 }
 
 # given a named list of functions and column names, create a list of new quosures
-quosures_from_func_list <- function(func_list, cols) {
+quosures_from_func_list <- function(func_list, cols, quo_env) {
   func_list_full <- rep(func_list, length(cols))
   cols_list_full <- rep(cols, each = length(func_list))
 
@@ -241,5 +242,6 @@ quosures_from_func_list <- function(func_list, cols) {
     ~ quo(!!call2(.x, sym(.y)))
   )
 
-  set_names(new_quo_list, new_quo_names)
+  quosures <- set_names(new_quo_list, new_quo_names)
+  map(quosures, ~quo_set_env(.x, quo_env))
 }
