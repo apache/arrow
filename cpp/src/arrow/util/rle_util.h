@@ -51,7 +51,7 @@ static const int32_t* RunEnds(const ArraySpan& span) {
 }
 
 /// \brief Get the child array holding the data values from an RLE array
-static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_data[1]; }
+static const ArraySpan& ValuesArray(const ArraySpan& span) { return span.child_data[1]; }
 
 /// \brief Iterate over two run-length encoded arrays in segments of runs that are inside
 /// run boundaries in each input. A callback is called on each of these segments
@@ -91,8 +91,8 @@ void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callba
 
     // callback to code that wants to work on the data - we give it physical indices
     // including all offsets. This includes the additional offset the data array may have.
-    callback(merged_run_length, a_run_index + DataArray(a).offset,
-             b_run_index + DataArray(b).offset);
+    callback(merged_run_length, a_run_index + ValuesArray(a).offset,
+             b_run_index + ValuesArray(b).offset);
 
     logical_position = merged_run_end;
     if (logical_position == a_run_end) {
@@ -174,7 +174,7 @@ class MergedRunsIterator {
   bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
   int64_t physical_index(int64_t input_id) const {
-    return run_index[input_id] + DataArray(*inputs[input_id]).offset;
+    return run_index[input_id] + ValuesArray(*inputs[input_id]).offset;
   }
   int64_t run_length() const { return merged_run_length; }
 
@@ -231,7 +231,7 @@ void VisitRuns(const ArraySpan& span, CallbackType callback) {
 
     // callback to code that wants to work on the data - we give it physical indices
     // including all offsets. This includes the additional offset the data array may have.
-    callback(run_length, run_index + DataArray(span).offset);
+    callback(run_length, run_index + ValuesArray(span).offset);
 
     logical_position = run_end;
     run_index++;
