@@ -173,8 +173,7 @@ struct RunLengthEncodeExec
     output_array_data->child_data.resize(1);
     auto values_array_data =
         ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
-    auto run_ends_array_data =
-        ArrayData::Make(int32(), num_values_output);
+    auto run_ends_array_data = ArrayData::Make(int32(), num_values_output);
     output_array_data->buffers[1] = std::move(run_lengths_buffer);
     values_array_data->buffers.push_back(std::move(validity_buffer));
     values_array_data->buffers.push_back(std::move(values_buffer));
@@ -296,8 +295,7 @@ struct RunLengthDecodeExec
     this->output_position = 0;
     int64_t output_null_count = 0;
     for (auto it = rle_util::MergedRunsIterator<1>(this->input_array);
-         it != rle_util::MergedRunsIterator<1>();
-         it++) {
+         it != rle_util::MergedRunsIterator<1>(); it++) {
       this->input_position = it.physical_index(0);
       Element element = this->ReadValue();
       if (element.valid) {
@@ -341,11 +339,13 @@ struct RunLengthDecodeGenerator<NullType> {
 };
 
 static const FunctionDoc run_length_encode_doc(
-    "Run-length array", ("Return a run-length-encoded version of the input array."),
-    {"array"}, "RunLengthEncodeOptions");
+    "Run-length encode array",
+    ("Return a run-length-encoded version of the input array."), {"array"},
+    "RunLengthEncodeOptions");
 static const FunctionDoc run_length_decode_doc(
-    "Run-length array", ("Return a decoded version of a run-length-encoded input array."),
-    {"array"}, "RunLengthDecodeOptions");
+    "Decode run-length encoded array",
+    ("Return a decoded version of a run-length-encoded input array."), {"array"},
+    "RunLengthDecodeOptions");
 
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
