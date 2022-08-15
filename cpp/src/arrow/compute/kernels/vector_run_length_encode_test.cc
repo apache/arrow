@@ -81,7 +81,7 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
             data.expected_run_lengths);
   ASSERT_OK(values_array->ValidateFull());
   ASSERT_OK(run_ends_array->ValidateFull());
-  ASSERT_TRUE(values_array->Equals(data.expected_values));
+  ASSERT_ARRAYS_EQUAL(*values_array, *data.expected_values);
   ASSERT_EQ(encoded->buffers.size(), 1);
   ASSERT_EQ(encoded->buffers[0], NULLPTR);
   ASSERT_EQ(encoded->child_data.size(), 2);
@@ -99,7 +99,7 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
   ASSERT_OK(decoded->ValidateFull());
-  ASSERT_TRUE(decoded->Equals(data.input));
+  ASSERT_ARRAYS_EQUAL(*decoded, *data.input);
 }
 
 // Encoding an input with an offset results in a completely new encoded array without an
@@ -126,8 +126,8 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
   auto array_without_last = datum_without_last.make_array();
   ASSERT_OK(array_without_first->ValidateFull());
   ASSERT_OK(array_without_last->ValidateFull());
-  ASSERT_TRUE(array_without_first->Equals(data.input->Slice(1)));
-  ASSERT_TRUE(array_without_last->Equals(data.input->Slice(0, data.input->length() - 1)));
+  ASSERT_ARRAYS_EQUAL(*array_without_first, *data.input->Slice(1));
+  ASSERT_ARRAYS_EQUAL(*array_without_last, *data.input->Slice(0, data.input->length() - 1));
 }
 
 // This test creates an run-length encoded array with an offset in the child array, which
@@ -135,25 +135,20 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
 TEST_P(TestRunLengthEncode, DecodeWithOffsetInChildArray) {
   auto data = GetParam();
 
-  const int32_t first_run_length = data.expected_run_lengths[0];
-  auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
-                                data.input->length() - first_run_length);
-  parent->child_data.push_back(data.expected_values->Slice(1)->data());
-  ASSERT_OK_AND_ASSIGN(
-      auto run_length_buffer,
-      AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int32_t)));
-  int32_t* run_length_buffer_data =
-      reinterpret_cast<int32_t*>(run_length_buffer->mutable_data());
-  for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
-    run_length_buffer_data[index] =
-        data.expected_run_lengths[index + 1] - first_run_length;
-  }
-  parent->buffers.push_back(std::move(run_length_buffer));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(parent));
-  auto decoded_array = decoded_datum.make_array();
-  ASSERT_OK(decoded_array->ValidateFull());
-  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(first_run_length)));
+  auto encoded = encoded_datum.array();
+  rle_util::AddArtificialOffsetInChildArray(encoded.get(), 100);
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_first,
+                       RunLengthDecode(encoded));
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_last,
+                       RunLengthDecode(encoded->Slice(0, encoded->length - 1)));
+  auto array_without_first = datum_without_first.make_array();
+  auto array_without_last = datum_without_last.make_array();
+  ASSERT_OK(array_without_first->ValidateFull());
+  ASSERT_OK(array_without_last->ValidateFull());
+  ASSERT_ARRAYS_EQUAL(*array_without_first, *data.input->Slice(1));
+  ASSERT_ARRAYS_EQUAL(*array_without_last, *data.input->Slice(0, data.input->length() - 1));
 }
 
 INSTANTIATE_TEST_SUITE_P(

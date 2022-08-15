@@ -253,9 +253,9 @@ struct RunLengthDecodeExec
       return Status::OK();
     }
 
-    const ArraySpan& child_array = this->input_array.child_data[0];
-    this->input_validity = child_array.buffers[0].data;
-    this->input_values = child_array.buffers[1].data;
+    const ArraySpan& data_array = rle_util::DataArray(this->input_array);
+    this->input_validity = data_array.buffers[0].data;
+    this->input_values = data_array.buffers[1].data;
 
     const int64_t num_values_output = this->input_array.length;
 
@@ -320,7 +320,7 @@ struct RunLengthDecodeExec
 template <typename Type>
 struct RunLengthDecodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    bool has_validity_buffer = span.values[0].array.MayHaveNulls();
+    bool has_validity_buffer = rle_util::DataArray(span.values[0].array).MayHaveNulls();
     if (has_validity_buffer) {
       return RunLengthDecodeExec<Type, true>(ctx, span, result).Exec();
     } else {
