@@ -897,18 +897,6 @@
             <version>3.1.0</version>
             <executions>
               <execution>
-                <id>cdatadelete</id>
-                <phase>generate-resources</phase>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <configuration>
-                  <executable>rm</executable>
-                  <commandlineArgs>-rf java-dist java-native-c</commandlineArgs>
-                  <workingDirectory>../</workingDirectory>
-                </configuration>
-              </execution>
-              <execution>
                 <id>cdatadir</id>
                 <phase>generate-resources</phase>
                 <goals>
