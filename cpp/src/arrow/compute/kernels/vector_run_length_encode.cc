@@ -170,15 +170,13 @@ struct RunLengthEncodeExec
     output_array_data->length = this->input_array.length;
     output_array_data->offset = 0;
     output_array_data->buffers = {NULLPTR};
-    output_array_data->child_data.resize(1);
     auto values_array_data =
         ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
     auto run_ends_array_data = ArrayData::Make(int32(), num_values_output);
-    output_array_data->buffers[1] = std::move(run_lengths_buffer);
     values_array_data->buffers.push_back(std::move(validity_buffer));
     values_array_data->buffers.push_back(std::move(values_buffer));
-    values_array_data->buffers.push_back(NULLPTR);
-    values_array_data->buffers.push_back(std::move(run_lengths_buffer));
+    run_ends_array_data->buffers.push_back(NULLPTR);
+    run_ends_array_data->buffers.push_back(std::move(run_lengths_buffer));
 
     output_array_data->null_count.store(input_null_count);
     values_array_data->null_count = output_null_count;
@@ -187,7 +185,8 @@ struct RunLengthEncodeExec
     this->output_values = values_array_data->template GetMutableValues<uint8_t>(1);
     auto output_run_ends = run_ends_array_data->template GetMutableValues<int32_t>(1);
 
-    output_array_data->child_data[0] = std::move(values_array_data);
+    output_array_data->child_data.resize(2);
+    output_array_data->child_data[1] = std::move(values_array_data);
     output_array_data->child_data[0] = std::move(run_ends_array_data);
 
     if (has_validity_buffer) {
