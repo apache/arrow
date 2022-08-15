@@ -22,7 +22,7 @@ import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
-                      EmailReport)
+                      EmailReport, CommentReport)
 from ..utils.source import ArrowSources
 
 
@@ -283,6 +283,41 @@ def status(obj, job_name, fetch, task_filters):
 
     report = ConsoleReport(job, task_filters=task_filters)
     report.show(output)
+
+
+@crossbow.command()
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
+              help='Crossbow repository on github to use')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
+              help='OAuth token to create comments in the arrow repo. '
+                   'Only necessary if --track-on-pr-titled is set.')
+@click.option('--job-name', required=True)
+@click.option('--pr-title', required=True,
+              help='Track the job submitted on PR with given title')
+@click.pass_obj
+def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
+              pr_title):
+    arrow = obj['arrow']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+    job = queue.get(job_name)
+
+    report = CommentReport(job, crossbow_repo=crossbow)
+    target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+    pull_request = target_arrow.github_pr(title=pr_title,
+                                          github_token=github_token,
+                                          create=False)
+    # render the response comment's content on the PR
+    pull_request.create_comment(report.show())
+    click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()

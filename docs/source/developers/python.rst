@@ -388,7 +388,7 @@ Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
 need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
 variable to 1.
 
-To set the number of threads used to compile PyArrow's C++/Cython components, 
+To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
@@ -604,3 +604,30 @@ Caveats
 -------
 
 The Plasma component is not supported on Windows.
+
+Installing Nightly Packages
+===========================
+
+.. warning::
+    These packages are not official releases. Use them at your own risk.
+
+PyArrow has nightly wheels and Conda packages for testing purposes.
+
+These may be suitable for downstream libraries in their continuous integration
+setup to maintain compatibility with the upcoming PyArrow features,
+deprecations and/or feature removals.
+
+Install the development version of PyArrow from `arrow-nightlies
+<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
+
+.. code-block:: bash
+
+    conda install -c arrow-nightlies pyarrow
+
+Install the development version from an `alternative PyPI
+<https://gemfury.com/arrow-nightlies>`_ index:
+
+.. code-block:: bash
+
+    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
+        --prefer-binary --pre pyarrow

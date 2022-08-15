@@ -49,8 +49,8 @@ class JniPendingException : public std::runtime_error {
   explicit JniPendingException(const std::string& arg, jthrowable cause)
       : runtime_error(arg), cause_(cause) {}
 
-  const jthrowable GetCause() const { return cause_; }
-  const bool HasCause() const { return cause_ != nullptr; }
+  jthrowable GetCause() const { return cause_; }
+  bool HasCause() const { return cause_ != nullptr; }
 
  private:
   jthrowable cause_;
@@ -89,6 +89,8 @@ arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
   switch (file_format_id) {
     case 0:
       return std::make_shared<arrow::dataset::ParquetFileFormat>();
+    case 1:
+      return std::make_shared<arrow::dataset::IpcFileFormat>();
     default:
       std::string error_message =
           "illegal file format id: " + std::to_string(file_format_id);

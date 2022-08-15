@@ -29,10 +29,6 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return Status::NotImplemented("This kernel is malformed");
-}
-
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   static DataTypeVector example_parametric_types = {
       decimal128(12, 2),

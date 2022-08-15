@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/float16"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -234,6 +234,12 @@ func Equal(left, right arrow.Array) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -270,6 +276,9 @@ func Equal(left, right arrow.Array) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -288,6 +297,9 @@ func Equal(left, right arrow.Array) bool {
 	case *List:
 		r := right.(*List)
 		return arrayEqualList(l, r)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayEqualLargeList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -315,6 +327,12 @@ func Equal(left, right arrow.Array) bool {
 	case *Dictionary:
 		r := right.(*Dictionary)
 		return arrayEqualDict(l, r)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionEqual(l, r)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionEqual(l, r)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -348,12 +366,17 @@ func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array
 
 // SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
 func SliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
+	opt := newEqualOption(opts...)
+	return sliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opt)
+}
+
+func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opt equalOption) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ApproxEqual(l, r, opts...)
+	return arrayApproxEqual(l, r, opt)
 }
 
 const defaultAbsoluteTolerance = 1e-5
@@ -469,6 +492,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -505,6 +534,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -523,6 +555,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *List:
 		r := right.(*List)
 		return arrayApproxEqualList(l, r, opt)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayApproxEqualLargeList(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -550,6 +585,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionApproxEqual(l, r, opt)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionApproxEqual(l, r, opt)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -620,6 +661,25 @@ func arrayApproxEqualFloat64(left, right *Float64, opt equalOption) bool {
 }
 
 func arrayApproxEqualList(left, right *List, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

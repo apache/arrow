@@ -44,7 +44,12 @@ read_json_arrow <- function(file,
                             schema = NULL,
                             ...) {
   if (!inherits(file, "InputStream")) {
+    compression <- detect_compression(file)
     file <- make_readable_file(file)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      file <- CompressedInputStream$create(file, compression)
+    }
     on.exit(file$close())
   }
   tab <- JsonTableReader$create(file, schema = schema, ...)$Read()

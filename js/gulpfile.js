@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import del from "del";
+import { deleteAsync as del } from 'del';
 import os from "os";
 import gulp from "gulp";
 import { targets } from "./gulp/argv.js";

@@ -398,6 +398,12 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
 
 Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
   ARROW_RETURN_NOT_OK(ValidateBasenameTemplate(options.basename_template));
+  if (!options.file_write_options) {
+    return Status::Invalid("Must provide file_write_options");
+  }
+  if (!options.filesystem) {
+    return Status::Invalid("Must provide filesystem");
+  }
   if (options.max_rows_per_group <= 0) {
     return Status::Invalid("max_rows_per_group must be a positive number");
   }

@@ -37,7 +37,6 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     json-devel \
     lz4-devel \
     make \
