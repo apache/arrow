@@ -51,7 +51,7 @@ TEST(TestRleUtil, ArtificalOffset) {
   ASSERT_EQ(array->values_array()->offset(), 100);
 }
 
-TEST(TestRleUtil, VisitMergedRuns) {
+TEST(TestRleUtil, MergedRunsInterator) {
   const auto left_run_ends = ArrayFromJSON(
       int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
   const auto right_run_ends =
@@ -80,7 +80,7 @@ TEST(TestRleUtil, VisitMergedRuns) {
   left_array = left_array->Slice(left_parent_offset);
   right_array = right_array->Slice(right_parent_offset);
 
-  position = 0;
+  size_t position = 0;
   for (auto it = MergedRunsIterator<2>(ArraySpan(*left_array->data()),
                                        ArraySpan(*right_array->data()));
        it != MergedRunsIterator<2>(); ++it) {
