@@ -689,6 +689,7 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  # ARROW-12778 - `where()` is not yet supported
   expect_error(
     compare_dplyr_binding(
       .input %>%
