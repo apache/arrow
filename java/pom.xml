@@ -887,6 +887,75 @@
       </reporting>
     </profile>
 
+    <profile>
+      <id>generate-cdata-dylib_so</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>cdatadelete</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>rm</executable>
+                  <commandlineArgs>-rf java-dist java-native-c</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdatadir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p java-dist java-native-c</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdatadefine</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -DCMAKE_BUILD_TYPE=release
+                    -DCMAKE_INSTALL_PREFIX=../java-dist/lib
+                    ../java
+                  </commandlineArgs>
+                  <workingDirectory>../java-native-c</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdatabuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build . --target install --config release
+                  </commandlineArgs>
+                  <workingDirectory>../java-native-c</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 
 </project>

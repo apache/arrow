@@ -47,10 +47,18 @@ repository:
     $ cd arrow
     $ git submodule update --init --recursive
 
-Basic Installation
-------------------
+These are the options available to compile Arrow Java modules with:
+- Maven build tool
+- Docker compose
+- Archery
+
+Building Java Modules
+---------------------
 
 To build the default modules, go to the project root and execute:
+
+Maven
+~~~~~
 
 .. code-block::
 
@@ -59,28 +67,58 @@ To build the default modules, go to the project root and execute:
     $ java --version
     $ mvn clean install
 
-Building JNI Libraries on Linux
--------------------------------
+Docker compose
+~~~~~~~~~~~~~~
+
+.. code-block::
+
+    $ cd arrow/java
+    $ export JAVA_HOME=<absolute path to your java home>
+    $ java --version
+    $ docker-compose run debian-java
+
+Archery
+~~~~~~~
+
+.. code-block::
+
+    $ cd arrow/java
+    $ export JAVA_HOME=<absolute path to your java home>
+    $ java --version
+    $ archery docker run debian-java
+
+Building JNI Libraries (.dylib / .so)
+-------------------------------------
 
 First, we need to build the `C++ shared libraries`_ that the JNI bindings will use.
 We can build these manually or we can use `Archery`_ to build them using a Docker container
 (This will require installing Docker, Docker Compose, and Archery).
 
+Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled
+for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
+
+Maven
+~~~~~
+
+- To build only the C Data Interface library:
+
 .. code-block::
 
-    $ cd arrow
-    $ archery docker run java-jni-manylinux-2014
-    $ ls -latr java-dist/
-    |__ libarrow_cdata_jni.so
-    |__ libarrow_dataset_jni.so
-    |__ libarrow_orc_jni.so
-    |__ libgandiva_jni.so
+    $ cd arrow/java
+    $ export JAVA_HOME=<absolute path to your java home>
+    $ java --version
+    $ mvn clean generate-resources -Pgenerate-cdata-dylib_so -N
+    $ ls ../java-dist/lib
+    |__ libarrow_cdata_jni.dylib
 
-Building JNI Libraries on MacOS
--------------------------------
-Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
+- To build other JNI libraries:
 
-To build only the C Data Interface library:
+Not options available on Maven.
+
+CMake
+~~~~~
+
+- To build only the C Data Interface library:
 
 .. code-block::
 
@@ -98,7 +136,7 @@ To build only the C Data Interface library:
     $ ls -latr ../java-dist/lib
     |__ libarrow_cdata_jni.dylib
 
-To build other JNI libraries:
+- To build other JNI libraries:
 
 .. code-block::
 
@@ -141,6 +179,9 @@ To build other JNI libraries:
         -DSnappy_SOURCE=BUNDLED \
         -DORC_SOURCE=BUNDLED \
         -DZLIB_SOURCE=BUNDLED \
+        -Dxsimd_SOURCE=BUNDLED \
+        -Dzstd_SOURCE=BUNDLED \
+        -Dlz4_SOURCE=BUNDLED \
         ../cpp
     $ cmake --build . --target install
     $ ls -latr  ../java-dist/lib
@@ -148,17 +189,33 @@ To build other JNI libraries:
     |__ libarrow_orc_jni.dylib
     |__ libgandiva_jni.dylib
 
-Building Arrow JNI Modules
---------------------------
+Archery
+~~~~~~~
 
-To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
+.. code-block::
+
+    $ cd arrow
+    $ archery docker run java-jni-manylinux-2014
+    $ ls -latr java-dist/
+    |__ libarrow_cdata_jni.so
+    |__ libarrow_dataset_jni.so
+    |__ libarrow_orc_jni.so
+    |__ libgandiva_jni.so
+
+Building Java JNI Modules
+-------------------------
+
+Maven
+~~~~~
+
+- To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
 .. code-block::
 
     $ cd arrow/java
     $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
-To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
+- To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
 .. code-block::
 
