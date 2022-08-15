@@ -54,6 +54,10 @@ class EqualityComparable {
   bool operator==(const T& other) const { return cast().Equals(other); }
   bool operator!=(const T& other) const { return !(cast() == other); }
 
+  friend bool operator==(const T& a, const T& b) {
+    return a.Equals(b);
+  }
+
  private:
   const T& cast() const { return static_cast<const T&>(*this); }
 };
