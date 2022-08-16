@@ -3134,35 +3134,22 @@ def test_encoding(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
 
     for encoding, input_rows, expected_table in [
-        ('latin-1', b"a,b\nun,\xe9l\xe9phant", {'a': ["un"],
-            'b': [b"\xe9l\xe9phant"]}),
-        ('utf16', b'\x00a\x00,\x00b\x00\n\x00u\x00n\x00,\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00',
-        {'a': [b"\x00u\x00n"], 'b': [b"\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00"]})
+        ('latin-1', b"a,b\nun,\xe9l\xe9phant",
+         {'a': ["un"], 'b': [b"\xe9l\xe9phant"]}),
+        ('utf16', b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
+         b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00',
+         {'a': [b"\x00u\x00n"],
+          'b': [b"\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00"]})
     ]:
 
         with open(path, 'wb') as sink:
             sink.write(input_rows)
 
-        # Interpret as binary data:
-        expected_binary_schema = pa.schema([('a', pa.string()),
-             ('b', pa.binary())])
-        expected_binary_table = pa.table(expected_table, schema=expected_binary_schema)
-
-        # Reading in binary should still work
-        dataset_binary = ds.dataset(path, format='csv')
-        assert dataset_binary.to_table().equals(expected_binary_table)
-
         # Interpret as utf8:
         expected_schema = pa.schema([("a", pa.string()), ("b", pa.string())])
         expected_table = pa.table({'a': ["un"],
-            'b': ["éléphant"]}, schema=expected_schema)
+                                   'b': ["éléphant"]}, schema=expected_schema)
 
-        # Reading as string without specifying encoding should produce an error
-        dataset = ds.dataset(path, format='csv', schema=expected_schema)
-        with pytest.raises(pyarrow.lib.ArrowInvalid, match="invalid UTF8"):
-            result = dataset_reader.to_table(dataset)
-
-        # Setting the encoding in the read_options should transcode the data
         read_options = pa.csv.ReadOptions(encoding=encoding)
         file_format = ds.CsvFileFormat(read_options=read_options)
         dataset_transcoded = ds.dataset(path, format=file_format)
@@ -3180,12 +3167,12 @@ def test_column_names_encoding(tempdir, dataset_reader):
     # Interpret as utf8:
     expected_schema = pa.schema([("é", pa.string()), ("b", pa.string())])
     expected_table = pa.table({'é': ["un"],
-            'b': ["éléphant"]}, schema=expected_schema)
+                               'b': ["éléphant"]}, schema=expected_schema)
 
     # Reading as string without specifying encoding should produce an error
     dataset = ds.dataset(path, format='csv', schema=expected_schema)
     with pytest.raises(pyarrow.lib.ArrowInvalid, match="invalid UTF8"):
-        result = dataset_reader.to_table(dataset)
+        dataset_reader.to_table(dataset)
 
     # Setting the encoding in the read_options should transcode the data
     read_options = pa.csv.ReadOptions(encoding='latin-1')
