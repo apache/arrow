@@ -147,18 +147,7 @@ CMake
         $ mkdir -p java-dist java-native-cpp
         $ cd java-native-cpp
         $ cmake \
-            -DARROW_BOOST_USE_SHARED=OFF \
-            -DARROW_BROTLI_USE_SHARED=OFF \
-            -DARROW_BZ2_USE_SHARED=OFF \
-            -DARROW_GFLAGS_USE_SHARED=OFF \
-            -DARROW_GRPC_USE_SHARED=OFF \
-            -DARROW_LZ4_USE_SHARED=OFF \
-            -DARROW_OPENSSL_USE_SHARED=OFF \
-            -DARROW_PROTOBUF_USE_SHARED=OFF \
-            -DARROW_SNAPPY_USE_SHARED=OFF \
-            -DARROW_THRIFT_USE_SHARED=OFF \
-            -DARROW_UTF8PROC_USE_SHARED=OFF \
-            -DARROW_ZSTD_USE_SHARED=OFF \
+            -DARROW_*_USE_SHARED=OFF \
             -DARROW_JNI=ON \
             -DARROW_PARQUET=ON \
             -DARROW_FILESYSTEM=ON \
@@ -167,22 +156,13 @@ CMake
             -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
             -DARROW_GANDIVA=ON \
             -DARROW_ORC=ON \
-            -DARROW_PLASMA_JAVA_CLIENT=ON \
-            -DARROW_PLASMA=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DCMAKE_INSTALL_PREFIX=../java-dist \
             -DCMAKE_UNITY_BUILD=ON \
-            -Dre2_SOURCE=BUNDLED \
-            -DBoost_SOURCE=BUNDLED \
-            -Dutf8proc_SOURCE=BUNDLED \
-            -DSnappy_SOURCE=BUNDLED \
-            -DORC_SOURCE=BUNDLED \
-            -DZLIB_SOURCE=BUNDLED \
-            -Dxsimd_SOURCE=BUNDLED \
-            -Dzstd_SOURCE=BUNDLED \
-            -Dlz4_SOURCE=BUNDLED \
+            -DARROW_DEPENDENCY_SOURCE=BUNDLED \
             ../cpp
+
         $ cmake --build . --target install
         $ ls -latr  ../java-dist/lib
         |__ libarrow_dataset_jni.dylib
