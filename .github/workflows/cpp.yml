@@ -119,7 +119,7 @@ jobs:
           docker-compose run --rm minimal
 
   macos:
-    name: AMD64 MacOS 10.15 C++
+    name: AMD64 macOS 11 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

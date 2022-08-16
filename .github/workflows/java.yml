@@ -101,7 +101,7 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
+    name: AMD64 macOS 11 Java JDK ${{ matrix.jdk }}
     runs-on: macos-latest
     if: github.event_name == 'push'
     timeout-minutes: 30
