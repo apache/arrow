@@ -1949,7 +1949,7 @@ cdef class ListArray(BaseListArray):
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
 
-        c_mask = c_mask_from_obj(mask, pool)
+        c_mask = c_mask_inverted_from_obj(mask, pool)
 
         if type is not None:
             with nogil:
@@ -2655,7 +2655,7 @@ cdef class StructArray(Array):
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
 
-        c_mask = c_mask_from_obj(mask, memory_pool)
+        c_mask = c_mask_inverted_from_obj(mask, memory_pool)
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
@@ -2805,7 +2805,10 @@ cdef dict _array_classes = {
 }
 
 
-cdef inline shared_ptr[CBuffer] c_mask_from_obj(object mask, MemoryPool pool) except *:
+cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool pool) except *:
+    """
+    Convert mask array obj to c_mask while also inverting to signify 1 for valid and 0 for null
+    """
     cdef shared_ptr[CBuffer] c_mask
     if mask is None:
         c_mask = shared_ptr[CBuffer]()
