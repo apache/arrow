@@ -50,21 +50,20 @@ bool HasEmit(const RelMessage& rel) {
 }
 
 template <typename RelMessage>
-Result<compute::Expression> GetEmitExpression(const RelMessage& rel,
-                                              const std::shared_ptr<Schema>& schema) {
+Result<std::vector<compute::Expression>> GetEmitExpression(
+    const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
-  std::vector<std::string> proj_names(emit_size);
+  // std::vector<std::string> proj_names(emit_size);
   std::vector<compute::Expression> proj_field_refs(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
-    auto field = schema->field(map_id);
-    auto field_name = field->name();
-    proj_names[i] = field_name;
-    proj_field_refs[i] = compute::field_ref(field_name);
+    // auto field = schema->field(map_id);
+    // auto field_name = field->name();
+    // proj_names[i] = field_name;
+    proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
   }
-  auto expr = compute::project(proj_field_refs, proj_names);
-  return expr.Bind(*schema);
+  return std::move(proj_field_refs);
 }
 
 template <typename RelMessage>
@@ -245,21 +244,21 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      // if(HasEmit(read)) {
-      //   ARROW_ASSIGN_OR_RAISE(auto emit_expression, GetEmitExpression(read,
-      //   base_schema)); return DeclarationInfo{
-      //     compute::Declaration::Sequence({
-      //         {"scan", dataset::ScanNodeOptions{std::move(ds),
-      //         std::move(scan_options)}},
-      //         {"project", compute::ProjectNodeOptions{{emit_expression}}}
-      //     }),
-      //     num_columns, std::move(base_schema)};
-      // } else {
-      return DeclarationInfo{
-          compute::Declaration{
-              "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
-          num_columns, std::move(base_schema)};
-      //}
+      if (HasEmit(read)) {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
+                              GetEmitExpression(read, base_schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {{"scan",
+                  dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
+            num_columns, std::move(base_schema)};
+      } else {
+        return DeclarationInfo{
+            compute::Declaration{
+                "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
+            num_columns, std::move(base_schema)};
+      }
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -278,24 +277,23 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
 
-      // if(HasEmit(filter)) {
-      //   ARROW_ASSIGN_OR_RAISE(auto emit_expression, GetEmitExpression(filter,
-      //   input.output_schema)); return DeclarationInfo{
-      //     compute::Declaration::Sequence({
-      //         std::move(input.declaration),
-      //         {"filter", compute::FilterNodeOptions{std::move(condition)}},
-      //         {"project", compute::ProjectNodeOptions{{emit_expression}}}
-      //     }),
-      //     input.num_columns,
-      //     input.output_schema};
-      // } else {
-      return DeclarationInfo{
-          compute::Declaration::Sequence({
-              std::move(input.declaration),
-              {"filter", compute::FilterNodeOptions{std::move(condition)}},
-          }),
-          input.num_columns, input.output_schema};
-      //}
+      if (HasEmit(filter)) {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
+                              GetEmitExpression(filter, input.output_schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::move(input.declaration),
+                 {"filter", compute::FilterNodeOptions{std::move(condition)}},
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
+            input.num_columns, input.output_schema};
+      } else {
+        return DeclarationInfo{
+            compute::Declaration::Sequence({
+                std::move(input.declaration),
+                {"filter", compute::FilterNodeOptions{std::move(condition)}},
+            }),
+            input.num_columns, input.output_schema};
+      }
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
@@ -314,20 +312,56 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       for (int i = 0; i < input.num_columns; i++) {
         expressions.emplace_back(compute::field_ref(FieldRef(i)));
       }
+      std::vector<std::shared_ptr<Field>> new_fields(project.expressions().size());
+      int i = 0;
+      auto project_schema = input.output_schema;
       for (const auto& expr : project.expressions()) {
-        expressions.emplace_back();
-        ARROW_ASSIGN_OR_RAISE(expressions.back(),
+        ARROW_ASSIGN_OR_RAISE(compute::Expression des_expr,
                               FromProto(expr, ext_set, conversion_options));
+        auto bound_expr = des_expr.Bind(*input.output_schema);
+        if (auto* expr_call = bound_expr->call()) {
+          new_fields[i] = field(expr_call->function_name,
+                                expr_call->kernel->signature->out_type().type());
+        } else if (auto* field_ref = des_expr.field_ref()) {
+          ARROW_ASSIGN_OR_RAISE(FieldPath field_path,
+                                field_ref->FindOne(*input.output_schema));
+          ARROW_ASSIGN_OR_RAISE(new_fields[i], field_path.Get(*input.output_schema));
+        } else if (auto* literal = des_expr.literal()) {
+          new_fields[i] =
+              field("field_" + std::to_string(input.num_columns + i), literal->type());
+        }
+        i++;
+        expressions.emplace_back(des_expr);
       }
-
+      while (!new_fields.empty()) {
+        auto field = new_fields.back();
+        ARROW_ASSIGN_OR_RAISE(
+            project_schema,
+            project_schema->AddField(
+                input.num_columns + static_cast<int>(new_fields.size()) - 1,
+                std::move(field)));
+        new_fields.pop_back();
+      }
       auto num_columns = static_cast<int>(expressions.size());
-      // TODO: get schema and add emit
-      return DeclarationInfo{
-          compute::Declaration::Sequence({
-              std::move(input.declaration),
-              {"project", compute::ProjectNodeOptions{std::move(expressions)}},
-          }),
-          num_columns, arrow::schema({})};
+      if (HasEmit(project)) {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
+                              GetEmitExpression(project, project_schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::move(input.declaration),
+                 {"project", compute::ProjectNodeOptions{std::move(expressions)},
+                  "project"},
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)},
+                  "emit"}}),
+            num_columns, project_schema};
+      } else {
+        return DeclarationInfo{
+            compute::Declaration::Sequence({
+                std::move(input.declaration),
+                {"project", compute::ProjectNodeOptions{std::move(expressions)}},
+            }),
+            num_columns, project_schema};
+      }
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {

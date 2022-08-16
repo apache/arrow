@@ -2261,5 +2261,144 @@ TEST(Substrait, ProjectRel) {
   }
 }
 
+TEST(Substrait, ProjectRelWithEmit) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+  ])"});
+
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
+  const std::string file_name = "serde_project_emit_test.parquet";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_project_tempdir"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  std::string toReplace("/T//");
+  size_t pos = file_path_str.find(toReplace);
+  file_path_str.replace(pos, toReplace.length(), "/T/");
+
+  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+
+  std::string substrait_file_uri = "file://" + file_path_str;
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "project": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 2]
+          }
+        },
+        "expressions": [
+          {"scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }]
+          }
+        },
+        ],
+        "input" : {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+                "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": ")" +
+                               substrait_file_uri +
+                               R"(",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "add"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                         DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
+    arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+    auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+    auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
+    auto declarations = compute::Declaration::Sequence({*other_declrs, sink_declaration});
+    ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
+    auto output_schema = schema({field("A", int32()), field("C", int32())});
+    auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 10],
+      [3, 20]
+    ])"});
+    ASSERT_OK_AND_ASSIGN(auto output_table,
+                         GetTableFromPlan(acero_plan, declarations, sink_gen,
+                                          exec_context, output_schema));
+    EXPECT_TRUE(expected_table->Equals(*output_table));
+  }
+}
+
 }  // namespace engine
 }  // namespace arrow
