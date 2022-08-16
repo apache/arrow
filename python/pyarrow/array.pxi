@@ -1902,6 +1902,7 @@ cdef class ListArray(BaseListArray):
             If not specified, a default ListType with the values' type is
             used.
         pool : MemoryPool
+        mask : Array (bool type)
 
         Returns
         -------
