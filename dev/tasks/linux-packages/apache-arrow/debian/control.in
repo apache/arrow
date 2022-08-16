@@ -53,6 +53,19 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files.
 
+Package: arrow-tools
+Section: utils
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow1000 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides tools.
+
 Package: libarrow-cuda1000
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
@@ -309,6 +322,19 @@ Depends:
 Description: Apache Parquet is a columnar storage format
  .
  This package provides C++ library files to process Apache Parquet format.
+
+Package: parquet-tools
+Section: utils
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libparquet1000 (= ${binary:Version})
+Description: Apache Parquet is a columnar storage format
+ .
+ This package provides tools.
 
 Package: libparquet-dev
 Section: libdevel
