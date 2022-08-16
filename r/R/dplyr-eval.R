@@ -46,7 +46,7 @@ arrow_eval <- function(expr, mask) {
     }
 
     # identify functions in expression with the exception of `c()`
-    exceptions <- c("c", "factor", "!", "~", "(")
+    exceptions <- c("c", "factor", "~", "(")
     expr_funs <- setdiff(all_funs(expr), exceptions)
 
     # if any of the calls in expr are to bindings not yet in the function
