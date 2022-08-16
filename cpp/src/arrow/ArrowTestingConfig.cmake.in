@@ -32,11 +32,13 @@ find_dependency(Arrow)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowTestingTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.10)
-  if(TARGET ArrowTesting::arrow_testing_shared AND NOT TARGET arrow_testing_shared)
+if(CMAKE_VERSION VERSION_GREATER 3.17)
+  if(TARGET ArrowTesting::arrow_testing_shared AND
+     NOT TARGET arrow_testing_shared)
     add_library(arrow_testing_shared ALIAS ArrowTesting::arrow_testing_shared)
   endif()
-  if(TARGET ArrowTesting::arrow_testing_static AND NOT TARGET arrow_testing_static)
+  if(TARGET ArrowTesting::arrow_testing_static AND
+     NOT TARGET arrow_testing_static)
     add_library(arrow_testing_static ALIAS ArrowTesting::arrow_testing_static)
   endif()
 endif()

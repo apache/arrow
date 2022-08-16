@@ -32,7 +32,7 @@ find_dependency(Arrow)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.10)
+if(CMAKE_VERSION VERSION_GREATER 3.17)
   if(TARGET ArrowFlight::arrow_flight_shared AND NOT TARGET arrow_flight_shared)
     add_library(arrow_flight_shared ALIAS ArrowFlight::arrow_flight_shared)
   endif()

@@ -34,11 +34,13 @@ find_dependency(Parquet)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowSubstraitTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.10)
-  if(TARGET ArrowSubstrait::arrow_substrait_shared AND NOT TARGET arrow_substrait_shared)
+if(CMAKE_VERSION VERSION_GREATER 3.17)
+  if(TARGET ArrowSubstrait::arrow_substrait_shared AND
+     NOT TARGET arrow_substrait_shared)
     add_library(arrow_substrait_shared ALIAS ArrowSubstrait::arrow_substrait_shared)
   endif()
-  if(TARGET ArrowSubstrait::arrow_substrait_static AND NOT TARGET arrow_substrait_static)
+  if(TARGET ArrowSubstrait::arrow_substrait_static AND
+     NOT TARGET arrow_substrait_static)
     add_library(arrow_substrait_static ALIAS ArrowSubstrait::arrow_substrait_static)
   endif()
 endif()

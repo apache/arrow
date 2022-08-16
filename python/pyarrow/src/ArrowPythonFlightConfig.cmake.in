@@ -33,11 +33,13 @@ find_dependency(ArrowPython)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonFlightTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.10)
-  if(TARGET ArrowPythonFlight::arrow_python_flight_shared AND NOT TARGET arrow_python_flight_shared)
+if(CMAKE_VERSION VERSION_GREATER 3.17)
+  if(TARGET ArrowPythonFlight::arrow_python_flight_shared AND
+     NOT TARGET arrow_python_flight_shared)
     add_library(arrow_python_flight_shared ALIAS ArrowPythonFlight::arrow_python_flight_shared)
   endif()
-  if(TARGET ArrowPythonFlight::arrow_python_flight_static AND NOT TARGET arrow_python_flight_static)
+  if(TARGET ArrowPythonFlight::arrow_python_flight_static AND
+     NOT TARGET arrow_python_flight_static)
     add_library(arrow_python_flight_static ALIAS ArrowPythonFlight::arrow_python_flight_static)
   endif()
 endif()

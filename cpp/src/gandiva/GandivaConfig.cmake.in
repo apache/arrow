@@ -32,7 +32,7 @@ find_dependency(Arrow)
 include("${CMAKE_CURRENT_LIST_DIR}/GandivaTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.10)
+if(CMAKE_VERSION VERSION_GREATER 3.17)
   if(TARGET Gandiva::gandiva_shared AND NOT TARGET gandiva_shared)
     add_library(gandiva_shared ALIAS Gandiva::gandiva_shared)
   endif()
