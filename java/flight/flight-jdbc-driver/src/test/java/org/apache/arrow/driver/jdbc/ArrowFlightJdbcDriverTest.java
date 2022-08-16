@@ -17,9 +17,14 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.Assert.assertEquals;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
@@ -34,8 +39,6 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import static org.junit.Assert.*;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
@@ -69,106 +72,6 @@ public class ArrowFlightJdbcDriverTest {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
     AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
     AutoCloseables.close(dataSource, allocator);
-  }
-
-  @Test
-  public void testBallista() throws Exception {
-    String url = "jdbc:arrow-flight://localhost:50050";
-    java.util.Properties props = new java.util.Properties();
-    props.setProperty("useEncryption", "false");
-    props.setProperty("user", "admin");
-    props.setProperty("password", "password");
-    Connection con = DriverManager.getConnection(url, props);
-
-    // Do exact same sequence as DataGrip does
-    assertFalse(con.isClosed());
-    DatabaseMetaData dbmd = con.getMetaData();
-    assertEquals("Arrow Flight JDBC Driver", dbmd.getDriverName());
-    assertEquals("9.0.0-SNAPSHOT", dbmd.getDriverVersion());
-    //assertEquals("", md.getDatabaseProductName()); // UNIMPLEMENTED: Implement CommandGetSqlInfo
-    assertEquals(9, dbmd.getDatabaseMajorVersion());
-    assertEquals(0, dbmd.getDatabaseMinorVersion());
-    assertNull(con.getClientInfo("ApplicationName"));
-//    con.setClientInfo("ApplicationName", "DataGrip 2022.2.1");
-    assertEquals(4, dbmd.getJDBCMajorVersion());
-    assertNotNull(dbmd.getConnection());
-//    assertEquals("", md.getIdentifierQuoteString()); // Implement CommandGetSqlInfo
-//    assertEquals("", md.getExtraNameCharacters()); // Implement CommandGetSqlInfo
-    assertFalse(dbmd.supportsMixedCaseIdentifiers());
-    assertTrue(dbmd.storesUpperCaseIdentifiers());
-    assertFalse(dbmd.storesLowerCaseIdentifiers());
-    assertFalse(dbmd.storesMixedCaseIdentifiers());
-    assertTrue(dbmd.supportsMixedCaseQuotedIdentifiers());
-    assertFalse(dbmd.storesUpperCaseQuotedIdentifiers());
-    assertFalse(dbmd.storesLowerCaseQuotedIdentifiers());
-    assertFalse(dbmd.storesMixedCaseQuotedIdentifiers());
-    assertTrue(con.isValid(20));
-//    assertFalse(md.supportsSavepoints()); // Implement CommandGetSqlInfo
-    assertTrue(con.getAutoCommit());
-    con.setReadOnly(false);
-    assertNull(con.getCatalog());
-    assertNull(con.getSchema());
-
-    // statement
-    java.sql.Statement stmt = con.createStatement();
-//    stmt.setEscapeProcessing(false); // Avatica not supported
-    assertFalse(stmt.isClosed());
-    stmt.setFetchSize(100);
-    String sql = "create external table customer STORED AS CSV WITH HEADER ROW\n" +
-            "    LOCATION '/home/bgardner/workspace/ballista/arrow-datafusion/datafusion/core/tests/tpch-csv/customer.csv';\n";
-    assertFalse(stmt.execute(sql));
-
-    // resultset
-    ResultSet rs = stmt.getResultSet();
-    assertFalse(rs.isClosed()); // NPE
-    ResultSetMetaData md = rs.getMetaData();
-    assertNotNull(md);
-    assertEquals(1, md.getColumnCount());
-    assertEquals("", md.getColumnTypeName(1));
-    assertEquals("", md.getColumnType(1));
-    assertEquals("", md.getColumnClassName(1));
-    assertEquals(1, rs.getType());
-    assertFalse(rs.next());
-    assertFalse(rs.isClosed());
-    assertFalse(stmt.getMoreResults());
-    assertFalse(stmt.isClosed());
-    assertNull(con.getWarnings());
-    con.clearWarnings();;
-    stmt.close();
-
-    int updateCount = stmt.getUpdateCount();
-    assertEquals(updateCount, 0);
-
-    sql = "select c_name from customer order by c_name limit 1";
-    assertTrue(stmt.execute(sql));
-    rs = stmt.getResultSet();
-    int count = 0;
-    while(rs.next()) {
-      String key = rs.getString(1);
-      assertEquals(key, "Customer#000000002");
-      count++;
-    }
-    assertEquals(count, 1);
-  }
-
-  @Test
-  public void testDremio() throws Exception {
-    String sql = "select 'Hello, Dremio';";
-    String url = "jdbc:arrow-flight://localhost:32010";
-    java.util.Properties props = new java.util.Properties();
-    props.setProperty("useEncryption", "false");
-    props.setProperty("user", "dremio");
-    props.setProperty("password", "dremio123");
-    Connection con = DriverManager.getConnection(url, props);
-    java.sql.Statement stmt = con.createStatement();
-    boolean result = stmt.execute(sql);
-    assertEquals(result, true);
-    java.sql.ResultSet rs = stmt.getResultSet();
-    int count = 0;
-    while(rs.next()) {
-      count++;
-    }
-    assertEquals(count, 1);
   }
 
   /**
