@@ -893,6 +893,7 @@
         <ARROW_DATASET>OFF</ARROW_DATASET>
         <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
         <ARROW_ORC>OFF</ARROW_ORC>
+        <arrow.cpp.build.dir>../java-dist</arrow.cpp.build.dir>
       </properties>
       <build>
         <plugins>
@@ -902,18 +903,6 @@
             <version>3.1.0</version>
             <executions>
               <execution>
-                <id>jnicppdir</id>
-                <phase>generate-resources</phase>
-                <goals>
-                  <goal>exec</goal>
-                </goals>
-                <configuration>
-                  <executable>mkdir</executable>
-                  <commandlineArgs>-p java-dist java-native-cpp</commandlineArgs>
-                  <workingDirectory>../</workingDirectory>
-                </configuration>
-              </execution>
-              <execution>
                 <id>jnicppdefine</id>
                 <phase>generate-resources</phase>
                 <goals>
@@ -922,18 +911,7 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    -DARROW_BOOST_USE_SHARED=OFF
-                    -DARROW_BROTLI_USE_SHARED=OFF
-                    -DARROW_BZ2_USE_SHARED=OFF
-                    -DARROW_GFLAGS_USE_SHARED=OFF
-                    -DARROW_GRPC_USE_SHARED=OFF
-                    -DARROW_LZ4_USE_SHARED=OFF
-                    -DARROW_OPENSSL_USE_SHARED=OFF
-                    -DARROW_PROTOBUF_USE_SHARED=OFF
-                    -DARROW_SNAPPY_USE_SHARED=OFF
-                    -DARROW_THRIFT_USE_SHARED=OFF
-                    -DARROW_UTF8PROC_USE_SHARED=OFF
-                    -DARROW_ZSTD_USE_SHARED=OFF
+                    -DARROW_*_USE_SHARED=OFF
                     -DARROW_JNI=ON
                     -DARROW_PARQUET=ON
                     -DARROW_FILESYSTEM=ON
@@ -944,17 +922,9 @@
                     -DARROW_ORC=${ARROW_ORC}
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
-                    -DCMAKE_INSTALL_PREFIX=../java-dist
+                    -DCMAKE_INSTALL_PREFIX=${arrow.cpp.build.dir}
                     -DCMAKE_UNITY_BUILD=ON
-                    -Dre2_SOURCE=BUNDLED
-                    -DBoost_SOURCE=BUNDLED
-                    -Dutf8proc_SOURCE=BUNDLED
-                    -DSnappy_SOURCE=BUNDLED
-                    -DORC_SOURCE=BUNDLED
-                    -DZLIB_SOURCE=BUNDLED
-                    -Dxsimd_SOURCE=BUNDLED
-                    -Dzstd_SOURCE=BUNDLED
-                    -Dlz4_SOURCE=BUNDLED
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
                     ../cpp
                   </commandlineArgs>
                   <workingDirectory>../java-native-cpp</workingDirectory>
@@ -969,7 +939,7 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    --build . --target install
+                    --build . --target install --config release
                   </commandlineArgs>
                   <workingDirectory>../java-native-cpp</workingDirectory>
                 </configuration>
