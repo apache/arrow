@@ -103,7 +103,7 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
 template <typename TYPE>
 Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArrays(
     std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-    MemoryPool* pool, int64_t null_count = -1,
+    MemoryPool* pool, int64_t null_count = kUnknownNullCount,
     std::shared_ptr<Buffer> null_bitmap = NULLPTR) {
   using offset_type = typename TYPE::offset_type;
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
