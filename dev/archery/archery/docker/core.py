@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
 
@@ -49,18 +50,6 @@ _arch_alias_mapping = {
     'amd64': 'x86_64',
     'arm64v8': 'aarch64',
 }
-
-_arrow_root = os.environ.get(
-    'ARROW_ROOT',
-    os.path.abspath(__file__).rsplit("/", 5)[0]
-)
-
-
-def _arrow_path(path):
-    """
-    Return full path to a file given its path inside the Arrow repo.
-    """
-    return os.path.join(_arrow_root, path)
 
 
 class UndefinedImage(Exception):
@@ -300,7 +289,7 @@ class DockerCompose(Command):
 
                 args.extend([
                     '--output', 'type=docker',
-                    '-f', _arrow_path(service['build']['dockerfile']),
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -312,7 +301,7 @@ class DockerCompose(Command):
                 for img in cache_from:
                     args.append('--cache-from="{}"'.format(img))
                 args.extend([
-                    '-f', _arrow_path(service['build']['dockerfile']),
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
