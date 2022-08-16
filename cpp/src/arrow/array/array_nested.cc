@@ -125,10 +125,11 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   std::shared_ptr<Buffer> offset_buf, validity_buf;
   RETURN_NOT_OK(CleanListOffsets<TYPE>(offsets, pool, &offset_buf, &validity_buf));
   int64_t null_count_ = null_bitmap ? null_count : offsets.null_count();
+  BufferVector buffers = {null_bitmap ? std::move(null_bitmap) : validity_buf, offset_buf};
 
   std::shared_ptr<arrow::ArrayData> internal_data = ArrayData::Make(
       type, offsets.length() - 1,
-      BufferVector{null_bitmap ? std::move(null_bitmap) : validity_buf, offset_buf},
+      std::move(buffers),
       null_count_, offsets.offset());
   internal_data->child_data.push_back(values.data());
   return std::make_shared<ArrayType>(internal_data);
