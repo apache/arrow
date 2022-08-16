@@ -103,8 +103,8 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
 template <typename TYPE>
 Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArrays(
     std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-    MemoryPool* pool, int64_t null_count = kUnknownNullCount,
-    std::shared_ptr<Buffer> null_bitmap = NULLPTR) {
+    MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+    int64_t null_count = kUnknownNullCount) {
   using offset_type = typename TYPE::offset_type;
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
@@ -239,15 +239,15 @@ void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
-    const Array& offsets, const Array& values, MemoryPool* pool, int64_t null_count,
-    std::shared_ptr<Buffer> null_bitmap) {
+    const Array& offsets, const Array& values, MemoryPool* pool,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   return ListArrayFromArrays<ListType>(std::make_shared<ListType>(values.type()), offsets,
-                                       values, pool, null_count, null_bitmap);
+                                       values, pool, null_bitmap, null_count);
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
     std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-    MemoryPool* pool, int64_t null_count, std::shared_ptr<Buffer> null_bitmap) {
+    MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (type->id() != Type::LIST) {
     return Status::TypeError("Expected list type, got ", type->ToString());
   }
@@ -255,8 +255,8 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
   if (!list_type.value_type()->Equals(values.type())) {
     return Status::TypeError("Mismatching list value type");
   }
-  return ListArrayFromArrays<ListType>(std::move(type), offsets, values, pool, null_count,
-                                       null_bitmap);
+  return ListArrayFromArrays<ListType>(std::move(type), offsets, values, pool,
+                                       null_bitmap, null_count);
 }
 
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(const Array& offsets,

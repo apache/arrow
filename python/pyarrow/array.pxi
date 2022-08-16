@@ -1956,12 +1956,12 @@ cdef class ListArray(BaseListArray):
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArraysAndType(
-                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, -1, c_mask))
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, c_mask, -1))
         else:
             with nogil:
                 out = GetResultValue(
                     CListArray.FromArrays(
-                        _offsets.ap[0], _values.ap[0], cpool, -1, c_mask))
+                        _offsets.ap[0], _values.ap[0], cpool, c_mask, -1))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result

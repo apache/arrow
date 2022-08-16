@@ -608,8 +608,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const CArray& offsets,
             const CArray& values,
             CMemoryPool* pool,
-            int64_t null_count,
-            shared_ptr[CBuffer] null_bitmap
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count
         )
 
         @staticmethod
@@ -618,8 +618,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const CArray& offsets,
             const CArray& values,
             CMemoryPool* pool,
-            int64_t null_count,
-            shared_ptr[CBuffer] null_bitmap
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count
         )
 
         const int32_t* raw_value_offsets()
