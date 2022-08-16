@@ -45,7 +45,7 @@ arrow_eval <- function(expr, mask) {
       class(out) <- c("arrow-try-error", class(out))
     }
 
-    # identify functions in expression with the exception of `c()`
+    # identify unknown bindings in expression with exceptions
     exceptions <- c("c", "factor", "~", "(")
     expr_funs <- setdiff(all_funs(expr), exceptions)
 
