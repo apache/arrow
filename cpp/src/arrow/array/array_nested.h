@@ -125,6 +125,9 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
+  /// \param[in] null_count Count of null values
+  /// \param[in] null_bitmap Array of valid and null values,
+  /// where 0 represents null and 1 represents valid.
   static Result<std::shared_ptr<ListArray>> FromArrays(
       const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool(),
