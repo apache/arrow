@@ -52,8 +52,8 @@ set(PLASMA_STORE_SRCS
     store.cc
     thirdparty/ae/ae.c)
 
-set(PLASMA_SHARED_LINK_LIBS)
-set(PLASMA_STATIC_LINK_LIBS)
+set(PLASMA_SHARED_LINK_LIBS arrow::flatbuffers)
+set(PLASMA_STATIC_LINK_LIBS arrow::flatbuffers)
 set(PLASMA_SHARED_INSTALL_INTERFACE_LIBS)
 set(PLASMA_STATIC_INSTALL_INTERFACE_LIBS)
 
@@ -68,8 +68,8 @@ else()
   list(APPEND PLASMA_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 endif()
 
-list(APPEND PLASMA_SHARED_LINK_LIBS arrow::flatbuffers arrow_shared)
-list(APPEND PLASMA_STATIC_LINK_LIBS arrow::flatbuffers arrow_static)
+list(APPEND PLASMA_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PLASMA_STATIC_LINK_LIBS arrow_static)
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PLASMA_SHARED_LINK_FLAGS
