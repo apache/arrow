@@ -129,15 +129,13 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// \param[in] null_bitmap Array of valid and null values,
   /// where 0 represents null and 1 represents valid.
   static Result<std::shared_ptr<ListArray>> FromArrays(
-      const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool(),
+      const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
       int64_t null_count = kUnknownNullCount,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   static Result<std::shared_ptr<ListArray>> FromArrays(
       std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool(),
-      int64_t null_count = kUnknownNullCount,
+      MemoryPool* pool = default_memory_pool(), int64_t null_count = kUnknownNullCount,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
