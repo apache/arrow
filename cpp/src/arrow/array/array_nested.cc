@@ -117,7 +117,7 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
     return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
   }
 
-  if (null_bitmap != NULLPTR && offsets.null_count() > 0) {
+  if (null_bitmap != nullptr && offsets.null_count() > 0) {
     return Status::Invalid(
         "Ambiguous to specify both validity map and offsets with nulls");
   }
