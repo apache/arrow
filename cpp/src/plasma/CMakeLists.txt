@@ -88,7 +88,7 @@ add_arrow_lib(plasma
               SHARED_LINK_FLAGS
               ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
-              ${PLASMA_LINK_LIBS}
+              ${PLASMA_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${PLASMA_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
