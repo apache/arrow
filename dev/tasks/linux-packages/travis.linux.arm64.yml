@@ -44,7 +44,6 @@ addons:
       # To build createrepo_c from source.
       # We can remove them when we can install createrepo_c package
       - cmake
-      - curl
       - libbz2-dev
       - libcurl4-openssl-dev
       - libglib2.0-dev
