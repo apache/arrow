@@ -20,6 +20,8 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -173,10 +175,25 @@ type PrimitiveReaderSuite struct {
 	nvalues         int
 	maxDefLvl       int16
 	maxRepLvl       int16
+
+	bufferPool sync.Pool
+}
+
+func (p *PrimitiveReaderSuite) SetupTest() {
+	p.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(mem)
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
 }
 
 func (p *PrimitiveReaderSuite) TearDownTest() {
 	p.clear()
+	p.bufferPool = sync.Pool{}
 }
 
 func (p *PrimitiveReaderSuite) initReader(d *schema.Column) {
@@ -185,7 +202,7 @@ func (p *PrimitiveReaderSuite) initReader(d *schema.Column) {
 	m.TestData().Set("pages", p.pages)
 	m.On("Err").Return((error)(nil))
 	p.pager = m
-	p.reader = file.NewColumnReader(d, m, mem)
+	p.reader = file.NewColumnReader(d, m, mem, &p.bufferPool)
 }
 
 func (p *PrimitiveReaderSuite) checkResults(typ reflect.Type) {
