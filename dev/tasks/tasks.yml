@@ -1040,7 +1040,7 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-10.15"
+      github_runner: "macos-latest"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -1056,7 +1056,7 @@ tasks:
     template: verify-rc/github.macos.amd64.yml
     params:
       target: {{ target }}
-      github_runner: "macos-10.15"
+      github_runner: "macos-latest"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -1080,7 +1080,7 @@ tasks:
       github_runner: ["self-hosted", "macOS", "arm64"]
   {% endfor %}
 
-  {% for macos_version in ["10.15", "11"] %}
+  {% for macos_version in ["11", "12"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.amd64.yml
