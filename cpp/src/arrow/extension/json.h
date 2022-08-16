@@ -47,7 +47,7 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
 };
 
 /// \brief Return a JsonExtensionType instance.
-std::shared_ptr<ExtensionType> json();
+ARROW_EXPORT std::shared_ptr<ExtensionType> json();
 
 }  // namespace extension
 }  // namespace arrow

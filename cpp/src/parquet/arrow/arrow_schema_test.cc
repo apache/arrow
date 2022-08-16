@@ -762,11 +762,11 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // Parquet file contains Arrow schema.
     // Arrow schema has precedence. json_1 should be returned as a json() field even
     // though extensions are not enabled.
-    std::shared_ptr<KeyValueMetadata> field_metadata = ::arrow::key_value_metadata(
-      {"foo", "bar"}, {"biz", "baz"});
-    auto arrow_schema =
-        ::arrow::schema({::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-                         ::arrow::field("json_2", BINARY, true)});
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", BINARY, true)});
 
     ASSERT_OK_AND_ASSIGN(
         std::shared_ptr<Buffer> serialized,
@@ -787,11 +787,11 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // binary column even if known_arrow_extensions_enabled is enabled.
     ArrowReaderProperties props;
     props.enable_known_arrow_extensions();
-    std::shared_ptr<KeyValueMetadata> field_metadata = ::arrow::key_value_metadata(
-      {"foo", "bar"}, {"biz", "baz"});
-    auto arrow_schema =
-        ::arrow::schema({::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-                         ::arrow::field("json_2", BINARY, true)});
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", BINARY, true)});
 
     ASSERT_OK_AND_ASSIGN(
         std::shared_ptr<Buffer> serialized,

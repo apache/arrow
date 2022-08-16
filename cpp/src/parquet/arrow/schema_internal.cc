@@ -17,8 +17,8 @@
 
 #include "parquet/arrow/schema_internal.h"
 
-#include "arrow/type.h"
 #include "arrow/extension/json.h"
+#include "arrow/type.h"
 
 #include "parquet/properties.h"
 

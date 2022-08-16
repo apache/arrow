@@ -944,15 +944,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   /// Enable Parquet supported Arrow Extension Types.
   ///
-  /// When enabled, Parquet will use supported Arrow ExtensionTypes in mapping to Arrow schema.
-  /// Currently only arrow::extension::json() extension type is supported. This will be used
-  /// for binary columns whose LogicalType is JSON.
-  void enable_known_arrow_extensions() {
-    known_arrow_extensions_enabled_ = true;
-  }
-  void disable_known_arrow_extensions() {
-    known_arrow_extensions_enabled_ = false;
-  }
+  /// When enabled, Parquet will use supported Arrow ExtensionTypes in mapping to Arrow
+  /// schema. Currently only arrow::extension::json() extension type is supported. This
+  /// will be used for binary columns whose LogicalType is JSON.
+  void enable_known_arrow_extensions() { known_arrow_extensions_enabled_ = true; }
+  void disable_known_arrow_extensions() { known_arrow_extensions_enabled_ = false; }
   bool known_arrow_extensions_enabled() const { return known_arrow_extensions_enabled_; }
 
  private:
