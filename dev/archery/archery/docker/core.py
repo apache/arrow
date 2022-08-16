@@ -16,7 +16,7 @@
 # under the License.
 
 import os
-import re
+import shlex
 import subprocess
 from io import StringIO
 
@@ -42,12 +42,6 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
-def _sanitize_command(cmd):
-    if isinstance(cmd, list):
-        cmd = " ".join(cmd)
-    return re.sub(r"\s+", " ", cmd)
-
-
 _arch_short_mapping = {
     'arm64v8': 'arm64',
 }
@@ -55,6 +49,18 @@ _arch_alias_mapping = {
     'amd64': 'x86_64',
     'arm64v8': 'aarch64',
 }
+
+_arrow_root = os.environ.get(
+    'ARROW_ROOT',
+    os.path.abspath(__file__).rsplit("/", 5)[0]
+)
+
+
+def _arrow_path(path):
+    """
+    Return full path to a file given its path inside the Arrow repo.
+    """
+    return os.path.join(_arrow_root, path)
 
 
 class UndefinedImage(Exception):
@@ -294,7 +300,7 @@ class DockerCompose(Command):
 
                 args.extend([
                     '--output', 'type=docker',
-                    '-f', service['build']['dockerfile'],
+                    '-f', _arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -306,7 +312,7 @@ class DockerCompose(Command):
                 for img in cache_from:
                     args.append('--cache-from="{}"'.format(img))
                 args.extend([
-                    '-f', service['build']['dockerfile'],
+                    '-f', _arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -381,10 +387,9 @@ class DockerCompose(Command):
             if command is not None:
                 args.append(command)
             else:
-                # replace whitespaces from the preformatted compose command
-                cmd = _sanitize_command(service.get('command', ''))
+                cmd = service.get('command', '')
                 if cmd:
-                    args.append(cmd)
+                    args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
