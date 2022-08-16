@@ -42,11 +42,37 @@ using internal::make_unique;
 namespace engine {
 
 template <typename RelMessage>
+bool HasEmit(const RelMessage& rel) {
+  if (rel.has_common()) {
+    return rel.common().has_emit();
+  }
+  return false;
+}
+
+template <typename RelMessage>
+Result<compute::Expression> GetEmitExpression(const RelMessage& rel,
+                                              const std::shared_ptr<Schema>& schema) {
+  const auto& emit = rel.common().emit();
+  int emit_size = emit.output_mapping_size();
+  std::vector<std::string> proj_names(emit_size);
+  std::vector<compute::Expression> proj_field_refs(emit_size);
+  for (int i = 0; i < emit_size; i++) {
+    int32_t map_id = emit.output_mapping(i);
+    auto field = schema->field(map_id);
+    auto field_name = field->name();
+    proj_names[i] = field_name;
+    proj_field_refs[i] = compute::field_ref(field_name);
+  }
+  auto expr = compute::project(proj_field_refs, proj_names);
+  return expr.Bind(*schema);
+}
+
+template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
   if (rel.has_common()) {
-    if (rel.common().has_emit()) {
-      return Status::NotImplemented("substrait::RelCommon::Emit");
-    }
+    // if (rel.common().has_emit()) {
+    //   return Status::NotImplemented("substrait::RelCommon::Emit");
+    // }
     if (rel.common().has_hint()) {
       return Status::NotImplemented("substrait::RelCommon::Hint");
     }
@@ -216,12 +242,24 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
+      auto num_columns = static_cast<int>(base_schema->fields().size());
+      ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
+      // if(HasEmit(read)) {
+      //   ARROW_ASSIGN_OR_RAISE(auto emit_expression, GetEmitExpression(read,
+      //   base_schema)); return DeclarationInfo{
+      //     compute::Declaration::Sequence({
+      //         {"scan", dataset::ScanNodeOptions{std::move(ds),
+      //         std::move(scan_options)}},
+      //         {"project", compute::ProjectNodeOptions{{emit_expression}}}
+      //     }),
+      //     num_columns, std::move(base_schema)};
+      // } else {
       return DeclarationInfo{
           compute::Declaration{
               "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
-          num_columns};
+          num_columns, std::move(base_schema)};
+      //}
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -240,18 +278,29 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
 
+      // if(HasEmit(filter)) {
+      //   ARROW_ASSIGN_OR_RAISE(auto emit_expression, GetEmitExpression(filter,
+      //   input.output_schema)); return DeclarationInfo{
+      //     compute::Declaration::Sequence({
+      //         std::move(input.declaration),
+      //         {"filter", compute::FilterNodeOptions{std::move(condition)}},
+      //         {"project", compute::ProjectNodeOptions{{emit_expression}}}
+      //     }),
+      //     input.num_columns,
+      //     input.output_schema};
+      // } else {
       return DeclarationInfo{
           compute::Declaration::Sequence({
               std::move(input.declaration),
               {"filter", compute::FilterNodeOptions{std::move(condition)}},
           }),
-          input.num_columns};
+          input.num_columns, input.output_schema};
+      //}
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
       const auto& project = rel.project();
       RETURN_NOT_OK(CheckRelCommon(project));
-
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
@@ -272,12 +321,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       auto num_columns = static_cast<int>(expressions.size());
+      // TODO: get schema and add emit
       return DeclarationInfo{
           compute::Declaration::Sequence({
               std::move(input.declaration),
               {"project", compute::ProjectNodeOptions{std::move(expressions)}},
           }),
-          num_columns};
+          num_columns, arrow::schema({})};
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {
@@ -363,7 +413,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto num_columns = left.num_columns + right.num_columns;
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
-      return DeclarationInfo{std::move(join_dec), num_columns};
+      // TODO: add schema and get emit rel
+      return DeclarationInfo{std::move(join_dec), num_columns, arrow::schema({})};
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
@@ -421,12 +472,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           return Status::Invalid("substrait::AggregateFunction not provided");
         }
       }
-
+      /// TODO: add emit and extract schema
       return DeclarationInfo{
           compute::Declaration::Sequence(
               {std::move(input.declaration),
                {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
-          static_cast<int>(aggregates.size())};
+          static_cast<int>(aggregates.size()), arrow::schema({})};
     }
 
     default:

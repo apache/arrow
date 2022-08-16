@@ -38,6 +38,8 @@ struct DeclarationInfo {
 
   /// The number of columns returned by the declaration.
   int num_columns;
+
+  std::shared_ptr<Schema> output_schema;
 };
 
 /// \brief Convert a Substrait Rel object to an Acero declaration
