@@ -567,10 +567,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         if (uri == null) {
           String scheme = config.useEncryption ? GRPC_TLS : GRPC_INSECURE;
           uri = new URI(String.format("%s://%s:%d", scheme, config.host, config.port));
-        } else {
-          // TODO: use same auth for both executors and scheduler
-          username = null;
-          password = null;
         }
   
         // Create a new connection and add it to the map
