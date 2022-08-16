@@ -181,12 +181,20 @@ func (BaseServer) GetFlightInfoStatement(context.Context, StatementQuery, *fligh
 	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoStatement not implemented")
 }
 
+func (BaseServer) GetSchemaStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetSchemaStatement not implemented")
+}
+
 func (BaseServer) DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	return nil, nil, status.Errorf(codes.Unimplemented, "DoGetStatement not implemented")
 }
 
 func (BaseServer) GetFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoPreparedStatement not implemented")
+}
+
+func (BaseServer) GetSchemaPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetSchemaPreparedStatement not implemented")
 }
 
 func (BaseServer) DoGetPreparedStatement(context.Context, PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
@@ -367,12 +375,17 @@ func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatemen
 type Server interface {
 	// GetFlightInfoStatement returns a FlightInfo for executing the requested sql query
 	GetFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// GetFlightInfoStatement returns the schema of the result set of the requested sql query
+	GetSchemaStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error)
 	// DoGetStatement returns a stream containing the query results for the
 	// requested statement handle that was populated by GetFlightInfoStatement
 	DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error)
 	// GetFlightInfoPreparedStatement returns a FlightInfo for executing an already
 	// prepared statement with the provided statement handle.
 	GetFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// GetSchemaPreparedStatement returns the schema of the result set of executing an already
+	// prepared statement with the provided statement handle.
+	GetSchemaPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.SchemaResult, error)
 	// DoGetPreparedStatement returns a stream containing the results from executing
 	// a prepared statement query with the provided statement handle.
 	DoGetPreparedStatement(context.Context, PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error)
@@ -517,6 +530,53 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 	}
 
 	return nil, status.Error(codes.InvalidArgument, "requested command is invalid")
+}
+
+func (f *flightSqlServer) GetSchema(ctx context.Context, request *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	var (
+		anycmd anypb.Any
+		cmd    proto.Message
+		err    error
+	)
+	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+	}
+
+	if cmd, err = anycmd.UnmarshalNew(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "could not unmarshal Any to a command type: %s", err.Error())
+	}
+
+	switch cmd := cmd.(type) {
+	case *pb.CommandStatementQuery:
+		return f.srv.GetSchemaStatement(ctx, cmd, request)
+	case *pb.CommandPreparedStatementQuery:
+		return f.srv.GetSchemaPreparedStatement(ctx, cmd, request)
+	case *pb.CommandGetCatalogs:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.Catalogs, f.mem)}, nil
+	case *pb.CommandGetDbSchemas:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.DBSchemas, f.mem)}, nil
+	case *pb.CommandGetTables:
+		if cmd.GetIncludeSchema() {
+			return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.TablesWithIncludedSchema, f.mem)}, nil
+		}
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.Tables, f.mem)}, nil
+	case *pb.CommandGetTableTypes:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.TableTypes, f.mem)}, nil
+	case *pb.CommandGetXdbcTypeInfo:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.XdbcTypeInfo, f.mem)}, nil
+	case *pb.CommandGetSqlInfo:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.SqlInfo, f.mem)}, nil
+	case *pb.CommandGetPrimaryKeys:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.PrimaryKeys, f.mem)}, nil
+	case *pb.CommandGetExportedKeys:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.ExportedKeys, f.mem)}, nil
+	case *pb.CommandGetImportedKeys:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.ImportedKeys, f.mem)}, nil
+	case *pb.CommandGetCrossReference:
+		return &flight.SchemaResult{Schema: flight.SerializeSchema(schema_ref.CrossReference, f.mem)}, nil
+	}
+
+	return nil, status.Errorf(codes.InvalidArgument, "requested command is invalid: %s", anycmd.GetTypeUrl())
 }
 
 func (f *flightSqlServer) DoGet(request *flight.Ticket, stream flight.FlightService_DoGetServer) (err error) {

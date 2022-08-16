@@ -397,7 +397,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
 
   /// \brief Factory method to construct a SchemaResult.
-  static arrow::Result<SchemaResult> Make(const Schema& schema);
+  static arrow::Result<std::unique_ptr<SchemaResult>> Make(const Schema& schema);
 
   /// \brief return schema
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
