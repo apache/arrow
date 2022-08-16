@@ -136,17 +136,19 @@ function(arrow_create_merged_static_lib output_target)
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
 
-  add_custom_command(COMMAND ${BUNDLE_COMMAND}
-                     OUTPUT ${output_lib_path}
-                     COMMENT "Bundling ${output_lib_path}"
-                     VERBATIM)
+  add_custom_target(${output_target}_merge ALL
+                    ${BUNDLE_COMMAND}
+                    DEPENDS ${ARG_ROOT} ${ARG_TO_MERGE}
+                    BYPRODUCTS ${output_lib_path}
+                    COMMENT "Bundling ${output_lib_path}"
+                    VERBATIM)
 
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
   add_library(${output_target} STATIC IMPORTED)
   set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
-  add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
+  add_dependencies(${output_target} ${output_target}_merge)
 endfunction()
 
 function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
