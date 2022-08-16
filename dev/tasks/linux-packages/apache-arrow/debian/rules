@@ -31,6 +31,7 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
@@ -60,6 +61,7 @@ override_dh_auto_configure:
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCMAKE_UNITY_BUILD=ON				\
 	  -DCUDAToolkit_ROOT=/usr				\
+	  -DPARQUET_BUILD_EXECUTABLES=ON			\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3

@@ -153,6 +153,7 @@ Apache Arrow is a data processing library for analysis.
 cpp_build_type=release
 cd cpp
 %arrow_cmake \
+  -DARROW_BUILD_UTILITIES=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
 %if %{use_flight}
@@ -188,6 +189,7 @@ cd cpp
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
@@ -262,6 +264,20 @@ This package contains the libraries for Apache Arrow C++.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow.so.*
+
+%package tools
+Summary:	Tools for Apache Arrow C++
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+
+%description tools
+Tools for Apache Arrow C++.
+
+%files tools
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_bindir}/arrow-*
 
 %package devel
 Summary:	Libraries and header files for Apache Arrow C++
@@ -632,6 +648,20 @@ This package contains the libraries for Apache Parquet C++.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_libdir}/libparquet.so.*
+
+%package -n parquet-tools
+Summary:	Tools for Apache Parquet C++
+License:	Apache-2.0
+Requires:	parquet%{major_version}-libs = %{version}-%{release}
+
+%description -n parquet-tools
+Tools for Apache Parquet C++.
+
+%files -n parquet-tools
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_bindir}/parquet-*
 
 %package -n parquet-devel
 Summary:	Libraries and header files for Apache Parquet C++

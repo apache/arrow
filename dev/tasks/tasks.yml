@@ -585,6 +585,7 @@ tasks:
         - .dsc
         - .orig.tar.gz
     artifacts:
+      - arrow-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - apache-arrow-apt-source_{no_rc_version}-1.debian.tar.xz
       - apache-arrow-apt-source_{no_rc_version}-1.dsc
@@ -648,6 +649,7 @@ tasks:
       - libparquet-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
@@ -757,6 +759,11 @@ tasks:
     {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
     {% endif %}
+      - arrow-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - arrow-tools-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
     {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -777,6 +784,11 @@ tasks:
       - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - parquet-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - parquet-tools-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
