@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(OpenSSLAlt_FOUND)
+  return()
+endif()
+
 if(ARROW_OPENSSL_USE_SHARED)
   # Find shared OpenSSL libraries.
   set(OpenSSL_USE_STATIC_LIBS OFF)

@@ -159,8 +159,12 @@ add_arrow_lib(gandiva
               arrow_shared
               SHARED_PRIVATE_LINK_LIBS
               ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_shared
               STATIC_LINK_LIBS
-              ${GANDIVA_STATIC_LINK_LIBS})
+              ${GANDIVA_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_static)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)

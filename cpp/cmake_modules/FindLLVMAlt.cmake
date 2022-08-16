@@ -19,6 +19,10 @@
 #
 #  find_package(LLVMAlt)
 
+if(LLVMAlt_FOUND)
+  return()
+endif()
+
 if(DEFINED LLVM_ROOT)
   # if llvm source is set to conda then prefer conda llvm over system llvm even
   # if the system one is newer

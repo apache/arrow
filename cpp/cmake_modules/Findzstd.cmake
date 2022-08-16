@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(zstd_FOUND)
+  return()
+endif()
+
 if(MSVC AND NOT DEFINED ZSTD_MSVC_LIB_PREFIX)
   set(ZSTD_MSVC_LIB_PREFIX "lib")
 endif()
