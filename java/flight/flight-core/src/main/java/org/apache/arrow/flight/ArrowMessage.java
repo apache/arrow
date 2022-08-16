@@ -65,7 +65,7 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 /**
  * The in-memory representation of FlightData used to manage a stream of Arrow messages.
  */
-class ArrowMessage implements AutoCloseable {
+public class ArrowMessage implements AutoCloseable {
 
   // If true, deserialize Arrow data by giving Arrow a reference to the underlying gRPC buffer
   // instead of copying the data. Defaults to true.

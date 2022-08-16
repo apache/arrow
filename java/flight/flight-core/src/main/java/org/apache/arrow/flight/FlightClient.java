@@ -303,7 +303,7 @@ public class FlightClient implements AutoCloseable {
   public FlightStream getStream(Ticket ticket, CallOption... options) {
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
-    FlightStream stream = new FlightStream(
+    FlightStream stream = new FlightStreamImpl(
         allocator,
         PENDING_REQUESTS,
         (String message, Throwable cause) -> call.cancel(message, cause),
@@ -352,14 +352,14 @@ public class FlightClient implements AutoCloseable {
 
     try {
       final ClientCall<ArrowMessage, ArrowMessage> call = interceptedChannel.newCall(doExchangeDescriptor, callOptions);
-      final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
+      final FlightStream stream = new FlightStreamImpl(allocator, PENDING_REQUESTS, call::cancel, call::request);
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
       final ClientStreamListener writer = new PutObserver(
-          descriptor, observer, stream.cancelled::isDone,
+          descriptor, observer, stream.cancelled()::isDone,
           () -> {
             try {
-              stream.completed.get();
+              stream.completed().get();
             } catch (InterruptedException e) {
               Thread.currentThread().interrupt();
               throw CallStatus.INTERNAL

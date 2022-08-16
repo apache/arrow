@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.ArrayList;
 import java.net.URI;
 
+import org.apache.arrow.driver.jdbc.FlightClientCloser;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -106,10 +107,10 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       ArrayList<org.apache.arrow.flight.FlightStream> streams = new java.util.ArrayList<>();
       for (FlightEndpoint ep : flightInfo.getEndpoints()) {
         URI uri = ep.getLocations().isEmpty() ? null : ep.getLocations().get(0).getUri();
-        System.out.println(String.format("Getting stream %s", uri)); // TODO: remove
         FlightSqlClient sqlClient = this.factory.createConnection(uri);
-        FlightStream stream = sqlClient.getStream(ep.getTicket(), getOptions()); // TODO: wrap and close client
-        streams.add(stream);
+        FlightStream stream = sqlClient.getStream(ep.getTicket(), getOptions());
+        FlightClientCloser closer = new FlightClientCloser(sqlClient, stream);
+        streams.add(closer);
       }
       return streams;
   }

@@ -129,7 +129,7 @@ public class TestMetadataVersion {
   public void testGetV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
          final FlightClient client = connect(server);
-         final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
+         final FlightStreamImpl stream = (FlightStreamImpl)client.getStream(new Ticket(new byte[0]))) {
       assertTrue(stream.next());
       assertEquals(optionV4.metadataVersion, stream.metadataVersion);
       validateRoot(stream.getRoot());
@@ -148,7 +148,7 @@ public class TestMetadataVersion {
       stream.getWriter().putNext();
       stream.getWriter().completed();
       assertTrue(stream.getReader().next());
-      assertEquals(optionV5.metadataVersion, stream.getReader().metadataVersion);
+      assertEquals(optionV5.metadataVersion, ((FlightStreamImpl)stream.getReader()).metadataVersion);
       validateRoot(stream.getReader().getRoot());
       assertFalse(stream.getReader().next());
     }
@@ -165,7 +165,7 @@ public class TestMetadataVersion {
       stream.getWriter().putNext();
       stream.getWriter().completed();
       assertTrue(stream.getReader().next());
-      assertEquals(optionV4.metadataVersion, stream.getReader().metadataVersion);
+      assertEquals(optionV4.metadataVersion, ((FlightStreamImpl)stream.getReader()).metadataVersion);
       validateRoot(stream.getReader().getRoot());
       assertFalse(stream.getReader().next());
     }
@@ -182,7 +182,7 @@ public class TestMetadataVersion {
       stream.getWriter().putNext();
       stream.getWriter().completed();
       assertTrue(stream.getReader().next());
-      assertEquals(optionV4.metadataVersion, stream.getReader().metadataVersion);
+      assertEquals(optionV4.metadataVersion, ((FlightStreamImpl)stream.getReader()).metadataVersion);
       validateRoot(stream.getReader().getRoot());
       assertFalse(stream.getReader().next());
     }
@@ -263,7 +263,7 @@ public class TestMetadataVersion {
       return () -> {
         try {
           assertTrue(flightStream.next());
-          assertEquals(option.metadataVersion, flightStream.metadataVersion);
+          assertEquals(option.metadataVersion, ((FlightStreamImpl)flightStream).metadataVersion);
           validateRoot(flightStream.getRoot());
         } catch (AssertionError err) {
           // gRPC doesn't propagate stack traces across the wire.

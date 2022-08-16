@@ -104,7 +104,7 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
 
   @Override
   public Runnable acceptPut(CallContext context,
-      final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
+                            final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
     return () -> {
       List<ArrowRecordBatch> batches = new ArrayList<>();
       try {

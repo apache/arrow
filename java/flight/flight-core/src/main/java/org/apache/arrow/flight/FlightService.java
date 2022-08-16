@@ -220,7 +220,7 @@ class FlightService extends FlightServiceImplBase {
 
     final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
         .wrap(responseObserver, PutResult::toProtocol, this::handleExceptionWithMiddleware);
-    final FlightStream fs = new FlightStream(
+    final FlightStream fs = new FlightStreamImpl(
         allocator,
         PENDING_REQUESTS,
         /* server-upload streams are not cancellable */null,
@@ -351,7 +351,7 @@ class FlightService extends FlightServiceImplBase {
     final ExchangeListener listener = new ExchangeListener(
         responseObserver,
         this::handleExceptionWithMiddleware);
-    final FlightStream fs = new FlightStream(
+    final FlightStream fs = new FlightStreamImpl(
         allocator,
         PENDING_REQUESTS,
         /* server-upload streams are not cancellable */null,
