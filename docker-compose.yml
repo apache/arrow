@@ -489,7 +489,14 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_CUDA: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+      ARROW_WITH_OPENTELEMETRY: "OFF"
     volumes: *ubuntu-volumes
     command: *cpp-command
 
