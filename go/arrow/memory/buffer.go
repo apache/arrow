@@ -98,6 +98,10 @@ func (b *Buffer) Len() int { return b.length }
 // Cap returns the capacity of the buffer.
 func (b *Buffer) Cap() int { return len(b.buf) }
 
+// Parent returns the parent buffer if this buffer was sliced from a
+// different one
+func (b *Buffer) Parent() *Buffer { return b.parent }
+
 // Reserve reserves the provided amount of capacity for the buffer.
 func (b *Buffer) Reserve(capacity int) {
 	if capacity > len(b.buf) {

@@ -273,6 +273,10 @@ type Decimal128 struct {
 	Value decimal128.Num
 }
 
+func (s *Decimal128) Data() []byte {
+	return (*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
+}
+
 func (s *Decimal128) value() interface{} { return s.Value }
 
 func (s *Decimal128) String() string {
@@ -335,6 +339,10 @@ func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
 type Decimal256 struct {
 	scalar
 	Value decimal256.Num
+}
+
+func (s *Decimal256) Data() []byte {
+	return (*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
 func (s *Decimal256) value() interface{} { return s.Value }
@@ -697,6 +705,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 }
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
+//
+// Deprecated: Use array.MakeArrayOfNull
 func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) arrow.Array {
 	var (
 		buffers  = []*memory.Buffer{nil}

@@ -22,8 +22,16 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/xerrors"
 )
+
+func min[T constraints.Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 type bufferWriteSeeker struct {
 	buf *memory.Buffer
@@ -80,4 +88,43 @@ func (b *bufferWriteSeeker) Seek(offset int64, whence int) (int64, error) {
 	}
 	b.pos = newpos
 	return int64(newpos), nil
+}
+
+func inferBatchLength(values []Datum) (length int64, allSame bool) {
+	length, allSame = -1, true
+	areAllScalar := true
+	for _, arg := range values {
+		switch arg := arg.(type) {
+		case *ArrayDatum:
+			argLength := arg.Len()
+			if length < 0 {
+				length = argLength
+			} else {
+				if length != argLength {
+					allSame = false
+					return
+				}
+			}
+			areAllScalar = false
+		case *ChunkedDatum:
+			argLength := arg.Len()
+			if length < 0 {
+				length = argLength
+			} else {
+				if length != argLength {
+					allSame = false
+					return
+				}
+			}
+			areAllScalar = false
+		}
+	}
+
+	if areAllScalar && len(values) > 0 {
+		length = 1
+	} else if length < 0 {
+		length = 0
+	}
+	allSame = true
+	return
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
@@ -479,7 +480,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		return nil
 	}
 
-	if hasValidityBitmap(arr.DataType().ID(), currentMetadataVersion) {
+	if internal.HasValidityBitmap(arr.DataType().ID(), flatbuf.MetadataVersion(currentMetadataVersion)) {
 		switch arr.NullN() {
 		case 0:
 			// there are no null values, drop the null bitmap

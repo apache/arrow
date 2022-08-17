@@ -162,6 +162,8 @@ func (d *Data) DataType() arrow.DataType { return d.dtype }
 // NullN returns the number of nulls.
 func (d *Data) NullN() int { return d.nulls }
 
+func (d *Data) SetNullN(n int) { d.nulls = n }
+
 // Len returns the length.
 func (d *Data) Len() int { return d.length }
 

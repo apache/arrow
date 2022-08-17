@@ -63,6 +63,8 @@ type ArrayData interface {
 	DataType() DataType
 	// NullN returns the number of nulls for this data instance.
 	NullN() int
+	// SetNullN allows updating the number of nulls
+	SetNullN(n int)
 	// Len returns the length of this data instance
 	Len() int
 	// Offset returns the offset into the raw buffers where this data begins
