@@ -119,11 +119,14 @@ arrow::Status RunMain() {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table, read_scanner->ToTable());
   std::cout << table->ToString();
 
-  // Now, let's get a table out as a dataset!
-  // We make a dataset from our Table, then set up a scanner, which lets us go to a file.
-  auto write_dataset = std::make_shared<arrow::dataset::InMemoryDataset>(table);
-  ARROW_ASSIGN_OR_RAISE(auto write_scanner_builder, write_dataset->NewScan());
-  ARROW_ASSIGN_OR_RAISE(auto write_scanner, write_scanner_builder->Finish());
+  // Now, let's get a table out to disk as a dataset!
+  // We make a RecordBatchReader from our Table, then set up a scanner, which lets us
+  // go to a file.
+  std::shared_ptr<arrow::TableBatchReader> write_dataset =
+          std::make_shared<arrow::TableBatchReader>(table);
+  auto write_scanner_builder =
+          arrow::dataset::ScannerBuilder::FromRecordBatchReader(write_dataset);
+  ARROW_ASSIGN_OR_RAISE(auto write_scanner, write_scanner_builder->Finish())
 
   // The partition schema determines which fields are used as keys for partitioning.
   auto partition_schema = arrow::schema({arrow::field("a", arrow::utf8())});
