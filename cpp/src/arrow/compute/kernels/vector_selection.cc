@@ -276,12 +276,64 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 /// This function assumes that the indices have been boundschecked.
 template <typename IndexCType, typename ValueCType>
 struct PrimitiveTakeImpl {
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    const ValueCType* values_data = values.GetValues<ValueCType>(1);
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
+  // Defines how to get individual values and validity bits from values input
+  template <typename T>
+  struct PrimitiveTakeSource {};
 
+  template <>
+  struct PrimitiveTakeSource<ArraySpan> {
+    PrimitiveTakeSource(const ArraySpan values) {
+      offset = values.offset;
+      null_count = values.null_count;
+      values_data = values.GetValues<ValueCType>(1);
+      values_is_valid = values.buffers[0].data;
+    }
+    ValueCType GetValue(int64_t i) const { return values_data[i]; }
+
+    bool GetValidity(int64_t i) const {
+      return bit_util::GetBit(values_is_valid, offset + i);
+    }
+
+    int64_t offset;
+    int64_t null_count;
+    const ValueCType* values_data;
+    const uint8_t* values_is_valid;
+  };
+
+  template <>
+  struct PrimitiveTakeSource<ChunkedArray> {
+    PrimitiveTakeSource(const ChunkedArray& values)
+        : resolver(ChunkResolver(values.chunks())), null_count(values.null_count()) {
+      values_data = MapVector(
+          [](const auto& x) { return x->data()->template GetValues<ValueCType>(1); },
+          values.chunks());
+      values_is_valid =
+          MapVector([](const auto& x) { return x->null_bitmap_data(); }, values.chunks());
+      values_offset =
+          MapVector([](const auto& x) { return x->offset(); }, values.chunks());
+    }
+
+    ValueCType GetValue(int64_t i) {
+      ChunkLocation loc = resolver.Resolve(i);
+      return values_data[loc.chunk_index][loc.index_in_chunk];
+    }
+
+    bool GetValidity(int64_t i) {
+      ChunkLocation loc = resolver.Resolve(i);
+      return bit_util::GetBit(values_is_valid[loc.chunk_index],
+                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+    }
+
+    ChunkResolver resolver;
+    int64_t null_count;
+    std::vector<const ValueCType*> values_data;
+    std::vector<const uint8_t*> values_is_valid;
+    std::vector<int64_t> values_offset;
+  };
+
+  template <typename T>
+  static void ExecImpl(PrimitiveTakeSource<T>& values, const ArraySpan& indices,
+                       ArrayData* out_arr) {
     const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
     const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
@@ -310,7 +362,7 @@ struct PrimitiveTakeImpl {
           // Fastest path: neither values nor index nulls
           bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
           for (int64_t i = 0; i < block.length; ++i) {
-            out[position] = values_data[indices_data[position]];
+            out[position] = values.GetValue(indices_data[position]);
             ++position;
           }
         } else if (block.popcount > 0) {
@@ -319,7 +371,7 @@ struct PrimitiveTakeImpl {
             if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
               // index is not null
               bit_util::SetBit(out_is_valid, out_offset + position);
-              out[position] = values_data[indices_data[position]];
+              out[position] = values.GetValue(indices_data[position]);
             } else {
               out[position] = ValueCType{};
             }
@@ -334,10 +386,9 @@ struct PrimitiveTakeImpl {
         if (block.popcount == block.length) {
           // Faster path: indices are not null but values may be
           for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
+            if (values.GetValidity(indices_data[position])) {
               // value is not null
-              out[position] = values_data[indices_data[position]];
+              out[position] = values.GetValue(indices_data[position]);
               bit_util::SetBit(out_is_valid, out_offset + position);
               ++valid_count;
             } else {
@@ -351,10 +402,9 @@ struct PrimitiveTakeImpl {
           // one.
           for (int64_t i = 0; i < block.length; ++i) {
             if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
+                values.GetValidity(indices_data[position])) {
               // index is not null && value is not null
-              out[position] = values_data[indices_data[position]];
+              out[position] = values.GetValue(indices_data[position]);
               bit_util::SetBit(out_is_valid, out_offset + position);
               ++valid_count;
             } else {
@@ -371,119 +421,21 @@ struct PrimitiveTakeImpl {
     out_arr->null_count = out_arr->length - valid_count;
   }
 
+  static void Exec(const ArraySpan& values, const ArraySpan& indices,
+                   ArrayData* out_arr) {
+    auto source = PrimitiveTakeSource<ArraySpan>(values);
+    ExecImpl(source, indices, out_arr);
+  }
+
   static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
                    ArrayDataVector* out_chunks) {
-    auto values_resolver = ChunkResolver(values.chunks());
-    const std::vector<const ValueCType*> values_data = MapVector(
-        [](const auto& x) { return x->data()->template GetValues<ValueCType>(1); },
-        values.chunks());
-    const std::vector<const uint8_t*> values_is_valid =
-        MapVector([](const auto& x) { return x->null_bitmap_data(); }, values.chunks());
-    const std::vector<int64_t> values_offset =
-        MapVector([](const auto& x) { return x->offset(); }, values.chunks());
+    auto source = PrimitiveTakeSource<ChunkedArray>(values);
 
     for (int i = 0; i < indices_chunked.num_chunks(); ++i) {
-      const std::shared_ptr<Array>& indices_chunk = indices_chunked.chunk(i);
+      ArraySpan indices_chunk(*indices_chunked.chunk(i)->data().get());
       ArrayData* out_arr = (*out_chunks)[i].get();
-      ValueCType* out = out_arr->GetMutableValues<ValueCType>(1);
-      uint8_t* out_is_valid = out_arr->buffers[0]->mutable_data();
-      int64_t out_offset = out_arr->offset;
 
-      int64_t valid_count = 0;
-
-      int64_t position = 0;  // Position in output array
-      const ArraySpan indices = ArraySpan(*indices_chunk.get()->data());
-      // TODO: How do we reduce duplication of code?
-      const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
-      const uint8_t* indices_is_valid = indices.buffers[0].data;
-      int64_t indices_offset = indices.offset;
-
-      // If either the values or indices have nulls, we preemptively zero out the
-      // out validity bitmap so that we don't have to use ClearBit in each
-      // iteration for nulls.
-      if (values.null_count() != 0 || indices.null_count != 0) {
-        bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-      }
-
-      OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                  indices.length);
-
-      while (position < indices.length) {
-        BitBlockCount block = indices_bit_counter.NextBlock();
-        if (values.null_count() == 0) {
-          // Values are never null, so things are easier
-          valid_count += block.popcount;
-          if (block.popcount == block.length) {
-            // Fastest path: neither values nor index nulls
-            bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-            for (int64_t i = 0; i < block.length; ++i) {
-              int64_t idx = indices_data[position];
-              ChunkLocation loc = values_resolver.Resolve(idx);
-              out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
-              ++position;
-            }
-          } else if (block.popcount > 0) {
-            // Slow path: some indices but not all are null
-            for (int64_t i = 0; i < block.length; ++i) {
-              if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-                // index is not null
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                int64_t idx = indices_data[position];
-                ChunkLocation loc = values_resolver.Resolve(idx);
-                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
-              } else {
-                out[position] = ValueCType{};
-              }
-              ++position;
-            }
-          } else {
-            memset(out + position, 0, sizeof(ValueCType) * block.length);
-            position += block.length;
-          }
-        } else {
-          // Values have nulls, so we must do random access into the values bitmap
-          if (block.popcount == block.length) {
-            // Faster path: indices are not null but values may be
-            for (int64_t i = 0; i < block.length; ++i) {
-              int64_t idx = indices_data[position];
-              ChunkLocation loc = values_resolver.Resolve(idx);
-              if (bit_util::GetBit(values_is_valid[loc.chunk_index],
-                                   values_offset[loc.chunk_index] + loc.index_in_chunk)) {
-                // value is not null
-                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                ++valid_count;
-              } else {
-                out[position] = ValueCType{};
-              }
-              ++position;
-            }
-          } else if (block.popcount > 0) {
-            // Slow path: some but not all indices are null. Since we are doing
-            // random access in general we have to check the value nullness one by
-            // one.
-            for (int64_t i = 0; i < block.length; ++i) {
-              int64_t idx = indices_data[position];
-              ChunkLocation loc = values_resolver.Resolve(idx);
-              if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                  bit_util::GetBit(values_is_valid[loc.chunk_index],
-                                   values_offset[loc.chunk_index] + loc.index_in_chunk)) {
-                // index is not null && value is not null
-                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                ++valid_count;
-              } else {
-                out[position] = ValueCType{};
-              }
-              ++position;
-            }
-          } else {
-            memset(out + position, 0, sizeof(ValueCType) * block.length);
-            position += block.length;
-          }
-        }
-      }
-      out_arr->null_count = out_arr->length - valid_count;
+      ExecImpl(source, indices_chunk, out_arr);
     }
   }
 };
