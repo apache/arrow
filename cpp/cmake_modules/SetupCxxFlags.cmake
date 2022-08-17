@@ -595,27 +595,42 @@ endif()
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
 # For CMAKE_BUILD_TYPE=FastDebug
-#   Same as DEBUG, except with some optimizations on.
+#   Same as Debug, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
-#   -O3: Enable all compiler optimizations
-#   Debug symbols are stripped for reduced binary size. Add
-#   -DARROW_CXXFLAGS="-g" to add them
+#   -O2: Enable all compiler optimizations
+#   Debug symbols are stripped for reduced binary size.
+# For CMAKE_BUILD_TYPE=RelWithDebInfo
+#   Same as Release, except with debug symbols enabled.
+
 if(NOT MSVC)
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO
+                 "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
+  set(RELEASE_FLAGS "-O2 -DNDEBUG")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(RELEASE_FLAGS "${RELEASE_FLAGS} -ftree-vectorize")
+  endif()
+
   if(ARROW_GGDB_DEBUG)
     set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
     set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+    set(C_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
     set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
   else()
     set(C_FLAGS_DEBUG "-g -O0")
     set(C_FLAGS_FASTDEBUG "-g -O1")
+    set(C_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
     set(CXX_FLAGS_DEBUG "-g -O0")
     set(CXX_FLAGS_FASTDEBUG "-g -O1")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
   endif()
 
-  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+  set(C_FLAGS_RELEASE "${RELEASE_FLAGS}")
+  set(CXX_FLAGS_RELEASE "${RELEASE_FLAGS}")
 endif()
 
 set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
@@ -630,7 +645,8 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELWITHDEBINFO}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELWITHDEBINFO}")
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
