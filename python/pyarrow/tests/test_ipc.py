@@ -956,6 +956,8 @@ def test_ipc_batch_with_custom_metadata_roundtrip():
     with pa.ipc.new_file(sink, batch.schema) as writer:
         for i in range(batch_count):
             writer.write_batch(batch, {"batch_id": str(i)})
+        # write a batch without custom metadata
+        writer.write_batch(batch)
 
     buffer = sink.getvalue()
     source = pa.BufferReader(buffer)
@@ -966,7 +968,43 @@ def test_ipc_batch_with_custom_metadata_roundtrip():
 
     for i in range(batch_count):
         assert batch_with_metas[i].batch.num_rows == 1
+        assert isinstance(
+            batch_with_metas[i].custom_metadata, pa.KeyValueMetadata)
         assert batch_with_metas[i].custom_metadata == {"batch_id": str(i)}
+
+    # the last batch has no custom metadata
+    assert batch_with_metas[batch_count].batch.num_rows == 1
+    assert batch_with_metas[batch_count].custom_metadata is None
+
+
+@pytest.mark.pandas
+def test_record_batch_reader_with_custom_metadata_roundtrip():
+    df = pd.DataFrame({'foo': [1.5]})
+
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.BufferOutputStream()
+
+    batch_count = 2
+    with pa.ipc.new_stream(sink, batch.schema) as writer:
+        for i in range(batch_count):
+            writer.write_batch(batch, {"batch_id": str(i)})
+        # write a batch without custom metadata
+        writer.write_batch(batch)
+
+    buffer = sink.getvalue()
+    stream_contents = pa.BufferReader(buffer)
+
+    with pa.ipc.open_stream(stream_contents) as reader:
+        batch_meta_gen = reader.iter_batches_with_custom_metadata()
+        batch_with_metas = list(batch_meta_gen)
+
+        for i in range(batch_count):
+            assert batch_with_metas[i].batch.num_rows == 1
+            assert batch_with_metas[i].custom_metadata == {"batch_id": str(i)}
+
+        # the last batch has no custom metadata
+        assert batch_with_metas[batch_count].batch.num_rows == 1
+        assert batch_with_metas[batch_count].custom_metadata is None
 
 
 def test_ipc_stream_no_batches():

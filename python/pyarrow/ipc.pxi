@@ -479,7 +479,7 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         Parameters
         ----------
         batch : RecordBatch
-        custom_metadata : dict
+        custom_metadata : KeyValueMetadata
             Keys and values must be string-like / coercible to bytes
         """
         metadata = ensure_metadata(custom_metadata, allow_none=True)
@@ -692,6 +692,51 @@ cdef class RecordBatchReader(_Weakrefable):
 
         return pyarrow_wrap_batch(batch)
 
+    def read_next_batch_with_custom_metadata(self):
+        """
+        Read next RecordBatch from the stream along with its custom metadata.
+
+        Raises
+        ------
+        StopIteration:
+            At end of stream.
+
+        Returns
+        -------
+        batch : RecordBatch
+        custom_metadata : KeyValueMetadata
+        """
+        cdef:
+            CRecordBatchWithMetadata batch_with_metadata
+
+        with nogil:
+            batch_with_metadata = GetResultValue(self.reader.get().ReadNext())
+
+        if batch_with_metadata.batch.get() == NULL:
+            raise StopIteration
+
+        return _wrap_record_batch_with_metadata(batch_with_metadata)
+
+    def iter_batches_with_custom_metadata(self):
+        """
+        Read next RecordBatch from the stream along with its custom metadata 
+        as a generator
+
+        Raises
+        ------
+        StopIteration:
+            At end of stream.
+
+        Yields 
+        -------
+        RecordBatch with optional custom metadata
+        """
+        while True:
+            try:
+                yield self.read_next_batch_with_custom_metadata()
+            except StopIteration:
+                return
+
     def read_all(self):
         """
         Read all record batches as a pyarrow.Table.
@@ -847,15 +892,16 @@ class RecordBatchWithMetadata(_RecordBatchWithMetadata):
 
     Parameters
     ----------
-    batch: record batch
-    custom_metadata: record batch's custom metadata
+    batch : RecordBatch
+    custom_metadata : KeyValueMetadata
     """
     __slots__ = ()
 
 
 @staticmethod
 cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
-    return RecordBatchWithMetadata(pyarrow_wrap_batch(c.batch), pyarrow_wrap_metadata(c.custom_metadata))
+    return RecordBatchWithMetadata(pyarrow_wrap_batch(c.batch),
+                                   pyarrow_wrap_metadata(c.custom_metadata))
 
 
 cdef class _RecordBatchFileReader(_Weakrefable):
@@ -935,7 +981,8 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def get_batch_with_custom_metadata(self, int i):
         """
-        Read the record batch with the given index along with its custom metadata
+        Read the record batch with the given index along with 
+        its custom metadata
 
         Parameters
         ----------
@@ -945,7 +992,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         Returns
         -------
         batch : RecordBatch
-        custom_metadata : KeyValueMetadata or dict
+        custom_metadata : KeyValueMetadata
         """
         cdef:
             CRecordBatchWithMetadata batch_with_metadata
