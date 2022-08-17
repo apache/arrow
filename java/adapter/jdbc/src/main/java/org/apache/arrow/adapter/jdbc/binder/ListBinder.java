@@ -21,8 +21,10 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
+import org.apache.arrow.vector.util.Text;
 
 /**
  * A column binder for list of primitive values.
@@ -30,23 +32,43 @@ import org.apache.arrow.vector.complex.impl.UnionListReader;
 public class ListBinder extends BaseColumnBinder<ListVector> {
 
   private UnionListReader listReader;
+  private Class<?> arrayElementClass;
 
   public ListBinder(ListVector vector) {
     this(vector, java.sql.Types.ARRAY);
   }
 
+  /**
+   * Init ListBinder and determine type of data vector.
+   *
+   * @param vector corresponding data vector from arrow buffer for binding
+   * @param jdbcType parameter jdbc type
+   */
   public ListBinder(ListVector vector, int jdbcType) {
     super(vector, jdbcType);
     listReader = vector.getReader();
+    Class<? extends FieldVector> dataVectorClass = vector.getDataVector().getClass();
+    try {
+      arrayElementClass = dataVectorClass.getMethod("getObject", Integer.TYPE).getReturnType();
+    } catch (NoSuchMethodException e) {
+      final String message = String.format("Issue to determine type for getObject method of data vector class %s ",
+              dataVectorClass.getName());
+      throw new RuntimeException(message);
+    }
   }
 
   @Override
   public void bind(java.sql.PreparedStatement statement, int parameterIndex, int rowIndex)throws java.sql.SQLException {
     listReader.setPosition(rowIndex);
     ArrayList<?> sourceArray = (ArrayList<?>) listReader.readObject();
-    Class<?> arrayElementClass = sourceArray.get(0).getClass();
-    Object array = Array.newInstance(arrayElementClass, sourceArray.size());
-    Arrays.setAll((Object[]) array, sourceArray::get);
+    Object array;
+    if (!arrayElementClass.isAssignableFrom(Text.class)) {
+      array = Array.newInstance(arrayElementClass, sourceArray.size());
+      Arrays.setAll((Object[]) array, sourceArray::get);
+    } else {
+      array = new String[sourceArray.size()];
+      Arrays.setAll((Object[]) array, idx -> sourceArray.get(idx) != null ? sourceArray.get(idx).toString() : null);
+    }
     statement.setObject(parameterIndex, array);
   }
 }

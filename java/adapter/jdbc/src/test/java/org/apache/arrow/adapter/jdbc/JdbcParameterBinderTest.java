@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import org.apache.arrow.adapter.jdbc.binder.ColumnBinder;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
@@ -433,6 +434,21 @@ public class JdbcParameterBinderTest {
   }
 
   @Test
+  void listOfInt32WithEmptyList() throws SQLException {
+    TriConsumer<ListVector, Integer, Integer[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(integerValue -> writer.integer().writeInt(integerValue));
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<Integer[]> values = Arrays.asList(new Integer[]{1, 2, 3}, new Integer[]{},
+            new Integer[]{512, 1024, 2048, 4096});
+    testListType((ArrowType) new ArrowType.Int(32, true), setValue, ListVector::setNull, values);
+  }
+
+  @Test
   void listOfBoolean() throws SQLException {
     TriConsumer<ListVector, Integer, Boolean[]> setValue = (listVector, index, values) -> {
       org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
@@ -445,6 +461,31 @@ public class JdbcParameterBinderTest {
     List<Boolean[]> values = Arrays.asList(new Boolean[]{true, false},
             new Boolean[]{false, false}, new Boolean[]{true, true, false, true});
     testListType((ArrowType) new ArrowType.Bool(), setValue, ListVector::setNull, values);
+  }
+
+  @Test
+  void listOfString() throws SQLException {
+    TriConsumer<ListVector, Integer, String[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(stringValue -> {
+        if (stringValue != null) {
+          byte[] stringValueBytes = stringValue.getBytes(StandardCharsets.UTF_8);
+          try (ArrowBuf stringBuffer = allocator.buffer(stringValueBytes.length)) {
+            stringBuffer.writeBytes(stringValueBytes);
+            writer.varChar().writeVarChar(0, stringValueBytes.length, stringBuffer);
+          }
+        } else {
+          writer.varChar().writeNull();
+        }
+      });
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<String[]> values = Arrays.asList(new String[]{"aaaa", "b1"},
+            new String[]{"c", null, "d"}, new String[]{"e", "f", "g", "h"});
+    testListType((ArrowType) new ArrowType.Utf8(), setValue, ListVector::setNull, values);
   }
 
   @FunctionalInterface
