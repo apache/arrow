@@ -52,7 +52,7 @@ arrow::Status RunMain() {
   // computation won't be so simple. However, using these where possible helps
   // readability.
   ARROW_ASSIGN_OR_RAISE(sum, arrow::compute::Sum({table->GetColumnByName("A")}));
-  // Get the kind of Datum and what it holds -- this is a ChunkedArray, with int32.
+  // Get the kind of Datum and what it holds -- this is a Scalar, with int64.
   std::cout << "Datum kind: " << sum.ToString()
             << " content type: " << sum.type()->ToString() << std::endl;
   // Note that we explicitly request a scalar -- the Datum cannot simply give what it is,
