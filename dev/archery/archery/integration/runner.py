@@ -35,8 +35,8 @@ from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
-from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   printer)
+from .util import guid, SKIP_ARROW, SKIP_FLIGHT, printer
+from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
 
