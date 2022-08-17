@@ -66,21 +66,20 @@ arrow::Result<std::string> CreateExampleParquetDataset(
   return base_path;
 }
 
-arrow::Status PrepareEnv(){
-    // Get our environment prepared for reading, by setting up some quick writing.
-    ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
-    std::shared_ptr<arrow::fs::FileSystem> setup_fs;
-    // Note this operates in the directory the executable is built in.
-    char setup_path[256];
-    getcwd(setup_path, 256);
-    ARROW_ASSIGN_OR_RAISE(setup_fs, arrow::fs::FileSystemFromUriOrPath(setup_path));
-    ARROW_ASSIGN_OR_RAISE(auto dset_path, CreateExampleParquetDataset(setup_fs, ""));
+arrow::Status PrepareEnv() {
+  // Get our environment prepared for reading, by setting up some quick writing.
+  ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
+  std::shared_ptr<arrow::fs::FileSystem> setup_fs;
+  // Note this operates in the directory the executable is built in.
+  char setup_path[256];
+  getcwd(setup_path, 256);
+  ARROW_ASSIGN_OR_RAISE(setup_fs, arrow::fs::FileSystemFromUriOrPath(setup_path));
+  ARROW_ASSIGN_OR_RAISE(auto dset_path, CreateExampleParquetDataset(setup_fs, ""));
 
-    return arrow::Status::OK();
+  return arrow::Status::OK();
 }
 
 arrow::Status RunMain() {
-
   ARROW_RETURN_NOT_OK(PrepareEnv());
 
   // First, we need a filesystem object, which lets us interact with our local
@@ -130,9 +129,9 @@ arrow::Status RunMain() {
   // We make a RecordBatchReader from our Table, then set up a scanner, which lets us
   // go to a file.
   std::shared_ptr<arrow::TableBatchReader> write_dataset =
-          std::make_shared<arrow::TableBatchReader>(table);
+      std::make_shared<arrow::TableBatchReader>(table);
   auto write_scanner_builder =
-          arrow::dataset::ScannerBuilder::FromRecordBatchReader(write_dataset);
+      arrow::dataset::ScannerBuilder::FromRecordBatchReader(write_dataset);
   ARROW_ASSIGN_OR_RAISE(auto write_scanner, write_scanner_builder->Finish())
 
   // The partition schema determines which fields are used as keys for partitioning.
