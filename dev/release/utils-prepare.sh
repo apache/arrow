@@ -159,6 +159,14 @@ update_versions() {
   sed -i.bak -E -e \
     "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
     arrow/doc.go  
+  # handle the pseudo version in the compute sub-module for now
+  # subsequent changes will allow this to remove the pseudo version but
+  # for now we have to overcome the slight conflict between the existing
+  # "compute" package and the new go.mod file.
+  sed -i.bak -E -e \
+    "s|v[0-9]+\\.0\\.0-00010101000000-000000000000|v${major_version}.0.0-00010101000000-000000000000|" \
+    arrow/compute/go.mod
+  
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
