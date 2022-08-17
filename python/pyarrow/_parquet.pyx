@@ -1443,9 +1443,10 @@ cdef class ParquetReader(_Weakrefable):
 
     @property
     def closed(self):
+        if self.rd_handle == NULL:
+            return True
         with nogil:
-            handle = <shared_ptr[CInputStream]>self.rd_handle
-            closed = handle.get().closed()
+            closed = self.rd_handle.get().closed()
         return closed
 
 
