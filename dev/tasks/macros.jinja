@@ -226,6 +226,21 @@ on:
       done
 {% endmacro %}
 
+{%- macro pin_brew_formulae(is_fork = false) -%}
+{#- This macro expects the cwd to be arrow/r -#}
+      # Copy all *brew formulae
+      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
+
+      # Pin the git commit in the formula to match
+      cd tools
+      if [ "{{ is_fork }}" == "true" ]; then
+        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+      else
+        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+      fi
+      rm -f apache-arrow*.rb.bak
+{% endmacro %}
+
 {%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
   - name: Modify version
     shell: bash
@@ -236,16 +251,8 @@ on:
         DESCRIPTION
       head DESCRIPTION
       rm -f DESCRIPTION.bak
-      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
 
-      # Pin the git commit in the formula to match
-      cd tools
-      if [ "{{ is_fork }}" == "true" ]; then
-        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
-      else
-        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
-      fi
-      rm -f apache-arrow.rb.bak
+      {{ pin_brew_formulae(is_fork) }}
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
@@ -309,3 +316,11 @@ on:
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
   {% endmacro %}
+
+{# Detect if we are using a fork or the upstream repo #}
+  {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
+  {# use filter to cast to string and convert to lowercase to match yaml boolean #}
+  {% set is_fork = (not is_upstream_b)|lower %}
+
+{% set r_release = '4.2' %}
+{% set r_oldrel = '4.1' %}

@@ -19,8 +19,15 @@
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-# Official Homebrew no longer supports El-Capitan
-UPSTREAM_ORG="autobrew"
+if [[ ${OSTYPE:6} -ge 20 ]]; then
+  # We are on a modern enough macOS, we can use the real brew
+  UPSTREAM_ORG="homebrew"
+  PKG_BREW_NAME="$PKG_BREW_NAME-static"
+else
+  # Official Homebrew no longer supports El-Capitan
+  # so we need to use the forked autobrew version of brew that supports old macOSes
+  UPSTREAM_ORG="autobrew"
+fi
 
 if [ "$DISABLE_AUTOBREW" ]; then return 0; fi
 AUTOBREW=${TMPDIR-/tmp}
@@ -36,6 +43,13 @@ curl -fsSL https://github.com/$UPSTREAM_ORG/brew/tarball/master | tar xz --strip
 export HOMEBREW_CACHE="$AUTOBREW"
 LOCAL_FORMULA="tools/${PKG_BREW_NAME}.rb"
 if [ -f "$LOCAL_FORMULA" ]; then
+  if [[ ${OSTYPE:6} -ge 20 ]]; then
+    $BREW tap
+
+    # Tap https://github.com/autobrew/homebrew-cran so that we can get dependencies from there
+    $BREW tap autobrew/cran
+  fi
+
   # Use the local brew formula and install --HEAD
   $BREW deps -n "$LOCAL_FORMULA" 2>/dev/null
   BREW_DEPS=$($BREW deps -n "$LOCAL_FORMULA" 2>/dev/null)
