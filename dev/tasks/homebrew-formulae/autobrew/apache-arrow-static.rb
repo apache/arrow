@@ -15,33 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow.rb
+# Cloned from https://github.com/autobrew/homebrew-core/blob/high-sierra/Formula/apache-arrow.rb
+# Upstream any relevant changes (dependencies, build args ...)
 
-class ApacheArrow < Formula
+class ApacheArrowStatic < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-9.0.0.9000/apache-arrow-9.0.0.9000.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-8.0.0.9000/apache-arrow-8.0.0.9000.tar.gz"
+  # Uncomment and update to test on a release candidate
+  # mirror "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-8.0.0-rc1/apache-arrow-8.0.0.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
   bottle do
-    cellar :any
-    sha256 "9cd44700798638b5e3ee8774b3929f3fad815290d05572d1f39f01d6423eaad0" => :high_sierra
-    root_url "https://autobrew.github.io/bottles"
+    sha256 cellar: :any, arm64_big_sur: "ef89d21a110b89840cc6148add685d407e75bd633bc8f79625eb33d00e3694b4"
+    sha256 cellar: :any, big_sur:       "6fcb9f55d44eb61d295a8020e039a0622bdc044b220cfffef855f3e3ab8057a1"
+    sha256 cellar: :any, catalina:      "bf71b17766688077fb9b4e679f309742c16524015287dd3633758c679752c977"
   end
 
-  # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "boost" => :build
   depends_on "cmake" => :build
-  depends_on "aws-sdk-cpp"
-  depends_on "brotli" 
+  depends_on "aws-sdk-cpp-static"
+  depends_on "brotli"
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
   depends_on "zstd"
 
+  conflicts_with "apache-arrow", because: "both install Arrow"
+
   def install
     ENV.cxx11
+    # https://github.com/Homebrew/homebrew-core/issues/94724
+    # https://issues.apache.org/jira/browse/ARROW-15664
+    ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
+
     args = %W[
       -DARROW_BUILD_SHARED=OFF
       -DARROW_BUILD_UTILITIES=ON
