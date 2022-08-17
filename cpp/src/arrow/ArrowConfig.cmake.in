@@ -86,4 +86,13 @@ if(CMAKE_VERSION VERSION_GREATER 3.17)
   endif()
 endif()
 
+# For backward compatibility
+if(TARGET Arrow::arrow_shared)
+  get_target_property(ARROW_INCLUDE_DIR Arrow::arrow_shared
+    INTERFACE_INCLUDE_DIRECTORIES)
+else()
+  get_target_property(ARROW_INCLUDE_DIR Arrow::arrow_static
+    INTERFACE_INCLUDE_DIRECTORIES)
+endif()
+
 check_required_components(Arrow)
