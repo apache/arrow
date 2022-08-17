@@ -554,7 +554,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
   endif()
 
-  set(SUBSTRAIT_LINK_LIBS ArrowSbustrait::arrow_substrait_shared)
+  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
 endif()
 
