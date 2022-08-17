@@ -487,7 +487,7 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
-    environment:
+    environment: &cuda-environment
       <<: *ccache
       ARROW_BUILD_STATIC: "OFF"
       ARROW_CUDA: "ON"
@@ -775,10 +775,10 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+        numba: ${NUMBA}
     shm_size: *shm-size
     environment:
-      <<: *ccache
-      ARROW_CUDA: "ON"
+      <<: [ *ccache, *cuda-environment ]
     volumes: *ubuntu-volumes
     command: &python-command >
       /bin/bash -c "

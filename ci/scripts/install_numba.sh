@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,22 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[metadata]
-license_files =
-  ../LICENSE.txt
-  ../NOTICE.txt
+set -e
 
-[build_sphinx]
-source-dir = doc/
-build-dir  = doc/_build
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <numba version>"
+  exit 1
+fi
 
-[tool:pytest]
-addopts = --ignore=scripts
-filterwarnings =
-    error:The SparseDataFrame:FutureWarning
-# Get a debug traceback when a test takes a really long time
-faulthandler_timeout = 300
+numba=$1
 
-[pep8]
-ignore = E211,E225,E226,E227,E402,W504
-max_line_length = 79
+if [ "${numba}" = "master" ]; then
+  pip install https://github.com/numba/numba/archive/main.tar.gz#egg=numba
+elif [ "${numba}" = "latest" ]; then
+  pip install numba
+else
+  pip install numba==${numba}
+fi
