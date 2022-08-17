@@ -8,3 +8,67 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+## Acero
+
+
+
+Unlike other query engines like DuckDB, Acero has no optimizer. So it won't change the order to steps to be optimal for you; you have to do this yourself. (how does this work in R? presuming we do some at least basic optimising like filtering last?)
+
+
+
+## ExecPlans
+
+## ExecNodes
+
+(Provide plain-language definitions of each of the exec node types)
+
+### SinkNodes
+
+some operations are naturally sink nodes (e.g. `arrange()` is implemented with the `order_by_sink`)? They're naturally sink nodes, because, if we want to `arrange()` or take the first rows with `head()` we need to collect all the data in memory and then sort, etc.  
+
+The implications for this is that anything following a sink node is part of a separate `ExecPlan`. This is how we can end up with nested or chained ExecPlans. We currently made the choice not to display these nested plans, but rather warn and return the input invisibly. 
+
+With a single sink operation (input is a `TableSourceNode` and the output is an `OrderBySinkNode`: 
+``` r
+mtcars %>%
+  arrow_table() %>%
+  filter(mpg > 20) %>%
+  mutate(x = gear/carb) %>%
+  arrange(desc(hp)) %>% 
+  show_exec_plan()
+#> ExecPlan with 4 nodes:
+#> 3:OrderBySinkNode{by={sort_keys=[FieldRef.Name(hp) DESC], null_placement=AtEnd}}
+#>   2:ProjectNode{projection=[mpg, cyl, disp, hp, drat, wt, qsec, vs, am, gear, carb, "x": divide(cast(gear, {to_type=double, allow_int_overflow=false, allow_time_truncate=false, allow_time_overflow=false, allow_decimal_truncate=false, allow_float_truncate=false, allow_invalid_utf8=false}), cast(carb, {to_type=double, allow_int_overflow=false, allow_time_truncate=false, allow_time_overflow=false, allow_decimal_truncate=false, allow_float_truncate=false, allow_invalid_utf8=false}))]}
+#>     1:FilterNode{filter=(mpg > 20)}
+#>       0:TableSourceNode{}
+```
+
+if we add a call to `head()`, we get a warning:
+``` r
+mtcars %>%
+  arrow_table() %>%
+  filter(mpg > 20) %>%
+  mutate(x = gear/carb) %>%
+  arrange(desc(hp)) %>% 
+  head() %>% 
+  show_exec_plan()
+#> Warning message:
+#> The `ExecPlan` cannot be printed for a nested query.
+```
+
+We had to make a choice between printing the last `ExecPlan` (which would be confusing as it would have contained only 3 nodes: a `SourceNode`, a `ProjectNode` and a `SinkNode`) or printing the chained plans (which would involve actually running them, which is undesirable). 
+
+Without the warning in place we would only print the plan from the point-of-view of the final ExecNode and would look like this (note how the input is no longer a `TableSourceNode`, but rather the end-point of the previous `ExecPlan`, i.e. a `SourceNode`):
+``` r
+mtcars %>%
+  arrow_table() %>%
+  filter(mpg > 20) %>%
+  mutate(x = gear/carb) %>%
+  arrange(desc(hp)) %>% 
+  head() %>% 
+  show_exec_plan()
+#> ExecPlan with 3 nodes:
+#> 2:SinkNode{}
+#>   1:ProjectNode{projection=[mpg, cyl, disp, hp, drat, wt, qsec, vs, am, gear, carb, x]}
+#>     0:SourceNode{}
+```
