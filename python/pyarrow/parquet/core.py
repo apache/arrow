@@ -294,8 +294,15 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
         )
+        self._close_source = getattr(source, 'closed', True)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
 
     def _build_nested_paths(self):
         paths = self.reader.column_paths
@@ -375,6 +382,14 @@ class ParquetFile:
         1
         """
         return self.reader.num_row_groups
+
+    def close(self, force: bool = False):
+        if self._close_source or force:
+            self.reader.close()
+
+    @property
+    def closed(self) -> bool:
+        return self.reader.closed
 
     def read_row_group(self, i, columns=None, use_threads=True,
                        use_pandas_metadata=False):
@@ -1129,8 +1144,8 @@ class ParquetDatasetPiece:
         -------
         metadata : FileMetaData
         """
-        f = self.open()
-        return f.metadata
+        with self.open() as parquet:
+            return parquet.metadata
 
     def open(self):
         """
@@ -1204,6 +1219,9 @@ class ParquetDatasetPiece:
                 arr = pa.DictionaryArray.from_arrays(indices, dictionary)
                 table = table.append_column(name, arr)
 
+        # To ParquetFile the source looked like it was already open, so won't
+        # actually close it without overriding.
+        reader.close(force=True)
         return table
 
 
@@ -1890,7 +1908,8 @@ Examples
         """
         tables = []
         for piece in self._pieces:
-            table = piece.read(columns=columns, use_threads=use_threads,
+            table = piece.read(columns=columns,
+                               use_threads=use_threads,
                                partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)

@@ -17,6 +17,7 @@
 
 import io
 import os
+from unittest import mock
 
 import pytest
 
@@ -277,3 +278,54 @@ def test_pre_buffer(pre_buffer):
     buf.seek(0)
     pf = pq.ParquetFile(buf, pre_buffer=pre_buffer)
     assert pf.read().num_rows == N
+
+
+def test_parquet_file_explicitly_closed(tempdir):
+    """
+    Unopened files should be closed explicitly after use,
+    and previously opened files should be left open.
+    Applies to read_table, ParquetDataset, and ParquetFile
+    """
+    # create test parquet file
+    fn = tempdir.joinpath('file.parquet')
+    table = pa.table({'col1': [0, 1], 'col2': [0, 1]})
+    pq.write_table(table, fn)
+
+    # read_table (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        pq.read_table(f, use_legacy_dataset=True)
+        assert not f.closed  # Didn't close it internally after read_table
+
+    # read_table (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.read_table(fn, use_legacy_dataset=True)
+        mock_close.assert_called()
+
+    # ParquetDataset test (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.ParquetDataset(fn, use_legacy_dataset=True).read()
+        mock_close.assert_called()
+
+    # ParquetDataset test (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        # ARROW-8075: support ParquetDataset from file-like, not just path-like
+        with pytest.raises(TypeError, match='not a path-like object'):
+            pq.ParquetDataset(f, use_legacy_dataset=True).read()
+            assert not f.closed
+
+    # ParquetFile with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        with pq.ParquetFile(f) as p:
+            p.read()
+            assert not f.closed
+            assert not p.closed
+        assert not f.closed  # opened input file was not closed
+        assert not p.closed  # parquet file obj reports as not closed
+    assert f.closed
+    assert p.closed  # parquet file being closed reflects underlying file
+
+    # ParquetFile with unopened file (will close)
+    with pq.ParquetFile(fn) as p:
+        p.read()
+        assert not p.closed
+    assert p.closed  # parquet file obj reports as closed
