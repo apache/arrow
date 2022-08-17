@@ -288,6 +288,7 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+Requires:	curl-devel
 %if %{use_gcs}
 Requires:	json-devel
 %endif

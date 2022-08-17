@@ -158,6 +158,7 @@ Depends:
   libbrotli-dev,
   libbz2-dev,
 @USE_SYSTEM_C_ARES@  libc-ares-dev,
+  libcurl4-openssl-dev,
 @USE_SYSTEM_GRPC@  libgrpc++-dev,
   liblz4-dev,
   libre2-dev,
