@@ -329,10 +329,10 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      SOVERSION "${ARROW_SO_VERSION}")
 
     target_link_libraries(${LIB_NAME}_shared
-                          LINK_PUBLIC
+                          PUBLIC
                           "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
                           "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
-                          LINK_PRIVATE
+                          PRIVATE
                           ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if(USE_OBJLIB)
@@ -414,7 +414,7 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      OUTPUT_NAME ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
-      target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
+      target_link_libraries(${LIB_NAME}_static INTERFACE
                             "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>")
     endif()
 
