@@ -372,7 +372,7 @@ struct PrimitiveTakeImpl {
   }
 
   static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
-                   ArrayData* out_arr) {
+                   ArrayDataVector* out_chunks) {
     auto values_resolver = ChunkResolver(values.chunks());
     const std::vector<const ValueCType*> values_data = MapVector(
         [](const auto& x) { return x->data()->template GetValues<ValueCType>(1); },
@@ -382,15 +382,16 @@ struct PrimitiveTakeImpl {
     const std::vector<int64_t> values_offset =
         MapVector([](const auto& x) { return x->offset(); }, values.chunks());
 
-    auto out = out_arr->GetMutableValues<ValueCType>(1);
-    uint8_t* out_is_valid = out_arr->buffers[0]->mutable_data();
-    int64_t out_offset = out_arr->offset;
+    for (int i = 0; i < indices_chunked.num_chunks(); ++i) {
+      const std::shared_ptr<Array>& indices_chunk = indices_chunked.chunk(i);
+      ArrayData* out_arr = (*out_chunks)[i].get();
+      ValueCType* out = out_arr->GetMutableValues<ValueCType>(1);
+      uint8_t* out_is_valid = out_arr->buffers[0]->mutable_data();
+      int64_t out_offset = out_arr->offset;
 
-    int64_t position = 0;  // Position in output array
-    int64_t valid_count = 0;
-    int64_t internal_offset = 0;  // Total length of indices chunks already processed
+      int64_t valid_count = 0;
 
-    for (const auto& indices_chunk : indices_chunked.chunks()) {
+      int64_t position = 0;  // Position in output array
       const ArraySpan indices = ArraySpan(*indices_chunk.get()->data());
       // TODO: How do we reduce duplication of code?
       const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
@@ -407,7 +408,7 @@ struct PrimitiveTakeImpl {
       OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
                                                   indices.length);
 
-      while (position < internal_offset + indices.length) {
+      while (position < indices.length) {
         BitBlockCount block = indices_bit_counter.NextBlock();
         if (values.null_count() == 0) {
           // Values are never null, so things are easier
@@ -482,13 +483,8 @@ struct PrimitiveTakeImpl {
           }
         }
       }
-
-      // Start next output at end of what we just wrote.
-      out_offset += indices.length;
-      internal_offset += indices.length;
+      out_arr->null_count = out_arr->length - valid_count;
     }
-
-    out_arr->null_count = out_arr->length - valid_count;
   }
 };
 
@@ -591,7 +587,7 @@ struct BooleanTakeImpl {
   }
 
   static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
-                   ArrayData* out_arr) {
+                   ArrayDataVector* out_arr) {
     // TODO
   }
 };
@@ -621,7 +617,7 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
 
 template <template <typename...> class TakeImpl, typename... Args>
 void TakeIndexDispatch(const ChunkedArray& values, const ChunkedArray& indices,
-                       ArrayData* out) {
+                       ArrayDataVector* out) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -691,42 +687,45 @@ Status ChunkedPrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* o
     RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
   }
 
-  // TODO: Is there any reason to chunk the output for primitive arrays?
-  // We probably want to keep within 32-bit sizes for interoperability with other
-  // implementations.
-  auto out_data = ArrayData::Make(values.type(), indices.length());
-
   const int bit_width = values.type()->bit_width();
 
-  // TODO: When neither values nor indices contain nulls, we can skip
-  // allocating the validity bitmap altogether and save time and space. A
-  // streamlined PrimitiveTakeImpl would need to be written that skips all
-  // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocateData(ctx, indices.length(), bit_width,
-                                /*allocate_validity=*/true, out_data.get()));
+  ArrayDataVector out_data;
+
+  // We will match the chunking structure of the indices
+  for (const auto& chunk : indices.chunks()) {
+    auto chunk_out = ArrayData::Make(values.type(), indices.length());
+    // TODO: When neither values nor indices contain nulls, we can skip
+    // allocating the validity bitmap altogether and save time and space. A
+    // streamlined PrimitiveTakeImpl would need to be written that skips all
+    // interactions with the output validity bitmap, though.
+    RETURN_NOT_OK(PreallocateData(ctx, chunk->length(), bit_width,
+                                  /*allocate_validity=*/true, chunk_out.get()));
+
+    out_data.push_back(chunk_out);
+  }
 
   switch (bit_width) {
     case 1:
-      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_data.get());
+      TakeIndexDispatch<BooleanTakeImpl>(values, indices, &out_data);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_data.get());
+      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, &out_data);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_data.get());
+      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, &out_data);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_data.get());
+      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, &out_data);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_data.get());
+      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, &out_data);
       break;
     default:
       DCHECK(false) << "Invalid values byte width";
       break;
   }
 
-  *out = Datum(ChunkedArray(MakeArray(out_data)));
+  *out = std::make_shared<ChunkedArray>(MapVector(MakeArray, out_data), values.type());
 
   return Status::OK();
 }
@@ -2707,6 +2706,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   VectorKernel take_base;
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
+  take_base.output_chunked = false;
   RegisterSelectionFunction("array_take", array_take_doc, take_base,
                             /*selection_type=*/match::Integer(), take_kernels,
                             GetDefaultTakeOptions(), registry);
