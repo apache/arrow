@@ -2127,6 +2127,9 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 }
 
 TEST(Substrait, ProjectRel) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2159,8 +2162,8 @@ TEST(Substrait, ProjectRel) {
   "relations": [{
     "rel": {
       "project": {
-        "expressions": [
-          {"scalarFunction": {
+        "expressions": [{
+          "scalarFunction": {
             "functionReference": 0,
             "arguments": [{
               "value": {
@@ -2174,7 +2177,8 @@ TEST(Substrait, ProjectRel) {
                   }
                 }
               }
-            }, {
+            }, 
+            {
               "value": {
                 "selection": {
                   "directReference": {
@@ -2261,7 +2265,7 @@ TEST(Substrait, ProjectRel) {
   }
 }
 
-TEST(Substrait, ProjectRelWithEmit) {
+TEST(Substrait, ProjectRelOnFunctionWithEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
@@ -2296,11 +2300,11 @@ TEST(Substrait, ProjectRelWithEmit) {
       "project": {
         "common": {
           "emit": {
-            "outputMapping": [0, 2]
+            "outputMapping": [0, 2, 3]
           }
         },
-        "expressions": [
-          {"scalarFunction": {
+        "expressions": [{
+          "scalarFunction": {
             "functionReference": 0,
             "arguments": [{
               "value": {
@@ -2388,10 +2392,11 @@ TEST(Substrait, ProjectRelWithEmit) {
     auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
     auto declarations = compute::Declaration::Sequence({*other_declrs, sink_declaration});
     ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
-    auto output_schema = schema({field("A", int32()), field("C", int32())});
+    auto output_schema =
+        schema({field("A", int32()), field("C", int32()), field("add", int32())});
     auto expected_table = TableFromJSON(output_schema, {R"([
-      [1, 10],
-      [3, 20]
+      [1, 10, 2],
+      [3, 20, 7]
     ])"});
     ASSERT_OK_AND_ASSIGN(auto output_table,
                          GetTableFromPlan(acero_plan, declarations, sink_gen,
