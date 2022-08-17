@@ -35,7 +35,6 @@ try:
 except ImportError:
     pq = None
 
-
 try:
     import pandas as pd
     import pandas.testing as tm

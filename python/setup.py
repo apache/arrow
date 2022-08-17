@@ -620,17 +620,22 @@ else:
     setup_requires = []
 
 
+packages = find_namespace_packages(include=['pyarrow*'])
+package_dir = {}
+
+# Push ./tests/* into pyarrow.tests installed package.
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = find_namespace_packages(include=['pyarrow*'])
-else:
-    packages = find_namespace_packages(
-        include=["pyarrow*"],
-        exclude=["pyarrow.tests*", "pyarrow.conftest"])
+    packages.append("pyarrow.tests")
+    package_dir["pyarrow.tests"] = "tests"
+    for pkg in find_namespace_packages(where="tests"):
+        name = f"pyarrow.tests.{pkg}"
+        packages.append(name)
+        package_dir[name] = "/".join(["tests"] + pkg.split('.'))
 
 
 setup(
     name='pyarrow',
-    package_dir={"": "."},
+    package_dir=package_dir,
     packages=packages,
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},

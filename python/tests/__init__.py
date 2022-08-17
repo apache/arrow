@@ -14,9 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-# This is here for docs testing use.
-try:
-    from pyarrow.tests.conftest import *  # noqa
-except ImportError:
-    pass  # tests not installed.
