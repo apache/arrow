@@ -140,7 +140,6 @@ class IntegrationRunner(object):
             if prefix == '2.0.0-compression':
                 skip.add("C#")
                 skip.add("JS")
-                skip.add("Rust")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.

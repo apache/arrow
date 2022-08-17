@@ -1558,6 +1558,9 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_BUILD_TESTS: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
