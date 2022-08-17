@@ -105,7 +105,7 @@ Status WriteParquetData(const std::string& path,
 Result<std::shared_ptr<Table>> GetTableFromPlan(
     std::shared_ptr<compute::ExecPlan>& plan, compute::Declaration& declarations,
     arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
-    compute::ExecContext& exec_context, std::shared_ptr<Schema>& output_schema) {
+    compute::ExecContext& exec_context, const std::shared_ptr<Schema>& output_schema) {
   ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
 
   RETURN_NOT_OK(decl->Validate());
@@ -193,6 +193,75 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   }
   return compute::Expression{std::move(modified_call)};
 }
+
+// TODO: complete this interface
+struct TempDataGenerator {
+  TempDataGenerator(const std::shared_ptr<Table> input_data,
+                    const std::string& file_prefix, const std::string& temp_dir_prefix) {}
+
+  Status operator()() {
+    auto dummy_schema =
+        schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+    // creating a dummy dataset using a dummy table
+    auto table = TableFromJSON(dummy_schema, {R"([
+        [1, 1, 10],
+        [3, 4, 20]
+    ])"});
+
+    auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+    auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
+    const std::string file_name = "serde_read_emit_test.parquet";
+
+    ARROW_ASSIGN_OR_RAISE(auto tempdir,
+                          arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
+    ARROW_ASSIGN_OR_RAISE(auto file_path, tempdir->path().Join(file_name));
+    std::string file_path_str = file_path.ToString();
+
+    std::string toReplace("/T//");
+    size_t pos = file_path_str.find(toReplace);
+    file_path_str.replace(pos, toReplace.length(), "/T/");
+
+    ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+    return Status::OK();
+  }
+};
+
+struct EmitValidate {
+  EmitValidate(const std::shared_ptr<Schema> output_schema,
+               const std::shared_ptr<Table> expected_table,
+               compute::ExecContext& exec_context, std::shared_ptr<Buffer>& buf)
+      : output_schema(output_schema),
+        expected_table(expected_table),
+        exec_context(exec_context),
+        buf(buf) {}
+  void operator()() {
+    for (auto sp_ext_id_reg :
+         {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+      ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+      ExtensionSet ext_set(ext_id_reg);
+      ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                           DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+      auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
+      arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+      auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+      auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
+      auto declarations =
+          compute::Declaration::Sequence({*other_declrs, sink_declaration});
+      ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
+      ASSERT_OK_AND_ASSIGN(auto output_table,
+                           GetTableFromPlan(acero_plan, declarations, sink_gen,
+                                            exec_context, output_schema));
+      EXPECT_TRUE(expected_table->Equals(*output_table));
+    }
+  }
+  std::shared_ptr<Schema> output_schema;
+  std::shared_ptr<Table> expected_table;
+  compute::ExecContext exec_context;
+  std::shared_ptr<Buffer> buf;
+};
 
 TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
@@ -2403,6 +2472,79 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
                                           exec_context, output_schema));
     EXPECT_TRUE(expected_table->Equals(*output_table));
   }
+}
+
+TEST(Substrait, ReadRelWithEmit) {
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+  ])"});
+
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
+  const std::string file_name = "serde_read_emit_test.parquet";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  std::string toReplace("/T//");
+  size_t pos = file_path_str.find(toReplace);
+  file_path_str.replace(pos, toReplace.length(), "/T/");
+
+  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+
+  std::string substrait_file_uri = "file://" + file_path_str;
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "read": {
+        "common": {
+          "emit": {
+            "outputMapping": [1, 2]
+          }
+        },
+        "base_schema": {
+          "names": ["A", "B", "C"],
+            "struct": {
+            "types": [{
+              "i32": {}
+            }, {
+              "i32": {}
+            }, {
+              "i32": {}
+            }]
+          }
+        },
+        "local_files": {
+          "items": [
+            {
+              "uri_file": ")" + substrait_file_uri +
+                               R"(",
+              "parquet": {}
+            }
+          ]
+        }
+      }
+    }
+  }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("B", int32()), field("C", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 10],
+      [4, 20]
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf);
 }
 
 }  // namespace engine
