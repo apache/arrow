@@ -580,8 +580,10 @@ class FlightSqlScenario : public Scenario {
 
     ARROW_ASSIGN_OR_RAISE(auto actual_schema, reader->GetSchema());
 
-    AssertSchemaEqual(expected_schema, actual_schema);
-
+    if (!actual_schema->Equals(*expected_schema, /*check_metadata=*/true)) {
+      return Status::Invalid("Schemas do not match. Expected:\n", *expected_schema,
+                             "\nActual:\n", *actual_schema);
+    }
     return Status::OK();
   }
 
