@@ -623,12 +623,14 @@ else:
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
     packages = find_namespace_packages(include=['pyarrow*'])
 else:
-    packages = find_namespace_packages(include=['pyarrow*'],
-                                       exclude=["pyarrow.tests*"])
+    packages = find_namespace_packages(
+        include=["pyarrow*"],
+        exclude=["pyarrow.tests*", "pyarrow.conftest"])
 
 
 setup(
     name='pyarrow',
+    package_dir={"": "."},
     packages=packages,
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
