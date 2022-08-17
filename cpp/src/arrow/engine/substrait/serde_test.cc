@@ -196,36 +196,32 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
 
 // TODO: complete this interface
 struct TempDataGenerator {
-  TempDataGenerator(const std::shared_ptr<Table> input_data,
-                    const std::string& file_prefix, const std::string& temp_dir_prefix) {}
+  TempDataGenerator(const std::shared_ptr<Table> input_table,
+                    const std::string& file_prefix,
+                    std::unique_ptr<arrow::internal::TemporaryDir>& tempdir)
+      : input_table(input_table), file_prefix(file_prefix), tempdir(tempdir) {}
 
   Status operator()() {
-    auto dummy_schema =
-        schema({field("A", int32()), field("B", int32()), field("C", int32())});
-
-    // creating a dummy dataset using a dummy table
-    auto table = TableFromJSON(dummy_schema, {R"([
-        [1, 1, 10],
-        [3, 4, 20]
-    ])"});
-
     auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
     auto filesystem = std::make_shared<fs::LocalFileSystem>();
 
-    const std::string file_name = "serde_read_emit_test.parquet";
+    const std::string file_name = file_prefix + ".parquet";
 
-    ARROW_ASSIGN_OR_RAISE(auto tempdir,
-                          arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
     ARROW_ASSIGN_OR_RAISE(auto file_path, tempdir->path().Join(file_name));
-    std::string file_path_str = file_path.ToString();
+    data_file_path = file_path.ToString();
 
     std::string toReplace("/T//");
-    size_t pos = file_path_str.find(toReplace);
-    file_path_str.replace(pos, toReplace.length(), "/T/");
+    size_t pos = data_file_path.find(toReplace);
+    data_file_path.replace(pos, toReplace.length(), "/T/");
 
-    ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+    ARROW_EXPECT_OK(WriteParquetData(data_file_path, filesystem, input_table));
     return Status::OK();
   }
+
+  std::shared_ptr<Table> input_table;
+  std::string file_prefix;
+  std::unique_ptr<arrow::internal::TemporaryDir>& tempdir;
+  std::string data_file_path;
 };
 
 struct EmitValidate {
@@ -2204,28 +2200,17 @@ TEST(Substrait, ProjectRel) {
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
   // creating a dummy dataset using a dummy table
-  auto table = TableFromJSON(dummy_schema, {R"([
+  auto input_table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
       [3, 4, 20]
   ])"});
 
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-  auto filesystem = std::make_shared<fs::LocalFileSystem>();
-
-  const std::string file_name = "serde_project_test.parquet";
-
+  std::string file_prefix = "serde_project_test";
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait_project_tempdir"));
-  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
-  std::string file_path_str = file_path.ToString();
 
-  std::string toReplace("/T//");
-  size_t pos = file_path_str.find(toReplace);
-  file_path_str.replace(pos, toReplace.length(), "/T/");
-
-  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
-
-  std::string substrait_file_uri = "file://" + file_path_str;
+  TempDataGenerator datagen(input_table, file_prefix, tempdir);
+  std::string substrait_file_uri = "file://" + datagen.data_file_path;
 
   std::string substrait_json = R"({
   "relations": [{
@@ -2307,31 +2292,15 @@ TEST(Substrait, ProjectRel) {
       }}
     ]
   })";
+
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-  for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
-    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-    ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(auto sink_decls,
-                         DeserializePlans(
-                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-    auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
-    arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-    auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-    auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-    auto declarations = compute::Declaration::Sequence({*other_declrs, sink_declaration});
-    ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
-    auto output_schema = schema({field("A", int32()), field("B", int32()),
-                                 field("C", int32()), field("ADD", int32())});
-    auto expected_table = TableFromJSON(output_schema, {R"([
-      [1, 1, 10, 2],
-      [3, 4, 20, 7]
-    ])"});
-    ASSERT_OK_AND_ASSIGN(auto output_table,
-                         GetTableFromPlan(acero_plan, declarations, sink_gen,
-                                          exec_context, output_schema));
-    EXPECT_TRUE(expected_table->Equals(*output_table));
-  }
+  auto output_schema = schema({field("A", int32()), field("B", int32()),
+                               field("C", int32()), field("ADD", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+    [1, 1, 10, 2],
+    [3, 4, 20, 7]
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf);
 }
 
 TEST(Substrait, ProjectRelOnFunctionWithEmit) {
@@ -2340,28 +2309,17 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
   // creating a dummy dataset using a dummy table
-  auto table = TableFromJSON(dummy_schema, {R"([
+  auto input_table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
       [3, 4, 20]
   ])"});
 
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  std::string file_prefix = "serde_project_emit_test";
+  ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make(
+                                         "substrait_project_emit_tempdir"));
 
-  const std::string file_name = "serde_project_emit_test.parquet";
-
-  ASSERT_OK_AND_ASSIGN(auto tempdir,
-                       arrow::internal::TemporaryDir::Make("substrait_project_tempdir"));
-  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
-  std::string file_path_str = file_path.ToString();
-
-  std::string toReplace("/T//");
-  size_t pos = file_path_str.find(toReplace);
-  file_path_str.replace(pos, toReplace.length(), "/T/");
-
-  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
-
-  std::string substrait_file_uri = "file://" + file_path_str;
+  TempDataGenerator datagen(input_table, file_prefix, tempdir);
+  std::string substrait_file_uri = "file://" + datagen.data_file_path;
 
   std::string substrait_json = R"({
   "relations": [{
@@ -2447,31 +2405,15 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
       }}
     ]
   })";
+
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-  for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
-    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-    ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(auto sink_decls,
-                         DeserializePlans(
-                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-    auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
-    arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-    auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-    auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-    auto declarations = compute::Declaration::Sequence({*other_declrs, sink_declaration});
-    ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
-    auto output_schema =
-        schema({field("A", int32()), field("C", int32()), field("add", int32())});
-    auto expected_table = TableFromJSON(output_schema, {R"([
+  auto output_schema =
+      schema({field("A", int32()), field("C", int32()), field("add", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
       [1, 10, 2],
       [3, 20, 7]
-    ])"});
-    ASSERT_OK_AND_ASSIGN(auto output_table,
-                         GetTableFromPlan(acero_plan, declarations, sink_gen,
-                                          exec_context, output_schema));
-    EXPECT_TRUE(expected_table->Equals(*output_table));
-  }
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf);
 }
 
 TEST(Substrait, ReadRelWithEmit) {
@@ -2480,28 +2422,17 @@ TEST(Substrait, ReadRelWithEmit) {
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
   // creating a dummy dataset using a dummy table
-  auto table = TableFromJSON(dummy_schema, {R"([
+  auto input_table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
       [3, 4, 20]
   ])"});
 
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-  auto filesystem = std::make_shared<fs::LocalFileSystem>();
-
-  const std::string file_name = "serde_read_emit_test.parquet";
-
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
-  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
-  std::string file_path_str = file_path.ToString();
+  std::string file_prefix = "serde_read_emit_test";
 
-  std::string toReplace("/T//");
-  size_t pos = file_path_str.find(toReplace);
-  file_path_str.replace(pos, toReplace.length(), "/T/");
-
-  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
-
-  std::string substrait_file_uri = "file://" + file_path_str;
+  TempDataGenerator datagen(input_table, file_prefix, tempdir);
+  std::string substrait_file_uri = "file://" + datagen.data_file_path;
 
   std::string substrait_json = R"({
   "relations": [{
