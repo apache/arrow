@@ -66,15 +66,22 @@ arrow::Result<std::string> CreateExampleParquetDataset(
   return base_path;
 }
 
+arrow::Status PrepareEnv(){
+    // Get our environment prepared for reading, by setting up some quick writing.
+    ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
+    std::shared_ptr<arrow::fs::FileSystem> setup_fs;
+    // Note this operates in the directory the executable is built in.
+    char setup_path[256];
+    getcwd(setup_path, 256);
+    ARROW_ASSIGN_OR_RAISE(setup_fs, arrow::fs::FileSystemFromUriOrPath(setup_path));
+    ARROW_ASSIGN_OR_RAISE(auto dset_path, CreateExampleParquetDataset(setup_fs, ""));
+
+    return arrow::Status::OK();
+}
+
 arrow::Status RunMain() {
-  // Get our environment prepared for reading, by setting up some quick writing.
-  ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
-  std::shared_ptr<arrow::fs::FileSystem> setup_fs;
-  // Note this operates in the directory the executable is built in.
-  char setup_path[256];
-  getcwd(setup_path, 256);
-  ARROW_ASSIGN_OR_RAISE(setup_fs, arrow::fs::FileSystemFromUriOrPath(setup_path));
-  ARROW_ASSIGN_OR_RAISE(auto dset_path, CreateExampleParquetDataset(setup_fs, ""));
+
+  ARROW_RETURN_NOT_OK(PrepareEnv());
 
   // First, we need a filesystem object, which lets us interact with our local
   // filesystem starting at a given path. For the sake of simplicity, that'll be
