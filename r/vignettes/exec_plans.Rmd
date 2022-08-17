@@ -1,0 +1,10 @@
+---
+title: "ExecPlans"
+description: "This document describes how ExecPlans work"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ExecPlans}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
