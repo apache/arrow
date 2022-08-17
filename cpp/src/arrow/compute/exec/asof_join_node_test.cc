@@ -33,6 +33,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
@@ -40,11 +41,34 @@ using testing::UnorderedElementsAreArray;
 namespace arrow {
 namespace compute {
 
+bool is_temporal_primitive(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void BuildZeroPrimitiveArray(std::shared_ptr<Array>& empty,
+                             std::shared_ptr<DataType> type, int64_t length) {
+  ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(type, default_memory_pool()));
+  ASSERT_OK(builder->Reserve(length));
+  ASSERT_OK_AND_ASSIGN(auto scalar, MakeScalar(type, 0));
+  ASSERT_OK(builder->AppendScalar(*scalar, length));
+  ASSERT_OK(builder->Finish(&empty));
+}
+
 // mutates by copying from_key into to_key and changing from_key to zero
-BatchesWithSchema MutateByKey(const BatchesWithSchema& batches, std::string from_key,
+BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
                               std::string to_key, bool replace_key = false) {
   int from_index = batches.schema->GetFieldIndex(from_key);
   int n_fields = batches.schema->num_fields();
+  auto fields = batches.schema->fields();
   BatchesWithSchema new_batches;
   auto new_field = batches.schema->field(from_index)->WithName(to_key);
   new_batches.schema = (replace_key ? batches.schema->SetField(from_index, new_field)
@@ -55,7 +79,14 @@ BatchesWithSchema MutateByKey(const BatchesWithSchema& batches, std::string from
     for (int i = 0; i < n_fields; i++) {
       const Datum& value = batch.values[i];
       if (i == from_index) {
-        new_values.push_back(Subtract(value, value).ValueOrDie());
+        auto type = fields[i]->type();
+        if (is_primitive(type->id())) {
+          std::shared_ptr<Array> empty;
+          BuildZeroPrimitiveArray(empty, type, batch.length);
+          new_values.push_back(empty);
+        } else {
+          new_values.push_back(Subtract(value, value).ValueOrDie());
+        }
         if (replace_key) {
           continue;
         }
@@ -121,8 +152,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
 EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
 
 void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
-                          const std::shared_ptr<Schema>& r_schema, FieldRef on_key,
-                          FieldRef by_key, int64_t tolerance,
+                          const std::shared_ptr<Schema>& r_schema,
+                          const AsofJoinNodeOptions& join_options,
                           const std::string& expected_error_str) {
   BatchesWithSchema l_batches = MakeBatchesFromString(l_schema, {R"([])"});
   BatchesWithSchema r_batches = MakeBatchesFromString(r_schema, {R"([])"});
@@ -130,7 +161,6 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
 
-  AsofJoinNodeOptions join_options(on_key, by_key, tolerance);
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
@@ -144,7 +174,8 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
 void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema, int64_t tolerance,
                           const std::string& expected_error_str) {
-  DoRunInvalidPlanTest(l_schema, r_schema, "time", "key", tolerance, expected_error_str);
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("time", "key", tolerance),
+                       expected_error_str);
 }
 
 void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
@@ -163,27 +194,33 @@ void DoRunMissingKeysTest(const std::shared_ptr<Schema>& l_schema,
   DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : No match");
 }
 
+void DoRunEmptyByKeyTest(const std::shared_ptr<Schema>& l_schema,
+                         const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("time", {}, 0),
+                       "AsOfJoin by_key must not be empty");
+}
+
 void DoRunMissingOnKeyTest(const std::shared_ptr<Schema>& l_schema,
                            const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, "invalid_time", "key", 0,
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("invalid_time", "key", 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunMissingByKeyTest(const std::shared_ptr<Schema>& l_schema,
                            const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, "time", "invalid_key", 0,
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("time", "invalid_key", 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunNestedOnKeyTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, {0, "time"}, "key", 0,
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions({0, "time"}, "key", 0),
                        "Bad join key on table : No match");
 }
 
 void DoRunNestedByKeyTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, "time", {0, "key"}, 0,
+  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("time", FieldRef{0, 1}, 0),
                        "Bad join key on table : No match");
 }
 
@@ -227,10 +264,6 @@ struct BasicTest {
     }
   }
 
-  void Run() {
-    RunSingleByKey();
-    RunDoubleByKey();
-  }
   void RunSingleByKey(std::vector<std::shared_ptr<DataType>> time_types = {},
                       std::vector<std::shared_ptr<DataType>> key_types = {},
                       std::vector<std::shared_ptr<DataType>> l_types = {},
@@ -303,6 +336,12 @@ struct BasicTest {
         uint16(),
         uint32(),
         uint64(),
+        date32(),
+        date64(),
+        time32(TimeUnit::MILLI),
+        time32(TimeUnit::SECOND),
+        time64(TimeUnit::NANO),
+        time64(TimeUnit::MICRO),
         timestamp(TimeUnit::NANO, "UTC"),
         timestamp(TimeUnit::MICRO, "UTC"),
         timestamp(TimeUnit::MILLI, "UTC"),
@@ -312,9 +351,8 @@ struct BasicTest {
     using T = const std::shared_ptr<DataType>;
     init_types(all_types, time_types,
                [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
-    init_types(all_types, key_types, [](T& t) { return is_integer(t->id()); });
-    init_types(all_types, l_types,
-               [](T& t) { return t->byte_width() > 1 && t->id() != Type::TIMESTAMP; });
+    init_types(all_types, key_types, [](T& t) { return !is_floating(t->id()); });
+    init_types(all_types, l_types, [](T& t) { return is_temporal_primitive(t->id()); });
     init_types(all_types, r0_types, [](T& t) { return is_floating(t->id()); });
     init_types(all_types, r1_types, [](T& t) { return is_floating(t->id()); });
     for (auto time_type : time_types) {
@@ -601,6 +639,12 @@ TEST(AsofJoinTest, TestMissingKeys) {
 TEST(AsofJoinTest, TestUnsupportedTolerance) {
   // Utf8 is unsupported
   DoRunInvalidToleranceTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestEmptyByKey) {
+  DoRunEmptyByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
