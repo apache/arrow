@@ -282,7 +282,7 @@ struct PrimitiveTakeImpl {
 
   template <>
   struct PrimitiveTakeSource<ArraySpan> {
-    PrimitiveTakeSource(const ArraySpan values) {
+    explicit PrimitiveTakeSource(const ArraySpan values) {
       offset = values.offset;
       null_count = values.null_count;
       values_data = values.GetValues<ValueCType>(1);
@@ -302,7 +302,7 @@ struct PrimitiveTakeImpl {
 
   template <>
   struct PrimitiveTakeSource<ChunkedArray> {
-    PrimitiveTakeSource(const ChunkedArray& values)
+    explicit PrimitiveTakeSource(const ChunkedArray& values)
         : resolver(ChunkResolver(values.chunks())), null_count(values.null_count()) {
       values_data = MapVector(
           [](const auto& x) { return x->data()->template GetValues<ValueCType>(1); },
@@ -442,12 +442,64 @@ struct PrimitiveTakeImpl {
 
 template <typename IndexCType>
 struct BooleanTakeImpl {
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    const uint8_t* values_data = values.buffers[1].data;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
+  // Defines how to get individual values and validity bits from values input
+  template <typename T>
+  struct BooleanTakeSource {};
 
+  template <>
+  struct BooleanTakeSource<ArraySpan> {
+    explicit BooleanTakeSource(const ArraySpan values) {
+      offset = values.offset;
+      null_count = values.null_count;
+      values_data = values.buffers[1].data;
+      values_is_valid = values.buffers[0].data;
+    }
+    bool GetValue(int64_t i) const { return bit_util::GetBit(values_data, offset + i); }
+
+    bool GetValidity(int64_t i) const {
+      return bit_util::GetBit(values_is_valid, offset + i);
+    }
+
+    int64_t offset;
+    int64_t null_count;
+    const uint8_t* values_data;
+    const uint8_t* values_is_valid;
+  };
+
+  template <>
+  struct BooleanTakeSource<ChunkedArray> {
+    explicit BooleanTakeSource(const ChunkedArray& values)
+        : resolver(ChunkResolver(values.chunks())), null_count(values.null_count()) {
+      values_data = MapVector([](const auto& x) { return x->data()->buffers[1]->data(); },
+                              values.chunks());
+      values_is_valid =
+          MapVector([](const auto& x) { return x->null_bitmap_data(); }, values.chunks());
+      values_offset =
+          MapVector([](const auto& x) { return x->offset(); }, values.chunks());
+    }
+
+    bool GetValue(int64_t i) {
+      ChunkLocation loc = resolver.Resolve(i);
+      return bit_util::GetBit(values_data[loc.chunk_index],
+                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+    }
+
+    bool GetValidity(int64_t i) {
+      ChunkLocation loc = resolver.Resolve(i);
+      return bit_util::GetBit(values_is_valid[loc.chunk_index],
+                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+    }
+
+    ChunkResolver resolver;
+    int64_t null_count;
+    std::vector<const uint8_t*> values_data;
+    std::vector<const uint8_t*> values_is_valid;
+    std::vector<int64_t> values_offset;
+  };
+
+  template <typename T>
+  static void ExecImpl(BooleanTakeSource<T>& values, const ArraySpan& indices,
+                       ArrayData* out_arr) {
     const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
     const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
@@ -466,8 +518,7 @@ struct BooleanTakeImpl {
     bit_util::SetBitsTo(out, out_offset, indices.length, false);
 
     auto PlaceDataBit = [&](int64_t loc, IndexCType index) {
-      bit_util::SetBitTo(out, out_offset + loc,
-                         bit_util::GetBit(values_data, values_offset + index));
+      bit_util::SetBitTo(out, out_offset + loc, values.GetValue(index));
     };
 
     OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
@@ -504,8 +555,7 @@ struct BooleanTakeImpl {
         if (block.popcount == block.length) {
           // Faster path: indices are not null but values may be
           for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
+            if (values.GetValidity(indices_data[position])) {
               // value is not null
               bit_util::SetBit(out_is_valid, out_offset + position);
               PlaceDataBit(position, indices_data[position]);
@@ -520,8 +570,7 @@ struct BooleanTakeImpl {
           for (int64_t i = 0; i < block.length; ++i) {
             if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
               // index is not null
-              if (bit_util::GetBit(values_is_valid,
-                                   values_offset + indices_data[position])) {
+              if (values.GetValidity(indices_data[position])) {
                 // value is not null
                 PlaceDataBit(position, indices_data[position]);
                 bit_util::SetBit(out_is_valid, out_offset + position);
@@ -538,9 +587,22 @@ struct BooleanTakeImpl {
     out_arr->null_count = out_arr->length - valid_count;
   }
 
+  static void Exec(const ArraySpan& values, const ArraySpan& indices,
+                   ArrayData* out_arr) {
+    auto source = BooleanTakeSource<ArraySpan>(values);
+    ExecImpl(source, indices, out_arr);
+  }
+
   static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
-                   ArrayDataVector* out_arr) {
-    // TODO
+                   ArrayDataVector* out_chunks) {
+    auto source = BooleanTakeSource<ChunkedArray>(values);
+
+    for (int i = 0; i < indices_chunked.num_chunks(); ++i) {
+      ArraySpan indices_chunk(*indices_chunked.chunk(i)->data().get());
+      ArrayData* out_arr = (*out_chunks)[i].get();
+
+      ExecImpl(source, indices_chunk, out_arr);
+    }
   }
 };
 
