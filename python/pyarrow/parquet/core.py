@@ -18,6 +18,7 @@
 
 from collections import defaultdict
 from concurrent import futures
+from contextlib import nullcontext
 from functools import partial, reduce
 
 import sys
@@ -3389,7 +3390,8 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
         metadata.write_metadata_file(where)
 
 
-def read_metadata(where, memory_map=False, decryption_properties=None):
+def read_metadata(where, memory_map=False, decryption_properties=None,
+                  filesystem=None):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -3400,6 +3402,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3422,11 +3428,19 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       format_version: 2.6
       serialized_size: ...
     """
-    return ParquetFile(where, memory_map=memory_map,
-                       decryption_properties=decryption_properties).metadata
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(where, memory_map=memory_map,
+                           decryption_properties=decryption_properties)
+        return file.metadata
 
 
-def read_schema(where, memory_map=False, decryption_properties=None):
+def read_schema(where, memory_map=False, decryption_properties=None,
+                filesystem=None):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -3437,6 +3451,10 @@ def read_schema(where, memory_map=False, decryption_properties=None):
         Create memory map when the source is a file path.
     decryption_properties : FileDecryptionProperties, default None
         Decryption properties for reading encrypted Parquet files.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
 
     Returns
     -------
@@ -3454,9 +3472,16 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     n_legs: int64
     animal: string
     """
-    return ParquetFile(
-        where, memory_map=memory_map,
-        decryption_properties=decryption_properties).schema.to_arrow_schema()
+    filesystem, where = _resolve_filesystem_and_path(where, filesystem)
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
+
+    with file_ctx:
+        file = ParquetFile(
+            where, memory_map=memory_map,
+            decryption_properties=decryption_properties)
+        return file.schema.to_arrow_schema()
 
 
 # re-export everything
