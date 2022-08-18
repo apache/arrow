@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package flight contains server and client implementations for the Arrow Flight RPC
+//
 // Here we list best practices and common pitfalls for Arrow Flight usage.
 //
 // GRPC
@@ -46,22 +48,10 @@
 // initial headers (on both sides) so you can see if grpc established the
 // connection or not. It will also print when a message is sent, so you can tell
 // if the connection is open or not.
+//
 // Note: "connect" isn't really a connect and we’ve observed that gRPC does not
 // give you the actual error until you first try to make a call. This can cause
 // error being reported at unexpected times.
-//
-// Memory cache client-side
-//
-// Flight uses gRPC allocator wherever possible.
-//
-// gRPC will spawn an unbounded number of threads for concurrent clients. Those
-// threads are not necessarily cleaned up (cached thread pool in java parlance).
-// glibc malloc clears some per thread state and the default tuning never clears
-// caches in some workloads. But you can explicitly tell malloc to dump caches.
-// See https://issues.apache.org/jira/browse/ARROW-16697 as an example.
-//
-// A quick way of testing: attach to the process with a debugger and call malloc_trim
-//
 //
 // Excessive traffic
 //
@@ -77,10 +67,13 @@
 // * A stale connection can be closed using CallOptions.stop_token. This requires
 // recording the stop token at connection establishment time.
 // * Use client timeout
-// * here is a long standing ticket for a per-write/per-read timeout instead of a per
+// * There is a long standing ticket for a per-write/per-read timeout instead of a per
 // call timeout (https://issues.apache.org/jira/browse/ARROW-6062), but this is not
 // (easily) possible to implement with the blocking gRPC API. For now one can also do
 // something like set up a background thread that calls cancel() on a timer and have
 // the main thread reset the timer every time a write operation completes successfully
 // (that means one needs to use to_batches() + write_batch and not write_table).
+// * context.Context can be passed to requests to provide (https://pkg.go.dev/context#WithTimeout) or
+// (https://pkg.go.dev/context#WithCancel).
+
 package flight
