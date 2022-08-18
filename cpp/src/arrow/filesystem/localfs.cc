@@ -365,10 +365,9 @@ class AsyncStatSelector {
 
     ARROW_ASSIGN_OR_RAISE(
         auto base_dir, arrow::internal::PlatformFilename::FromString(selector.base_dir));
-    ARROW_RETURN_NOT_OK(
-        DoDiscovery(std::move(base_dir), 0, std::move(selector),
-                    std::make_shared<DiscoveryState>(std::move(file_gen.producer())),
-                    io_context, fs_opts.file_info_batch_size));
+    ARROW_RETURN_NOT_OK(DoDiscovery(std::move(base_dir), 0, std::move(selector),
+                                    std::make_shared<DiscoveryState>(file_gen.producer()),
+                                    io_context, fs_opts.file_info_batch_size));
 
     return file_gen;
   }
