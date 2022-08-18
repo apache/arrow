@@ -202,9 +202,9 @@ done too frequently. Client reuse will avoid this issue.
 Don’t round-robin load balance
 ------------------------------
 
-Round robin balancing can cause every client to have an open connection to
-every server causing an unexpected number of open connections and a depletion
-of resources.
+Round robin balancing means every client can have an open connection to
+every server, causing an unexpected number of open connections and depleting
+server resources.
 
 Debugging
 ---------
@@ -214,9 +214,9 @@ For debug - env GRPC_VERBOSITY=info GRPC_TRACE=http will print the initial
 headers (on both sides) so you can see if grpc established the connection or
 not. It will also print when a message is sent, so you can tell if the
 connection is open or not.
-Note: "connect" isn't really a connect and we’ve observed that gRPC does not
-give you the actual error until you first try to make a call. This can cause
-error being reported at unexpected times.
+gRPC may not report connection errors until a call is actually made.
+Hence, to detect connection errors when creating a client, some sort
+of dummy RPC should be made.
 
 Use ListFlights sparingly
 -------------------------
@@ -234,7 +234,11 @@ yet implemented.
 Memory cache client-side
 ------------------------
 
-Flight uses gRPC allocator wherever possible.
+Flight tries to reuse allocations made by gRPC to avoid redundant
+data copies.  However, this means that those allocations may not
+be tracked by the Arrow memory pool, and that memory usage behavior,
+such as whether free memory is returned to the system, is dependent
+on the allocator that gRPC uses (usually the system allocator).
 
 gRPC will spawn an unbounded number of threads for concurrent clients. Those
 threads are not necessarily cleaned up (cached thread pool in java parlance).
@@ -254,6 +258,18 @@ This is what you are seeing now.
 bounded thread pool -> Reject connections / requests when under load, and have
 clients retry with backoff. This also gives an opportunity to retry with a
 different node. Not everyone gets serviced but quality of service stays consistent.
+
+Limiting DoPut Batch Size
+--------------------------
+
+You may wish to limit the maximum size a client can submit to a server through
+DoPut, to prevent a request from taking up too much memory on the server. On
+the client-side, set `write_size_limit_bytes` on `FlightClientOptions`. On the 
+server-side, set the gRPC option `GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH`.
+The client-side option will return an error that can be retried with smaller batches,
+while the server-side limit will close out the connection. Setting both can be wise, since
+the former provides a better user experience but the latter may be necessary to defend
+against impolite clients.
 
 Closing unresponsive connections
 --------------------------------
