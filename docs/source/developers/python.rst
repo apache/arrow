@@ -131,23 +131,23 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
-Testing PyArrow CPP
+Testing PyArrow C++
 -------------------
 
-If you want to run ctest for the tests that are included in the PyArrow CPP
-module, you will need to build Arrow with ``-DARROW_BUILD_TESTS=ON``.
+Most of the tests for PyArrow are part of the ``pytest``-based test suite mentioned above,
+but a few low-level tests are written directly in C++ for historical reasons.
+Those tests can be run using ``ctest``, but you first will need to build Arrow C++
+with ``-DARROW_BUILD_TESTS=ON``.
 
 .. note::
 
-   Currently building the C++ unit tests does not work with googletest
-   from conda-forge, so we must use the ``BUNDLED`` source for building that
-   dependency
+   Currently, building the PyArrow C++ unit tests does not work with the
+   googletest package from conda-forge. If you are in this situation, please
+   add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
+   when building Arrow C++.
 
-   In case you use conda add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
-   when building Arrow.
-
-After Arrow C++ and PyArrow are built, navigate to ``python/build/dist``
-folder and run ctest:
+After Arrow C++ and PyArrow are built, you can navigate to the ``python/build/dist``
+folder and run ``ctest``:
 
 .. code-block::
 
@@ -418,8 +418,9 @@ set the ``PYARROW_PARALLEL`` environment variable.
 .. note::
 
    If you used a different directory name for building Arrow C++ (by default it is
-   named "build"), then also set `ARROW_BUILD_DIR='name_of_build_dir'`. This way
-   pyarrow can find Arrow C++ built files.
+   named "build"), then you should also set the environment variable
+   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
+   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
