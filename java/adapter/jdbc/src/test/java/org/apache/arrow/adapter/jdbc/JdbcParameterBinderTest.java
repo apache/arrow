@@ -399,7 +399,7 @@ public class JdbcParameterBinderTest {
       listVector.setLastSet(index);
     };
     List<Double[]> values = Arrays.asList(new Double[]{0.0, Math.PI}, new Double[]{1.1, -352346.2, 2355.6},
-                                          new Double[]{-1024.3});
+                                          new Double[]{-1024.3}, new Double[]{});
     testListType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), setValue, ListVector::setNull, values);
   }
 
@@ -414,7 +414,7 @@ public class JdbcParameterBinderTest {
       listVector.setLastSet(index);
     };
     List<Long[]> values = Arrays.asList(new Long[]{1L, 2L, 3L}, new Long[]{4L, 5L},
-            new Long[]{512L, 1024L, 2048L, 4096L});
+            new Long[]{512L, 1024L, 2048L, 4096L}, new Long[]{});
     testListType((ArrowType) new ArrowType.Int(64, true), setValue, ListVector::setNull, values);
   }
 
@@ -429,22 +429,7 @@ public class JdbcParameterBinderTest {
       listVector.setLastSet(index);
     };
     List<Integer[]> values = Arrays.asList(new Integer[]{1, 2, 3}, new Integer[]{4, 5},
-            new Integer[]{512, 1024, 2048, 4096});
-    testListType((ArrowType) new ArrowType.Int(32, true), setValue, ListVector::setNull, values);
-  }
-
-  @Test
-  void listOfInt32WithEmptyList() throws SQLException {
-    TriConsumer<ListVector, Integer, Integer[]> setValue = (listVector, index, values) -> {
-      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
-      writer.setPosition(index);
-      writer.startList();
-      Arrays.stream(values).forEach(integerValue -> writer.integer().writeInt(integerValue));
-      writer.endList();
-      listVector.setLastSet(index);
-    };
-    List<Integer[]> values = Arrays.asList(new Integer[]{1, 2, 3}, new Integer[]{},
-            new Integer[]{512, 1024, 2048, 4096});
+            new Integer[]{512, 1024, 2048, 4096}, new Integer[]{});
     testListType((ArrowType) new ArrowType.Int(32, true), setValue, ListVector::setNull, values);
   }
 
@@ -459,7 +444,7 @@ public class JdbcParameterBinderTest {
       listVector.setLastSet(index);
     };
     List<Boolean[]> values = Arrays.asList(new Boolean[]{true, false},
-            new Boolean[]{false, false}, new Boolean[]{true, true, false, true});
+            new Boolean[]{false, false}, new Boolean[]{true, true, false, true}, new Boolean[]{});
     testListType((ArrowType) new ArrowType.Bool(), setValue, ListVector::setNull, values);
   }
 
@@ -484,7 +469,7 @@ public class JdbcParameterBinderTest {
       listVector.setLastSet(index);
     };
     List<String[]> values = Arrays.asList(new String[]{"aaaa", "b1"},
-            new String[]{"c", null, "d"}, new String[]{"e", "f", "g", "h"});
+            new String[]{"c", null, "d"}, new String[]{"e", "f", "g", "h"}, new String[]{});
     testListType((ArrowType) new ArrowType.Utf8(), setValue, ListVector::setNull, values);
   }
 
