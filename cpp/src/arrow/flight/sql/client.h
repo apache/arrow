@@ -54,8 +54,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   arrow::Result<std::unique_ptr<FlightInfo>> Execute(const FlightCallOptions& options,
                                                      const std::string& query);
 
-  /// \brief Get the result set schema from the server (should be
-  ///   identical to SqlSchema::GetSchemasSchema).
+  /// \brief Get the result set schema from the server.
   arrow::Result<std::unique_ptr<SchemaResult>> GetExecuteSchema(
       const FlightCallOptions& options, const std::string& query);
 
@@ -304,7 +303,7 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// \brief Re-request the result set schema from the server (should
   ///   be identical to dataset_schema).
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
-      const FlightCallOptions& options);
+      const FlightCallOptions& options = {});
 
   /// \brief Close the prepared statement, so that this PreparedStatement can not used
   /// anymore and server can free up any resources.

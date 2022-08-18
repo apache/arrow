@@ -37,25 +37,33 @@ namespace flight {
 namespace sql {
 
 namespace {
-FlightDescriptor GetFlightDescriptorForCommand(const google::protobuf::Message& command) {
+arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
+    const google::protobuf::Message& command) {
   google::protobuf::Any any;
-  any.PackFrom(command);
+  if (!any.PackFrom(command)) {
+    return Status::SerializationError("Failed to pack ", command.GetTypeName());
+  }
 
-  const std::string& string = any.SerializeAsString();
-  return FlightDescriptor::Command(string);
+  std::string buf;
+  if (!any.SerializeToString(&buf)) {
+    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
+  }
+  return FlightDescriptor::Command(buf);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     FlightSqlClient* client, const FlightCallOptions& options,
     const google::protobuf::Message& command) {
-  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
   return client->GetFlightInfo(options, descriptor);
 }
 
 arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaForCommand(
     FlightSqlClient* client, const FlightCallOptions& options,
     const google::protobuf::Message& command) {
-  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
   return client->GetSchema(options, descriptor);
 }
 }  // namespace
@@ -102,7 +110,8 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   flight_sql_pb::CommandStatementUpdate command;
   command.set_query(query);
 
-  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
 
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
@@ -408,14 +417,10 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
     return Status::Invalid("Statement already closed.");
   }
 
-  flight_sql_pb::CommandPreparedStatementQuery execute_query_command;
-  execute_query_command.set_prepared_statement_handle(handle_);
-
-  google::protobuf::Any any;
-  any.PackFrom(execute_query_command);
-
-  const std::string& string = any.SerializeAsString();
-  const FlightDescriptor descriptor = FlightDescriptor::Command(string);
+  flight_sql_pb::CommandPreparedStatementQuery command;
+  command.set_prepared_statement_handle(handle_);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
 
   if (parameter_binding_ && parameter_binding_->num_rows() > 0) {
     std::unique_ptr<FlightStreamWriter> writer;
@@ -442,7 +447,8 @@ arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
 
   flight_sql_pb::CommandPreparedStatementUpdate command;
   command.set_prepared_statement_handle(handle_);
-  const FlightDescriptor& descriptor = GetFlightDescriptorForCommand(command);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
@@ -493,15 +499,10 @@ arrow::Result<std::unique_ptr<SchemaResult>> PreparedStatement::GetSchema(
     return Status::Invalid("Statement already closed");
   }
 
-  flight_sql_pb::CommandPreparedStatementQuery execute_query_command;
-  execute_query_command.set_prepared_statement_handle(handle_);
-
-  google::protobuf::Any any;
-  any.PackFrom(execute_query_command);
-
-  const std::string& string = any.SerializeAsString();
-  const FlightDescriptor descriptor = FlightDescriptor::Command(string);
-
+  flight_sql_pb::CommandPreparedStatementQuery command;
+  command.set_prepared_statement_handle(handle_);
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
   return client_->GetSchema(options, descriptor);
 }
 
