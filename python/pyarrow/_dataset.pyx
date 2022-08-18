@@ -1148,7 +1148,7 @@ cdef class IpcFileFormat(FileFormat):
 
     @property
     def default_extname(self):
-        return "feather"
+        return "arrow"
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
