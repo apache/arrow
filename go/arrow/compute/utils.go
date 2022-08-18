@@ -21,10 +21,27 @@ import (
 	"math"
 
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/xerrors"
 )
+
+type arrowInts interface {
+	~int8 | ~int16 | ~int32 | ~int64
+}
+
+type arrowUints interface {
+	uint8 | uint16 | uint32 | uint64
+}
+
+type arrowFloats interface {
+	float16.Num | float32 | float64
+}
+
+type fixedWidthTypes interface {
+	arrowInts | arrowUints | arrowFloats
+}
 
 func min[T constraints.Ordered](a, b T) T {
 	if a < b {

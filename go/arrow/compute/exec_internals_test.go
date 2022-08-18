@@ -51,9 +51,24 @@ func (c *ComputeInternalsTestSuite) TearDownTest() {
 	c.mem.AssertSize(c.T(), 0)
 }
 
+func (c *ComputeInternalsTestSuite) assertArrayEqual(expected, got arrow.Array) {
+	c.Truef(array.Equal(expected, got), "expected: %s\ngot: %s", expected, got)
+}
+
+func (c *ComputeInternalsTestSuite) assertDatumEqual(expected arrow.Array, got Datum) {
+	arr := got.(*ArrayDatum).MakeArray()
+	defer arr.Release()
+	c.Truef(array.Equal(expected, arr), "expected: %s\ngot: %s", expected, arr)
+}
+
 func (c *ComputeInternalsTestSuite) resetCtx() {
-	c.execCtx = &ExecCtx{Alloc: c.mem}
+	c.execCtx = &ExecCtx{Alloc: c.mem, Registry: GetFunctionRegistry(),
+		ChunkSize: DefaultMaxChunkSize, PreallocContiguous: true}
 	c.ctx = &KernelCtx{ExecCtx: c.execCtx}
+}
+
+func (c *ComputeInternalsTestSuite) getBoolArr(sz int64, trueprob, nullprob float64) arrow.Array {
+	return c.rng.Boolean(sz, trueprob, nullprob)
 }
 
 func (c *ComputeInternalsTestSuite) getUint8Arr(sz int64, nullprob float64) arrow.Array {
@@ -75,6 +90,13 @@ func (c *ComputeInternalsTestSuite) getInt32Chunked(szs []int64) *arrow.Chunked 
 		defer chunks[i].Release()
 	}
 	return arrow.NewChunked(arrow.PrimitiveTypes.Int32, chunks)
+}
+
+func (c *ComputeInternalsTestSuite) assertValidityZeroExtraBits(data []byte, length, offset int) {
+	bitExtent := ((offset + length + 7) / 8) * 8
+	for i := offset + length; i < bitExtent; i++ {
+		c.False(bitutil.BitIsSet(data, i))
+	}
 }
 
 type PropagateNullsSuite struct {
@@ -155,7 +177,7 @@ func (p *PropagateNullsSuite) TestSetAllNulls() {
 		checkSetAll(vals, true)
 		checkSetAll(vals, false)
 
-		arr := p.rng.Boolean(int64(length), trueProb, 0)
+		arr := p.getBoolArr(int64(length), trueProb, 0)
 		defer arr.Release()
 		vals[0] = NewDatum(arr)
 		defer vals[0].Release()
@@ -164,9 +186,9 @@ func (p *PropagateNullsSuite) TestSetAllNulls() {
 	})
 
 	p.Run("one all null", func() {
-		arrAllNulls := p.rng.Boolean(int64(length), trueProb, 1)
+		arrAllNulls := p.getBoolArr(int64(length), trueProb, 1)
 		defer arrAllNulls.Release()
-		arrHalf := p.rng.Boolean(int64(length), trueProb, 0.5)
+		arrHalf := p.getBoolArr(int64(length), trueProb, 0.5)
 		defer arrHalf.Release()
 		vals = []Datum{NewDatum(arrHalf), NewDatum(arrAllNulls)}
 		defer vals[0].Release()
@@ -178,7 +200,7 @@ func (p *PropagateNullsSuite) TestSetAllNulls() {
 
 	p.Run("one value is NullType", func() {
 		nullarr := array.NewNull(length)
-		arr := p.rng.Boolean(int64(length), trueProb, 0)
+		arr := p.getBoolArr(int64(length), trueProb, 0)
 		defer arr.Release()
 		vals = []Datum{NewDatum(arr), NewDatum(nullarr)}
 		defer vals[0].Release()
@@ -193,7 +215,7 @@ func (p *PropagateNullsSuite) TestSetAllNulls() {
 			Type: arrow.FixedWidthTypes.Boolean,
 			Len:  int64(length),
 		}
-		arrAllNulls := p.rng.Boolean(int64(length), trueProb, 1)
+		arrAllNulls := p.getBoolArr(int64(length), trueProb, 1)
 		defer arrAllNulls.Release()
 
 		batch := &ExecBatch{
@@ -213,7 +235,7 @@ func (p *PropagateNullsSuite) TestSetAllNulls() {
 
 func (p *PropagateNullsSuite) TestSingleValueWithNulls() {
 	const length int64 = 100
-	arr := p.rng.Boolean(length, 0.5, 0.5)
+	arr := p.getBoolArr(length, 0.5, 0.5)
 	defer arr.Release()
 
 	checkSliced := func(offset int64, prealloc bool, outOffset int64) {
@@ -234,9 +256,10 @@ func (p *PropagateNullsSuite) TestSingleValueWithNulls() {
 		var preallocatedBitmap *memory.Buffer
 		if prealloc {
 			preallocatedBitmap = memory.NewResizableBuffer(p.mem)
-			defer preallocatedBitmap.Release()
 			preallocatedBitmap.Resize(int(bitutil.BytesForBits(int64(sliced.Len()) + outOffset)))
+			defer preallocatedBitmap.Release()
 			output.Buffers[0].SetBuffer(preallocatedBitmap)
+			output.Buffers[0].SelfAlloc = true
 		} else {
 			p.EqualValues(0, output.Offset)
 		}
@@ -264,6 +287,10 @@ func (p *PropagateNullsSuite) TestSingleValueWithNulls() {
 		}
 
 		p.EqualValues(sliced.NullN(), output.UpdateNullCount())
+		p.True(bitutil.BitmapEquals(
+			sliced.NullBitmapBytes(), output.Buffers[0].Buf,
+			int64(sliced.Data().Offset()), output.Offset, output.Len))
+		p.assertValidityZeroExtraBits(output.Buffers[0].Buf, int(output.Len), int(output.Offset))
 	}
 
 	tests := []struct {
@@ -284,6 +311,75 @@ func (p *PropagateNullsSuite) TestSingleValueWithNulls() {
 			checkSliced(tt.offset, tt.prealloc, tt.outoffset)
 		})
 	}
+}
+
+func (p *PropagateNullsSuite) TestIntersectsNulls() {
+	const length = 16
+	var (
+		// 0b01111111 0b11001111
+		bitmap1 = [8]byte{127, 207, 0, 0, 0, 0, 0, 0}
+		// 0b11111110 0b01111111
+		bitmap2 = [8]byte{254, 127, 0, 0, 0, 0, 0, 0}
+		// 0b11101111 0b11111110
+		bitmap3 = [8]byte{239, 254, 0, 0, 0, 0, 0, 0}
+	)
+
+	arr1 := array.NewData(arrow.FixedWidthTypes.Boolean, length,
+		[]*memory.Buffer{memory.NewBufferBytes(bitmap1[:]), nil}, nil, array.UnknownNullCount, 0)
+	arr2 := array.NewData(arrow.FixedWidthTypes.Boolean, length,
+		[]*memory.Buffer{memory.NewBufferBytes(bitmap2[:]), nil}, nil, array.UnknownNullCount, 0)
+	arr3 := array.NewData(arrow.FixedWidthTypes.Boolean, length,
+		[]*memory.Buffer{memory.NewBufferBytes(bitmap3[:]), nil}, nil, array.UnknownNullCount, 0)
+
+	checkCase := func(vals []Datum, exNullCount int, exBitmap []byte, prealloc bool, outoffset int) {
+		batch := &ExecBatch{Values: vals, Len: length}
+
+		output := &ArraySpan{Type: arrow.FixedWidthTypes.Boolean, Len: length}
+
+		var nulls *memory.Buffer
+		if prealloc {
+			// make the buffer one byte bigger so we can have non-zero offsets
+			nulls = memory.NewResizableBuffer(p.mem)
+			nulls.Resize(3)
+			defer nulls.Release()
+			output.Buffers[0].SetBuffer(nulls)
+			output.Buffers[0].SelfAlloc = true
+		} else {
+			// non-zero output offset not permitted unless output memory is preallocated
+			p.Equal(0, outoffset)
+		}
+
+		output.Offset = int64(outoffset)
+
+		p.NoError(propagateNulls(p.ctx, ExecSpanFromBatch(batch), output))
+
+		// preallocated memory used
+		if prealloc {
+			p.Same(nulls, output.Buffers[0].Owner)
+		} else {
+			defer output.Buffers[0].Owner.Release()
+		}
+
+		p.EqualValues(array.UnknownNullCount, output.Nulls)
+		p.EqualValues(exNullCount, output.UpdateNullCount())
+
+		p.True(bitutil.BitmapEquals(exBitmap, output.Buffers[0].Buf, 0, output.Offset, length))
+		p.assertValidityZeroExtraBits(output.Buffers[0].Buf, int(output.Len), int(output.Offset))
+	}
+
+	p.Run("0b01101110 0b01001110", func() {
+		// 0b01101110 0b01001110
+		expected := [2]byte{110, 78}
+		checkCase([]Datum{NewDatum(arr1), NewDatum(arr2), NewDatum(arr3)}, 7, expected[:], false, 0)
+		checkCase([]Datum{NewDatum(arr1), NewDatum(arr2), NewDatum(arr3)}, 7, expected[:], true, 0)
+		checkCase([]Datum{NewDatum(arr1), NewDatum(arr2), NewDatum(arr3)}, 7, expected[:], true, 4)
+	})
+
+	p.Run("0b01111110 0b01001111", func() {
+		expected := [2]byte{126, 79}
+		checkCase([]Datum{NewDatum(arr1), NewDatum(arr2)}, 5, expected[:], false, 0)
+		checkCase([]Datum{NewDatum(arr1), NewDatum(arr2)}, 5, expected[:], true, 4)
+	})
 }
 
 func TestComputeInternals(t *testing.T) {

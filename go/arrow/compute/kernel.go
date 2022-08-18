@@ -312,6 +312,18 @@ type ExecCtx struct {
 	Alloc              memory.Allocator
 	ChunkSize          int64
 	PreallocContiguous bool
+	Registry           FunctionRegistry
+}
+
+var defaultCtx ExecCtx
+
+func DefaultExecCtx() *ExecCtx { return &defaultCtx }
+
+func init() {
+	defaultCtx.Alloc = memory.DefaultAllocator
+	defaultCtx.ChunkSize = DefaultMaxChunkSize
+	defaultCtx.PreallocContiguous = true
+	defaultCtx.Registry = GetFunctionRegistry()
 }
 
 type KernelCtx struct {

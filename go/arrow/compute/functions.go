@@ -210,18 +210,21 @@ type ScalarFunction struct {
 	funcImpl[ScalarKernel]
 }
 
-func NewScalarFunction(name string, arity Arity, doc FunctionDoc, defaultOpts FunctionOptions) *ScalarFunction {
+func NewScalarFunction(name string, arity Arity, doc FunctionDoc) *ScalarFunction {
 	return &ScalarFunction{
 		funcImpl: funcImpl[ScalarKernel]{
 			baseFunction: baseFunction{
-				name:        name,
-				arity:       arity,
-				doc:         doc,
-				defaultOpts: defaultOpts,
-				kind:        FuncScalar,
+				name:  name,
+				arity: arity,
+				doc:   doc,
+				kind:  FuncScalar,
 			},
 		},
 	}
+}
+
+func (s *ScalarFunction) SetDefaultOptions(opts FunctionOptions) {
+	s.defaultOpts = opts
 }
 
 func (s *ScalarFunction) Execute(ctx *ExecCtx, opts FunctionOptions, args ...Datum) (Datum, error) {

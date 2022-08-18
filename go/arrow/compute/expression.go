@@ -58,9 +58,6 @@ type Expression interface {
 	// FieldRef returns a pointer to the underlying field reference, or nil if
 	// this expression is not a field reference.
 	FieldRef() *FieldRef
-	// Descr returns the shape of this expression will evaluate to including the type
-	// and whether it will be an Array, Scalar, or either.
-	Descr() ValueDescr
 	// Type returns the datatype this expression will evaluate to.
 	Type() arrow.DataType
 
@@ -146,14 +143,6 @@ func (l *Literal) IsSatisfiable() bool {
 	return true
 }
 
-func (l *Literal) Descr() ValueDescr {
-	if ad, ok := l.Literal.(ArrayLikeDatum); ok {
-		return ad.Descr()
-	}
-
-	return ValueDescr{ShapeAny, nil}
-}
-
 func (l *Literal) Hash() uint64 {
 	if l.IsScalarExpr() {
 		return scalar.Hash(hashSeed, l.Literal.(*ScalarDatum).Value)
@@ -183,20 +172,18 @@ type Parameter struct {
 	ref *FieldRef
 
 	// post bind props
-	descr ValueDescr
 	index int
-
+	dt    arrow.DataType
 	bound boundRef
 }
 
 func (Parameter) IsNullLiteral() bool     { return false }
 func (p *Parameter) boundExpr() boundRef  { return p.bound }
-func (p *Parameter) Type() arrow.DataType { return p.descr.Type }
+func (p *Parameter) Type() arrow.DataType { return p.dt }
 func (p *Parameter) IsBound() bool        { return p.Type() != nil }
 func (p *Parameter) IsScalarExpr() bool   { return p.ref != nil }
 func (p *Parameter) IsSatisfiable() bool  { return p.Type() == nil || p.Type().ID() != arrow.NULL }
 func (p *Parameter) FieldRef() *FieldRef  { return p.ref }
-func (p *Parameter) Descr() ValueDescr    { return p.descr }
 func (p *Parameter) Hash() uint64         { return p.ref.Hash(hashSeed) }
 
 func (p *Parameter) String() string {
@@ -219,7 +206,7 @@ func (p *Parameter) Equals(other Expression) bool {
 }
 
 func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arrow.Schema) (Expression, error) {
-	bound, descr, index, _, err := bindExprSchema(ctx, mem, p, schema)
+	bound, dt, index, _, err := bindExprSchema(ctx, mem, p, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +214,8 @@ func (p *Parameter) Bind(ctx context.Context, mem memory.Allocator, schema *arro
 	return &Parameter{
 		ref:   p.ref,
 		index: index,
-		descr: descr,
 		bound: bound,
+		dt:    dt,
 	}, nil
 }
 
@@ -325,8 +312,8 @@ func optionsToString(fn FunctionOptions) string {
 type Call struct {
 	funcName string
 	args     []Expression
-	descr    ValueDescr
 	options  FunctionOptions
+	dt       arrow.DataType
 
 	cachedHash uint64
 	bound      boundRef
@@ -335,8 +322,7 @@ type Call struct {
 func (c *Call) boundExpr() boundRef  { return c.bound }
 func (c *Call) IsNullLiteral() bool  { return false }
 func (c *Call) FieldRef() *FieldRef  { return nil }
-func (c *Call) Descr() ValueDescr    { return c.descr }
-func (c *Call) Type() arrow.DataType { return c.descr.Type }
+func (c *Call) Type() arrow.DataType { return c.dt }
 func (c *Call) IsSatisfiable() bool  { return c.Type() == nil || c.Type().ID() != arrow.NULL }
 
 func (c *Call) String() string {

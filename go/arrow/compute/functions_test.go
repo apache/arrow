@@ -47,8 +47,8 @@ func TestArityBasics(t *testing.T) {
 }
 
 func TestScalarFunctionBasics(t *testing.T) {
-	fn := compute.NewScalarFunction("scalar_test", compute.Binary(), compute.EmptyFuncDoc, nil)
-	varArgsFn := compute.NewScalarFunction("varargs_test", compute.VarArgs(1), compute.EmptyFuncDoc, nil)
+	fn := compute.NewScalarFunction("scalar_test", compute.Binary(), compute.EmptyFuncDoc)
+	varArgsFn := compute.NewScalarFunction("varargs_test", compute.VarArgs(1), compute.EmptyFuncDoc)
 
 	assert.Implements(t, (*compute.Function)(nil), fn)
 	assert.Equal(t, "scalar_test", fn.Name())
@@ -137,12 +137,12 @@ func checkAddDispatch(t *testing.T, fn *compute.ScalarFunction, exec compute.Arr
 }
 
 func TestScalarFunctionDispatch(t *testing.T) {
-	fn := compute.NewScalarFunction("scalar_test", compute.Binary(), compute.EmptyFuncDoc, nil)
+	fn := compute.NewScalarFunction("scalar_test", compute.Binary(), compute.EmptyFuncDoc)
 	checkAddDispatch(t, fn, execNYI)
 }
 
 func TestArrayFunctionVarArgs(t *testing.T) {
-	vaFunc := compute.NewScalarFunction("va_test", compute.VarArgs(1), compute.EmptyFuncDoc, nil)
+	vaFunc := compute.NewScalarFunction("va_test", compute.VarArgs(1), compute.EmptyFuncDoc)
 	vaArgs := []compute.InputType{compute.NewExactInput(arrow.PrimitiveTypes.Int8)}
 
 	assert.NoError(t, vaFunc.AddNewKernel(vaArgs,

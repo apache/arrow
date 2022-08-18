@@ -19,6 +19,7 @@ package compute
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -28,6 +29,8 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 )
+
+const DefaultMaxChunkSize = math.MaxInt64
 
 func haveChunkedArray(values []Datum) bool {
 	for _, v := range values {
@@ -88,174 +91,22 @@ func getNullGenDatum(datum Datum) nullGeneralization {
 	return getNullGen(&val)
 }
 
-func nullPropagator(ctx *KernelCtx, batch *ExecSpan, output *ArraySpan) {
-	var (
-		isAllNull       bool
-		bitmap          []byte
-		bitmapPreallocd bool
-		arrsWithNulls   = make([]*ArraySpan, 0)
-	)
-
-	for i := range batch.Values {
-		nullgen := getNullGen(&batch.Values[i])
-		if nullgen == nullGenAllNull {
-			isAllNull = true
-		}
-		if nullgen != nullGenAllValid && batch.Values[i].IsArray() {
-			arrsWithNulls = append(arrsWithNulls, &batch.Values[i].Array)
-		}
-	}
-	if output.Buffers[0].Buf != nil {
-		bitmapPreallocd = true
-		bitmap = output.Buffers[0].Buf
-	}
-
-	ensureAlloc := func() {
-		if bitmapPreallocd {
-			return
-		}
-		buf := ctx.AllocateBitmap(int64(output.Len))
-		output.Buffers[0].Owner = buf
-		output.Buffers[0].Buf = buf.Bytes()
-		bitmap = buf.Bytes()
-	}
-
-	allNullShortCircuit := func() {
-		output.Nulls = output.Len
-		if bitmapPreallocd {
-			bitutil.SetBitsTo(bitmap, int64(output.Offset), int64(output.Len), false)
-			return
-		}
-
-		// walk all the values with nulls instead of breaking on the first
-		// in case we find a bitmap that can be reused in the non-preallocated case
-		for _, arr := range arrsWithNulls {
-			if arr.Nulls == arr.Len && arr.Buffers[0].Owner != nil {
-				buf := arr.GetBuffer(0)
-				buf.Retain()
-				output.Buffers[0].Buf = buf.Bytes()
-				output.Buffers[0].Owner = buf
-				return
-			}
-		}
-
-		ensureAlloc()
-		bitutil.SetBitsTo(bitmap, int64(output.Offset), int64(output.Len), false)
-	}
-
-	if isAllNull {
-		// all null value gives us a shortcircuit opportunity
-		allNullShortCircuit()
-		return
-	}
-
-	// At this point, we know that all of the values in arrsWithNulls are arrays
-	// that are not all null. So there are a few cases:
-	//
-	// * No arrays. this is a no-op w/o preallocation but when the bitmap is
-	//   preallocated, we have to fill it with 1's
-	// * One array, whose bitmap can be zero-copied (w/o preallocation, and
-	//   when no byte is split) or copied (split byte or w/preallocation)
-	// * More than one array, we must compute intersection
-	//
-	// BUT, if the output offset is nonzero for some reason, we copy into the
-	// output unconditionally
-	output.Nulls = array.UnknownNullCount
-
-	if len(arrsWithNulls) == 0 {
-		// no arrays with nulls case
-		output.Nulls = 0
-		if bitmapPreallocd {
-			bitutil.SetBitsTo(bitmap, int64(output.Offset), int64(output.Len), true)
-		}
-		return
-	}
-
-	if len(arrsWithNulls) == 1 {
-		arr := arrsWithNulls[0]
-		arrBitmap := arr.Buffers[0].Buf
-
-		// reuse the nullcount if it's known
-		output.Nulls = arr.Nulls
-		if bitmapPreallocd {
-			bitutil.CopyBitmap(arrBitmap, int(arr.Offset), int(arr.Len),
-				bitmap, int(output.Offset))
-			return
-		}
-
-		// two cases when memory was not preallocated
-		//
-		// * offset is zero: we reuse the bitmap as is
-		// * offset is non-zero but multiple of 8: we can slice the bitmap
-		// * offset is not a multiple of 8: we must allocate and use copybitmap
-		//
-		// keep in mind that output.Offset is not permitted to be non-zero when
-		// the bitmap is not preallocated, and that precondition is asserted
-		// above this in the callstack
-		switch {
-		case arr.Offset == 0:
-			output.Buffers[0] = arr.Buffers[0]
-			output.Buffers[0].Owner.Retain()
-		case arr.Offset%8 == 0:
-			buf := memory.SliceBuffer(arr.GetBuffer(0), int(arr.Offset)/8, int(bitutil.BytesForBits(arr.Len)))
-			output.Buffers[0].Buf = buf.Bytes()
-			output.Buffers[0].Owner = buf
-		default:
-			ensureAlloc()
-			bitutil.CopyBitmap(arrBitmap, int(arr.Offset), int(arr.Len), bitmap, 0)
-		}
-		return
-	}
-
-	// more than one array, we use BitmapAnd to intersect them
-
-	// do not compute intersection null count until its needed
-	ensureAlloc()
-
-	acc := func(left, right []byte, leftOffset, rightOffset int64) {
-		bitutil.BitmapAnd(left, right, leftOffset, rightOffset, bitmap,
-			int64(output.Offset), int64(output.Len))
-	}
-
-	debug.Assert(len(arrsWithNulls) > 1, "should have called propagate single")
-
-	// seed the output with the & of the first two bitmaps
-	acc(arrsWithNulls[0].Buffers[0].Buf, arrsWithNulls[1].Buffers[0].Buf,
-		arrsWithNulls[0].Offset, arrsWithNulls[1].Offset)
-
-	// now do the rest
-	for _, arr := range arrsWithNulls[2:] {
-		acc(bitmap, arr.Buffers[0].Buf, int64(output.Offset), arr.Offset)
-	}
-}
-
-func propagateNulls(ctx *KernelCtx, batch *ExecSpan, output *ExecResult) error {
-	debug.Assert(output != nil, "cannot propagate with nil output")
-
-	if output.Type.ID() == arrow.NULL {
-		// null output type is a no-op (rare, but we at least test for it)
-		return nil
-	}
-
-	// this function is ONLY able to write into output with non-zero offset
-	// when the bitmap is preallocated.
-	if output.Offset != 0 && output.Buffers[0].Buf == nil {
-		return fmt.Errorf("%w: can only propagate nulls into pre-allocated memory when output offset is non-zero", arrow.ErrInvalid)
-	}
-
-	nullPropagator(ctx, batch, output)
-	return nil
-}
-
-func propagateNullsSpans(batch *ExecSpan, out *ArraySpan) {
+func propagateNulls(ctx *KernelCtx, batch *ExecSpan, out *ArraySpan) (err error) {
 	if out.Type.ID() == arrow.NULL {
 		// null output type is a no-op (rare but it happens)
 		return
 	}
 
+	// this function is ONLY able to write into output with non-zero offset
+	// when the bitmap is preallocated.
+	if out.Offset != 0 && out.Buffers[0].Buf == nil {
+		return fmt.Errorf("%w: can only propagate nulls into pre-allocated memory when output offset is non-zero", arrow.ErrInvalid)
+	}
+
 	var (
 		arrsWithNulls = make([]*ArraySpan, 0)
 		isAllNull     bool
+		prealloc      bool = out.Buffers[0].Buf != nil
 	)
 
 	for i := range batch.Values {
@@ -274,7 +125,28 @@ func propagateNullsSpans(batch *ExecSpan, out *ArraySpan) {
 		// an all-null value gives us a short circuit opportunity
 		// output should all be null
 		out.Nulls = out.Len
-		bitutil.SetBitsTo(outBitmap, out.Offset, out.Len, false)
+		if prealloc {
+			bitutil.SetBitsTo(outBitmap, out.Offset, out.Len, false)
+			return
+		}
+
+		// walk all the values with nulls instead of breaking on the first
+		// in case we find a bitmap that can be reused in the non-preallocated case
+		for _, arr := range arrsWithNulls {
+			if arr.Nulls == arr.Len && arr.Buffers[0].Owner != nil {
+				buf := arr.GetBuffer(0)
+				buf.Retain()
+				out.Buffers[0].Buf = buf.Bytes()
+				out.Buffers[0].Owner = buf
+				return
+			}
+		}
+
+		buf := ctx.AllocateBitmap(int64(out.Len))
+		out.Buffers[0].Owner = buf
+		out.Buffers[0].Buf = buf.Bytes()
+		out.Buffers[0].SelfAlloc = true
+		bitutil.SetBitsTo(out.Buffers[0].Buf, out.Offset, out.Len, false)
 		return
 	}
 
@@ -282,14 +154,43 @@ func propagateNullsSpans(batch *ExecSpan, out *ArraySpan) {
 	switch len(arrsWithNulls) {
 	case 0:
 		out.Nulls = 0
-		if outBitmap != nil {
+		if prealloc {
 			bitutil.SetBitsTo(outBitmap, out.Offset, out.Len, true)
 		}
 	case 1:
 		arr := arrsWithNulls[0]
 		out.Nulls = arr.Nulls
-		bitutil.CopyBitmap(arr.Buffers[0].Buf, int(arr.Offset), int(arr.Len), outBitmap, int(out.Offset))
+		if prealloc {
+			bitutil.CopyBitmap(arr.Buffers[0].Buf, int(arr.Offset), int(arr.Len), outBitmap, int(out.Offset))
+			return
+		}
+
+		switch {
+		case arr.Offset == 0:
+			out.Buffers[0] = arr.Buffers[0]
+			out.Buffers[0].Owner.Retain()
+		case arr.Offset%8 == 0:
+			buf := memory.SliceBuffer(arr.GetBuffer(0), int(arr.Offset)/8, int(bitutil.BytesForBits(arr.Len)))
+			out.Buffers[0].Buf = buf.Bytes()
+			out.Buffers[0].Owner = buf
+		default:
+			buf := ctx.AllocateBitmap(int64(out.Len))
+			out.Buffers[0].Owner = buf
+			out.Buffers[0].Buf = buf.Bytes()
+			out.Buffers[0].SelfAlloc = true
+			bitutil.CopyBitmap(arr.Buffers[0].Buf, int(arr.Offset), int(arr.Len), out.Buffers[0].Buf, 0)
+		}
+		return
+
 	default:
+		if !prealloc {
+			buf := ctx.AllocateBitmap(int64(out.Len))
+			out.Buffers[0].Owner = buf
+			out.Buffers[0].Buf = buf.Bytes()
+			out.Buffers[0].SelfAlloc = true
+			outBitmap = out.Buffers[0].Buf
+		}
+
 		acc := func(left, right *ArraySpan) {
 			debug.Assert(left.Buffers[0].Buf != nil, "invalid intersection for null propagation")
 			debug.Assert(right.Buffers[0].Buf != nil, "invalid intersection for null propagation")
@@ -301,6 +202,7 @@ func propagateNullsSpans(batch *ExecSpan, out *ArraySpan) {
 			acc(out, arr)
 		}
 	}
+	return
 }
 
 type SelectionVector struct {
@@ -369,14 +271,8 @@ func (e *execImpl) Init(ctx *KernelCtx, args KernelInitArgs) (err error) {
 
 func (e *execImpl) prepareOutput(length int) *ExecResult {
 	var (
-		bufs      []*memory.Buffer = make([]*memory.Buffer, e.numOutBuf)
-		nullCount int              = array.UnknownNullCount
+		nullCount int = array.UnknownNullCount
 	)
-
-	if e.preallocValidity {
-		bufs[0] = e.ctx.AllocateBitmap(int64(length))
-		defer bufs[0].Release()
-	}
 
 	if e.kernel.GetNullHandling() == NullNoOutput {
 		nullCount = 0
@@ -388,11 +284,19 @@ func (e *execImpl) prepareOutput(length int) *ExecResult {
 		Nulls: int64(nullCount),
 	}
 
+	if e.preallocValidity {
+		buf := e.ctx.AllocateBitmap(int64(length))
+		output.Buffers[0].Owner = buf
+		output.Buffers[0].Buf = buf.Bytes()
+		output.Buffers[0].SelfAlloc = true
+	}
+
 	for i, pre := range e.dataPrealloc {
 		if pre.bitWidth >= 0 {
 			buf := allocateDataBuffer(e.ctx, length+pre.addLen, pre.bitWidth)
 			output.Buffers[i+1].Owner = buf
 			output.Buffers[i+1].Buf = buf.Bytes()
+			output.Buffers[i+1].SelfAlloc = true
 		}
 	}
 
@@ -447,10 +351,10 @@ func (s *scalarExecutor) Execute(ctx context.Context, batch *ExecBatch, data cha
 	// * Fully-preallocated, non-contiguous kernel output
 	// * not fully-preallocated kernel output: we pass an empty or partially
 	//   filled ArrayData to the kernel
-	if s.preallocAllBufs {
-		return s.executeSpans(data)
-	}
-	return s.executeNonSpans(data)
+	// if s.preallocAllBufs {
+	return s.executeSpans(data)
+	// }
+	// return s.executeNonSpans(data)
 }
 
 func (s *scalarExecutor) WrapResults(ctx context.Context, args []Datum, out <-chan Datum) Datum {
@@ -465,7 +369,10 @@ func (s *scalarExecutor) WrapResults(ctx context.Context, args []Datum, out <-ch
 	case output = <-out:
 		if haveChunkedArray(args) {
 			acc = output.(ArrayLikeDatum).Chunks()
-			defer output.Release()
+			output.Release()
+			for _, c := range acc {
+				defer c.Release()
+			}
 			output = nil
 		}
 	}
@@ -486,10 +393,14 @@ func (s *scalarExecutor) WrapResults(ctx context.Context, args []Datum, out <-ch
 
 			if acc == nil {
 				acc = output.(ArrayLikeDatum).Chunks()
-				defer output.Release()
+				output.Release()
+				for _, c := range acc {
+					defer c.Release()
+				}
 				output = nil
 			}
 
+			defer o.Release()
 			if o.Len() == 0 {
 				continue
 			}
@@ -573,7 +484,7 @@ func (s *scalarExecutor) executeSingleSpan(input *ExecSpan, out *ExecResult) err
 		out.Nulls = out.Len
 	case s.kernel.GetNullHandling() == NullIntersection:
 		if !s.elideValidityBitmap {
-			propagateNullsSpans(input, out)
+			propagateNulls(s.ctx, input, out)
 		}
 	case s.kernel.GetNullHandling() == NullNoOutput:
 		out.Nulls = 0
@@ -619,51 +530,13 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 			break
 		}
 
-		prealloc := s.prepareOutput(int(input.Len))
-		output = *prealloc
+		output = *s.prepareOutput(int(input.Len))
 		if err = s.executeSingleSpan(input, &output); err != nil {
 			return
 		}
-		err = s.emitResult(prealloc, data)
+		err = s.emitResult(&output, data)
 	}
 
-	return
-}
-
-func (s *scalarExecutor) executeNonSpans(data chan<- Datum) (err error) {
-	var (
-		input  *ExecSpan
-		output *ExecResult
-		next   bool
-	)
-
-	for err == nil {
-		if input, _, next = s.iter(); !next {
-			break
-		}
-
-		output = s.prepareOutput(int(input.Len))
-
-		switch {
-		case output.Type.ID() == arrow.NULL:
-			output.Nulls = output.Len
-		case s.kernel.GetNullHandling() == NullIntersection:
-			if err := propagateNulls(s.ctx, input, output); err != nil {
-				return err
-			}
-		case s.kernel.GetNullHandling() == NullNoOutput:
-			output.Nulls = 0
-		}
-
-		if err = s.kernel.Exec(s.ctx, input, output); err != nil {
-			return
-		}
-
-		if err = s.emitResult(output, data); err != nil {
-			return
-		}
-
-	}
 	return
 }
 
@@ -781,4 +654,17 @@ func execInternal(execCtx *ExecCtx, fn Function, opts FunctionOptions, passedLen
 
 func newScalarExecutor() *scalarExecutor {
 	return &scalarExecutor{}
+}
+
+func CallFunction(ctx *ExecCtx, funcName string, opts FunctionOptions, args ...Datum) (Datum, error) {
+	if ctx == nil {
+		ctx = &defaultCtx
+	}
+
+	fn, ok := ctx.Registry.GetFunction(funcName)
+	if !ok {
+		return nil, fmt.Errorf("%w: function '%s' not found", arrow.ErrKey, funcName)
+	}
+
+	return fn.Execute(ctx, opts, args...)
 }

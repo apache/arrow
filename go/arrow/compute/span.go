@@ -30,8 +30,9 @@ import (
 )
 
 type BufferSpan struct {
-	Buf   []byte
-	Owner *memory.Buffer
+	Buf       []byte
+	Owner     *memory.Buffer
+	SelfAlloc bool
 }
 
 func (b *BufferSpan) SetBuffer(buf *memory.Buffer) {
@@ -122,10 +123,10 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	bufs := make([]*memory.Buffer, a.NumBuffers())
 	for i := range bufs {
 		b := a.GetBuffer(i)
-		if b != nil {
+		bufs[i] = b
+		if b != nil && a.Buffers[i].SelfAlloc {
 			defer b.Release()
 		}
-		bufs[i] = b
 	}
 
 	var (
@@ -361,6 +362,7 @@ func (a *ArraySpan) SetMembers(data arrow.ArrayData) {
 	for i, b := range data.Buffers() {
 		if b != nil {
 			a.Buffers[i].SetBuffer(b)
+			// b.Retain()
 		} else {
 			a.Buffers[i].Buf = nil
 			a.Buffers[i].Owner = nil
@@ -399,6 +401,11 @@ func (a *ArraySpan) SetMembers(data arrow.ArrayData) {
 			a.Children[i].SetMembers(c)
 		}
 	}
+}
+
+func GetSpanValues[T fixedWidthTypes](span *ArraySpan, i int) []T {
+	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len)
+	return ret[span.Offset:]
 }
 
 type ExecValue struct {

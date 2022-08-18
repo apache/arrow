@@ -40,6 +40,6 @@ func (boundRef) release() {}
 
 // when compiled without the c++ library (the build tags control whether it looks for it)
 // then we do not have pure go implementation of the expression binding currently.
-func bindExprSchema(context.Context, memory.Allocator, Expression, *arrow.Schema) (boundRef, ValueDescr, int, Expression, error) {
+func bindExprSchema(context.Context, memory.Allocator, Expression, *arrow.Schema) (boundRef, arrow.DataType, int, Expression, error) {
 	panic("arrow/compute: bind expression not implemented")
 }
