@@ -23,7 +23,7 @@ Bug reports and feature requests
 
 Arrow relies upon user feedback to identify defects and improvement
 opportunities. All users are encouraged to participate by creating bug reports
-and feature request or commenting on existing issues. Even if you cannot
+and feature requests or commenting on existing issues. Even if you cannot
 contribute solutions to the issues yourself, your feedback helps us understand
 problems and prioritize work to improve the libraries.
 
