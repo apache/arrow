@@ -29,12 +29,12 @@ namespace compute {
 struct RLETestData {
   static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
                           std::string expected_values_json,
-                          std::vector<int32_t> expected_run_lengths,
+                          std::vector<int32_t> expected_run_ends,
                           int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return {.input = input_array->Slice(input_offset),
             .expected_values = ArrayFromJSON(data_type, expected_values_json),
-            .expected_run_lengths = std::move(expected_run_lengths),
+            .expected_run_ends = std::move(expected_run_ends),
             .string = input_json};
   }
 
@@ -48,14 +48,14 @@ struct RLETestData {
     ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::max()));
     result.input = builder.Finish().ValueOrDie();
     result.expected_values = result.input;
-    result.expected_run_lengths = {1, 2, 3};
+    result.expected_run_ends = {1, 2, 3};
     result.string = "Type min, max, & null values";
     return result;
   }
 
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
-  std::vector<int32_t> expected_run_lengths;
+  std::vector<int32_t> expected_run_ends;
   // only used for gtest output
   std::string string;
 };
@@ -78,7 +78,7 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   const int32_t* run_ends_buffer = run_ends_array->data()->GetValues<int32_t>(1);
   ASSERT_EQ(std::vector<int32_t>(run_ends_buffer,
                                  run_ends_buffer + encoded->child_data[0]->length),
-            data.expected_run_lengths);
+            data.expected_run_ends);
   ASSERT_OK(values_array->ValidateFull());
   ASSERT_OK(run_ends_array->ValidateFull());
   ASSERT_ARRAYS_EQUAL(*values_array, *data.expected_values);
@@ -86,9 +86,9 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_EQ(encoded->buffers[0], NULLPTR);
   ASSERT_EQ(encoded->child_data.size(), 2);
   ASSERT_EQ(run_ends_array->data()->buffers[1]->size(),
-            data.expected_run_lengths.size() * sizeof(int32_t));
+            data.expected_run_ends.size() * sizeof(int32_t));
   ASSERT_EQ(run_ends_array->data()->buffers[0], NULLPTR);
-  ASSERT_EQ(run_ends_array->length(), data.expected_run_lengths.size());
+  ASSERT_EQ(run_ends_array->length(), data.expected_run_ends.size());
   ASSERT_EQ(run_ends_array->offset(), 0);
   ASSERT_EQ(run_ends_array->type(), int32());
   ASSERT_EQ(encoded->length, data.input->length());
