@@ -1831,10 +1831,10 @@ TEST(HashJoin, ExtensionTypes) {
                            {l_int_arr, bin_arr}, {r_int_arr, ext_arr}, 4, 4));
   ASSERT_OK_AND_ASSIGN(auto output_rows_test,
                        TableFromExecBatches(output_schema, batches));
-  auto table =
+  auto expected_table =
       arrow::Table::Make(output_schema, {l_int_arr, bin_arr, r_int_arr, ext_arr}, 4);
 
-  AssertTablesEqual(*table, *output_rows_test, /*same_chunk_layout=*/false,
+  AssertTablesEqual(*expected_table, *output_rows_test, /*same_chunk_layout=*/false,
                     /*flatten=*/true);
 }
 

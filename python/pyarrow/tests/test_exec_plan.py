@@ -18,6 +18,7 @@
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from .test_extension_type import IntegerType
 
 try:
     import pyarrow.dataset as ds
@@ -26,24 +27,6 @@ except ImportError:
     pass
 
 pytestmark = pytest.mark.dataset
-
-
-class UuidType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.binary(16))
-
-    def __reduce__(self):
-        return UuidType, ()
-
-
-class TestType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
-
-    def __reduce__(self):
-        return pa.int64, ()
 
 
 def test_joins_corner_cases():
@@ -302,7 +285,7 @@ def test_complex_filter_table():
 
 def test_join_extension_array_column():
     storage = pa.array([1, 2, 3], type=pa.int64())
-    ty = TestType()
+    ty = IntegerType()
     ext_array = pa.ExtensionArray.from_storage(ty, storage)
     t1 = pa.table({
         "colA": [1, 2, 6],
