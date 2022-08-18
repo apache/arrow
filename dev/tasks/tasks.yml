@@ -1607,3 +1607,12 @@ tasks:
       type: minimal_build
       run: {{ kind }}
 {% endfor %}
+
+############################## Utility tasks ############################
+  preview-docs:
+    ci: github
+    template: docs/github.linux.yml
+    params:
+      artifacts: "build/docs.tar.gz"
+      flags: "-v $PWD/build/:/build/"
+      image: ubuntu-docs
