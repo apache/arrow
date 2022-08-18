@@ -762,9 +762,8 @@ tasks:
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
     {% endif %}
       - arrow-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
-      - arrow-tools-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
     {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -787,9 +786,8 @@ tasks:
     {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
-      - parquet-tools-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm

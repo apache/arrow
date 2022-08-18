@@ -699,8 +699,8 @@ This package contains the libraries for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/Arrow-*.typelib
 %{_libdir}/libarrow-glib.so.*
-%{_datadir}/gir-1.0/Arrow-1.0.gir
 
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
@@ -717,14 +717,14 @@ Libraries and header files for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow-glib/example/
+%{_datadir}/gir-1.0/Arrow-*.gir
+%{_datadir}/vala/vapi/arrow-glib.*
 %{_includedir}/arrow-glib/
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
 %{_libdir}/pkgconfig/arrow-glib.pc
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
-%{_libdir}/girepository-1.0/Arrow-1.0.typelib
-%{_datadir}/arrow-glib/example/
-%{_datadir}/vala/vapi/arrow-glib.*
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
@@ -753,8 +753,8 @@ This package contains the libraries for Apache Arrow Dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/ArrowDataset-*.typelib
 %{_libdir}/libarrow-dataset-glib.so.*
-%{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
 %package dataset-glib-devel
 Summary:	Libraries and header files for Apache Arrow Dataset GLib
@@ -770,12 +770,12 @@ Libraries and header files for Apache Arrow Dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/ArrowDataset-*.gir
+%{_datadir}/vala/vapi/arrow-dataset-glib.*
 %{_includedir}/arrow-dataset-glib/
 %{_libdir}/libarrow-dataset-glib.a
 %{_libdir}/libarrow-dataset-glib.so
 %{_libdir}/pkgconfig/arrow-dataset-glib.pc
-%{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
-%{_datadir}/vala/vapi/arrow-dataset-glib.*
 
 %package dataset-glib-doc
 Summary:	Documentation for Apache Arrow Dataset GLib
@@ -804,8 +804,8 @@ This package contains the libraries for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/ArrowFlight-*.typelib
 %{_libdir}/libarrow-flight-glib.so.*
-%{_datadir}/gir-1.0/ArrowFlight-1.0.gir
 
 %package flight-glib-devel
 Summary:	Libraries and header files for Apache Arrow Flight GLib
@@ -821,12 +821,12 @@ Libraries and header files for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/ArrowFlight-*.gir
+%{_datadir}/vala/vapi/arrow-flight-glib.*
 %{_includedir}/arrow-flight-glib/
 %{_libdir}/libarrow-flight-glib.a
 %{_libdir}/libarrow-flight-glib.so
 %{_libdir}/pkgconfig/arrow-flight-glib.pc
-%{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
-%{_datadir}/vala/vapi/arrow-flight-glib.*
 
 %package flight-glib-doc
 Summary:	Documentation for Apache Arrow Flight GLib
@@ -854,8 +854,8 @@ This package contains the libraries for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/ArrowFlightSQL-*.typelib
 %{_libdir}/libarrow-flight-sql-glib.so.*
-%{_datadir}/gir-1.0/ArrowFlightSQL-1.0.gir
 
 %package flight-sql-glib-devel
 Summary:	Libraries and header files for Apache Arrow Flight SQL GLib
@@ -871,12 +871,12 @@ Libraries and header files for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/ArrowFlightSQL-*.gir
+%{_datadir}/vala/vapi/arrow-flight-sql-glib.*
 %{_includedir}/arrow-flight-sql-glib/
 %{_libdir}/libarrow-flight-sql-glib.a
 %{_libdir}/libarrow-flight-sql-glib.so
 %{_libdir}/pkgconfig/arrow-flight-sql-glib.pc
-%{_libdir}/girepository-1.0/ArrowFlightSQL-1.0.typelib
-%{_datadir}/vala/vapi/arrow-flight-sql-glib.*
 
 %package flight-sql-glib-doc
 Summary:	Documentation for Apache Arrow Flight SQL GLib
@@ -906,8 +906,8 @@ This package contains the libraries for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/Gandiva-*.typelib
 %{_libdir}/libgandiva-glib.so.*
-%{_datadir}/gir-1.0/Gandiva-1.0.gir
 
 %package -n gandiva-glib-devel
 Summary:	Libraries and header files for Gandiva GLib
@@ -923,12 +923,12 @@ Libraries and header files for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/Gandiva-*.gir
+%{_datadir}/vala/vapi/gandiva-glib.*
 %{_includedir}/gandiva-glib/
 %{_libdir}/libgandiva-glib.a
 %{_libdir}/libgandiva-glib.so
 %{_libdir}/pkgconfig/gandiva-glib.pc
-%{_libdir}/girepository-1.0/Gandiva-1.0.typelib
-%{_datadir}/vala/vapi/gandiva-glib.*
 
 %package -n gandiva-glib-doc
 Summary:	Documentation for Gandiva GLib
@@ -957,8 +957,8 @@ This package contains the libraries for Plasma GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/Plasma-*.typelib
 %{_libdir}/libplasma-glib.so.*
-%{_datadir}/gir-1.0/Plasma-1.0.gir
 
 %package -n plasma-glib-devel
 Summary:	Libraries and header files for Plasma GLib
@@ -974,12 +974,12 @@ Libraries and header files for Plasma GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/Plasma-*gir
+%{_datadir}/vala/vapi/plasma-glib.*
 %{_includedir}/plasma-glib/
 %{_libdir}/libplasma-glib.a
 %{_libdir}/libplasma-glib.so
 %{_libdir}/pkgconfig/plasma-glib.pc
-%{_libdir}/girepository-1.0/Plasma-1.0.typelib
-%{_datadir}/vala/vapi/plasma-glib.*
 
 %package -n plasma-glib-doc
 Summary:	Documentation for Plasma GLib
@@ -1007,8 +1007,8 @@ This package contains the libraries for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_libdir}/girepository-1.0/Parquet-*.typelib
 %{_libdir}/libparquet-glib.so.*
-%{_datadir}/gir-1.0/Parquet-1.0.gir
 
 %package -n parquet-glib-devel
 Summary:	Libraries and header files for Apache Parquet GLib
@@ -1024,12 +1024,12 @@ Libraries and header files for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/gir-1.0/Parquet-*.gir
+%{_datadir}/vala/vapi/parquet-glib.*
 %{_includedir}/parquet-glib/
 %{_libdir}/libparquet-glib.a
 %{_libdir}/libparquet-glib.so
 %{_libdir}/pkgconfig/parquet-glib.pc
-%{_libdir}/girepository-1.0/Parquet-1.0.typelib
-%{_datadir}/vala/vapi/parquet-glib.*
 
 %package -n parquet-glib-doc
 Summary:	Documentation for Apache Parquet GLib
