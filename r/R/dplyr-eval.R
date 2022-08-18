@@ -103,9 +103,11 @@ arrow_mask <- function(.data, aggregation = FALSE, expr = NULL) {
       translated_functions <- map(functions, ~ translate_to_arrow(.x, f_env))
 
       if (purrr::none(translated_functions, is.null)) {
-        purrr::walk2(.x = unknown_functions,
-              .y = translated_functions,
-              .f = ~ register_binding(.x, .y, registry = f_env))
+        purrr::walk2(
+          .x = unknown_functions,
+          .y = translated_functions,
+          .f = ~ register_binding(.x, .y, registry = f_env, update_cache = TRUE)
+        )
       }
     }
   }
@@ -188,8 +190,46 @@ translate_to_arrow <- function(.fun, .env) {
     unknown_function <- setdiff(all_funs(function_body[[2]]), names(.env))
 
     fn <- as_function(unknown_function, env = caller_env())
+
+    # TODO if all the functions inside the body of the unknown function are
+    #  translatable then translate and register them
+    #  currently we return a NULL for untranslatable functions
     translated_function <- NULL
   }
+
+  ################### - this is the bit I'm struggling with
+  # # handle the non-translatable case first as it is more complex
+  #
+  # if (!translatable(.fun, .env)) {
+  #   # unknown_functions <- setdiff(all_funs(function_body[[2]]), names(.env))
+  #
+  #   # functions <- map(unknown_functions, as_function, env = caller_env())
+  #
+  #   unknown_function <- setdiff(all_funs(function_body[[2]]), names(.env))
+  #
+  #   fn <- as_function(unknown_function, env = caller_env())
+  #
+  #   fn_body <- rlang::fn_body(fn)
+  #
+  #   if (translatable(fn, .env)) {
+  #     translated_fn <- rlang::new_function(
+  #       args = formals(fn),
+  #       body = translate_to_arrow_rec(fn_body[[2]]),
+  #       env = .env
+  #     )
+  #   } else {
+  #     translated_fn <- NULL
+  #   }
+  #   register_binding(unknown_function, translated_fn, .env, update_cache = TRUE)
+  #
+  # }
+  #
+  # translated_function <- rlang::new_function(
+  #   args = function_formals,
+  #   body = translate_to_arrow_rec(function_body[[2]])
+  # )
+
+  ###################
 
   translated_function
 }
