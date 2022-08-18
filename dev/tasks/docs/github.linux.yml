@@ -45,7 +45,7 @@ jobs:
       - name: Move docs
         run: |
           sudo chown -R ${USER}: build
-          mv --force build crossbow/docs/pr/{{ pr_number }}
+          mv --force build/docs crossbow/docs/pr/{{ pr_number }}
       - name: Push changes
         run: |
           cd crossbow
