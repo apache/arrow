@@ -91,7 +91,7 @@ cmake \
   -DARROW_ZSTD_USE_SHARED=OFF \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir}/cpp \
+  -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DORC_SOURCE=BUNDLED \
   -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
@@ -128,9 +128,10 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 
 echo "=== Copying libraries to the distribution folder ==="
-cp -L ${build_dir}/cpp/lib/libgandiva_jni.so ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_dataset_jni.so ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_orc_jni.so ${dist_dir}
+cp -L ${ARROW_HOME}/lib/libarrow_dataset_jni.so ${dist_dir}
+cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
+cp -L ${ARROW_HOME}/lib/libgandiva_jni.so ${dist_dir}
+cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
 
@@ -149,5 +150,6 @@ archery linking check-dependencies \
   libarrow_cdata_jni.so \
   libarrow_dataset_jni.so \
   libarrow_orc_jni.so \
-  libgandiva_jni.so
+  libgandiva_jni.so \
+  libplasma_java.so
 popd

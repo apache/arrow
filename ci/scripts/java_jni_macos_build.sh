@@ -29,6 +29,7 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
+install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=OFF}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
@@ -80,7 +81,7 @@ cmake \
   -DAWSSDK_SOURCE=BUNDLED \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir}/cpp \
+  -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
@@ -105,9 +106,10 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 echo "=== Copying libraries to the distribution folder ==="
 mkdir -p "${dist_dir}"
-cp -L ${build_dir}/cpp/lib/libgandiva_jni.dylib ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_dataset_jni.dylib ${dist_dir}
-cp -L ${build_dir}/cpp/lib/libarrow_orc_jni.dylib ${dist_dir}
+cp -L ${install_dir}/lib/libarrow_dataset_jni.dylib ${dist_dir}
+cp -L ${install_dir}/lib/libarrow_orc_jni.dylib ${dist_dir}
+cp -L ${install_dir}/lib/libgandiva_jni.dylib ${dist_dir}
+cp -L ${build_dir}/cpp/*/libplasma_java.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
 
@@ -126,5 +128,6 @@ archery linking check-dependencies \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
   libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib
+  libgandiva_jni.dylib \
+  libplasma_java.dylib
 popd
