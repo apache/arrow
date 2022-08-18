@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -133,6 +134,210 @@ TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
       std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(500, 0));
   ASSERT_EQ(zero_length_at_end->FindPhysicalOffset(), 5);
   ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
+}
+
+TEST_P(TestRunEndEncodedArray, Validate) {
+  auto run_ends_good = ArrayFromJSON(run_end_type, "[10, 20, 30, 40]");
+  auto values = ArrayFromJSON(utf8(), R"(["A", "B", "C", null])");
+  auto run_ends_with_zero = ArrayFromJSON(run_end_type, "[0, 20, 30, 40]");
+  auto run_ends_with_null = ArrayFromJSON(run_end_type, "[0, 20, 30, null]");
+  auto run_ends_not_ordered = ArrayFromJSON(run_end_type, "[10, 20, 40, 40]");
+  auto run_ends_too_low = ArrayFromJSON(run_end_type, "[10, 20, 40, 39]");
+  auto empty_ints = ArrayFromJSON(run_end_type, "[]");
+  auto run_ends_require64 = ArrayFromJSON(int64(), "[10, 9223372036854775807]");
+  int64_t long_length = 0;
+  if (run_end_type->id() == Type::INT16) {
+    long_length = std::numeric_limits<int16_t>::max();
+  } else if (run_end_type->id() == Type::INT32) {
+    long_length = std::numeric_limits<int32_t>::max();
+  } else {
+    long_length = std::numeric_limits<int64_t>::max();
+  }
+  auto run_ends_long = ArrayFromJSON(
+      run_end_type, std::string("[10, ") + std::to_string(long_length) + "]");
+
+  ASSERT_OK_AND_ASSIGN(auto good_array,
+                       RunEndEncodedArray::Make(40, run_ends_good, values));
+  ASSERT_OK(good_array->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto require64_array,
+      RunEndEncodedArray::Make(9223372036854775806, run_ends_require64, values));
+  ASSERT_OK(require64_array->ValidateFull());
+
+  auto sliced = good_array->Slice(5, 20);
+  ASSERT_OK(sliced->ValidateFull());
+
+  auto sliced_at_run_end = good_array->Slice(10, 20);
+  ASSERT_OK(sliced_at_run_end->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sliced_children,
+      RunEndEncodedArray::Make(15, run_ends_good->Slice(1, 2), values->Slice(1, 3)));
+  ASSERT_OK(sliced_children->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunEndEncodedArray::Make(0, empty_ints, empty_ints));
+  ASSERT_OK(empty_array->ValidateFull());
+
+  auto empty_run_ends = MakeArray(empty_array->data()->Copy());
+  empty_run_ends->data()->length = 1;
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Run-end encoded array has non-zero length 1, "
+                             "but run ends array has zero length",
+                             empty_run_ends->Validate());
+
+  auto offset_length_overflow = MakeArray(good_array->data()->Copy());
+  offset_length_overflow->data()->offset = std::numeric_limits<int64_t>::max();
+  offset_length_overflow->data()->length = 1;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          std::string("Invalid: Array of type run_end_encoded<run_ends: ") +
+          run_end_type->ToString() +
+          ", values: string> has impossibly large length and offset"),
+      offset_length_overflow->Validate());
+
+  ASSERT_OK_AND_ASSIGN(auto too_large_for_ree16,
+                       RunEndEncodedArray::Make(40, run_ends_long, values));
+  too_large_for_ree16->data()->offset = std::numeric_limits<int16_t>::max();
+  too_large_for_ree16->data()->length = 1;
+  if (run_end_type->id() == Type::INT16) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Offset + length of a run-end encoded array must fit in a value"
+        " of the run end type int16, but offset + length is 32768 while"
+        " the allowed maximum is 32767",
+        too_large_for_ree16->Validate());
+  } else {
+    ASSERT_OK(too_large_for_ree16->ValidateFull());
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto too_large_for_ree32,
+                       RunEndEncodedArray::Make(40, run_ends_long, values));
+  too_large_for_ree32->data()->offset = std::numeric_limits<int32_t>::max();
+  too_large_for_ree32->data()->length = 1;
+  if (run_end_type->id() == Type::INT16) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Offset + length of a run-end encoded array must fit in a "
+        "value of the run end type int16, but offset + length "
+        "is 2147483648 while the allowed maximum is 32767",
+        too_large_for_ree32->Validate());
+  } else if (run_end_type->id() == Type::INT32) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Offset + length of a run-end encoded array must fit in a "
+        "value of the run end type int32, but offset + length "
+        "is 2147483648 while the allowed maximum is 2147483647",
+        too_large_for_ree32->Validate());
+  } else {
+    ASSERT_OK(too_large_for_ree32->ValidateFull());
+  }
+
+  auto too_many_children = MakeArray(good_array->data()->Copy());
+  too_many_children->data()->child_data.push_back(NULLPTR);
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      std::string("Invalid: Expected 2 child arrays in array of type "
+                  "run_end_encoded<run_ends: ") +
+          run_end_type->ToString() + ", values: string>, got 3",
+      too_many_children->Validate());
+
+  auto run_ends_nullptr = MakeArray(good_array->data()->Copy());
+  run_ends_nullptr->data()->child_data[0] = NULLPTR;
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array is null pointer",
+                             run_ends_nullptr->Validate());
+
+  auto values_nullptr = MakeArray(good_array->data()->Copy());
+  values_nullptr->data()->child_data[1] = NULLPTR;
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Values array is null pointer",
+                             values_nullptr->Validate());
+
+  auto run_ends_string = MakeArray(good_array->data()->Copy());
+  run_ends_string->data()->child_data[0] = values->data();
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      std::string("Invalid: Run ends array of run_end_encoded<run_ends: ") +
+          run_end_type->ToString() + ", values: string> must be " +
+          run_end_type->ToString() + ", but run end type is string",
+      run_ends_string->Validate());
+
+  auto wrong_type = MakeArray(good_array->data()->Copy());
+  wrong_type->data()->type = run_end_encoded(run_end_type, uint16());
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Parent type says this array encodes uint16 "
+                             "values, but value type is string",
+                             wrong_type->Validate());
+
+  {
+    // malformed_array has its buffers deallocated after the RunEndEncodedArray is
+    // constructed because it is UB to create an REE array with invalid run ends
+    auto malformed_array = ArrayFromJSON(run_end_type, "[10, 20, 30, 40]");
+    ASSERT_OK_AND_ASSIGN(auto run_ends_malformed,
+                         RunEndEncodedArray::Make(40, malformed_array, values));
+    malformed_array->data()->buffers.emplace_back(NULLPTR);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            std::string(
+                "Invalid: Run ends array invalid: Expected 2 buffers in array of type ") +
+            run_end_type->ToString() + ", got 3"),
+        run_ends_malformed->Validate());
+  }
+
+  {
+    auto malformed_array = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+    ASSERT_OK_AND_ASSIGN(auto values_malformed,
+                         RunEndEncodedArray::Make(40, run_ends_good, malformed_array));
+    malformed_array->data()->buffers.emplace_back(NULLPTR);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Invalid: Values array invalid: Expected 2 buffers in array "
+                             "of type int32, got 3"),
+        values_malformed->Validate());
+  }
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> run_end_zero_array,
+                       RunEndEncodedArray::Make(40, run_ends_with_zero, values));
+  ASSERT_OK(run_end_zero_array->Validate());
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: All run ends must be greater than 0 but the first run end is 0",
+      run_end_zero_array->ValidateFull());
+  // The whole run ends array has to be valid even if the parent is sliced
+  run_end_zero_array = run_end_zero_array->Slice(30, 0);
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: All run ends must be greater than 0 but the first run end is 0",
+      run_end_zero_array->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> run_ends_not_ordered_array,
+                       RunEndEncodedArray::Make(40, run_ends_not_ordered, values));
+  ASSERT_OK(run_ends_not_ordered_array->Validate());
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      "Invalid: Every run end must be strictly greater than the previous run end, but "
+      "run_ends[3] is 40 and run_ends[2] is 40",
+      run_ends_not_ordered_array->ValidateFull());
+  // The whole run ends array has to be valid even if the parent is sliced
+  run_ends_not_ordered_array = run_ends_not_ordered_array->Slice(30, 0);
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      "Invalid: Every run end must be strictly greater than the previous run end, but "
+      "run_ends[3] is 40 and run_ends[2] is 40",
+      run_ends_not_ordered_array->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto run_ends_too_low_array,
+                       RunEndEncodedArray::Make(40, run_ends_too_low, values));
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Last run end is 39 but it should match 40"
+                             " (offset: 0, length: 40)",
+                             run_ends_too_low_array->Validate());
+
+  ASSERT_OK_AND_ASSIGN(auto values_too_short_array,
+                       RunEndEncodedArray::Make(40, run_ends_good, values->Slice(1)));
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Length of run_ends is greater than the length of values: 4 > 3",
+      values_too_short_array->Validate());
 }
 
 TEST_P(TestRunEndEncodedArray, Compare) {
