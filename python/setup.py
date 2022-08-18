@@ -620,26 +620,25 @@ else:
     setup_requires = []
 
 
-packages = find_namespace_packages(include=['pyarrow*'])
-package_dir = {}
-
-# Push ./tests/* into pyarrow.tests installed package.
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages.append("pyarrow.tests")
-    package_dir["pyarrow.tests"] = "tests"
-    for pkg in find_namespace_packages(where="tests"):
-        name = f"pyarrow.tests.{pkg}"
-        packages.append(name)
-        package_dir[name] = "/".join(["tests"] + pkg.split('.'))
+    packages = find_namespace_packages(include=['pyarrow*'])
+    exclude_package_data = {}
+else:
+    packages = find_namespace_packages(include=['pyarrow*'],
+                                       exclude=["pyarrow.tests*"])
+    # setuptools adds back importable packages even when excluded.
+    # https://github.com/pypa/setuptools/issues/3260
+    # https://github.com/pypa/setuptools/issues/3340#issuecomment-1219383976
+    exclude_package_data = {"pyarrow": ["tests*"]}
 
 
 setup(
     name='pyarrow',
-    package_dir=package_dir,
     packages=packages,
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
     include_package_data=True,
+    exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
