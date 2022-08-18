@@ -45,7 +45,7 @@ set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "${ARROW_HOME}/lib/cm
 # Arrow version
 #
 
-set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
+set(ARROW_PYTHON_VERSION "10.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
 # Need to set to ARRROW_VERSION before finding Arrow package!
 project(arrow_python VERSION "${ARROW_PYTHON_BASE_VERSION}")
