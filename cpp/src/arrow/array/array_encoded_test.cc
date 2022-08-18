@@ -104,9 +104,9 @@ TEST(RunLengthEncodedArray, OffsetLength) {
   ASSERT_EQ(slice2->GetPhysicalOffset(), 1);
 
   auto slice3 =
-      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(100, 200));
-  ASSERT_EQ(slice3->GetPhysicalLength(), 2);
-  ASSERT_EQ(slice3->GetPhysicalOffset(), 1);
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(400, 100));
+  ASSERT_EQ(slice3->GetPhysicalLength(), 1);
+  ASSERT_EQ(slice3->GetPhysicalOffset(), 4);
 
   auto slice4 =
       std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(0, 150));

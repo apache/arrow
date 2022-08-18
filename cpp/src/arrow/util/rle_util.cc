@@ -32,8 +32,10 @@ int64_t GetPhysicalLength(const ArraySpan& span) {
     return 0;
   } else {
     // find the offset of the last element and add 1
-    return FindPhysicalOffset(RunEnds(span) + GetPhysicalOffset(span),
-                              RunEndsArray(span).length, span.offset + span.length - 1) +
+    int64_t physical_offset = GetPhysicalOffset(span);
+    return FindPhysicalOffset(RunEnds(span) + physical_offset,
+                              RunEndsArray(span).length - physical_offset,
+                              span.offset + span.length - 1) +
            1;
   }
 }
