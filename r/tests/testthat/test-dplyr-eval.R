@@ -57,7 +57,7 @@ test_that("binding translation works", {
 
   # user function defined using namespacing
   nchar4 <- function(x) {
-    2 + base::nchar(x)
+    3 + base::nchar(x)
   }
 
   compare_dplyr_binding(
@@ -65,6 +65,32 @@ test_that("binding translation works", {
       mutate(
         var1 = nchar(my_string),
         var2 = 1 + nchar4(my_string)) %>%
+      collect(),
+    tibble::tibble(my_string = "1234")
+  )
+
+  nchar5 <- function(x) {
+    4 + nchar2(x)
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        var1 = nchar(my_string),
+        var5 = nchar5(my_string)) %>%
+      collect(),
+    tibble::tibble(my_string = "1234")
+  )
+
+  nchar6 <- function(x) {
+    4 + nchar2(x) + nchar4(x)
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        var1 = nchar(my_string),
+        var6 = nchar6(my_string)) %>%
       collect(),
     tibble::tibble(my_string = "1234")
   )
