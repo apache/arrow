@@ -607,7 +607,7 @@ public class JdbcParameterBinderTest {
       binder.reset();
 
       setNull.accept(vector, 0);
-      setValue.accept(vector, 1, values.get(2));
+      setValue.accept(vector, 1, values.get(3));
       setValue.accept(vector, 2, values.get(0));
       setValue.accept(vector, 3, values.get(2));
       setValue.accept(vector, 4, values.get(1));
@@ -617,7 +617,7 @@ public class JdbcParameterBinderTest {
       assertThat(statement.getParamValue(1)).isNull();
       assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(3));
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
       assertThat(binder.next()).isTrue();
