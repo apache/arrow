@@ -37,7 +37,7 @@ repos:
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
   - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+    rev: 5.0.3
     hooks:
       - id: flake8
         name: Python Format

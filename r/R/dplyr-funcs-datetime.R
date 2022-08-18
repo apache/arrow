@@ -25,6 +25,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
   register_bindings_datetime_parsers()
+  register_bindings_datetime_rounding()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -579,12 +580,23 @@ register_bindings_datetime_parsers <- function() {
     }
   })
 
-  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq")
+  parser_vec <- c(
+    "ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq",
+    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H",
+    "mdy_HMS", "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
+  )
 
-  ymd_parser_map_factory <- function(order) {
+  parser_map_factory <- function(order) {
     force(order)
-    function(x, tz = NULL) {
-      parse_x <- call_binding("parse_date_time", x, order, tz)
+    function(x, quiet = TRUE, tz = NULL, locale = NULL, truncated = 0) {
+      if (!is.null(locale)) {
+        arrow_not_supported("`locale`")
+      }
+      # Parsers returning datetimes return UTC by default and never return dates.
+      if (is.null(tz) && nchar(order) > 3) {
+        tz <- "UTC"
+      }
+      parse_x <- call_binding("parse_date_time", x, order, tz, truncated, quiet)
       if (is.null(tz)) {
         # we cast so we can mimic the behaviour of the `tz` argument in lubridate
         # "If NULL (default), a Date object is returned. Otherwise a POSIXct with
@@ -595,10 +607,10 @@ register_bindings_datetime_parsers <- function() {
     }
   }
 
-  for (ymd_order in ymd_parser_vec) {
+  for (order in parser_vec) {
     register_binding(
-      paste0("lubridate::", ymd_order),
-      ymd_parser_map_factory(ymd_order)
+      paste0("lubridate::", tolower(order)),
+      parser_map_factory(order)
     )
   }
 
@@ -637,4 +649,55 @@ register_bindings_datetime_parsers <- function() {
 
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
+
+}
+
+register_bindings_datetime_rounding <- function() {
+  register_binding(
+    "round_date",
+    function(x,
+             unit = "second",
+             week_start = getOption("lubridate.week.start", 7)) {
+
+    opts <- parse_period_unit(unit)
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("round_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("round_temporal", x, options = opts)
+  })
+
+  register_binding(
+    "floor_date",
+    function(x,
+             unit = "second",
+             week_start = getOption("lubridate.week.start", 7)) {
+
+    opts <- parse_period_unit(unit)
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("floor_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("floor_temporal", x, options = opts)
+  })
+
+  register_binding(
+    "ceiling_date",
+    function(x,
+             unit = "second",
+             change_on_boundary = NULL,
+             week_start = getOption("lubridate.week.start", 7)) {
+    opts <- parse_period_unit(unit)
+    if (is.null(change_on_boundary)) {
+      change_on_boundary <- ifelse(call_binding("is.Date", x), TRUE, FALSE)
+    }
+    opts$ceil_is_strictly_greater <- change_on_boundary
+
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("ceil_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("ceil_temporal", x, options = opts)
+  })
+
 }

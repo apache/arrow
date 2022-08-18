@@ -40,6 +40,14 @@ test_that("Codec attributes", {
   expect_error(cod$level)
 })
 
+test_that("Default compression_level for zstd", {
+  skip_if_not_available("zstd")
+  cod <- Codec$create("zstd")
+  expect_equal(cod$name, "zstd")
+  # TODO: implement $level
+  expect_error(cod$level)
+})
+
 test_that("can write Buffer to CompressedOutputStream and read back in CompressedInputStream", {
   skip_if_not_available("gzip")
   buf <- buffer(as.raw(sample(0:255, size = 1024, replace = TRUE)))

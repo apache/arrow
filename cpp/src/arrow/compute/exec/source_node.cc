@@ -85,6 +85,7 @@ struct SourceNode : ExecNode {
       if (stop_requested_) {
         return Status::OK();
       }
+      started_ = true;
     }
 
     CallbackOptions options;
@@ -97,27 +98,53 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    started_ = true;
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
+    if (!scan_task.is_valid()) {
+      finished_.MarkFinished();
+      // Plan has already been aborted, no need to start scanning
+      return Status::OK();
+    }
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
-                 int total_batches = batch_count_++;
                  if (stop_requested_) {
-                   return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+                   return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
                  }
                  lock.unlock();
 
                  return generator_().Then(
-                     [=](const util::optional<ExecBatch>& maybe_batch)
+                     [=](const util::optional<ExecBatch>& maybe_morsel)
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
-                       if (IsIterationEnd(maybe_batch) || stop_requested_) {
-                         stop_requested_ = true;
-                         return Break(total_batches);
+                       if (IsIterationEnd(maybe_morsel) || stop_requested_) {
+                         return Break(batch_count_);
                        }
                        lock.unlock();
-                       ExecBatch batch = std::move(*maybe_batch);
+                       bool use_legacy_batching = plan_->UseLegacyBatching();
+                       ExecBatch morsel = std::move(*maybe_morsel);
+                       int64_t morsel_length = static_cast<int64_t>(morsel.length);
+                       if (use_legacy_batching || morsel_length == 0) {
+                         // For various reasons (e.g. ARROW-13982) we pass empty batches
+                         // through
+                         batch_count_++;
+                       } else {
+                         int num_batches = static_cast<int>(
+                             bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
+                         batch_count_ += num_batches;
+                       }
                        RETURN_NOT_OK(plan_->ScheduleTask([=]() {
-                         outputs_[0]->InputReceived(this, std::move(batch));
+                         int64_t offset = 0;
+                         do {
+                           int64_t batch_size = std::min<int64_t>(
+                               morsel_length - offset, ExecPlan::kMaxBatchSize);
+                           // In order for the legacy batching model to work we must
+                           // not slice batches from the source
+                           if (use_legacy_batching) {
+                             batch_size = morsel_length;
+                           }
+                           ExecBatch batch = morsel.Slice(offset, batch_size);
+                           offset += batch_size;
+                           outputs_[0]->InputReceived(this, std::move(batch));
+                         } while (offset < morsel.length);
                          return Status::OK();
                        }));
                        lock.lock();
@@ -129,23 +156,19 @@ struct SourceNode : ExecNode {
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
                      [=](const Status& error) -> ControlFlow<int> {
-                       std::unique_lock<std::mutex> lock(mutex_);
-                       stop_requested_ = true;
-                       lock.unlock();
                        outputs_[0]->ErrorReceived(this, error);
-                       finished_.MarkFinished(error);
-                       return Break(total_batches);
+                       return Break(batch_count_);
                      },
                      options);
                })
                    .Then(
-                       [=](int total_batches) {
+                       [this, scan_task](int total_batches) mutable {
                          outputs_[0]->InputFinished(this, total_batches);
-                         if (!finished_.is_finished()) finished_.MarkFinished();
+                         scan_task.MarkFinished();
+                         finished_.MarkFinished();
                        },
                        {}, options);
     if (!executor && finished_.is_finished()) return finished_.status();
-    RETURN_NOT_OK(plan_->AddFuture(fut));
     return Status::OK();
   }
 
@@ -186,7 +209,9 @@ struct SourceNode : ExecNode {
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
     stop_requested_ = true;
-    if (!started_) finished_.MarkFinished();
+    if (!started_) {
+      finished_.MarkFinished();
+    }
   }
 
  private:

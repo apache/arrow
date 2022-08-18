@@ -258,9 +258,10 @@ def add_fs(doctest_namespace, request, tmp_path):
 
         # Creation of an object and file with data
         local = fs.LocalFileSystem()
-        path = tmp_path / 'fileinfo.dat'
+        path = tmp_path / 'pyarrow-fs-example.dat'
         with local.open_output_stream(str(path)) as stream:
             stream.write(b'data')
         doctest_namespace["local"] = local
-        doctest_namespace["local_path"] = tmp_path
+        doctest_namespace["local_path"] = str(tmp_path)
+        doctest_namespace["path"] = str(path)
     yield

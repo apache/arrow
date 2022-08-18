@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
@@ -340,6 +341,24 @@ class TailSkipForSIMD {
     }
     return num_selected_safe;
   }
+};
+
+/// \brief A consumer that collects results into an in-memory table
+struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
+ public:
+  TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
+      : out_(out), pool_(pool) {}
+  Status Init(const std::shared_ptr<Schema>& schema,
+              BackpressureControl* backpressure_control) override;
+  Status Consume(ExecBatch batch) override;
+  Future<> Finish() override;
+
+ private:
+  std::shared_ptr<Table>* out_;
+  MemoryPool* pool_;
+  std::shared_ptr<Schema> schema_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  util::Mutex consume_mutex_;
 };
 
 }  // namespace compute

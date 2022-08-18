@@ -529,6 +529,26 @@ func (Decimal128Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
 }
 
+// Decimal256Type represents a fixed-size 256-bit decimal type.
+type Decimal256Type struct {
+	Precision int32
+	Scale     int32
+}
+
+func (*Decimal256Type) ID() Type      { return DECIMAL256 }
+func (*Decimal256Type) Name() string  { return "decimal256" }
+func (*Decimal256Type) BitWidth() int { return 256 }
+func (t *Decimal256Type) String() string {
+	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
+}
+func (t *Decimal256Type) Fingerprint() string {
+	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+
+func (Decimal256Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal256SizeBytes)}}
+}
+
 // MonthInterval represents a number of months.
 type MonthInterval int32
 

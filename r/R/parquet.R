@@ -36,9 +36,17 @@
 read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
+                         # TODO: for consistency with other readers/writers,
+                         # these properties should be enumerated as args here,
+                         # and ParquetArrowReaderProperties$create() should
+                         # accept them, as with ParquetWriterProperties.
+                         # Assembling `props` yourself is something you do with
+                         # ParquetFileReader but not here.
                          props = ParquetArrowReaderProperties$create(),
                          ...) {
   if (!inherits(file, "RandomAccessFile")) {
+    # Compression is handled inside the parquet file format, so we don't need
+    # to detect from the file extension and wrap in a CompressedInputStream
     file <- make_readable_file(file)
     on.exit(file$close())
   }
@@ -156,6 +164,7 @@ write_parquet <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
+    # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
     sink <- make_output_stream(sink)
     on.exit(sink$close())
   }

@@ -23,12 +23,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // FileReader is an Arrow file reader.
@@ -50,7 +51,8 @@ type FileReader struct {
 	irec int   // current record index. used for the arrio.Reader interface
 	err  error // last error
 
-	mem memory.Allocator
+	mem            memory.Allocator
+	swapEndianness bool
 }
 
 // NewFileReader opens an Arrow file using the provided reader r.
@@ -79,7 +81,7 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 		return nil, fmt.Errorf("arrow/ipc: could not decode footer: %w", err)
 	}
 
-	err = f.readSchema()
+	err = f.readSchema(cfg.ensureNativeEndian)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not decode schema: %w", err)
 	}
@@ -131,7 +133,7 @@ func (f *FileReader) readFooter() error {
 	return err
 }
 
-func (f *FileReader) readSchema() error {
+func (f *FileReader) readSchema(ensureNativeEndian bool) error {
 	var (
 		err  error
 		kind dictutils.Kind
@@ -144,6 +146,11 @@ func (f *FileReader) readSchema() error {
 	f.schema, err = schemaFromFB(schema, &f.memo)
 	if err != nil {
 		return fmt.Errorf("arrow/ipc: could not read schema: %w", err)
+	}
+
+	if ensureNativeEndian && !f.schema.IsNativeEndian() {
+		f.swapEndianness = true
+		f.schema = f.schema.WithEndianness(endian.NativeEndian)
 	}
 
 	for i := 0; i < f.NumDictionaries(); i++ {
@@ -165,7 +172,7 @@ func (f *FileReader) readSchema() error {
 			return err
 		}
 
-		kind, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem)
+		kind, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.swapEndianness, f.mem)
 		if err != nil {
 			return err
 		}
@@ -293,7 +300,7 @@ func (f *FileReader) RecordAt(i int) (arrow.Record, error) {
 		return nil, fmt.Errorf("arrow/ipc: message %d is not a Record", i)
 	}
 
-	return newRecord(f.schema, &f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem), nil
+	return newRecord(f.schema, &f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.swapEndianness, f.mem), nil
 }
 
 // Read reads the current record from the underlying stream and an error, if any.
@@ -315,7 +322,7 @@ func (f *FileReader) ReadAt(i int64) (arrow.Record, error) {
 	return f.Record(int(i))
 }
 
-func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) arrow.Record {
+func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, swapEndianness bool, mem memory.Allocator) arrow.Record {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.RecordBatch
@@ -337,8 +344,9 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 			codec: codec,
 			mem:   mem,
 		},
-		memo: memo,
-		max:  kMaxNestingDepth,
+		memo:    memo,
+		max:     kMaxNestingDepth,
+		version: MetadataVersion(msg.Version()),
 	}
 
 	pos := dictutils.NewFieldPos()
@@ -349,6 +357,10 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 
 		if err := dictutils.ResolveFieldDict(memo, data, pos.Child(int32(i)), mem); err != nil {
 			panic(err)
+		}
+
+		if swapEndianness {
+			swapEndianArrayData(data.(*array.Data))
 		}
 
 		cols[i] = array.MakeFromData(data)
@@ -368,8 +380,9 @@ type ipcSource struct {
 func (src *ipcSource) buffer(i int) *memory.Buffer {
 	var buf flatbuf.Buffer
 	if !src.meta.Buffers(&buf, i) {
-		panic("buffer index out of bound")
+		panic("arrow/ipc: buffer index out of bound")
 	}
+
 	if buf.Length() == 0 {
 		return memory.NewBufferBytes(nil)
 	}
@@ -411,7 +424,7 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 	var node flatbuf.FieldNode
 	if !src.meta.Nodes(&node, i) {
-		panic("field metadata out of bound")
+		panic("arrow/ipc: field metadata out of bound")
 	}
 	return &node
 }
@@ -422,6 +435,7 @@ type arrayLoaderContext struct {
 	ibuffer int
 	max     int
 	memo    *dictutils.Memo
+	version MetadataVersion
 }
 
 func (ctx *arrayLoaderContext) field() *flatbuf.FieldNode {
@@ -450,7 +464,7 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		*arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type,
 		*arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type,
 		*arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type,
-		*arrow.Decimal128Type,
+		*arrow.Decimal128Type, *arrow.Decimal256Type,
 		*arrow.Time32Type, *arrow.Time64Type,
 		*arrow.TimestampType,
 		*arrow.Date32Type, *arrow.Date64Type,
@@ -458,13 +472,16 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
-	case *arrow.BinaryType, *arrow.StringType:
+	case *arrow.BinaryType, *arrow.StringType, *arrow.LargeStringType, *arrow.LargeBinaryType:
 		return ctx.loadBinary(dt)
 
 	case *arrow.FixedSizeBinaryType:
 		return ctx.loadFixedSizeBinary(dt)
 
 	case *arrow.ListType:
+		return ctx.loadList(dt)
+
+	case *arrow.LargeListType:
 		return ctx.loadList(dt)
 
 	case *arrow.FixedSizeListType:
@@ -481,21 +498,27 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		defer storage.Release()
 		return array.NewData(dt, storage.Len(), storage.Buffers(), storage.Children(), storage.NullN(), storage.Offset())
 
+	case arrow.UnionType:
+		return ctx.loadUnion(dt)
+
 	default:
-		panic(fmt.Errorf("array type %T not handled yet", dt))
+		panic(fmt.Errorf("arrow/ipc: array type %T not handled yet", dt))
 	}
 }
 
-func (ctx *arrayLoaderContext) loadCommon(nbufs int) (*flatbuf.FieldNode, []*memory.Buffer) {
+func (ctx *arrayLoaderContext) loadCommon(typ arrow.Type, nbufs int) (*flatbuf.FieldNode, []*memory.Buffer) {
 	buffers := make([]*memory.Buffer, 0, nbufs)
 	field := ctx.field()
 
 	var buf *memory.Buffer
-	switch field.NullCount() {
-	case 0:
-		ctx.ibuffer++
-	default:
-		buf = ctx.buffer()
+
+	if hasValidityBitmap(typ, ctx.version) {
+		switch field.NullCount() {
+		case 0:
+			ctx.ibuffer++
+		default:
+			buf = ctx.buffer()
+		}
 	}
 	buffers = append(buffers, buf)
 
@@ -518,7 +541,7 @@ func (ctx *arrayLoaderContext) loadNull() arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 
 	switch field.Length() {
 	case 0:
@@ -534,7 +557,7 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData 
 }
 
 func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(3)
+	field, buffers := ctx.loadCommon(dt.ID(), 3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -542,7 +565,7 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -550,7 +573,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType
 }
 
 func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -560,8 +583,13 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
 }
 
-func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+type listLike interface {
+	arrow.DataType
+	Elem() arrow.DataType
+}
+
+func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -572,7 +600,7 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(1)
+	field, buffers := ctx.loadCommon(dt.ID(), 1)
 	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
@@ -582,7 +610,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) ar
 }
 
 func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(1)
+	field, buffers := ctx.loadCommon(dt.ID(), 1)
 	defer releaseBuffers(buffers)
 
 	subs := make([]arrow.ArrayData, len(dt.Fields()))
@@ -598,7 +626,48 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData 
 	return array.NewData(dt, int(field.Length()), buffers, subs, int(field.NullCount()), 0)
 }
 
-func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) (dictutils.Kind, error) {
+func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
+	// Sparse unions have 2 buffers (a nil validity bitmap, and the type ids)
+	nBuffers := 2
+	// Dense unions have a third buffer, the offsets
+	if dt.Mode() == arrow.DenseMode {
+		nBuffers = 3
+	}
+
+	field, buffers := ctx.loadCommon(dt.ID(), nBuffers)
+	if field.NullCount() != 0 && buffers[0] != nil {
+		panic("arrow/ipc: cannot read pre-1.0.0 union array with top-level validity bitmap")
+	}
+
+	switch field.Length() {
+	case 0:
+		buffers = append(buffers, memory.NewBufferBytes([]byte{}))
+		ctx.ibuffer++
+		if dt.Mode() == arrow.DenseMode {
+			buffers = append(buffers, nil)
+			ctx.ibuffer++
+		}
+	default:
+		buffers = append(buffers, ctx.buffer())
+		if dt.Mode() == arrow.DenseMode {
+			buffers = append(buffers, ctx.buffer())
+		}
+	}
+
+	defer releaseBuffers(buffers)
+	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	for i, f := range dt.Fields() {
+		subs[i] = ctx.loadChild(f.Type)
+	}
+	defer func() {
+		for i := range subs {
+			subs[i].Release()
+		}
+	}()
+	return array.NewData(dt, int(field.Length()), buffers, subs, 0, 0)
+}
+
+func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, swapEndianness bool, mem memory.Allocator) (dictutils.Kind, error) {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.DictionaryBatch
@@ -634,6 +703,10 @@ func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker
 
 	dict := ctx.loadArray(valueType)
 	defer dict.Release()
+
+	if swapEndianness {
+		swapEndianArrayData(dict.(*array.Data))
+	}
 
 	if md.IsDelta() {
 		memo.AddDelta(id, dict)

@@ -531,3 +531,15 @@ def test_metadata_exceeds_message_size():
         buf = out.getvalue()
 
     metadata = pq.read_metadata(pa.BufferReader(buf))
+
+
+def test_metadata_equals():
+    table = pa.table({"a": [1, 2, 3]})
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    match = "Argument 'other' has incorrect type"
+    with pytest.raises(TypeError, match=match):
+        original_metadata.equals(None)

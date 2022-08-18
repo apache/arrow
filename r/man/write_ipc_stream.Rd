@@ -22,12 +22,6 @@ Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/
 a "stream" format and a "file" format, known as Feather. \code{write_ipc_stream()}
 and \code{\link[=write_feather]{write_feather()}} write those formats, respectively.
 }
-\details{
-\code{write_arrow()}, a wrapper around \code{write_ipc_stream()} and \code{write_feather()}
-with some nonstandard behavior, is deprecated. You should explicitly choose
-the function that will write the desired IPC format (stream or file) since
-either can be written to a file or \code{OutputStream}.
-}
 \examples{
 tf <- tempfile()
 on.exit(unlink(tf))
