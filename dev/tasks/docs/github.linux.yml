@@ -16,7 +16,7 @@
 # under the License.
 
 {% import 'macros.jinja' as macros with context %}
-
+{% set pr_number = pr_number|replace("Unset", arrow.branch) %}
 {{ macros.github_header() }}
 
 jobs:
@@ -25,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
     steps:
+      - name: Check that PR number set
+
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_install_archery()|indent }}
 

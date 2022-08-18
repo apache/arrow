@@ -20,7 +20,7 @@
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-binary-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set package_version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
+{% set package_version = custom_version|replace("Unset", "\\2.\'\"$(date +%Y%m%d)\"\'") %}
 {% set is_fork = macros.is_fork %}
 
 {{ macros.github_header() }}
