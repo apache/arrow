@@ -227,11 +227,14 @@ struct TempDataGenerator {
 struct EmitValidate {
   EmitValidate(const std::shared_ptr<Schema> output_schema,
                const std::shared_ptr<Table> expected_table,
-               compute::ExecContext& exec_context, std::shared_ptr<Buffer>& buf)
+               compute::ExecContext& exec_context, std::shared_ptr<Buffer>& buf,
+               const std::vector<int>& include_columns = {}, bool combine_chunks = false)
       : output_schema(output_schema),
         expected_table(expected_table),
         exec_context(exec_context),
-        buf(buf) {}
+        buf(buf),
+        include_columns(include_columns),
+        combine_chunks(combine_chunks) {}
   void operator()() {
     for (auto sp_ext_id_reg :
          {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
@@ -250,13 +253,33 @@ struct EmitValidate {
       ASSERT_OK_AND_ASSIGN(auto output_table,
                            GetTableFromPlan(acero_plan, declarations, sink_gen,
                                             exec_context, output_schema));
-      EXPECT_TRUE(expected_table->Equals(*output_table, true));
+      if (!include_columns.empty()) {
+        ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
+      }
+      if (combine_chunks) {
+        ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
+      }
+
+      EXPECT_TRUE(expected_table->Equals(*output_table));
+      std::cout << "output" << std::endl;
+      std::cout << std::string(10, '#') << std::endl;
+      std::cout << output_table->ToString() << std::endl;
+      std::cout << std::string(10, '#') << std::endl;
+      std::cout << output_table->schema()->ToString(false) << std::endl;
+
+      std::cout << "expected" << std::endl;
+      std::cout << std::string(10, '#') << std::endl;
+      std::cout << expected_table->ToString() << std::endl;
+      std::cout << std::string(10, '#') << std::endl;
+      std::cout << expected_table->schema()->ToString(false) << std::endl;
     }
   }
   std::shared_ptr<Schema> output_schema;
   std::shared_ptr<Table> expected_table;
   compute::ExecContext exec_context;
   std::shared_ptr<Buffer> buf;
+  const std::vector<int>& include_columns;
+  bool combine_chunks;
 };
 
 TEST(Substrait, SupportedTypes) {
@@ -2609,6 +2632,192 @@ TEST(Substrait, FilterRelWithEmit) {
       [7, 1]
   ])"});
   EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf)();
+}
+
+TEST(Substrait, JoinRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema = schema({field("A", int32()), field("B", int32()),
+                             field("C", int32()), field("D", int32())});
+
+  auto right_schema = schema({field("X", int32()), field("Y", int32()),
+                              field("Z", int32()), field("W", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1, 80, 70],
+      [20, 2, 70, 60],
+      [30, 3, 30, 50]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 1, 81, 71],
+      [80, 2, 71, 61],
+      [31, 3, 31, 51]
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_join_tempdir"));
+  std::string left_file_prefix = "serde_join_left_emit_test";
+  std::string right_file_prefix = "serde_join_right_emit_test";
+
+  TempDataGenerator datagen_left(left_table, left_file_prefix, tempdir);
+  ASSERT_OK(datagen_left());
+  std::string substrait_left_file_uri = "file://" + datagen_left.data_file_path;
+
+  TempDataGenerator datagen_right(right_table, right_file_prefix, tempdir);
+  ASSERT_OK(datagen_right());
+  std::string substrait_right_file_uri = "file://" + datagen_right.data_file_path;
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C", "D"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": ")" +
+                               substrait_left_file_uri +
+                               R"(",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "Z", "W"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": ")" +
+                               substrait_right_file_uri +
+                               R"(",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({
+      field("A", int32()),
+      field("B", int32()),
+      field("C", int32()),
+      field("D", int32()),
+      field("__fragment_index_l", int32()),
+      field("__batch_index_l", int32()),
+      field("__last_in_fragment_l", boolean()),
+      field("__filename_l", utf8()),
+      field("X", int32()),
+      field("Y", int32()),
+      field("Z", int32()),
+      field("W", int32()),
+      field("__fragment_index_r", int32()),
+      field("__batch_index_r", int32()),
+      field("__last_in_fragment_r", boolean()),
+      field("__filename_r", utf8()),
+  });
+
+  // include these columns for comparison
+  std::vector<int> include_columns{0, 1, 2, 3, 8, 9, 10, 11};
+  auto compared_output_schema = schema({
+      field("A", int32()),
+      field("B", int32()),
+      field("C", int32()),
+      field("D", int32()),
+      field("X", int32()),
+      field("Y", int32()),
+      field("Z", int32()),
+      field("W", int32()),
+  });
+  auto expected_table = TableFromJSON(std::move(compared_output_schema), {R"([
+      [10, 1, 80, 70, 10, 1, 81, 71]
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf,
+               std::move(include_columns), true)();
 }
 
 }  // namespace engine

@@ -439,6 +439,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       if (!left_keys || !right_keys) {
         return Status::Invalid("Left keys for join cannot be null");
       }
+
+      // Create output schema from left, right relations and join keys
+      // std::shared_ptr<Schema> left_schema = left.output_schema;
+      // std::shared_ptr<Schema> right_schema = right.output_schema;
+
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
                                                 {std::move(*right_keys)}};
       join_options.join_type = join_type;
