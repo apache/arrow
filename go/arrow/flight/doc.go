@@ -55,6 +55,7 @@
 // ListFlights endpoint is largely just implemented as a normal GRPC stream
 // endpoint and can hit transfer bottlenecks if used too much. To estimate data
 // transfer bottleneck:
+//
 // 5k schemas will serialize to about 1-5 MB/call. Assuming a gRPC localhost
 // bottleneck of 3GB/s you can at best serve 600-3000 clients/s.
 //
