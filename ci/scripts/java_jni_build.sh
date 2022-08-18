@@ -54,6 +54,7 @@ cmake \
   -DCMAKE_PREFIX_PATH=${dist_dir} \
   -DCMAKE_INSTALL_PREFIX=${arrow_install_dir}/lib/cmake/arrow \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  -GNinja \
   ${JAVA_JNI_CMAKE_ARGS:-} \
   ${arrow_dir}/java
 export CMAKE_BUILD_PARALLEL_LEVEL=${n_jobs}

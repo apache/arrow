@@ -31,6 +31,10 @@ add_jar(arrow_java_jni_dataset_jar
 
 add_library(arrow_java_jni_dataset SHARED src/main/cpp/jni_wrapper.cc
                                           src/main/cpp/jni_util.cc)
+set_property(TARGET arrow_java_jni_dataset PROPERTY OUTPUT_NAME "arrow_dataset_jni")
+# TODO: Remove this when
+# we resolve ARROW-12175 / https://github.com/apache/arrow/pull/13892 .
+target_link_libraries(arrow_dataset_static INTERFACE arrow_static)
 target_link_libraries(arrow_java_jni_dataset arrow_java_jni_dataset_headers jni
                       arrow_dataset_static)
 
@@ -38,7 +42,7 @@ if(BUILD_TESTING)
   add_executable(arrow-java-jni-dataset-test src/main/cpp/jni_util_test.cc
                                              src/main/cpp/jni_util.cc)
   target_link_libraries(arrow-java-jni-dataset-test arrow_java_test)
-  add_test(NAME arrow-java-jni-dataset-test COMMAND arrow-dataset-jni-test)
+  add_test(NAME arrow-java-jni-dataset-test COMMAND arrow-java-jni-dataset-test)
 endif()
 
 install(TARGETS arrow_java_jni_dataset DESTINATION ${CMAKE_INSTALL_PREFIX})

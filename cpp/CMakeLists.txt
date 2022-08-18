@@ -786,6 +786,15 @@ endif()
 if(ARROW_S3)
   list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
+    list(APPEND
+         ARROW_STATIC_INSTALL_INTERFACE_LIBS
+         aws-cpp-sdk-identity-management
+         aws-cpp-sdk-sts
+         aws-cpp-sdk-cognito-identity
+         aws-cpp-sdk-s3
+         aws-cpp-sdk-core)
+  endif()
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)

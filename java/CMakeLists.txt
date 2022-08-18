@@ -60,6 +60,9 @@ if(BUILD_TESTING)
   find_package(ArrowTesting REQUIRED)
   find_package(GTest REQUIRED)
   add_library(arrow_java_test INTERFACE IMPORTED)
+  # TODO: Remove this when
+  # we resolve ARROW-12175 / https://github.com/apache/arrow/pull/13892 .
+  target_link_libraries(arrow_testing_static INTERFACE arrow_static)
   target_link_libraries(arrow_java_test INTERFACE arrow_testing_static GTest::gtest_main)
 endif()
 
