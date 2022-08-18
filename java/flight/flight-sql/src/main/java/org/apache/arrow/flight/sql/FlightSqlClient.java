@@ -98,6 +98,16 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of the result set of a query.
+   */
+  public SchemaResult getExecuteSchema(final String query, final CallOption... options) {
+    final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder();
+    builder.setQuery(query);
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Execute an update query on the server.
    *
    * @param query   The query to execute.
@@ -138,6 +148,17 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of {@link #getCatalogs(CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_CATALOGS_SCHEMA}.
+   */
+  public SchemaResult getCatalogsSchema(final CallOption... options) {
+    final CommandGetCatalogs command = CommandGetCatalogs.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Request a list of schemas.
    *
    * @param catalog               The catalog.
@@ -158,6 +179,17 @@ public class FlightSqlClient implements AutoCloseable {
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Get the schema of {@link #getSchemas(String, String, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_SCHEMAS_SCHEMA}.
+   */
+  public SchemaResult getSchemasSchema(final CallOption... options) {
+    final CommandGetDbSchemas command = CommandGetDbSchemas.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -232,6 +264,17 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of {@link #getSqlInfo(SqlInfo...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_SQL_INFO_SCHEMA}.
+   */
+  public SchemaResult getSqlInfoSchema(final CallOption... options) {
+    final CommandGetSqlInfo command = CommandGetSqlInfo.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Request the information about the data types supported related to
    * a filter data type.
    *
@@ -259,6 +302,17 @@ public class FlightSqlClient implements AutoCloseable {
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Get the schema of {@link #getXdbcTypeInfo(CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_TYPE_INFO_SCHEMA}.
+   */
+  public SchemaResult getXdbcTypeInfoSchema(final CallOption... options) {
+    final CommandGetXdbcTypeInfo command = CommandGetXdbcTypeInfo.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -299,6 +353,18 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of {@link #getTables(String, String, String, List, boolean, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_TABLES_SCHEMA} or
+   * {@link FlightSqlProducer.Schemas#GET_TABLES_SCHEMA_NO_SCHEMA}.
+   */
+  public SchemaResult getTablesSchema(boolean includeSchema, final CallOption... options) {
+    final CommandGetTables command = CommandGetTables.newBuilder().setIncludeSchema(includeSchema).build();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Request the primary keys for a table.
    *
    * @param tableRef  An object which hold info about catalog, dbSchema and table.
@@ -321,6 +387,17 @@ public class FlightSqlClient implements AutoCloseable {
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Get the schema of {@link #getPrimaryKeys(TableRef, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_PRIMARY_KEYS_SCHEMA}.
+   */
+  public SchemaResult getPrimaryKeysSchema(final CallOption... options) {
+    final CommandGetPrimaryKeys command = CommandGetPrimaryKeys.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -351,6 +428,17 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of {@link #getExportedKeys(TableRef, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_EXPORTED_KEYS_SCHEMA}.
+   */
+  public SchemaResult getExportedKeysSchema(final CallOption... options) {
+    final CommandGetExportedKeys command = CommandGetExportedKeys.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Retrieves the foreign key columns for the given table.
    *
    * @param tableRef  An object which hold info about catalog, dbSchema and table.
@@ -376,6 +464,17 @@ public class FlightSqlClient implements AutoCloseable {
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Get the schema of {@link #getImportedKeys(TableRef, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_IMPORTED_KEYS_SCHEMA}.
+   */
+  public SchemaResult getImportedKeysSchema(final CallOption... options) {
+    final CommandGetImportedKeys command = CommandGetImportedKeys.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -418,6 +517,17 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Get the schema of {@link #getCrossReference(TableRef, TableRef, CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_CROSS_REFERENCE_SCHEMA}.
+   */
+  public SchemaResult getCrossReferenceSchema(final CallOption... options) {
+    final CommandGetCrossReference command = CommandGetCrossReference.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
    * Request a list of table types.
    *
    * @param options RPC-layer hints for this call.
@@ -427,6 +537,17 @@ public class FlightSqlClient implements AutoCloseable {
     final CommandGetTableTypes.Builder builder = CommandGetTableTypes.newBuilder();
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Get the schema of {@link #getTableTypes(CallOption...)} from the server.
+   *
+   * <p>Should be identical to {@link FlightSqlProducer.Schemas#GET_TABLE_TYPES_SCHEMA}.
+   */
+  public SchemaResult getTableTypesSchema(final CallOption... options) {
+    final CommandGetTableTypes command = CommandGetTableTypes.getDefaultInstance();
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(command).toByteArray());
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -532,6 +653,20 @@ public class FlightSqlClient implements AutoCloseable {
         parameterSchema = deserializeSchema(bytes);
       }
       return parameterSchema;
+    }
+
+    /**
+     * Get the schema of the result set (should be identical to {@link #getResultSetSchema()}).
+     */
+    public SchemaResult fetchSchema(CallOption... options) {
+      checkOpen();
+
+      final FlightDescriptor descriptor = FlightDescriptor
+          .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
+                  .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
+                  .build())
+              .toByteArray());
+      return client.getSchema(descriptor, options);
     }
 
     private Schema deserializeSchema(final ByteString bytes) {
