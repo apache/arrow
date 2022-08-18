@@ -183,14 +183,25 @@ gRPC
 When using default gRPC transport options can be passed to it via
 :member:`arrow::flight::FlightClientOptions::generic_options`. For example:
 
-.. code-block:: cpp
+.. tab-set::
 
-   auto options = FlightClientOptions::Defaults();
-   // Set a very low limit at the gRPC layer to fail all calls
-   options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
+   .. tab-item:: C++
+
+      .. code-block:: cpp
+
+         auto options = FlightClientOptions::Defaults();
+         // Set a very low limit at the gRPC layer to fail all calls
+         options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
+
+   .. tab-item:: Python
+
+      .. code-block:: cpp
+
+         // Set a very low limit at the gRPC layer to fail all calls
+         generic_options = [("GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH", 4)]
+         client = pyarrow.flight.FlightClient(server_uri, generic_options=generic_options)
 
 Also see `best gRPC practices`_ and available `gRPC keys`_.
-
 
 Re-use clients whenever possible
 --------------------------------
@@ -202,7 +213,7 @@ done too frequently. Client reuse will avoid this issue.
 Don’t round-robin load balance
 ------------------------------
 
-Round robin balancing means every client can have an open connection to
+`Round robin balancing`_ means every client can have an open connection to
 every server, causing an unexpected number of open connections and depleting
 server resources.
 
@@ -218,21 +229,8 @@ gRPC may not report connection errors until a call is actually made.
 Hence, to detect connection errors when creating a client, some sort
 of dummy RPC should be made.
 
-Use ListFlights sparingly
--------------------------
-
-ListFlights endpoint is largely just implemented as a normal GRPC stream
-endpoint and can hit transfer bottlenecks if used too much. To estimate data
-transfer bottleneck:
-5k schemas will serialize to about 1-5 MB/call. Assuming a gRPC localhost
-bottleneck of 3GB/s you can at best serve 600-3000 clients/s.
-
-ARROW-15764_ proposes a caching optimisation for server side, but it was not
-yet implemented.
-
-
-Memory cache client-side
-------------------------
+Memory cache management
+-----------------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
 data copies.  However, this means that those allocations may not
@@ -240,22 +238,21 @@ be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
 
+A quick way of testing: attach to the process with a debugger and call malloc_trim
+or call ReleaseUnused on the system pool.
+
+Excessive traffic
+-----------------
+
 gRPC will spawn an unbounded number of threads for concurrent clients. Those
 threads are not necessarily cleaned up (cached thread pool in java parlance).
 glibc malloc clears some per thread state and the default tuning never clears
 caches in some workloads. But you can explicitly tell malloc to dump caches.
 See ARROW-16697_ as an example.
 
-A quick way of testing: attach to the process with a debugger and call malloc_trim
-
-
-Excessive traffic
------------------
-
 There are basically two ways to handle excessive traffic:
 * unbounded thread pool -> everyone gets serviced, but it might take forever.
-This is what you are seeing now.
-bounded thread pool -> Reject connections / requests when under load, and have
+* bounded thread pool -> Reject connections / requests when under load, and have
 clients retry with backoff. This also gives an opportunity to retry with a
 different node. Not everyone gets serviced but quality of service stays consistent.
 
@@ -277,7 +274,37 @@ Closing unresponsive connections
 1. A stale connection can be closed using
    :member:`arrow::flight::FlightClientOptions::stop_token`. This requires recording the
    stop token at connection establishment time.
+
+   .. tab-set::
+
+      .. tab-item:: C++
+
+         .. code-block:: cpp
+
+      .. tab-item:: Java
+
+         .. code-block:: java
+
+      .. tab-item:: Python
+
+         .. code-block:: python
+
+
 2. Use client timeout.
+   .. tab-set::
+
+      .. tab-item:: C++
+
+         .. code-block:: cpp
+
+      .. tab-item:: Java
+
+         .. code-block:: java
+
+      .. tab-item:: Python
+
+         .. code-block:: python
+
 3. There is a long standing ticket for a per-write/per-read timeout instead of a per
    call timeout (ARROW-6062_), but this is not (easily) possible to implement with the
    blocking gRPC API. For now one can also do something like set up a background thread
@@ -287,6 +314,7 @@ Closing unresponsive connections
 
 .. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
+.. _Round-robin load balancing: https://github.com/grpc/grpc/blob/master/doc/load-balancing.md#round_robin
 .. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
 .. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
 .. _ARROW-6062: https://issues.apache.org/jira/browse/ARROW-6062

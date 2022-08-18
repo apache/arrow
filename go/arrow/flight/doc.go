@@ -50,19 +50,6 @@
 // give you the actual error until you first try to make a call. This can cause
 // error being reported at unexpected times.
 //
-// Use ListFlights sparingly
-//
-// ListFlights endpoint is largely just implemented as a normal GRPC stream
-// endpoint and can hit transfer bottlenecks if used too much. To estimate data
-// transfer bottleneck:
-//
-// 5k schemas will serialize to about 1-5 MB/call. Assuming a gRPC localhost
-// bottleneck of 3GB/s you can at best serve 600-3000 clients/s.
-//
-// https://issues.apache.org/jira/browse/ARROW-15764 proposes a caching
-// optimisation for server side, but it was not yet implemented.
-//
-//
 // Memory cache client-side
 //
 // Flight uses gRPC allocator wherever possible.
