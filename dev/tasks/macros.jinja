@@ -69,25 +69,43 @@ on:
     uses: actions/setup-python@v4
     with:
       python-version: 3.8
+  - name: Checkout Crossbow
+    uses: actions/checkout@v3
+    with:
+      path: crossbow
+      ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow-upload]
+    run: pip install -e arrow/dev/archery[crossbow]
   - name: Upload artifacts
     shell: bash
     run: |
       archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
+        --queue-path $(pwd)/crossbow \
+        --queue-remote {{ queue_remote_url }} \
+        upload-artifacts \
+        --sha {{ task.branch }} \
+        --tag {{ task.tag }} \
+      {% if pattern is string %}
+        "{{ pattern }}"
+      {% elif pattern is iterable %}
+        {% for p in pattern %}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
+        {% endfor %}
+      {% endif %}
+    env:
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
+  - name: Verify uploaded artifacts
+    shell: bash
+    run: |
+      archery crossbow \
+        --queue-path $(pwd)/crossbow \
+        --queue-remote {{ queue_remote_url }} \
+        status \
+        --task-filter '{{ task.name }}' \
+        --no-fetch \
+        --validate \
+        {{ job.branch }}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
@@ -170,7 +188,7 @@ on:
 
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0 cryptography==36
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow-upload]
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
   - |
     archery crossbow \
       --queue-path $(pwd) \
@@ -185,6 +203,16 @@ on:
       "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
+  - git fetch origin {{ job.branch }}:remotes/origin/{{ job.branch }}
+  - |
+    archery crossbow \
+      --queue-path $(pwd) \
+      --queue-remote {{ queue_remote_url }} \
+      status \
+      --task-filter '{{ task.name }}' \
+      --no-fetch \
+      --validate \
+      {{ job.branch }}
 {% endmacro %}
 
 {%- macro travis_upload_gemfury(pattern) -%}
