@@ -28,14 +28,14 @@ add_arrow_test(filesystem-test
                EXTRA_LABELS
                filesystem)
 
-if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
-    add_arrow_benchmark(localfs_benchmark
-                        PREFIX
-                        "arrow-filesystem"
-                        SOURCES
-                        localfs_benchmark.cc
-                        STATIC_LINK_LIBS
-                        ${ARROW_BENCHMARK_LINK_LIBS})
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(localfs_benchmark
+                      PREFIX
+                      "arrow-filesystem"
+                      SOURCES
+                      localfs_benchmark.cc
+                      STATIC_LINK_LIBS
+                      ${ARROW_BENCHMARK_LINK_LIBS})
 endif()
 
 if(ARROW_GCS)

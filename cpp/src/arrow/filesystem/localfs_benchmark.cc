@@ -19,16 +19,14 @@
 
 #include "benchmark/benchmark.h"
 
-#include <arrow/status.h>
-#include <arrow/testing/random.h>
-#include <arrow/util/async_generator.h>
-#include <arrow/util/string_view.h>
 #include "arrow/filesystem/localfs.h"
 #include "arrow/io/file.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/make_unique.h"

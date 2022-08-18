@@ -43,13 +43,18 @@ struct ARROW_EXPORT LocalFileSystemOptions {
 
   /// Options related to `GetFileInfoGenerator` interface.
 
-  /// How many directories should be processed in parallel
-  /// by the `GetFileInfoGenerator` impl.
+  /// EXPERIMENTAL: The maximum number of directories processed in parallel
+  /// by `GetFileInfoGenerator`.
   int32_t directory_readahead = kDefaultDirectoryReadahead;
-  /// Specifies how much entries shall be aggregated into
-  /// a single FileInfoVector chunk by the `GetFileInfoGenerator` impl, which
-  /// is the result of `stat`:ing individual dirents, obtained by the call to
-  /// `internal::ListDir`.
+
+  /// EXPERIMENTAL: The maximum number of entries aggregated into each
+  /// FileInfoVector chunk by `GetFileInfoGenerator`.
+  ///
+  /// Since each FileInfo entry needs a separate `stat` system call, a
+  /// directory with a very large number of files may take a lot of time to
+  /// process entirely. By generating a FileInfoVector after this chunk
+  /// size is reached, we ensure FileInfo entries can start being consumed
+  /// from the FileInfoGenerator with less initial latency.
   int32_t file_info_batch_size = kDefaultFileInfoBatchSize;
 
   /// \brief Initialize with defaults
