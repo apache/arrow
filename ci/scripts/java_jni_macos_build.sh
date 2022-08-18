@@ -30,7 +30,7 @@ rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
-: ${ARROW_BUILD_TESTS:=OFF}
+: ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -99,7 +99,10 @@ cmake \
 cmake --build . --target install
 
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
-  ctest
+  ctest \
+    --output-on-failure \
+    --parallel $(sysctl -n hw.ncpu) \
+    --timeout 300
 fi
 
 popd
@@ -107,6 +110,7 @@ popd
 
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
+  ${install_dir} \
   ${build_dir} \
   ${dist_dir}
 

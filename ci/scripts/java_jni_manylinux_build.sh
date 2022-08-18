@@ -24,6 +24,8 @@ build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${3}
 
+INSTALL_DIR=${build_dir}/cpp-install
+
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf ${build_dir}
@@ -32,7 +34,7 @@ echo "=== Building Arrow C++ libraries ==="
 devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
-: ${ARROW_BUILD_TESTS:=OFF}
+: ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -130,6 +132,7 @@ JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGE
 export JAVA_JNI_CMAKE_ARGS
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
+  ${ARROW_HOME} \
   ${build_dir} \
   ${dist_dir}
 
