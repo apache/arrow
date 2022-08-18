@@ -93,6 +93,8 @@ cmake --build . --target install
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3-test"
+  # unstable
+  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \
     --label-regex unittest \
