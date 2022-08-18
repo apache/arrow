@@ -31,8 +31,9 @@ import org.apache.arrow.vector.util.Text;
  */
 public class ListBinder extends BaseColumnBinder<ListVector> {
 
-  private UnionListReader listReader;
-  private Class<?> arrayElementClass;
+  private final UnionListReader listReader;
+  private final Class<?> arrayElementClass;
+  private final boolean isTextColumn;
 
   public ListBinder(ListVector vector) {
     this(vector, java.sql.Types.ARRAY);
@@ -55,6 +56,7 @@ public class ListBinder extends BaseColumnBinder<ListVector> {
               dataVectorClass.getName());
       throw new RuntimeException(message);
     }
+    isTextColumn = arrayElementClass.isAssignableFrom(Text.class);
   }
 
   @Override
@@ -62,7 +64,7 @@ public class ListBinder extends BaseColumnBinder<ListVector> {
     listReader.setPosition(rowIndex);
     ArrayList<?> sourceArray = (ArrayList<?>) listReader.readObject();
     Object array;
-    if (!arrayElementClass.isAssignableFrom(Text.class)) {
+    if (!isTextColumn) {
       array = Array.newInstance(arrayElementClass, sourceArray.size());
       Arrays.setAll((Object[]) array, sourceArray::get);
     } else {
