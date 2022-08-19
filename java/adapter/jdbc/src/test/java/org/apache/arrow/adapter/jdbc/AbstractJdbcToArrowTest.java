@@ -27,6 +27,7 @@ import java.sql.Types;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -95,6 +96,7 @@ public abstract class AbstractJdbcToArrowTest {
    */
   @Before
   public void setUp() throws SQLException, ClassNotFoundException {
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     String url = "jdbc:h2:mem:JdbcToArrowTest";
     String driver = "org.h2.Driver";
     Class.forName(driver);
