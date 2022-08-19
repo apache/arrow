@@ -41,8 +41,14 @@ install_dir=${build_dir}/cpp-install
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_PYTHON:=OFF}
 : ${ARROW_S3:=ON}
+: ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics before build ==="
+  ccache -s
+fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
@@ -103,6 +109,10 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${build_dir} \
   ${dist_dir}
 
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics after build ==="
+  ccache -s
+fi
 
 echo "=== Copying libraries to the distribution folder ==="
 mkdir -p "${dist_dir}"
