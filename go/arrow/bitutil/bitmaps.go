@@ -449,17 +449,24 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 	left = left[lOffset/8:]
 	right = right[rOffset/8:]
 	out = out[outOffset/8:]
+	endMask := (lOffset + length%8)
 	switch nbytes {
 	case 0:
 		return
 	case 1: // everything within a single byte
 		// (length+lOffset%8) <= 8
-		mask := PrecedingBitmask[lOffset%8] | TrailingBitmask[(lOffset+length)%8]
+		mask := PrecedingBitmask[lOffset%8]
+		if endMask != 0 {
+			mask |= TrailingBitmask[(lOffset+length)%8]
+		}
 		out[0] = (out[0] & mask) | (op.opByte(left[0], right[0]) &^ mask)
 	case 2: // don't send zero length to opAligned
 		firstByteMask := PrecedingBitmask[lOffset%8]
 		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
-		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		lastByteMask := byte(0)
+		if endMask != 0 {
+			lastByteMask = TrailingBitmask[(lOffset+length)%8]
+		}
 		out[1] = (out[1] & lastByteMask) | (op.opByte(left[1], right[1]) &^ lastByteMask)
 	default:
 		firstByteMask := PrecedingBitmask[lOffset%8]
@@ -467,7 +474,10 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 
 		op.opAligned(left[1:nbytes-1], right[1:nbytes-1], out[1:nbytes-1])
 
-		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		lastByteMask := byte(0)
+		if endMask != 0 {
+			lastByteMask = TrailingBitmask[(lOffset+length)%8]
+		}
 		out[nbytes-1] = (out[nbytes-1] & lastByteMask) | (op.opByte(left[nbytes-1], right[nbytes-1]) &^ lastByteMask)
 	}
 }
