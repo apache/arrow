@@ -1030,7 +1030,7 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
                   io::MakeRandomAccessFileGenerator(input_, read_options_.block_size));
 
     // TODO Consider exposing readahead as a read option (ARROW-12090)
-    auto prefetch_gen = MakeReadaheadGenerator(ifile_gen, 8);
+    auto prefetch_gen = MakeReadaheadGenerator(ifile_gen, io_context_.executor()->GetCapacity());
 
     auto transferred_it = MakeTransferredGenerator(prefetch_gen, cpu_executor);
 
@@ -1083,7 +1083,8 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
         read_options_.skip_rows_after_names);
     auto parsed_block_gen =
         MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
-    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
+    auto preparse_gen = MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
+    auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
