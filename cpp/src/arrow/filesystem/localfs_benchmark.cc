@@ -66,7 +66,7 @@ class LocalFSFixture : public benchmark::Fixture {
                                   arrow::internal::PlatformFilename cur_root_dir) {
     ASSERT_OK(arrow::internal::CreateDir(cur_root_dir));
 
-    arrow::internal::StringFormatter<Int32Type> format;
+    arrow::internal::StringFormatter<DoubleType> format;
     for (size_t i = 0; i < num_files_; ++i) {
       std::string fname = "file_";
       format(i, [&fname](util::string_view formatted) {
