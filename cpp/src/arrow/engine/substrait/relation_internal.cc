@@ -465,9 +465,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             compute::Declaration::Sequence(
                 {std::move(join_dec),
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            num_columns, join_schema};
+            num_columns, std::move(join_schema)};
       } else {
-        return DeclarationInfo{std::move(join_dec), num_columns, join_schema};
+        return DeclarationInfo{std::move(join_dec), num_columns, std::move(join_schema)};
       }
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
