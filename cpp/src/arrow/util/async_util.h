@@ -27,7 +27,6 @@
 namespace arrow {
 
 using internal::FnOnce;
-using internal::make_unique;
 
 namespace util {
 
@@ -187,7 +186,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
 
   template <typename Callable>
   bool AddSimpleTask(Callable callable) {
-    return AddTask(make_unique<SimpleTask<Callable>>(std::move(callable)));
+    return AddTask(
+        ::arrow::internal::make_unique<SimpleTask<Callable>>(std::move(callable)));
   }
   /// Signal that tasks are done being added
   ///

@@ -34,7 +34,6 @@
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
-using internal::make_unique;
 namespace util {
 
 TEST(AsyncTaskScheduler, ShouldScheduleConcurrentTasks) {
@@ -225,7 +224,7 @@ TEST(AsyncTaskScheduler, EndWaitsForAddedButNotSubmittedTasks) {
   ASSERT_TRUE(was_run);
 
   /// Same test but block task by custom throttle
-  auto custom_throttle = make_unique<CustomThrottle>();
+  auto custom_throttle = ::arrow::internal::make_unique<CustomThrottle>();
   task_group = AsyncTaskScheduler::Make(custom_throttle.get());
   was_run = false;
   ASSERT_TRUE(task_group->AddSimpleTask([&was_run] {
@@ -428,8 +427,8 @@ TEST(AsyncTaskScheduler, Priority) {
   constexpr int kNumConcurrentTasks = 8;
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(kNumConcurrentTasks);
-  std::unique_ptr<AsyncTaskScheduler> task_group =
-      AsyncTaskScheduler::Make(throttle.get(), make_unique<PriorityQueue>());
+  std::unique_ptr<AsyncTaskScheduler> task_group = AsyncTaskScheduler::Make(
+      throttle.get(), ::arrow::internal::make_unique<PriorityQueue>());
 
   std::shared_ptr<GatingTask> gate = GatingTask::Make();
   int submit_order[kNumTasks];
@@ -441,7 +440,7 @@ TEST(AsyncTaskScheduler, Priority) {
       submit_order[order_index++] = priority;
       return gate->AsyncTask();
     };
-    auto task = make_unique<TaskWithPriority>(task_exec, priority);
+    auto task = ::arrow::internal::make_unique<TaskWithPriority>(task_exec, priority);
     task_group->AddTask(std::move(task));
   }
   task_group->End();

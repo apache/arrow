@@ -34,7 +34,6 @@
 
 namespace arrow {
 using internal::Executor;
-using internal::make_unique;
 namespace dataset {
 namespace internal {
 
@@ -187,7 +186,8 @@ class DatasetWriterFileQueue {
       DatasetWriterFileQueue* self;
       std::shared_ptr<RecordBatch> batch;
     };
-    scheduler_->AddTask(make_unique<WriteTask>(this, std::move(batch)));
+    scheduler_->AddTask(
+        ::arrow::internal::make_unique<WriteTask>(this, std::move(batch)));
   }
 
   Result<int64_t> PopAndDeliverStagedBatch() {
@@ -332,8 +332,8 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<DatasetWriterFileQueue*> OpenFileQueue(const std::string& filename) {
-    auto file_queue =
-        make_unique<DatasetWriterFileQueue>(schema_, write_options_, writer_state_);
+    auto file_queue = ::arrow::internal::make_unique<DatasetWriterFileQueue>(
+        schema_, write_options_, writer_state_);
     DatasetWriterFileQueue* file_queue_view = file_queue.get();
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
@@ -385,7 +385,7 @@ class DatasetWriterDirectoryQueue {
       const FileSystemDatasetWriteOptions& write_options,
       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
       std::string directory, std::string prefix) {
-    auto dir_queue = make_unique<DatasetWriterDirectoryQueue>(
+    auto dir_queue = ::arrow::internal::make_unique<DatasetWriterDirectoryQueue>(
         scheduler, std::move(directory), std::move(prefix), std::move(schema),
         write_options, writer_state);
     dir_queue->PrepareDirectory();
@@ -585,8 +585,8 @@ class DatasetWriter::DatasetWriterImpl {
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              util::AsyncTaskScheduler* scheduler,
                              uint64_t max_rows_queued)
-    : impl_(make_unique<DatasetWriterImpl>(std::move(write_options), scheduler,
-                                           max_rows_queued)) {}
+    : impl_(::arrow::internal::make_unique<DatasetWriterImpl>(
+          std::move(write_options), scheduler, max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
