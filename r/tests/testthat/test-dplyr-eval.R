@@ -94,4 +94,17 @@ test_that("binding translation works", {
       collect(),
     tibble::tibble(my_string = "1234")
   )
+
+  nchar7 <- function(x) {
+    6 + nchar5(x)
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        var1 = nchar(my_string),
+        var7 = nchar7(my_string)) %>%
+      collect(),
+    tibble::tibble(my_string = "1234")
+  )
 })
