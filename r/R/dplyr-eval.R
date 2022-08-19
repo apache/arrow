@@ -45,15 +45,15 @@ arrow_eval <- function(expr, mask) {
       class(out) <- c("arrow-try-error", class(out))
     }
 
-    # do not label as "unknown-binding" for several exceptions
-    exceptions <- c("c", "factor", "~", "(", "across")
-    expr_funs <- setdiff(all_funs(expr), exceptions)
+    # do not use the "unknown-binding" label for several exceptions
+    # old exceptions <- c("c", "$", "factor", "~", "(", "across")
+    # old expr_funs <- setdiff(all_funs(expr), exceptions)
 
     # if any of the calls in expr are to bindings not yet in the function
     # registry, we mark it as unknown-binding-error and attempt translation
-    if (!all(expr_funs %in% names(mask$.top_env))) {
-      class(out) <- c("unknown-binding-error", class(out))
-    }
+    # old if (!all(expr_funs %in% names(mask$.top_env))) {
+    # old   class(out) <- c("unknown-binding-error", class(out))
+    # old }
     invisible(out)
   })
 }
@@ -86,28 +86,47 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data, aggregation = FALSE, expr = NULL) {
+arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
   f_env <- new_environment(.cache$functions)
 
   # so far we only pass an expression to the data mask builder if we want to
   # try to translate it
-  if (!is.null(expr)) {
-    # figure out which of the calls in expr are unknown (do not have corresponding
-    # bindings)
-    unknown_functions <- setdiff(all_funs(expr), names(f_env))
-
-    if (length(unknown_functions) != 0) {
-      # get the functions from the expr (quosure) original environment
-      functions <- map(unknown_functions, as_function, env = rlang::quo_get_env(expr))
-
-      translated_functions <- map(functions, ~ translate_to_arrow(.x, f_env))
-
-      if (purrr::none(translated_functions, is.null)) {
-        purrr::walk2(
-          .x = unknown_functions,
-          .y = translated_functions,
-          .f = ~ register_binding(.x, .y, registry = f_env, update_cache = TRUE)
+  if (!is.null(exprs)) {
+    exceptions <- c(
+      "c", "$", "factor", "~", "(", "across", ":", "[", "regex", "fixed", "list",
+      "%>%", "int32", "decimal", "decimal128", "decimal256", "float64", "string"
+    )
+    for (i in seq_along(exprs)) {
+      expr <- exprs[[i]]
+      # figure out which of the calls in expr are unknown (do not have corresponding
+      # bindings)
+      unknown_functions <- setdiff(
+        all_funs(expr),
+        union(
+          names(f_env),
+          exceptions
         )
+      )
+
+      if (length(unknown_functions) != 0) {
+        # get the functions from the expr (quosure) original environment
+        # old approach functions <- map(unknown_functions, as_function, env = rlang::quo_get_env(expr))
+        functions <- purrr::map_if(
+          .x = unknown_functions,
+          .p = ~ !grepl("::", .x),
+          .f = ~ as_function(.x, env = rlang::quo_get_env(expr)),
+          .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
+        )
+
+        translated_functions <- map(functions, ~ translate_to_arrow(.x, f_env))
+
+        if (purrr::none(translated_functions, is.null)) {
+          purrr::walk2(
+            .x = unknown_functions,
+            .y = translated_functions,
+            .f = ~ register_binding(.x, .y, registry = f_env, update_cache = TRUE)
+          )
+        }
       }
     }
   }
@@ -185,27 +204,33 @@ translate_to_arrow <- function(.fun, .env) {
   if (!translatable(.fun, .env)) {
     unknown_function <- setdiff(all_funs(function_body[[2]]), names(.env))
 
-    fn <- as_function(unknown_function, env = caller_env())
+    if (grepl("::", unknown_function)) {
+      fn <- asNamespace(sub(":{+}.*?$", "", unknown_function))[[sub("^.*?:{+}", "", unknown_function)]]
+    } else {
+      fn <- tryCatch(
+        as_function(unknown_function, env = caller_env()),
+        error = function(e) NULL
+      )
+    }
 
-    fn_body <- rlang::fn_body(fn)
-
-    if (translatable(fn, .env)) {
+    if (!is.null(fn) && translatable(fn, .env)) {
+      fn_body <- rlang::fn_body(fn)
       translated_fn <- rlang::new_function(
         args = formals(fn),
         body = translate_to_arrow_rec(fn_body[[2]]),
         env = .env
       )
+      register_binding(unknown_function, translated_fn, .env, update_cache = TRUE)
     } else {
-      translated_fn <- NULL
+      return(NULL)
+      # old register_binding(unknown_function, fn, .env, update_cache = TRUE)
     }
-    register_binding(unknown_function, translated_fn, .env, update_cache = TRUE)
-
   }
 
-  translated_function <- rlang::new_function(
-    args = function_formals,
-    body = translate_to_arrow_rec(function_body[[2]])
-  )
+    translated_function <- rlang::new_function(
+      args = function_formals,
+      body = translate_to_arrow_rec(function_body[[2]])
+    )
 
   ###################
 
@@ -253,6 +278,7 @@ translate_to_arrow_rec <- function(x) {
 #' @keywords internal
 #' @noRd
 translatable <- function(.fun, .env) {
+  if (is.primitive(.fun)) return(FALSE)
   function_body <- rlang::fn_body(.fun)
   # get all the function calls inside the body of the unknown binding
   # the second element is the actual body of a function (the first one are the
