@@ -142,12 +142,14 @@ ExecPlan <- R6Class("ExecPlan",
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
-        # If there are aggregations, the projection was already handled above
+        # If there are aggregations, the projection was already handled above.
         # We have to project at least once to eliminate some junk columns
         # that the ExecPlan adds:
         # __fragment_index, __batch_index, __last_in_fragment
-        # Presumably extraneous repeated projection of the same thing
-        # (as when we've done collapse() and not projected after) is cheap/no-op
+        #
+        # $Project() will check whether we actually need to project, so that
+        # repeated projection of the same thing
+        # (as when we've done collapse() and not projected after) is avoided
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
         if (!is.null(.data$join)) {
@@ -349,7 +351,11 @@ ExecNode <- R6Class("ExecNode",
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")
-        self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        if (needs_projection(cols, self$schema)) {
+          self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        } else {
+          self
+        }
       } else {
         self$preserve_extras(ExecNode_Project(self, character(0), character(0)))
       }
@@ -401,4 +407,14 @@ do_exec_plan_substrait <- function(substrait_plan) {
 
   plan <- ExecPlan$create()
   ExecPlan_run_substrait(plan, substrait_plan)
+}
+
+needs_projection <- function(projection, schema) {
+  # Check whether `projection` would do anything to data with the given `schema`
+  field_names <- set_names(map_chr(projection, ~ .$field_name), NULL)
+
+  # We need to apply `projection` if:
+  !all(nzchar(field_names)) || # Any of the Expressions are not FieldRefs
+    !identical(field_names, names(projection)) || # Any fields are renamed
+    !identical(field_names, names(schema)) # The fields are reordered
 }
