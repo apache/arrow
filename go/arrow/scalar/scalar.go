@@ -802,12 +802,16 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 			data.Release()
 		}()
 		return array.MakeFromData(data), nil
-	case PrimitiveScalar:
-		data := finishFixedWidth(s.Data())
-		defer data.Release()
-		return array.MakeFromData(data), nil
 	case *Decimal128:
 		data := finishFixedWidth(arrow.Decimal128Traits.CastToBytes([]decimal128.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *Decimal256:
+		data := finishFixedWidth(arrow.Decimal256Traits.CastToBytes([]decimal256.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case PrimitiveScalar:
+		data := finishFixedWidth(s.Data())
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *List:
@@ -961,6 +965,10 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 	case *DenseUnion:
 		// typecode is ignored when comparing equality, so don't hash it either
 		out ^= Hash(seed, s.Value)
+	case *Dictionary:
+		if s.Value.Index.IsValid() {
+			out ^= Hash(seed, s.Value.Index)
+		}
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
@@ -974,10 +982,6 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			if c.IsValid() {
 				out ^= Hash(seed, c)
 			}
-		}
-	case *Dictionary:
-		if s.Value.Index.IsValid() {
-			out ^= Hash(seed, s.Value.Index)
 		}
 	}
 
