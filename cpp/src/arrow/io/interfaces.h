@@ -29,6 +29,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
+#include "arrow/util/async_generator.h"
 
 namespace arrow {
 namespace io {
@@ -342,6 +343,9 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
 ARROW_EXPORT
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size);
+
+ARROW_EXPORT
+Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(std::shared_ptr<RandomAccessFile> file, int64_t block_size);
 
 }  // namespace io
 }  // namespace arrow

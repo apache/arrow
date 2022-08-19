@@ -101,6 +101,10 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
       const ConvertOptions&);
+  static Future<std::shared_ptr<StreamingReader>> MakeAsync(
+      io::IOContext io_context, std::shared_ptr<io::RandomAccessFile> input,
+      arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
+      const ConvertOptions&);
 
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,

@@ -27,6 +27,7 @@
 #include <string_view>
 #include <typeinfo>
 #include <utility>
+#include <iostream>
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
@@ -40,7 +41,6 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
-
 namespace arrow {
 
 using internal::checked_pointer_cast;
@@ -100,7 +100,6 @@ class InputStreamBlockIterator {
   int64_t block_size_;
   bool done_ = false;
 };
-
 }  // namespace
 
 const IOContext& Readable::io_context() const { return g_default_io_context; }
@@ -137,6 +136,37 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   DCHECK_GT(block_size, 0);
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
 }
+
+
+Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(std::shared_ptr<RandomAccessFile> file, int64_t block_size) {
+  struct State {
+    explicit State(std::shared_ptr<RandomAccessFile> file_, int64_t block_size_) : file(std::move(file_)), block_size(block_size_), position(0)
+    {
+      file->Seek(0);
+      total_size = file->GetSize().ValueOrDie();
+    }
+
+    std::shared_ptr<RandomAccessFile> file;
+    int64_t block_size;
+    int64_t total_size;
+    std::atomic<int64_t> position;
+  };
+
+  auto state = std::make_shared<State>(std::move(file), block_size);
+  return [state]() {
+    auto pos = state->position.fetch_add(state->block_size);
+    if (pos >= state->total_size) {
+      return AsyncGeneratorEnd<std::shared_ptr<Buffer>>();
+    }
+    // idx is guaranteed to be smaller than total size, but you might not be able to read a full block
+    if (pos + state->block_size > state->total_size) {
+      return state->file->ReadAsync(pos, state->total_size - state->position);
+    } else {
+      return state->file->ReadAsync(pos, state->block_size);
+    }
+  };
+}
+
 
 struct RandomAccessFile::Impl {
   std::mutex lock_;
