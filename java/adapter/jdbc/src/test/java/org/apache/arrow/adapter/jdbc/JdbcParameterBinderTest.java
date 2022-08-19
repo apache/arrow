@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import org.apache.arrow.adapter.jdbc.binder.ColumnBinder;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
@@ -67,11 +68,13 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -385,6 +388,91 @@ public class JdbcParameterBinderTest {
         Arrays.asList(new BigDecimal("120.429"), new BigDecimal("-10590.123"), new BigDecimal("0.000")));
   }
 
+  @Test
+  void listOfDouble() throws SQLException {
+    TriConsumer<ListVector, Integer, Double[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(doubleValue -> writer.float8().writeFloat8(doubleValue));
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<Double[]> values = Arrays.asList(new Double[]{0.0, Math.PI}, new Double[]{1.1, -352346.2, 2355.6},
+                                          new Double[]{-1024.3}, new Double[]{});
+    testListType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), setValue, ListVector::setNull, values);
+  }
+
+  @Test
+  void listOfInt64() throws SQLException {
+    TriConsumer<ListVector, Integer, Long[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(longValue -> writer.bigInt().writeBigInt(longValue));
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<Long[]> values = Arrays.asList(new Long[]{1L, 2L, 3L}, new Long[]{4L, 5L},
+            new Long[]{512L, 1024L, 2048L, 4096L}, new Long[]{});
+    testListType((ArrowType) new ArrowType.Int(64, true), setValue, ListVector::setNull, values);
+  }
+
+  @Test
+  void listOfInt32() throws SQLException {
+    TriConsumer<ListVector, Integer, Integer[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(integerValue -> writer.integer().writeInt(integerValue));
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<Integer[]> values = Arrays.asList(new Integer[]{1, 2, 3}, new Integer[]{4, 5},
+            new Integer[]{512, 1024, 2048, 4096}, new Integer[]{});
+    testListType((ArrowType) new ArrowType.Int(32, true), setValue, ListVector::setNull, values);
+  }
+
+  @Test
+  void listOfBoolean() throws SQLException {
+    TriConsumer<ListVector, Integer, Boolean[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(booleanValue -> writer.bit().writeBit(booleanValue ? 1 : 0));
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<Boolean[]> values = Arrays.asList(new Boolean[]{true, false},
+            new Boolean[]{false, false}, new Boolean[]{true, true, false, true}, new Boolean[]{});
+    testListType((ArrowType) new ArrowType.Bool(), setValue, ListVector::setNull, values);
+  }
+
+  @Test
+  void listOfString() throws SQLException {
+    TriConsumer<ListVector, Integer, String[]> setValue = (listVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionListWriter writer = listVector.getWriter();
+      writer.setPosition(index);
+      writer.startList();
+      Arrays.stream(values).forEach(stringValue -> {
+        if (stringValue != null) {
+          byte[] stringValueBytes = stringValue.getBytes(StandardCharsets.UTF_8);
+          try (ArrowBuf stringBuffer = allocator.buffer(stringValueBytes.length)) {
+            stringBuffer.writeBytes(stringValueBytes);
+            writer.varChar().writeVarChar(0, stringValueBytes.length, stringBuffer);
+          }
+        } else {
+          writer.varChar().writeNull();
+        }
+      });
+      writer.endList();
+      listVector.setLastSet(index);
+    };
+    List<String[]> values = Arrays.asList(new String[]{"aaaa", "b1"},
+            new String[]{"c", null, "d"}, new String[]{"e", "f", "g", "h"}, new String[]{});
+    testListType((ArrowType) new ArrowType.Utf8(), setValue, ListVector::setNull, values);
+  }
+
   @FunctionalInterface
   interface TriConsumer<T, U, V> {
     void accept(T value1, U value2, V value3);
@@ -443,6 +531,107 @@ public class JdbcParameterBinderTest {
 
     // Non-nullable (since some types have a specialized binder)
     schema = new Schema(Collections.singletonList(Field.notNullable("field", arrowType)));
+    try (final MockPreparedStatement statement = new MockPreparedStatement();
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final JdbcParameterBinder binder =
+          JdbcParameterBinder.builder(statement, root).bindAll().build();
+      assertThat(binder.next()).isFalse();
+
+      @SuppressWarnings("unchecked")
+      final V vector = (V) root.getVector(0);
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(1));
+      root.setRowCount(2);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isFalse();
+
+      binder.reset();
+
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(2));
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isFalse();
+    }
+  }
+
+  <T, V extends FieldVector> void testListType(ArrowType arrowType, TriConsumer<V, Integer, T> setValue,
+                          BiConsumer<V, Integer> setNull, List<T> values) throws SQLException {
+    int jdbcType = Types.ARRAY;
+    Schema schema = new Schema(Collections.singletonList(new Field("field", FieldType.nullable(
+            new ArrowType.List()), Collections.singletonList(
+            new Field("element", FieldType.notNullable(arrowType), null)
+    ))));
+    try (final MockPreparedStatement statement = new MockPreparedStatement();
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final JdbcParameterBinder binder =
+          JdbcParameterBinder.builder(statement, root).bindAll().build();
+      assertThat(binder.next()).isFalse();
+
+      @SuppressWarnings("unchecked")
+      final V vector = (V) root.getVector(0);
+      final ColumnBinder columnBinder = ColumnBinder.forVector(vector);
+      assertThat(columnBinder.getJdbcType()).isEqualTo(jdbcType);
+
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(1));
+      setNull.accept(vector, 2);
+      root.setRowCount(3);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isNull();
+      assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
+      assertThat(binder.next()).isFalse();
+
+      binder.reset();
+
+      setNull.accept(vector, 0);
+      setValue.accept(vector, 1, values.get(3));
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isNull();
+      assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(3));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isFalse();
+    }
+
+    // Non-nullable (since some types have a specialized binder)
+    schema = new Schema(Collections.singletonList(new Field("field", FieldType.notNullable(
+            new ArrowType.List()), Collections.singletonList(
+            new Field("element", FieldType.notNullable(arrowType), null)
+    ))));
     try (final MockPreparedStatement statement = new MockPreparedStatement();
          final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final JdbcParameterBinder binder =
