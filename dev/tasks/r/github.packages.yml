@@ -166,7 +166,6 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-           dependencies: 'TRUE'
       - name: Clean up self-hosted tmp 
         if: matrix.platform == 'macos-10.13'
         shell: bash

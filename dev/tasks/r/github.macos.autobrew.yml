@@ -60,7 +60,6 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: 'arrow/r'
-          dependencies: 'TRUE'
           extra-packages: |
             any::rcmdcheck
             any::sys
