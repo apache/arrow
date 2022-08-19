@@ -228,13 +228,12 @@ struct EmitValidate {
   EmitValidate(const std::shared_ptr<Schema> output_schema,
                const std::shared_ptr<Table> expected_table,
                compute::ExecContext& exec_context, std::shared_ptr<Buffer>& buf,
-               const std::vector<int>& include_columns = {}, bool combine_chunks = false)
+               const std::vector<int>& include_columns = {})
       : output_schema(output_schema),
         expected_table(expected_table),
         exec_context(exec_context),
         buf(buf),
-        include_columns(include_columns),
-        combine_chunks(combine_chunks) {}
+        include_columns(include_columns) {}
   void operator()() {
     for (auto sp_ext_id_reg :
          {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
@@ -256,22 +255,7 @@ struct EmitValidate {
       if (!include_columns.empty()) {
         ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
       }
-      if (combine_chunks) {
-        ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-      }
-
       EXPECT_TRUE(expected_table->Equals(*output_table));
-      std::cout << "output" << std::endl;
-      std::cout << std::string(10, '#') << std::endl;
-      std::cout << output_table->ToString() << std::endl;
-      std::cout << std::string(10, '#') << std::endl;
-      std::cout << output_table->schema()->ToString(false) << std::endl;
-
-      std::cout << "expected" << std::endl;
-      std::cout << std::string(10, '#') << std::endl;
-      std::cout << expected_table->ToString() << std::endl;
-      std::cout << std::string(10, '#') << std::endl;
-      std::cout << expected_table->schema()->ToString(false) << std::endl;
     }
   }
   std::shared_ptr<Schema> output_schema;
@@ -279,7 +263,6 @@ struct EmitValidate {
   compute::ExecContext exec_context;
   std::shared_ptr<Buffer> buf;
   const std::vector<int>& include_columns;
-  bool combine_chunks;
 };
 
 TEST(Substrait, SupportedTypes) {
@@ -2823,7 +2806,7 @@ TEST(Substrait, JoinRelWithEmit) {
       [10, 1, 80, 70, 10, 1, 81, 71]
   ])"});
   EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf,
-               std::move(include_columns), true)();
+               std::move(include_columns))();
 }
 
 }  // namespace engine
