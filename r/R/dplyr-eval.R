@@ -94,7 +94,41 @@ arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
   if (!is.null(exprs)) {
     exceptions <- c(
       "c", "$", "factor", "~", "(", "across", ":", "[", "regex", "fixed", "list",
-      "%>%", "int32", "decimal", "decimal128", "decimal256", "float64", "string"
+      "%>%",
+      #################
+      "int8",
+      "int16",
+      "int32",
+      "int64",
+      "uint8",
+      "uint16",
+      "uint32",
+      "uint64",
+      "float16",
+      "halffloat",
+      "float32",
+      "float",
+      "float64",
+      "boolean",
+      "bool",
+      "utf8",
+      "large_utf8",
+      "binary",
+      "large_binary",
+      "fixed_size_binary",
+      "string",
+      "date32",
+      "date64",
+      "time32",
+      "time64",
+      "duration",
+      "null",
+      "timestamp",
+      "decimal",
+      "decimal128",
+      "decimal256"
+
+      #################
     )
     for (i in seq_along(exprs)) {
       expr <- exprs[[i]]
