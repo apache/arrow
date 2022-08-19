@@ -31,21 +31,19 @@ struct EncodeDecodeCommonExec {
   Element ReadValue() {
     Element result;
     if (has_validity_buffer) {
-      result.valid =
-          bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
+      result.valid = bit_util::GetBit(input_validity, read_offset);
     } else {
       result.valid = true;
     }
-    result.value = (reinterpret_cast<const CType*>(
-        input_values))[input_values_physical_offset + input_position];
+    result.value = (reinterpret_cast<const CType*>(input_values))[read_offset];
     return result;
   }
 
   void WriteValue(Element element) {
     if (has_validity_buffer) {
-      bit_util::SetBitsTo(output_validity, output_position, 1, element.valid);
+      bit_util::SetBitsTo(output_validity, write_offset, 1, element.valid);
     }
-    (reinterpret_cast<CType*>(output_values))[output_position] = element.value;
+    (reinterpret_cast<CType*>(output_values))[write_offset] = element.value;
   }
 
   KernelContext* kernel_context;
@@ -53,22 +51,21 @@ struct EncodeDecodeCommonExec {
   ExecResult* exec_result;
   const uint8_t* input_validity;
   const void* input_values;
-  int64_t input_values_physical_offset;
   uint8_t* output_validity;
   void* output_values;
-  int64_t input_position;
-  int64_t output_position;
+  // read offset is a physical index into the values buffer, including array offsets
+  int64_t read_offset;
+  int64_t write_offset;
 };
 
 template <>
 EncodeDecodeCommonExec<BooleanType, true>::Element
 EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   Element result;
-  result.valid =
-      bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
+  result.valid = bit_util::GetBit(input_validity, read_offset);
   if (result.valid) {
-    result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
-                                    input_values_physical_offset + input_position);
+    result.value =
+        bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset);
   }
   return result;
 }
@@ -78,23 +75,23 @@ EncodeDecodeCommonExec<BooleanType, false>::Element
 EncodeDecodeCommonExec<BooleanType, false>::ReadValue() {
   return {
       .valid = true,
-      .value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
-                                input_values_physical_offset + input_position),
+      .value =
+          bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), read_offset),
   };
 }
 
 template <>
 void EncodeDecodeCommonExec<BooleanType, true>::WriteValue(Element element) {
-  bit_util::SetBitTo(output_validity, output_position, element.valid);
+  bit_util::SetBitTo(output_validity, write_offset, element.valid);
   if (element.valid) {
-    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position,
+    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
                        element.value);
   }
 }
 
 template <>
 void EncodeDecodeCommonExec<BooleanType, false>::WriteValue(Element element) {
-  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position,
+  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), write_offset,
                      element.value);
 }
 
@@ -124,9 +121,9 @@ struct RunLengthEncodeExec
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
-    this->input_values_physical_offset = this->input_array.offset;
+    int64_t input_offset = this->input_array.offset;
 
-    this->input_position = 0;
+    this->read_offset = input_offset;
     Element element = this->ReadValue();
     int64_t num_values_output = 1;
 
@@ -135,8 +132,9 @@ struct RunLengthEncodeExec
     // the null_count value of the ArraySpan as kUnknownNullCount.
     int64_t input_null_count = element.valid ? 0 : 1;
     int64_t output_null_count = input_null_count;
-    for (this->input_position = 1; this->input_position < this->input_array.length;
-         this->input_position++) {
+    for (int64_t input_position = 1; input_position < this->input_array.length;
+         input_position++) {
+      this->read_offset = input_offset + input_position;
       Element previous_element = element;
       element = this->ReadValue();
       if (element != previous_element) {
@@ -195,24 +193,25 @@ struct RunLengthEncodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
-    this->input_position = 0;
-    this->output_position = 0;
+    this->read_offset = input_offset;
+    this->write_offset = 0;
     element = this->ReadValue();
     this->WriteValue(element);
-    this->output_position = 1;
-    for (this->input_position = 1; this->input_position < this->input_array.length;
-         this->input_position++) {
+    this->write_offset = 1;
+    for (int64_t input_position = 1; input_position < this->input_array.length;
+         input_position++) {
+      this->read_offset = input_offset + input_position;
       Element previous_element = element;
       element = this->ReadValue();
       if (element != previous_element) {
         this->WriteValue(element);
         // run lengths buffer holds accumulated run length values
-        output_run_ends[this->output_position - 1] = this->input_position;
-        this->output_position++;
+        output_run_ends[this->write_offset - 1] = this->read_offset - input_offset;
+        this->write_offset++;
       }
     }
-    output_run_ends[this->output_position - 1] = this->input_array.length;
-    ARROW_DCHECK(this->output_position == num_values_output);
+    output_run_ends[this->write_offset - 1] = this->input_array.length;
+    ARROW_DCHECK(this->write_offset == num_values_output);
     return Status::OK();
   }
 };
@@ -288,28 +287,25 @@ struct RunLengthDecodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
-    // HACK: iterator already gives indices with offset
-    this->input_values_physical_offset = 0;
-
-    this->output_position = 0;
+    this->write_offset = 0;
     int64_t output_null_count = 0;
     for (auto it = rle_util::MergedRunsIterator<1>(this->input_array);
          it != rle_util::MergedRunsIterator<1>(); it++) {
-      this->input_position = it.physical_index(0);
+      this->read_offset = it.physical_index(0);
       Element element = this->ReadValue();
       if (element.valid) {
         for (int32_t run_element = 0; run_element < it.run_length(); run_element++) {
           this->WriteValue(element);
-          this->output_position++;
+          this->write_offset++;
         }
       } else {  // !valid
-        bit_util::SetBitsTo(this->output_validity, this->output_position, it.run_length(),
+        bit_util::SetBitsTo(this->output_validity, this->write_offset, it.run_length(),
                             false);
-        this->output_position += it.run_length();
+        this->write_offset += it.run_length();
         output_null_count += it.run_length();
       }
     }
-    ARROW_DCHECK(this->output_position == num_values_output);
+    ARROW_DCHECK(this->write_offset == num_values_output);
     output_array_data->null_count.store(output_null_count);
     return Status::OK();
   }
