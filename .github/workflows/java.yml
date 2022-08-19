@@ -129,7 +129,7 @@ jobs:
   windows:
     name: Windows Server 2022 v10.0 Java JDK ${{ matrix.jdk }}
     runs-on: windows-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
