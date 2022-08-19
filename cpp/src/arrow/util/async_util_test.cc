@@ -145,27 +145,53 @@ TEST(AsyncTaskScheduler, ShouldScheduleConcurrentTasks) {
 }
 
 TEST(AsyncTaskScheduler, Abandoned) {
+  // The goal here is to ensure that an abandoned scheduler aborts.
+  // It should block until all submitted tasks finish.  It should not
+  // submit any pending tasks.
   bool submitted_task_finished = false;
   bool pending_task_submitted = false;
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(1);
   Future<> finished_fut;
+  Future<> first_task = Future<>::Make();
+  AsyncTaskScheduler* weak_scheduler;
+  std::thread delete_scheduler_thread;
   {
     std::unique_ptr<AsyncTaskScheduler> scheduler =
         AsyncTaskScheduler::Make(throttle.get());
+    weak_scheduler = scheduler.get();
     finished_fut = scheduler->OnFinished();
     // This task will start and should finish
-    scheduler->AddSimpleTask(
-        [&] { return SleepABitAsync().Then([&] { submitted_task_finished = true; }); });
+    scheduler->AddSimpleTask([&, first_task] {
+      return first_task.Then([&] { submitted_task_finished = true; });
+    });
     // This task will never be submitted
     scheduler->AddSimpleTask([&] {
       pending_task_submitted = true;
       return Future<>::MakeFinished();
     });
+    // We don't want to finish the first task until after the scheduler has been abandoned
+    // and entered an aborted state.  However, deleting the scheduler blocks until the
+    // first task is finished.  So we trigger the delete on a separate thread.
+    struct DeleteSchedulerTask {
+      void operator()() { scheduler.reset(); }
+      std::unique_ptr<AsyncTaskScheduler> scheduler;
+    };
+    delete_scheduler_thread = std::thread(DeleteSchedulerTask{std::move(scheduler)});
   }
+  // Here we are waiting for the scheduler to enter aborted state.  Once aborted the
+  // scheduler will no longer accept new tasks and will return false.
+  BusyWait(10, [&] {
+    SleepABit();
+    return !weak_scheduler->AddSimpleTask([] { return Future<>::MakeFinished(); });
+  });
+  // Now that the scheduler deletion is in progress we should be able to finish the
+  // first task and be confident the second task should not be submitted.
+  first_task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(UnknownError, finished_fut);
+  delete_scheduler_thread.join();
   ASSERT_TRUE(submitted_task_finished);
   ASSERT_FALSE(pending_task_submitted);
-  ASSERT_FINISHES_AND_RAISES(UnknownError, finished_fut);
 }
 
 TEST(AsyncTaskScheduler, SubSchedulerFinishCallback) {

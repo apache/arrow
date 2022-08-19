@@ -76,16 +76,11 @@ struct ExecPlanImpl : public ExecPlan {
 
   Result<Future<>> BeginExternalTask() {
     Future<> completion_future = Future<>::Make();
-    // FIXME
+    if (async_scheduler_->AddSimpleTask(
+            [completion_future] { return completion_future; })) {
+      return completion_future;
+    }
     return Future<>{};
-    // ARROW_ASSIGN_OR_RAISE(bool task_added,
-    //                       task_group_.AddTaskIfNotEnded(completion_future));
-    // if (task_added) {
-    //   return std::move(completion_future);
-    // }
-    // // Return an invalid future if we were already finished to signal to the
-    // // caller that they should not begin the task
-    // return Future<>{};
   }
 
   Status ScheduleTask(std::function<Status()> fn) {
