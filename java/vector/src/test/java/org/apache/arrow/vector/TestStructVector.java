@@ -199,35 +199,41 @@ public class TestStructVector {
       initFields.add(Field.nullable("int2", MinorType.INT.getType()));
       initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("int3", MinorType.INT.getType()));
+      initFields.add(Field.nullable("uncertain-type", MinorType.INT.getType()));
 
       // To ensure duplicated field names don't mess up the original field order
       // in the struct vector
       initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("uncertain-type", MinorType.VARCHAR.getType()));
 
       vector.initializeChildrenFromFields(initFields);
 
       List<FieldVector> children = vector.getChildrenFromFields();
-      assertEquals(9, children.size());
+      assertEquals(11, children.size());
       assertEquals("varchar1", children.get(0).getName());
       assertEquals("int1", children.get(1).getName());
       assertEquals("varchar2", children.get(2).getName());
       assertEquals("int2", children.get(3).getName());
       assertEquals("varchar3", children.get(4).getName());
       assertEquals("int3", children.get(5).getName());
-      assertEquals("varchar1", children.get(6).getName());
-      assertEquals("varchar2", children.get(7).getName());
-      assertEquals("varchar3", children.get(8).getName());
+      assertEquals("uncertain-type", children.get(6).getName());
+      assertEquals("varchar1", children.get(7).getName());
+      assertEquals("varchar2", children.get(8).getName());
+      assertEquals("varchar3", children.get(9).getName());
+      assertEquals("uncertain-type", children.get(10).getName());
       assertEquals(MinorType.VARCHAR, children.get(0).getMinorType());
       assertEquals(MinorType.INT, children.get(1).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(2).getMinorType());
       assertEquals(MinorType.INT, children.get(3).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(4).getMinorType());
       assertEquals(MinorType.INT, children.get(5).getMinorType());
-      assertEquals(MinorType.VARCHAR, children.get(6).getMinorType());
+      assertEquals(MinorType.INT, children.get(6).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(7).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(8).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(9).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(10).getMinorType());
     }
   }
 
@@ -246,29 +252,33 @@ public class TestStructVector {
       initFields.add(Field.nullable("int2", MinorType.INT.getType()));
       initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("int3", MinorType.INT.getType()));
+      initFields.add(Field.nullable("uncertain-type", MinorType.INT.getType()));
 
       // To ensure duplicated field names don't mess up the original field order
       // in the struct vector
       initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
       initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("uncertain-type", MinorType.VARCHAR.getType()));
 
       vector.initializeChildrenFromFields(initFields);
 
       List<FieldVector> children = vector.getChildrenFromFields();
-      assertEquals(6, children.size());
+      assertEquals(7, children.size());
       assertEquals("varchar1", children.get(0).getName());
       assertEquals("int1", children.get(1).getName());
       assertEquals("varchar2", children.get(2).getName());
       assertEquals("int2", children.get(3).getName());
       assertEquals("varchar3", children.get(4).getName());
       assertEquals("int3", children.get(5).getName());
+      assertEquals("uncertain-type", children.get(6).getName());
       assertEquals(MinorType.VARCHAR, children.get(0).getMinorType());
       assertEquals(MinorType.INT, children.get(1).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(2).getMinorType());
       assertEquals(MinorType.INT, children.get(3).getMinorType());
       assertEquals(MinorType.VARCHAR, children.get(4).getMinorType());
       assertEquals(MinorType.INT, children.get(5).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(6).getMinorType());
     }
   }
 
