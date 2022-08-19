@@ -20,10 +20,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -478,205 +480,355 @@ func TestArraySpan_SetSlice(t *testing.T) {
 	}
 }
 
-func TestArraySpan_GetBuffer(t *testing.T) {
-	type fields struct {
-		Type     arrow.DataType
-		Len      int64
-		Nulls    int64
-		Offset   int64
-		Buffers  [3]internal.BufferSpan
-		Scratch  [2]uint64
-		Children []internal.ArraySpan
-	}
-	type args struct {
-		idx int
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *memory.Buffer
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
-				Type:     tt.fields.Type,
-				Len:      tt.fields.Len,
-				Nulls:    tt.fields.Nulls,
-				Offset:   tt.fields.Offset,
-				Buffers:  tt.fields.Buffers,
-				Scratch:  tt.fields.Scratch,
-				Children: tt.fields.Children,
-			}
-			if got := a.GetBuffer(tt.args.idx); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ArraySpan.GetBuffer() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestArraySpan_FillFromScalar(t *testing.T) {
-	type fields struct {
-		Type     arrow.DataType
-		Len      int64
-		Nulls    int64
-		Offset   int64
-		Buffers  [3]internal.BufferSpan
-		Scratch  [2]uint64
-		Children []internal.ArraySpan
-	}
-	type args struct {
-		val scalar.Scalar
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
-				Type:     tt.fields.Type,
-				Len:      tt.fields.Len,
-				Nulls:    tt.fields.Nulls,
-				Offset:   tt.fields.Offset,
-				Buffers:  tt.fields.Buffers,
-				Scratch:  tt.fields.Scratch,
-				Children: tt.fields.Children,
-			}
-			a.FillFromScalar(tt.args.val)
-		})
-	}
-}
+	var (
+		expDecimalBuf [arrow.Decimal128SizeBytes]byte
+		expScratch    [2]uint64
+	)
 
-func TestArraySpan_SetMembers(t *testing.T) {
-	type fields struct {
-		Type     arrow.DataType
-		Len      int64
-		Nulls    int64
-		Offset   int64
-		Buffers  [3]internal.BufferSpan
-		Scratch  [2]uint64
-		Children []internal.ArraySpan
-	}
-	type args struct {
-		data arrow.ArrayData
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
-				Type:     tt.fields.Type,
-				Len:      tt.fields.Len,
-				Nulls:    tt.fields.Nulls,
-				Offset:   tt.fields.Offset,
-				Buffers:  tt.fields.Buffers,
-				Scratch:  tt.fields.Scratch,
-				Children: tt.fields.Children,
-			}
-			a.SetMembers(tt.args.data)
-		})
-	}
-}
+	endian.Native.PutUint64(expDecimalBuf[:], 1234)
+	endian.Native.PutUint32(arrow.Uint64Traits.CastToBytes(expScratch[:])[4:], 10)
 
-func TestExecValue_IsArray(t *testing.T) {
-	type fields struct {
-		Array  internal.ArraySpan
-		Scalar scalar.Scalar
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &internal.ExecValue{
-				Array:  tt.fields.Array,
-				Scalar: tt.fields.Scalar,
-			}
-			if got := e.IsArray(); got != tt.want {
-				t.Errorf("ExecValue.IsArray() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+	dict, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String, strings.NewReader(`["Hello", "World"]`))
+	defer dict.Release()
 
-func TestExecValue_IsScalar(t *testing.T) {
-	type fields struct {
-		Array  internal.ArraySpan
-		Scalar scalar.Scalar
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &internal.ExecValue{
-				Array:  tt.fields.Array,
-				Scalar: tt.fields.Scalar,
-			}
-			if got := e.IsScalar(); got != tt.want {
-				t.Errorf("ExecValue.IsScalar() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestExecValue_Type(t *testing.T) {
-	type fields struct {
-		Array  internal.ArraySpan
-		Scalar scalar.Scalar
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   arrow.DataType
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &internal.ExecValue{
-				Array:  tt.fields.Array,
-				Scalar: tt.fields.Scalar,
-			}
-			if got := e.Type(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ExecValue.Type() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPromoteExecSpanScalars(t *testing.T) {
-	type args struct {
-		span internal.ExecSpan
-	}
 	tests := []struct {
 		name string
-		args args
+		args scalar.Scalar
+		exp  internal.ArraySpan
 	}{
-		// TODO: Add test cases.
+		{"null-type",
+			scalar.MakeNullScalar(arrow.Null),
+			internal.ArraySpan{Type: arrow.Null, Len: 1, Nulls: 1}},
+		{"bool valid",
+			scalar.MakeScalar(true),
+			internal.ArraySpan{
+				Type:    arrow.FixedWidthTypes.Boolean,
+				Len:     1,
+				Nulls:   0,
+				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x01}}, {}},
+			}},
+		{"bool valid false",
+			scalar.MakeScalar(false),
+			internal.ArraySpan{
+				Type:    arrow.FixedWidthTypes.Boolean,
+				Len:     1,
+				Nulls:   0,
+				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x00}}, {}},
+			}},
+		{"primitive null",
+			scalar.MakeNullScalar(arrow.PrimitiveTypes.Int32),
+			internal.ArraySpan{
+				Type:    arrow.PrimitiveTypes.Int32,
+				Len:     1,
+				Nulls:   1,
+				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x00}}, {Buf: []byte{0, 0, 0, 0}}, {}},
+			}},
+		{"decimal valid",
+			scalar.NewDecimal128Scalar(decimal128.FromU64(1234), &arrow.Decimal128Type{Precision: 12, Scale: 2}),
+			internal.ArraySpan{
+				Type:    &arrow.Decimal128Type{Precision: 12, Scale: 2},
+				Len:     1,
+				Nulls:   0,
+				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: expDecimalBuf[:]}, {}},
+			}},
+		{"dictionary scalar",
+			scalar.NewDictScalar(scalar.NewInt8Scalar(1), dict),
+			internal.ArraySpan{
+				Type:  &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String},
+				Len:   1,
+				Nulls: 0,
+				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}},
+					{Buf: []byte{1}}, {},
+				},
+				Children: []internal.ArraySpan{{
+					Type: arrow.BinaryTypes.String,
+					Len:  2,
+					Buffers: [3]internal.BufferSpan{
+						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
+						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
+						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
+					},
+				}},
+			},
+		},
+		{"binary scalar",
+			scalar.NewBinaryScalar(dict.Data().Buffers()[2], arrow.BinaryTypes.String),
+			internal.ArraySpan{
+				Type:    arrow.BinaryTypes.String,
+				Len:     1,
+				Nulls:   0,
+				Scratch: expScratch,
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x01}},
+					{Buf: arrow.Uint64Traits.CastToBytes(expScratch[:1])},
+					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}},
+			},
+		},
+		{"large binary",
+			scalar.NewLargeStringScalarFromBuffer(dict.Data().Buffers()[2]),
+			internal.ArraySpan{
+				Type:    arrow.BinaryTypes.LargeString,
+				Len:     1,
+				Nulls:   0,
+				Scratch: [2]uint64{0, 10},
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x01}},
+					{Buf: arrow.Uint64Traits.CastToBytes([]uint64{0, 10})},
+					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}},
+			}},
+		{"fixed size binary",
+			scalar.NewFixedSizeBinaryScalar(dict.Data().Buffers()[2], &arrow.FixedSizeBinaryType{ByteWidth: 10}),
+			internal.ArraySpan{
+				Type: &arrow.FixedSizeBinaryType{ByteWidth: 10},
+				Len:  1,
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x01}},
+					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}, {},
+				},
+			}},
+		{"map scalar null value",
+			scalar.MakeNullScalar(arrow.MapOf(arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String)),
+			internal.ArraySpan{
+				Type:  arrow.MapOf(arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String),
+				Len:   1,
+				Nulls: 1,
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0}},
+					{Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}},
+					{},
+				},
+				Children: []internal.ArraySpan{{
+					Type: arrow.StructOf(arrow.Field{Name: "key", Type: arrow.PrimitiveTypes.Int8},
+						arrow.Field{Name: "value", Type: arrow.BinaryTypes.String, Nullable: true}),
+					Len:   0,
+					Nulls: 0,
+					Buffers: [3]internal.BufferSpan{
+						{Buf: []byte{}}, {}, {},
+					},
+					Children: []internal.ArraySpan{
+						{
+							Type: arrow.PrimitiveTypes.Int8,
+							Buffers: [3]internal.BufferSpan{
+								{Buf: []byte{}}, {Buf: []byte{}}, {},
+							},
+						},
+						{
+							Type: arrow.BinaryTypes.String,
+							Buffers: [3]internal.BufferSpan{
+								{Buf: []byte{}}, {Buf: []byte{}}, {Buf: []byte{}},
+							},
+						},
+					},
+				}},
+			}},
+		{"list scalar",
+			scalar.NewListScalarData(dict.Data()),
+			internal.ArraySpan{
+				Type: arrow.ListOf(arrow.BinaryTypes.String),
+				Len:  1,
+				Scratch: [2]uint64{
+					*(*uint64)(unsafe.Pointer(&[]int32{0, 2}[0])),
+					0,
+				},
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x1}},
+					{Buf: arrow.Int32Traits.CastToBytes([]int32{0, 2})},
+				},
+				Children: []internal.ArraySpan{{
+					Type: arrow.BinaryTypes.String,
+					Len:  2,
+					Buffers: [3]internal.BufferSpan{
+						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
+						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
+						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
+					},
+				}},
+			},
+		},
+		{"large list scalar",
+			scalar.NewLargeListScalarData(dict.Data()),
+			internal.ArraySpan{
+				Type:    arrow.LargeListOf(arrow.BinaryTypes.String),
+				Len:     1,
+				Scratch: [2]uint64{0, 2},
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x1}},
+					{Buf: arrow.Int64Traits.CastToBytes([]int64{0, 2})},
+				},
+				Children: []internal.ArraySpan{{
+					Type: arrow.BinaryTypes.String,
+					Len:  2,
+					Buffers: [3]internal.BufferSpan{
+						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
+						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
+						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
+					},
+				}},
+			},
+		},
+		{"fixed size list",
+			scalar.NewFixedSizeListScalar(dict),
+			internal.ArraySpan{
+				Type: arrow.FixedSizeListOf(2, arrow.BinaryTypes.String),
+				Len:  1,
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x1}},
+					{}, {},
+				},
+				Children: []internal.ArraySpan{{
+					Type: arrow.BinaryTypes.String,
+					Len:  2,
+					Buffers: [3]internal.BufferSpan{
+						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
+						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
+						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
+					},
+				}},
+			},
+		},
+		{"struct scalar",
+			func() scalar.Scalar {
+				s, _ := scalar.NewStructScalarWithNames([]scalar.Scalar{
+					scalar.MakeScalar(int32(5)), scalar.MakeScalar(uint8(10)),
+				}, []string{"int32", "uint8"})
+				return s
+			}(),
+			internal.ArraySpan{
+				Type: arrow.StructOf(
+					arrow.Field{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+					arrow.Field{Name: "uint8", Type: arrow.PrimitiveTypes.Uint8, Nullable: true}),
+				Buffers: [3]internal.BufferSpan{
+					{Buf: []byte{0x1}}, {}, {},
+				},
+				Len: 1,
+				Children: []internal.ArraySpan{
+					{
+						Type: arrow.PrimitiveTypes.Int32,
+						Len:  1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x1}},
+							{Buf: arrow.Int32Traits.CastToBytes([]int32{5})},
+							{},
+						},
+					},
+					{
+						Type: arrow.PrimitiveTypes.Uint8,
+						Len:  1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x1}},
+							{Buf: []byte{10}},
+							{},
+						},
+					},
+				},
+			},
+		},
+		{"dense union scalar",
+			func() scalar.Scalar {
+				dt := arrow.UnionOf(arrow.DenseMode, []arrow.Field{
+					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+					{Name: "other_number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+				}, []arrow.UnionTypeCode{3, 42, 43})
+				return scalar.NewDenseUnionScalar(scalar.MakeScalar(uint64(25)), 42, dt.(*arrow.DenseUnionType))
+			}(),
+			internal.ArraySpan{
+				Type: arrow.UnionOf(arrow.DenseMode, []arrow.Field{
+					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+					{Name: "other_number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+				}, []arrow.UnionTypeCode{3, 42, 43}),
+				Len:     1,
+				Scratch: [2]uint64{42, 1},
+				Buffers: [3]internal.BufferSpan{{},
+					{Buf: []byte{42}}, {Buf: arrow.Int32Traits.CastToBytes([]int32{0, 1})},
+				},
+				Children: []internal.ArraySpan{
+					{
+						Type: arrow.BinaryTypes.String,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{}}, {Buf: []byte{}}, {Buf: []byte{}},
+						},
+					},
+					{
+						Type: arrow.PrimitiveTypes.Uint64,
+						Len:  1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x1}},
+							{Buf: arrow.Uint64Traits.CastToBytes([]uint64{25})},
+							{},
+						},
+					},
+					{
+						Type: arrow.PrimitiveTypes.Uint64,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{}}, {Buf: []byte{}}, {},
+						},
+					},
+				},
+			},
+		},
+		{"sparse union",
+			func() scalar.Scalar {
+				dt := arrow.UnionOf(arrow.SparseMode, []arrow.Field{
+					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+					{Name: "other_number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+				}, []arrow.UnionTypeCode{3, 42, 43})
+				return scalar.NewSparseUnionScalarFromValue(scalar.MakeScalar(uint64(25)), 1, dt.(*arrow.SparseUnionType))
+			}(),
+			internal.ArraySpan{
+				Type: arrow.UnionOf(arrow.SparseMode, []arrow.Field{
+					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+					{Name: "other_number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+				}, []arrow.UnionTypeCode{3, 42, 43}),
+				Len:     1,
+				Scratch: [2]uint64{42, 0},
+				Buffers: [3]internal.BufferSpan{{},
+					{Buf: []byte{42}}, {},
+				},
+				Children: []internal.ArraySpan{
+					{
+						Type:  arrow.BinaryTypes.String,
+						Len:   1,
+						Nulls: 1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x0}},
+							{Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}},
+							{},
+						},
+					},
+					{
+						Type: arrow.PrimitiveTypes.Uint64,
+						Len:  1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x1}},
+							{Buf: arrow.Uint64Traits.CastToBytes([]uint64{25})},
+							{},
+						},
+					},
+					{
+						Type:  arrow.PrimitiveTypes.Uint64,
+						Len:   1,
+						Nulls: 1,
+						Buffers: [3]internal.BufferSpan{
+							{Buf: []byte{0x0}}, {Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}}, {},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			internal.PromoteExecSpanScalars(tt.args.span)
+			a := &internal.ArraySpan{
+				Nulls:   array.UnknownNullCount,
+				Buffers: [3]internal.BufferSpan{{SelfAlloc: true, Owner: &memory.Buffer{}}, {SelfAlloc: true, Owner: &memory.Buffer{}}, {}},
+			}
+			a.FillFromScalar(tt.args)
+			assert.Equal(t, tt.exp, *a)
 		})
 	}
 }

@@ -220,6 +220,9 @@ func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize in
 	s.Data = b.Data
 	s.Len = 2 * int(unsafe.Sizeof(T(0)))
 	s.Cap = s.Len
+
+	span.Buffers[bufidx].Owner = nil
+	span.Buffers[bufidx].SelfAlloc = false
 }
 
 // FillFromScalar populates this ArraySpan as if it were a 1 length array
@@ -256,24 +259,25 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		} else {
 			a.Buffers[1].Buf = []byte{falseBit}
 		}
-		a.Buffers[0].Owner = nil
-		a.Buffers[0].SelfAlloc = false
+		a.Buffers[1].Owner = nil
+		a.Buffers[1].SelfAlloc = false
 	case arrow.IsPrimitive(typeID) || arrow.IsDecimal(typeID):
 		sc := val.(scalar.PrimitiveScalar)
 		a.Buffers[1].Buf = sc.Data()
 		a.Buffers[1].Owner = nil
-		a.Buffers[0].SelfAlloc = false
+		a.Buffers[1].SelfAlloc = false
 	case typeID == arrow.DICTIONARY:
 		sc := val.(scalar.PrimitiveScalar)
 		a.Buffers[1].Buf = sc.Data()
 		a.Buffers[1].Owner = nil
-		a.Buffers[0].SelfAlloc = false
+		a.Buffers[1].SelfAlloc = false
 		a.resizeChildren(1)
 		a.Children[0].SetMembers(val.(*scalar.Dictionary).Value.Dict.Data())
 	case arrow.IsBaseBinary(typeID):
 		sc := val.(scalar.BinaryScalar)
 		a.Buffers[1].Buf = arrow.Uint64Traits.CastToBytes(a.Scratch[:])
 		a.Buffers[1].Owner = nil
+		a.Buffers[1].SelfAlloc = false
 
 		var dataBuffer []byte
 		if sc.IsValid() {
@@ -327,6 +331,9 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		}
 	case typeID == arrow.STRUCT:
 		sc := val.(*scalar.Struct)
+		a.Buffers[1].Buf = nil
+		a.Buffers[1].Owner = nil
+		a.Buffers[1].SelfAlloc = false
 		a.resizeChildren(len(sc.Value))
 		for i, v := range sc.Value {
 			a.Children[i].FillFromScalar(v)
@@ -337,6 +344,7 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		a.Buffers[0].SelfAlloc = false
 
 		a.Buffers[1].Buf = arrow.Uint64Traits.CastToBytes(a.Scratch[:])[:1]
+		a.Buffers[1].Owner = nil
 		a.Buffers[1].SelfAlloc = false
 		codes := unsafe.Slice((*arrow.UnionTypeCode)(unsafe.Pointer(&a.Buffers[1].Buf[0])), 1)
 
@@ -373,6 +381,12 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		a.FillFromScalar(sc.Value)
 		// restore the extension type
 		a.Type = val.DataType()
+	case typeID == arrow.NULL:
+		for i := range a.Buffers {
+			a.Buffers[i].Buf = nil
+			a.Buffers[i].Owner = nil
+			a.Buffers[i].SelfAlloc = false
+		}
 	}
 }
 
