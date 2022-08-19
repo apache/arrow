@@ -121,6 +121,14 @@ cdef class NativeFile(_Weakrefable):
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
 
+    def __repr__(self):
+        name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return (f"{name}("
+                f"own_file={self.own_file}, "
+                f"is_seekable={self.is_seekable}, "
+                f"is_writable={self.is_writable}, "
+                f"is_readable={self.is_readable})")
+
     @property
     def mode(self):
         """
@@ -1053,6 +1061,13 @@ cdef class Buffer(_Weakrefable):
     def __len__(self):
         return self.size
 
+    def __repr__(self):
+        name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return (f"{name}("
+                f"size={self.size}, "
+                f"is_cpu={self.is_cpu}, "
+                f"is_mutable={self.is_mutable})")
+
     @property
     def size(self):
         """
@@ -1964,7 +1979,9 @@ cdef class Codec(_Weakrefable):
     @property
     def compression_level(self):
         """Returns the compression level parameter of the codec"""
-        return frombytes(self.unwrap().compression_level())
+        if self.name == 'snappy':
+            return None
+        return self.unwrap().compression_level()
 
     def compress(self, object buf, asbytes=False, memory_pool=None):
         """
@@ -2079,6 +2096,12 @@ cdef class Codec(_Weakrefable):
             )
 
         return pybuf if asbytes else out_buf
+
+    def __repr__(self):
+        name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return (f"{name}("
+                f"name={self.name}, "
+                f"compression_level={self.compression_level})")
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
