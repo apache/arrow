@@ -32,6 +32,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
@@ -350,23 +351,25 @@ class ARROW_DS_EXPORT FileWriter {
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
-  std::shared_ptr<FileWriteOptions> file_write_options;
+  std::shared_ptr<FileWriteOptions> file_write_options =
+      CsvFileFormat().DefaultWriteOptions();
 
   /// FileSystem into which a dataset will be written.
-  std::shared_ptr<fs::FileSystem> filesystem;
+  std::shared_ptr<fs::FileSystem> filesystem =
+      std::make_shared<arrow::fs::LocalFileSystem>();
 
   /// Root directory into which the dataset will be written.
   std::string base_dir;
 
   /// Partitioning used to generate fragment paths.
-  std::shared_ptr<Partitioning> partitioning;
+  std::shared_ptr<Partitioning> partitioning = Partitioning::Default();
 
   /// Maximum number of partitions any batch may be written into, default is 1K.
   int max_partitions = 1024;
 
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
-  std::string basename_template;
+  std::string basename_template = "data_{i}.arrow";
 
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
@@ -386,7 +389,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// and only write the row groups to the disk when sufficient rows have accumulated.
   /// The final row group size may be less than this value and other options such as
   /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
-  uint64_t min_rows_per_group = 0;
+  uint64_t min_rows_per_group = 10;
 
   /// If greater than 0 then the dataset writer may split up large incoming batches into
   /// multiple row groups.  If this value is set then min_rows_per_group should also be
