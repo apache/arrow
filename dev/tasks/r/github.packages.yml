@@ -154,7 +154,7 @@ jobs:
         run: |
           # rig is a system utility that allows for switching
           # between pre-installed R version on the self-hosted runners
-          rig default {{ '${{ matrix.r-version.r }}' }}
+          rig default {{ '${{ matrix.r_version.r }}' }}
           rig system setup-user-lib
           rig system add-pak 
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
