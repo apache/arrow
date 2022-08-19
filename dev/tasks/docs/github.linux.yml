@@ -46,14 +46,21 @@ jobs:
           fetch-depth: 1
       - name: Move docs
         run: |
+          # build files are created by the docker user
           sudo chown -R ${USER}: build
-          mkdir -p crossbow/docs/pr/{{ pr_number }}
-          rsync -a --delete build/docs/ crossbow/docs/pr/{{ pr_number }}
+          PR_DIR=crossbow/docs/pr_docs/{{ pr_number }}
+          mkdir -p $PR_DIR
+          rsync -a --delete build/docs/ $PR_DIR
       - name: Push changes
         run: |
           cd crossbow
           git config --local user.name "Github Actions"
           git config --local user.email "github-actions@users.noreply.github.com"
-          git add docs/pr/{{ pr_number }}
+          
+          URL_PATH=pr_docs/{{ pr_number }}
+          URL=https://crossbow.voltrondata.com/$URL_PATH
+
+          git add docs/$URL_PATH
           git commit -m "Add docs preview for PR {{ pr_number }}"
           git push
+          echo ":open_book: You can find the preview here $URL" >> $GITHUB_STEP_SUMMARY
