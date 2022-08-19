@@ -178,7 +178,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
 
   template <typename Callable>
   struct SimpleTask : public Task {
-    SimpleTask(Callable callable) : callable(std::move(callable)) {}
+    explicit SimpleTask(Callable callable) : callable(std::move(callable)) {}
     Result<Future<>> operator()(AsyncTaskScheduler* scheduler) override {
       return callable();
     }
