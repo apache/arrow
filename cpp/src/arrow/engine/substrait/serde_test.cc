@@ -237,7 +237,7 @@ struct EmitValidate {
         combine_chunks(combine_chunks) {}
   void operator()() {
     for (auto sp_ext_id_reg :
-         {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+         {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
       ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
       ExtensionSet ext_set(ext_id_reg);
       ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -2255,7 +2255,7 @@ TEST(Substrait, ProjectRel) {
                   }
                 }
               }
-            }, 
+            },
             {
               "value": {
                 "selection": {
@@ -2573,7 +2573,10 @@ TEST(Substrait, FilterRelWithEmit) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "input" : {
@@ -2610,7 +2613,7 @@ TEST(Substrait, FilterRelWithEmit) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -2758,7 +2761,10 @@ TEST(Substrait, JoinRelWithEmit) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "type": "JOIN_TYPE_INNER"
@@ -2768,7 +2774,7 @@ TEST(Substrait, JoinRelWithEmit) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],

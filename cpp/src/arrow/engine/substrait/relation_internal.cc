@@ -129,7 +129,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
-        return DeclarationInfo{std::move(source_decl), num_columns};
+        return DeclarationInfo{std::move(source_decl), num_columns, base_schema};
       }
 
       if (!read.has_local_files()) {
@@ -241,7 +241,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
       if (HasEmit(read)) {
@@ -441,8 +440,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       // Create output schema from left, right relations and join keys
-      // std::shared_ptr<Schema> left_schema = left.output_schema;
-      // std::shared_ptr<Schema> right_schema = right.output_schema;
+      std::shared_ptr<Schema> join_schema = left.output_schema;
+      std::shared_ptr<Schema> right_schema = right.output_schema;
+
+      for (const auto& field : right_schema->fields()) {
+        ARROW_ASSIGN_OR_RAISE(
+            join_schema, join_schema->AddField(
+                             static_cast<int>(join_schema->fields().size()) - 1, field));
+      }
 
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
                                                 {std::move(*right_keys)}};
@@ -452,8 +457,18 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto num_columns = left.num_columns + right.num_columns;
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
-      // TODO: add schema and get emit rel
-      return DeclarationInfo{std::move(join_dec), num_columns, arrow::schema({})};
+
+      if (HasEmit(join)) {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
+                              GetEmitExpression(join, join_schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::move(join_dec),
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
+            num_columns, join_schema};
+      } else {
+        return DeclarationInfo{std::move(join_dec), num_columns, join_schema};
+      }
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
