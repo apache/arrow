@@ -60,10 +60,15 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: 'arrow/r'
+          dependencies: 'TRUE'
           extra-packages: |
             any::rcmdcheck
             any::sys
             any::readr
+      - name: Clean up self-hosted tmp 
+        if: matrix.platform == 'macos-10.13'
+        shell: bash
+        run: rm -rf /Users/voltrondata/tmp/apache-arrow--git
       - name: Check
         env:
           _R_CHECK_CRAN_INCOMING_: false
