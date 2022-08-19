@@ -127,7 +127,7 @@ jobs:
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: Windows Server 2022 v10.0 Java JDK ${{ matrix.jdk }}
+    name: Windows Server 2022 Java JDK ${{ matrix.jdk }}
     runs-on: windows-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
