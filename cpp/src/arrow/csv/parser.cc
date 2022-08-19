@@ -28,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 namespace csv {
@@ -527,11 +528,10 @@ class BlockParserImpl {
     uint32_t total_parsed_length = 0;
 
     for (const auto& view : views) {
-      uint32_t size = view.length();
+      auto size = view.length();
       ARROW_ASSIGN_OR_RAISE(
           auto data_no_bom,
-          util::SkipUTF8BOM(reinterpret_cast<const uint8_t*>(view.data()),
-                            view.length()));
+          util::SkipUTF8BOM(reinterpret_cast<const uint8_t*>(view.data()), size));
       size = size - static_cast<uint32_t>(data_no_bom -
                                           reinterpret_cast<const uint8_t*>(view.data()));
       const char* data = reinterpret_cast<const char*>(data_no_bom);
