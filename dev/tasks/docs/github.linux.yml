@@ -30,6 +30,8 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
+        env:
+          ARROW_JAVA_SKIP_GIT_PLUGIN: true
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
@@ -46,7 +48,7 @@ jobs:
         run: |
           sudo chown -R ${USER}: build
           mkdir -p crossbow/docs/pr/{{ pr_number }}
-          mv --force build/docs crossbow/docs/pr/{{ pr_number }}
+          rsync -a --delete build/docs/ crossbow/docs/pr/{{ pr_number }}
       - name: Push changes
         run: |
           cd crossbow
