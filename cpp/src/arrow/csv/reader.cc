@@ -973,6 +973,42 @@ class StreamingReaderImpl : public ReaderMixin<>,
 };
 
 
+
+// this is just like a MapGenerator but the map fun returns a thing instead of a future
+template <typename T, typename ApplyFn,
+          typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
+          typename V = typename EnsureResult<Applied>::type::ValueType>
+AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply_fun, internal::Executor* cpu_exec) {
+  struct State {
+    explicit State(AsyncGenerator<T> source_gen_, ApplyFn apply_fun_, internal::Executor* cpu_exec_) : 
+    source_gen(std::move(source_gen_)), apply_fun(std::move(apply_fun_)), cpu_exec(cpu_exec_) {}
+
+    AsyncGenerator<T> source_gen;
+    ApplyFn apply_fun;
+    internal::Executor* cpu_exec;
+  };
+
+  auto state = std::make_shared<State>(std::move(source_gen), std::move(apply_fun), cpu_exec);
+  return [state]() {
+
+
+    // return DeferNotOk(state->cpu_exec->Submit([state]  {
+    //   return state->source_gen().Then([state] (const T& next) {
+    //     return state->apply_fun(next).ValueOrDie();
+    //   });
+    // }));
+    CallbackOptions options;
+    options.executor = state->cpu_exec;
+    options.should_schedule = ShouldSchedule::Always;
+    
+    return state->source_gen().Then([state] (const T& next) {
+      return state->apply_fun(next).ValueOrDie();
+    }, {}, options = options);
+    
+    
+  };
+}
+
 /////////////////////////////////////////////////////////////////////////
 // Base class for streaming readers
 
@@ -1003,9 +1039,9 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
     int max_readahead = cpu_executor->GetCapacity();
     auto self = shared_from_this();
 
-    return buffer_generator().Then([self, buffer_generator, max_readahead](
+    return buffer_generator().Then([self, buffer_generator, max_readahead, cpu_executor](
                                        const std::shared_ptr<Buffer>& first_buffer) {
-      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead);
+      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead, cpu_executor);
     });
   }
 
@@ -1026,7 +1062,7 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
  protected:
   Future<> InitAfterFirstBuffer(const std::shared_ptr<Buffer>& first_buffer,
                                 AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-                                int max_readahead) {
+                                int max_readahead, internal::Executor * cpu_executor) {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
@@ -1046,7 +1082,7 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
     auto parsed_block_gen =
-        MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
+        MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
