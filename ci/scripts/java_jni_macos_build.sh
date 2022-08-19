@@ -124,6 +124,7 @@ archery linking check-dependencies \
   --allow libcurl \
   --allow libgandiva_jni \
   --allow libncurses \
+  --allow libplasma_java \
   --allow libz \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
