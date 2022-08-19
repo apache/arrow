@@ -1642,6 +1642,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
       <<: *ccache
+      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_CUDA: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"

@@ -24,14 +24,9 @@ jobs:
     name: |
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
-  {% if env is defined %}
-    env:
-    {% for key, value in env.items() %}
-      {{ key }}: "{{ value }}"
-    {% endfor %}
-  {% endif %}
+{{ macros.github_set_env(env) }}
     steps:
-      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth if fetch_depth is defined else 1)|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
