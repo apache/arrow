@@ -24,26 +24,16 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-type FunctionOptionsType interface {
-	TypeName() string
-	Compare(lhs, rhs FunctionOptions) bool
-	Copy(FunctionOptions) FunctionOptions
-}
-
 type FunctionRegistry interface {
 	CanAddFunction(fn Function, allowOverwrite bool) bool
 	AddFunction(fn Function, allowOverwrite bool) bool
 	CanAddAlias(target, source string) bool
 	AddAlias(target, source string) bool
-	CanAddFunctionOptionsType(opts FunctionOptionsType, allowOverwrite bool) bool
-	AddFunctionOptionsType(opts FunctionOptionsType, allowOverwrite bool) bool
 	GetFunction(name string) (Function, bool)
 	GetFunctionNames() []string
-	GetFunctionOptionsType(name string) (FunctionOptionsType, bool)
 	NumFunctions() int
 
 	canAddFuncName(string, bool) bool
-	canAddOptionsTypeName(name string, allowOverwrite bool) bool
 }
 
 var (
@@ -61,15 +51,13 @@ func GetFunctionRegistry() FunctionRegistry {
 
 func NewRegistry() FunctionRegistry {
 	return &funcRegistry{
-		nameToFunction: make(map[string]Function),
-		nameToOptsType: make(map[string]FunctionOptionsType)}
+		nameToFunction: make(map[string]Function)}
 }
 
 func NewChildRegistry(parent FunctionRegistry) FunctionRegistry {
 	return &funcRegistry{
 		parent:         parent.(*funcRegistry),
-		nameToFunction: make(map[string]Function),
-		nameToOptsType: make(map[string]FunctionOptionsType)}
+		nameToFunction: make(map[string]Function)}
 }
 
 type funcRegistry struct {
@@ -77,7 +65,6 @@ type funcRegistry struct {
 
 	mx             sync.RWMutex
 	nameToFunction map[string]Function
-	nameToOptsType map[string]FunctionOptionsType
 }
 
 func (reg *funcRegistry) getLocker(add bool) sync.Locker {
@@ -118,22 +105,6 @@ func (reg *funcRegistry) AddAlias(target, source string) bool {
 	return reg.doAddAlias(target, source, true)
 }
 
-func (reg *funcRegistry) CanAddFunctionOptionsType(opts FunctionOptionsType, allowOverwrite bool) bool {
-	if reg.parent != nil && !reg.parent.CanAddFunctionOptionsType(opts, allowOverwrite) {
-		return false
-	}
-
-	return reg.doAddFuncOptionsType(opts, allowOverwrite, false)
-}
-
-func (reg *funcRegistry) AddFunctionOptionsType(opts FunctionOptionsType, allowOverwrite bool) bool {
-	if reg.parent != nil && !reg.parent.CanAddFunctionOptionsType(opts, allowOverwrite) {
-		return false
-	}
-
-	return reg.doAddFuncOptionsType(opts, allowOverwrite, true)
-}
-
 func (reg *funcRegistry) GetFunction(name string) (Function, bool) {
 	reg.mx.RLock()
 	defer reg.mx.RUnlock()
@@ -161,21 +132,6 @@ func (reg *funcRegistry) GetFunctionNames() (out []string) {
 	out = append(out, maps.Keys(reg.nameToFunction)...)
 	slices.Sort(out)
 	return
-}
-
-func (reg *funcRegistry) GetFunctionOptionsType(name string) (FunctionOptionsType, bool) {
-	reg.mx.RLock()
-	defer reg.mx.RUnlock()
-
-	opts, ok := reg.nameToOptsType[name]
-	if ok {
-		return opts, true
-	}
-
-	if reg.parent != nil {
-		return reg.parent.GetFunctionOptionsType(name)
-	}
-	return nil, false
 }
 
 func (reg *funcRegistry) NumFunctions() (n int) {
@@ -233,34 +189,6 @@ func (reg *funcRegistry) doAddAlias(target, source string, add bool) bool {
 
 	if add {
 		reg.nameToFunction[target] = fn
-	}
-	return true
-}
-
-func (reg *funcRegistry) canAddOptionsTypeName(name string, allowOverwrite bool) bool {
-	if reg.parent != nil && !reg.parent.canAddOptionsTypeName(name, allowOverwrite) {
-		return false
-	}
-
-	if !allowOverwrite {
-		_, ok := reg.nameToOptsType[name]
-		return !ok
-	}
-	return true
-}
-
-func (reg *funcRegistry) doAddFuncOptionsType(opts FunctionOptionsType, allowOverwrite, add bool) bool {
-	lk := reg.getLocker(add)
-	lk.Lock()
-	defer lk.Unlock()
-
-	name := opts.TypeName()
-	if !reg.canAddOptionsTypeName(name, false) {
-		return false
-	}
-
-	if add {
-		reg.nameToOptsType[name] = opts
 	}
 	return true
 }

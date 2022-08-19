@@ -19,12 +19,9 @@ package compute_test
 import (
 	"context"
 	"errors"
-	"strconv"
 	"testing"
-	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow/compute"
-	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
@@ -145,60 +142,10 @@ func TestRegistry(t *testing.T) {
 	})
 }
 
-type ExampleOptions[T int32 | uint64] struct {
-	Value scalar.Scalar
-}
-
-func (ExampleOptions[T]) TypeName() string { return "example" }
-
-type ExampleOptionsType[T int32 | uint64] struct{}
-
-func (*ExampleOptionsType[T]) TypeName() string {
-	return "example" + strconv.Itoa(int(unsafe.Sizeof(T(0))))
-}
-
-func (*ExampleOptionsType[T]) Compare(lhs, rhs compute.FunctionOptions) bool {
-	return true
-}
-
-func (*ExampleOptionsType[T]) Copy(opts compute.FunctionOptions) compute.FunctionOptions {
-	o := opts.(ExampleOptions[T])
-	return ExampleOptions[T]{Value: o.Value}
-}
-
-func TestRegistryTempFunctionOptionsType(t *testing.T) {
-	defaultRegistry := registry
-	optsTypes := []compute.FunctionOptionsType{
-		&ExampleOptionsType[int32]{},
-		&ExampleOptionsType[uint64]{},
-	}
-	const rounds = 3
-	for i := 0; i < rounds; i++ {
-		registry := compute.NewChildRegistry(defaultRegistry)
-		for _, opttype := range optsTypes {
-			assert.True(t, registry.CanAddFunctionOptionsType(opttype, false))
-			assert.True(t, registry.AddFunctionOptionsType(opttype, false))
-			assert.False(t, registry.CanAddFunctionOptionsType(opttype, false))
-			assert.False(t, registry.AddFunctionOptionsType(opttype, false))
-			assert.True(t, defaultRegistry.CanAddFunctionOptionsType(opttype, false))
-
-			opt, ok := registry.GetFunctionOptionsType(opttype.TypeName())
-			assert.True(t, ok)
-			assert.Same(t, opttype, opt)
-
-			_, ok = registry.GetFunctionOptionsType("foobar")
-			assert.False(t, ok)
-		}
-	}
-}
-
 func TestRegistryRegisterNestedFunction(t *testing.T) {
 	defaultRegistry := registry
 	func1 := &mockFn{name: "f1"}
 	func2 := &mockFn{name: "f2"}
-
-	optType1 := &ExampleOptionsType[int32]{}
-	optType2 := &ExampleOptionsType[uint64]{}
 
 	const rounds = 3
 	for i := 0; i < rounds; i++ {
@@ -206,23 +153,16 @@ func TestRegistryRegisterNestedFunction(t *testing.T) {
 
 		assert.True(t, registry1.CanAddFunction(func1, false))
 		assert.True(t, registry1.AddFunction(func1, false))
-		assert.True(t, registry1.CanAddFunctionOptionsType(optType1, false))
-		assert.True(t, registry1.AddFunctionOptionsType(optType1, false))
 		for j := 0; j < rounds; j++ {
 			registry2 := compute.NewChildRegistry(registry1)
 			assert.False(t, registry2.CanAddFunction(func1, false))
 			assert.False(t, registry2.AddFunction(func1, false))
-			assert.False(t, registry2.CanAddFunctionOptionsType(optType1, false))
-			assert.False(t, registry2.AddFunctionOptionsType(optType1, false))
 
 			assert.True(t, registry2.CanAddFunction(func2, false))
 			assert.True(t, registry2.AddFunction(func2, false))
 			assert.False(t, registry2.CanAddFunction(func2, false))
 			assert.False(t, registry2.AddFunction(func2, false))
-			assert.True(t, registry2.CanAddFunctionOptionsType(optType2, false))
-			assert.True(t, registry2.AddFunctionOptionsType(optType2, false))
 			assert.True(t, defaultRegistry.CanAddFunction(func2, false))
-			assert.True(t, defaultRegistry.CanAddFunctionOptionsType(optType2, false))
 
 			assert.False(t, registry2.CanAddAlias("f1", "f2"))
 			assert.False(t, registry2.AddAlias("f1", "f2"))
