@@ -63,4 +63,4 @@ jobs:
           git add docs/$URL_PATH
           git commit -m "Add docs preview for PR {{ pr_number }}"
           git push
-          echo ":open_book: You can find the preview here $URL" >> $GITHUB_STEP_SUMMARY
+          echo ":open_book: You can find the preview here: $URL" >> $GITHUB_STEP_SUMMARY
