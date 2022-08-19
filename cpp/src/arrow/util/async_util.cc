@@ -32,15 +32,6 @@ using internal::make_unique;
 
 namespace util {
 
-AsyncDestroyable::AsyncDestroyable() : on_closed_(Future<>::Make()) {}
-
-void AsyncDestroyable::Destroy() {
-  DoDestroy().AddCallback([this](const Status& st) {
-    on_closed_.MarkFinished(st);
-    delete this;
-  });
-}
-
 class ThrottleImpl : public AsyncTaskScheduler::Throttle {
  public:
   ThrottleImpl(int max_concurrent_cost) : available_cost_(max_concurrent_cost) {}

@@ -25,83 +25,11 @@
 #include "arrow/util/mutex.h"
 
 namespace arrow {
+
 using internal::FnOnce;
 using internal::make_unique;
+
 namespace util {
-
-/// Custom deleter for AsyncDestroyable objects
-template <typename T>
-struct DestroyingDeleter {
-  void operator()(T* p) {
-    if (p) {
-      p->Destroy();
-    }
-  }
-};
-
-/// An object which should be asynchronously closed before it is destroyed
-///
-/// Classes can extend this to ensure that the close method is called and completed
-/// before the instance is deleted.  This provides smart_ptr / delete semantics for
-/// objects with an asynchronous destructor.
-///
-/// Classes which extend this must be constructed using MakeSharedAsync or MakeUniqueAsync
-class ARROW_EXPORT AsyncDestroyable {
- public:
-  AsyncDestroyable();
-  virtual ~AsyncDestroyable() = default;
-
-  /// A future which will complete when the AsyncDestroyable has finished and is ready
-  /// to be deleted.
-  ///
-  /// This can be used to ensure all work done by this object has been completed before
-  /// proceeding.
-  Future<> on_closed() { return on_closed_; }
-
- protected:
-  /// Subclasses should override this and perform any cleanup.  Once the future returned
-  /// by this method finishes then this object is eligible for destruction and any
-  /// reference to `this` will be invalid
-  virtual Future<> DoDestroy() = 0;
-
- private:
-  void Destroy();
-
-  Future<> on_closed_;
-#ifndef NDEBUG
-  bool constructed_correctly_ = false;
-#endif
-
-  template <typename T>
-  friend struct DestroyingDeleter;
-  template <typename T, typename... Args>
-  friend std::shared_ptr<T> MakeSharedAsync(Args&&... args);
-  template <typename T, typename... Args>
-  friend std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args);
-};
-
-template <typename T, typename... Args>
-std::shared_ptr<T> MakeSharedAsync(Args&&... args) {
-  static_assert(std::is_base_of<AsyncDestroyable, T>::value,
-                "Nursery::MakeSharedCloseable only works with AsyncDestroyable types");
-  std::shared_ptr<T> ptr(new T(std::forward<Args&&>(args)...), DestroyingDeleter<T>());
-#ifndef NDEBUG
-  ptr->constructed_correctly_ = true;
-#endif
-  return ptr;
-}
-
-template <typename T, typename... Args>
-std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args) {
-  static_assert(std::is_base_of<AsyncDestroyable, T>::value,
-                "Nursery::MakeUniqueCloseable only works with AsyncDestroyable types");
-  std::unique_ptr<T, DestroyingDeleter<T>> ptr(new T(std::forward<Args>(args)...),
-                                               DestroyingDeleter<T>());
-#ifndef NDEBUG
-  ptr->constructed_correctly_ = true;
-#endif
-  return ptr;
-}
 
 /// A utility which keeps tracks of, and schedules, asynchronous tasks
 ///
@@ -304,8 +232,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// A sub-scheduler can share the same throttle as its parent but it
   /// can also have its own unique throttle.
   virtual AsyncTaskScheduler* MakeSubScheduler(
-      FnOnce<Status()> finish_callback, Throttle* throttle = nullptr,
-      std::unique_ptr<Queue> queue = nullptr) = 0;
+      FnOnce<Status()> finish_callback, Throttle* throttle = NULLPTR,
+      std::unique_ptr<Queue> queue = NULLPTR) = 0;
 
   /// Construct a scheduler
   ///
@@ -313,8 +241,8 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///        The default (nullptr) will always submit tasks when they are added.
   /// \param queue A queue to control task order.  Only used if throttle != nullptr.
   ///        The default (nullptr) will use a FIFO queue if there is a throttle.
-  static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = nullptr,
-                                                  std::unique_ptr<Queue> queue = nullptr);
+  static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = NULLPTR,
+                                                  std::unique_ptr<Queue> queue = NULLPTR);
 };
 
 }  // namespace util
