@@ -221,15 +221,18 @@ Debugging
 ---------
 
 Use netstat to see the number of open connections.
-For debug - env GRPC_VERBOSITY=info GRPC_TRACE=http will print the initial
-headers (on both sides) so you can see if grpc established the connection or
+
+For debugging, certain environment variables enable logging in gRPC. For
+example, ``env GRPC_VERBOSITY=info GRPC_TRACE=http`` will print the initial
+headers (on both sides) so you can see if gRPC established the connection or
 not. It will also print when a message is sent, so you can tell if the
 connection is open or not.
+
 gRPC may not report connection errors until a call is actually made.
 Hence, to detect connection errors when creating a client, some sort
 of dummy RPC should be made.
 
-Memory cache management
+Memory management
 -----------------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
@@ -238,14 +241,18 @@ be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
 
-A quick way of testing: attach to the process with a debugger and call malloc_trim
-or call ReleaseUnused on the system pool.
+A quick way of testing: attach to the process with a debugger and call
+malloc_trim, or call ReleaseUnused on the system pool. If memory usage
+drops, then likely, there is memory allocated by gRPC or by the
+application that the system allocator was holding on to. This can be
+adjusted in platform-specific ways; see an investigation in JIRA for
+an example of how this works on Linux/glibc. 
 
 Excessive traffic
 -----------------
 
 gRPC will spawn an unbounded number of threads for concurrent clients. Those
-threads are not necessarily cleaned up (cached thread pool in java parlance).
+threads are not necessarily cleaned up (a "cached thread pool" in Java parlance).
 glibc malloc clears some per thread state and the default tuning never clears
 caches in some workloads. But you can explicitly tell malloc to dump caches.
 See ARROW-16697_ as an example.
@@ -290,7 +297,7 @@ Closing unresponsive connections
          .. code-block:: python
 
 
-2. Use client timeout.
+2. Use call timeouts. (This is a general gRPC best practice.)
    .. tab-set::
 
       .. tab-item:: C++
@@ -305,12 +312,17 @@ Closing unresponsive connections
 
          .. code-block:: python
 
-3. There is a long standing ticket for a per-write/per-read timeout instead of a per
-   call timeout (ARROW-6062_), but this is not (easily) possible to implement with the
-   blocking gRPC API. For now one can also do something like set up a background thread
-   that calls cancel() on a timer and have the main thread reset the timer every time a
-   write operation completes successfully (that means one needs to use to_batches() +
-   write_batch and not write_table).
+3. Client timeouts are not great for long-running streaming calls, where it may
+   be hard to choose a timeout for the entire operation. Instead, what is often
+   desired is a per-read or per-write timeout so that the operation fails if it
+   isn't making progress. This can be implemented with a background thread that
+   calls cancel() on a timer, with the main thread resetting the timer every time
+   an operation completes successfully. For a fully-worked out example, see the
+   Cookbook.
+   
+   .. note:: There is a long standing ticket for a per-write/per-read timeout
+             instead of a per call timeout (ARROW-6062_), but this is not (easily)
+             possible to implement with the blocking gRPC API. 
 
 .. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
