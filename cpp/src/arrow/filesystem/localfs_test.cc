@@ -165,7 +165,7 @@ class TestLocalFSGenericDirectIO : public TestLocalFSGeneric<CommonPathFormatter
 };
 
 GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
-GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericDirectIO);
+GENERIC_FS_TEST_FUNCTIONS_WITHOUT_APPEND(TestLocalFSGenericDirectIO);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests

@@ -71,8 +71,8 @@ class OSFile {
                       bool write_only, bool direct = false) {
     RETURN_NOT_OK(SetFileName(path));
 
-    ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenWritable(file_name_, write_only,
-                                                                   truncate, append, direct));
+    ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenWritable(
+                                   file_name_, write_only, truncate, append, direct));
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (!truncate) {
@@ -380,8 +380,9 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // DirectFileOutputStream, change the Open, Write and Close methods from FileOutputStream
-// Uses DirectIO for writes. Will only write out things in 4096 byte blocks. Buffers leftover bytes
-// in an internal data structure, which will be padded to 4096 bytes and flushed upon call to close.
+// Uses DirectIO for writes. Will only write out things in 4096 byte blocks. Buffers
+// leftover bytes in an internal data structure, which will be padded to 4096 bytes and
+// flushed upon call to close.
 
 class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
  public:
@@ -392,16 +393,18 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
   Status Open(int fd) { return OpenWritable(fd); }
 };
 
-DirectFileOutputStream::DirectFileOutputStream() { 
+DirectFileOutputStream::DirectFileOutputStream() {
   uintptr_t mask = (uintptr_t)(4095);
-  uint8_t *mem = static_cast<uint8_t *>(malloc(4096 + 4095));
-  cached_data = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+4095) & ~(mask));
-  impl_.reset(new DirectFileOutputStreamImpl()); }
+  uint8_t* mem = static_cast<uint8_t*>(malloc(4096 + 4095));
+  cached_data =
+      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(mem + 4095) & ~(mask));
+  impl_.reset(new DirectFileOutputStreamImpl());
+}
 
 DirectFileOutputStream::~DirectFileOutputStream() { internal::CloseFromDestructor(this); }
 
-Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(const std::string& path,
-                                                                 bool append) {
+Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
+    const std::string& path, bool append) {
   auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
   RETURN_NOT_OK(stream->impl_->Open(path, append));
   return stream;
@@ -413,22 +416,30 @@ Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int
   return stream;
 }
 
-Status DirectFileOutputStream::Close() { 
-  // have to flush out the temprorary data
-  if(cached_length > 0){
-    std::memset(cached_data + cached_length, 0, 4096 - cached_length);
-    impl_->Write(cached_data, 4096);
+Status DirectFileOutputStream::Close() {
+  // some operations will call Close() on a file that is not open. In which case don't do
+  // all this.
+  if (!closed()) {
+    // have to flush out the temprorary data, but then trim the file
+    if (cached_length > 0) {
+      std::memset(cached_data + cached_length, 0, 4096 - cached_length);
+      impl_->Write(cached_data, 4096);
+    }
+    auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
+    fsync(impl_->fd());
+    ftruncate(impl_->fd(), new_length);
   }
-  return impl_->Close(); }
+  return impl_->Close();
+}
 
 bool DirectFileOutputStream::closed() const { return !impl_->is_open(); }
 
 Result<int64_t> DirectFileOutputStream::Tell() const { return impl_->Tell(); }
 
 Status DirectFileOutputStream::Write(const void* data, int64_t length) {
+  RETURN_NOT_OK(impl_->CheckClosed());
 
-  if (cached_length + length < 4096)
-  {
+  if (cached_length + length < 4096) {
     std::memcpy(cached_data + cached_length, data, length);
     cached_length += length;
     return Status::OK();
@@ -437,12 +448,15 @@ Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   auto bytes_to_write = (cached_length + length) / 4096 * 4096;
   auto bytes_leftover = cached_length + length - bytes_to_write;
   uintptr_t mask = (uintptr_t)(4095);
-  uint8_t *mem = static_cast<uint8_t *>(malloc(bytes_to_write + 4095));
-  uint8_t * new_ptr = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+4095) & ~(mask));
+  uint8_t* mem = static_cast<uint8_t*>(malloc(bytes_to_write + 4095));
+  uint8_t* new_ptr =
+      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(mem + 4095) & ~(mask));
   std::memcpy(new_ptr, cached_data, cached_length);
   std::memcpy(new_ptr + cached_length, data, bytes_to_write - cached_length);
-  std::memset(cached_data, 0, cached_length); //this is not required.
-  std::memcpy(cached_data, reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length, bytes_leftover);
+  std::memset(cached_data, 0, cached_length);  // this is not required.
+  std::memcpy(cached_data,
+              reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length,
+              bytes_leftover);
   cached_length = bytes_leftover;
   return impl_->Write(new_ptr, bytes_to_write);
 }

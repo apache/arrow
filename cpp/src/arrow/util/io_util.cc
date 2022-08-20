@@ -1072,7 +1072,8 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
-                                        bool write_only, bool truncate, bool append, bool direct) {
+                                        bool write_only, bool truncate, bool append,
+                                        bool direct) {
   FileDescriptor fd;
 
 #if defined(_WIN32)
@@ -1130,8 +1131,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   }
 
   if (direct) {
-    oflag |= O_DIRECT; // will cause issues on Apple on Windows
-    oflag |= O_SYNC;
+    oflag |= O_DIRECT;  // will cause issues on Apple on Windows
   }
 
   int ret = open(file_name.ToNative().c_str(), oflag, 0666);
