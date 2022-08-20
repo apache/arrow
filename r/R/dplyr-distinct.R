@@ -29,7 +29,7 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     # distinct() with no vars specified means distinct across all cols
     .data <- dplyr::group_by(.data, !!!syms(names(.data)))
   }
-  if (.keep_all == TRUE) {
+  if (isTRUE(.keep_all)) {
     # (TODO) `.keep_all = TRUE` can return first row value, but this implementation
     # do not always return it because `hash_one` skips rows if they contain null value.
     # If group vars do not uniquely determine return values of each cols,
