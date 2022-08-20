@@ -26,48 +26,95 @@ Authoring Compute Functions
 Compute Functions
 =================
 
-An introduction to compute functions is provided in https://arrow.apache.org/docs/cpp/compute.html.
+Analytical functions for processing Arrow data are altogether referred to as the "compute
+API." An introduction to the compute API is provided in the :doc:`Compute Functions
+<compute>` user guide. Functions in this API primarily process columnar data for either
+scalar or Arrow-based array inputs. These functions are intended for use inside query
+engines, data frame libraries, etc.
 
-The [compute submodule](https://github.com/edponce/arrow/tree/master/cpp/src/arrow/compute) contains analytical functions that process primarily columnar data for either scalar or Arrow-based array inputs. These are intended for use inside query engines, data frame libraries, etc.
+.. seealso::
+   :doc:`User Guide for the compute API <compute>`
 
-Many functions have SQL-like semantics in that they perform element-wise or scalar operations on whole arrays at a time. Other functions are not SQL-like and compute results that may be a different length or whose results depend on the order of the values.
+Many functions have SQL-like semantics in that they perform element-wise or scalar
+operations on whole arrays at a time. Other functions are not SQL-like and compute results
+that may be a different length or whose results depend on the order of the values.
 
 Terminology:
-* The term compute "function" refers to a particular general operation that may have many different implementations corresponding to different combinations of types or function behavior options.
-* A specific implementation of a function is a "kernel". Selecting a viable kernel for executing a function is referred to as "dispatching". When executing a function on inputs, we must first select a suitable kernel corresponding to the value types of the inputs is selected.
-* Functions along with their kernel implementations are collected in a "function registry". Given a function name and argument types, we can look up that function and dispatch to a compatible kernel.
 
-[Compute functions](https://github.com/apache/arrow/blob/master/cpp/src/arrow/compute/function.h) have the following principal attributes:
-* A unique ["name"](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4NK5arrow7compute8Function4nameEv) used for function invocation and language bindings
-* A ["kind"](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4N5arrow7compute8Function4KindE)
-  which indicates in what context it is valid for use
-    * Input/output [types](https://arrow.apache.org/docs/cpp/compute.html#type-categories) and [shapes](https://arrow.apache.org/docs/cpp/compute.html#input-shapes)
-    * Compute functions can also be further "categorized" based on the type of operation performed. For example, `Scalar Arithmetic` vs `Scalar String`.
-* Compute functions (see [FunctionImpl and subclasses](https://github.com/apache/arrow/blob/master/cpp/src/arrow/compute/function.h)) contain ["kernels"](https://github.com/edponce/arrow/tree/master/cpp/src/arrow/compute/kernels) which are implementations for specific argument signatures.
-* An ["arity"](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4N5arrow7compute5ArityE) which states the number of required arguments
-for its core operation. Functions are commonly nullary, unary, binary, or ternary, but can also be variadic.
-* ["Documentation"](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4N5arrow7compute11FunctionDocE) describing the function's functionality and behavior
-* ["Options"](https://arrow.apache.org/docs/cpp/api/compute.html#_CPPv4N5arrow7compute15FunctionOptionsE) specifying configuration of the function's behavior.
+* **compute kernel** -- A specific implementation of a function.
 
-Compute functions are grouped in source files based on their "kind" in https://github.com/apache/arrow/tree/master/cpp/src/arrow/compute.
-Kernels of compute functions are grouped in source files based on their "kind" and category, see https://github.com/edponce/arrow/tree/master/cpp/src/arrow/compute/kernels.
+* **compute function** -- A logical representation of a function that is associated with
+  compute kernels which provide actual implementations for various argument types and
+  shapes.
+
+* **dispatch** -- Selection of a specific compute kernel when a compute function is
+  invoked. When calling a function, selecting the appropriate kernel depends on the types
+  of input arguments and how many arguments are provided.
+
+* **function registry** -- A data structure, like a dictionary, where functions are
+  listed.
+
+Pricipal attributes of a compute :struct:`Function`:
+
+* A unique :func:`name <arrow::compute::Function::name()>` used for function invocation
+  and language bindings.
+
+* A :cpp:enum:`Kind <Function::Kind>` which indicates in what context it is valid
+  for use.
+
+* A return value of :struct:`OutputType` and a **shape**: :struct:`Scalar`,
+  :struct:`Array`, or :struct:`ChunkedArray`.
+
+* An :struct:`Arity`, or argument cardinality, that represents how many arguments the
+  function accepts. Commonly: :cpp:func:`Nullary <Arity::Nullary()>`, :cpp:func:`Unary
+  <Arity::Unary()>`, :cpp:func:`Binary <Arity::Binary()>`, :cpp:func:`Ternary
+  <Arity::Ternary()>`, or :cpp:func:`Variadic <Arity::VarArgs()>`.
+
+* A number of arguments, each having an :struct:`InputType` and a **shape**:
+  :struct:`Scalar`, :struct:`Array`, or :struct:`ChunkedArray`.
+
+* A :struct:`FunctionDoc` which documents functionality and behavior.
+
+Compute functions can also be further categorized based on the type of operation
+performed. For example, **Scalar Arithmetic** functions accept scalar, numeric arguments and
+return a scalar, numeric value. Similarly, **Scalar String** functions accept scalar
+arguments and return a scalar value; but, expects arguments to be strings and returns
+a string value.
+
+Compute functions (see :doc:`FunctionImpl and subclasses <api/compute>`) are associated
+with a set of :struct:`Kernels <Kernel>`. Each kernel is similar to a real function and
+implements logic for the function for a specific argument signature.
+
+Optionally, compute functions may accept :struct:`FunctionOptions`, which provides a
+mechanism to alter behavior of a function kernel instead of creating new functions or
+kernels for each desirable behavior.
+
+Compute functions are grouped in source files based on their "kind" in
+https://github.com/apache/arrow/tree/master/cpp/src/arrow/compute.
+Kernels of compute functions are grouped in source files based on their "kind" and
+category, see https://github.com/apache/arrow/tree/master/cpp/src/arrow/compute/kernels.
 
 
-Kinds of compute functions
---------------------------
+Function Kinds
+--------------
 
-Arrow uses an enumerated type to identify the kind of a compute function, refer to
-https://github.com/edponce/arrow/tree/master/cpp/src/arrow/compute/function.h
+Arrow uses an enumerated type, :cpp:enum:`Kind <Function::Kind>` to identify the kind of a
+compute function. There are 4 primary kinds: :ref:`Scalar <reflabel-fnkind-scalar>`,
+:ref:`Vector <reflabel-fnkind-vector>`, :ref:`Aggregate <reflabel-fnkind-aggregate>`, and
+:ref:`Meta <reflabel-fnkind-meta>`.
+
+
+.. _reflabel-fnkind-scalar:
 
 Scalar
 ~~~~~~
 
-A function that performs scalar data operations on whole arrays of
-data. Can generally process Array or Scalar values. The size of the
-output will be the same as the size (or broadcasted size, in the case
-of mixing Array and Scalar inputs) of the input.
-
-https://arrow.apache.org/docs/cpp/compute.html#arithmetic-functions
+An "element-wise" function that returns a value of the same shape as the arguments. A
+scalar function can accept scalar or array values, but every argument has the same shape
+and the return value also has the same shape. In other words, every input must have the
+same cardinality and the output contains an element corresponding to an element of the
+input. Some scalar functions allow for a mix of array and scalar inputs, but the scalar
+input is treated as an array with the scalar value repeated.
 
 **Categories of Scalar functions**
 
@@ -85,6 +132,8 @@ https://arrow.apache.org/docs/cpp/compute.html#arithmetic-functions
 * Conversions
 
 
+.. _reflabel-fnkind-vector:
+
 Vector
 ~~~~~~
 
@@ -99,15 +148,19 @@ values of the entire arrays passed, rather than the value of each scalar value.
 * Structural transforms
 
 
-Scalar aggregate
-~~~~~~~~~~~~~~~~
+.. _reflabel-fnkind-aggregate:
 
-A function that computes scalar summary statistics from array input.
+Aggregates
+~~~~~~~~~~
 
-### Hash aggregate
+There are 2 kinds of aggregates we describe here: :cpp:enumerator:`scalar
+<Function::Kind::SCALAR_AGGREGATE>` and :cpp:enumerator:`hash
+<Function::Kind::HASH_AGGREGATE>`. **Scalar Aggregate.** A function that computes scalar
+summary statistics from array input. **Hash Aggregate.** A function that computes grouped
+summary statistics from array input and an array of group identifiers.
 
-A function that computes grouped summary statistics from array input
-and an array of group identifiers.
+
+.. _reflabel-fnkind-meta:
 
 Meta
 ~~~~
