@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8, 11, 17, 18]
+        jdk: [11]
         include:
         - jdk: 8
           title: AMD64 Debian 9 Java JDK 8 Maven 3.5.4
@@ -134,12 +134,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8]
+        jdk: [8, 11, 17, 18]
     steps:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
