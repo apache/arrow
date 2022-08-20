@@ -190,15 +190,15 @@ When using default gRPC transport options can be passed to it via
       .. code-block:: cpp
 
          auto options = FlightClientOptions::Defaults();
-         // Set a very low limit at the gRPC layer to fail all calls
-         options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
+         // Set the period after which a keepalive ping is sent on transport.
+         options.generic_options.emplace_back(GRPC_ARG_KEEPALIVE_TIME_MS, 60000);
 
    .. tab-item:: Python
 
-      .. code-block:: cpp
+      .. code-block:: python
 
-         // Set a very low limit at the gRPC layer to fail all calls
-         generic_options = [("GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH", 4)]
+         # Set the period after which a keepalive ping is sent on transport.
+         generic_options = [("GRPC_ARG_KEEPALIVE_TIME_MS", 60000)]
          client = pyarrow.flight.FlightClient(server_uri, generic_options=generic_options)
 
 Also see `best gRPC practices`_ and available `gRPC keys`_.
@@ -217,10 +217,12 @@ Don’t round-robin load balance
 every server, causing an unexpected number of open connections and depleting
 server resources.
 
-Debugging
----------
+Debugging disconnects
+---------------------
 
-Use netstat to see the number of open connections.
+When facing unexpected disconnects on long running connections use netstat to
+monitor the number of open connections. If number of connections is much
+greater than the number of clients it might cause issues.
 
 For debugging, certain environment variables enable logging in gRPC. For
 example, ``env GRPC_VERBOSITY=info GRPC_TRACE=http`` will print the initial
@@ -236,40 +238,60 @@ Memory management
 -----------------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
-data copies.  However, this means that those allocations may not
+data copies. However, this means that those allocations may not
 be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
 
 A quick way of testing: attach to the process with a debugger and call
-malloc_trim, or call ReleaseUnused on the system pool. If memory usage
-drops, then likely, there is memory allocated by gRPC or by the
-application that the system allocator was holding on to. This can be
-adjusted in platform-specific ways; see an investigation in JIRA for
-an example of how this works on Linux/glibc. 
+malloc_trim, or call :func:`ReleaseUnused <arrow::MemoryPool::ReleaseUnused>`
+on the system pool. If memory usage drops, then likely, there is memory
+allocated by gRPC or by the application that the system allocator was holding
+on to. This can be adjusted in platform-specific ways; see an investigation
+in JIRA for an example of how this works on Linux/glibc.
+
+malloc can be explicitly told to dump caches. See ARROW-16697_ as an example.
 
 Excessive traffic
 -----------------
 
-gRPC will spawn an unbounded number of threads for concurrent clients. Those
+gRPC will spawn up to max threads quota of threads for concurrent clients. Those
 threads are not necessarily cleaned up (a "cached thread pool" in Java parlance).
 glibc malloc clears some per thread state and the default tuning never clears
-caches in some workloads. But you can explicitly tell malloc to dump caches.
-See ARROW-16697_ as an example.
+caches in some workloads.
 
-There are basically two ways to handle excessive traffic:
-* unbounded thread pool -> everyone gets serviced, but it might take forever.
-* bounded thread pool -> Reject connections / requests when under load, and have
-clients retry with backoff. This also gives an opportunity to retry with a
-different node. Not everyone gets serviced but quality of service stays consistent.
+gRPC's default behavior allows one server to accept many connections from many
+different clients, but if requests do a lot of work (as they may under Flight),
+the server may not be able to keep up. Configuring the server to limit the number
+of clients and reject requests more proactively, and configuring clients to retry
+with backoff (and potentially connect to a different node), would give more
+consistent quality of service.
+
+.. tab-set::
+
+   .. tab-item:: C++
+
+      .. code-block:: cpp
+         auto options = FlightClientOptions::Defaults();
+         // Set the minimum time between subsequent connection attempts.
+         options.generic_options.emplace_back(GRPC_ARG_MIN_RECONNECT_BACKOFF_MS, 2000);
+
+   .. tab-item:: Python
+
+      .. code-block:: python
+
+         # Set the minimum time between subsequent connection attempts.
+         generic_options = [("GRPC_ARG_MIN_RECONNECT_BACKOFF_MS", 2000)]
+         client = pyarrow.flight.FlightClient(server_uri, generic_options=generic_options)
+
 
 Limiting DoPut Batch Size
 --------------------------
 
 You may wish to limit the maximum size a client can submit to a server through
 DoPut, to prevent a request from taking up too much memory on the server. On
-the client-side, set `write_size_limit_bytes` on `FlightClientOptions`. On the 
-server-side, set the gRPC option `GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH`.
+the client-side, set ``write_size_limit_bytes`` on ``FlightClientOptions``. On the
+server-side, set the gRPC option ``GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH``.
 The client-side option will return an error that can be retried with smaller batches,
 while the server-side limit will close out the connection. Setting both can be wise, since
 the former provides a better user experience but the latter may be necessary to defend
@@ -288,29 +310,37 @@ Closing unresponsive connections
 
          .. code-block:: cpp
 
-      .. tab-item:: Java
-
-         .. code-block:: java
-
-      .. tab-item:: Python
-
-         .. code-block:: python
+              StopSource stop_source;
+              FlightCallOptions options;
+              options.stop_token = stop_source.token();
+              stop_source.RequestStop(Status::Cancelled("StopSource"));
+              flight_client->DoAction(options, {});
 
 
 2. Use call timeouts. (This is a general gRPC best practice.)
+
    .. tab-set::
 
       .. tab-item:: C++
 
          .. code-block:: cpp
 
+            FlightCallOptions options;
+            options.timeout = TimeoutDuration{0.2};
+            Status status = client->GetFlightInfo(options, FlightDescriptor{}).status();
+
       .. tab-item:: Java
 
          .. code-block:: java
 
+            Iterator<Result> results = client.doAction(new Action("hang"), CallOptions.timeout(0.2, TimeUnit.SECONDS));
+
       .. tab-item:: Python
 
          .. code-block:: python
+
+            options = pyarrow.flight.FlightCallOptions(timeout=0.2)
+
 
 3. Client timeouts are not great for long-running streaming calls, where it may
    be hard to choose a timeout for the entire operation. Instead, what is often

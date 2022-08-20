@@ -56,24 +56,23 @@
 // Excessive traffic
 //
 // There are basically two ways to handle excessive traffic:
-// * unbounded thread pool -> everyone gets serviced, but it might take forever.
-// This is what you are seeing now.
-// bounded thread pool -> Reject connections / requests when under load, and have
+// * unbounded goroutines -> everyone gets serviced, but it might take forever.
+// This is what you are seeing now. Default behaviour.
+// * bounded thread pool -> Reject connections / requests when under load, and have
 // clients retry with backoff. This also gives an opportunity to retry with a
 // different node. Not everyone gets serviced but quality of service stays consistent.
+// Can be set with https://pkg.go.dev/google.golang.org/grpc#NumStreamWorkers
 //
 // Closing unresponsive connections
 //
-// * A stale connection can be closed using CallOptions.stop_token. This requires
-// recording the stop token at connection establishment time.
-// * Use client timeout
+// * Connection timeout (https://pkg.go.dev/context#WithTimeout) or
+// (https://pkg.go.dev/context#WithCancel) can be set via context.Context.
 // * There is a long standing ticket for a per-write/per-read timeout instead of a per
 // call timeout (https://issues.apache.org/jira/browse/ARROW-6062), but this is not
 // (easily) possible to implement with the blocking gRPC API. For now one can also do
 // something like set up a background thread that calls cancel() on a timer and have
 // the main thread reset the timer every time a write operation completes successfully
 // (that means one needs to use to_batches() + write_batch and not write_table).
-// * context.Context can be passed to requests to provide (https://pkg.go.dev/context#WithTimeout) or
-// (https://pkg.go.dev/context#WithCancel).
+
 
 package flight
