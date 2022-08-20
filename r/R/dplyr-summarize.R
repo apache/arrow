@@ -159,6 +159,13 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+  register_binding_agg("one", function(...) {
+    list(
+      fun = "one",
+      data = ensure_one_arg(list2(...), "one"),
+      options = list()
+    )
+  })
 }
 
 # we register 2 versions of the "::" binding - one for use with agg_funcs
