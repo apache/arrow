@@ -32,6 +32,7 @@ echo "=== Building Arrow C++ libraries ==="
 devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+: ${ARROW_BUILD_TESTS:=OFF}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -44,13 +45,18 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PYTHON:=OFF}
 : ${ARROW_S3:=ON}
-: ${ARROW_BUILD_TESTS:=OFF}
+: ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
 : ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 : ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics before build ==="
+  ccache -s
+fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
@@ -87,6 +93,7 @@ cmake \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_SNAPPY_USE_SHARED=OFF \
   -DARROW_THRIFT_USE_SHARED=OFF \
+  -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DARROW_UTF8PROC_USE_SHARED=OFF \
   -DARROW_ZSTD_USE_SHARED=OFF \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
@@ -125,6 +132,11 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
   ${build_dir} \
   ${dist_dir}
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+  echo "=== ccache statistics after build ==="
+  ccache -s
+fi
 
 
 echo "=== Copying libraries to the distribution folder ==="

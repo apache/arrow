@@ -65,6 +65,9 @@ jobs:
           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
           brew uninstall aws-sdk-cpp
+      - name: Setup ccache
+        run: |
+          arrow/ci/scripts/ccache_setup.sh
       - name: Build C++ Libs
         run: |
           set -e
