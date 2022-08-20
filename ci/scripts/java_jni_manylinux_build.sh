@@ -24,8 +24,6 @@ build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${3}
 
-INSTALL_DIR=${build_dir}/cpp-install
-
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf ${build_dir}
@@ -123,7 +121,7 @@ popd
 
 
 JAVA_JNI_CMAKE_ARGS=""
-JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake"
+JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
 JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
 export JAVA_JNI_CMAKE_ARGS
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
