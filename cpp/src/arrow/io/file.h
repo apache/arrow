@@ -92,7 +92,7 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   /// When opening a new file, any existing file with the indicated path is
   /// truncated to 0 bytes, deleting any existing data
   static Result<std::shared_ptr<DirectFileOutputStream>> Open(const std::string& path,
-                                                        bool append = false);
+                                                              bool append = false);
 
   /// \brief Open a file descriptor for writing.  The underlying file isn't
   /// truncated.
@@ -121,7 +121,7 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
 
   class ARROW_NO_EXPORT DirectFileOutputStreamImpl;
   std::unique_ptr<DirectFileOutputStreamImpl> impl_;
-  uint8_t * cached_data;
+  uint8_t* cached_data;
   int64_t cached_length = 0;
 };
 
