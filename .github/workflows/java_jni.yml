@@ -61,8 +61,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: maven-${{ hashFiles('java/**') }}
-          restore-keys: maven-
+          key: java-jni-manylinux-2014-${{ hashFiles('cpp/**', 'java/**') }}
+          restore-keys: java-jni-manylinux-2014-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
