@@ -257,16 +257,6 @@ struct EmitValidate {
       }
       ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
       EXPECT_TRUE(expected_table->Equals(*output_table));
-
-      // std::cout << "output" << std::endl;
-      // std::cout << std::string(20, '-') << std::endl;
-      // std::cout << output_table->ToString() << std::endl;
-      // std::cout << std::string(20, '-') << std::endl;
-
-      // std::cout << "expected" << std::endl;
-      // std::cout << std::string(20, '-') << std::endl;
-      // std::cout << expected_table->ToString() << std::endl;
-      // std::cout << std::string(20, '-') << std::endl;
     }
   }
   std::shared_ptr<Schema> output_schema;

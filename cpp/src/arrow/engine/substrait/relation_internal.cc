@@ -59,16 +59,12 @@ Result<std::vector<compute::Expression>> GetEmitInfo(
     int32_t map_id = emit.output_mapping(i);
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
   }
-  // TODO: return emit size and expression as a tuple
   return std::move(proj_field_refs);
 }
 
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
   if (rel.has_common()) {
-    // if (rel.common().has_emit()) {
-    //   return Status::NotImplemented("substrait::RelCommon::Emit");
-    // }
     if (rel.common().has_hint()) {
       return Status::NotImplemented("substrait::RelCommon::Hint");
     }
