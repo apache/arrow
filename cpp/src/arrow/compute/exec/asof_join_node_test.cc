@@ -18,6 +18,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
+#include <iostream>
 #include <numeric>
 #include <random>
 #include <unordered_set>
@@ -440,7 +441,8 @@ struct BasicTest {
 
     // sample a limited number of type-combinations to keep the runnning time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
-    auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+    auto start_time = std::chrono::system_clock::now();
+    auto seed = start_time.time_since_epoch().count();
     ARROW_SCOPED_TRACE("Types seed: ", seed);
     std::default_random_engine engine(static_cast<unsigned int>(seed));
     std::uniform_int_distribution<size_t> time_distribution(0, time_types.size() - 1);
@@ -462,6 +464,14 @@ struct BasicTest {
       ARROW_SCOPED_TRACE("Right-1 type: ", *r1_type);
 
       RunTypes({time_type, key_type, l_type, r0_type, r1_type}, batches_runner);
+
+      auto end_time = std::chrono::system_clock::now();
+      std::chrono::duration<double> diff = end_time - start_time;
+      if (diff.count() > 2) {
+        std::cerr << "AsofJoin test reached time limit at iteration " << i << std::endl;
+        // this normally happens on slow CI systems, but is fine
+        break;
+      }
     }
   }
   template <typename BatchesRunner>
