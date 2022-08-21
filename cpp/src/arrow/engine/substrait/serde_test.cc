@@ -258,15 +258,15 @@ struct EmitValidate {
       ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
       EXPECT_TRUE(expected_table->Equals(*output_table));
 
-      std::cout << "output" << std::endl;
-      std::cout << std::string(20, '-') << std::endl;
-      std::cout << output_table->ToString() << std::endl;
-      std::cout << std::string(20, '-') << std::endl;
+      // std::cout << "output" << std::endl;
+      // std::cout << std::string(20, '-') << std::endl;
+      // std::cout << output_table->ToString() << std::endl;
+      // std::cout << std::string(20, '-') << std::endl;
 
-      std::cout << "expected" << std::endl;
-      std::cout << std::string(20, '-') << std::endl;
-      std::cout << expected_table->ToString() << std::endl;
-      std::cout << std::string(20, '-') << std::endl;
+      // std::cout << "expected" << std::endl;
+      // std::cout << std::string(20, '-') << std::endl;
+      // std::cout << expected_table->ToString() << std::endl;
+      // std::cout << std::string(20, '-') << std::endl;
     }
   }
   std::shared_ptr<Schema> output_schema;
@@ -2631,7 +2631,7 @@ TEST(Substrait, FilterRelWithEmit) {
   EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf)();
 }
 
-TEST(Substrait, JoinRelWithEmit) {
+TEST(Substrait, JoinRelEndToEnd) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2820,7 +2820,180 @@ TEST(Substrait, JoinRelWithEmit) {
                std::move(include_columns))();
 }
 
-TEST(Substrait, AggregateRelEmit) {
+TEST(Substrait, JoinRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema = schema({field("A", int32()), field("B", int32()),
+                             field("C", int32()), field("D", int32())});
+
+  auto right_schema = schema({field("X", int32()), field("Y", int32()),
+                              field("Z", int32()), field("W", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1, 80, 70],
+      [20, 2, 70, 60],
+      [30, 3, 30, 50]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 1, 81, 71],
+      [80, 2, 71, 61],
+      [31, 3, 31, 51]
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_join_tempdir"));
+  std::string left_file_prefix = "serde_join_left_emit_test";
+  std::string right_file_prefix = "serde_join_right_emit_test";
+
+  TempDataGenerator datagen_left(left_table, left_file_prefix, tempdir);
+  ASSERT_OK(datagen_left());
+  std::string substrait_left_file_uri = "file://" + datagen_left.data_file_path;
+
+  TempDataGenerator datagen_right(right_table, right_file_prefix, tempdir);
+  ASSERT_OK(datagen_right());
+  std::string substrait_right_file_uri = "file://" + datagen_right.data_file_path;
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 1, 2, 3, 8, 9, 10, 11]
+          }
+        },
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C", "D"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": ")" +
+                               substrait_left_file_uri +
+                               R"(",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "Z", "W"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": ")" +
+                               substrait_right_file_uri +
+                               R"(",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({
+      field("A", int32()),
+      field("B", int32()),
+      field("C", int32()),
+      field("D", int32()),
+      field("X", int32()),
+      field("Y", int32()),
+      field("Z", int32()),
+      field("W", int32()),
+  });
+
+  auto expected_table = TableFromJSON(std::move(output_schema), {R"([
+      [10, 1, 80, 70, 10, 1, 81, 71]
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf)();
+}
+
+TEST(Substrait, AggregateRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
@@ -2932,6 +3105,128 @@ TEST(Substrait, AggregateRelEmit) {
       [90, 20],
       [60, 30],
       [60, 40]
+  ])"});
+  EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf)();
+}
+
+TEST(Substrait, AggregateRelEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30],
+      [40, 4, 20],
+      [40, 5, 40],
+      [20, 6, 20],
+      [30, 7, 30]
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_agg_tempdir"));
+  std::string file_prefix = "serde_agg_emit_test";
+
+  TempDataGenerator datagen(input_table, file_prefix, tempdir);
+  ASSERT_OK(datagen());
+  std::string substrait_file_uri = "file://" + datagen.data_file_path;
+  // TODO: fixme https://issues.apache.org/jira/browse/ARROW-17484
+  std::string substrait_json = R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "common": {
+          "emit": {
+            "outputMapping": [0]
+          }
+        },
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": ")" +
+                               substrait_file_uri +
+                               R"(",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 2
+                      }
+                    }
+                  }
+                }
+            }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("aggregates", int64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [80],
+      [90],
+      [60],
+      [60]
   ])"});
   EmitValidate(std::move(output_schema), std::move(expected_table), exec_context, buf)();
 }

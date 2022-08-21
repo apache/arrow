@@ -54,15 +54,12 @@ Result<std::vector<compute::Expression>> GetEmitExpression(
     const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
-  // std::vector<std::string> proj_names(emit_size);
   std::vector<compute::Expression> proj_field_refs(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
-    // auto field = schema->field(map_id);
-    // auto field_name = field->name();
-    // proj_names[i] = field_name;
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
   }
+  // TODO: return emit size and expression as a tuple
   return std::move(proj_field_refs);
 }
 
@@ -486,16 +483,25 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             "Grouping sets not supported.  AggregateRel::groupings may not have more "
             "than one item");
       }
+
+      // prepare output schema from aggregates
+      auto input_schema = input.output_schema;
+      // store key fields to be used when output schema is created
+      std::vector<int> key_field_ids;
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
         const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
-        keys.reserve(group.grouping_expressions_size());
-        for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
+        int grouping_expr_size = group.grouping_expressions_size();
+        keys.reserve(grouping_expr_size);
+        key_field_ids.reserve(grouping_expr_size);
+        for (int exp_id = 0; exp_id < grouping_expr_size; exp_id++) {
           ARROW_ASSIGN_OR_RAISE(
               compute::Expression expr,
               FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
           const FieldRef* field_ref = expr.field_ref();
           if (field_ref) {
+            ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
+            key_field_ids.emplace_back(std::move(match[0]));
             keys.emplace_back(std::move(*field_ref));
           } else {
             return Status::Invalid(
@@ -507,6 +513,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       int measure_size = aggregate.measures_size();
       std::vector<compute::Aggregate> aggregates;
       aggregates.reserve(measure_size);
+      // store aggregate fields to be used when output schema is created
+      std::vector<int> agg_src_field_ids(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
         if (agg_measure.has_measure()) {
@@ -521,17 +529,45 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               ExtensionIdRegistry::SubstraitAggregateToArrow converter,
               ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
           ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
+
+          // find aggregate field ids from schema
+          const auto field_ref = arrow_agg.target;
+          ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
+          agg_src_field_ids[measure_id] = match[0];
+
           aggregates.push_back(std::move(arrow_agg));
         } else {
           return Status::Invalid("substrait::AggregateFunction not provided");
         }
       }
-      /// TODO: add emit and extract schema
-      return DeclarationInfo{
-          compute::Declaration::Sequence(
-              {std::move(input.declaration),
-               {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
-          static_cast<int>(aggregates.size()), arrow::schema({})};
+      FieldVector output_fields;
+      output_fields.reserve(key_field_ids.size() + agg_src_field_ids.size());
+      // extract aggregate fields to output schema
+      for (int id = 0; id < static_cast<int>(agg_src_field_ids.size()); id++) {
+        output_fields.emplace_back(input_schema->field(agg_src_field_ids[id]));
+      }
+      // extract key fields to output schema
+      for (int id = 0; id < static_cast<int>(key_field_ids.size()); id++) {
+        output_fields.emplace_back(input_schema->field(key_field_ids[id]));
+      }
+
+      std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
+      if (HasEmit(aggregate)) {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
+                              GetEmitExpression(aggregate, aggregate_schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::move(input.declaration),
+                 {"aggregate", compute::AggregateNodeOptions{aggregates, keys}},
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
+            static_cast<int>(aggregates.size()), std::move(aggregate_schema)};
+      } else {
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {std::move(input.declaration),
+                 {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
+            static_cast<int>(aggregates.size()), std::move(aggregate_schema)};
+      }
     }
 
     default:
