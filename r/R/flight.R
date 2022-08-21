@@ -72,6 +72,10 @@ flight_put <- function(client, data, path, overwrite = TRUE, max_chunksize = NUL
 
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
+  if (inherits(data, "RecordBatch") && !is.null(max_chunksize)) {
+	  warning("`max_chunksize` is not supported for flight_put with RecordBatch")
+	  writer$write_batch(py_data)
+  }
   if (inherits(data, "RecordBatch")) {
     writer$write_batch(py_data)
   } else if (!is.null(max_chunksize)) {
