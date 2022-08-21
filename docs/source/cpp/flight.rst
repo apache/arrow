@@ -213,7 +213,7 @@ done too frequently. Client reuse will avoid this issue.
 Don’t round-robin load balance
 ------------------------------
 
-`Round robin balancing`_ means every client can have an open connection to
+`Round robin load balancing`_ means every client can have an open connection to
 every server, causing an unexpected number of open connections and depleting
 server resources.
 
@@ -272,6 +272,7 @@ consistent quality of service.
    .. tab-item:: C++
 
       .. code-block:: cpp
+
          auto options = FlightClientOptions::Defaults();
          // Set the minimum time between subsequent connection attempts.
          options.generic_options.emplace_back(GRPC_ARG_MIN_RECONNECT_BACKOFF_MS, 2000);
@@ -340,6 +341,7 @@ Closing unresponsive connections
          .. code-block:: python
 
             options = pyarrow.flight.FlightCallOptions(timeout=0.2)
+            result = client.do_action(action, options=options)
 
 
 3. Client timeouts are not great for long-running streaming calls, where it may
@@ -356,7 +358,7 @@ Closing unresponsive connections
 
 .. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html
-.. _Round-robin load balancing: https://github.com/grpc/grpc/blob/master/doc/load-balancing.md#round_robin
+.. _Round robin load balancing: https://github.com/grpc/grpc/blob/master/doc/load-balancing.md#round_robin
 .. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
 .. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
 .. _ARROW-6062: https://issues.apache.org/jira/browse/ARROW-6062
