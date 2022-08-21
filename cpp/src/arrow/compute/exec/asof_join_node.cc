@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/key_hash.h"
@@ -311,7 +312,9 @@ class InputState {
       LATEST_VAL_CASE(DATE64, key_value)
       LATEST_VAL_CASE(TIME32, key_value)
       LATEST_VAL_CASE(TIME64, key_value)
+      LATEST_VAL_CASE(TIMESTAMP, key_value)
       default:
+        DCHECK(false);
         return 0;  // cannot happen
     }
   }
@@ -333,6 +336,7 @@ class InputState {
       LATEST_VAL_CASE(TIME64, time_value)
       LATEST_VAL_CASE(TIMESTAMP, time_value)
       default:
+        DCHECK(false);
         return 0;  // cannot happen
     }
   }
@@ -578,6 +582,10 @@ class CompositeReferenceTable {
             ASOFJOIN_MATERIALIZE_CASE(TIME32)
             ASOFJOIN_MATERIALIZE_CASE(TIME64)
             ASOFJOIN_MATERIALIZE_CASE(TIMESTAMP)
+            ASOFJOIN_MATERIALIZE_CASE(STRING)
+            ASOFJOIN_MATERIALIZE_CASE(LARGE_STRING)
+            ASOFJOIN_MATERIALIZE_CASE(BINARY)
+            ASOFJOIN_MATERIALIZE_CASE(LARGE_BINARY)
             default:
               return Status::Invalid("Unsupported data type ",
                                      src_field->type()->ToString(), " for field ",
@@ -614,8 +622,33 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType,
-            class PrimitiveType = typename TypeTraits<Type>::CType>
+  template <typename T>
+  using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
+
+  template <typename T, typename R = void>
+  using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_fixed_width_type<Type> BuilderAppend(Builder& builder,
+                                                 const std::shared_ptr<ArrayData>& source,
+                                                 row_index_t row) {
+    using CType = typename TypeTraits<Type>::CType;
+    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+  }
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_base_binary<Type> BuilderAppend(Builder& builder,
+                                            const std::shared_ptr<ArrayData>& source,
+                                            row_index_t row) {
+    using offset_type = typename Type::offset_type;
+    const uint8_t* data = source->buffers[2]->data();
+    const offset_type* offsets = source->GetValues<offset_type>(1);
+    const offset_type offset0 = offsets[row];
+    const offset_type offset1 = offsets[row + 1];
+    builder.Append(data + offset0, offset1 - offset0);
+  }
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
   Result<std::shared_ptr<Array>> MaterializeColumn(MemoryPool* memory_pool,
                                                    const std::shared_ptr<DataType>& type,
                                                    size_t i_table, col_index_t i_col) {
@@ -625,8 +658,7 @@ class CompositeReferenceTable {
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
-        builder.UnsafeAppend(
-            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
+        BuilderAppend<Type, Builder>(builder, ref.batch->column_data(i_col), ref.row);
       } else {
         builder.UnsafeAppendNull();
       }
@@ -787,16 +819,6 @@ class AsofJoinNode : public ExecNode {
   const vec_col_index_t& indices_of_on_key() { return indices_of_on_key_; }
   const std::vector<vec_col_index_t>& indices_of_by_key() { return indices_of_by_key_; }
 
-  static bool find_type(std::unordered_set<std::shared_ptr<DataType>> type_set,
-                        const std::shared_ptr<DataType>& type) {
-    for (auto ty : type_set) {
-      if (*ty.get() == *type.get()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
       const std::vector<ExecNode*>& inputs, const vec_col_index_t& indices_of_on_key,
       const std::vector<vec_col_index_t>& indices_of_by_key) {
@@ -841,27 +863,82 @@ class AsofJoinNode : public ExecNode {
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (i == on_field_ix) {
-          if (!find_type(kSupportedOnTypes_, field->type())) {
-            return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
-                                   field->type()->ToString());
+          switch (field->type()->id()) {
+            case Type::INT8:
+            case Type::INT16:
+            case Type::INT32:
+            case Type::INT64:
+            case Type::UINT8:
+            case Type::UINT16:
+            case Type::UINT32:
+            case Type::UINT64:
+            case Type::DATE32:
+            case Type::DATE64:
+            case Type::TIME32:
+            case Type::TIME64:
+            case Type::TIMESTAMP:
+              break;
+            default:
+              return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
+                                     field->type()->ToString());
           }
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else if (std_has(by_field_ix, i)) {
-          if (!find_type(kSupportedByTypes_, field->type())) {
-            return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
-                                   field->type()->ToString());
+          switch (field->type()->id()) {
+            case Type::INT8:
+            case Type::INT16:
+            case Type::INT32:
+            case Type::INT64:
+            case Type::UINT8:
+            case Type::UINT16:
+            case Type::UINT32:
+            case Type::UINT64:
+            case Type::DATE32:
+            case Type::DATE64:
+            case Type::TIME32:
+            case Type::TIME64:
+            case Type::TIMESTAMP:
+            case Type::STRING:
+            case Type::LARGE_STRING:
+            case Type::BINARY:
+            case Type::LARGE_BINARY:
+              break;
+            default:
+              return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
+                                     field->type()->ToString());
           }
           // Only add by field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else {
-          if (!find_type(kSupportedDataTypes_, field->type())) {
-            return Status::Invalid("Unsupported type for field ", field->name(), " : ",
-                                   field->type()->ToString());
+          switch (field->type()->id()) {
+            case Type::INT8:
+            case Type::INT16:
+            case Type::INT32:
+            case Type::INT64:
+            case Type::UINT8:
+            case Type::UINT16:
+            case Type::UINT32:
+            case Type::UINT64:
+            case Type::FLOAT:
+            case Type::DOUBLE:
+            case Type::DATE32:
+            case Type::DATE64:
+            case Type::TIME32:
+            case Type::TIME64:
+            case Type::TIMESTAMP:
+            case Type::STRING:
+            case Type::LARGE_STRING:
+            case Type::BINARY:
+            case Type::LARGE_BINARY:
+              break;
+            default:
+              return Status::Invalid("Unsupported type for field ", field->name(), " : ",
+                                     field->type()->ToString());
           }
 
           fields.push_back(field);
@@ -925,7 +1002,7 @@ class AsofJoinNode : public ExecNode {
     auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
     auto single_key_field = inputs[0]->output_schema()->field(indices_of_by_key[0][0]);
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
-    if (n_by > 1 || is_primitive(single_key_field->type()->id())) {
+    if (n_by > 1 || !is_primitive(single_key_field->type()->id())) {
       for (size_t i = 0; i < n_input; i++) {
         key_hashers.push_back(
             ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
@@ -979,10 +1056,6 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedOnTypes_;
-  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedByTypes_;
-  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedDataTypes_;
-
   arrow::Future<> finished_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
   vec_col_index_t indices_of_on_key_;
@@ -1018,67 +1091,6 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
   finished_ = arrow::Future<>::MakeFinished();
 }
-
-// Currently supported types
-const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {
-    int8(),
-    int16(),
-    int32(),
-    int64(),
-    uint8(),
-    uint16(),
-    uint32(),
-    uint64(),
-    date32(),
-    date64(),
-    time32(TimeUnit::MILLI),
-    time32(TimeUnit::SECOND),
-    time64(TimeUnit::NANO),
-    time64(TimeUnit::MICRO),
-    timestamp(TimeUnit::NANO, "UTC"),
-    timestamp(TimeUnit::MICRO, "UTC"),
-    timestamp(TimeUnit::MILLI, "UTC"),
-    timestamp(TimeUnit::SECOND, "UTC")};
-const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {
-    int8(),
-    int16(),
-    int32(),
-    int64(),
-    uint8(),
-    uint16(),
-    uint32(),
-    uint64(),
-    date32(),
-    date64(),
-    time32(TimeUnit::MILLI),
-    time32(TimeUnit::SECOND),
-    time64(TimeUnit::NANO),
-    time64(TimeUnit::MICRO),
-    timestamp(TimeUnit::NANO, "UTC"),
-    timestamp(TimeUnit::MICRO, "UTC"),
-    timestamp(TimeUnit::MILLI, "UTC"),
-    timestamp(TimeUnit::SECOND, "UTC")};
-const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
-    int8(),
-    int16(),
-    int32(),
-    int64(),
-    uint8(),
-    uint16(),
-    uint32(),
-    uint64(),
-    date32(),
-    date64(),
-    time32(TimeUnit::MILLI),
-    time32(TimeUnit::SECOND),
-    time64(TimeUnit::NANO),
-    time64(TimeUnit::MICRO),
-    timestamp(TimeUnit::NANO, "UTC"),
-    timestamp(TimeUnit::MICRO, "UTC"),
-    timestamp(TimeUnit::MILLI, "UTC"),
-    timestamp(TimeUnit::SECOND, "UTC"),
-    float32(),
-    float64()};
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {

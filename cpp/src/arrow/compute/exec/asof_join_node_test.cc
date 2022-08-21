@@ -37,6 +37,14 @@
 #include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
+#define TRACED_TEST(t_class, t_name)          \
+  static void _##t_class##_##t_name();        \
+  TEST(t_class, t_name) {                     \
+    ARROW_SCOPED_TRACE(#t_class "_" #t_name); \
+    _##t_class##_##t_name();                  \
+  }                                           \
+  static void _##t_class##_##t_name()
+
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -55,13 +63,56 @@ bool is_temporal_primitive(Type::type type_id) {
   }
 }
 
+BatchesWithSchema MakeBatchesFromNumString(
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
+  FieldVector num_fields;
+  for (auto field : schema->fields()) {
+    num_fields.push_back(
+        is_base_binary_like(field->type()->id()) ? field->WithType(int64()) : field);
+  }
+  auto num_schema =
+      std::make_shared<Schema>(num_fields, schema->endianness(), schema->metadata());
+  BatchesWithSchema num_batches =
+      MakeBatchesFromString(num_schema, json_strings, multiplicity);
+  BatchesWithSchema batches;
+  batches.schema = schema;
+  int n_fields = schema->num_fields();
+  for (auto num_batch : num_batches.batches) {
+    std::vector<Datum> values;
+    for (int i = 0; i < n_fields; i++) {
+      auto type = schema->field(i)->type();
+      if (is_base_binary_like(type->id())) {
+        // casting to string first enables casting to binary
+        Datum as_string = Cast(num_batch.values[i], utf8()).ValueOrDie();
+        values.push_back(Cast(as_string, type).ValueOrDie());
+      } else {
+        values.push_back(num_batch.values[i]);
+      }
+    }
+    ExecBatch batch(values, num_batch.length);
+    batches.batches.push_back(batch);
+  }
+  return batches;
+}
+
 void BuildZeroPrimitiveArray(std::shared_ptr<Array>& empty,
-                             std::shared_ptr<DataType> type, int64_t length) {
+                             const std::shared_ptr<DataType>& type, int64_t length) {
   ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(type, default_memory_pool()));
   ASSERT_OK(builder->Reserve(length));
   ASSERT_OK_AND_ASSIGN(auto scalar, MakeScalar(type, 0));
   ASSERT_OK(builder->AppendScalar(*scalar, length));
   ASSERT_OK(builder->Finish(&empty));
+}
+
+template <typename Builder>
+void BuildZeroBaseBinaryArray(std::shared_ptr<Array>& empty, int64_t length) {
+  Builder builder(default_memory_pool());
+  ASSERT_OK(builder.Reserve(length));
+  for (int64_t i = 0; i < length; i++) {
+    ASSERT_OK(builder.Append("0", /*length=*/1));
+  }
+  ASSERT_OK(builder.Finish(&empty));
 }
 
 // mutates by copying from_key into to_key and changing from_key to zero
@@ -84,6 +135,26 @@ BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
         if (is_primitive(type->id())) {
           std::shared_ptr<Array> empty;
           BuildZeroPrimitiveArray(empty, type, batch.length);
+          new_values.push_back(empty);
+        } else if (is_base_binary_like(type->id())) {
+          std::shared_ptr<Array> empty;
+          switch (type->id()) {
+            case Type::STRING:
+              BuildZeroBaseBinaryArray<StringBuilder>(empty, batch.length);
+              break;
+            case Type::LARGE_STRING:
+              BuildZeroBaseBinaryArray<LargeStringBuilder>(empty, batch.length);
+              break;
+            case Type::BINARY:
+              BuildZeroBaseBinaryArray<BinaryBuilder>(empty, batch.length);
+              break;
+            case Type::LARGE_BINARY:
+              BuildZeroBaseBinaryArray<LargeBinaryBuilder>(empty, batch.length);
+              break;
+            default:
+              DCHECK(false);
+              break;
+          }
           new_values.push_back(empty);
         } else {
           new_values.push_back(Subtract(value, value).ValueOrDie());
@@ -156,8 +227,8 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema,
                           const AsofJoinNodeOptions& join_options,
                           const std::string& expected_error_str) {
-  BatchesWithSchema l_batches = MakeBatchesFromString(l_schema, {R"([])"});
-  BatchesWithSchema r_batches = MakeBatchesFromString(r_schema, {R"([])"});
+  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {R"([])"});
+  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {R"([])"});
 
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
@@ -329,6 +400,10 @@ struct BasicTest {
                   std::vector<std::shared_ptr<DataType>> r0_types = {},
                   std::vector<std::shared_ptr<DataType>> r1_types = {}) {
     std::vector<std::shared_ptr<DataType>> all_types = {
+        utf8(),
+        large_utf8(),
+        binary(),
+        large_binary(),
         int8(),
         int16(),
         int32(),
@@ -350,28 +425,29 @@ struct BasicTest {
         float32(),
         float64()};
     using T = const std::shared_ptr<DataType>;
+    // byte_width > 1 below allows fitting the tested data
     init_types(all_types, time_types,
                [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
     ASSERT_NE(0, time_types.size());
     init_types(all_types, key_types, [](T& t) { return !is_floating(t->id()); });
     ASSERT_NE(0, key_types.size());
-    init_types(all_types, l_types, [](T& t) { return is_temporal_primitive(t->id()); });
+    init_types(all_types, l_types, [](T& t) { return true; });
     ASSERT_NE(0, l_types.size());
-    init_types(all_types, r0_types, [](T& t) { return is_floating(t->id()); });
+    init_types(all_types, r0_types, [](T& t) { return t->byte_width() > 1; });
     ASSERT_NE(0, r0_types.size());
-    init_types(all_types, r1_types, [](T& t) { return is_floating(t->id()); });
+    init_types(all_types, r1_types, [](T& t) { return t->byte_width() > 1; });
     ASSERT_NE(0, r1_types.size());
 
     // sample a limited number of type-combinations to keep the runnning time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
     auto seed = std::chrono::system_clock::now().time_since_epoch().count();
     ARROW_SCOPED_TRACE("Types seed: ", seed);
-    std::default_random_engine engine(seed);
-    std::uniform_int_distribution<> time_distribution(0, time_types.size() - 1);
-    std::uniform_int_distribution<> key_distribution(0, key_types.size() - 1);
-    std::uniform_int_distribution<> l_distribution(0, l_types.size() - 1);
-    std::uniform_int_distribution<> r0_distribution(0, r0_types.size() - 1);
-    std::uniform_int_distribution<> r1_distribution(0, r1_types.size() - 1);
+    std::default_random_engine engine(static_cast<unsigned int>(seed));
+    std::uniform_int_distribution<size_t> time_distribution(0, time_types.size() - 1);
+    std::uniform_int_distribution<size_t> key_distribution(0, key_types.size() - 1);
+    std::uniform_int_distribution<size_t> l_distribution(0, l_types.size() - 1);
+    std::uniform_int_distribution<size_t> r0_distribution(0, r0_types.size() - 1);
+    std::uniform_int_distribution<size_t> r1_distribution(0, r1_types.size() - 1);
 
     for (int i = 0; i < 1000; i++) {
       auto time_type = time_types[time_distribution(engine)];
@@ -408,11 +484,11 @@ struct BasicTest {
 
     // Test three table join
     BatchesWithSchema l_batches, r0_batches, r1_batches, exp_nokey_batches, exp_batches;
-    l_batches = MakeBatchesFromString(l_schema, l_data);
-    r0_batches = MakeBatchesFromString(r0_schema, r0_data);
-    r1_batches = MakeBatchesFromString(r1_schema, r1_data);
-    exp_nokey_batches = MakeBatchesFromString(exp_schema, exp_nokey_data);
-    exp_batches = MakeBatchesFromString(exp_schema, exp_data);
+    l_batches = MakeBatchesFromNumString(l_schema, l_data);
+    r0_batches = MakeBatchesFromNumString(r0_schema, r0_data);
+    r1_batches = MakeBatchesFromNumString(r1_schema, r1_data);
+    exp_nokey_batches = MakeBatchesFromNumString(exp_schema, exp_nokey_data);
+    exp_batches = MakeBatchesFromNumString(exp_schema, exp_data);
     batches_runner(l_batches, r0_batches, r1_batches, exp_nokey_batches, exp_batches);
   }
 
@@ -426,18 +502,18 @@ struct BasicTest {
 
 class AsofJoinTest : public testing::Test {};
 
-#define ASOFJOIN_TEST_SET(name, num)                  \
-  TEST(AsofJoinTest, Test##name##num##_SingleByKey) { \
-    Get##name##Test##num().RunSingleByKey();          \
-  }                                                   \
-  TEST(AsofJoinTest, Test##name##num##_DoubleByKey) { \
-    Get##name##Test##num().RunDoubleByKey();          \
-  }                                                   \
-  TEST(AsofJoinTest, Test##name##num##_MutateByKey) { \
-    Get##name##Test##num().RunMutateByKey();          \
-  }                                                   \
-  TEST(AsofJoinTest, Test##name##num##_MutateNoKey) { \
-    Get##name##Test##num().RunMutateNoKey();          \
+#define ASOFJOIN_TEST_SET(name, num)                         \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_SingleByKey) { \
+    Get##name##Test##num().RunSingleByKey();                 \
+  }                                                          \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_DoubleByKey) { \
+    Get##name##Test##num().RunDoubleByKey();                 \
+  }                                                          \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateByKey) { \
+    Get##name##Test##num().RunMutateByKey();                 \
+  }                                                          \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNoKey) { \
+    Get##name##Test##num().RunMutateNoKey();                 \
   }
 
 BasicTest GetBasicTest1() {
@@ -626,26 +702,29 @@ BasicTest GetEmptyTest5() {
 }
 ASOFJOIN_TEST_SET(Empty, 5)
 
-TEST(AsofJoinTest, TestUnsupportedOntype) {
-  DoRunInvalidTypeTest(
-      schema({field("time", utf8()), field("key", int32()), field("l_v0", float64())}),
-      schema({field("time", utf8()), field("key", int32()), field("r0_v0", float32())}));
+TRACED_TEST(AsofJoinTest, TestUnsupportedOntype) {
+  DoRunInvalidTypeTest(schema({field("time", list(int32())), field("key", int32()),
+                               field("l_v0", float64())}),
+                       schema({field("time", list(int32())), field("key", int32()),
+                               field("r0_v0", float32())}));
 }
 
-TEST(AsofJoinTest, TestUnsupportedBytype) {
-  DoRunInvalidTypeTest(
-      schema({field("time", int64()), field("key", utf8()), field("l_v0", float64())}),
-      schema({field("time", int64()), field("key", utf8()), field("r0_v0", float32())}));
+TRACED_TEST(AsofJoinTest, TestUnsupportedBytype) {
+  DoRunInvalidTypeTest(schema({field("time", int64()), field("key", list(int32())),
+                               field("l_v0", float64())}),
+                       schema({field("time", int64()), field("key", list(int32())),
+                               field("r0_v0", float32())}));
 }
 
-TEST(AsofJoinTest, TestUnsupportedDatatype) {
-  // Utf8 is unsupported
+TRACED_TEST(AsofJoinTest, TestUnsupportedDatatype) {
+  // List is unsupported
   DoRunInvalidTypeTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
-      schema({field("time", int64()), field("key", int32()), field("r0_v0", utf8())}));
+      schema({field("time", int64()), field("key", int32()),
+              field("r0_v0", list(int32()))}));
 }
 
-TEST(AsofJoinTest, TestMissingKeys) {
+TRACED_TEST(AsofJoinTest, TestMissingKeys) {
   DoRunMissingKeysTest(
       schema({field("time1", int64()), field("key", int32()), field("l_v0", float64())}),
       schema(
@@ -657,51 +736,51 @@ TEST(AsofJoinTest, TestMissingKeys) {
           {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestUnsupportedTolerance) {
+TRACED_TEST(AsofJoinTest, TestUnsupportedTolerance) {
   // Utf8 is unsupported
   DoRunInvalidToleranceTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestEmptyByKey) {
+TRACED_TEST(AsofJoinTest, TestEmptyByKey) {
   DoRunEmptyByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestMissingOnKey) {
+TRACED_TEST(AsofJoinTest, TestMissingOnKey) {
   DoRunMissingOnKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestMissingByKey) {
+TRACED_TEST(AsofJoinTest, TestMissingByKey) {
   DoRunMissingByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestNestedOnKey) {
+TRACED_TEST(AsofJoinTest, TestNestedOnKey) {
   DoRunNestedOnKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestNestedByKey) {
+TRACED_TEST(AsofJoinTest, TestNestedByKey) {
   DoRunNestedByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestAmbiguousOnKey) {
+TRACED_TEST(AsofJoinTest, TestAmbiguousOnKey) {
   DoRunAmbiguousOnKeyTest(
       schema({field("time", int64()), field("time", int64()), field("key", int32()),
               field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, TestAmbiguousByKey) {
+TRACED_TEST(AsofJoinTest, TestAmbiguousByKey) {
   DoRunAmbiguousByKeyTest(
       schema({field("time", int64()), field("key", int64()), field("key", int32()),
               field("l_v0", float64())}),
