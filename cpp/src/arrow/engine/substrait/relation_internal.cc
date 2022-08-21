@@ -50,7 +50,7 @@ bool HasEmit(const RelMessage& rel) {
 }
 
 template <typename RelMessage>
-Result<std::vector<compute::Expression>> GetEmitExpression(
+Result<std::vector<compute::Expression>> GetEmitInfo(
     const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
   const auto& emit = rel.common().emit();
   int emit_size = emit.output_mapping_size();
@@ -241,14 +241,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
       if (HasEmit(read)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitExpression(read, base_schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(read, base_schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {{"scan",
                   dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            num_columns, std::move(base_schema)};
+            static_cast<int>(emit_expressions.size()), std::move(base_schema)};
       } else {
         return DeclarationInfo{
             compute::Declaration{
@@ -275,13 +274,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       if (HasEmit(filter)) {
         ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitExpression(filter, input.output_schema));
+                              GetEmitInfo(filter, input.output_schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {std::move(input.declaration),
                  {"filter", compute::FilterNodeOptions{std::move(condition)}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            input.num_columns, input.output_schema};
+            static_cast<int>(emit_expressions.size()), input.output_schema};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence({
@@ -341,7 +340,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto num_columns = static_cast<int>(expressions.size());
       if (HasEmit(project)) {
         ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitExpression(project, project_schema));
+                              GetEmitInfo(project, project_schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {std::move(input.declaration),
@@ -349,7 +348,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                   "project"},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)},
                   "emit"}}),
-            num_columns, project_schema};
+            static_cast<int>(emit_expressions.size()), project_schema};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence({
@@ -456,13 +455,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       join_dec.inputs.emplace_back(std::move(right.declaration));
 
       if (HasEmit(join)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitExpression(join, join_schema));
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(join, join_schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {std::move(join_dec),
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            num_columns, std::move(join_schema)};
+            static_cast<int>(emit_expressions.size()), std::move(join_schema)};
       } else {
         return DeclarationInfo{std::move(join_dec), num_columns, std::move(join_schema)};
       }
@@ -554,13 +552,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
       if (HasEmit(aggregate)) {
         ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitExpression(aggregate, aggregate_schema));
+                              GetEmitInfo(aggregate, aggregate_schema));
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {std::move(input.declaration),
                  {"aggregate", compute::AggregateNodeOptions{aggregates, keys}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            static_cast<int>(aggregates.size()), std::move(aggregate_schema)};
+            static_cast<int>(emit_expressions.size()), std::move(aggregate_schema)};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence(
