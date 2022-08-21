@@ -629,23 +629,22 @@ class CompositeReferenceTable {
   using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_fixed_width_type<Type> BuilderAppend(Builder& builder,
-                                                 const std::shared_ptr<ArrayData>& source,
-                                                 row_index_t row) {
+  enable_if_fixed_width_type<Type, Status> BuilderAppend(
+      Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
     using CType = typename TypeTraits<Type>::CType;
     builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+    return Status::OK();
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_base_binary<Type> BuilderAppend(Builder& builder,
-                                            const std::shared_ptr<ArrayData>& source,
-                                            row_index_t row) {
+  enable_if_base_binary<Type, Status> BuilderAppend(
+      Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
     using offset_type = typename Type::offset_type;
     const uint8_t* data = source->buffers[2]->data();
     const offset_type* offsets = source->GetValues<offset_type>(1);
     const offset_type offset0 = offsets[row];
     const offset_type offset1 = offsets[row + 1];
-    builder.Append(data + offset0, offset1 - offset0);
+    return builder.Append(data + offset0, offset1 - offset0);
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
@@ -658,7 +657,9 @@ class CompositeReferenceTable {
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
-        BuilderAppend<Type, Builder>(builder, ref.batch->column_data(i_col), ref.row);
+        Status st =
+            BuilderAppend<Type, Builder>(builder, ref.batch->column_data(i_col), ref.row);
+        ARROW_RETURN_NOT_OK(st);
       } else {
         builder.UnsafeAppendNull();
       }
