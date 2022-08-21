@@ -423,7 +423,7 @@ Status DirectFileOutputStream::Close() {
     // have to flush out the temprorary data, but then trim the file
     if (cached_length > 0) {
       std::memset(cached_data + cached_length, 0, 4096 - cached_length);
-      impl_->Write(cached_data, 4096);
+      RETURN_NOT_OK(impl_->Write(cached_data, 4096));
     }
     auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
     fsync(impl_->fd());

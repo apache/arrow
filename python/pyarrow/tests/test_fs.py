@@ -196,7 +196,7 @@ def localfs_with_directio(request, tempdir):
         fs=LocalFileSystem(use_directio=True),
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_move_dir=True,
-        allow_append_to_file=True,
+        allow_append_to_file=False,
     )
 
 
