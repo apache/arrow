@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/key_hash.h"
@@ -312,6 +313,7 @@ class InputState {
       LATEST_VAL_CASE(TIME32, key_value)
       LATEST_VAL_CASE(TIME64, key_value)
       default:
+        DCHECK(false);
         return 0;  // cannot happen
     }
   }
@@ -333,6 +335,7 @@ class InputState {
       LATEST_VAL_CASE(TIME64, time_value)
       LATEST_VAL_CASE(TIMESTAMP, time_value)
       default:
+        DCHECK(false);
         return 0;  // cannot happen
     }
   }
@@ -578,6 +581,10 @@ class CompositeReferenceTable {
             ASOFJOIN_MATERIALIZE_CASE(TIME32)
             ASOFJOIN_MATERIALIZE_CASE(TIME64)
             ASOFJOIN_MATERIALIZE_CASE(TIMESTAMP)
+            ASOFJOIN_MATERIALIZE_CASE(STRING)
+            ASOFJOIN_MATERIALIZE_CASE(LARGE_STRING)
+            ASOFJOIN_MATERIALIZE_CASE(BINARY)
+            ASOFJOIN_MATERIALIZE_CASE(LARGE_BINARY)
             default:
               return Status::Invalid("Unsupported data type ",
                                      src_field->type()->ToString(), " for field ",
@@ -614,8 +621,33 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType,
-            class PrimitiveType = typename TypeTraits<Type>::CType>
+  template <typename T>
+  using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
+
+  template <typename T, typename R = void>
+  using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_fixed_width_type<Type> BuilderAppend(Builder& builder,
+                                                 const std::shared_ptr<ArrayData>& source,
+                                                 row_index_t row) {
+    using CType = typename TypeTraits<Type>::CType;
+    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+  }
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+  enable_if_base_binary<Type> BuilderAppend(Builder& builder,
+                                            const std::shared_ptr<ArrayData>& source,
+                                            row_index_t row) {
+    using offset_type = typename Type::offset_type;
+    const uint8_t* data = source->buffers[2]->data();
+    const offset_type* offsets = source->GetValues<offset_type>(1);
+    const offset_type offset0 = offsets[row];
+    const offset_type offset1 = offsets[row + 1];
+    builder.Append(data + offset0, offset1 - offset0);
+  }
+
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
   Result<std::shared_ptr<Array>> MaterializeColumn(MemoryPool* memory_pool,
                                                    const std::shared_ptr<DataType>& type,
                                                    size_t i_table, col_index_t i_col) {
@@ -625,8 +657,7 @@ class CompositeReferenceTable {
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
-        builder.UnsafeAppend(
-            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
+        BuilderAppend<Type, Builder>(builder, ref.batch->column_data(i_col), ref.row);
       } else {
         builder.UnsafeAppendNull();
       }
@@ -925,7 +956,7 @@ class AsofJoinNode : public ExecNode {
     auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
     auto single_key_field = inputs[0]->output_schema()->field(indices_of_by_key[0][0]);
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
-    if (n_by > 1 || is_primitive(single_key_field->type()->id())) {
+    if (n_by > 1 || !is_primitive(single_key_field->type()->id())) {
       for (size_t i = 0; i < n_input; i++) {
         key_hashers.push_back(
             ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
@@ -1040,6 +1071,10 @@ const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTy
     timestamp(TimeUnit::MILLI, "UTC"),
     timestamp(TimeUnit::SECOND, "UTC")};
 const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {
+    utf8(),
+    large_utf8(),
+    binary(),
+    large_binary(),
     int8(),
     int16(),
     int32(),
@@ -1059,6 +1094,10 @@ const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTy
     timestamp(TimeUnit::MILLI, "UTC"),
     timestamp(TimeUnit::SECOND, "UTC")};
 const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
+    utf8(),
+    large_utf8(),
+    binary(),
+    large_binary(),
     int8(),
     int16(),
     int32(),
