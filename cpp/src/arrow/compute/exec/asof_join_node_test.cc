@@ -167,10 +167,6 @@ BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
     }
     new_batches.batches.emplace_back(new_values, batch.length);
   }
-  /*std::cerr << "new schema: " << new_batches.schema->ToString() << std::endl;
-  for (const ExecBatch& new_batch : new_batches.batches) {
-    std::cerr << "new batch: " << new_batch.ToString() << std::endl;
-  }*/
   return new_batches;
 }
 
