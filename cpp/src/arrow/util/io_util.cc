@@ -1131,7 +1131,13 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   }
 
   if (direct) {
-    oflag |= O_DIRECT;  // will cause issues on Apple on Windows
+#if defined(_WIN32)
+    return Status::IOError("Direct IO does not support windows.")
+#endif
+#if defined(__APPLE__)
+               return Status::IOError("Direct IO does not support Mac OS.")
+#endif
+                   oflag |= O_DIRECT;  // will cause issues on Apple on Windows
   }
 
   int ret = open(file_name.ToNative().c_str(), oflag, 0666);
