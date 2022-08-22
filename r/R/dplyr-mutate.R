@@ -160,13 +160,21 @@ expand_across <- function(.data, quos_in) {
   quos_out <- list()
   # Check for any expressions starting with across
   for (quo_i in seq_along(quos_in)) {
+    # do it like this to preserve naming
     quo_in <- quos_in[quo_i]
     quo_expr <- quo_get_expr(quo_in[[1]])
     quo_env <- quo_get_env(quo_in[[1]])
 
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
-      across_call <- call_match(quo_expr, dplyr::across, defaults = TRUE)
+
+      across_call <- match.call(
+        definition = dplyr::across,
+        call = quo_expr,
+        expand.dots = FALSE,
+        envir = quo_env
+      )
+
 
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
         abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
