@@ -80,7 +80,7 @@ function configure_release() {
 
 # Returns 1 if CMAKE options is set "ON", otherwise 0
 function cmake_option() {
-  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/arrow/ArrowOptions.cmake"
+  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/Arrow/ArrowOptions.cmake"
   grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE
 }
 
