@@ -1556,7 +1556,9 @@ Result<std::shared_ptr<Schema>> Schema::AddField(
   if (i < 0 || i > this->num_fields()) {
     return Status::Invalid("Invalid column index to add field.");
   }
-
+  if (this->GetFieldByName(field->name()) != nullptr) {
+    return Status::Invalid("Column already exists: ", field->name());
+  }
   return std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
                                   impl_->metadata_);
 }

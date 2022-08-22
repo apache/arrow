@@ -1000,17 +1000,6 @@ def test_table_select_column():
         table.column(4)
 
 
-def test_table_column_with_duplicates():
-    # ARROW-8209
-    table = pa.table([pa.array([1, 2, 3]),
-                      pa.array([4, 5, 6]),
-                      pa.array([7, 8, 9])], names=['a', 'b', 'a'])
-
-    with pytest.raises(KeyError,
-                       match='Field "a" exists 2 times in table schema'):
-        table.column('a')
-
-
 def test_table_add_column():
     data = [
         pa.array(range(5)),
@@ -1032,6 +1021,9 @@ def test_table_add_column():
     expected = pa.Table.from_arrays([data[1]] + data,
                                     names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
+
+    with pytest.raises(pa.ArrowInvalid, match="Column already exists: a"):
+        table.add_column(0, 'a', pa.array(range(5)))
 
 
 def test_table_set_column():
