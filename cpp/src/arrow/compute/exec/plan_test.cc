@@ -1481,7 +1481,7 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   }
 }
 
-TEST(ExecPlanExecution, FetchAndSort) {
+TEST(ExecPlanExecution, SortAndFetch) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()}, "[[4, false], [5, null]]")};
   for (bool slow : {false, true}) {
@@ -1495,14 +1495,14 @@ TEST(ExecPlanExecution, FetchAndSort) {
 
       auto basic_data = MakeBasicBatches();
       SortOptions sort_options{{SortKey("i32", SortOrder::Ascending)}};
-      ASSERT_OK(Declaration::Sequence(
-                    {
-                        {"source", SourceNodeOptions{basic_data.schema,
-                                                     basic_data.gen(parallel, slow)}},
-                        {"fetch_sink",
-                         FetchSinkNodeOptions{0, 2, &sink_gen, sort_options, true}},
-                    })
-                    .AddToPlan(plan.get()));
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source",
+                   SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)}},
+                  {"fetch_sink", FetchSinkNodeOptions{0, 2, &sink_gen, sort_options}},
+              })
+              .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(ElementsAreArray(expected))));
@@ -1510,36 +1510,7 @@ TEST(ExecPlanExecution, FetchAndSort) {
   }
 }
 
-TEST(ExecPlanExecution, SortAndFetch) {
-  std::vector<ExecBatch> expected = {
-      ExecBatchFromJSON({int32(), boolean()}, "[[4, false], [null, true]]")};
-  for (bool slow : {false, true}) {
-    SCOPED_TRACE(slow ? "slowed" : "unslowed");
-
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-
-      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-
-      auto basic_data = MakeBasicBatches();
-      SortOptions sort_options{{SortKey("i32", SortOrder::Ascending)}};
-      ASSERT_OK(Declaration::Sequence(
-                    {
-                        {"source", SourceNodeOptions{basic_data.schema,
-                                                     basic_data.gen(parallel, slow)}},
-                        {"fetch_sink",
-                         FetchSinkNodeOptions{0, 2, &sink_gen, sort_options, false}},
-                    })
-                    .AddToPlan(plan.get()));
-
-      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  Finishes(ResultWith(ElementsAreArray(expected))));
-    }
-  }
-}
-
-TEST(ExecPlanExecution, FetchBasic) {
+TEST(ExecPlanExecution, FetchWithNoSort) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]")};
   for (bool slow : {false, true}) {

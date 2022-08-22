@@ -520,7 +520,7 @@ struct OrderBySinkNode final : public SinkNode {
         std::unique_ptr<OrderByImpl> impl,
         OrderByImpl::MakeFetch(plan->exec_context(), inputs[0]->output_schema(),
                                sink_options.offset, sink_options.count,
-                               sink_options.sort_options, sink_options.sort_first));
+                               sink_options.sort_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
                                               sink_options.generator);
   }

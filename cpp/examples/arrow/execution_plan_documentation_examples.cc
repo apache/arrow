@@ -915,7 +915,7 @@ arrow::Status FetchExample(cp::ExecContext& exec_context) {
   cp::SortOptions sort_options{{cp::SortKey("i32", cp::SortOrder::Ascending)}};
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("fetch_sink", plan.get(), {source},
-                       cp::FetchSinkNodeOptions{0, 3, &sink_gen, sort_options, false}));
+                       cp::FetchSinkNodeOptions{0, 3, &sink_gen, sort_options}));
 
   auto schema = arrow::schema(
       {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())});
@@ -940,7 +940,7 @@ enum ExampleMode {
   WRITE = 11,
   UNION = 12,
   TABLE_SOURCE_TABLE_SINK = 13,
-  SORT_AND_FETCH = 14,
+  FETCH = 14,
 };
 
 int main(int argc, char** argv) {
@@ -1013,7 +1013,7 @@ int main(int argc, char** argv) {
       PrintBlock("TableSink Example");
       status = TableSinkExample(exec_context);
       break;
-    case SORT_AND_FETCH:
+    case FETCH:
       PrintBlock("Fetch Example");
       status = FetchExample(exec_context);
       break;

@@ -444,8 +444,7 @@ class ARROW_EXPORT FetchSinkNodeOptions : public SinkNodeOptions {
       : SinkNodeOptions(generator),
         offset(offset),
         count(count),
-        sort_options(sort_options),
-        sort_first(sort_first) {}
+        sort_options(sort_options) {}
 
   /// The number of rows to skip.
   int64_t offset;
@@ -453,8 +452,6 @@ class ARROW_EXPORT FetchSinkNodeOptions : public SinkNodeOptions {
   int64_t count;
   /// Sort options
   SortOptions sort_options;
-  /// Determine sort or fetch precedence.
-  bool sort_first;
 };
 
 /// \brief Adapt a Table as a sink node
