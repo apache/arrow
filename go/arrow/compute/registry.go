@@ -138,12 +138,19 @@ func (reg *funcRegistry) NumFunctions() (n int) {
 	if reg.parent != nil {
 		n = reg.parent.NumFunctions()
 	}
+	reg.mx.RLock()
+	defer reg.mx.RUnlock()
 	return n + len(reg.nameToFunction)
 }
 
 func (reg *funcRegistry) canAddFuncName(name string, allowOverwrite bool) bool {
-	if reg.parent != nil && !reg.parent.canAddFuncName(name, allowOverwrite) {
-		return false
+	if reg.parent != nil {
+		reg.parent.mx.RLock()
+		defer reg.parent.mx.RUnlock()
+
+		if !reg.parent.canAddFuncName(name, allowOverwrite) {
+			return false
+		}
 	}
 	if !allowOverwrite {
 		_, ok := reg.nameToFunction[name]
