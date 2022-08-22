@@ -181,7 +181,8 @@ translate_to_arrow <- function(.fun, .env) {
 
   if (is.primitive(.fun)) {
     # exit as the function can't be translated, we can only translate closures
-    stop("`", as.character(.fun[[1]]), "` is a primitive and cannot be translated")
+    # stop("`", as.character(.fun[[1]]), "` is a primitive and cannot be translated")
+    return(NULL)
   }
 
   # TODO handle errors. `fn_body()` errors when fn is a primitive, `body()` returns
