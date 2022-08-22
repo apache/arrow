@@ -85,9 +85,8 @@ the guidance in :ref:`creating issues <creating-issues>` and you are ready to go
 .. seealso::
 	:ref:`Creating issues <creating-issues>`
 
-You don’t need any special permissions on JIRA to be able to create issues.
-Once you are more involved in the project and want to do more on JIRA, for
-example assigning yourself an issue, you will need **“Contributor” permissions**.
+You don’t need any special permissions on JIRA to be able to create
+or self-assign issues.
 To get this role, ask on the :ref:`dev mailing list <mailing_list>`.
 
 When the ticket is created you can start a discussion about it in the
