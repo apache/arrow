@@ -94,8 +94,8 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 
   arrow::Status Close() {
-    // plan_.reset();
-    // status_ = 2;
+    plan_.reset();
+    status_ = 2;
     return arrow::Status::OK();
   }
 
