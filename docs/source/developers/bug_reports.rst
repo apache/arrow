@@ -43,7 +43,7 @@ Arrow is "ARROW".
 Required permissions
 ++++++++++++++++++++
 
-Any registered ASF Jira account may create Jira issues in the Apache Arrow
+Any registered Apache Software Foundation (ASF) Jira account may create Jira issues in the Apache Arrow
 project without additional permissions. Individuals may
 `create an ASF Jira account here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
 Self-assigning issues to work requires
