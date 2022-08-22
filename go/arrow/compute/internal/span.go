@@ -78,6 +78,8 @@ type ArraySpan struct {
 	Offset  int64
 	Buffers [3]BufferSpan
 
+	// Scratch is a holding spot for things such as
+	// offsets or union type codes when converting from scalars
 	Scratch [2]uint64
 
 	Children []ArraySpan
