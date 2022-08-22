@@ -17,10 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
-test_that("binding translation works", {
-  nchar2 <- function(x) {
-    1 + nchar(x)
-  }
+test_that("binding translation works with mutate()", {
+  nchar2 <- function(x) 1 + nchar(x)
 
   # simple expression
   compare_dplyr_binding(
@@ -42,9 +40,8 @@ test_that("binding translation works", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar3 <- function(x) {
-    2 + nchar(x)
-  }
+  nchar3 <- function(x) 2 + nchar(x)
+
   # multiple unknown calls in the same expression (to test the iteration)
   compare_dplyr_binding(
     .input %>%
@@ -56,9 +53,7 @@ test_that("binding translation works", {
   )
 
   # user function defined using namespacing
-  nchar4 <- function(x) {
-    3 + base::nchar(x)
-  }
+  nchar4 <- function(x) 3 + base::nchar(x)
 
   compare_dplyr_binding(
     .input %>%
@@ -69,9 +64,7 @@ test_that("binding translation works", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar5 <- function(x) {
-    4 + nchar2(x)
-  }
+  nchar5 <- function(x) 4 + nchar2(x)
 
   compare_dplyr_binding(
     .input %>%
@@ -82,9 +75,7 @@ test_that("binding translation works", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar6 <- function(x) {
-    4 + nchar2(x) + nchar4(x)
-  }
+  nchar6 <- function(x) 4 + nchar2(x) + nchar4(x)
 
   compare_dplyr_binding(
     .input %>%
@@ -95,9 +86,7 @@ test_that("binding translation works", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar7 <- function(x) {
-    6 + nchar5(x)
-  }
+  nchar7 <- function(x) 6 + nchar5(x)
 
   compare_dplyr_binding(
     .input %>%
@@ -106,5 +95,34 @@ test_that("binding translation works", {
         var7 = nchar7(my_string)) %>%
       collect(),
     tibble::tibble(my_string = "1234")
+  )
+
+  # TODO add test for a function that isn't namespaced and not present in the
+  # caller environment
+})
+
+test_that("binding translation works with filter()", {
+  # standard data frame for testing strings
+  tbl <- example_data
+  tbl$verses <- verses[[1]]
+  tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+  tbl$some_grouping <- rep(c(1, 2), 5)
+
+  isShortString <- function(x) nchar(x) < 10
+  compare_dplyr_binding(
+    .input %>%
+      select(-fct) %>%
+      filter(isShortString(padded_strings)) %>%
+      collect(),
+    tbl
+  )
+  nchar2 <- function(x) 1 + nchar(x)
+  isShortString2 <- function(x) nchar2(x) < 10
+  compare_dplyr_binding(
+    .input %>%
+      select(-fct) %>%
+      filter(isShortString2(padded_strings)) %>%
+      collect(),
+    tbl
   )
 })
