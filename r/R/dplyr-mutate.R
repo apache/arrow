@@ -25,7 +25,7 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .after = NULL) {
   call <- match.call()
 
-  expression_list <- unfold_across(.data, quos(...))
+  expression_list <- expand_across(.data, quos(...))
   exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
@@ -156,7 +156,7 @@ ensure_named_exprs <- function(exprs) {
 
 # Take the input quos and unfold any instances of across()
 # into individual quosures
-unfold_across <- function(.data, quos_in) {
+expand_across <- function(.data, quos_in) {
   quos_out <- list()
   # Check for any expressions starting with across
   for (quo_i in seq_along(quos_in)) {
