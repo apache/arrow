@@ -76,17 +76,25 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
                        c_bool from_pandas, c_bool safe, CMemoryPool* pool):
     cdef:
         shared_ptr[CChunkedArray] chunked_out
-        shared_ptr[CDataType] c_type = _ndarray_to_type(values, type)
+        shared_ptr[CDataType] c_type
         CCastOptions cast_options = CCastOptions(safe)
+
+    if safe:
+        c_type = _ndarray_to_type(values, type)
+    else:
+        c_type = _ndarray_to_type(values, None)
 
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
                                     c_type, cast_options, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
-        return pyarrow_wrap_chunked_array(chunked_out)
+        array = pyarrow_wrap_chunked_array(chunked_out)
     else:
-        return pyarrow_wrap_array(chunked_out.get().chunk(0))
+        array = pyarrow_wrap_array(chunked_out.get().chunk(0))
+    if not safe:
+        array = array.cast(type, safe=safe)
+    return array
 
 
 cdef _codes_to_indices(object codes, object mask, DataType type,
@@ -313,8 +321,13 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             return _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                      pool)
     else:
-        # ConvertPySequence does strict conversion if type is explicitly passed
-        return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        if type and not safe:
+            # ConvertPySequence does not support unsafe mode with type.
+            # cast supports unsafe mode, so use it.
+            return _sequence_to_array(obj, mask, size, None, pool, c_from_pandas).cast(type, safe=safe)
+        else:
+            # ConvertPySequence does strict conversion if type is explicitly passed
+            return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
 
 def asarray(values, type=None):

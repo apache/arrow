@@ -1224,7 +1224,7 @@ def test_union_array_slice():
             assert arr[i:j].to_pylist() == lst[i:j]
 
 
-def _check_cast_case(case, *, safe=True, check_array_construction=True):
+def _check_cast_case(case, *, safe=True):
     in_data, in_type, out_data, out_type = case
     if isinstance(out_data, pa.Array):
         assert out_data.type == out_type
@@ -1244,9 +1244,8 @@ def _check_cast_case(case, *, safe=True, check_array_construction=True):
 
     # constructing an array with out type which optionally involves casting
     # for more see ARROW-1949
-    if check_array_construction:
-        in_arr = pa.array(in_data, type=out_type, safe=safe)
-        assert in_arr.equals(expected)
+    in_arr = pa.array(in_data, type=out_type, safe=safe)
+    assert in_arr.equals(expected)
 
 
 def test_cast_integers_safe():
@@ -1441,9 +1440,7 @@ def test_decimal_to_int_value_out_of_bounds():
                            match='Integer value out of bounds'):
             _check_cast_case(case)
 
-        # XXX `safe=False` can be ignored when constructing an array
-        # from a sequence of Python objects (ARROW-8567)
-        _check_cast_case(case, safe=False, check_array_construction=False)
+        _check_cast_case(case, safe=False)
 
 
 def test_decimal_to_int_non_integer():
