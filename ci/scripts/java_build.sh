@@ -63,8 +63,6 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi
 
-mvn clean
-
 mvn="mvn --update-snapshots -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
 if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
@@ -76,7 +74,7 @@ mvn="${mvn} -T 2C"
 
 pushd ${source_dir}
 
-${mvn} install
+${mvn} clean install
 
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   ${mvn} -Pshade-flatbuffers install
