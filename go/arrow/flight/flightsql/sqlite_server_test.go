@@ -156,9 +156,9 @@ func (s *FlightSqliteServerSuite) TestCommandGetTables() {
 	s.NoError(err)
 	defer rdr.Release()
 
-	catalogName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	catalogName := array.MakeArrayOfNull(s.mem, arrow.BinaryTypes.String, 3)
 	defer catalogName.Release()
-	schemaName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	schemaName := array.MakeArrayOfNull(s.mem, arrow.BinaryTypes.String, 3)
 	defer schemaName.Release()
 
 	tableName := s.fromJSON(arrow.BinaryTypes.String, `["foreignTable", "intTable", "sqlite_sequence"]`)
@@ -243,9 +243,9 @@ func (s *FlightSqliteServerSuite) TestCommandGetTablesWithExistingTableTypeFilte
 	s.NoError(err)
 	defer rdr.Release()
 
-	catalogName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	catalogName := array.MakeArrayOfNull(s.mem, arrow.BinaryTypes.String, 3)
 	defer catalogName.Release()
-	schemaName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	schemaName := array.MakeArrayOfNull(s.mem, arrow.BinaryTypes.String, 3)
 	defer schemaName.Release()
 
 	tableName := s.fromJSON(arrow.BinaryTypes.String, `["foreignTable", "intTable", "sqlite_sequence"]`)

@@ -705,6 +705,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 }
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
+//
+// Deprecated: Use array.MakeArrayOfNull
 func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) arrow.Array {
 	var (
 		buffers  = []*memory.Buffer{nil}
