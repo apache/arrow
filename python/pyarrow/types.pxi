@@ -2065,7 +2065,7 @@ cdef class Schema(_Weakrefable):
         Write schema to Buffer:
 
         >>> schema.serialize()
-        <pyarrow.lib.Buffer object at ...>
+        pyarrow.lib.Buffer(address=..., size=..., is_cpu=True, is_mutable=True)
         """
         cdef:
             shared_ptr[CBuffer] buffer
