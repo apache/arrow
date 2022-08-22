@@ -181,7 +181,7 @@ translate_to_arrow <- function(.fun, .env) {
 
   if (is.primitive(.fun)) {
     # exit as the function can't be translated, we can only translate closures
-    # stop("`", as.character(.fun[[1]]), "` is a primitive and cannot be translated")
+    # old stop("`", as.character(.fun[[1]]), "` is a primitive and cannot be translated")
     return(NULL)
   }
 
@@ -252,7 +252,7 @@ translate_to_arrow_rec <- function(x) {
                 }
                 children <- as.list(x[-1])
                 children_translated <- map(children, translate_to_arrow_rec)
-                call2("call_binding", function_name, !!!children_translated)
+                call2(call_binding, function_name, !!!children_translated)
               }
   )
 }
