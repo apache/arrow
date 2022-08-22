@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package exec
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
 
@@ -54,6 +53,14 @@ func GetAllocator(ctx context.Context) memory.Allocator {
 type Kernel interface {
 	GetInitFn() KernelInitFn
 	GetSig() *KernelSignature
+}
+
+type NonAggKernel interface {
+	Kernel
+	Exec(*KernelCtx, *ExecSpan, *ExecResult) error
+	GetNullHandling() NullHandling
+	GetMemAlloc() MemAlloc
+	CanFillSlices() bool
 }
 
 // KernelCtx is a small struct holding the context for a kernel execution
@@ -496,7 +503,7 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 		}
 
 		for i, t := range types {
-			if !k.InputTypes[min(i, len(k.InputTypes)-1)].Matches(t) {
+			if !k.InputTypes[Min(i, len(k.InputTypes)-1)].Matches(t) {
 				return false
 			}
 		}
@@ -513,9 +520,48 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 	return true
 }
 
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
+type ArrayKernelExec = func(*KernelCtx, *ExecSpan, *ExecResult) error
+
+type kernel struct {
+	Init           KernelInitFn
+	Signature      *KernelSignature
+	Data           KernelState
+	Parallelizable bool
 }
+
+func (k kernel) GetInitFn() KernelInitFn  { return k.Init }
+func (k kernel) GetSig() *KernelSignature { return k.Signature }
+
+type ScalarKernel struct {
+	kernel
+
+	ExecFn             ArrayKernelExec
+	CanWriteIntoSlices bool
+	NullHandling       NullHandling
+	MemAlloc           MemAlloc
+}
+
+func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
+	return NewScalarKernelWithSig(&KernelSignature{
+		InputTypes: in,
+		OutType:    out,
+	}, exec, init)
+}
+
+func NewScalarKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
+	return ScalarKernel{
+		kernel:             kernel{Signature: sig, Init: init, Parallelizable: true},
+		ExecFn:             exec,
+		CanWriteIntoSlices: true,
+		NullHandling:       NullIntersection,
+		MemAlloc:           MemPrealloc,
+	}
+}
+
+func (s *ScalarKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error {
+	return s.ExecFn(ctx, sp, out)
+}
+
+func (s ScalarKernel) GetNullHandling() NullHandling { return s.NullHandling }
+func (s ScalarKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
+func (s ScalarKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }

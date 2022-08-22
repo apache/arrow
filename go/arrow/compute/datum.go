@@ -41,6 +41,14 @@ const (
 
 const UnknownLength int64 = -1
 
+func DatumIsValue(d Datum) bool {
+	switch d.Kind() {
+	case KindScalar, KindArray, KindChunked:
+		return true
+	}
+	return false
+}
+
 // Datum is a variant interface for wrapping the various Arrow data structures
 // for now the various Datum types just hold a Value which is the type they
 // are wrapping, but it might make sense in the future for those types
@@ -247,6 +255,9 @@ func NewDatum(value interface{}) Datum {
 	case arrow.Array:
 		v.Data().Retain()
 		return &ArrayDatum{v.Data().(*array.Data)}
+	case arrow.ArrayData:
+		v.Retain()
+		return &ArrayDatum{v}
 	case *arrow.Chunked:
 		v.Retain()
 		return &ChunkedDatum{v}

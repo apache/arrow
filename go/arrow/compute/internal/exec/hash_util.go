@@ -14,13 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrow
+package exec
 
-import "errors"
+import "hash/maphash"
 
-var (
-	ErrInvalid        = errors.New("invalid")
-	ErrNotImplemented = errors.New("not implemented")
-	ErrType           = errors.New("type error")
-	ErrKey            = errors.New("key error")
-)
+var hashSeed = maphash.MakeSeed()
+
+// ADAPTED FROM HASH UTILITIES FOR BOOST
+
+func HashCombine(seed, value uint64) uint64 {
+	seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2)
+	return seed
+}

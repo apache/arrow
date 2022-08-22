@@ -16,13 +16,25 @@
 
 package internal
 
-import "hash/maphash"
+import (
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+)
 
-var hashSeed = maphash.MakeSeed()
+const CurMetadataVersion = flatbuf.MetadataVersionV5
 
-// ADAPTED FROM HASH UTILITIES FOR BOOST
+func DefaultHasValidityBitmap(id arrow.Type) bool { return HasValidityBitmap(id, CurMetadataVersion) }
 
-func HashCombine(seed, value uint64) uint64 {
-	seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2)
-	return seed
+func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
+	// in <=V4 Null types had no validity bitmap
+	// in >=V5 Null and Union types have no validity bitmap
+	if version < flatbuf.MetadataVersionV5 {
+		return id != arrow.NULL
+	}
+
+	switch id {
+	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION:
+		return false
+	}
+	return true
 }
