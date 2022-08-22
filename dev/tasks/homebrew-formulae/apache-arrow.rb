@@ -45,7 +45,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.9"
+  depends_on "python@3.10"
   depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"
@@ -91,7 +91,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DCMAKE_CXX_STANDARD=17
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
-      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
+      -DPython3_EXECUTABLE=#{which(python)}
     ]
 
     mkdir "build" do
