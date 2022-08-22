@@ -68,7 +68,7 @@ pushd ${spark_dir}
     (echo "Testing Spark:"; IFS=$'\n'; echo "${spark_scala_tests[*]}")
 
     # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-    build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${spark_scala_tests[*]}") test
+    build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${spark_scala_tests[*]}") -Dsurefire.failIfNoSpecifiedTests=false test
   fi
 
   # Run pyarrow related Python tests only
