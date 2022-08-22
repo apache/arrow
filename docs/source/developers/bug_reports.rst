@@ -43,12 +43,10 @@ Arrow is "ARROW".
 Required permissions
 ++++++++++++++++++++
 
-Any registered Apache Software Foundation (ASF) Jira account may create Jira issues in the Apache Arrow
-project without additional permissions. Individuals may
+Any registered Apache Software Foundation (ASF) Jira account may create or
+assign Jira issues in the Apache Arrow project without additional permissions.
+Individuals may
 `create an ASF Jira account here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
-Self-assigning issues to work requires
-the "Contributor" permission. This permission is set by project maintainers,
-and may be requested by emailing the :ref:`development mailing list <mailing_list>`.
 
 .. _creating-issues:
 
@@ -274,9 +272,9 @@ and will be - done on an issue:
 Issue assignment
 ++++++++++++++++
 
-Assignment signals commitment to work on an issue, and should be self-assigned
-when that work starts. At the same time the issue is assigned, the status
-field should be updated.
+Assignment signals commitment to work on an issue, and contributors should
+self-assign issues when that work starts. At the same time the issue is
+assigned, the status field should be updated to **In Progress**.
 
 The Arrow project relies upon volunteer contributors, and we recognize that
 priorities and plans may change, resulting in an issue assigned to an
