@@ -175,7 +175,6 @@ expand_across <- function(.data, quos_in) {
         envir = quo_env
       )
 
-
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
         abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
       }
@@ -185,8 +184,16 @@ expand_across <- function(.data, quos_in) {
         abort("`.names` argument to `across()` not yet supported in Arrow")
       }
 
+      if (!is.null(across_call[[".cols"]])) {
+        cols <- across_call[[".cols"]]
+      } else {
+        cols <- quote(everything())
+      }
+
+      cols <- as_quosure(cols, quo_env)
+
       # use select() to get the columns so we can take advantage of tidyselect
-      source_cols <- names(dplyr::select(.data, !!across_call[[".cols"]]))
+      source_cols <- names(dplyr::select(.data, !!cols))
       funcs <- across_call[[".fns"]]
 
       # calling across() with .fns = NULL returns all columns unchanged
