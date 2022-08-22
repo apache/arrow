@@ -124,7 +124,6 @@ cdef class NativeFile(_Weakrefable):
     def __repr__(self):
         name = f"{self.__class__.__module__}.{self.__class__.__name__}"
         return (f"{name}("
-                f"{hex(id(self))}, "
                 f"own_file={self.own_file}, "
                 f"is_seekable={self.is_seekable}, "
                 f"is_writable={self.is_writable}, "
@@ -1065,7 +1064,7 @@ cdef class Buffer(_Weakrefable):
     def __repr__(self):
         name = f"{self.__class__.__module__}.{self.__class__.__name__}"
         return (f"{name}("
-                f"{hex(id(self))}, "
+                f"address={hex(self.address)}, "
                 f"size={self.size}, "
                 f"is_cpu={self.is_cpu}, "
                 f"is_mutable={self.is_mutable})")
@@ -2102,7 +2101,6 @@ cdef class Codec(_Weakrefable):
     def __repr__(self):
         name = f"{self.__class__.__module__}.{self.__class__.__name__}"
         return (f"{name}("
-                f"{hex(id(self))}, "
                 f"name={self.name}, "
                 f"compression_level={self.compression_level})")
 

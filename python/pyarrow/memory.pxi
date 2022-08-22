@@ -79,7 +79,6 @@ cdef class MemoryPool(_Weakrefable):
     def __repr__(self):
         name = f"{self.__class__.__module__}.{self.__class__.__name__}"
         return (f"{name}("
-                f"{hex(id(self))}, "
                 f"backend_name={self.backend_name}, "
                 f"bytes_allocated={self.bytes_allocated()}, "
                 f"max_memory={self.max_memory()})")
