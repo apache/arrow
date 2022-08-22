@@ -68,9 +68,10 @@ Status WriteParquetData(const std::string& path,
 }
 
 Result<std::shared_ptr<Table>> GetTableFromPlan(
-    std::shared_ptr<compute::ExecPlan>& plan, compute::Declaration& declarations,
+    compute::Declaration& declarations,
     arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
     compute::ExecContext& exec_context, std::shared_ptr<Schema>& output_schema) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
 
   RETURN_NOT_OK(decl->Validate());
@@ -1856,7 +1857,7 @@ TEST(Substrait, AggregateBadPhase) {
 TEST(Substrait, BasicPlanRoundTripping) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
+#endif
   compute::ExecContext exec_context;
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
@@ -1919,17 +1920,11 @@ TEST(Substrait, BasicPlanRoundTripping) {
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  auto scan_node_options = dataset::ScanNodeOptions{dataset, scan_options};
-  auto filter_node_options = compute::FilterNodeOptions{filter};
-  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-
-  auto scan_declaration = compute::Declaration({"scan", scan_node_options, "s"});
-  auto filter_declaration = compute::Declaration({"filter", filter_node_options, "f"});
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-
   auto declarations = compute::Declaration::Sequence(
-      {scan_declaration, filter_declaration, sink_declaration});
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
 
   for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -1975,13 +1970,12 @@ TEST(Substrait, BasicPlanRoundTripping) {
       EXPECT_TRUE(l_frag->Equals(*r_frag));
     }
   }
-#endif
 }
 
 TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-#else
+#endif
   compute::ExecContext exec_context;
   ExtensionSet ext_set;
   auto dummy_schema = schema(
@@ -2045,18 +2039,13 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  auto scan_node_options = dataset::ScanNodeOptions{dataset, scan_options};
-  auto filter_node_options = compute::FilterNodeOptions{filter};
-  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-
-  auto scan_declaration = compute::Declaration({"scan", scan_node_options, "s"});
-  auto filter_declaration = compute::Declaration({"filter", filter_node_options, "f"});
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-
   auto declarations = compute::Declaration::Sequence(
-      {scan_declaration, filter_declaration, sink_declaration});
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
-  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(plan, declarations, sink_gen,
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
                                                              exec_context, dummy_schema));
 
   for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
@@ -2108,13 +2097,11 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
         compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
     auto rnd_trp_declarations =
         compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
-    ASSERT_OK_AND_ASSIGN(auto rnd_trp_plan, compute::ExecPlan::Make(&exec_context));
     ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                         GetTableFromPlan(rnd_trp_plan, rnd_trp_declarations,
-                                          rnd_trp_sink_gen, exec_context, dummy_schema));
+                         GetTableFromPlan(rnd_trp_declarations, rnd_trp_sink_gen,
+                                          exec_context, dummy_schema));
     EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
   }
-#endif
 }
 
 }  // namespace engine
