@@ -93,7 +93,11 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     return arrow::Status::OK();
   }
 
-  arrow::Status Close() { return arrow::Status::OK(); }
+  arrow::Status Close() {
+    // plan_.reset();
+    // status_ = 2;
+    return arrow::Status::OK();
+  }
 
   const std::shared_ptr<arrow::compute::ExecPlan>& Plan() { return plan_; }
 
@@ -101,23 +105,24 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen_;
+  std::shared_ptr<void> stop_producing_;
   int status_;
 
   arrow::Status StartProducing() {
-    // If the generator is destroyed before being completely drained, inform plan
-    std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
-    std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-                                           bool not_finished_yet =
-                                               plan->finished().TryAddCallback([&plan] {
-                                                 return [plan](const arrow::Status&) {};
-                                               });
-
-                                           if (not_finished_yet) {
-                                             plan->StopProducing();
-                                           }
-                                         }};
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
     status_ = 1;
+
+    // If the generator is destroyed before being completely drained, inform plan
+    const std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+    stop_producing_ = {nullptr, [plan](...) {
+                         bool not_finished_yet = plan->finished().TryAddCallback(
+                             [&plan] { return [plan](const arrow::Status&) {}; });
+
+                         if (not_finished_yet) {
+                           plan->StopProducing();
+                         }
+                       }};
+
     return arrow::Status::OK();
   }
 };
@@ -163,7 +168,7 @@ std::shared_ptr<ExecPlanReader> ExecPlan_prepare(
     out_schema = out_schema->WithMetadata(kv);
   }
 
-  return std::make_shared<ExecPlanReader>(plan, out_schema, std::move(sink_gen));
+  return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
 }
 
 // [[arrow::export]]
