@@ -44,4 +44,30 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   endif()
 endif()
 
+# For backward compatibility
+if(TARGET ArrowPython::arrow_python_shared)
+  get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
+    IMPORTED_LOCATION_RELEASE)
+  if(NOT ARROW_PYTHON_SHARED_LIB)
+    get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
+      IMPORTED_LOCATION_DEBUG)
+  endif()
+  if(NOT ARROW_PYTHON_SHARED_LIB)
+    get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
+      IMPORTED_LOCATION)
+  endif()
+endif()
+if(TARGET ArrowPython::arrow_python_static)
+  get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
+    IMPORTED_LOCATION_RELEASE)
+  if(NOT ARROW_PYTHON_STATIC_LIB)
+    get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
+      IMPORTED_LOCATION_DEBUG)
+  endif()
+  if(NOT ARROW_PYTHON_STATIC_LIB)
+    get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
+      IMPORTED_LOCATION)
+  endif()
+endif()
+
 check_required_components(ArrowPython)

@@ -119,5 +119,29 @@ else()
   get_target_property(ARROW_INCLUDE_DIR Arrow::arrow_static
     INTERFACE_INCLUDE_DIRECTORIES)
 endif()
+if(TARGET Arrow::arrow_shared)
+  get_target_property(ARROW_SHARED_LIB Arrow::arrow_shared
+    IMPORTED_LOCATION_RELEASE)
+  if(NOT ARROW_SHARED_LIB)
+    get_target_property(ARROW_SHARED_LIB Arrow::arrow_shared
+      IMPORTED_LOCATION_DEBUG)
+  endif()
+  if(NOT ARROW_SHARED_LIB)
+    get_target_property(ARROW_SHARED_LIB Arrow::arrow_shared
+      IMPORTED_LOCATION)
+  endif()
+endif()
+if(TARGET Arrow::arrow_static)
+  get_target_property(ARROW_STATIC_LIB Arrow::arrow_static
+    IMPORTED_LOCATION_RELEASE)
+  if(NOT ARROW_STATIC_LIB)
+    get_target_property(ARROW_STATIC_LIB Arrow::arrow_static
+      IMPORTED_LOCATION_DEBUG)
+  endif()
+  if(NOT ARROW_STATIC_LIB)
+    get_target_property(ARROW_STATIC_LIB Arrow::arrow_static
+      IMPORTED_LOCATION)
+  endif()
+endif()
 
 check_required_components(Arrow)
