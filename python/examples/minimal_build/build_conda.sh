@@ -99,6 +99,7 @@ pushd $ARROW_ROOT/python
 
 rm -rf build/  # remove any pesky pre-existing build directory
 
+export CMAKE_PREFIX_PATH=$ARROW_HOME/lib/cmake
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
