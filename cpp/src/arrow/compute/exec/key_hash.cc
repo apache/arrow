@@ -432,10 +432,13 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                     cols[icol].data(1) + first_row * col_width, hashes + first_row,
                     hash_temp);
         }
-      } else {
-        // TODO: add support for 64-bit offsets
+      } else if (cols[icol].metadata().fixed_length == sizeof(uint32_t)) {
         HashVarLen(ctx->hardware_flags, icol > 0, batch_size_next,
                    cols[icol].offsets() + first_row, cols[icol].data(2),
+                   hashes + first_row, hash_temp);
+      } else {
+        HashVarLen(ctx->hardware_flags, icol > 0, batch_size_next,
+                   cols[icol].large_offsets() + first_row, cols[icol].data(2),
                    hashes + first_row, hash_temp);
       }
 
@@ -865,9 +868,11 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
           HashFixed(icol > 0, batch_size_next, col_width,
                     cols[icol].data(1) + first_row * col_width, hashes + first_row);
         }
-      } else {
-        // TODO: add support for 64-bit offsets
+      } else if (cols[icol].metadata().fixed_length == sizeof(uint32_t)) {
         HashVarLen(icol > 0, batch_size_next, cols[icol].offsets() + first_row,
+                   cols[icol].data(2), hashes + first_row);
+      } else {
+        HashVarLen(icol > 0, batch_size_next, cols[icol].large_offsets() + first_row,
                    cols[icol].data(2), hashes + first_row);
       }
 
