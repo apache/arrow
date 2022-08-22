@@ -645,6 +645,14 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  # across() with no columns named
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(.fns = round)) %>%
+      collect(),
+    tbl
+  )
+
   # ARROW-17364: .names argument not yet supported for across()
   expect_error(
     tbl %>%
