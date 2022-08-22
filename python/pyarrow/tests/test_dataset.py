@@ -4182,6 +4182,17 @@ def test_write_table(tempdir):
         assert pathlib.Path(visited_path) in expected_paths
 
 
+def test_write_table_duplicate_fields(tempdir):
+    table = pa.table([
+        pa.array(range(5)),
+        pa.array(range(5)),
+    ], names=['a', 'a'])
+
+    match = "Cannot write parquet table with duplicate field names: a"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        pq.write_table(table, tempdir / 'file.parquet')
+
+
 def test_write_table_multiple_fragments(tempdir):
     table = pa.table([
         pa.array(range(10)), pa.array(np.random.randn(10)),

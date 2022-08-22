@@ -331,6 +331,15 @@ class FileWriterImpl : public FileWriter {
       chunk_size = this->properties().max_row_group_length();
     }
 
+    // Cannot write with duplicate field names
+    std::unordered_set<std::string> s;
+    for (auto field : table.fields()) {
+      if (s.count(field->name()) > 0) {
+        return Status::Invalid("Cannot write parquet table with duplicate field names: ", field->name());
+      }
+      s.insert(field->name());
+    }
+
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
       RETURN_NOT_OK(NewRowGroup(size));
       for (int i = 0; i < table.num_columns(); i++) {
