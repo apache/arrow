@@ -179,11 +179,6 @@ expand_across <- function(.data, quos_in) {
         abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
       }
 
-      # ARROW-17364: add support for .names argument
-      if (!is.null(across_call[[".names"]])) {
-        abort("`.names` argument to `across()` not yet supported in Arrow")
-      }
-
       if (!is.null(across_call[[".cols"]])) {
         cols <- across_call[[".cols"]]
       } else {
@@ -192,16 +187,22 @@ expand_across <- function(.data, quos_in) {
 
       cols <- as_quosure(cols, quo_env)
 
-      # use select() to get the columns so we can take advantage of tidyselect
-      source_cols <- names(dplyr::select(.data, !!cols))
-      funcs <- across_call[[".fns"]]
+      setup <- across_setup(
+        !!cols,
+        fns = across_call[[".fns"]],
+        names = across_call[[".names"]],
+        .caller_env = quo_env,
+        mask = .data,
+        inline = TRUE
+      )
 
       # calling across() with .fns = NULL returns all columns unchanged
-      if (is_empty(funcs)) {
+      if (is_empty(setup$fns)) {
+        # this needs to be updated to match dplyr's version
         return()
       }
 
-      if (!is_list(funcs) && as.character(funcs)[[1]] == "~") {
+      if (!is_list(setup$fns) && as.character(setup$fns)[[1]] == "~") {
         abort(
           paste(
             "purrr-style lambda functions as `.fns` argument to `across()`",
@@ -211,15 +212,13 @@ expand_across <- function(.data, quos_in) {
       }
 
       # if only 1 function, we overwrite the old columns with the new values
-      if (length(funcs) == 1 && is.name(funcs)) {
+      if (length(setup$fns) == 0 && is.name(setup$fns)) {
         # work out the quosures from the call
-        col_syms <- syms(source_cols)
-        new_quos <- map(col_syms, ~ quo(!!call2(funcs, .x)))
-        new_quos <- set_names(new_quos, source_cols)
+        col_syms <- syms(setup$vars)
+        new_quos <- map(col_syms, ~ quo(!!call2(setup$fns, .x)))
+        new_quos <- set_names(new_quos, setup$names)
       } else {
-        extracted_funcs <- call_args(funcs)
-        func_list <- ensure_named_funcs(extracted_funcs)
-        new_quos <- quosures_from_func_list(func_list, source_cols, quo_env)
+        new_quos <- quosures_from_func_list(setup, quo_env)
       }
 
       quos_out <- append(quos_out, new_quos)
@@ -231,25 +230,10 @@ expand_across <- function(.data, quos_in) {
   quos_out
 }
 
-# if the function is unnamed (an empty character), use the index instead
-ensure_named_funcs <- function(funcs) {
-  func_list <- as.list(funcs)
-  func_names <- names(funcs) %||% rep("", length(funcs))
-  func_indices <- seq_along(funcs)
-  names(func_list) <- map2_chr(func_names, func_indices, max)
-  func_list
-}
-
 # given a named list of functions and column names, create a list of new quosures
-quosures_from_func_list <- function(func_list, cols, quo_env) {
-  func_list_full <- rep(func_list, length(cols))
-  cols_list_full <- rep(cols, each = length(func_list))
-
-  # get names of new quosures
-  new_quo_names <- map2_chr(
-    names(func_list_full), cols_list_full,
-    ~ paste(.y, .x, sep = "_")
-  )
+quosures_from_func_list <- function(setup, quo_env) {
+  func_list_full <- rep(setup$fns, length(setup$vars))
+  cols_list_full <- rep(setup$vars, each = length(setup$fns))
 
   # get new quosures
   new_quo_list <- map2(
@@ -257,6 +241,82 @@ quosures_from_func_list <- function(func_list, cols, quo_env) {
     ~ quo(!!call2(.x, sym(.y)))
   )
 
-  quosures <- set_names(new_quo_list, new_quo_names)
+  quosures <- set_names(new_quo_list, setup$names)
   map(quosures, ~quo_set_env(.x, quo_env))
+}
+
+across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE){
+  cols <- enquo(cols)
+
+  if (is.null(fns) && quo_is_call(cols, "~")) {
+    bullets <- c(
+      "Must supply a column selection.",
+      i = glue("You most likely meant: `{across_if_fn}(everything(), {as_label(cols)})`."),
+      i = "The first argument `.cols` selects a set of columns.",
+      i = "The second argument `.fns` operates on each selected columns."
+    )
+    abort(bullets, call = call(across_if_fn))
+  }
+  vars <- names(dplyr::select(mask, !!cols))
+
+  # need to work out what this block does
+  # if (is.null(fns)) {
+  #   if (!is.null(names)) {
+  #     glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
+  #     names <- fix_call(
+  #       vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique"),
+  #       call = call(across_if_fn)
+  #     )
+  #   } else {
+  #     names <- names_vars
+  #   }
+  #
+  #   value <- list(vars = vars, fns = fns, names = names)
+  #   return(value)
+  # }
+
+  # apply `.names` smart default
+  if (is.function(fns) || is_formula(fns) || is.name(fns)) {
+    names <- names %||% "{.col}"
+    fns <- list("1" = fns)
+  } else {
+    names <- names %||% "{.col}_{.fn}"
+    fns <- call_args(fns)
+  }
+
+  if (!is.list(fns)) {
+    msg <- c("`.fns` must be NULL, a function, a formula, or a list of functions/formulas.")
+    abort(msg, call = call(across_if_fn))
+  }
+
+  # make sure fns has names, use number to replace unnamed
+  if (is.null(names(fns))) {
+    names_fns <- seq_along(fns)
+  } else {
+    names_fns <- names(fns)
+    empties <- which(names_fns == "")
+    if (length(empties)) {
+      names_fns[empties] <- empties
+    }
+  }
+
+  glue_mask <- across_glue_mask(.caller_env,
+    .col = rep(vars, each = length(fns)),
+    .fn  = rep(names_fns , length(vars))
+  )
+  names <- vctrs::vec_as_names(glue::glue(names, .envir = glue_mask), repair = "check_unique")
+
+  if (!inline) {
+    fns <- map(fns, as_function)
+  }
+
+  list(vars = vars, fns = fns, names = names)
+}
+
+across_glue_mask <- function(.col, .fn, .caller_env) {
+  glue_mask <- env(.caller_env, .col = .col, .fn = .fn)
+  env_bind_active(
+    glue_mask, col = function() glue_mask$.col, fn = function() glue_mask$.fn
+  )
+  glue_mask
 }

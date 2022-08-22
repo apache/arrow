@@ -654,14 +654,31 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
-  # ARROW-17364: .names argument not yet supported for across()
-  expect_error(
-    tbl %>%
-      arrow_table() %>%
+
+
+  # dynamic variable name
+  int = c("dbl", "dbl2")
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, dbl2) %>%
+      mutate(across(all_of(int), sqrt)) %>%
+      collect(),
+    tbl
+  )
+
+  # .names argument
+  compare_dplyr_binding(
+   .input %>%
       mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
       collect(),
-    regexp = "`.names` argument to `across()` not yet supported in Arrow",
-    fixed = TRUE
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
+      collect(),
+    tbl
   )
 
   # ellipses (...) are a deprecated argument
