@@ -45,15 +45,6 @@ arrow_eval <- function(expr, mask) {
       class(out) <- c("arrow-try-error", class(out))
     }
 
-    # do not use the "unknown-binding" label for several exceptions
-    # old exceptions <- c("c", "$", "factor", "~", "(", "across")
-    # old expr_funs <- setdiff(all_funs(expr), exceptions)
-
-    # if any of the calls in expr are to bindings not yet in the function
-    # registry, we mark it as unknown-binding-error and attempt translation
-    # old if (!all(expr_funs %in% names(mask$.top_env))) {
-    # old   class(out) <- c("unknown-binding-error", class(out))
-    # old }
     invisible(out)
   })
 }
@@ -89,61 +80,26 @@ arrow_not_supported <- function(msg) {
 arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
   f_env <- new_environment(.cache$functions)
 
-  # so far we only pass an expression to the data mask builder if we want to
-  # try to translate it
+  # we build a data mask that is aware of the expressions that would later be
+  # evaluated against it. This allows us to assess which of those expressions
+  # need translating
   if (!is.null(exprs)) {
-    exceptions <- c(
-      "c", "$", "factor", "~", "(", "across", ":", "[", "regex", "fixed", "list",
-      "%>%",
-      #################
-      "int8",
-      "int16",
-      "int32",
-      "int64",
-      "uint8",
-      "uint16",
-      "uint32",
-      "uint64",
-      "float16",
-      "halffloat",
-      "float32",
-      "float",
-      "float64",
-      "boolean",
-      "bool",
-      "utf8",
-      "large_utf8",
-      "binary",
-      "large_binary",
-      "fixed_size_binary",
-      "string",
-      "date32",
-      "date64",
-      "time32",
-      "time64",
-      "duration",
-      "null",
-      "timestamp",
-      "decimal",
-      "decimal128",
-      "decimal256"
-
-      #################
-    )
     for (i in seq_along(exprs)) {
       expr <- exprs[[i]]
-      # figure out which of the calls in expr are unknown (do not have corresponding
-      # bindings)
+      # figure out which of the calls in expr are unknown (do not have
+      # matching bindings)
       unknown_functions <- setdiff(
         all_funs(expr),
         union(
           names(f_env),
-          exceptions
+          translation_exceptions
         )
       )
 
       if (length(unknown_functions) != 0) {
         # get the functions from the expr (quosure) original environment
+        # if the call contains `::` get the function from the corresponding
+        # package
         # old approach functions <- map(unknown_functions, as_function, env = rlang::quo_get_env(expr))
         functions <- purrr::map_if(
           .x = unknown_functions,
@@ -348,3 +304,52 @@ switch_expr <- function(x, ...) {
          stop("Don't know how to handle type ", typeof(x), call. = FALSE)
   )
 }
+
+# vector of function names that do not have corresponding bindings, but we
+# shouldn't try to translate
+translation_exceptions <- c(
+  "c",
+  "$",
+  "factor",
+  "~",
+  "(",
+  "across",
+  ":",
+  "[",
+  "regex",
+  "fixed",
+  "list",
+  "%>%",
+  # all the types functions
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float16",
+  "halffloat",
+  "float32",
+  "float",
+  "float64",
+  "boolean",
+  "bool",
+  "utf8",
+  "large_utf8",
+  "binary",
+  "large_binary",
+  "fixed_size_binary",
+  "string",
+  "date32",
+  "date64",
+  "time32",
+  "time64",
+  "duration",
+  "null",
+  "timestamp",
+  "decimal",
+  "decimal128",
+  "decimal256"
+)
