@@ -450,6 +450,10 @@ type FunctionOptionsEqual interface {
 	Equals(FunctionOptions) bool
 }
 
+type FunctionOptionsCloneable interface {
+	Clone() FunctionOptions
+}
+
 type MakeStructOptions struct {
 	FieldNames       []string          `compute:"field_names"`
 	FieldNullability []bool            `compute:"field_nullability"`
