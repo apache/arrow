@@ -20,19 +20,20 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/file"
-	"github.com/apache/arrow/go/v9/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -50,13 +51,13 @@ type leafReader struct {
 	refCount int64
 }
 
-func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties) (*ColumnReader, error) {
+func newLeafReader(rctx *readerCtx, field *arrow.Field, input *columnIterator, leafInfo file.LevelInfo, props ArrowReadProperties, bufferPool *sync.Pool) (*ColumnReader, error) {
 	ret := &leafReader{
 		rctx:      rctx,
 		field:     field,
 		input:     input,
 		descr:     input.Descr(),
-		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem),
+		recordRdr: file.NewRecordReader(input.Descr(), leafInfo, field.Type.ID() == arrow.DICTIONARY, rctx.mem, bufferPool),
 		props:     props,
 		refCount:  1,
 	}

@@ -388,47 +388,6 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
   std::vector<std::string> names_;
   int32_t backpressure_counter_ = 0;
 };
-
-/**
- * @brief This node is an extension on ConsumingSinkNode
- * to facilitate to get the output from an execution plan
- * as a table. We define a custom SinkNodeConsumer to
- * enable this functionality.
- */
-
-struct TableSinkNodeConsumer : public SinkNodeConsumer {
- public:
-  TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
-      : out_(out), pool_(pool) {}
-
-  Status Init(const std::shared_ptr<Schema>& schema,
-              BackpressureControl* backpressure_control) override {
-    // If the user is collecting into a table then backpressure is meaningless
-    ARROW_UNUSED(backpressure_control);
-    schema_ = schema;
-    return Status::OK();
-  }
-
-  Status Consume(ExecBatch batch) override {
-    std::lock_guard<std::mutex> guard(consume_mutex_);
-    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema_, pool_));
-    batches_.push_back(rb);
-    return Status::OK();
-  }
-
-  Future<> Finish() override {
-    ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
-    return Status::OK();
-  }
-
- private:
-  std::shared_ptr<Table>* out_;
-  MemoryPool* pool_;
-  std::shared_ptr<Schema> schema_;
-  std::vector<std::shared_ptr<RecordBatch>> batches_;
-  std::mutex consume_mutex_;
-};
-
 static Result<ExecNode*> MakeTableConsumingSinkNode(
     compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
     const compute::ExecNodeOptions& options) {

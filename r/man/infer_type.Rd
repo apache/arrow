@@ -19,7 +19,10 @@ type(x)
 An arrow \link[=data-type]{data type}
 }
 \description{
-Infer the arrow Array type from an R object
+Infer the arrow Array type from an R object.
+}
+\details{
+\code{\link[=type]{type()}} is deprecated in favor of \code{\link[=infer_type]{infer_type()}}.
 }
 \examples{
 infer_type(1:10)

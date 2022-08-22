@@ -145,3 +145,23 @@ def test_binary_conversion_with_json_options(tmpdir):
     res_tb = reader.read_all()
 
     assert table.select(["bar"]) == res_tb.select(["bar"])
+
+
+# Substrait has not finalized what the URI should be for standard functions
+# In the meantime, lets just check the suffix
+def has_function(fns, ext_file, fn_name):
+    suffix = f'{ext_file}#{fn_name}'
+    for fn in fns:
+        if fn.endswith(suffix):
+            return True
+    return False
+
+
+def test_get_supported_functions():
+    supported_functions = pa._substrait.get_supported_functions()
+    # It probably doesn't make sense to exhaustively verfiy this list but
+    # we can check a sample aggregate and a sample non-aggregate entry
+    assert has_function(supported_functions,
+                        'functions_arithmetic.yaml', 'add')
+    assert has_function(supported_functions,
+                        'functions_arithmetic.yaml', 'sum')

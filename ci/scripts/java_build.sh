@@ -64,6 +64,11 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
+if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
+  mvn="${mvn} -Dmaven.gitcommitid.skip=true"
+fi
+
 # Use `2 * ncores` threads
 mvn="${mvn} -T 2C"
 

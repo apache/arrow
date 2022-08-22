@@ -1821,4 +1821,47 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
+#define TEST_PREDICATE(all_types, type_predicate)                 \
+  for (auto type : all_types) {                                   \
+    ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
+  }
+
+TEST(TypesTest, TestMembership) {
+  std::vector<std::shared_ptr<DataType>> all_types;
+  for (auto type : NumericTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : TemporalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : IntervalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : PrimitiveTypes()) {
+    all_types.push_back(type);
+  }
+  TEST_PREDICATE(all_types, is_integer);
+  TEST_PREDICATE(all_types, is_signed_integer);
+  TEST_PREDICATE(all_types, is_unsigned_integer);
+  TEST_PREDICATE(all_types, is_floating);
+  TEST_PREDICATE(all_types, is_numeric);
+  TEST_PREDICATE(all_types, is_decimal);
+  TEST_PREDICATE(all_types, is_primitive);
+  TEST_PREDICATE(all_types, is_base_binary_like);
+  TEST_PREDICATE(all_types, is_binary_like);
+  TEST_PREDICATE(all_types, is_large_binary_like);
+  TEST_PREDICATE(all_types, is_binary);
+  TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_temporal);
+  TEST_PREDICATE(all_types, is_interval);
+  TEST_PREDICATE(all_types, is_dictionary);
+  TEST_PREDICATE(all_types, is_fixed_size_binary);
+  TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_nested);
+  TEST_PREDICATE(all_types, is_union);
+}
+
+#undef TEST_PREDICATE
+
 }  // namespace arrow

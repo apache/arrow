@@ -1159,6 +1159,7 @@ cdef class ParquetReader(_Weakrefable):
         CMemoryPool* pool
         unique_ptr[FileReader] reader
         FileMetaData _metadata
+        shared_ptr[CRandomAccessFile] rd_handle
 
     cdef public:
         _column_idx_map
@@ -1175,7 +1176,6 @@ cdef class ParquetReader(_Weakrefable):
              thrift_string_size_limit=None,
              thrift_container_size_limit=None):
         cdef:
-            shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
@@ -1221,10 +1221,10 @@ cdef class ParquetReader(_Weakrefable):
                 string_to_timeunit(coerce_int96_timestamp_unit))
 
         self.source = source
+        get_reader(source, use_memory_map, &self.rd_handle)
 
-        get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(builder.Open(rd_handle, properties, c_metadata))
+            check_status(builder.Open(self.rd_handle, properties, c_metadata))
 
         # Set up metadata
         with nogil:
@@ -1434,6 +1434,19 @@ cdef class ParquetReader(_Weakrefable):
             check_status(self.reader.get()
                          .ReadColumn(column_index, &out))
         return pyarrow_wrap_chunked_array(out)
+
+    def close(self):
+        if not self.closed:
+            with nogil:
+                check_status(self.rd_handle.get().Close())
+
+    @property
+    def closed(self):
+        if self.rd_handle == NULL:
+            return True
+        with nogil:
+            closed = self.rd_handle.get().closed()
+        return closed
 
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(

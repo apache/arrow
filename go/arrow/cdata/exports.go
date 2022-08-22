@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
 )
 
 // #include <stdlib.h>

@@ -113,7 +113,7 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Python 3
+    name: AMD64 macOS 11 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

@@ -34,8 +34,8 @@ env:
 
 jobs:
   build:
-    name: Build wheel for OS X
-    runs-on: macos-10.15
+    name: Build wheel for macOS
+    runs-on: macos-latest
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     steps:
@@ -65,9 +65,9 @@ jobs:
 
       - name: Setup NuGet Credentials
         shell: bash
-        env: 
+        env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
-        run: |          
+        run: |
           mono `vcpkg fetch nuget | tail -n 1` \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
@@ -75,11 +75,11 @@ jobs:
             -name "GitHub" \
             -username "$GITHUB_REPOSITORY_OWNER" \
             -password "$GITHUB_TOKEN" \
-          
+
           mono `vcpkg fetch nuget | tail -n 1` \
             setapikey "$GITHUB_TOKEN" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-          
+
       - name: Install Packages
         run: |
           if [ "${ARROW_S3}" == "ON" ]; then

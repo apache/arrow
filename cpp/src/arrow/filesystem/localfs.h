@@ -34,9 +34,28 @@ namespace fs {
 
 /// Options for the LocalFileSystem implementation.
 struct ARROW_EXPORT LocalFileSystemOptions {
+  static constexpr int32_t kDefaultDirectoryReadahead = 16;
+  static constexpr int32_t kDefaultFileInfoBatchSize = 1000;
+
   /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
   /// or a regular one.
   bool use_mmap = false;
+
+  /// Options related to `GetFileInfoGenerator` interface.
+
+  /// EXPERIMENTAL: The maximum number of directories processed in parallel
+  /// by `GetFileInfoGenerator`.
+  int32_t directory_readahead = kDefaultDirectoryReadahead;
+
+  /// EXPERIMENTAL: The maximum number of entries aggregated into each
+  /// FileInfoVector chunk by `GetFileInfoGenerator`.
+  ///
+  /// Since each FileInfo entry needs a separate `stat` system call, a
+  /// directory with a very large number of files may take a lot of time to
+  /// process entirely. By generating a FileInfoVector after this chunk
+  /// size is reached, we ensure FileInfo entries can start being consumed
+  /// from the FileInfoGenerator with less initial latency.
+  int32_t file_info_batch_size = kDefaultFileInfoBatchSize;
 
   /// \brief Initialize with defaults
   static LocalFileSystemOptions Defaults();
@@ -73,6 +92,7 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   /// \endcond
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

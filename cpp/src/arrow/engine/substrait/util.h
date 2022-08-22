@@ -27,8 +27,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
@@ -43,23 +41,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 /// See arrow::engine::nested_extension_id_registry for details.
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
-/// \brief Register a function manually.
-///
-/// Register an arrow function name by an ID, defined by a URI and a name, on a given
-/// extension-id-registry.
-///
-/// \param[in] registry an extension-id-registry to use
-/// \param[in] id_uri a URI of the ID to register by
-/// \param[in] id_name a name of the ID to register by
-/// \param[in] arrow_function_name name of arrow function to register
-ARROW_ENGINE_EXPORT Status RegisterFunction(ExtensionIdRegistry& registry,
-                                            const std::string& id_uri,
-                                            const std::string& id_name,
-                                            const std::string& arrow_function_name);
-
 ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
-
-}  // namespace substrait
 
 }  // namespace engine
 

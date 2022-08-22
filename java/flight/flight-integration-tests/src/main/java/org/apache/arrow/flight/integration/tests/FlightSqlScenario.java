@@ -26,6 +26,7 @@ import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
@@ -72,32 +73,52 @@ public class FlightSqlScenario implements Scenario {
 
     validate(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA, sqlClient.getCatalogs(options),
         sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA, sqlClient.getCatalogsSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA,
         sqlClient.getSchemas("catalog", "db_schema_filter_pattern", options),
         sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA, sqlClient.getSchemasSchema());
+
     validate(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA,
         sqlClient.getTables("catalog", "db_schema_filter_pattern", "table_filter_pattern",
             Arrays.asList("table", "view"), true, options), sqlClient);
-    validate(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA, sqlClient.getTableTypes(options),
-        sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA,
+        sqlClient.getTablesSchema(/*includeSchema*/true, options));
+    validateSchema(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA,
+        sqlClient.getTablesSchema(/*includeSchema*/false, options));
+
+    validate(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA, sqlClient.getTableTypes(options), sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA, sqlClient.getTableTypesSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_PRIMARY_KEYS_SCHEMA,
         sqlClient.getPrimaryKeys(TableRef.of("catalog", "db_schema", "table"), options),
         sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_PRIMARY_KEYS_SCHEMA, sqlClient.getPrimaryKeysSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_EXPORTED_KEYS_SCHEMA,
         sqlClient.getExportedKeys(TableRef.of("catalog", "db_schema", "table"), options),
         sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_EXPORTED_KEYS_SCHEMA, sqlClient.getExportedKeysSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_IMPORTED_KEYS_SCHEMA,
         sqlClient.getImportedKeys(TableRef.of("catalog", "db_schema", "table"), options),
         sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_IMPORTED_KEYS_SCHEMA, sqlClient.getImportedKeysSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_CROSS_REFERENCE_SCHEMA,
         sqlClient.getCrossReference(TableRef.of("pk_catalog", "pk_db_schema", "pk_table"),
             TableRef.of("fk_catalog", "fk_db_schema", "fk_table"), options),
         sqlClient);
-    validate(FlightSqlProducer.Schemas.GET_TYPE_INFO_SCHEMA,
-        sqlClient.getXdbcTypeInfo(options), sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_CROSS_REFERENCE_SCHEMA, sqlClient.getCrossReferenceSchema(options));
+
+    validate(FlightSqlProducer.Schemas.GET_TYPE_INFO_SCHEMA, sqlClient.getXdbcTypeInfo(options), sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_TYPE_INFO_SCHEMA, sqlClient.getXdbcTypeInfoSchema(options));
+
     validate(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA,
         sqlClient.getSqlInfo(new FlightSql.SqlInfo[] {FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
             FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY}, options), sqlClient);
+    validateSchema(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA, sqlClient.getSqlInfoSchema(options));
   }
 
   private void validateStatementExecution(FlightSqlClient sqlClient) throws Exception {
@@ -105,6 +126,8 @@ public class FlightSqlScenario implements Scenario {
 
     validate(FlightSqlScenarioProducer.getQuerySchema(),
         sqlClient.execute("SELECT STATEMENT", options), sqlClient);
+    validateSchema(FlightSqlScenarioProducer.getQuerySchema(),
+        sqlClient.getExecuteSchema("SELECT STATEMENT", options));
 
     IntegrationAssertions.assertEquals(sqlClient.executeUpdate("UPDATE STATEMENT", options),
         UPDATE_STATEMENT_EXPECTED_ROWS);
@@ -122,6 +145,7 @@ public class FlightSqlScenario implements Scenario {
 
       validate(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.execute(options),
           sqlClient);
+      validateSchema(FlightSqlScenarioProducer.getQuerySchema(), preparedStatement.fetchSchema());
     }
 
     try (FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(
@@ -138,5 +162,9 @@ public class FlightSqlScenario implements Scenario {
       Schema actualSchema = stream.getSchema();
       IntegrationAssertions.assertEquals(expectedSchema, actualSchema);
     }
+  }
+
+  private void validateSchema(Schema expected, SchemaResult actual) {
+    IntegrationAssertions.assertEquals(expected, actual.getSchema());
   }
 }

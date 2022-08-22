@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,11 +47,15 @@ import org.apache.arrow.dataset.jni.TestNativeDataset;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
@@ -313,6 +318,42 @@ public class TestFileSystemDataset extends TestNativeDataset {
     ArrowReader reader = task.execute();
     task.close();
     assertThrows(NativeInstanceReleasedException.class, reader::loadNextBatch);
+    AutoCloseables.close(factory);
+  }
+
+  @Test
+  public void testBaseArrowIpcRead() throws Exception {
+    File dataFile = TMP.newFile();
+    Schema sourceSchema = new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
+    try (VectorSchemaRoot root = VectorSchemaRoot.create(sourceSchema, rootAllocator());
+         FileOutputStream sink = new FileOutputStream(dataFile);
+         ArrowFileWriter writer = new ArrowFileWriter(root, /*dictionaryProvider=*/null, sink.getChannel())) {
+      IntVector ints = (IntVector) root.getVector(0);
+      ints.setSafe(0, 0);
+      ints.setSafe(1, 1024);
+      ints.setSafe(2, Integer.MAX_VALUE);
+      root.setRowCount(3);
+      writer.start();
+      writer.writeBatch();
+      writer.end();
+    }
+
+    String arrowDataURI = dataFile.toURI().toString();
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.ARROW_IPC, arrowDataURI);
+    ScanOptions options = new ScanOptions(100);
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(1, datum.size());
+    assertEquals(1, schema.getFields().size());
+    assertEquals("ints", schema.getFields().get(0).getName());
+
+    String expectedJsonUnordered = String.format("[[0],[1024],[%d]]", Integer.MAX_VALUE);
+    checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
+    AutoCloseables.close(datum);
     AutoCloseables.close(factory);
   }
 
