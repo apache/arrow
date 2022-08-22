@@ -60,6 +60,8 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
+    python = "python3.10"
+
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
