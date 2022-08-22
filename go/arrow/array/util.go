@@ -348,7 +348,7 @@ func getMaxBufferLen(dt arrow.DataType, length int) int {
 	case arrow.ExtensionType:
 		return maxOf(getMaxBufferLen(dt.StorageType(), length))
 	default:
-		panic(arrow.ErrNotImplemented)
+		panic(fmt.Errorf("arrow/array: arrayofnull not implemented for type %s", dt))
 	}
 }
 
