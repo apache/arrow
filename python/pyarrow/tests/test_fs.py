@@ -20,6 +20,7 @@ import gzip
 import os
 import pathlib
 import pickle
+import sys
 
 import pytest
 import weakref
@@ -191,6 +192,8 @@ def localfs_with_mmap(request, tempdir):
 
 
 @pytest.fixture
+@pytest.mark.skipif(sys.platform != 'Linux',
+                    reason="DirectIO only works on Linux currently.")
 def localfs_with_directio(request, tempdir):
     return dict(
         fs=LocalFileSystem(use_directio=True),
