@@ -1279,6 +1279,31 @@ TEST_F(TestDurationParquetIO, Roundtrip) {
   this->RoundTripSingleColumn(duration_arr, duration_arr, arrow_properties);
 }
 
+using TestHalfFloatParquetIO = TestParquetIO<::arrow::HalfFloatType>;
+
+TEST_F(TestHalfFloatParquetIO, Roundtrip) {
+  std::vector<bool> is_valid = {true, true, false, true};
+  // TODO How to test with a Binary vector?
+  std::vector<uint16_t> values = {1, 2, 3, 4};
+
+  std::shared_ptr<Array> int_array, half_float_arr;
+  ::arrow::ArrayFromVector<::arrow::UInt16Type, uint16_t>(::arrow::uint16(), is_valid,
+                                                          values, &int_array);
+  ::arrow::ArrayFromVector<::arrow::HalfFloatType, uint16_t>(::arrow::float16(), is_valid,
+                                                             values, &half_float_arr);
+
+  // When the original Arrow schema isn't stored, a HalfFloat comes back as Binary (how it
+  // is stored in Parquet)
+  this->RoundTripSingleColumn(half_float_arr, int_array,
+                              default_arrow_writer_properties());
+
+  // When the original arrow schema is stored, the HalfFloat array type should be
+  // preserved
+  const auto arrow_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(half_float_arr, half_float_arr, arrow_properties);
+}
+
 TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> arr;

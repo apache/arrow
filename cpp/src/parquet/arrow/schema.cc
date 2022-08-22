@@ -390,6 +390,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     case ArrowTypeId::DURATION:
       type = ParquetType::INT64;
       break;
+    case ArrowTypeId::HALF_FLOAT: {
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      // defining that a HALF_FLOAT is 2 bytes long
+      length = 2;
+    } break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, name, field->nullable(), properties,
@@ -922,6 +927,12 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   if (origin_type->id() == ::arrow::Type::DURATION &&
       inferred_type->id() == ::arrow::Type::INT64) {
     // Read back int64 arrays as duration.
+    inferred->field = inferred->field->WithType(origin_type);
+    modified = true;
+  }
+
+  if (origin_type->id() == ::arrow::Type::HALF_FLOAT &&
+      inferred_type->id() == ::arrow::Type::FIXED_SIZE_BINARY) {
     inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
