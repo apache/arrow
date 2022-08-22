@@ -1535,7 +1535,6 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
