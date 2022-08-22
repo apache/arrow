@@ -47,12 +47,12 @@ add_arrow_lib(arrow_substrait
               arrow_dataset_shared
               substrait
               SHARED_INSTALL_INTERFACE_LIBS
-              Arrow::arrow_dataset_shared
+              ArrowDataset::arrow_dataset_shared
               STATIC_LINK_LIBS
               arrow_dataset_static
               substrait
               STATIC_INSTALL_INTERFACE_LIBS
-              Arrow::arrow_dataset_static
+              ArrowDataset::arrow_dataset_static
               PRIVATE_INCLUDES
               ${SUBSTRAIT_INCLUDES})
 
