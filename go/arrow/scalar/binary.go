@@ -30,6 +30,7 @@ type BinaryScalar interface {
 
 	Retain()
 	Release()
+	Buffer() *memory.Buffer
 	Data() []byte
 }
 
@@ -46,6 +47,7 @@ func (b *Binary) Data() []byte       { return b.Value.Bytes() }
 func (b *Binary) equals(rhs Scalar) bool {
 	return bytes.Equal(b.Value.Bytes(), rhs.(BinaryScalar).Data())
 }
+func (b *Binary) Buffer() *memory.Buffer { return b.Value }
 func (b *Binary) String() string {
 	if !b.Valid {
 		return "null"
