@@ -1858,7 +1858,6 @@ TEST(Substrait, BasicPlanRoundTripping) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   compute::ExecContext exec_context;
-  ExtensionSet ext_set;
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
 
@@ -1912,8 +1911,11 @@ TEST(Substrait, BasicPlanRoundTripping) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
-  const std::string filter_col = "shared";
-  auto filter = compute::equal(compute::field_ref(filter_col), compute::literal(3));
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
@@ -1927,15 +1929,14 @@ TEST(Substrait, BasicPlanRoundTripping) {
 
   auto declarations = compute::Declaration::Sequence(
       {scan_declaration, filter_declaration, sink_declaration});
-
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
-
-  for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+  for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
+
+    ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
     ASSERT_OK_AND_ASSIGN(
         auto sink_decls,
         DeserializePlans(
@@ -1949,9 +1950,10 @@ TEST(Substrait, BasicPlanRoundTripping) {
     if (auto* call = roundtripped_expr.call()) {
       EXPECT_EQ(call->function_name, "equal");
       auto args = call->arguments;
-      auto index = args[0].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[index], filter_col);
-      EXPECT_EQ(args[1], compute::literal(3));
+      auto left_index = args[0].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+      auto right_index = args[1].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
     }
     // scan declaration
     auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
@@ -1988,19 +1990,19 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   // creating a dummy dataset using a dummy table
   auto table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
-      [3, 4, 20]
+      [3, 4, 4]
     ])",
                                             R"([
       [0, 2, 1],
       [1, 3, 2],
-      [4, 1, 3],
+      [4, 1, 1],
       [3, 1, 3],
-      [1, 2, 5]
+      [1, 2, 2]
     ])",
                                             R"([
       [2, 2, 12],
       [5, 3, 12],
-      [1, 3, 12]
+      [1, 3, 3]
     ])"});
 
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
@@ -2035,8 +2037,11 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
-  const std::string filter_col = "shared";
-  auto filter = compute::equal(compute::field_ref(filter_col), compute::literal(3));
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
@@ -2050,18 +2055,16 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 
   auto declarations = compute::Declaration::Sequence(
       {scan_declaration, filter_declaration, sink_declaration});
-
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
+  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(plan, declarations, sink_gen,
+                                                             exec_context, dummy_schema));
 
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
-
-  ASSERT_OK_AND_ASSIGN(auto expected_tb, GetTableFromPlan(plan, declarations, sink_gen,
-                                                          exec_context, dummy_schema));
-
-  for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+  for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
+
+    ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
     ASSERT_OK_AND_ASSIGN(
         auto sink_decls,
         DeserializePlans(
@@ -2075,9 +2078,10 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
     if (auto* call = roundtripped_expr.call()) {
       EXPECT_EQ(call->function_name, "equal");
       auto args = call->arguments;
-      auto index = args[0].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[index], filter_col);
-      EXPECT_EQ(args[1], compute::literal(3));
+      auto left_index = args[0].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+      auto right_index = args[1].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
     }
     // scan declaration
     auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
@@ -2108,7 +2112,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
     ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
                          GetTableFromPlan(rnd_trp_plan, rnd_trp_declarations,
                                           rnd_trp_sink_gen, exec_context, dummy_schema));
-    EXPECT_TRUE(expected_tb->Equals(*rnd_trp_table));
+    EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
   }
 #endif
 }

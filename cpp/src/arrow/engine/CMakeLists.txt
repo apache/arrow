@@ -26,6 +26,8 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/plan_internal.cc
     substrait/relation_internal.cc
     substrait/registry.cc
+    substrait/serde.cc
+    substrait/test_plan_builder.cc
     substrait/type_internal.cc
     substrait/util.cc)
 
