@@ -273,6 +273,10 @@ type Decimal128 struct {
 	Value decimal128.Num
 }
 
+func (s *Decimal128) Data() []byte {
+	return (*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
+}
+
 func (s *Decimal128) value() interface{} { return s.Value }
 
 func (s *Decimal128) String() string {
@@ -335,6 +339,10 @@ func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
 type Decimal256 struct {
 	scalar
 	Value decimal256.Num
+}
+
+func (s *Decimal256) Data() []byte {
+	return (*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
 func (s *Decimal256) value() interface{} { return s.Value }
@@ -794,12 +802,16 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Arr
 			data.Release()
 		}()
 		return array.MakeFromData(data), nil
-	case PrimitiveScalar:
-		data := finishFixedWidth(s.Data())
-		defer data.Release()
-		return array.MakeFromData(data), nil
 	case *Decimal128:
 		data := finishFixedWidth(arrow.Decimal128Traits.CastToBytes([]decimal128.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case *Decimal256:
+		data := finishFixedWidth(arrow.Decimal256Traits.CastToBytes([]decimal256.Num{s.Value}))
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case PrimitiveScalar:
+		data := finishFixedWidth(s.Data())
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *List:
@@ -953,6 +965,10 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 	case *DenseUnion:
 		// typecode is ignored when comparing equality, so don't hash it either
 		out ^= Hash(seed, s.Value)
+	case *Dictionary:
+		if s.Value.Index.IsValid() {
+			out ^= Hash(seed, s.Value.Index)
+		}
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
@@ -966,10 +982,6 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			if c.IsValid() {
 				out ^= Hash(seed, c)
 			}
-		}
-	case *Dictionary:
-		if s.Value.Index.IsValid() {
-			out ^= Hash(seed, s.Value.Index)
 		}
 	}
 

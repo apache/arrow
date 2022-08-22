@@ -969,6 +969,8 @@ tasks:
   r-binary-packages:
     ci: github
     template: r/github.packages.yml
+    params:
+      custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
@@ -1607,3 +1609,13 @@ tasks:
       type: minimal_build
       run: {{ kind }}
 {% endfor %}
+
+############################## Utility tasks ############################
+  preview-docs:
+    ci: github
+    template: docs/github.linux.yml
+    params:
+      pr_number: Unset
+      artifacts: "build/docs.tar.gz"
+      flags: "-v $PWD/build/:/build/"
+      image: ubuntu-docs

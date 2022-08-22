@@ -292,7 +292,7 @@ class BinaryTask
 
     def request(method, headers, url, body: nil, &block)
       request = build_request(method, url, headers, body: body)
-      if ENV["DRY_RUN"]
+      if ENV["DRY_RUN"] == "yes"
         case request
         when Net::HTTP::Get, Net::HTTP::Head
         else
@@ -1302,10 +1302,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             Dir.glob("#{source_dir_prefix}*/**/*") do |path|
               next if File.directory?(path)
               base_name = File.basename(path)
-              if base_name.start_with?("apache-arrow-apt-source")
-                package_name = "apache-arrow-apt-source"
-              else
-                package_name = "apache-arrow"
+              package_name = ENV["DEB_PACKAGE_NAME"]
+              if package_name.nil? or package_name.empty?
+                if base_name.start_with?("apache-arrow-apt-source")
+                  package_name = "apache-arrow-apt-source"
+                else
+                  package_name = "apache-arrow"
+                end
               end
               destination_path = [
                 pool_dir,
