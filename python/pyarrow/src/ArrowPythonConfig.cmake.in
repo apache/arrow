@@ -35,7 +35,7 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.17)
+if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   if(TARGET ArrowPython::arrow_python_shared AND NOT TARGET arrow_python_shared)
     add_library(arrow_python_shared ALIAS ArrowPython::arrow_python_shared)
   endif()

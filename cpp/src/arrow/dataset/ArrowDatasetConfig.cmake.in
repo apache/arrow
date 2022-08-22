@@ -33,7 +33,7 @@ find_dependency(Parquet)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.17)
+if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   if(TARGET ArrowDataset::arrow_dataset_shared AND
      NOT TARGET arrow_dataset_shared)
     add_library(arrow_dataset_shared ALIAS ArrowDataset::arrow_dataset_shared)

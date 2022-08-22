@@ -102,7 +102,7 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
 endif()
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.17)
+if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   if(TARGET Arrow::arrow_shared AND NOT TARGET arrow_shared)
     add_library(arrow_shared ALIAS Arrow::arrow_shared)
   endif()

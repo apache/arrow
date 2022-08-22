@@ -39,7 +39,7 @@ set(PLASMA_STORE_SERVER "@CMAKE_INSTALL_FULL_BINDIR@/plasma-store-server@CMAKE_E
 include("${CMAKE_CURRENT_LIST_DIR}/PlasmaTargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.17)
+if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   if(TARGET Plasma::plasma_shared AND NOT TARGET plasma_shared)
     add_library(plasma_shared ALIAS Plasma::plasma_shared)
   endif()

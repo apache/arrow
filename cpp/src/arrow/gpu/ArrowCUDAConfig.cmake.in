@@ -32,7 +32,7 @@ find_dependency(Arrow)
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowCUDATargets.cmake")
 
 # For backward compatibility
-if(CMAKE_VERSION VERSION_GREATER 3.17)
+if(NOT CMAKE_VERSION VERSION_LESS 3.18)
   if(TARGET ArrowCUDA::arrow_cuda_shared AND NOT TARGET arrow_cuda_shared)
     add_library(arrow_cuda_shared ALIAS ArrowCUDA::arrow_cuda_shared)
   endif()
