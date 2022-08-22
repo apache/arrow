@@ -54,14 +54,6 @@ mutate.arrow_dplyr_query <- function(.data,
     # (which overwrites the previous name)
     new_var <- names(exprs)[i]
     results[[new_var]] <- arrow_eval(exprs[[i]], mask)
-    # if it's a failure due to an unknown binding, attempt to translate and re-evaluate
-    # old if (inherits(results[[new_var]], "unknown-binding-error")) {
-    # old   # we rebuild the mask, this time aware of the expression we're trying to
-    # old   # evaluate
-    # old   mask <- arrow_mask(.data, expr = exprs[[i]])
-    # old   results[[new_var]] <- arrow_eval(exprs[[i]], mask)
-    # old }
-
     if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
