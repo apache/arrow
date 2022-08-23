@@ -27,11 +27,11 @@ endif()
 if(DEFINED ENV{CONDA_PREFIX})
   if(DEFINED BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS_WAS_SET TRUE)
-    set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
   else()
     set(BUILD_SHARED_LIBS_WAS_SET FALSE)
   endif()
-  set(BUILD_SHARED_LIBS "ON")
+  set(BUILD_SHARED_LIBS ON)
 endif()
 find_package(AWSSDK ${find_package_args}
              COMPONENTS config
@@ -42,7 +42,7 @@ find_package(AWSSDK ${find_package_args}
 # Restore previous value of BUILD_SHARED_LIBS
 if(DEFINED ENV{CONDA_PREFIX})
   if(BUILD_SHARED_LIBS_WAS_SET)
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
   else()
     unset(BUILD_SHARED_LIBS)
   endif()
