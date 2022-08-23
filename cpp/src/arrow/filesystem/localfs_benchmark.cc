@@ -67,7 +67,7 @@ class LocalFSFixture : public benchmark::Fixture {
 
     for (size_t i = 0; i < num_files_; ++i) {
       ASSERT_OK_AND_ASSIGN(auto path,
-                           cur_root_dir.Join(std::string {"file_" + std::to_string(i)}));
+                           cur_root_dir.Join(std::string{"file_" + std::to_string(i)}));
       ASSERT_OK(MakeEmptyFile(path.ToString()));
     }
 
@@ -77,7 +77,7 @@ class LocalFSFixture : public benchmark::Fixture {
 
     for (size_t i = 0; i < num_dirs_; ++i) {
       ASSERT_OK_AND_ASSIGN(auto path,
-                           cur_root_dir.Join(std::string {"dir_" + std::to_string(i)}));
+                           cur_root_dir.Join(std::string{"dir_" + std::to_string(i)}));
       InitializeDatasetStructure(cur_nesting_level + 1, std::move(path));
     }
   }
