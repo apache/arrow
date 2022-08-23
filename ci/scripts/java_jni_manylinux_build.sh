@@ -109,6 +109,7 @@ if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
   exclude_tests="arrow-s3fs-test"
   # unstable
   exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-dataset-scanner-test"
   # strptime
   exclude_tests="${exclude_tests}|arrow-utility-test"
   ctest \
