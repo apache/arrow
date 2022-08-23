@@ -46,13 +46,13 @@ case "$(uname)" in
 esac
 
 : ${ARROW_JAVA_BUILD_TESTS:=${ARROW_BUILD_TESTS:-OFF}}
-: ${CMKAE_BUILD_TYPE:=release}
+: ${CMAKE_BUILD_TYPE:=release}
 # TODO: Remove the last "/arrow" from -DCMAKE_PREFIX_PATH when
 # we resolve ARROW-12175 / https://github.com/apache/arrow/pull/13892 .
 cmake \
   -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-ON} \
   -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
-  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug} \
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir}/lib/cmake/arrow \
   -DCMAKE_INSTALL_PREFIX=${dist_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
