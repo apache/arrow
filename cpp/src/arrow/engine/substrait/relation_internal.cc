@@ -67,6 +67,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
                             FromProto(read.base_schema(), ext_set, conversion_options));
+      auto num_columns = static_cast<int>(base_schema->fields().size());
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
@@ -80,6 +81,22 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         // NOTE: scan_options->projection is not used by the scanner and thus can't be
         // used for this
         return Status::NotImplemented("substrait::ReadRel::projection");
+      }
+
+      if (read.has_named_table()) {
+        if (!conversion_options.named_table_provider) {
+          return Status::Invalid(
+              "plan contained a named table but a NamedTableProvider has not been "
+              "configured");
+        }
+        const NamedTableProvider& named_table_provider =
+            conversion_options.named_table_provider;
+        const substrait::ReadRel::NamedTable& named_table = read.named_table();
+        std::vector<std::string> table_names(named_table.names().begin(),
+                                             named_table.names().end());
+        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
+                              named_table_provider(table_names));
+        return DeclarationInfo{std::move(source_decl), num_columns};
       }
 
       if (!read.has_local_files()) {
@@ -182,7 +199,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
       return DeclarationInfo{
@@ -349,17 +365,20 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             "than one item");
       }
       std::vector<FieldRef> keys;
-      auto group = aggregate.groupings(0);
-      keys.reserve(group.grouping_expressions_size());
-      for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-        ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(group.grouping_expressions(exp_id),
-                                                   ext_set, conversion_options));
-        const auto* field_ref = expr.field_ref();
-        if (field_ref) {
-          keys.emplace_back(std::move(*field_ref));
-        } else {
-          return Status::Invalid(
-              "The grouping expression for an aggregate must be a direct reference.");
+      if (aggregate.groupings_size() > 0) {
+        const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
+        keys.reserve(group.grouping_expressions_size());
+        for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
+          ARROW_ASSIGN_OR_RAISE(
+              compute::Expression expr,
+              FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
+          const FieldRef* field_ref = expr.field_ref();
+          if (field_ref) {
+            keys.emplace_back(std::move(*field_ref));
+          } else {
+            return Status::Invalid(
+                "The grouping expression for an aggregate must be a direct reference.");
+          }
         }
       }
 
@@ -373,25 +392,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
-          if (agg_func.arguments_size() != 1) {
-            return Status::NotImplemented("Aggregate function must be a unary function.");
-          }
-          int func_reference = agg_func.function_reference();
-          ARROW_ASSIGN_OR_RAISE(auto func_record, ext_set.DecodeFunction(func_reference));
-          // aggreagte function name
-          auto func_name = std::string(func_record.id.name);
-          // aggregate target
-          auto subs_func_args = agg_func.arguments(0);
-          ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(subs_func_args.value(),
-                                                           ext_set, conversion_options));
-          auto target = field_expr.field_ref();
-          if (!target) {
-            return Status::Invalid(
-                "The input expression to an aggregate function must be a direct "
-                "reference.");
-          }
-          aggregates.emplace_back(compute::Aggregate{std::move(func_name), NULLPTR,
-                                                     std::move(*target), std::move("")});
+          ARROW_ASSIGN_OR_RAISE(
+              SubstraitCall aggregate_call,
+              FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
+          ARROW_ASSIGN_OR_RAISE(
+              ExtensionIdRegistry::SubstraitAggregateToArrow converter,
+              ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
+          aggregates.push_back(std::move(arrow_agg));
         } else {
           return Status::Invalid("substrait::AggregateFunction not provided");
         }

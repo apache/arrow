@@ -4,7 +4,7 @@
 \alias{flight_put}
 \title{Send data to a Flight server}
 \usage{
-flight_put(client, data, path, overwrite = TRUE)
+flight_put(client, data, path, overwrite = TRUE, max_chunksize = NULL)
 }
 \arguments{
 \item{client}{\code{pyarrow.flight.FlightClient}, as returned by \code{\link[=flight_connect]{flight_connect()}}}
@@ -16,6 +16,9 @@ flight_put(client, data, path, overwrite = TRUE)
 \item{overwrite}{logical: if \code{path} exists on \code{client} already, should we
 replace it with the contents of \code{data}? Default is \code{TRUE}; if \code{FALSE} and
 \code{path} exists, the function will error.}
+
+\item{max_chunksize}{integer: Maximum size for RecordBatch chunks when a \code{data.frame} is sent.
+Individual chunks may be smaller depending on the chunk layout of individual columns.}
 }
 \value{
 \code{client}, invisibly.

@@ -24,12 +24,7 @@ jobs:
     name: |
       Docker Python Minimal Build {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
-  {% if env is defined %}
-    env:
-    {% for key, value in env.items() %}
-      {{ key }}: "{{ value }}"
-    {% endfor %}
-  {% endif %}
+{{ macros.github_set_env(env) }}
     steps:
       {{ macros.github_checkout_arrow(submodules=false)|indent }}
 

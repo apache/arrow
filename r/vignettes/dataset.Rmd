@@ -126,7 +126,7 @@ For more information on the usage of these parameters, see `?read_delim_arrow()`
 
 `open_dataset()` was able to automatically infer column values for `year` and `month`
 --which are not present in the data files--based on the directory structure. The 
-Hive-style partitioning structure is self-describing, with file paths like
+[Hive](https://hive.apache.org/)-style partitioning structure is self-describing, with file paths like
 
 ```
 year=2009/month=1/data.parquet
@@ -184,20 +184,6 @@ year: int32
 month: int32
 ")
 ```
-
-The other form of partitioning currently supported is [Hive](https://hive.apache.org/)-style,
-in which the partition variable names are included in the path segments.
-If you had saved your files in paths like:
-
-```
-year=2009/month=01/data.parquet
-year=2009/month=02/data.parquet
-...
-```
-
-you would not have had to provide the names in `partitioning`;
-you could have just called `ds <- open_dataset("nyc-taxi")` and the partitions
-would have been detected automatically.
 
 ## Querying the dataset
 

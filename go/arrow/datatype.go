@@ -17,9 +17,10 @@
 package arrow
 
 import (
+	"fmt"
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -161,6 +162,7 @@ const (
 
 // DataType is the representation of an Arrow type.
 type DataType interface {
+	fmt.Stringer
 	ID() Type
 	// Name is name of the data type.
 	Name() string
@@ -179,6 +181,11 @@ type FixedWidthDataType interface {
 type BinaryDataType interface {
 	DataType
 	binary()
+}
+
+type OffsetsDataType interface {
+	DataType
+	OffsetTypeTraits() OffsetTraits
 }
 
 func HashType(seed maphash.Seed, dt DataType) uint64 {
@@ -286,10 +293,64 @@ func IsBaseBinary(t Type) bool {
 	return false
 }
 
+// IsBinaryLike returns true for only BINARY and STRING
+func IsBinaryLike(t Type) bool {
+	switch t {
+	case BINARY, STRING:
+		return true
+	}
+	return false
+}
+
+// IsLargeBinaryLike returns true for only LARGE_BINARY and LARGE_STRING
+func IsLargeBinaryLike(t Type) bool {
+	switch t {
+	case LARGE_BINARY, LARGE_STRING:
+		return true
+	}
+	return false
+}
+
 // IsFixedSizeBinary returns true for Decimal128/256 and FixedSizeBinary
 func IsFixedSizeBinary(t Type) bool {
 	switch t {
 	case DECIMAL128, DECIMAL256, FIXED_SIZE_BINARY:
+		return true
+	}
+	return false
+}
+
+// IsDecimal returns true for Decimal128 and Decimal256
+func IsDecimal(t Type) bool {
+	switch t {
+	case DECIMAL128, DECIMAL256:
+		return true
+	}
+	return false
+}
+
+// IsUnion returns true for Sparse and Dense Unions
+func IsUnion(t Type) bool {
+	switch t {
+	case DENSE_UNION, SPARSE_UNION:
+		return true
+	}
+	return false
+}
+
+// IsListLike returns true for List, LargeList, FixedSizeList, and Map
+func IsListLike(t Type) bool {
+	switch t {
+	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP:
+		return true
+	}
+	return false
+}
+
+// IsNested returns true for List, LargeList, FixedSizeList, Map, Struct, and Unions
+func IsNested(t Type) bool {
+	switch t {
+	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP, STRUCT, SPARSE_UNION, DENSE_UNION:
 		return true
 	}
 	return false

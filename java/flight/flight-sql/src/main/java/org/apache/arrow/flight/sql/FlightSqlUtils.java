@@ -76,7 +76,7 @@ public final class FlightSqlUtils {
       return source.unpack(as);
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INVALID_ARGUMENT
-          .withDescription("Provided message cannot be unpacked as desired type.")
+          .withDescription("Provided message cannot be unpacked as " + as.getName() + ": " + e)
           .withCause(e)
           .toRuntimeException();
     }

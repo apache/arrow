@@ -170,6 +170,13 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "go/arrow/doc.go",
+        hunks: [
+          ["-const PkgVersion = \"#{@snapshot_version}\"",
+           "+const PkgVersion = \"#{@release_version}\""],
+        ],
+      },
+      {
         path: "go/parquet/writer_properties.go",
         hunks: [
           ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",

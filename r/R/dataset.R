@@ -224,6 +224,7 @@ open_dataset <- function(sources,
     # and not handle_parquet_io_error()
     error = function(e, call = caller_env(n = 4)) {
       handle_parquet_io_error(e, format, call)
+      abort(conditionMessage(e), call = call)
     }
   )
 }

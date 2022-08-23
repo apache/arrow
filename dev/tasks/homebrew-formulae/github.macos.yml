@@ -22,7 +22,7 @@
 jobs:
   homebrew:
     name: "Homebrew"
-    runs-on: macOS-latest
+    runs-on: macos-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 

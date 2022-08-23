@@ -61,3 +61,5 @@
 !rust/datafusion/Cargo.toml
 !rust/datafusion/benches
 !rust/integration-testing/Cargo.toml
+!go/go.mod
+!go/go.sum

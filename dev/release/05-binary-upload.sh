@@ -127,6 +127,9 @@ docker_run \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+    DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
+    DRY_RUN=${DRY_RUN:-no} \
+    GPG_KEY_ID="${GPG_KEY_ID}" \
     RC=${rc} \
     STAGING=${STAGING:-no} \
     VERSION=${version} \

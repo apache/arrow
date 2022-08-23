@@ -91,7 +91,7 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
+    name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15

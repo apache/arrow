@@ -567,7 +567,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '9.0.0-SNAPSHOT'
+default_version = '10.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -622,9 +622,14 @@ else:
 
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
     packages = find_namespace_packages(include=['pyarrow*'])
+    exclude_package_data = {}
 else:
     packages = find_namespace_packages(include=['pyarrow*'],
                                        exclude=["pyarrow.tests*"])
+    # setuptools adds back importable packages even when excluded.
+    # https://github.com/pypa/setuptools/issues/3260
+    # https://github.com/pypa/setuptools/issues/3340#issuecomment-1219383976
+    exclude_package_data = {"pyarrow": ["tests*"]}
 
 
 setup(
@@ -633,6 +638,7 @@ setup(
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
     include_package_data=True,
+    exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],

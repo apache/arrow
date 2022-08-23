@@ -58,7 +58,9 @@ arrow::Status RadosInterface::init2(const char* const name, const char* const cl
 arrow::Status RadosInterface::ioctx_create(const char* name, IoCtxInterface* pioctx) {
   librados::IoCtx ioCtx;
   int ret = cluster->ioctx_create(name, ioCtx);
-  pioctx->setIoCtx(&ioCtx);
+  if (!ret) {
+    pioctx->setIoCtx(&ioCtx);
+  }
   return GetStatusFromReturnCode(ret, "rados->ioctx_create failed.");
 }
 
@@ -85,6 +87,7 @@ arrow::Status RadosConn::Connect() {
   ARROW_RETURN_NOT_OK(rados->conf_read_file(ctx->ceph_config_path.c_str()));
   ARROW_RETURN_NOT_OK(rados->connect());
   ARROW_RETURN_NOT_OK(rados->ioctx_create(ctx->ceph_data_pool.c_str(), io_ctx.get()));
+  connected = true;
   return arrow::Status::OK();
 }
 

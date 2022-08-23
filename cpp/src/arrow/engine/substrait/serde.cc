@@ -172,7 +172,7 @@ Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
     ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
-    return plan;
+    return std::move(plan);
   }
 }
 
@@ -182,17 +182,21 @@ Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
-  bool factory_done = false;
-  auto single_consumer = [&factory_done, &consumer] {
-    if (factory_done) {
-      return std::shared_ptr<compute::SinkNodeConsumer>{};
+  struct SingleConsumer {
+    std::shared_ptr<compute::SinkNodeConsumer> operator()() {
+      if (factory_done) {
+        Status::Invalid("SingleConsumer invoked more than once").Warn();
+        return std::shared_ptr<compute::SinkNodeConsumer>{};
+      }
+      factory_done = true;
+      return consumer;
     }
-    factory_done = true;
-    return consumer;
+    bool factory_done;
+    std::shared_ptr<compute::SinkNodeConsumer> consumer;
   };
-  ARROW_ASSIGN_OR_RAISE(
-      auto declarations,
-      DeserializePlans(buf, single_consumer, registry, ext_set_out, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto declarations,
+                        DeserializePlans(buf, SingleConsumer{false, consumer}, registry,
+                                         ext_set_out, conversion_options));
   return MakeSingleDeclarationPlan(declarations);
 }
 

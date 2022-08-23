@@ -50,5 +50,9 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum&,
                                                                 ExtensionSet*,
                                                                 const ConversionOptions&);
 
+ARROW_ENGINE_EXPORT
+Result<SubstraitCall> FromProto(const substrait::AggregateFunction&, bool is_hash,
+                                const ExtensionSet&, const ConversionOptions&);
+
 }  // namespace engine
 }  // namespace arrow

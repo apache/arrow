@@ -28,6 +28,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 
@@ -150,10 +151,10 @@ arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
-arrow::Result<SchemaResult> SchemaResult::Make(const Schema& schema) {
+arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
   std::string schema_in;
   RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
-  return SchemaResult(std::move(schema_in));
+  return arrow::internal::make_unique<SchemaResult>(std::move(schema_in));
 }
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
