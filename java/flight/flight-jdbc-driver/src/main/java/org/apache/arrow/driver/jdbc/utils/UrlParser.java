@@ -25,7 +25,9 @@ import java.util.Map;
  */
 public class UrlParser {
   /**
-   * Parse a url key value parameters.
+   * Parse URL key value parameters.
+   *
+   * <p>Does not URL-decode keys or values.
    *
    * @param url {@link String}
    * @return {@link Map}

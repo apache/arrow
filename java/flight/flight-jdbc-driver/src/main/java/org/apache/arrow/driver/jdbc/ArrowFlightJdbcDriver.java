@@ -36,6 +36,7 @@ import org.apache.arrow.driver.jdbc.utils.UrlParser;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
@@ -200,7 +201,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @return the parsed arguments.
    * @throws SQLException If an error occurs while trying to parse the URL.
    */
-  private Map<Object, Object> getUrlsArgs(String url)
+  @VisibleForTesting // ArrowFlightJdbcDriverTest
+  Map<Object, Object> getUrlsArgs(String url)
       throws SQLException {
 
     /*
@@ -240,14 +242,19 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
           CONNECTION_STRING_EXPECTED);
     }
 
-
+    if (uri.getHost() == null) {
+      throw new SQLException("URL must have a host. Expected format: " + CONNECTION_STRING_EXPECTED);
+    } else if (uri.getPort() < 0) {
+      throw new SQLException("URL must have a port. Expected format: " + CONNECTION_STRING_EXPECTED);
+    }
     resultMap.put(ArrowFlightConnectionProperty.HOST.camelName(), uri.getHost()); // host
     resultMap.put(ArrowFlightConnectionProperty.PORT.camelName(), uri.getPort()); // port
 
     final String extraParams = uri.getRawQuery(); // optional params
-
-    final Map<String, String> keyValuePairs = UrlParser.parse(extraParams, "&");
-    resultMap.putAll(keyValuePairs);
+    if (extraParams != null) {
+      final Map<String, String> keyValuePairs = UrlParser.parse(extraParams, "&");
+      resultMap.putAll(keyValuePairs);
+    }
 
     return resultMap;
   }

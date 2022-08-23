@@ -18,15 +18,16 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -37,7 +38,6 @@ import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -151,50 +151,48 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
-   *
-   * @throws Exception If an error occurs.
    */
-  @Test(expected = SQLException.class)
-  @Ignore // TODO Rework this test.
-  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort() throws Exception {
+  @Test
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort() {
     final Driver driver = new ArrowFlightJdbcDriver();
-    // FIXME This test was passing because the prefix was wrong, NOT because it didn't specify the port.
-    final String malformedUri = "jdbc:arrow-flight://32010:localhost";
-    driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
+    final String malformedUri = "jdbc:arrow-flight://localhost";
+    SQLException e = assertThrows(SQLException.class, () -> {
+      Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
+          dataSource.getConfig().getPassword());
+      Connection conn = driver.connect(malformedUri, properties);
+      conn.close();
+    });
+    assertTrue(e.getMessage().contains("URL must have a port"));
   }
 
   /**
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
-   *
-   * @throws Exception If an error occurs.
    */
-  @Test(expected = SQLException.class)
-  @Ignore // TODO Rework this test.
-  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost() throws Exception {
+  @Test
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost() {
     final Driver driver = new ArrowFlightJdbcDriver();
-    // FIXME This test was passing because the prefix was wrong, NOT because it didn't specify the host.
     final String malformedUri = "jdbc:arrow-flight://32010:localhost";
-    driver.connect(malformedUri, dataSource.getProperties(dataSource.getConfig().getUser(),
-        dataSource.getConfig().getPassword()));
+    SQLException e = assertThrows(SQLException.class, () -> {
+      Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
+          dataSource.getConfig().getPassword());
+      Connection conn = driver.connect(malformedUri, properties);
+      conn.close();
+    });
+    assertTrue(e.getMessage().contains("URL must have a host"));
   }
 
   /**
-   * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} returns the
+   * Tests whether {@link ArrowFlightJdbcDriver#getUrlsArgs} returns the
    * correct URL parameters.
    *
    * @throws Exception If an error occurs.
    */
-  @SuppressWarnings("unchecked")
   @Test
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrl() throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
 
-    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    parseUrl.setAccessible(true);
-
-    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
         "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
 
     // Check size == the amount of args provided (scheme not included)
@@ -212,16 +210,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("a"), "b");
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithSemicolon() throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    parseUrl.setAccessible(true);
-
-    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
         "jdbc:arrow-flight://localhost:2222/;key1=value1;key2=value2;a=b");
 
     // Check size == the amount of args provided (scheme not included)
@@ -239,16 +231,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("a"), "b");
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithOneSemicolon() throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final Method parseUrl = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    parseUrl.setAccessible(true);
-
-    final Map<Object, Object> parsedArgs = (Map<Object, Object>) parseUrl.invoke(driver,
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
         "jdbc:arrow-flight://localhost:2222/;key1=value1");
 
     // Check size == the amount of args provided (scheme not included)
@@ -268,24 +254,12 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception If an error occurs.
    */
-  @SuppressWarnings("unchecked")
-  @Test(expected = SQLException.class)
-  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl()
-      throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    getUrlsArgs.setAccessible(true);
-
-    try {
-      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs.invoke(driver,
-          "jdbc:malformed-url-flight://localhost:2222");
-    } catch (InvocationTargetException e) {
-      throw (SQLException) e.getCause();
-    }
+  @Test
+  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl() {
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
+    assertThrows(SQLException.class, () -> driver.getUrlsArgs(
+        "jdbc:malformed-url-flight://localhost:2222"));
   }
 
   /**
@@ -294,17 +268,10 @@ public class ArrowFlightJdbcDriverTest {
    *
    * @throws Exception If an error occurs.
    */
-  @SuppressWarnings("unchecked")
   @Test
   public void testDriverUrlParsingMechanismShouldWorkWithIPAddress() throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    getUrlsArgs.setAccessible(true);
-
-    final Map<String, String> parsedArgs =
-        (Map<String, String>) getUrlsArgs.invoke(driver, "jdbc:arrow-flight://0.0.0.0:2222");
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs("jdbc:arrow-flight://0.0.0.0:2222");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(2, parsedArgs.size());
@@ -322,17 +289,11 @@ public class ArrowFlightJdbcDriverTest {
    *
    * @throws Exception If an error occurs.
    */
-  @SuppressWarnings("unchecked")
   @Test
   public void testDriverUrlParsingMechanismShouldWorkWithEmbeddedEspecialCharacter()
       throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final Method getUrlsArgs = driver.getClass().getDeclaredMethod("getUrlsArgs", String.class);
-
-    getUrlsArgs.setAccessible(true);
-
-    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs.invoke(driver,
+    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
         "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
 
     // Check size == the amount of args provided (scheme not included)
@@ -346,7 +307,7 @@ public class ArrowFlightJdbcDriverTest {
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("test1"), "test1value");
-    assertEquals(parsedArgs.get("test2&continue"), "test2value");
+    assertEquals(parsedArgs.get("test2%26continue"), "test2value");
     assertEquals(parsedArgs.get("test3"), "test3value");
   }
 
