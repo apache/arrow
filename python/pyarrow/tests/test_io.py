@@ -719,6 +719,12 @@ def test_compression_level(compression):
     if not Codec.is_available(compression):
         pytest.skip("{} support is not built".format(compression))
 
+    codec = Codec(compression)
+    if codec.name == "snappy":
+        assert codec.compression_level is None
+    else:
+        assert isinstance(codec.compression_level, int)
+
     # These codecs do not support a compression level
     no_level = ['snappy']
     if compression in no_level:
