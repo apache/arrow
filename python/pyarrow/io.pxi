@@ -1859,6 +1859,17 @@ cdef class Codec(_Weakrefable):
     ------
     ValueError
         If invalid compression value is passed.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.Codec.is_available('gzip')
+    True
+    >>> codec = pa.Codec('gzip')
+    >>> codec.name
+    'gzip'
+    >>> codec.compression_level
+    9
     """
 
     def __init__(self, str compression not None, compression_level=None):
