@@ -91,6 +91,7 @@ import com.google.protobuf.Message;
 /**
  * Class containing the tests from the {@link ArrowDatabaseMetadata}.
  */
+@SuppressWarnings("DoubleBraceInitialization")
 public class ArrowDatabaseMetadataTest {
   public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
