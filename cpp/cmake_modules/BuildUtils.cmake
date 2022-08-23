@@ -399,8 +399,8 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     if(ARG_STATIC_LINK_LIBS)
-      target_link_libraries(${LIB_NAME}_static LINK_PRIVATE
-                            "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
+      target_link_libraries(${LIB_NAME}_static
+                            PUBLIC "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
       if(USE_OBJLIB)
         # Ensure that dependencies are built before compilation of objects in
         # object library, rather than only before the final link step
