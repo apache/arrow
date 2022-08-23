@@ -352,7 +352,12 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   }
 
   Future<> Finish() override {
-    ARROW_RETURN_NOT_OK(dataset_writer_->Finish());
+    scheduler_->AddSimpleTask([this]() -> Result<Future<>> {
+      ARROW_RETURN_NOT_OK(dataset_writer_->Finish());
+      // Finish is actually synchronous but we add it to the scheduler because we want to
+      // make sure it happens after all the write calls.
+      return Future<>::MakeFinished();
+    });
     scheduler_->End();
     return scheduler_->OnFinished();
   }
