@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet/internal/debug"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -238,6 +239,10 @@ const (
 	InputUseMatcher
 )
 
+// InputType is used for type checking arguments passed to a kernel
+// and stored within a KernelSignature. The type-checking rule can
+// be supplied either with an exact DataType instance or a custom
+// TypeMatcher.
 type InputType struct {
 	Kind    InputKind
 	Type    arrow.DataType
@@ -301,7 +306,10 @@ func (it InputType) Matches(dt arrow.DataType) bool {
 		return arrow.TypeEqual(it.Type, dt)
 	case InputUseMatcher:
 		return it.Matcher.Matches(dt)
+	case InputAny:
+		return true
 	default:
+		debug.Assert(false, "invalid InputKind")
 		return true
 	}
 }
@@ -482,6 +490,11 @@ func (k *KernelSignature) Hash() uint64 {
 func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 	switch k.IsVarArgs {
 	case true:
+		// check that it has enough to match at least the non-vararg types
+		if len(types) < (len(k.InputTypes) - 1) {
+			return false
+		}
+
 		for i, t := range types {
 			if !k.InputTypes[min(i, len(k.InputTypes)-1)].Matches(t) {
 				return false
