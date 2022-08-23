@@ -41,17 +41,13 @@
             <artifactId>flight-core</artifactId>
             <version>${project.version}</version>
             <exclusions>
-            <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-transport-native-unix-common</artifactId>
-            </exclusion>
-            <exclusion>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-transport-native-kqueue</artifactId>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-kqueue</artifactId>
                 </exclusion>
-            <exclusion>
-	            <groupId>io.netty</groupId>
-                <artifactId>netty-transport-native-epoll</artifactId>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
