@@ -1313,12 +1313,18 @@ def chunked_array(arrays, type=None):
 
     for x in arrays:
         arr = x if isinstance(x, Array) else array(x, type=type)
+
+        if type is None:
+            # it allows more flexible chunked array construction from to coerce
+            # subsequent arrays to the firstly inferred array type
+            # it also spares the inference overhead after the first chunk
+            type = arr.type
+
         c_arrays.push_back(arr.sp_array)
 
     c_type = pyarrow_unwrap_data_type(type)
     with nogil:
-        c_result = GetResultValue(CChunkedArray.Make(
-            c_arrays, c_type))
+        c_result = GetResultValue(CChunkedArray.Make(c_arrays, c_type))
     return pyarrow_wrap_chunked_array(c_result)
 
 

@@ -394,6 +394,15 @@ def test_mode_chunked_array():
     assert len(pc.mode(arr)) == 0
 
 
+def test_empty_chunked_array():
+    msg = ("When passing an empty collection of arrays you "
+           "must also pass the data type")
+    with pytest.raises(ValueError, match=msg):
+        pa.chunked_array([])
+
+    pa.chunked_array([], type=pa.int8())
+
+
 def test_variance():
     data = [1, 2, 3, 4, 5, 6, 7, 8]
     assert pc.variance(data).as_py() == 5.25
@@ -1171,8 +1180,8 @@ def test_drop_null(ty, values):
 
 
 def test_drop_null_chunked_array():
-    arr = pa.chunked_array([[None, None], [None], []])
-    expected_drop = pa.chunked_array([[]])
+    arr = pa.chunked_array([["a", None], ["c", "d", None], [None], []])
+    expected_drop = pa.chunked_array([["a"], ["c", "d"], [], []])
 
     result = arr.drop_null()
     assert result.equals(expected_drop)
