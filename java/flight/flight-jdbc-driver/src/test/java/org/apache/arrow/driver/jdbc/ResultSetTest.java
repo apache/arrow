@@ -19,6 +19,9 @@ package org.apache.arrow.driver.jdbc;
 
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
@@ -329,7 +332,9 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          is(format("Error while executing SQL \"%s\": Query canceled", query)));
+          anyOf(is(format("Error while executing SQL \"%s\": Query canceled", query)),
+              allOf(containsString(format("Error while executing SQL \"%s\"", query)),
+                  containsString("CANCELLED"))));
     }
   }
 
