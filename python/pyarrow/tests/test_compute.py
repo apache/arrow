@@ -395,9 +395,8 @@ def test_mode_chunked_array():
 
 
 def test_empty_chunked_array():
-    msg = ("When passing an empty collection of arrays you "
-           "must also pass the data type")
-    with pytest.raises(ValueError, match=msg):
+    msg = "cannot construct ChunkedArray from empty vector and omitted type"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
         pa.chunked_array([])
 
     pa.chunked_array([], type=pa.int8())
