@@ -31,10 +31,15 @@ import (
 
 type ctxAllocKey struct{}
 
+// WithAllocator returns a new context with the provided allocator
+// embedded into the context.
 func WithAllocator(ctx context.Context, mem memory.Allocator) context.Context {
 	return context.WithValue(ctx, ctxAllocKey{}, mem)
 }
 
+// GetAllocator retrieves the allocator from the context, or returns
+// memory.DefaultAllocator if there was no allocator in the provided
+// context.
 func GetAllocator(ctx context.Context) memory.Allocator {
 	mem, ok := ctx.Value(ctxAllocKey{}).(memory.Allocator)
 	if !ok {
@@ -43,11 +48,16 @@ func GetAllocator(ctx context.Context) memory.Allocator {
 	return mem
 }
 
+// Kernel defines the minimum interface required for the basic execution
+// kernel. It will grow as the implementation requires.
 type Kernel interface {
 	GetInitFn() KernelInitFn
 	GetSig() *KernelSignature
 }
 
+// KernelCtx is a small struct holding the context for a kernel execution
+// consisting of a pointer to the kernel, initialized state (if needed)
+// and the context for this execution.
 type KernelCtx struct {
 	Ctx    context.Context
 	Kernel Kernel
@@ -65,6 +75,9 @@ func (k *KernelCtx) AllocateBitmap(nbits int64) *memory.Buffer {
 	return k.Allocate(int(nbytes))
 }
 
+// TypeMatcher define an interface for matching Input or Output types
+// for execution kernels. There are multiple implementations of this
+// interface provided by this package.
 type TypeMatcher interface {
 	fmt.Stringer
 	Matches(typ arrow.DataType) bool
@@ -93,6 +106,9 @@ func (s sameTypeIDMatcher) String() string {
 	return "Type::" + s.accepted.String()
 }
 
+// SameTypeID returns a type matcher which will match
+// any DataType that uses the same arrow.Type ID as the one
+// passed in here.
 func SameTypeID(id arrow.Type) TypeMatcher { return &sameTypeIDMatcher{id} }
 
 type timeUnitMatcher struct {
@@ -123,15 +139,26 @@ func (s *timeUnitMatcher) Equals(other TypeMatcher) bool {
 	return o.id == s.id && o.unit == s.unit
 }
 
+// TimestampTypeUnit returns a TypeMatcher that will match only
+// a Timestamp datatype with the specified TimeUnit.
 func TimestampTypeUnit(unit arrow.TimeUnit) TypeMatcher {
 	return &timeUnitMatcher{arrow.TIMESTAMP, unit}
 }
+
+// Time32TypeUnit returns a TypeMatcher that will match only
+// a Time32 datatype with the specified TimeUnit.
 func Time32TypeUnit(unit arrow.TimeUnit) TypeMatcher {
 	return &timeUnitMatcher{arrow.TIME32, unit}
 }
+
+// Time64TypeUnit returns a TypeMatcher that will match only
+// a Time64 datatype with the specified TimeUnit.
 func Time64TypeUnit(unit arrow.TimeUnit) TypeMatcher {
 	return &timeUnitMatcher{arrow.TIME64, unit}
 }
+
+// DurationTypeUnit returns a TypeMatcher that will match only
+// a Duration datatype with the specified TimeUnit.
 func DurationTypeUnit(unit arrow.TimeUnit) TypeMatcher {
 	return &timeUnitMatcher{arrow.DURATION, unit}
 }
@@ -174,9 +201,17 @@ func (fsbLikeMatcher) Equals(other TypeMatcher) bool {
 	return ok
 }
 
-func Integer() TypeMatcher             { return integerMatcher{} }
-func BinaryLike() TypeMatcher          { return binaryLikeMatcher{} }
-func LargeBinaryLike() TypeMatcher     { return largeBinaryLikeMatcher{} }
+// Integer returns a TypeMatcher which will match any integral type like int8 or uint16
+func Integer() TypeMatcher { return integerMatcher{} }
+
+// BinaryLike returns a TypeMatcher that will match Binary or String
+func BinaryLike() TypeMatcher { return binaryLikeMatcher{} }
+
+// LargeBinaryLike returns a TypeMatcher which will match LargeBinary or LargeString
+func LargeBinaryLike() TypeMatcher { return largeBinaryLikeMatcher{} }
+
+// FixedSizeBinaryLike returns a TypeMatcher that will match FixedSizeBinary
+// or Decimal128/256
 func FixedSizeBinaryLike() TypeMatcher { return fsbLikeMatcher{} }
 
 type primitiveMatcher struct{}
@@ -188,8 +223,13 @@ func (primitiveMatcher) Equals(other TypeMatcher) bool {
 	return ok
 }
 
+// Primitive returns a TypeMatcher that will match any type that arrow.IsPrimitive
+// returns true for.
 func Primitive() TypeMatcher { return primitiveMatcher{} }
 
+// InputKind is an enum representing the type of Input matching
+// that will be done. Either accepting any type, an exact specific type
+// or using a TypeMatcher.
 type InputKind int8
 
 const (
@@ -266,6 +306,10 @@ func (it InputType) Matches(dt arrow.DataType) bool {
 	}
 }
 
+// ResolveKind defines the way that a particular OutputType resolves
+// its type. Either it has a fixed type to resolve to or it contains
+// a Resolver which will compute the resolved type based on
+// the input types.
 type ResolveKind int8
 
 const (
@@ -273,6 +317,8 @@ const (
 	ResolveComputed
 )
 
+// TypeResolver is simply a function that takes a KernelCtx and a list of input types
+// and returns the resolved type or an error.
 type TypeResolver = func(*KernelCtx, []arrow.DataType) (arrow.DataType, error)
 
 type OutputType struct {
@@ -305,39 +351,81 @@ func (o OutputType) Resolve(ctx *KernelCtx, types []arrow.DataType) (arrow.DataT
 	return o.Resolver(ctx, types)
 }
 
+// NullHandling is an enum representing how a particular Kernel
+// wants the executor to handle nulls.
 type NullHandling int8
 
 const (
+	// Compute the output validity bitmap by intersection the validity
+	// bitmaps of the arguments using bitwise-and operations. This means
+	// that values in the output are valid/non-null only if the corresponding
+	// values in all input arguments were valid/non-null. Kernels generally
+	// do not have to touch the bitmap afterwards, but a kernel's exec function
+	// is permitted to alter the bitmap after the null intersection is computed
+	// if necessary.
 	NullIntersection NullHandling = iota
+	// Kernel expects a pre-allocated buffer to write the result bitmap
+	// into.
 	NullComputedPrealloc
+	// Kernel will allocate and set the validity bitmap of the output
 	NullComputedNoPrealloc
+	// kernel output is never null and a validity bitmap doesn't need to
+	// be allocated
 	NullNoOutput
 )
 
+// MemAlloc is the preference for preallocating memory of fixed-width
+// type outputs during kernel execution.
 type MemAlloc int8
 
 const (
+	// For data types that support pre-allocation (fixed-width), the
+	// kernel expects to be provided a pre-allocated buffer to write into.
+	// Non-fixed-width types must always allocate their own buffers.
+	// The allocation is made for the same length as the execution batch,
+	// so vector kernels yielding differently sized outputs should not
+	// use this.
+	//
+	// It is valid for the data to not be preallocated but the validity
+	// bitmap is (or is computed using intersection).
+	//
+	// For variable-size output types like Binary or String, or for nested
+	// types, this option has no effect.
 	MemPrealloc MemAlloc = iota
+	// The kernel is responsible for allocating its own data buffer
+	// for fixed-width output types.
 	MemNoPrealloc
 )
 
-type Options interface{}
-
 type KernelState any
 
+// KernelInitArgs are the arguments required to initialize an Kernel's
+// state using the input types and any options.
 type KernelInitArgs struct {
-	Kernel  Kernel
-	Inputs  []arrow.DataType
-	Options Options
+	Kernel Kernel
+	Inputs []arrow.DataType
+	// Options are opaque and specific to the Kernel being initialized,
+	// may be nil if the kernel doesn't require options.
+	Options any
 }
 
+// KernelInitFn is any function that receives a KernelCtx and initialization
+// arguments and returns the initialized state or an error.
 type KernelInitFn = func(*KernelCtx, KernelInitArgs) (KernelState, error)
 
+// KernelSignature holds the input and output types for a kernel.
+//
+// Variable argument functions with a minimum of N arguments should pass
+// up to N input types to be used to validate for invocation. The first
+// N-1 types will be matched against the first N-1 arguments and the last
+// type will be matched against the remaining arguments.
 type KernelSignature struct {
 	InputTypes []InputType
 	OutType    OutputType
 	IsVarArgs  bool
 
+	// store the hashcode after it is computed so we don't
+	// need to recompute it
 	hashCode uint64
 }
 
