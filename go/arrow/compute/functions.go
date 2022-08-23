@@ -306,3 +306,45 @@ func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 func (s *ScalarFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 	return execInternal(ctx, s, opts, -1, args...)
 }
+
+type MetaFunctionImpl func(context.Context, FunctionOptions, ...Datum) (Datum, error)
+
+type MetaFunction struct {
+	baseFunction
+	impl MetaFunctionImpl
+}
+
+func NewMetaFunction(name string, arity Arity, doc FunctionDoc, impl MetaFunctionImpl) Function {
+	return &MetaFunction{
+		baseFunction: baseFunction{
+			name:  name,
+			arity: arity,
+			doc:   doc,
+		},
+		impl: impl,
+	}
+}
+
+func (MetaFunction) NumKernels() int { return 0 }
+func (m *MetaFunction) DispatchExact(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) DispatchBest(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	if err := m.checkArity(len(args)); err != nil {
+		return nil, err
+	}
+	if err := checkOptions(m, opts); err != nil {
+		return nil, err
+	}
+
+	if opts == nil {
+		opts = m.defaultOpts
+	}
+
+	return m.impl(ctx, opts, args...)
+}

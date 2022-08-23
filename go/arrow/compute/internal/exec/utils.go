@@ -17,6 +17,7 @@
 package exec
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -80,9 +81,26 @@ func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 	return ret[span.Offset:]
 }
 
+// GetSpanOffsets is like GetSpanValues, except it is only for int32
+// or int64 and adds the additional 1 expected value for an offset
+// buffer (ie. len(output) == span.Len+1)
+func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
+	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len+1)
+	return ret[span.Offset:]
+}
+
 func Min[T constraints.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) {
+	if opts, ok := args.Options.(*T); ok {
+		return *opts, nil
+	}
+
+	return nil, fmt.Errorf("%w: attempted to initialize kernel state from invalid function options",
+		arrow.ErrInvalid)
 }
