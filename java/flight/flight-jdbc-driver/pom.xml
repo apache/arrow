@@ -22,10 +22,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>flight-jdbc-driver</artifactId>
-    <name>Arrow Flight JDBC Driver</name>
-    <description>(Contrib/Experimental)A library for querying data using a JDBC driver for Arrow Flight.</description>
+    <name>Arrow Flight SQL JDBC Driver</name>
+    <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
-    <url>http://maven.apache.org</url>
+    <url>https://arrow.apache.org</url>
 
     <properties>
         <org.apache.arrow.flight.name>${project.parent.groupId}:${project.parent.artifactId}</org.apache.arrow.flight.name>
