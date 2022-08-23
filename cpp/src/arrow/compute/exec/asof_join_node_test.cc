@@ -97,6 +97,14 @@ BatchesWithSchema MakeBatchesFromNumString(
   return batches;
 }
 
+void BuildNullArray(std::shared_ptr<Array>& empty, const std::shared_ptr<DataType>& type,
+                    int64_t length) {
+  ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(type, default_memory_pool()));
+  ASSERT_OK(builder->Reserve(length));
+  ASSERT_OK(builder->AppendNulls(length));
+  ASSERT_OK(builder->Finish(&empty));
+}
+
 void BuildZeroPrimitiveArray(std::shared_ptr<Array>& empty,
                              const std::shared_ptr<DataType>& type, int64_t length) {
   ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(type, default_memory_pool()));
@@ -118,7 +126,8 @@ void BuildZeroBaseBinaryArray(std::shared_ptr<Array>& empty, int64_t length) {
 
 // mutates by copying from_key into to_key and changing from_key to zero
 BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
-                              std::string to_key, bool replace_key = false) {
+                              std::string to_key, bool replace_key = false,
+                              bool null_key = false) {
   int from_index = batches.schema->GetFieldIndex(from_key);
   int n_fields = batches.schema->num_fields();
   auto fields = batches.schema->fields();
@@ -133,7 +142,11 @@ BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
       const Datum& value = batch.values[i];
       if (i == from_index) {
         auto type = fields[i]->type();
-        if (is_primitive(type->id())) {
+        if (null_key) {
+          std::shared_ptr<Array> empty;
+          BuildNullArray(empty, type, batch.length);
+          new_values.push_back(empty);
+        } else if (is_primitive(type->id())) {
           std::shared_ptr<Array> empty;
           BuildZeroPrimitiveArray(empty, type, batch.length);
           new_values.push_back(empty);
@@ -224,13 +237,11 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
 
 EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
 
-void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
-                          const std::shared_ptr<Schema>& r_schema,
-                          const AsofJoinNodeOptions& join_options,
-                          const std::string& expected_error_str) {
-  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {R"([])"});
-  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {R"([])"});
-
+void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
+                       const BatchesWithSchema& r_batches,
+                       const AsofJoinNodeOptions& join_options,
+                       const std::string& expected_error_str,
+                       bool then_run_plan = false) {
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
 
@@ -240,8 +251,34 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_error_str),
-                                  join.AddToPlan(plan.get()));
+  if (then_run_plan) {
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
+                  .AddToPlan(plan.get()));
+    EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                                 ::testing::HasSubstr(expected_error_str),
+                                                 StartAndCollect(plan.get(), sink_gen));
+  } else {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_error_str),
+                                    join.AddToPlan(plan.get()));
+  }
+}
+
+void DoRunInvalidPlanTest(const BatchesWithSchema& l_batches,
+                          const BatchesWithSchema& r_batches,
+                          const AsofJoinNodeOptions& join_options,
+                          const std::string& expected_error_str) {
+  DoInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str);
+}
+
+void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema,
+                          const AsofJoinNodeOptions& join_options,
+                          const std::string& expected_error_str) {
+  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {R"([])"});
+  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {R"([])"});
+
+  return DoRunInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str);
 }
 
 void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
@@ -305,6 +342,51 @@ void DoRunAmbiguousOnKeyTest(const std::shared_ptr<Schema>& l_schema,
 void DoRunAmbiguousByKeyTest(const std::shared_ptr<Schema>& l_schema,
                              const std::shared_ptr<Schema>& r_schema) {
   DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : Multiple matches");
+}
+
+std::string GetJsonStringWithOrder(int n_rows, int n_cols, bool unordered) {
+  std::stringstream s;
+  s << '[';
+  for (int i = 0; i < n_rows; i++) {
+    if (i > 0) {
+      s << ", ";
+    }
+    s << '[';
+    for (int j = 0; j < n_cols; j++) {
+      if (j > 0) {
+        s << ", " << j;
+      } else {
+        s << (i ^ unordered);
+      }
+    }
+    s << ']';
+  }
+  s << ']';
+  return s.str();
+}
+
+void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
+                            const std::shared_ptr<Schema>& l_schema,
+                            const std::shared_ptr<Schema>& r_schema,
+                            const AsofJoinNodeOptions& join_options,
+                            const std::string& expected_error_str) {
+  ASSERT_TRUE(l_unordered || r_unordered);
+  int n_rows = 5;
+  std::string l_str = GetJsonStringWithOrder(n_rows, l_schema->num_fields(), l_unordered);
+  std::string r_str = GetJsonStringWithOrder(n_rows, r_schema->num_fields(), r_unordered);
+  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {l_str});
+  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {r_str});
+
+  return DoInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str,
+                           /*then_run_plan=*/true);
+}
+
+void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
+                            const std::shared_ptr<Schema>& l_schema,
+                            const std::shared_ptr<Schema>& r_schema) {
+  DoRunUnorderedPlanTest(l_unordered, r_unordered, l_schema, r_schema,
+                         AsofJoinNodeOptions("time", "key", 1000),
+                         "out-of-order on-key values");
 }
 
 struct BasicTestTypes {
@@ -388,7 +470,23 @@ struct BasicTest {
       l_batches = MutateByKey(l_batches, "key", "key2", true);
       r0_batches = MutateByKey(r0_batches, "key", "key2", true);
       r1_batches = MutateByKey(r1_batches, "key", "key2", true);
-      exp_batches = MutateByKey(exp_batches, "key", "key2", true);
+      exp_nokey_batches = MutateByKey(exp_nokey_batches, "key", "key2", true);
+      CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches, "time", "key2",
+                     tolerance);
+    });
+  }
+  void RunMutateNullKey(std::vector<std::shared_ptr<DataType>> time_types = {},
+                        std::vector<std::shared_ptr<DataType>> key_types = {},
+                        std::vector<std::shared_ptr<DataType>> l_types = {},
+                        std::vector<std::shared_ptr<DataType>> r0_types = {},
+                        std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+    using B = BatchesWithSchema;
+    RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
+                      B exp_batches) {
+      l_batches = MutateByKey(l_batches, "key", "key2", true, true);
+      r0_batches = MutateByKey(r0_batches, "key", "key2", true, true);
+      r1_batches = MutateByKey(r1_batches, "key", "key2", true, true);
+      exp_nokey_batches = MutateByKey(exp_nokey_batches, "key", "key2", true, true);
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches, "time", "key2",
                      tolerance);
     });
@@ -512,18 +610,21 @@ struct BasicTest {
 
 class AsofJoinTest : public testing::Test {};
 
-#define ASOFJOIN_TEST_SET(name, num)                         \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_SingleByKey) { \
-    Get##name##Test##num().RunSingleByKey();                 \
-  }                                                          \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_DoubleByKey) { \
-    Get##name##Test##num().RunDoubleByKey();                 \
-  }                                                          \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateByKey) { \
-    Get##name##Test##num().RunMutateByKey();                 \
-  }                                                          \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNoKey) { \
-    Get##name##Test##num().RunMutateNoKey();                 \
+#define ASOFJOIN_TEST_SET(name, num)                           \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_SingleByKey) {   \
+    Get##name##Test##num().RunSingleByKey();                   \
+  }                                                            \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_DoubleByKey) {   \
+    Get##name##Test##num().RunDoubleByKey();                   \
+  }                                                            \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateByKey) {   \
+    Get##name##Test##num().RunMutateByKey();                   \
+  }                                                            \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNoKey) {   \
+    Get##name##Test##num().RunMutateNoKey();                   \
+  }                                                            \
+  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNullKey) { \
+    Get##name##Test##num().RunMutateNullKey();                 \
   }
 
 BasicTest GetBasicTest1() {
@@ -794,6 +895,27 @@ TRACED_TEST(AsofJoinTest, TestAmbiguousByKey) {
   DoRunAmbiguousByKeyTest(
       schema({field("time", int64()), field("key", int64()), field("key", int32()),
               field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TRACED_TEST(AsofJoinTest, TestLeftUnorderedOnKey) {
+  DoRunUnorderedPlanTest(
+      /*l_unordered=*/true, /*r_unordered=*/false,
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TRACED_TEST(AsofJoinTest, TestRightUnorderedOnKey) {
+  DoRunUnorderedPlanTest(
+      /*l_unordered=*/false, /*r_unordered=*/true,
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TRACED_TEST(AsofJoinTest, TestUnorderedOnKey) {
+  DoRunUnorderedPlanTest(
+      /*l_unordered=*/true, /*r_unordered=*/true,
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 

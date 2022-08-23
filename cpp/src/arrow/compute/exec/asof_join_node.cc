@@ -239,7 +239,8 @@ class InputState {
   // turned into output record batches.
 
  public:
-  InputState(KeyHasher* key_hasher, const std::shared_ptr<arrow::Schema>& schema,
+  InputState(bool must_hash, KeyHasher* key_hasher,
+             const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index, const vec_col_index_t& key_col_index)
       : queue_(),
         schema_(schema),
@@ -247,7 +248,8 @@ class InputState {
         key_col_index_(key_col_index),
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
         key_type_id_(schema_->num_fields()),
-        key_hasher_(key_hasher) {
+        key_hasher_(key_hasher),
+        must_hash_(must_hash) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -295,10 +297,11 @@ class InputState {
   }
 
   ByType GetLatestKey() const {
-    if (key_hasher_ != NULLPTR) {
-      return key_hasher_->HashesFor(queue_.UnsyncFront().get())[latest_ref_row_];
+    const RecordBatch* batch = queue_.UnsyncFront().get();
+    if (must_hash_ || batch->column_data(key_col_index_[0])->GetNullCount() > 0) {
+      return key_hasher_->HashesFor(batch)[latest_ref_row_];
     }
-    auto data = queue_.UnsyncFront()->column_data(key_col_index_[0]);
+    auto data = batch->column_data(key_col_index_[0]);
     switch (key_type_id_[0]) {
       LATEST_VAL_CASE(INT8, key_value)
       LATEST_VAL_CASE(INT16, key_value)
@@ -345,7 +348,7 @@ class InputState {
 
   bool Finished() const { return batches_processed_ == total_batches_; }
 
-  bool Advance() {
+  Result<bool> Advance() {
     // Try advancing to the next row and update latest_ref_row_
     // Returns true if able to advance, false if not.
     bool have_active_batch =
@@ -361,6 +364,13 @@ class InputState {
         if (have_active_batch)
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
       }
+      if (have_active_batch) {
+        OnType next_time = GetLatestTime();
+        if (latest_time_ > next_time) {
+          return Status::Invalid("AsofJoin does not allow out-of-order on-key values");
+        }
+        latest_time_ = next_time;
+      }
     }
     return have_active_batch;
   }
@@ -369,7 +379,7 @@ class InputState {
   // latest_time and latest_ref_row to the value that immediately pass the
   // specified timestamp.
   // Returns true if updates were made, false if not.
-  bool AdvanceAndMemoize(OnType ts) {
+  Result<bool> AdvanceAndMemoize(OnType ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
 
@@ -377,7 +387,7 @@ class InputState {
     if (Empty()) return false;  // can't advance if empty
 
     // Not updated.  Try to update and possibly advance.
-    bool updated = false;
+    bool advanced, updated = false;
     do {
       auto latest_time = GetLatestTime();
       // if Advance() returns true, then the latest_ts must also be valid
@@ -389,7 +399,8 @@ class InputState {
       }
       memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
       updated = true;
-    } while (Advance());
+      ARROW_ASSIGN_OR_RAISE(advanced, Advance());
+    } while (advanced);
     return updated;
   }
 
@@ -443,11 +454,15 @@ class InputState {
   Type::type time_type_id_;
   // Type id of the key column
   std::vector<Type::type> key_type_id_;
-  // Buffer for key elements
+  // Hasher for key elements
   mutable KeyHasher* key_hasher_;
+  // True if hashing is mandatory
+  bool must_hash_;
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
   // Must be < queue_.front()->num_rows() if queue_ is non-empty
   row_index_t latest_ref_row_ = 0;
+  // Time of latest row
+  OnType latest_time_ = std::numeric_limits<OnType>::lowest();
   // Stores latest known values for the various keys
   MemoStore memo_;
   // Mapping of source columns to destination columns
@@ -622,6 +637,13 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
+  // this should really be a method on ArrayData
+  static bool IsNull(const std::shared_ptr<ArrayData>& source, row_index_t row) {
+    return ((source->buffers[0] != NULLPTR)
+                ? !bit_util::GetBit(source->buffers[0]->data(), row + source->offset)
+                : source->null_count.load() == source->length);
+  }
+
   template <typename T>
   using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
 
@@ -629,16 +651,23 @@ class CompositeReferenceTable {
   using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_fixed_width_type<Type, Status> BuilderAppend(
+  enable_if_fixed_width_type<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
+    if (IsNull(source, row)) {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    }
     using CType = typename TypeTraits<Type>::CType;
     builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
     return Status::OK();
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_base_binary<Type, Status> BuilderAppend(
+  enable_if_base_binary<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
+    if (IsNull(source, row)) {
+      return builder.AppendNull();
+    }
     using offset_type = typename Type::offset_type;
     const uint8_t* data = source->buffers[2]->data();
     const offset_type* offsets = source->GetValues<offset_type>(1);
@@ -672,12 +701,14 @@ class CompositeReferenceTable {
 
 class AsofJoinNode : public ExecNode {
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
-  bool UpdateRhs() {
+  Result<bool> UpdateRhs() {
     auto& lhs = *state_.at(0);
     auto lhs_latest_time = lhs.GetLatestTime();
     bool any_updated = false;
-    for (size_t i = 1; i < state_.size(); ++i)
-      any_updated |= state_[i]->AdvanceAndMemoize(lhs_latest_time);
+    for (size_t i = 1; i < state_.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(bool advanced, state_[i]->AdvanceAndMemoize(lhs_latest_time));
+      any_updated |= advanced;
+    }
     return any_updated;
   }
 
@@ -713,7 +744,7 @@ class AsofJoinNode : public ExecNode {
       if (lhs.Finished() || lhs.Empty()) break;
 
       // Advance each of the RHS as far as possible to be up to date for the LHS timestamp
-      bool any_rhs_advanced = UpdateRhs();
+      ARROW_ASSIGN_OR_RAISE(bool any_rhs_advanced, UpdateRhs());
 
       // If we have received enough inputs to produce the next output batch
       // (decided by IsUpToDateWithLhsRow), we will perform the join and
@@ -722,7 +753,8 @@ class AsofJoinNode : public ExecNode {
       // input batches that are no longer needed are removed to free up memory.
       if (IsUpToDateWithLhsRow()) {
         dst.Emplace(state_, tolerance_);
-        if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
+        ARROW_ASSIGN_OR_RAISE(bool advanced, lhs.Advance());
+        if (!advanced) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if (!any_rhs_advanced) break;  // need to wait for new data
       }
@@ -795,13 +827,13 @@ class AsofJoinNode : public ExecNode {
                const std::vector<vec_col_index_t>& indices_of_by_key, OnType tolerance,
                std::shared_ptr<Schema> output_schema);
 
-  Status InternalInit(std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
+  Status InternalInit(bool must_hash,
+                      std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
     key_hashers_.swap(key_hashers);
-    bool has_hashers = key_hashers_.size() > 0;
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); ++i) {
       state_.push_back(::arrow::internal::make_unique<InputState>(
-          has_hashers ? key_hashers_[i].get() : NULLPTR, inputs[i]->output_schema(),
+          must_hash, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
 
@@ -1003,14 +1035,13 @@ class AsofJoinNode : public ExecNode {
     auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
     auto single_key_field = inputs[0]->output_schema()->field(indices_of_by_key[0][0]);
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
-    if (n_by > 1 || !is_primitive(single_key_field->type()->id())) {
-      for (size_t i = 0; i < n_input; i++) {
-        key_hashers.push_back(
-            ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
-        RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
-      }
+    bool must_hash = n_by > 1 || !is_primitive(single_key_field->type()->id());
+    for (size_t i = 0; i < n_input; i++) {
+      key_hashers.push_back(
+          ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
+      RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
     }
-    RETURN_NOT_OK(node->InternalInit(std::move(key_hashers)));
+    RETURN_NOT_OK(node->InternalInit(must_hash, std::move(key_hashers)));
     return node;
   }
 
