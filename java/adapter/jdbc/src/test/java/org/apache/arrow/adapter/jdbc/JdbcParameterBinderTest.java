@@ -816,20 +816,22 @@ public class JdbcParameterBinderTest {
                             new Field(MapVector.VALUE_NAME, keyType, null)))))));
     try (final MockPreparedStatement statement = new MockPreparedStatement();
          final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
-      final JdbcParameterBinder binder =
-          JdbcParameterBinder.builder(statement, root).bindAll().build();
-      assertThat(binder.next()).isFalse();
-
       @SuppressWarnings("unchecked")
       final V vector = (V) root.getVector(0);
+
+      final JdbcParameterBinder binder =
+          JdbcParameterBinder.builder(statement, root).bind(1,
+                  new org.apache.arrow.adapter.jdbc.binder.MapBinder((MapVector) vector, Types.OTHER)).build();
+      assertThat(binder.next()).isFalse();
+
       setValue.accept(vector, 0, values.get(0));
       setValue.accept(vector, 1, values.get(1));
       root.setRowCount(2);
 
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
 
       binder.reset();
@@ -842,15 +844,15 @@ public class JdbcParameterBinderTest {
       root.setRowCount(5);
 
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
       assertThat(binder.next()).isTrue();
-      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1).toString());
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
     }
   }
