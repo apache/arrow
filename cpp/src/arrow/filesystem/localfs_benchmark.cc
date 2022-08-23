@@ -27,7 +27,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/formatting.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
