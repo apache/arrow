@@ -37,7 +37,7 @@ ARG java=1.8.0
 RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
-# For ci/scripts/java_*.sh
+# For ci/scripts/{cpp,java}_*.sh
 ENV ARROW_GANDIVA_JAVA=ON \
     ARROW_HOME=/tmp/local \
     ARROW_JAVA_CDATA=ON \

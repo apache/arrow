@@ -45,11 +45,13 @@ case "$(uname)" in
     ;;
 esac
 
+: ${ARROW_JAVA_BUILD_TESTS:=${ARROW_BUILD_TESTS:-OFF}}
 : ${CMKAE_BUILD_TYPE:=release}
 # TODO: Remove the last "/arrow" from -DCMAKE_PREFIX_PATH when
 # we resolve ARROW-12175 / https://github.com/apache/arrow/pull/13892 .
 cmake \
   -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-ON} \
+  -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir}/lib/cmake/arrow \
   -DCMAKE_INSTALL_PREFIX=${dist_dir} \
@@ -59,9 +61,11 @@ cmake \
   ${arrow_dir}/java
 export CMAKE_BUILD_PARALLEL_LEVEL=${n_jobs}
 cmake --build . --config ${CMAKE_BUILD_TYPE}
-ctest \
-  --output-on-failure \
-  --parallel ${n_jobs} \
-  --timeout 300
+if [ "${ARROW_JAVA_BUILD_TESTS}" = "ON" ]; then
+  ctest \
+    --output-on-failure \
+    --parallel ${n_jobs} \
+    --timeout 300
+fi
 cmake --build . --config ${CMAKE_BUILD_TYPE} --target install
 popd
