@@ -511,10 +511,12 @@ class TeeNode : public compute::MapNode {
   void Finish(Status finish_st) override {
     if (!finish_st.ok()) {
       MapNode::Finish(std::move(finish_st));
+      return;
     }
     Status writer_finish_st = dataset_writer_->Finish();
     if (!writer_finish_st.ok()) {
       MapNode::Finish(std::move(writer_finish_st));
+      return;
     }
     serial_scheduler_->End();
     MapNode::Finish(Status::OK());

@@ -131,7 +131,11 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
   bool AddTask(std::unique_ptr<Task> task) override {
     std::unique_lock<std::mutex> lk(mutex_);
-    DCHECK_NE(state_, State::kEnded);
+    // When a scheduler has been ended that usually signals to the caller that the
+    // scheduler is free to be deleted (and any associated resources).  In this case the
+    // task likely has dangling pointers/references and would be unsafe to execute.
+    DCHECK_NE(state_, State::kEnded)
+        << "Attempt to add a task to a scheduler after it had ended.";
     if (state_ == State::kAborted) {
       return false;
     }
