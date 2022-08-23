@@ -32,16 +32,6 @@ find_dependency(ArrowTesting)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTestingTargets.cmake")
 
-# For backward compatibility
-if(NOT CMAKE_VERSION VERSION_LESS 3.18)
-  if(TARGET ArrowFlightTesting::arrow_flight_testing_shared AND
-     NOT TARGET arrow_flight_testing_shared)
-    add_library(arrow_flight_testing_shared ALIAS ArrowFlightTesting::arrow_flight_testing_shared)
-  endif()
-  if(TARGET ArrowFlightTesting::arrow_flight_testing_static AND
-     NOT TARGET arrow_flight_testing_static)
-    add_library(arrow_flight_testing_static ALIAS ArrowFlightTesting::arrow_flight_testing_static)
-  endif()
-endif()
+arrow_keep_backward_compatibility(ArrowFlightTetsing arrow_flight_testing)
 
 check_required_components(ArrowFlightTesting)

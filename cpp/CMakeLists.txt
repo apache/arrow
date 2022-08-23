@@ -148,30 +148,6 @@ string(REGEX REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
 string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
                      "${ARROW_CLANG_TOOLS_VERSION}")
 
-if(APPLE)
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix
-                            "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT LLVM_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
-                    OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT CLANG_TOOLS_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-  endif()
-endif()
-
 if(WIN32 AND NOT MINGW)
   # This is used to handle builds using e.g. clang in an MSVC setting.
   set(MSVC_TOOLCHAIN TRUE)

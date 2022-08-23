@@ -263,7 +263,7 @@ function(bundle_arrow_lib library_path)
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
                    COPYONLY)
   else()
-    configure_file(${${library_path}}.${ARG_SO_VERSION}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    COPYONLY)
   endif()

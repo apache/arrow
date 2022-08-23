@@ -34,40 +34,6 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
 
-# For backward compatibility
-if(NOT CMAKE_VERSION VERSION_LESS 3.18)
-  if(TARGET ArrowPython::arrow_python_shared AND NOT TARGET arrow_python_shared)
-    add_library(arrow_python_shared ALIAS ArrowPython::arrow_python_shared)
-  endif()
-  if(TARGET ArrowPython::arrow_python_static AND NOT TARGET arrow_python_static)
-    add_library(arrow_python_static ALIAS ArrowPython::arrow_python_static)
-  endif()
-endif()
-
-# For backward compatibility
-if(TARGET ArrowPython::arrow_python_shared)
-  get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
-    IMPORTED_LOCATION_RELEASE)
-  if(NOT ARROW_PYTHON_SHARED_LIB)
-    get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
-      IMPORTED_LOCATION_DEBUG)
-  endif()
-  if(NOT ARROW_PYTHON_SHARED_LIB)
-    get_target_property(ARROW_PYTHON_SHARED_LIB ArrowPython::arrow_python_shared
-      IMPORTED_LOCATION)
-  endif()
-endif()
-if(TARGET ArrowPython::arrow_python_static)
-  get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
-    IMPORTED_LOCATION_RELEASE)
-  if(NOT ARROW_PYTHON_STATIC_LIB)
-    get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
-      IMPORTED_LOCATION_DEBUG)
-  endif()
-  if(NOT ARROW_PYTHON_STATIC_LIB)
-    get_target_property(ARROW_PYTHON_STATIC_LIB ArrowPython::arrow_python_static
-      IMPORTED_LOCATION)
-  endif()
-endif()
+arrow_keep_backward_compatibility(ArrowPython arrow_python)
 
 check_required_components(ArrowPython)

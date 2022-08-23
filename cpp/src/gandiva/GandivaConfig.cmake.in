@@ -28,17 +28,10 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+find_dependency(LLVMAlt)
 
 include("${CMAKE_CURRENT_LIST_DIR}/GandivaTargets.cmake")
 
-# For backward compatibility
-if(NOT CMAKE_VERSION VERSION_LESS 3.18)
-  if(TARGET Gandiva::gandiva_shared AND NOT TARGET gandiva_shared)
-    add_library(gandiva_shared ALIAS Gandiva::gandiva_shared)
-  endif()
-  if(TARGET Gandiva::gandiva_static AND NOT TARGET gandiva_static)
-    add_library(gandiva_static ALIAS Gandiva::gandiva_static)
-  endif()
-endif()
+arrow_keep_backward_compatibility(Gandiva gandiva)
 
 check_required_components(Gandiva)

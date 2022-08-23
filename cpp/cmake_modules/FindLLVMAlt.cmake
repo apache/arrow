@@ -41,8 +41,21 @@ endif()
 
 if(NOT LLVM_FOUND)
   set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-  if(LLVM_BREW_PREFIX)
-    list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+  if(APPLE)
+    find_program(BREW brew)
+    if(BREW)
+      execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(NOT LLVM_BREW_PREFIX)
+        execute_process(COMMAND ${BREW} --prefix llvm
+                        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      endif()
+      if(LLVM_BREW_PREFIX)
+        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+      endif()
+    endif()
   endif()
 
   foreach(HINT ${LLVM_HINTS})
