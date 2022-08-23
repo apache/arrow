@@ -57,10 +57,8 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
-# TODO: Change -DARROW_BUILD_SHARED=ON to OFF when we move all JNI
-# related codes to java/ from cpp/.
 cmake \
-  -DARROW_BUILD_SHARED=ON \
+  -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_BUILD_UTILITIES=OFF \
   -DARROW_CSV=${ARROW_DATASET} \
