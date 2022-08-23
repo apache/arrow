@@ -24,7 +24,7 @@
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
-#' @importFrom rlang quo_set_env quo_get_env
+#' @importFrom rlang quo_set_env quo_get_env is_formula env_bind_active quo_is_call
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal

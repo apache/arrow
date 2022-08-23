@@ -91,6 +91,7 @@ Collate:
     'dataset-scan.R'
     'dataset-write.R'
     'dictionary.R'
+    'dplyr-across.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
