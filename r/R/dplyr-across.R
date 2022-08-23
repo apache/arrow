@@ -43,10 +43,8 @@ expand_across <- function(.data, quos_in) {
         cols <- quote(everything())
       }
 
-      cols <- as_quosure(cols, quo_env)
-
       setup <- across_setup(
-        !!cols,
+        cols = !!as_quosure(cols, quo_env),
         fns = across_call[[".fns"]],
         names = across_call[[".names"]],
         .caller_env = quo_env,
@@ -109,7 +107,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   }
   vars <- names(dplyr::select(mask, !!cols))
 
-  # need to work out what this block does
   if (is.null(fns)) {
     if (!is.null(names)) {
       glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
@@ -117,7 +114,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     } else {
       names <- vars
     }
-
     value <- list(vars = vars, fns = fns, names = names)
     return(value)
   }
