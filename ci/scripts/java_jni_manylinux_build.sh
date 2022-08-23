@@ -137,7 +137,6 @@ fi
 
 
 echo "=== Copying libraries to the distribution folder ==="
-cp -L ${ARROW_HOME}/lib/libarrow_dataset_jni.so ${dist_dir}
 cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
 cp -L ${ARROW_HOME}/lib/libgandiva_jni.so ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
