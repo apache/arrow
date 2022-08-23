@@ -124,6 +124,7 @@ cdef class NativeFile(_Weakrefable):
     def __repr__(self):
         name = f"pyarrow.{self.__class__.__name__}"
         return (f"<{name} "
+                f"closed={self.closed} "
                 f"own_file={self.own_file} "
                 f"is_seekable={self.is_seekable} "
                 f"is_writable={self.is_writable} "
@@ -774,6 +775,13 @@ cdef class PythonFile(NativeFile):
     As a downside, there is a non-zero redirection cost in translating
     Arrow stream calls to Python method calls.  Furthermore, Python's
     Global Interpreter Lock may limit parallelism in some situations.
+ 
+    Examples
+    --------
+    >>> import io
+    >>> import pyarrow as pa
+    >>> pa.PythonFile(io.BytesIO())
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
     """
     cdef:
         object handle
