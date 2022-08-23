@@ -18,10 +18,13 @@
 
 set -ex
 
+if [[ "${ARROW_JAVA_BUILD:-ON}" != "ON" ]]; then
+  exit
+fi
+
 arrow_dir=${1}
 source_dir=${1}/java
 build_dir=${2}
-cpp_build_dir=${build_dir}/cpp/${ARROW_BUILD_TYPE:-debug}
 java_jni_dist_dir=${3}
 
 : ${BUILD_DOCS_JAVA:=OFF}
@@ -85,7 +88,7 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
 fi
 
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
-  ${mvn} -Darrow.cpp.build.dir=${cpp_build_dir} -Parrow-jni install
+  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then

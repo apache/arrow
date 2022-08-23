@@ -122,7 +122,6 @@ x-hierarchy:
     - debian-go-cgo
     - debian-go-cgo-python
   - debian-java
-  - debian-java-jni
   - debian-js
   - fedora-cpp:
     - fedora-python
@@ -999,10 +998,14 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
-      ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
+      ["pip install -e /arrow/dev/archery && \
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
+        source /opt/rh/rh-maven35/enable && \
+        /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
+        /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
 
@@ -1540,37 +1543,6 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
-
-  debian-java-jni:
-    # Includes plasma test, jni for gandiva and orc, and C data interface.
-    # Usage:
-    #   docker-compose build debian-java
-    #   docker-compose build debian-java-jni
-    #   docker-compose run debian-java-jni
-    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-jni.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
-      args:
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      ARROW_BUILD_TESTS: "OFF"
-      ARROW_S3: "OFF"
-      ARROW_SUBSTRAIT: "OFF"
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    command:
-      /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/java_dist &&
-        /arrow/ci/scripts/java_build.sh /arrow /build /tmp/java_dist &&
-        /arrow/ci/scripts/java_test.sh /arrow /build /tmp/java_dist"
 
   oracle-java:
     # Usage:
