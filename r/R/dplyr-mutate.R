@@ -260,20 +260,17 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE){
   vars <- names(dplyr::select(mask, !!cols))
 
   # need to work out what this block does
-  # if (is.null(fns)) {
-  #   if (!is.null(names)) {
-  #     glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
-  #     names <- fix_call(
-  #       vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique"),
-  #       call = call(across_if_fn)
-  #     )
-  #   } else {
-  #     names <- names_vars
-  #   }
-  #
-  #   value <- list(vars = vars, fns = fns, names = names)
-  #   return(value)
-  # }
+  if (is.null(fns)) {
+    if (!is.null(names)) {
+      glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
+      names <- vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique")
+    } else {
+      names <- vars
+    }
+
+    value <- list(vars = vars, fns = fns, names = names)
+    return(value)
+  }
 
   # apply `.names` smart default
   if (is.function(fns) || is_formula(fns) || is.name(fns)) {
@@ -282,6 +279,15 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE){
   } else {
     names <- names %||% "{.col}_{.fn}"
     fns <- call_args(fns)
+  }
+
+  if (any(map_lgl(fns, is_formula))) {
+    abort(
+          paste(
+            "purrr-style lambda functions as `.fns` argument to `across()`",
+            "not yet supported in Arrow"
+          )
+    )
   }
 
   if (!is.list(fns)) {

@@ -654,8 +654,6 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
-
-
   # dynamic variable name
   int = c("dbl", "dbl2")
   compare_dplyr_binding(
@@ -712,6 +710,17 @@ test_that("Can use across() within mutate()", {
     compare_dplyr_binding(
       .input %>%
         mutate(across(1:dbl2, ~ round(.x, digits = -1))) %>%
+        collect(),
+      tbl
+    ),
+    regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
+    fixed = TRUE
+  )
+
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(1:dbl2, list(~ round(.x, digits = -1), ~sqrt(.x)))) %>%
         collect(),
       tbl
     ),
