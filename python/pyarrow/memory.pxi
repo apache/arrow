@@ -124,6 +124,11 @@ cdef class ProxyMemoryPool(MemoryPool):
 def default_memory_pool():
     """
     Return the process-global memory pool.
+    
+    Examples
+    --------
+    >>> default_memory_pool()
+    <pyarrow.MemoryPool backend_name=... bytes_allocated=0 max_memory=...>
     """
     cdef:
         MemoryPool pool = MemoryPool.__new__(MemoryPool)
