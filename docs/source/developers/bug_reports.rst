@@ -53,15 +53,11 @@ Individuals may
 Creating issues
 ===============
 
-No one likes having bugs or feature gaps in their software, and in an ideal
-world, all bugs would get fixed as soon as they were reported. However, time
-and attention are finite, especially in an open-source project where most
-contributors are participating in their spare time. All contributors in Apache
-projects are volunteers and act as individuals, even if they are contributing
-to the project as part of their job responsibilities.
-
-The following guidelines will help you create effective bug reports and feature
-requests.
+Apache Arrow relies upon community contributions to address reported bugs and
+feature requests. As with most software projects, contributor time and
+resources are finite. The following guidelines aim to produce high-quality
+bug reports and feature requests, enabling community contributors to respond
+to more issues, faster:
 
 .. _check-existing-issues:
 
@@ -240,12 +236,7 @@ and will be - done on an issue:
   closed, including during review of pull requests.
 * **Resolved** - This is a terminal status indicating action has been taken
   on the issue, which is now considered completed. Issues in a resolved status
-  may have the following resolution codes set:
-
-  * Fixed
-  * Implemented
-  * Done
-
+  should have a resolution code set to **Fixed**.
 * **Closed** - Another terminal status, Closed indicates the issue is complete,
   but *without* action being taken. The following resolution codes apply to
   issues in Closed status:
@@ -276,7 +267,7 @@ Assignment signals commitment to work on an issue, and contributors should
 self-assign issues when that work starts. At the same time the issue is
 assigned, the status field should be updated to **In Progress**.
 
-The Arrow project relies upon volunteer contributors, and we recognize that
-priorities and plans may change, resulting in an issue assigned to an
-individual who cannot attend to it. Assigned issues without updates in the past
-90 days may be unassigned and set to "Open" status.
+The Arrow project relies upon community contributors to resolve issues. We
+recognize that priorities and plans may change, resulting in an issue assigned
+to an individual who cannot attend to it. Assigned issues without updates in
+the past 90 days will be unassigned and set to **Open** status.
