@@ -141,14 +141,14 @@ def test_chunked_array_to_numpy():
 
 def test_chunked_array_mismatch_types():
     msg = "chunks must all be same type"
-    with pytest.raises(pa.ArrowInvalid, match=msg):
+    with pytest.raises(TypeError, match=msg):
         # Given array types are different
         pa.chunked_array([
             pa.array([1, 2, 3]),
             pa.array([1., 2., 3.])
         ])
 
-    with pytest.raises(pa.ArrowInvalid, match=msg):
+    with pytest.raises(TypeError, match=msg):
         # Given array type is different from explicit type argument
         pa.chunked_array([pa.array([1, 2, 3])], type=pa.float64())
 
