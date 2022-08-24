@@ -103,16 +103,33 @@ arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
       expr <- exprs[[i]]
       # figure out which of the calls in expr are unknown (do not have
       # matching bindings)
-      unknown_functions <- setdiff(all_funs(expr), names(f_env))
+      unknown_functions <- setdiff(
+        all_funs(expr),
+        union(
+          names(f_env),
+          translation_exceptions
+        )
+      )
 
       if (length(unknown_functions != 0)) {
-        funct <- rlang::as_function(
-          unknown_functions,
-          env = rlang::quo_get_env(expr)
+        # get the functions from the expr (quosure) original environment or, if
+        # the call contains `::`, get the function from the corresponding namespace
+        functions <- purrr::map_if(
+          .x = unknown_functions,
+          .p = ~ !grepl("::", .x),
+          .f = ~ as_function(.x, env = rlang::quo_get_env(expr)),
+          .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
         )
         parent.env(f_env) <- rlang::quo_get_env(expr)
-        environment(funct) <- f_env
-        register_binding(unknown_functions, funct, f_env, update_cache = TRUE)
+        for (i in seq_along(functions)) {
+          environment(functions[[i]]) <- f_env
+        }
+
+        purrr::walk2(
+          .x = unknown_functions,
+          .y = functions,
+          .f = ~ register_binding(.x, .y, registry = f_env, update_cache = TRUE)
+        )
       }
     }
   }
@@ -140,3 +157,52 @@ format_expr <- function(x) {
   }
   head(out, 1)
 }
+
+# vector of function names that do not have corresponding bindings, but we
+# shouldn't try to translate
+translation_exceptions <- c(
+  "c",
+  "$",
+  "factor",
+  # "~",
+  # "(",
+  "across",
+  ":",
+  "[",
+  "regex",
+  "fixed",
+  "list",
+  "%>%",
+  # all the types functions
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float16",
+  "halffloat",
+  "float32",
+  "float",
+  "float64",
+  "boolean",
+  "bool",
+  "utf8",
+  "large_utf8",
+  "binary",
+  "large_binary",
+  "fixed_size_binary",
+  "string",
+  "date32",
+  "date64",
+  "time32",
+  "time64",
+  "duration",
+  "null",
+  "timestamp",
+  "decimal",
+  "decimal128",
+  "decimal256"
+)
