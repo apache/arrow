@@ -569,8 +569,6 @@ test_package_java() {
 test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
-  CMAKE_PREFIX_PATH_KEEP="${CMAKE_PREFIX_PATH}"
-
   # Build and test C++
   maybe_setup_virtualenv numpy || exit 1
   maybe_setup_conda \
@@ -584,7 +582,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
-    CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH_KEEP}:${CMAKE_PREFIX_PATH}"
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -659,6 +657,10 @@ test_python() {
   # Build and test Python
   maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+  fi
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
