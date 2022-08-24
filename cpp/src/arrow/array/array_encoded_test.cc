@@ -103,6 +103,7 @@ TEST(RunLengthEncodedArray, OffsetLength) {
   ASSERT_EQ(slice2->GetPhysicalLength(), 2);
   ASSERT_EQ(slice2->GetPhysicalOffset(), 1);
 
+  // run ends are exclusive; a start offset of 400 only captures the run for "RLE"
   auto slice3 =
       std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(400, 100));
   ASSERT_EQ(slice3->GetPhysicalLength(), 1);
