@@ -34,7 +34,7 @@ contributors who want to learn more about different parts of Apache Arrow.
 Glossary
 --------
 List of common terms in Apache Arrow project with a short description can
-be found in :ref:`the glossary <glossary>`.
+be found in :doc:`the glossary <../../format/Glossary>`.
 
 Additional information
 ----------------------
