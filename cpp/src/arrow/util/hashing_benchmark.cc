@@ -153,70 +153,6 @@ static void HashIntegers64(benchmark::State& state) {  // NOLINT non-const refer
   state.SetItemsProcessed(2 * state.iterations() * values.size());
 }
 
-static void XxHashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
-  auto test_vals = hashing_rng.Int64(10000, 0, std::numeric_limits<int64_t>::max());
-
-  while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("xx_hash", {test_vals}));
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
-static void XxHashSmallStrings(benchmark::State& state) {  // NOLINT non-const reference
-  auto str_array = hashing_rng.String(10000, 2, 20, null_prob);
-  auto test_vals = std::static_pointer_cast<StringArray>(str_array);
-
-  // 2nd column (index 1) is a string column, which has offset type of int32_t
-  int32_t total_string_size = test_vals->total_values_length();
-
-  while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("fast_hash_64", {test_vals}));
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() * total_string_size);
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
-static void XxHashMediumStrings(benchmark::State& state) {  // NOLINT non-const reference
-  auto str_array = hashing_rng.String(10000, 20, 120, null_prob);
-  auto test_vals = std::static_pointer_cast<StringArray>(str_array);
-
-  // 2nd column (index 1) is a string column, which has offset type of int32_t
-  int32_t total_string_size = test_vals->total_values_length();
-
-  while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("fast_hash_64", {test_vals}));
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() * total_string_size);
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
-static void XxHashLargeStrings(benchmark::State& state) {  // NOLINT non-const reference
-  auto str_array = hashing_rng.String(10000, 120, 2000, null_prob);
-  auto test_vals = std::static_pointer_cast<StringArray>(str_array);
-
-  // 2nd column (index 1) is a string column, which has offset type of int32_t
-  int32_t total_string_size = test_vals->total_values_length();
-
-  while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("fast_hash_64", {test_vals}));
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() * total_string_size);
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
 static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
   auto test_vals = hashing_rng.Int32(10000, 0, std::numeric_limits<int32_t>::max());
 
@@ -286,19 +222,6 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
   }
 
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
-  state.SetItemsProcessed(state.iterations() * test_vals->length());
-}
-
-static void FastHash32Int32(benchmark::State& state) {  // NOLINT non-const reference
-  auto test_vals = hashing_rng.Int32(10000, 0, std::numeric_limits<int32_t>::max());
-
-  while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("fast_hash_32", {test_vals}));
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int32_t));
   state.SetItemsProcessed(state.iterations() * test_vals->length());
 }
 
@@ -420,18 +343,11 @@ BENCHMARK(HashLargeStrings);
 BENCHMARK(HashIntegers32);
 BENCHMARK(HashIntegers64);
 
-// Uses "XxHash" compute function (wraps Hashing functions)
-BENCHMARK(XxHashIntegers64);
-BENCHMARK(XxHashSmallStrings);
-BENCHMARK(XxHashMediumStrings);
-BENCHMARK(XxHashLargeStrings);
-
 // Directly uses "KeyHash" hash functions from key_hash.h (xxHash-like)
 BENCHMARK(KeyHashIntegers32);
 BENCHMARK(KeyHashIntegers64);
 
 // Uses "FastHash" compute functions (wraps KeyHash functions)
-BENCHMARK(FastHash32Int32);
 BENCHMARK(FastHash64Int64);
 
 BENCHMARK(FastHash64StructSmallStrings);
