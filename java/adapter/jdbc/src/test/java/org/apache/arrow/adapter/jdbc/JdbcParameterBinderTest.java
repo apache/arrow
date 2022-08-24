@@ -30,6 +30,7 @@ import java.sql.Types;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import org.apache.arrow.adapter.jdbc.binder.ColumnBinder;
@@ -69,6 +70,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -76,6 +78,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -473,6 +476,81 @@ public class JdbcParameterBinderTest {
     testListType((ArrowType) new ArrowType.Utf8(), setValue, ListVector::setNull, values);
   }
 
+  @Test
+  void mapOfString() throws SQLException {
+    TriConsumer<MapVector, Integer, Map<String, String>> setValue = (mapVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionMapWriter mapWriter = mapVector.getWriter();
+      mapWriter.setPosition(index);
+      mapWriter.startMap();
+      values.entrySet().forEach(mapValue -> {
+        if (mapValue != null) {
+          byte[] keyBytes = mapValue.getKey().getBytes(StandardCharsets.UTF_8);
+          byte[] valueBytes = mapValue.getValue().getBytes(StandardCharsets.UTF_8);
+          try (
+              ArrowBuf keyBuf = allocator.buffer(keyBytes.length);
+              ArrowBuf valueBuf = allocator.buffer(valueBytes.length);
+          ) {
+            mapWriter.startEntry();
+            keyBuf.writeBytes(keyBytes);
+            valueBuf.writeBytes(valueBytes);
+            mapWriter.key().varChar().writeVarChar(0, keyBytes.length, keyBuf);
+            mapWriter.value().varChar().writeVarChar(0, valueBytes.length, valueBuf);
+            mapWriter.endEntry();
+          }
+        } else {
+          mapWriter.writeNull();
+        }
+      });
+      mapWriter.endMap();
+    };
+
+    JsonStringHashMap<String, String> value1 = new JsonStringHashMap<String, String>();
+    value1.put("a", "b");
+    value1.put("c", "d");
+    JsonStringHashMap<String, String> value2 = new JsonStringHashMap<String, String>();
+    value2.put("d", "e");
+    value2.put("f", "g");
+    value2.put("k", "l");
+    JsonStringHashMap<String, String> value3 = new JsonStringHashMap<String, String>();
+    value3.put("y", "z");
+    value3.put("arrow", "cool");
+    List<Map<String, String>> values = Arrays.asList(value1, value2, value3, Collections.emptyMap());
+    testMapType(new ArrowType.Map(true), setValue, MapVector::setNull, values, new ArrowType.Utf8());
+  }
+
+  @Test
+  void mapOfInteger() throws SQLException {
+    TriConsumer<MapVector, Integer, Map<Integer, Integer>> setValue = (mapVector, index, values) -> {
+      org.apache.arrow.vector.complex.impl.UnionMapWriter mapWriter = mapVector.getWriter();
+      mapWriter.setPosition(index);
+      mapWriter.startMap();
+      values.entrySet().forEach(mapValue -> {
+        if (mapValue != null) {
+          mapWriter.startEntry();
+          mapWriter.key().integer().writeInt(mapValue.getKey());
+          mapWriter.value().integer().writeInt(mapValue.getValue());
+          mapWriter.endEntry();
+        } else {
+          mapWriter.writeNull();
+        }
+      });
+      mapWriter.endMap();
+    };
+
+    JsonStringHashMap<Integer, Integer> value1 = new JsonStringHashMap<Integer, Integer>();
+    value1.put(1, 2);
+    value1.put(3, 4);
+    JsonStringHashMap<Integer, Integer> value2 = new JsonStringHashMap<Integer, Integer>();
+    value2.put(5, 6);
+    value2.put(7, 8);
+    value2.put(9, 1024);
+    JsonStringHashMap<Integer, Integer> value3 = new JsonStringHashMap<Integer, Integer>();
+    value3.put(Integer.MIN_VALUE, Integer.MAX_VALUE);
+    value3.put(0, 4096);
+    List<Map<Integer, Integer>> values = Arrays.asList(value1, value2, value3, Collections.emptyMap());
+    testMapType(new ArrowType.Map(true), setValue, MapVector::setNull, values, new ArrowType.Int(32, true));
+  }
+
   @FunctionalInterface
   interface TriConsumer<T, U, V> {
     void accept(T value1, U value2, V value3);
@@ -640,6 +718,112 @@ public class JdbcParameterBinderTest {
 
       @SuppressWarnings("unchecked")
       final V vector = (V) root.getVector(0);
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(1));
+      root.setRowCount(2);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isFalse();
+
+      binder.reset();
+
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(2));
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
+      assertThat(binder.next()).isFalse();
+    }
+  }
+
+  <T, V extends FieldVector> void testMapType(ArrowType arrowType, TriConsumer<V, Integer, T> setValue,
+                                              BiConsumer<V, Integer> setNull, List<T> values,
+                                              ArrowType elementType) throws SQLException {
+    int jdbcType = Types.VARCHAR;
+    FieldType keyType = new FieldType(false, elementType, null, null);
+    FieldType mapType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+    Schema schema = new Schema(Collections.singletonList(new Field("field", FieldType.nullable(arrowType),
+            Collections.singletonList(new Field(MapVector.KEY_NAME, mapType,
+                    Arrays.asList(new Field(MapVector.KEY_NAME, keyType, null),
+                            new Field(MapVector.VALUE_NAME, keyType, null)))))));
+    try (final MockPreparedStatement statement = new MockPreparedStatement();
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final JdbcParameterBinder binder =
+          JdbcParameterBinder.builder(statement, root).bindAll().build();
+      assertThat(binder.next()).isFalse();
+
+      @SuppressWarnings("unchecked")
+      final V vector = (V) root.getVector(0);
+      final ColumnBinder columnBinder = ColumnBinder.forVector(vector);
+      assertThat(columnBinder.getJdbcType()).isEqualTo(jdbcType);
+
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(1));
+      setNull.accept(vector, 2);
+      root.setRowCount(3);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0).toString());
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1).toString());
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isNull();
+      assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
+      assertThat(binder.next()).isFalse();
+
+      binder.reset();
+
+      setNull.accept(vector, 0);
+      setValue.accept(vector, 1, values.get(3));
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
+
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isNull();
+      assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(3).toString());
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0).toString());
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2).toString());
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1).toString());
+      assertThat(binder.next()).isFalse();
+    }
+
+    // Non-nullable (since some types have a specialized binder)
+    schema = new Schema(Collections.singletonList(new Field("field", FieldType.notNullable(arrowType),
+            Collections.singletonList(new Field(MapVector.KEY_NAME, mapType,
+                    Arrays.asList(new Field(MapVector.KEY_NAME, keyType, null),
+                            new Field(MapVector.VALUE_NAME, keyType, null)))))));
+    try (final MockPreparedStatement statement = new MockPreparedStatement();
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      @SuppressWarnings("unchecked")
+      final V vector = (V) root.getVector(0);
+
+      final JdbcParameterBinder binder =
+          JdbcParameterBinder.builder(statement, root).bind(1,
+                  new org.apache.arrow.adapter.jdbc.binder.MapBinder((MapVector) vector, Types.OTHER)).build();
+      assertThat(binder.next()).isFalse();
+
       setValue.accept(vector, 0, values.get(0));
       setValue.accept(vector, 1, values.get(1));
       root.setRowCount(2);
