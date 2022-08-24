@@ -13,7 +13,7 @@ test_that("Can use across() within mutate()", {
         across(c(dbl, dbl2), round),
         int2 = int * 2,
         dbl = dbl + 3
-        ) %>%
+      ) %>%
       collect(),
     tbl
   )
@@ -64,7 +64,7 @@ test_that("Can use across() within mutate()", {
   )
 
   # dynamic variable name
-  int = c("dbl", "dbl2")
+  int <- c("dbl", "dbl2")
   compare_dplyr_binding(
     .input %>%
       select(int, dbl, dbl2) %>%
@@ -75,7 +75,7 @@ test_that("Can use across() within mutate()", {
 
   # .names argument
   compare_dplyr_binding(
-   .input %>%
+    .input %>%
       mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
       collect(),
     tbl
@@ -129,7 +129,7 @@ test_that("Can use across() within mutate()", {
   expect_error(
     compare_dplyr_binding(
       .input %>%
-        mutate(across(1:dbl2, list(~ round(.x, digits = -1), ~sqrt(.x)))) %>%
+        mutate(across(1:dbl2, list(~ round(.x, digits = -1), ~ sqrt(.x)))) %>%
         collect(),
       tbl
     ),
