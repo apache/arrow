@@ -115,9 +115,7 @@ struct RunLengthEncodeExec
       return Status::OK();
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid(
-          "run-length encoded arrays can only have a number of elements that can be "
-          "represented as a 32-bit signed integer");
+      return Status::Invalid("Cannot run-length encode Arrays larger than 2^31 elements");
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
