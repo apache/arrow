@@ -344,7 +344,7 @@ void DoRunAmbiguousByKeyTest(const std::shared_ptr<Schema>& l_schema,
   DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : Multiple matches");
 }
 
-std::string GetJsonStringWithOrder(int n_rows, int n_cols, bool unordered) {
+std::string GetJsonString(int n_rows, int n_cols, bool unordered = false) {
   std::stringstream s;
   s << '[';
   for (int i = 0; i < n_rows; i++) {
@@ -355,8 +355,10 @@ std::string GetJsonStringWithOrder(int n_rows, int n_cols, bool unordered) {
     for (int j = 0; j < n_cols; j++) {
       if (j > 0) {
         s << ", " << j;
-      } else {
+      } else if (j < 2) {
         s << (i ^ unordered);
+      } else {
+        s << i;
       }
     }
     s << ']';
@@ -372,8 +374,8 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
                             const std::string& expected_error_str) {
   ASSERT_TRUE(l_unordered || r_unordered);
   int n_rows = 5;
-  std::string l_str = GetJsonStringWithOrder(n_rows, l_schema->num_fields(), l_unordered);
-  std::string r_str = GetJsonStringWithOrder(n_rows, r_schema->num_fields(), r_unordered);
+  std::string l_str = GetJsonString(n_rows, l_schema->num_fields(), l_unordered);
+  std::string r_str = GetJsonString(n_rows, r_schema->num_fields(), r_unordered);
   BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {l_str});
   BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {r_str});
 
@@ -387,6 +389,22 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
   DoRunUnorderedPlanTest(l_unordered, r_unordered, l_schema, r_schema,
                          AsofJoinNodeOptions("time", "key", 1000),
                          "out-of-order on-key values");
+}
+
+void DoRunNullByKeyPlanTest(const std::shared_ptr<Schema>& l_schema,
+                            const std::shared_ptr<Schema>& r_schema) {
+  AsofJoinNodeOptions join_options{"time", "key2", 1000};
+  std::string expected_error_str = "unexpected null by-key values";
+  int n_rows = 5;
+  std::string l_str = GetJsonString(n_rows, l_schema->num_fields());
+  std::string r_str = GetJsonString(n_rows, r_schema->num_fields());
+  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {l_str});
+  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {r_str});
+  l_batches = MutateByKey(l_batches, "key", "key2", true, true);
+  r_batches = MutateByKey(r_batches, "key", "key2", true, true);
+
+  return DoInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str,
+                           /*then_run_plan=*/true);
 }
 
 struct BasicTestTypes {
@@ -487,8 +505,9 @@ struct BasicTest {
       r0_batches = MutateByKey(r0_batches, "key", "key2", true, true);
       r1_batches = MutateByKey(r1_batches, "key", "key2", true, true);
       exp_nokey_batches = MutateByKey(exp_nokey_batches, "key", "key2", true, true);
-      CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches, "time", "key2",
-                     tolerance);
+      CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches,
+                     AsofJoinNodeOptions("time", "key2", tolerance,
+                                         /*nullable_by_key=*/true));
     });
   }
   template <typename BatchesRunner>
@@ -915,6 +934,12 @@ TRACED_TEST(AsofJoinTest, TestRightUnorderedOnKey) {
 TRACED_TEST(AsofJoinTest, TestUnorderedOnKey) {
   DoRunUnorderedPlanTest(
       /*l_unordered=*/true, /*r_unordered=*/true,
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TRACED_TEST(AsofJoinTest, TestNullByKey) {
+  DoRunNullByKeyPlanTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }

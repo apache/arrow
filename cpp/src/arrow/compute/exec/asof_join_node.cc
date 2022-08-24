@@ -239,7 +239,7 @@ class InputState {
   // turned into output record batches.
 
  public:
-  InputState(bool must_hash, KeyHasher* key_hasher,
+  InputState(bool must_hash, bool nullable_by_key, KeyHasher* key_hasher,
              const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index, const vec_col_index_t& key_col_index)
       : queue_(),
@@ -249,7 +249,8 @@ class InputState {
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
         key_type_id_(schema_->num_fields()),
         key_hasher_(key_hasher),
-        must_hash_(must_hash) {
+        must_hash_(must_hash),
+        nullable_by_key_(nullable_by_key) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -298,7 +299,7 @@ class InputState {
 
   ByType GetLatestKey() const {
     const RecordBatch* batch = queue_.UnsyncFront().get();
-    if (must_hash_ || batch->column_data(key_col_index_[0])->GetNullCount() > 0) {
+    if (must_hash_) {
       return key_hasher_->HashesFor(batch)[latest_ref_row_];
     }
     auto data = batch->column_data(key_col_index_[0]);
@@ -355,6 +356,11 @@ class InputState {
         (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
 
     if (have_active_batch) {
+      OnType next_time = GetLatestTime();
+      if (latest_time_ > next_time) {
+        return Status::Invalid("AsofJoin does not allow out-of-order on-key values");
+      }
+      latest_time_ = next_time;
       // If we have an active batch
       if (++latest_ref_row_ >= (row_index_t)queue_.UnsyncFront()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
@@ -363,13 +369,6 @@ class InputState {
         have_active_batch &= !queue_.TryPop();
         if (have_active_batch)
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-      }
-      if (have_active_batch) {
-        OnType next_time = GetLatestTime();
-        if (latest_time_ > next_time) {
-          return Status::Invalid("AsofJoin does not allow out-of-order on-key values");
-        }
-        latest_time_ = next_time;
       }
     }
     return have_active_batch;
@@ -404,12 +403,16 @@ class InputState {
     return updated;
   }
 
-  void Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
+  Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
+    if (!nullable_by_key_ && rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
+      return Status::Invalid("AsofJoin does not allow unexpected null by-key values");
+    }
     if (rb->num_rows() > 0) {
       queue_.Push(rb);
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
+    return Status::OK();
   }
 
   util::optional<const MemoStore::Entry*> GetMemoEntryForKey(ByType key) {
@@ -458,6 +461,8 @@ class InputState {
   mutable KeyHasher* key_hasher_;
   // True if hashing is mandatory
   bool must_hash_;
+  // True if null by-key values are expected
+  bool nullable_by_key_;
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
   // Must be < queue_.front()->num_rows() if queue_ is non-empty
   row_index_t latest_ref_row_ = 0;
@@ -827,13 +832,13 @@ class AsofJoinNode : public ExecNode {
                const std::vector<vec_col_index_t>& indices_of_by_key, OnType tolerance,
                std::shared_ptr<Schema> output_schema);
 
-  Status InternalInit(bool must_hash,
+  Status InternalInit(bool must_hash, bool nullable_by_key,
                       std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
     key_hashers_.swap(key_hashers);
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); ++i) {
       state_.push_back(::arrow::internal::make_unique<InputState>(
-          must_hash, key_hashers_[i].get(), inputs[i]->output_schema(),
+          must_hash, nullable_by_key, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
 
@@ -1036,12 +1041,13 @@ class AsofJoinNode : public ExecNode {
     auto single_key_field = inputs[0]->output_schema()->field(indices_of_by_key[0][0]);
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     bool must_hash = n_by > 1 || !is_primitive(single_key_field->type()->id());
+    bool nullable_by_key = join_options.nullable_by_key;
     for (size_t i = 0; i < n_input; i++) {
       key_hashers.push_back(
           ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
       RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
     }
-    RETURN_NOT_OK(node->InternalInit(must_hash, std::move(key_hashers)));
+    RETURN_NOT_OK(node->InternalInit(must_hash, nullable_by_key, std::move(key_hashers)));
     return node;
   }
 
@@ -1054,7 +1060,11 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    state_.at(k)->Push(rb);
+    Status st = state_.at(k)->Push(rb);
+    if (!st.ok()) {
+      ErrorReceived(input, st);
+      return;
+    }
     process_.Push(true);
   }
   void ErrorReceived(ExecNode* input, Status error) override {
