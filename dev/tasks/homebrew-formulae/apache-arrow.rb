@@ -24,7 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# https://github.com/Homebrew/homebrew-core/blob/master/Formula/apache-arrow.rb
+# https://github.com/Homebrew/homebrew-core/blob/-/Formula/apache-arrow.rb
 
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
