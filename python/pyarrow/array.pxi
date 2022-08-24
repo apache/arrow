@@ -2008,7 +2008,7 @@ cdef class LargeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct LargeListArray from arrays of int64 offsets and values.
 
@@ -2028,21 +2028,25 @@ cdef class LargeListArray(BaseListArray):
         cdef:
             Array _offsets, _values
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int64')
         _values = asarray(values)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CLargeListArray.FromArraysAndType(
-                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CLargeListArray.FromArrays(
-                        _offsets.ap[0], _values.ap[0], cpool))
+                        _offsets.ap[0], _values.ap[0], cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
