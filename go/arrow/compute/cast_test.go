@@ -200,7 +200,7 @@ func checkCastZeroCopy(t *testing.T, input arrow.Array, toType arrow.DataType, o
 }
 
 var (
-	numericTypes = []arrow.DataType{
+	integerTypes = []arrow.DataType{
 		arrow.PrimitiveTypes.Uint8,
 		arrow.PrimitiveTypes.Int8,
 		arrow.PrimitiveTypes.Uint16,
@@ -209,8 +209,15 @@ var (
 		arrow.PrimitiveTypes.Int32,
 		arrow.PrimitiveTypes.Uint64,
 		arrow.PrimitiveTypes.Int64,
+	}
+	numericTypes = append(integerTypes,
 		arrow.PrimitiveTypes.Float32,
-		arrow.PrimitiveTypes.Float64,
+		arrow.PrimitiveTypes.Float64)
+	baseBinaryTypes = []arrow.DataType{
+		arrow.BinaryTypes.Binary,
+		arrow.BinaryTypes.LargeBinary,
+		arrow.BinaryTypes.String,
+		arrow.BinaryTypes.LargeString,
 	}
 )
 
@@ -220,12 +227,54 @@ type CastSuite struct {
 	mem *memory.CheckedAllocator
 }
 
+func (c *CastSuite) invalidUtf8Arr(dt arrow.DataType) arrow.Array {
+	arr, _, err := array.FromJSON(c.mem, dt, strings.NewReader(`["Hi", "olá mundo", "你好世界", "", "`+"\xa0\xa1"+`"]`))
+	c.Require().NoError(err)
+	return arr
+}
+
+func (c *CastSuite) fixedSizeInvalidUtf8(dt arrow.DataType) arrow.Array {
+	if dt.ID() == arrow.FIXED_SIZE_BINARY {
+		c.Require().Equal(3, dt.(*arrow.FixedSizeBinaryType).ByteWidth)
+	}
+	arr, _, err := array.FromJSON(c.mem, dt, strings.NewReader(`["Hi!", "lá", "你", "   ", "`+"\xa0\xa1\xa2"+`"]`))
+	c.Require().NoError(err)
+	return arr
+}
+
 func (c *CastSuite) SetupTest() {
 	c.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
 }
 
 func (c *CastSuite) TearDownTest() {
 	c.mem.AssertSize(c.T(), 0)
+}
+
+func (c *CastSuite) TestCanCast() {
+	expectCanCast := func(from arrow.DataType, toSet []arrow.DataType, expected bool) {
+		for _, to := range toSet {
+			c.Equalf(expected, compute.CanCast(from, to), "CanCast from: %s, to: %s, expected: %t",
+				from, to, expected)
+		}
+	}
+
+	canCast := func(from arrow.DataType, toSet []arrow.DataType) {
+		expectCanCast(from, toSet, true)
+	}
+
+	cannotCast := func(from arrow.DataType, toSet []arrow.DataType) {
+		expectCanCast(from, toSet, false)
+	}
+
+	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+	cannotCast(arrow.Null, numericTypes)
+	cannotCast(arrow.Null, baseBinaryTypes)
+	cannotCast(arrow.Null, []arrow.DataType{
+		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
+	})
+
+	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
@@ -244,7 +293,7 @@ func (c *CastSuite) checkCast(dtIn, dtOut arrow.DataType, inJSON, outJSON string
 	checkCast(c.T(), inArr, outArr, *compute.DefaultCastOptions(true))
 }
 
-func (c *CastSuite) TestToBool() {
+func (c *CastSuite) TestNumericToBool() {
 	for _, dt := range numericTypes {
 		c.checkCast(dt, arrow.FixedWidthTypes.Boolean,
 			`[0, null, 127, 1, 0]`, `[false, null, true, true, false]`)
