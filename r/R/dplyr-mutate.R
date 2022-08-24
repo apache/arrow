@@ -47,7 +47,7 @@ mutate.arrow_dplyr_query <- function(.data,
     return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
 
-  mask <- arrow_mask(.data)
+  mask <- arrow_mask(.data, exprs = exprs)
   results <- list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
