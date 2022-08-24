@@ -125,3 +125,30 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 Windows Server 2022 Java JDK ${{ matrix.jdk }}
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [11]
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build
+        shell: bash
+        run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
