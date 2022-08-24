@@ -124,7 +124,7 @@ cdef class ProxyMemoryPool(MemoryPool):
 def default_memory_pool():
     """
     Return the process-global memory pool.
-    
+
     Examples
     --------
     >>> default_memory_pool()

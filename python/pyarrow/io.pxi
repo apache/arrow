@@ -775,7 +775,7 @@ cdef class PythonFile(NativeFile):
     As a downside, there is a non-zero redirection cost in translating
     Arrow stream calls to Python method calls.  Furthermore, Python's
     Global Interpreter Lock may limit parallelism in some situations.
- 
+
     Examples
     --------
     >>> import io
