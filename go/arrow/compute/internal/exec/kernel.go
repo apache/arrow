@@ -56,11 +56,17 @@ type Kernel interface {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // NonAggKernel builds on the base Kernel interface for
 // non aggregate execution kernels. Specifically this will
 // represent Scalar and Vector kernels.
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+// NonAggKernel builds on the base Kernel interface for
+// non aggregate execution kernels. Specifically this will
+// represent Scalar and Vector kernels.
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 type NonAggKernel interface {
 	Kernel
 	Exec(*KernelCtx, *ExecSpan, *ExecResult) error
@@ -527,6 +533,9 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 // ArrayKernelExec is an alias definition for a kernel's execution function.
 //
 // This is used for both stateless and stateful kernels. If a kernel
@@ -535,8 +544,11 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 // used for shortcircuiting by checking context.Done / context.Err.
 // This allows kernels to control handling timeouts or cancellation of
 // computation.
+<<<<<<< HEAD
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 type ArrayKernelExec = func(*KernelCtx, *ExecSpan, *ExecResult) error
 
 type kernel struct {
@@ -550,11 +562,17 @@ func (k kernel) GetInitFn() KernelInitFn  { return k.Init }
 func (k kernel) GetSig() *KernelSignature { return k.Signature }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // A ScalarKernel is the kernel implementation for a Scalar Function.
 // In addition to the members found in the base Kernel, it contains
 // the null handling and memory pre-allocation preferences.
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+// A ScalarKernel is the kernel implementation for a Scalar Function.
+// In addition to the members found in the base Kernel, it contains
+// the null handling and memory pre-allocation preferences.
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 type ScalarKernel struct {
 	kernel
 
@@ -565,11 +583,17 @@ type ScalarKernel struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // NewScalarKernel constructs a new kernel for scalar execution, constructing
 // a KernelSignature with the provided input types and output type, and using
 // the passed in execution implementation and initialization function.
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+// NewScalarKernel constructs a new kernel for scalar execution, constructing
+// a KernelSignature with the provided input types and output type, and using
+// the passed in execution implementation and initialization function.
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
 	return NewScalarKernelWithSig(&KernelSignature{
 		InputTypes: in,
@@ -578,11 +602,17 @@ func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init 
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // NewScalarKernelWithSig is a convenience when you already have a signature
 // to use for constructing a kernel. It's equivalent to passing the components
 // of the signature (input and output types) to NewScalarKernel.
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+// NewScalarKernelWithSig is a convenience when you already have a signature
+// to use for constructing a kernel. It's equivalent to passing the components
+// of the signature (input and output types) to NewScalarKernel.
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 func NewScalarKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
 	return ScalarKernel{
 		kernel:             kernel{Signature: sig, Init: init, Parallelizable: true},

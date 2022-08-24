@@ -497,10 +497,15 @@ func getNumBuffers(dt arrow.DataType) int {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // FillZeroLength fills an ArraySpan with the appropriate information for
 // a Zero Length Array of the provided type.
 =======
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+// FillZeroLength fills an ArraySpan with the appropriate information for
+// a Zero Length Array of the provided type.
+>>>>>>> acf3b0a82 (add comments and godoc strings)
 func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 	span.Scratch[0], span.Scratch[1] = 0, 0
 	span.Type = dt
