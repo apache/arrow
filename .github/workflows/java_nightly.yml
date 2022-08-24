@@ -88,7 +88,11 @@ jobs:
       - shell: bash
         name: Show local repo sync from remote
         run: |
-          for i in `ls -t repo/org/apache/arrow`; do; echo "- $i: $(find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d | wc -l | xargs) versions available"; done
+          for i in `ls -t repo/org/apache/arrow`; do
+            echo "- $i: $(find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d \
+            | wc -l \
+            | xargs) versions available"
+          done
       - shell: bash
         name: Build Repository
         run: |
@@ -109,7 +113,10 @@ jobs:
           KEEP: ${{ github.event.inputs.keep || 14 }}
         run: |
           for i in `ls -t repo/org/apache/arrow`; do
-            find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 ls -t -d | tail -n +$((KEEP + 1)) | xargs rm -rf
+            find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d -print0 \
+            | xargs -0 ls -t -d \
+            | tail -n +$((KEEP + 1)) \
+            | xargs rm -rf
           done
       - name: Show repo contents
         run: tree repo
