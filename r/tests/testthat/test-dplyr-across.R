@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(dplyr, warn.conflicts = FALSE)
+
 test_that("Can use across() within mutate()", {
   compare_dplyr_binding(
     .input %>%
