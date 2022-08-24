@@ -20,7 +20,7 @@ override_dh_auto_configure:
 	else							\
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
-	fi;							\						\
+	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
