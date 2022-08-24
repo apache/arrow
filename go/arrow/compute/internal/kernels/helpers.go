@@ -17,9 +17,13 @@
 package kernels
 
 import (
+	"fmt"
+
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"golang.org/x/exp/constraints"
 )
 
 // ScalarUnary returns a kernel for performing a unary operation on
@@ -115,5 +119,310 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 				outPos++
 			})
 		return err
+	}
+}
+
+func SizeOf[T constraints.Integer]() uint {
+	x := uint16(1 << 8)
+	y := uint32(2 << 16)
+	z := uint64(4 << 32)
+	return 1 + uint(T(x))>>8 + uint(T(y))>>16 + uint(T(z))>>32
+}
+
+func MinOf[T constraints.Integer]() T {
+	if ones := ^T(0); ones < 0 {
+		return ones << (8*SizeOf[T]() - 1)
+	}
+	return 0
+}
+
+func MaxOf[T constraints.Integer]() T {
+	ones := ^T(0)
+	if ones < 0 {
+		return ones ^ (ones << (8*SizeOf[T]() - 1))
+	}
+	return ones
+}
+
+func getSafeMinSameSign[I, O constraints.Integer]() I {
+	if SizeOf[I]() > SizeOf[O]() {
+		return I(MinOf[O]())
+	}
+	return MinOf[I]()
+}
+
+func getSafeMaxSameSign[I, O constraints.Integer]() I {
+	if SizeOf[I]() > SizeOf[O]() {
+		return I(MaxOf[O]())
+	}
+	return MaxOf[I]()
+}
+
+func getSafeMaxSignedUnsigned[I constraints.Signed, O constraints.Unsigned]() I {
+	if SizeOf[I]() <= SizeOf[O]() {
+		return MaxOf[I]()
+	}
+	return I(MaxOf[O]())
+}
+
+func getSafeMaxUnsignedSigned[I constraints.Unsigned, O constraints.Signed]() I {
+	if SizeOf[I]() < SizeOf[O]() {
+		return MaxOf[I]()
+	}
+	return I(MaxOf[O]())
+}
+
+func getSafeMinMaxSigned[T constraints.Signed](target arrow.Type) (min, max T) {
+	switch target {
+	case arrow.UINT8:
+		min, max = 0, getSafeMaxSignedUnsigned[T, uint8]()
+	case arrow.UINT16:
+		min, max = 0, getSafeMaxSignedUnsigned[T, uint16]()
+	case arrow.UINT32:
+		min, max = 0, getSafeMaxSignedUnsigned[T, uint32]()
+	case arrow.UINT64:
+		min, max = 0, getSafeMaxSignedUnsigned[T, uint64]()
+	case arrow.INT8:
+		min = getSafeMinSameSign[T, int8]()
+		max = getSafeMaxSameSign[T, int8]()
+	case arrow.INT16:
+		min = getSafeMinSameSign[T, int16]()
+		max = getSafeMaxSameSign[T, int16]()
+	case arrow.INT32:
+		min = getSafeMinSameSign[T, int32]()
+		max = getSafeMaxSameSign[T, int32]()
+	case arrow.INT64:
+		min = getSafeMinSameSign[T, int64]()
+		max = getSafeMaxSameSign[T, int64]()
+	}
+	return
+}
+
+func getSafeMinMaxUnsigned[T constraints.Unsigned](target arrow.Type) (min, max T) {
+	min = 0
+	switch target {
+	case arrow.UINT8:
+		max = getSafeMaxSameSign[T, uint8]()
+	case arrow.UINT16:
+		max = getSafeMaxSameSign[T, uint16]()
+	case arrow.UINT32:
+		max = getSafeMaxSameSign[T, uint32]()
+	case arrow.UINT64:
+		max = getSafeMaxSameSign[T, uint64]()
+	case arrow.INT8:
+		max = getSafeMaxUnsignedSigned[T, int8]()
+	case arrow.INT16:
+		max = getSafeMaxUnsignedSigned[T, int16]()
+	case arrow.INT32:
+		max = getSafeMaxUnsignedSigned[T, int32]()
+	case arrow.INT64:
+		max = getSafeMaxUnsignedSigned[T, int64]()
+	}
+	return
+}
+
+func intsCanFit(data *exec.ArraySpan, target arrow.Type) error {
+	if !arrow.IsInteger(target) {
+		return fmt.Errorf("%w: target type is not an integer type %s", arrow.ErrInvalid, target)
+	}
+
+	switch data.Type.ID() {
+	case arrow.INT8:
+		min, max := getSafeMinMaxSigned[int8](target)
+		return intsInRange(data, min, max)
+	case arrow.UINT8:
+		min, max := getSafeMinMaxUnsigned[uint8](target)
+		return intsInRange(data, min, max)
+	case arrow.INT16:
+		min, max := getSafeMinMaxSigned[int16](target)
+		return intsInRange(data, min, max)
+	case arrow.UINT16:
+		min, max := getSafeMinMaxUnsigned[uint16](target)
+		return intsInRange(data, min, max)
+	case arrow.INT32:
+		min, max := getSafeMinMaxSigned[int32](target)
+		return intsInRange(data, min, max)
+	case arrow.UINT32:
+		min, max := getSafeMinMaxUnsigned[uint32](target)
+		return intsInRange(data, min, max)
+	case arrow.INT64:
+		min, max := getSafeMinMaxSigned[int64](target)
+		return intsInRange(data, min, max)
+	case arrow.UINT64:
+		min, max := getSafeMinMaxUnsigned[uint64](target)
+		return intsInRange(data, min, max)
+	default:
+		return fmt.Errorf("%w: invalid type for int bounds checking", arrow.ErrInvalid)
+	}
+}
+
+func intsInRange[T exec.IntTypes | exec.UintTypes](data *exec.ArraySpan, lowerBound, upperBound T) error {
+	if MinOf[T]() >= lowerBound && MaxOf[T]() <= upperBound {
+		return nil
+	}
+
+	isOutOfBounds := func(val T) bool {
+		return val < lowerBound || val > upperBound
+	}
+	isOutOfBoundsMaybeNull := func(val T, isValid bool) bool {
+		return isValid && (val < lowerBound || val > upperBound)
+	}
+	getError := func(val T) error {
+		return fmt.Errorf("%w: integer value %d not in range: %d to %d",
+			arrow.ErrInvalid, val, lowerBound, upperBound)
+	}
+
+	values := exec.GetSpanValues[T](data, 1)
+	bitmap := data.Buffers[0].Buf
+
+	bitCounter := bitutils.NewOptionalBitBlockCounter(bitmap, data.Offset, data.Len)
+	pos, offsetPos := 0, data.Offset
+	for pos < int(data.Len) {
+		block := bitCounter.NextBlock()
+		outOfBounds := false
+
+		if block.Popcnt == block.Len {
+			// fast path: branchless
+			i := 0
+			for chunk := 0; chunk < int(block.Len)/8; chunk++ {
+				for j := 0; j < 8; j++ {
+					outOfBounds = outOfBounds || isOutOfBounds(values[i])
+					i++
+				}
+			}
+			for ; i < int(block.Len); i++ {
+				outOfBounds = outOfBounds || isOutOfBounds(values[i])
+			}
+		} else if block.Popcnt > 0 {
+			// values may be null, only bounds check non-null vals
+			i := 0
+			for chunk := 0; chunk < int(block.Len)/8; chunk++ {
+				for j := 0; j < 8; j++ {
+					outOfBounds = outOfBounds || isOutOfBoundsMaybeNull(
+						values[i], bitutil.BitIsSet(bitmap, int(offsetPos)+i))
+					i++
+				}
+			}
+			for ; i < int(block.Len); i++ {
+				outOfBounds = outOfBounds || isOutOfBoundsMaybeNull(
+					values[i], bitutil.BitIsSet(bitmap, int(offsetPos)+i))
+			}
+		}
+		if outOfBounds {
+			if data.Nulls > 0 {
+				for i := 0; i < int(block.Len); i++ {
+					if isOutOfBoundsMaybeNull(values[i], bitutil.BitIsSet(bitmap, int(offsetPos)+i)) {
+						return getError(values[i])
+					}
+				}
+			} else {
+				for i := 0; i < int(block.Len); i++ {
+					if isOutOfBounds(values[i]) {
+						return getError(values[i])
+					}
+				}
+			}
+		}
+
+		values = values[block.Len:]
+		pos += int(block.Len)
+		offsetPos += int64(block.Len)
+	}
+	return nil
+}
+
+type numeric interface {
+	exec.IntTypes | exec.UintTypes | constraints.Float
+}
+
+func memCpySpan[T numeric](in, out *exec.ArraySpan) {
+	inData := exec.GetSpanValues[T](in, 1)
+	outData := exec.GetSpanValues[T](out, 1)
+	copy(outData, inData)
+}
+
+func castNumberMemCpy(in, out *exec.ArraySpan) {
+	switch in.Type.ID() {
+	case arrow.INT8:
+		memCpySpan[int8](in, out)
+	case arrow.UINT8:
+		memCpySpan[uint8](in, out)
+	case arrow.INT16:
+		memCpySpan[int16](in, out)
+	case arrow.UINT16:
+		memCpySpan[uint16](in, out)
+	case arrow.INT32:
+		memCpySpan[int32](in, out)
+	case arrow.UINT32:
+		memCpySpan[uint32](in, out)
+	case arrow.INT64:
+		memCpySpan[int64](in, out)
+	case arrow.UINT64:
+		memCpySpan[uint64](in, out)
+	case arrow.FLOAT32:
+		memCpySpan[float32](in, out)
+	case arrow.FLOAT64:
+		memCpySpan[float64](in, out)
+	}
+}
+
+func callCastImpl[InT, OutT numeric](in, out *exec.ArraySpan) {
+	inData := exec.GetSpanValues[InT](in, 1)
+	outData := exec.GetSpanValues[OutT](out, 1)
+	castNumbersUnsafe(inData, outData)
+}
+
+func castNumberToNumberUnsafeImpl[T numeric](in, out *exec.ArraySpan) {
+	switch out.Type.ID() {
+	case arrow.INT8:
+		callCastImpl[T, int8](in, out)
+	case arrow.UINT8:
+		callCastImpl[T, uint8](in, out)
+	case arrow.INT16:
+		callCastImpl[T, int16](in, out)
+	case arrow.UINT16:
+		callCastImpl[T, uint16](in, out)
+	case arrow.INT32:
+		callCastImpl[T, int32](in, out)
+	case arrow.UINT32:
+		callCastImpl[T, uint32](in, out)
+	case arrow.INT64:
+		callCastImpl[T, int64](in, out)
+	case arrow.UINT64:
+		callCastImpl[T, uint64](in, out)
+	case arrow.FLOAT32:
+		callCastImpl[T, float32](in, out)
+	case arrow.FLOAT64:
+		callCastImpl[T, float64](in, out)
+	}
+}
+
+func castNumberToNumberUnsafe(in, out *exec.ArraySpan) {
+	if in.Type.ID() == out.Type.ID() {
+		castNumberMemCpy(in, out)
+		return
+	}
+
+	switch in.Type.ID() {
+	case arrow.INT8:
+		castNumberToNumberUnsafeImpl[int8](in, out)
+	case arrow.UINT8:
+		castNumberToNumberUnsafeImpl[uint8](in, out)
+	case arrow.INT16:
+		castNumberToNumberUnsafeImpl[int16](in, out)
+	case arrow.UINT16:
+		castNumberToNumberUnsafeImpl[uint16](in, out)
+	case arrow.INT32:
+		castNumberToNumberUnsafeImpl[int32](in, out)
+	case arrow.UINT32:
+		castNumberToNumberUnsafeImpl[uint32](in, out)
+	case arrow.INT64:
+		castNumberToNumberUnsafeImpl[int64](in, out)
+	case arrow.UINT64:
+		castNumberToNumberUnsafeImpl[uint64](in, out)
+	case arrow.FLOAT32:
+		castNumberToNumberUnsafeImpl[float32](in, out)
+	case arrow.FLOAT64:
+		castNumberToNumberUnsafeImpl[float64](in, out)
 	}
 }

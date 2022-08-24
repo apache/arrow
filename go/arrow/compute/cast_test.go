@@ -260,7 +260,7 @@ func (c *CastSuite) TestCanCast() {
 	}
 
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
-	cannotCast(arrow.Null, numericTypes)
+	canCast(arrow.Null, numericTypes)
 	cannotCast(arrow.Null, baseBinaryTypes)
 	cannotCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
@@ -268,6 +268,13 @@ func (c *CastSuite) TestCanCast() {
 
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
+	canCast(arrow.FixedWidthTypes.Boolean, numericTypes)
+
+	for _, from := range numericTypes {
+		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+		canCast(from, numericTypes)
+		cannotCast(from, []arrow.DataType{arrow.Null})
+	}
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
@@ -311,6 +318,78 @@ func (c *CastSuite) StringToBool() {
 		c.checkCastFails(dt, `["false "]`, opts)
 		c.checkCastFails(dt, `["T"]`, opts)
 	}
+}
+
+func (c *CastSuite) TestToIntUpcast() {
+	c.checkCast(arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Int32,
+		`[0, null, 127, -1, 0]`, `[0, null, 127, -1, 0]`)
+
+	c.checkCast(arrow.PrimitiveTypes.Uint8, arrow.PrimitiveTypes.Int16,
+		`[0, 100, 200, 255, 0]`, `[0, 100, 200, 255, 0]`)
+}
+
+func (c *CastSuite) TestToIntDowncastSafe() {
+	// int16 to uint8 no overflow/underflow
+	c.checkCast(arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Uint8,
+		`[0, null, 200, 1, 2]`, `[0, null, 200, 1, 2]`)
+
+	// int16 to uint8, overflow
+	c.checkCastFails(arrow.PrimitiveTypes.Int16, `[0, null, 256, 0, 0]`,
+		compute.NewCastOptions(arrow.PrimitiveTypes.Uint8, true))
+	// and underflow
+	c.checkCastFails(arrow.PrimitiveTypes.Int16, `[0, null, -1, 0, 0]`,
+		compute.NewCastOptions(arrow.PrimitiveTypes.Uint8, true))
+
+	// int32 to int16, no overflow/underflow
+	c.checkCast(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int16,
+		`[0, null, 2000, 1, 2]`, `[0, null, 2000, 1, 2]`)
+
+	// int32 to int16, overflow
+	c.checkCastFails(arrow.PrimitiveTypes.Int32, `[0, null, 2000, 70000, 2]`,
+		compute.NewCastOptions(arrow.PrimitiveTypes.Int16, true))
+
+	// and underflow
+	c.checkCastFails(arrow.PrimitiveTypes.Int32, `[0, null, 2000, -70000, 2]`,
+		compute.NewCastOptions(arrow.PrimitiveTypes.Int16, true))
+
+	c.checkCastFails(arrow.PrimitiveTypes.Int32, `[0, null, 2000, -70000, 2]`,
+		compute.NewCastOptions(arrow.PrimitiveTypes.Uint8, true))
+
+}
+
+func (c *CastSuite) TestIntegerSignedToUnsigned() {
+	i32s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[-2147483648, null, -1, 65535, 2147483647]`))
+	defer i32s.Release()
+
+	// same width
+	checkCastFails(c.T(), i32s, *compute.NewCastOptions(arrow.PrimitiveTypes.Uint32, true))
+	// wider
+	checkCastFails(c.T(), i32s, *compute.NewCastOptions(arrow.PrimitiveTypes.Uint64, true))
+	// narrower
+	checkCastFails(c.T(), i32s, *compute.NewCastOptions(arrow.PrimitiveTypes.Uint16, true))
+
+	var options compute.CastOptions
+	options.AllowIntOverflow = true
+
+	u32s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Uint32,
+		strings.NewReader(`[2147483648, null, 4294967295, 65535, 2147483647]`))
+	defer u32s.Release()
+	checkCast(c.T(), i32s, u32s, options)
+
+	u64s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Uint64,
+		strings.NewReader(`[18446744071562067968, null, 18446744073709551615, 65535, 2147483647]`),
+		array.WithUseNumber()) // have to use WithUseNumber so it doesn't lose precision converting to float64
+	defer u64s.Release()
+	checkCast(c.T(), i32s, u64s, options)
+
+	// fail because of overflow, instead of underflow
+	i32s, _, _ = array.FromJSON(c.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[0, null, 0, 65536, 2147483647]`))
+	defer i32s.Release()
+	checkCastFails(c.T(), i32s, *compute.NewCastOptions(arrow.PrimitiveTypes.Uint16, true))
+
+	u16s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Uint16, strings.NewReader(`[0, null, 0, 0, 65535]`))
+	defer u16s.Release()
+	checkCast(c.T(), i32s, u16s, options)
 }
 
 func (c *CastSuite) checkCastZeroCopy(dt arrow.DataType, json string) {

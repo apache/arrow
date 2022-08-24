@@ -26,9 +26,12 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
+=======
+>>>>>>> 275dc5281 (and we've got casting!)
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
