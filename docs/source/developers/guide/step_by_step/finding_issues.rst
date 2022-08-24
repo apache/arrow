@@ -80,16 +80,14 @@ If you are already in JIRA dashboard click the red ``create`` button in
 the top to do the same.
 
 You are ready to create the issue! Add a title and a description following
-the :ref:`tips for using JIRA <jira-tips>` and you are ready to go!
+the guidance in :ref:`creating issues <creating-issues>` and you are ready to go!
 
 .. seealso::
-	:ref:`Tips for using JIRA <jira-tips>`
+	:ref:`Creating issues <creating-issues>`
 
-You don’t need any special permissions on JIRA to be able to create issues.
-Once you are more involved in the project and want to do more on JIRA, for
-example assigning yourself an issue, you will need **“Contributor” permissions**.
-To get this role, ask on the :ref:`mailing_list` or in the comment of the JIRA
-issue you created.
+You don’t need any special permissions on JIRA to be able to create
+or self-assign issues.
+To get this role, ask on the :ref:`dev mailing list <mailing_list>`.
 
 When the ticket is created you can start a discussion about it in the
 JIRA comments section.
