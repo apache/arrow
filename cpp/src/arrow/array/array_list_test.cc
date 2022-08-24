@@ -197,6 +197,37 @@ class TestListArray : public ::testing::Test {
     EXPECT_FALSE(left->Slice(offset)->Equals(right->Slice(offset)));
   }
 
+  void TestFromArraysWithNullBitMap() {
+    std::shared_ptr<Array> offsets_w_nulls, offsets_wo_nulls, values;
+
+    std::vector<offset_type> offsets = {0, 1, 1, 3, 4};
+
+    std::vector<bool> offsets_w_nulls_flags = {true, false, true, true, true};
+    std::vector<bool> offsets_wo_nulls_flags = {true, true, true, true, true};
+
+    std::vector<int32_t> null_bitmap_values = {1, 0, 1, 1};
+    std::shared_ptr<Buffer> null_bitmap = Buffer::Wrap(null_bitmap_values);
+
+    ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_flags, offsets,
+                                             &offsets_w_nulls);
+    ArrayFromVector<OffsetType, offset_type>(offsets_wo_nulls_flags, offsets,
+                                             &offsets_wo_nulls);
+
+    auto type = std::make_shared<T>(int32());
+    auto expected = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[0], null, [0, null], [0]]"));
+
+    values = expected->values();
+
+    ASSERT_OK(ArrayType::FromArrays(*offsets_w_nulls, *values, pool_));
+    ASSERT_OK(ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_));
+
+    // Specify non-null offsets with null_bitmap, but not null offsets w/ null_bitmap
+    ASSERT_OK(ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_, null_bitmap));
+    ASSERT_RAISES(Invalid,
+                  ArrayType::FromArrays(*offsets_w_nulls, *values, pool_, null_bitmap));
+  }
+
   void TestFromArrays() {
     std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, values;
 
@@ -538,6 +569,10 @@ TYPED_TEST(TestListArray, Equality) { this->TestEquality(); }
 TYPED_TEST(TestListArray, ValuesEquality) { this->TestValuesEquality(); }
 
 TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
+
+TYPED_TEST(TestListArray, TestFromArraysWithNullBitMap) {
+  this->TestFromArraysWithNullBitMap();
+}
 
 TYPED_TEST(TestListArray, AppendNull) { this->TestAppendNull(); }
 
