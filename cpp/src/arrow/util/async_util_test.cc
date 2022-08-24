@@ -368,21 +368,21 @@ TEST(AsyncTaskScheduler, ScanningStress) {
     std::unique_ptr<AsyncTaskScheduler> listing_scheduler = AsyncTaskScheduler::Make();
     std::atomic<int> batches_scanned{0};
     std::atomic<int> fragments_scanned{0};
+    auto scan_batch = [&] { batches_scanned++; };
+    auto submit_scan = [&]() { return SleepABitAsync().Then(scan_batch); };
+    auto list_fragment = [&]() {
+      AsyncTaskScheduler* batch_scheduler =
+          listing_scheduler->MakeSubScheduler(EmptyFinishCallback(), batch_limit.get());
+      for (int i = 0; i < kBatchesPerFragment; i++) {
+        ASSERT_TRUE(batch_scheduler->AddSimpleTask(submit_scan));
+      }
+      batch_scheduler->End();
+      if (++fragments_scanned == kNumFragments) {
+        listing_scheduler->End();
+      }
+    };
+    auto submit_list_fragment = [&]() { return SleepABitAsync().Then(list_fragment); };
     for (int frag_idx = 0; frag_idx < kNumFragments; frag_idx++) {
-      auto scan_batch = [&] { batches_scanned++; };
-      auto submit_scan = [&]() { return SleepABitAsync().Then(scan_batch); };
-      auto list_fragment = [&]() {
-        AsyncTaskScheduler* batch_scheduler =
-            listing_scheduler->MakeSubScheduler(EmptyFinishCallback(), batch_limit.get());
-        for (int i = 0; i < kBatchesPerFragment; i++) {
-          ASSERT_TRUE(batch_scheduler->AddSimpleTask(submit_scan));
-        }
-        batch_scheduler->End();
-        if (++fragments_scanned == kNumFragments) {
-          listing_scheduler->End();
-        }
-      };
-      auto submit_list_fragment = [&]() { return SleepABitAsync().Then(list_fragment); };
       ASSERT_TRUE(listing_scheduler->AddSimpleTask(submit_list_fragment));
     }
     ASSERT_FINISHES_OK(listing_scheduler->OnFinished());
