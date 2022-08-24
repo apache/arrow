@@ -979,33 +979,37 @@ template <typename T, typename ApplyFn,
           typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
           typename V = typename EnsureResult<Applied>::type::ValueType>
 AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply_fun, internal::Executor* cpu_exec) {
+
   struct State {
     explicit State(AsyncGenerator<T> source_gen_, ApplyFn apply_fun_, internal::Executor* cpu_exec_) : 
-    source_gen(std::move(source_gen_)), apply_fun(std::move(apply_fun_)), cpu_exec(cpu_exec_) {}
+    source_gen(std::move(source_gen_)), apply_fun(std::move(apply_fun_)), cpu_exec(cpu_exec_), finished(false) {}
 
     AsyncGenerator<T> source_gen;
     ApplyFn apply_fun;
     internal::Executor* cpu_exec;
+    bool finished;
   };
 
   auto state = std::make_shared<State>(std::move(source_gen), std::move(apply_fun), cpu_exec);
   return [state]() {
 
-
-    // return DeferNotOk(state->cpu_exec->Submit([state]  {
-    //   return state->source_gen().Then([state] (const T& next) {
-    //     return state->apply_fun(next).ValueOrDie();
-    //   });
-    // }));
     CallbackOptions options;
     options.executor = state->cpu_exec;
     options.should_schedule = ShouldSchedule::Always;
     
-    return state->source_gen().Then([state] (const T& next) {
-      return state->apply_fun(next).ValueOrDie();
+    return state->source_gen().Then([state] (const T& next) -> Result<V> {
+      if(IsIterationEnd(next)) 
+      {
+        return IterationTraits<V>::End();
+      } else {
+        auto value = state->apply_fun(next);
+        if (!value.ok()) {
+          return Status::NotImplemented("not implemented");
+        } else {
+          return value.ValueOrDie();   
+        }
+      }
     }, {}, options = options);
-    
-    
   };
 }
 
@@ -1081,10 +1085,14 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
+    // auto parsed_block_gen =
+    //     MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
+    // auto preparse_gen = MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
+    // auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
+
     auto parsed_block_gen =
         MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
-    auto preparse_gen = MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
-    auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
+    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
