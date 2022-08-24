@@ -24,8 +24,8 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
-	"github.com/apache/arrow/go/v10/parquet/internal/debug"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -90,7 +90,7 @@ type sameTypeIDMatcher struct {
 }
 
 func (s sameTypeIDMatcher) Matches(typ arrow.DataType) bool { return s.accepted == typ.ID() }
-func (s *sameTypeIDMatcher) Equals(other TypeMatcher) bool {
+func (s sameTypeIDMatcher) Equals(other TypeMatcher) bool {
 	if s == other {
 		return true
 	}
