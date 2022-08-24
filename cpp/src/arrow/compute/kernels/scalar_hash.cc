@@ -31,7 +31,6 @@
 #include "arrow/compute/light_array.h"
 #include "arrow/result.h"
 
-
 namespace arrow {
 namespace compute {
 namespace internal {
@@ -39,7 +38,6 @@ namespace internal {
 // Define symbols visible within `arrow::compute::internal` in this file;
 // these symbols are not visible outside of this file.
 namespace {
-
 
 // Function documentation
 const FunctionDoc fast_hash_64_doc{
@@ -49,7 +47,6 @@ const FunctionDoc fast_hash_64_doc{
      "Hash results are 64-bit and emitted for each valid row.\n"
      "Null (or invalid) rows emit a null in the output."),
     {"hash_input"}};
-
 
 // ------------------------------
 // Kernel implementations
@@ -112,7 +109,6 @@ struct FastHashScalar {
   }
 };
 
-
 // ------------------------------
 // Function construction and kernel registration
 std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
@@ -123,8 +119,7 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
     DCHECK_OK(fn_fast_hash_64->AddKernel({InputType(simple_inputtype)},
-                                         OutputType(uint64()),
-                                         FastHashScalar<>::Exec));
+                                         OutputType(uint64()), FastHashScalar<>::Exec));
   }
 
   for (const auto nested_type :
@@ -137,7 +132,6 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Return function to be registered
   return fn_fast_hash_64;
 }
-
 
 }  // namespace
 
