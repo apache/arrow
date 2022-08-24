@@ -177,6 +177,7 @@ struct RunLengthEncodeExec
     output_array_data->null_count.store(input_null_count);
     values_array_data->null_count = output_null_count;
 
+    // set mutable pointers for output; `WriteValue` uses member `output_` variables
     this->output_validity = values_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = values_array_data->template GetMutableValues<uint8_t>(1);
     auto output_run_ends = run_ends_array_data->template GetMutableValues<int32_t>(1);
