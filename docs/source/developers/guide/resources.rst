@@ -31,8 +31,8 @@ Additional information and resources
 On this page we have listed resources that may be relevant or useful for
 contributors who want to learn more about different parts of Apache Arrow.
 
-Annotation Glossary
--------------------
+Glossary
+--------
 List of common terms in Apache Arrow project with a short description can
 be found in :ref:`the glossary <glossary>`.
 
