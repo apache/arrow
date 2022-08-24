@@ -97,10 +97,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
 if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
   add_library(Arrow::arrow_bundled_dependencies STATIC IMPORTED)
   get_target_property(arrow_static_location Arrow::arrow_static LOCATION)
-  get_filename_component(arrow_lib_dir ${arrow_static_location} DIRECTORY)
+  get_filename_component(arrow_lib_dir "${arrow_static_location}" DIRECTORY)
   set_target_properties(Arrow::arrow_bundled_dependencies
-    PROPERTIES
-    IMPORTED_LOCATION ${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX})
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
 endif()
 
 macro(arrow_keep_backward_compatibility namespace target_base_name)
@@ -108,46 +109,53 @@ macro(arrow_keep_backward_compatibility namespace target_base_name)
 
   if(NOT CMAKE_VERSION VERSION_LESS 3.18)
     if(TARGET ${namespace}::${target_base_name} AND NOT TARGET ${target_base_name}_shared)
-      add_library(${target_base_name}_shared ALIAS ${namespace}::${target_base_name}_shared)
+      add_library(${target_base_name}_shared ALIAS
+                  ${namespace}::${target_base_name}_shared)
     endif()
-    if(TARGET ${namespace}::${target_base_name}_static AND NOT TARGET ${target_base_name}_static)
-      add_library(${target_base_name}_static ALIAS ${namespace}::${target_base_name}_static)
+    if(TARGET ${namespace}::${target_base_name}_static AND NOT TARGET
+                                                           ${target_base_name}_static)
+      add_library(${target_base_name}_static ALIAS
+                  ${namespace}::${target_base_name}_static)
     endif()
   endif()
 
   if(TARGET ${namespace}::${target_base_name}_shared)
-    get_target_property(${target_base_name_upper}_INCLUDE_DIR ${namespace}::${target_base_name}_shared
-      INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(${target_base_name_upper}_INCLUDE_DIR
+                        ${namespace}::${target_base_name}_shared
+                        INTERFACE_INCLUDE_DIRECTORIES)
   else()
-    get_target_property(${target_base_name_upper}_INCLUDE_DIR ${namespace}::${target_base_name}_static
-      INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(${target_base_name_upper}_INCLUDE_DIR
+                        ${namespace}::${target_base_name}_static
+                        INTERFACE_INCLUDE_DIRECTORIES)
   endif()
-  if(TARGET ${namespace}::${target_base_name}_shared)
-    get_target_property(${target_base_name_upper}_SHARED_LIB ${namespace}::${target_base_name}_shared
-      IMPORTED_LOCATION_RELEASE)
-    if(NOT ${target_base_name_upper}_SHARED_LIB)
-      get_target_property(${target_base_name_upper}_SHARED_LIB ${namespace}::${target_base_name}_shared
-        IMPORTED_LOCATION_DEBUG)
+
+  foreach(BUILD_TYPE_SUFFIX
+          "_RELEASE"
+          "_RELWITHDEBINFO"
+          "_MINSIZEREL"
+          "_DEBUG"
+          "")
+    if(TARGET ${namespace}::${target_base_name}_shared)
+      if(NOT ${target_base_name_upper}_SHARED_LIB)
+        get_target_property(${target_base_name_upper}_SHARED_LIB
+                            ${namespace}::${target_base_name}_shared
+                            IMPORTED_LOCATION${BUILD_TYPE_SUFFIX})
+      endif()
+      if(NOT ${target_base_name_upper}_IMPORT_LIB)
+        get_target_property(${target_base_name_upper}_IMPORT_LIB
+                            ${namespace}::${target_base_name}_shared
+                            IMPORTED_IMPLIB${BUILD_TYPE_SUFFIX})
+      endif()
     endif()
-    if(NOT ${target_base_name_upper}_SHARED_LIB)
-      get_target_property(${target_base_name_upper}_SHARED_LIB ${namespace}::${target_base_name}_shared
-        IMPORTED_LOCATION)
+
+    if(TARGET ${namespace}::${target_base_name}_static)
+      if(NOT ${target_base_name_upper}_STATIC_LIB)
+        get_target_property(${target_base_name_upper}_STATIC_LIB
+                            ${namespace}::${target_base_name}_static
+                            IMPORTED_LOCATION${BUILD_TYPE_SUFFIX})
+      endif()
     endif()
-    get_target_property(${target_base_name_upper}_IMPORT_LIB ${namespace}::${target_base_name}_shared
-      IMPORTED_IMPLIB)
-  endif()
-  if(TARGET ${namespace}::${target_base_name}_static)
-    get_target_property(${target_base_name_upper}_STATIC_LIB ${namespace}::${target_base_name}_static
-      IMPORTED_LOCATION_RELEASE)
-    if(NOT ${target_base_name_upper}_STATIC_LIB)
-      get_target_property(${target_base_name_upper}_STATIC_LIB ${namespace}::${target_base_name}_static
-        IMPORTED_LOCATION_DEBUG)
-    endif()
-    if(NOT ${target_base_name_upper}_STATIC_LIB)
-      get_target_property(${target_base_name_upper}_STATIC_LIB ${namespace}::${target_base_name}_static
-        IMPORTED_LOCATION)
-    endif()
-  endif()
+  endforeach()
 endmacro()
 
 arrow_keep_backward_compatibility(Arrow arrow)
