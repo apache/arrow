@@ -25,6 +25,10 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
