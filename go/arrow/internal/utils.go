@@ -23,8 +23,15 @@ import (
 
 const CurMetadataVersion = flatbuf.MetadataVersionV5
 
+// DefaultHasValidityBitmap is a convenience function equivalent to
+// calling HasValidityBitmap with CurMetadataVersion.
 func DefaultHasValidityBitmap(id arrow.Type) bool { return HasValidityBitmap(id, CurMetadataVersion) }
 
+// HasValidityBitmap returns whether the given type at the provided version is
+// expected to have a validity bitmap in it's representation.
+//
+// Typically this is necessary because of the change between V4 and V5
+// where union types no longer have validity bitmaps.
 func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 	// in <=V4 Null types had no validity bitmap
 	// in >=V5 Null and Union types have no validity bitmap

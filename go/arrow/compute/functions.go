@@ -38,10 +38,15 @@ type Function interface {
 	Validate() error
 }
 
+// Arity defines the number of required arguments for a function.
+//
+// Naming conventions are taken from https://en.wikipedia.org/wiki/Arity
 type Arity struct {
 	NArgs     int
 	IsVarArgs bool
 }
+
+// Convenience functions to generating Arities
 
 func Nullary() Arity            { return Arity{0, false} }
 func Unary() Arity              { return Arity{1, false} }
@@ -50,26 +55,52 @@ func Ternary() Arity            { return Arity{3, false} }
 func VarArgs(minArgs int) Arity { return Arity{minArgs, true} }
 
 type FunctionDoc struct {
-	Summary         string
-	Description     string
-	ArgNames        []string
-	OptionsClass    string
+	// A one-line summary of the function, using a verb.
+	//
+	// For example, "Add two numeric arrays or scalars"
+	Summary string
+	// A detailed description of the function, meant to follow the summary.
+	Description string
+	// Symbolic names (identifiers) for the function arguments.
+	//
+	// Can be used to generate nicer function signatures.
+	ArgNames []string
+	// Name of the options struct type, if any
+	OptionsType string
+	// Whether or not options are required for function execution.
+	//
+	// If false, then either there are no options for this function,
+	// or there is a usable default options value.
 	OptionsRequired bool
 }
 
+// EmptyFuncDoc is a reusable empty function doc definition for convenience.
 var EmptyFuncDoc FunctionDoc
 
+// FuncKind is an enum representing the type of a function
 type FuncKind int8
 
 const (
-	FuncScalar    FuncKind = iota // Scalar
-	FuncVector                    // Vector
-	FuncScalarAgg                 // ScalarAggregate
-	FuncHashAgg                   // HashAggregate
-	FuncMeta                      // Meta
+	// A function that performs scalar data operations on whole arrays
+	// of data. Can generally process Array or Scalar values. The size
+	// of the output will be the same as the size (or broadcasted size,
+	// in the case of mixing Array and Scalar inputs) of the input.
+	FuncScalar FuncKind = iota // Scalar
+	// A function with array input and output whose behavior depends on
+	// the values of the entire arrays passed, rather than the value of
+	// each scalar value.
+	FuncVector // Vector
+	// A function that computes a scalar summary statistic from array input.
+	FuncScalarAgg // ScalarAggregate
+	// A function that computes grouped summary statistics from array
+	// input and an array of group identifiers.
+	FuncHashAgg // HashAggregate
+	// A function that dispatches to other functions and does not contain
+	// its own kernels.
+	FuncMeta // Meta
 )
 
-func ValidateFunctionSummary(summary string) error {
+func validateFunctionSummary(summary string) error {
 	if strings.Contains(summary, "\n") {
 		return fmt.Errorf("%w: summary contains a newline", arrow.ErrInvalid)
 	}
@@ -79,7 +110,7 @@ func ValidateFunctionSummary(summary string) error {
 	return nil
 }
 
-func ValidateFunctionDescription(desc string) error {
+func validateFunctionDescription(desc string) error {
 	if len(desc) != 0 && desc[len(desc)-1] == '\n' {
 		return fmt.Errorf("%w: description ends with a newline", arrow.ErrInvalid)
 	}
@@ -93,6 +124,11 @@ func ValidateFunctionDescription(desc string) error {
 	return nil
 }
 
+// baseFunction is the base class for compute functions. Function
+// implementations should embed this baseFunction and will contain
+// a collection of "kernels" which are implementations of the function
+// for specific argument types. Selecting a viable kernel for
+// executing the function is referred to as "dispatching".
 type baseFunction struct {
 	name        string
 	kind        FuncKind
@@ -116,10 +152,10 @@ func (b *baseFunction) Validate() error {
 		return fmt.Errorf("in function '%s': number of argument names for function doc != function arity", b.name)
 	}
 
-	if err := ValidateFunctionSummary(b.doc.Summary); err != nil {
+	if err := validateFunctionSummary(b.doc.Summary); err != nil {
 		return err
 	}
-	return ValidateFunctionDescription(b.doc.Description)
+	return validateFunctionDescription(b.doc.Description)
 }
 
 func checkOptions(fn Function, opts FunctionOptions) error {
@@ -141,12 +177,22 @@ func (b *baseFunction) checkArity(nargs int) error {
 	return nil
 }
 
+// kernelType is a type contstraint interface that is used for funcImpl
+// generic definitions. It will be extended as other kernel types
+// are defined.
+//
+// Currently only ScalarKernels are allowed to be used.
 type kernelType interface {
 	exec.ScalarKernel
 
+	// specifying the Kernel interface here allows us to utilize
+	// the methods of the Kernel interface on the generic
+	// constrained type
 	exec.Kernel
 }
 
+// funcImpl is the basic implementation for any functions that use kernels
+// i.e. all except for Meta functions.
 type funcImpl[KT kernelType] struct {
 	baseFunction
 
@@ -177,10 +223,17 @@ func (fi *funcImpl[KT]) Kernels() []*KT {
 	return res
 }
 
+// A ScalarFunction is a function that executes element-wise operations
+// on arrays or scalars, and therefore whose results generally do not
+// depent on the order of the values in the arguments. Accepts and returns
+// arrays that are all of the same size. These functions roughly correspond
+// to the functions used in most SQL expressions.
 type ScalarFunction struct {
 	funcImpl[exec.ScalarKernel]
 }
 
+// NewScalarFunction constructs a new ScalarFunction object with the passed in
+// name, arity and function doc.
 func NewScalarFunction(name string, arity Arity, doc FunctionDoc) *ScalarFunction {
 	return &ScalarFunction{
 		funcImpl: funcImpl[exec.ScalarKernel]{
@@ -206,6 +259,9 @@ func (s *ScalarFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel, erro
 	return s.DispatchExact(vals...)
 }
 
+// AddNewKernel constructs a new kernel with the provided signature
+// and execution/init functions and then adds it to the function's list of
+// kernels. This assumes default null handling (intersection of validity bitmaps)
 func (s *ScalarFunction) AddNewKernel(inTypes []exec.InputType, outType exec.OutputType, execFn exec.ArrayKernelExec, init exec.KernelInitFn) error {
 	if err := s.checkArity(len(inTypes)); err != nil {
 		return err
@@ -225,6 +281,10 @@ func (s *ScalarFunction) AddNewKernel(inTypes []exec.InputType, outType exec.Out
 	return nil
 }
 
+// AddKernel adds the provided kernel to the list of kernels
+// this function has. A copy of the kernel is added to the slice of kernels,
+// which means that a given kernel object can be created, added and then
+// reused to add other kernels.
 func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 	if err := s.checkArity(len(k.Signature.InputTypes)); err != nil {
 		return err
@@ -238,6 +298,11 @@ func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 	return nil
 }
 
+// Execute uses the passed in context, function options and arguments to eagerly
+// execute the function using kernel dispatch, batch iteration and memory
+// allocation details as defined by the kernel.
+//
+// If opts is nil, then the DefaultOptions() will be used.
 func (s *ScalarFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 	return execInternal(ctx, s, opts, -1, args...)
 }

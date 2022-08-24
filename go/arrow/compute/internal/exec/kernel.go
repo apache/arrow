@@ -55,6 +55,9 @@ type Kernel interface {
 	GetSig() *KernelSignature
 }
 
+// NonAggKernel builds on the base Kernel interface for
+// non aggregate execution kernels. Specifically this will
+// represent Scalar and Vector kernels.
 type NonAggKernel interface {
 	Kernel
 	Exec(*KernelCtx, *ExecSpan, *ExecResult) error
@@ -520,6 +523,14 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 	return true
 }
 
+// ArrayKernelExec is an alias definition for a kernel's execution function.
+//
+// This is used for both stateless and stateful kernels. If a kernel
+// depends on some execution state, it can be accessed from the KernelCtx
+// object, which also contains the context.Context object which can be
+// used for shortcircuiting by checking context.Done / context.Err.
+// This allows kernels to control handling timeouts or cancellation of
+// computation.
 type ArrayKernelExec = func(*KernelCtx, *ExecSpan, *ExecResult) error
 
 type kernel struct {
@@ -532,6 +543,9 @@ type kernel struct {
 func (k kernel) GetInitFn() KernelInitFn  { return k.Init }
 func (k kernel) GetSig() *KernelSignature { return k.Signature }
 
+// A ScalarKernel is the kernel implementation for a Scalar Function.
+// In addition to the members found in the base Kernel, it contains
+// the null handling and memory pre-allocation preferences.
 type ScalarKernel struct {
 	kernel
 
@@ -541,6 +555,9 @@ type ScalarKernel struct {
 	MemAlloc           MemAlloc
 }
 
+// NewScalarKernel constructs a new kernel for scalar execution, constructing
+// a KernelSignature with the provided input types and output type, and using
+// the passed in execution implementation and initialization function.
 func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
 	return NewScalarKernelWithSig(&KernelSignature{
 		InputTypes: in,
@@ -548,6 +565,9 @@ func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init 
 	}, exec, init)
 }
 
+// NewScalarKernelWithSig is a convenience when you already have a signature
+// to use for constructing a kernel. It's equivalent to passing the components
+// of the signature (input and output types) to NewScalarKernel.
 func NewScalarKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
 	return ScalarKernel{
 		kernel:             kernel{Signature: sig, Init: init, Parallelizable: true},

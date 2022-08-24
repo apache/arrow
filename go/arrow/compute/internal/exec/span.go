@@ -496,6 +496,8 @@ func getNumBuffers(dt arrow.DataType) int {
 	}
 }
 
+// FillZeroLength fills an ArraySpan with the appropriate information for
+// a Zero Length Array of the provided type.
 func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 	span.Scratch[0], span.Scratch[1] = 0, 0
 	span.Type = dt

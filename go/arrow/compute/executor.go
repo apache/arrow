@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -31,6 +32,13 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 )
 
+// ExecCtx holds simple contextual information for execution
+// such as the default ChunkSize for batch iteration, whether or not
+// to ensure contiguous preallocations for kernels that want preallocation,
+// and a reference to the desired function registry to use.
+//
+// An ExecCtx should be placed into a context.Context by using
+// SetExecCtx and GetExecCtx to pass it along for execution.
 type ExecCtx struct {
 	ChunkSize          int64
 	PreallocContiguous bool
@@ -41,6 +49,9 @@ type ctxExecKey struct{}
 
 const DefaultMaxChunkSize = math.MaxInt64
 
+// global default ExecCtx object, initialized with the
+// default max chunk size, contiguous preallocations, and
+// the default function registry.
 var defaultExecCtx ExecCtx
 
 func init() {
@@ -49,10 +60,13 @@ func init() {
 	defaultExecCtx.Registry = GetFunctionRegistry()
 }
 
+// SetExecCtx returns a new child context containing the passed in ExecCtx
 func SetExecCtx(ctx context.Context, e ExecCtx) context.Context {
 	return context.WithValue(ctx, ctxExecKey{}, e)
 }
 
+// GetExecCtx returns an embedded ExecCtx from the provided context.
+// If it does not contain an ExecCtx, then the default one is returned.
 func GetExecCtx(ctx context.Context) ExecCtx {
 	e, ok := ctx.Value(ctxExecKey{}).(ExecCtx)
 	if ok {
@@ -61,14 +75,32 @@ func GetExecCtx(ctx context.Context) ExecCtx {
 	return defaultExecCtx
 }
 
+// ExecBatch is a unit of work for kernel execution. It contains a collection
+// of Array and Scalar values.
+//
+// ExecBatch is semantically similar to a RecordBatch but for a SQL-style
+// execution context. It represents a collection or records, but constant
+// "columns" are represented by Scalar values rather than having to be
+// converted into arrays with repeated values.
 type ExecBatch struct {
-	Values    []Datum
+	Values []Datum
+	// Guarantee is a predicate Expression guaranteed to evaluate to true for
+	// all rows in this batch.
 	Guarantee Expression
-	Len       int64
+	// Len is the semantic length of this ExecBatch. When the values are
+	// all scalars, the length should be set to 1 for non-aggregate kernels.
+	// Otherwise the length is taken from the array values. Aggregate kernels
+	// can have an ExecBatch formed by projecting just the partition columns
+	// from a batch in which case it would have scalar rows with length > 1
+	//
+	// If the array values are of length 0, then the length is 0 regardless of
+	// whether any values are Scalar.
+	Len int64
 }
 
 func (e ExecBatch) NumValues() int { return len(e.Values) }
 
+// simple struct for defining how to preallocate a particular buffer.
 type bufferPrealloc struct {
 	bitWidth int
 	addLen   int
@@ -98,6 +130,7 @@ func addComputeDataPrealloc(dt arrow.DataType, widths []bufferPrealloc) []buffer
 	return widths
 }
 
+// enum to define a generalized assumption of the nulls in the inputs
 type nullGeneralization int8
 
 const (
@@ -148,6 +181,11 @@ func getNullGenDatum(datum Datum) nullGeneralization {
 	return getNullGen(&val)
 }
 
+// populate the validity bitmaps with the intersection of the nullity
+// of the arguments. If a preallocated bitmap is not provided, then one
+// will be allocated if needed (in some cases a bitmap can be zero-copied
+// from the arguments). If any Scalar value is null, then the entire
+// validity bitmap will be set to null.
 func propagateNulls(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ArraySpan) (err error) {
 	if out.Type.ID() == arrow.NULL {
 		// null output type is a no-op (rare but it happens)
@@ -301,13 +339,34 @@ func inferBatchLength(values []Datum) (length int64, allSame bool) {
 	return
 }
 
+// kernelExecutor is the interface for all executors to initialize and
+// call kernel execution functions on batches.
 type kernelExecutor interface {
+	// Init must be called *after* the kernel's init method and any
+	// KernelState must be set into the KernelCtx *before* calling
+	// this Init method. This is to faciliate the case where
+	// Init may be expensive and does not need to be called
+	// again for each execution of the kernel. For example,
+	// the same lookup table can be re-used for all scanned batches
+	// in a dataset filter.
 	Init(*exec.KernelCtx, exec.KernelInitArgs) error
+	// Execute the kernel for the provided batch and pass the resulting
+	// Datum values to the provided channel.
 	Execute(context.Context, *ExecBatch, chan<- Datum) error
+	// WrapResults exists for the case where an executor wants to post process
+	// the batches of result datums. Such as creating a ChunkedArray from
+	// multiple output batches or so on. Results from individual batch
+	// executions should be read from the out channel, and WrapResults should
+	// return the final Datum result.
 	WrapResults(ctx context.Context, out <-chan Datum, chunkedArgs bool) Datum
-	CheckResultType(out Datum, fn string) error
+	// CheckResultType checks the actual result type against the resolved
+	// output type. If the types don't match an error is returned
+	CheckResultType(out Datum) error
+
+	clear()
 }
 
+// the base implementation for executing non-aggregate kernels.
 type nonAggExecImpl struct {
 	ctx              *exec.KernelCtx
 	ectx             ExecCtx
@@ -316,6 +375,13 @@ type nonAggExecImpl struct {
 	numOutBuf        int
 	dataPrealloc     []bufferPrealloc
 	preallocValidity bool
+}
+
+func (e *nonAggExecImpl) clear() {
+	e.ctx, e.kernel, e.outType = nil, nil, nil
+	if e.dataPrealloc != nil {
+		e.dataPrealloc = e.dataPrealloc[:0]
+	}
 }
 
 func (e *nonAggExecImpl) Init(ctx *exec.KernelCtx, args exec.KernelInitArgs) (err error) {
@@ -357,11 +423,11 @@ func (e *nonAggExecImpl) prepareOutput(length int) *exec.ExecResult {
 	return output
 }
 
-func (e *nonAggExecImpl) CheckResultType(out Datum, fn string) error {
+func (e *nonAggExecImpl) CheckResultType(out Datum) error {
 	typ := out.(ArrayLikeDatum).Type()
 	if typ != nil && !arrow.TypeEqual(e.outType, typ) {
-		return fmt.Errorf("%w: kernel type result mismatch for function '%s': declared as %s, actual is %s",
-			arrow.ErrType, fn, e.outType, typ)
+		return fmt.Errorf("%w: kernel type result mismatch: declared as %s, actual is %s",
+			arrow.ErrType, e.outType, typ)
 	}
 	return nil
 }
@@ -419,6 +485,8 @@ func (s *scalarExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
+		// if the inputs contained at least one chunked array
+		// then we want to return chunked output
 		if hasChunked {
 			toChunked()
 		}
@@ -427,9 +495,11 @@ func (s *scalarExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	for {
 		select {
 		case <-ctx.Done():
+			// context is done, either cancelled or a timeout.
+			// either way, we end early and return what we've got so far.
 			return output
 		case o, ok := <-out:
-			if !ok {
+			if !ok { // channel closed, wrap it up
 				if output != nil {
 					return output
 				}
@@ -443,12 +513,14 @@ func (s *scalarExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 				return NewDatum(chkd)
 			}
 
+			// if we get multiple batches of output, then we need
+			// to return it as a chunked array.
 			if acc == nil {
 				toChunked()
 			}
 
 			defer o.Release()
-			if o.Len() == 0 {
+			if o.Len() == 0 { // skip any empty batches
 				continue
 			}
 
@@ -604,7 +676,15 @@ func checkIfAllScalar(batch *ExecBatch) bool {
 	return batch.NumValues() > 0
 }
 
-func iterateExecSpans(batch *ExecBatch, maxChunkSize int64, promoteIfAllScalar bool) (bool, spanIterator, error) {
+// iterateExecSpans sets up and returns a function which can iterate a batch
+// according to the chunk sizes. If the inputs contain chunked arrays, then
+// we will find the min(chunk sizes, maxChunkSize) to ensure we return
+// contiguous spans to execute on.
+//
+// the iteration function returns the next span to execute on, the current
+// position in the full batch, and a boolean indicating whether or not
+// a span was actually returned (there is data to process).
+func iterateExecSpans(batch *ExecBatch, maxChunkSize int64, promoteIfAllScalar bool) (haveAllScalars bool, itr spanIterator, err error) {
 	if batch.NumValues() > 0 {
 		inferred, allArgsSame := inferBatchLength(batch.Values)
 		if inferred != batch.Len {
@@ -618,13 +698,12 @@ func iterateExecSpans(batch *ExecBatch, maxChunkSize int64, promoteIfAllScalar b
 	var (
 		args           []Datum = batch.Values
 		haveChunked    bool
-		haveAllScalars       = checkIfAllScalar(batch)
 		chunkIdxes           = make([]int, len(args))
 		valuePositions       = make([]int64, len(args))
 		valueOffsets         = make([]int64, len(args))
 		pos, length    int64 = 0, batch.Len
 	)
-
+	haveAllScalars = checkIfAllScalar(batch)
 	maxChunkSize = exec.Min(length, maxChunkSize)
 
 	span := exec.ExecSpan{Values: make([]exec.ExecValue, len(args)), Len: 0}
@@ -712,3 +791,10 @@ func iterateExecSpans(batch *ExecBatch, maxChunkSize int64, promoteIfAllScalar b
 		return span, pos, true
 	}, nil
 }
+
+var (
+	// have a pool of scalar executors to avoid excessive object creation
+	scalarExecPool = sync.Pool{
+		New: func() any { return &scalarExecutor{} },
+	}
+)

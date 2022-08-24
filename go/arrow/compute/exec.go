@@ -34,6 +34,11 @@ func haveChunkedArray(values []Datum) bool {
 	return false
 }
 
+// ExecSpanFromBatch constructs and returns a new ExecSpan from the values
+// inside of the ExecBatch which could be scalar or arrays.
+//
+// This is mostly used for tests but is also a convenience method for other
+// cases.
 func ExecSpanFromBatch(batch *ExecBatch) *exec.ExecSpan {
 	out := &exec.ExecSpan{Len: batch.Len, Values: make([]exec.ExecValue, len(batch.Values))}
 	for i, v := range batch.Values {
@@ -48,6 +53,7 @@ func ExecSpanFromBatch(batch *ExecBatch) *exec.ExecSpan {
 	return out
 }
 
+// this is the primary driver of execution
 func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passedLen int64, args ...Datum) (result Datum, err error) {
 	if opts == nil {
 		if err = checkOptions(fn, opts); err != nil {
@@ -56,6 +62,8 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 		opts = fn.DefaultOptions()
 	}
 
+	// we only allow Array, ChunkedArray, and Scalars for now.
+	// RecordBatch and Table datums are disallowed.
 	if err = checkAllIsValue(args); err != nil {
 		return
 	}
@@ -72,7 +80,11 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 
 	switch fn.Kind() {
 	case FuncScalar:
-		executor = &scalarExecutor{}
+		executor = scalarExecPool.Get().(*scalarExecutor)
+		defer func() {
+			executor.clear()
+			scalarExecPool.Put(executor.(*scalarExecutor))
+		}()
 	default:
 		return nil, fmt.Errorf("%w: direct execution of %s", arrow.ErrNotImplemented, fn.Kind())
 	}
@@ -124,7 +136,7 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 	}()
 
 	result = executor.WrapResults(ctx, ch, haveChunkedArray(input.Values))
-	debug.Assert(executor.CheckResultType(result, fn.Name()) == nil, "invalid result type")
+	debug.Assert(executor.CheckResultType(result) == nil, "invalid result type")
 
 	if ctx.Err() == context.Canceled {
 		result.Release()
@@ -133,6 +145,13 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 	return
 }
 
+// CallFunction is a one-shot invoker for all types of functions.
+//
+// It will perform kernel-dispatch, argument checking, iteration of
+// ChunkedArray inputs and wrapping of outputs.
+//
+// To affect the execution options, you must call SetExecCtx and pass
+// the resulting context in here.
 func CallFunction(ctx context.Context, funcName string, opts FunctionOptions, args ...Datum) (Datum, error) {
 	ectx := GetExecCtx(ctx)
 	fn, ok := ectx.Registry.GetFunction(funcName)

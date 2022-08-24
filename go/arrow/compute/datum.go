@@ -30,17 +30,19 @@ import (
 type DatumKind int
 
 const (
-	KindNone       DatumKind = iota // none
-	KindScalar                      // scalar
-	KindArray                       // array
-	KindChunked                     // chunked_array
-	KindRecord                      // record_batch
-	KindTable                       // table
-	KindCollection                  // collection
+	KindNone    DatumKind = iota // none
+	KindScalar                   // scalar
+	KindArray                    // array
+	KindChunked                  // chunked_array
+	KindRecord                   // record_batch
+	KindTable                    // table
 )
 
 const UnknownLength int64 = -1
 
+// DatumIsValue returns true if the datum passed is a Scalar, Array
+// or ChunkedArray type (e.g. it contains a specific value not a
+// group of values)
 func DatumIsValue(d Datum) bool {
 	switch d.Kind() {
 	case KindScalar, KindArray, KindChunked:
