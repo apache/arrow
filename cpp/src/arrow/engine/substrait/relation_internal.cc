@@ -25,7 +25,6 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/expression_internal.h"
-#include "arrow/engine/substrait/registry.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -39,6 +38,10 @@ using internal::checked_cast;
 using internal::make_unique;
 
 namespace engine {
+
+using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
+    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
+    const ConversionOptions&)>;
 
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
@@ -480,12 +483,26 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
   }
   const auto& factory_name = declaration.factory_name;
   ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
-  SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
-  if (factory_name != "sink") {
-    ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
-    ARROW_ASSIGN_OR_RAISE(auto factory_rel,
-                          factory(schema, declaration, ext_set, conversion_options));
+  // Note that the sink declaration factory doesn't exist for serialization as
+  // Substrait doesn't deal with a sink node definition
+  std::unique_ptr<substrait::Rel> factory_rel;
+  if (factory_name == "scan") {
+    ARROW_ASSIGN_OR_RAISE(factory_rel, ScanRelationConverter(schema, declaration, ext_set,
+                                                             conversion_options));
+  } else if (factory_name == "filter") {
+    ARROW_ASSIGN_OR_RAISE(
+        factory_rel,
+        FilterRelationConverter(schema, declaration, ext_set, conversion_options));
+  } else {
+    return Status::NotImplemented("Factory ", factory_name,
+                                  " not implemented for roundtripping.");
+  }
+
+  if (factory_rel != nullptr) {
     RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
+  } else {
+    return Status::Invalid("Conversion on factory ", factory_name,
+                           " returned an invalid relation");
   }
   return Status::OK();
 }

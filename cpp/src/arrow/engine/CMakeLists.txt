@@ -25,7 +25,6 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/extension_types.cc
     substrait/plan_internal.cc
     substrait/relation_internal.cc
-    substrait/registry.cc
     substrait/serde.cc
     substrait/test_plan_builder.cc
     substrait/type_internal.cc
