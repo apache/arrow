@@ -123,6 +123,16 @@ TEST(AsyncTaskScheduler, Abandoned) {
   ASSERT_FALSE(pending_task_submitted);
 }
 
+TEST(AsyncTaskScheduler, TaskFailsAfterEnd) {
+  std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();
+  Future<> task = Future<>::Make();
+  scheduler->AddSimpleTask([task] { return task; });
+  scheduler->End();
+  AssertNotFinished(scheduler->OnFinished());
+  task.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_FINISHES_AND_RAISES(Invalid, scheduler->OnFinished());
+}
+
 TEST(AsyncTaskScheduler, SubSchedulerFinishCallback) {
   bool finish_callback_ran = false;
   std::unique_ptr<AsyncTaskScheduler> scheduler = AsyncTaskScheduler::Make();

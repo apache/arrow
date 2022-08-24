@@ -18,7 +18,6 @@
 #include "arrow/dataset/dataset_writer.h"
 
 #include <deque>
-#include <iostream>
 #include <mutex>
 #include <unordered_map>
 

@@ -309,6 +309,10 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       if (queue_) {
         queue_->Purge();
       }
+    } else if (state_ == State::kEnded) {
+      if (maybe_error_.ok()) {
+        maybe_error_ = st;
+      }
     }
     if (running_tasks_ == 0) {
       lk.unlock();
