@@ -30,6 +30,7 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -41,6 +42,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_util.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -436,8 +438,20 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
-  Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("concatenation of ", type);
+  Status Visit(const RunLengthEncodedType&) {
+    int64_t physical_length = 0;
+    for (auto input: in_) {
+      physical_length = SafeSignedAdd(physical_length, rle_util::GetPhysicalOffset(ArraySpan(*input)));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(in_[0]->type, pool_));
+    RETURN_NOT_OK(internal::checked_cast<RunLengthEncodedBuilder>(*builder).ResizePhyiscal(physical_length));
+    return Status::OK();
+    for (auto input: in_) {
+      RETURN_NOT_OK(builder->AppendArraySlice(ArraySpan(*input), 0, input->length));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> out_array, builder->Finish());
+    out_ = out_array->data();
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& e) {
