@@ -237,6 +237,7 @@ class ArrayDataEndianSwapper {
   Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
   Status Visit(const FixedSizeListType& type) { return Status::OK(); }
   Status Visit(const StructType& type) { return Status::OK(); }
+  Status Visit(const RunLengthEncodedType& type) { return Status::OK(); }
   Status Visit(const UnionType& type) {
     out_->buffers[1] = data_->buffers[1];
     if (type.mode() == UnionMode::DENSE) {
@@ -282,10 +283,6 @@ class ArrayDataEndianSwapper {
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(SwapType(*type.storage_type()));
     return Status::OK();
-  }
-
-  Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("Byte-swap run-length encoded data");
   }
 
   const std::shared_ptr<ArrayData>& data_;
