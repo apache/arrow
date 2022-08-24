@@ -1,9 +1,26 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 test_that("Can use across() within mutate()", {
   compare_dplyr_binding(
     .input %>%
       mutate(across(c(dbl, dbl2), round)) %>%
       collect(),
-    tbl
+    example_data
   )
 
   compare_dplyr_binding(
@@ -15,21 +32,21 @@ test_that("Can use across() within mutate()", {
         dbl = dbl + 3
       ) %>%
       collect(),
-    tbl
+    example_data
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(across(c(dbl, dbl2), list(exp, sqrt))) %>%
       collect(),
-    tbl
+    example_data
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(across(c(dbl, dbl2), list("fun1" = round, "fun2" = sqrt))) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # this is valid is neither R nor Arrow
@@ -40,7 +57,7 @@ test_that("Can use across() within mutate()", {
           arrow_table() %>%
           mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
           collect(),
-        tbl,
+        example_data,
         warning = TRUE
       )
     )
@@ -51,7 +68,7 @@ test_that("Can use across() within mutate()", {
     .input %>%
       mutate(across(.fns = round, c(dbl, dbl2))) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # across() with no columns named
@@ -60,7 +77,7 @@ test_that("Can use across() within mutate()", {
       select(int, dbl, dbl2) %>%
       mutate(across(.fns = round)) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # dynamic variable name
@@ -70,7 +87,7 @@ test_that("Can use across() within mutate()", {
       select(int, dbl, dbl2) %>%
       mutate(across(all_of(int), sqrt)) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # .names argument
@@ -78,19 +95,19 @@ test_that("Can use across() within mutate()", {
     .input %>%
       mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
       collect(),
-    tbl
+    example_data
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(across(c(dbl, dbl2), round, .names = "round_{.col}")) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # ellipses (...) are a deprecated argument
   expect_error(
-    tbl %>%
+    example_data %>%
       arrow_table() %>%
       mutate(across(c(dbl, dbl2), round, digits = -1)) %>%
       collect(),
@@ -103,7 +120,7 @@ test_that("Can use across() within mutate()", {
     .input %>%
       mutate(across(1:dbl2, list(round))) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # supply .fns as a one-item vector
@@ -111,7 +128,7 @@ test_that("Can use across() within mutate()", {
     .input %>%
       mutate(across(1:dbl2, c(round))) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # ARROW-17366: purrr-style lambda functions not yet supported
@@ -120,7 +137,7 @@ test_that("Can use across() within mutate()", {
       .input %>%
         mutate(across(1:dbl2, ~ round(.x, digits = -1))) %>%
         collect(),
-      tbl
+      example_data
     ),
     regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
     fixed = TRUE
@@ -131,7 +148,7 @@ test_that("Can use across() within mutate()", {
       .input %>%
         mutate(across(1:dbl2, list(~ round(.x, digits = -1), ~ sqrt(.x)))) %>%
         collect(),
-      tbl
+      example_data
     ),
     regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
     fixed = TRUE
@@ -142,7 +159,7 @@ test_that("Can use across() within mutate()", {
     .input %>%
       mutate(across(1:dbl2, NULL)) %>%
       collect(),
-    tbl
+    example_data
   )
 
   # ARROW-12778 - `where()` is not yet supported
@@ -151,14 +168,14 @@ test_that("Can use across() within mutate()", {
       .input %>%
         mutate(across(where(is.double))) %>%
         collect(),
-      tbl
+      example_data
     ),
     "Unsupported selection helper"
   )
 
   # gives the right error with window functions
   expect_warning(
-    arrow_table(tbl) %>%
+    arrow_table(example_data) %>%
       mutate(
         x = int + 2,
         across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
