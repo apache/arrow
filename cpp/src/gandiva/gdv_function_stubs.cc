@@ -759,9 +759,8 @@ gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
   using std::chrono::milliseconds;
 
   const sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
-  const zoned_time<milliseconds> utc_tz{std::string("Etc/UTC"), tp};
   try {
-    const zoned_time<milliseconds> local_tz{std::string(timezone, length), utc_tz};
+    const zoned_time<milliseconds> local_tz{std::string(timezone, length), tp};
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
     return time_miliseconds + static_cast<gdv_timestamp>(offset);
   } catch (...) {
