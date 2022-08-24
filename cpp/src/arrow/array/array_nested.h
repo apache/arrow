@@ -119,15 +119,17 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
   /// are assumed to be well-formed
+  /// 
+  /// Offsets of an Array's null bitmap can be present or an explicit
+  /// null_bitmap, but not both.
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
   /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
-  /// \param[in] null_bitmap Array of valid and null values,
-  /// where 0 represents null and 1 represents valid.
-  /// \param[in] null_count Count of null values
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   static Result<std::shared_ptr<ListArray>> FromArrays(
       const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
