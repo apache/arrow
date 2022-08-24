@@ -586,7 +586,7 @@ def parse_git(root, **kwargs):
     """
     from setuptools_scm.git import parse
     kwargs['describe_command'] =\
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     return parse(root, **kwargs)
 
 
