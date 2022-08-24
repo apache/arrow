@@ -76,7 +76,7 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data, aggregation = FALSE) {
+arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
   f_env <- new_environment(.cache$functions)
 
   # Add functions that need to error hard and clear.
@@ -97,6 +97,25 @@ arrow_mask <- function(.data, aggregation = FALSE) {
 
   # Assign the schema to the expressions
   map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
+
+  if (!is.null(exprs)) {
+    for (i in seq_along(exprs)) {
+      expr <- exprs[[i]]
+      # figure out which of the calls in expr are unknown (do not have
+      # matching bindings)
+      unknown_functions <- setdiff(all_funs(expr), names(f_env))
+
+      if (length(unknown_functions != 0)) {
+        funct <- rlang::as_function(
+          unknown_functions,
+          env = rlang::quo_get_env(expr)
+        )
+        parent.env(f_env) <- rlang::quo_get_env(expr)
+        environment(funct) <- f_env
+        register_binding(unknown_functions, funct, f_env, update_cache = TRUE)
+      }
+    }
+  }
 
   # Add the column references and make the mask
   out <- new_data_mask(
