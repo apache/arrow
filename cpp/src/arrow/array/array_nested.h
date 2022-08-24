@@ -119,7 +119,7 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
   /// are assumed to be well-formed
-  /// 
+  ///
   /// Offsets of an Array's null bitmap can be present or an explicit
   /// null_bitmap, but not both.
   ///
@@ -187,12 +187,15 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
-      const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
       std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///

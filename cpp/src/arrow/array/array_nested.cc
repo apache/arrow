@@ -259,16 +259,17 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
                                        null_bitmap, null_count);
 }
 
-Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(const Array& offsets,
-                                                                   const Array& values,
-                                                                   MemoryPool* pool) {
+Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
+    const Array& offsets, const Array& values, MemoryPool* pool,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   return ListArrayFromArrays<LargeListType>(
-      std::make_shared<LargeListType>(values.type()), offsets, values, pool);
+      std::make_shared<LargeListType>(values.type()), offsets, values, pool, null_bitmap,
+      null_count);
 }
 
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
     std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-    MemoryPool* pool) {
+    MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (type->id() != Type::LARGE_LIST) {
     return Status::TypeError("Expected large list type, got ", type->ToString());
   }
@@ -276,7 +277,8 @@ Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
   if (!list_type.value_type()->Equals(values.type())) {
     return Status::TypeError("Mismatching list value type");
   }
-  return ListArrayFromArrays<LargeListType>(std::move(type), offsets, values, pool);
+  return ListArrayFromArrays<LargeListType>(std::move(type), offsets, values, pool,
+                                            null_bitmap, null_count);
 }
 
 Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
