@@ -248,7 +248,6 @@ func (d *TableDatum) Equals(other Datum) bool {
 // An array.Chunked gets a ChunkedDatum
 // An array.Record gets a RecordDatum
 // an array.Table gets a TableDatum
-// a []Datum gets a CollectionDatum
 // a scalar.Scalar gets a ScalarDatum
 //
 // Anything else is passed to scalar.MakeScalar and recieves a scalar
