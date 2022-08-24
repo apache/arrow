@@ -34,7 +34,7 @@ var (
 		Summary:         "cast values to another data type",
 		Description:     "Behavior when values wouldn't fit in the target type\ncan be controlled through CastOptions.",
 		ArgNames:        []string{"input"},
-		OptionsClass:    "CastOptions",
+		OptionsType:     "CastOptions",
 		OptionsRequired: true,
 	}
 	castMetaFunc = NewMetaFunction("cast", Unary(), castDoc,
