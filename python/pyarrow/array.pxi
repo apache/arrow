@@ -2815,13 +2815,13 @@ cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool
         c_mask = shared_ptr[CBuffer]()
     elif isinstance(mask, Array):
         if mask.type.id != Type_BOOL:
-            raise ValueError('Mask must be a pyarrow.Array of type bool')
+            raise TypeError('Mask must be a pyarrow.Array of type boolean')
         if mask.null_count != 0:
             raise ValueError('Mask must not contain nulls')
         inverted_mask = _pc().invert(mask, memory_pool=pool)
         c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
     else:
-        raise ValueError('Mask must be a pyarrow.Array of type bool')
+        raise TypeError('Mask must be a pyarrow.Array of type bool')
     return c_mask
 
 
