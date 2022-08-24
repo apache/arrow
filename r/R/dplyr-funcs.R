@@ -122,7 +122,7 @@ register_binding_agg <- function(fun_name, agg_fun, registry = agg_funcs) {
 
 # Supports functions and tests that call previously-defined bindings
 call_binding <- function(fun_name, ...) {
-  .cache$functions[[fun_name]](...)
+  nse_funcs[[fun_name]](...)
 }
 
 call_binding_agg <- function(fun_name, ...) {
