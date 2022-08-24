@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
+#include <arrow/buffer.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
