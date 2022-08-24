@@ -569,6 +569,8 @@ test_package_java() {
 test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
+  CMAKE_PREFIX_PATH_KEEP="${CMAKE_PREFIX_PATH}"
+
   # Build and test C++
   maybe_setup_virtualenv numpy || exit 1
   maybe_setup_conda \
@@ -582,6 +584,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH_KEEP}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
