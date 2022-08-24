@@ -114,6 +114,30 @@ TEST(RunLengthEncodedArray, OffsetLength) {
   ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
 }
 
+TEST(RunLengthEncodedArray, Compare) {
+  ASSERT_OK_AND_ASSIGN(auto rle_array,
+                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+
+  // second array object that is exactly the same as rle_array
+  auto standard_equals = MakeArray(rle_array->data()->Copy());
+  ASSERT_ARRAYS_EQUAL(*rle_array, *standard_equals);
+
+  ASSERT_FALSE(rle_array->Slice(0, 29)->Equals(*rle_array->Slice(1, 29)));
+
+  // array that is logically the same as our rle_array, but has 2 small runs for the first
+  // value instead of one large
+  auto duplicate_run_ends = ArrayFromJSON(int32(), "[5, 10, 20, 30]");
+  auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "Hello", "World", null])");
+  ASSERT_OK_AND_ASSIGN(auto duplicate_array, RunLengthEncodedArray::Make(
+                                                 duplicate_run_ends, string_values, 30));
+  ASSERT_ARRAYS_EQUAL(*rle_array, *duplicate_array);
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                                                   ArrayFromJSON(binary(), "[]"), 0));
+  ASSERT_ARRAYS_EQUAL(*empty_array, *MakeArray(empty_array->data()->Copy()));
+}
+
 }  // anonymous namespace
 
 }  // namespace arrow

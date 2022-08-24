@@ -46,6 +46,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
+#include "arrow/util/rle_util.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -388,7 +389,18 @@ class RangeDataEqualsImpl {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("comparing run-length encoded data");
+    for (auto it = rle_util::MergedRunsIterator<2>(ArraySpan(left_), ArraySpan(right_));
+         it != rle_util::MergedRunsIterator<2>(); ++it) {
+      RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[1],
+                               *right_.child_data[1],
+                               left_start_idx_ + it.physical_index(0),
+                               right_start_idx_ + it.physical_index(1), 1);
+      if (!impl.Compare()) {
+        result_ = false;
+        return Status::OK();
+      }
+    }
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
