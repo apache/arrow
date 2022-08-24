@@ -25,7 +25,6 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
-
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
