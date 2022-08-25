@@ -29,14 +29,6 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestScalarHash, HashPrimitive32) {
-  for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
-    auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
-
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_32", {input_arr}));
-  }
-}
-
 TEST(TestScalarHash, HashPrimitive64) {
   for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
     auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
