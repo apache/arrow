@@ -99,7 +99,7 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   if (is.null(fns) && quo_is_call(cols, "~")) {
     bullets <- c(
       "Must supply a column selection.",
-      i = glue("You most likely meant: `{across_if_fn}(everything(), {as_label(cols)})`."),
+      i = glue::glue("You most likely meant: `{across_if_fn}(everything(), {as_label(cols)})`."),
       i = "The first argument `.cols` selects a set of columns.",
       i = "The second argument `.fns` operates on each selected columns."
     )
@@ -110,7 +110,7 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   if (is.null(fns)) {
     if (!is.null(names)) {
       glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
-      names <- vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique")
+      names <- vctrs::vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique")
     } else {
       names <- vars
     }
