@@ -41,6 +41,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 // ----------------------------------------------------------------------
 // Other Arrow includes
@@ -395,9 +396,11 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
 
 DirectFileOutputStream::DirectFileOutputStream() {
   uintptr_t mask = (uintptr_t)(4095);
-  uint8_t* mem = static_cast<uint8_t*>(malloc(4096 + 4095));
-  cached_data =
-      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(mem + 4095) & ~(mask));
+
+  cached_data_.reserve(4096 + 4095);
+  aligned_cached_data_ = reinterpret_cast<uint8_t*>(
+      reinterpret_cast<uintptr_t>(&cached_data_[0] + 4095) & ~(mask));
+
   impl_.reset(new DirectFileOutputStreamImpl());
 }
 
@@ -422,8 +425,8 @@ Status DirectFileOutputStream::Close() {
   if (!closed()) {
     // have to flush out the temprorary data, but then trim the file
     if (cached_length > 0) {
-      std::memset(cached_data + cached_length, 0, 4096 - cached_length);
-      RETURN_NOT_OK(impl_->Write(cached_data, 4096));
+      std::memset(aligned_cached_data_ + cached_length, 0, 4096 - cached_length);
+      RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
     }
     auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
     fsync(impl_->fd());
@@ -440,7 +443,7 @@ Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   RETURN_NOT_OK(impl_->CheckClosed());
 
   if (cached_length + length < 4096) {
-    std::memcpy(cached_data + cached_length, data, length);
+    std::memcpy(aligned_cached_data_ + cached_length, data, length);
     cached_length += length;
     return Status::OK();
   }
@@ -448,17 +451,19 @@ Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   auto bytes_to_write = (cached_length + length) / 4096 * 4096;
   auto bytes_leftover = cached_length + length - bytes_to_write;
   uintptr_t mask = (uintptr_t)(4095);
-  uint8_t* mem = static_cast<uint8_t*>(malloc(bytes_to_write + 4095));
+  std::vector<uint8_t> mem;
+  mem.reserve(bytes_to_write + 4095);
   uint8_t* new_ptr =
-      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(mem + 4095) & ~(mask));
-  std::memcpy(new_ptr, cached_data, cached_length);
+      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(&mem[0] + 4095) & ~(mask));
+  std::memcpy(new_ptr, aligned_cached_data_, cached_length);
   std::memcpy(new_ptr + cached_length, data, bytes_to_write - cached_length);
-  std::memset(cached_data, 0, cached_length);  // this is not required.
-  std::memcpy(cached_data,
+  std::memset(aligned_cached_data_, 0, cached_length);  // this is not required.
+  std::memcpy(aligned_cached_data_,
               reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length,
               bytes_leftover);
   cached_length = bytes_leftover;
-  return impl_->Write(new_ptr, bytes_to_write);
+  auto status = impl_->Write(new_ptr, bytes_to_write);
+  return status;
 }
 
 int DirectFileOutputStream::file_descriptor() const { return impl_->fd(); }
