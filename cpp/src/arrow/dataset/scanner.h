@@ -394,7 +394,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set the number of fragments to read ahead
   ///
   /// \param[in] fragment_readahead How many fragments to read ahead
-  /// \returns An error if this number is less than 0.
+  /// \returns an error if this number is less than 0.
   ///
   /// This option provides a control on the RAM vs IO tradeoff.
   Status FragmentReadahead(int32_t fragment_readahead);
