@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <iterator>
 #include <list>
 #include <memory>
@@ -26,7 +27,6 @@
 #include <sstream>
 #include <typeinfo>
 #include <utility>
-#include <iostream>
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
@@ -137,13 +137,17 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
 }
 
-
-Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(std::shared_ptr<RandomAccessFile> file, int64_t block_size) {
+Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
+    std::shared_ptr<RandomAccessFile> file, int64_t block_size) {
   struct State {
-    explicit State(std::shared_ptr<RandomAccessFile> file_, int64_t block_size_) : file(std::move(file_)), block_size(block_size_), position(0)
-    {
-      file->Seek(0);
+    explicit State(std::shared_ptr<RandomAccessFile> file_, int64_t block_size_)
+        : file(std::move(file_)), block_size(block_size_), position(0) {}
+
+    Status init() {
+      RETURN_NOT_OK(file->Seek(0));
+      // if seek worked this will also work.
       total_size = file->GetSize().ValueOrDie();
+      return Status::OK();
     }
 
     std::shared_ptr<RandomAccessFile> file;
@@ -153,12 +157,14 @@ Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(st
   };
 
   auto state = std::make_shared<State>(std::move(file), block_size);
+  RETURN_NOT_OK(state->init());
   return [state]() {
     auto pos = state->position.fetch_add(state->block_size);
     if (pos >= state->total_size) {
       return AsyncGeneratorEnd<std::shared_ptr<Buffer>>();
     }
-    // idx is guaranteed to be smaller than total size, but you might not be able to read a full block
+    // idx is guaranteed to be smaller than total size, but you might not be able to read
+    // a full block
     if (pos + state->block_size > state->total_size) {
       return state->file->ReadAsync(pos, state->total_size - pos);
     } else {
@@ -166,7 +172,6 @@ Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(st
     }
   };
 }
-
 
 struct RandomAccessFile::Impl {
   std::mutex lock_;
