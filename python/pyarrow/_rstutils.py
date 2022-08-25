@@ -36,7 +36,7 @@ def parse_directory(path: str):
             continue
         function_data = parse_rst(path + os.sep + file)
         results.update(function_data)
-    return(results)
+    return (results)
 
 
 def parse_rst(filename: str) -> dict:
@@ -87,7 +87,7 @@ def parse_rst(filename: str) -> dict:
             doc addtion: {filename}")
     print(f"-- function_name is {function_name} ({filename})", flush=True)
     functiondata[function_name] = parse_function_rst(doc.children[i+1:])
-    return(functiondata)
+    return (functiondata)
 
 
 def _process_definition_list(node):
@@ -140,7 +140,7 @@ def _process_definition_list(node):
         results.append({'term': term, 'classifiers': classifiers,
                        'definition': "\n\n".join(definitions)})
 
-    return(results)
+    return (results)
 
 
 def parse_function_rst(nodes):
@@ -255,7 +255,7 @@ def parse_function_rst(nodes):
             result[section_name].append(node.astext())
 
     # join pieces
-    return(result)
+    return (result)
 
 
 def _explore_nodes(node, indent=""):

@@ -75,7 +75,7 @@ def abs(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -104,7 +104,7 @@ def abs_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -133,7 +133,7 @@ def acos(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -162,7 +162,7 @@ def acos_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -194,7 +194,7 @@ def add(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -225,7 +225,7 @@ def add_checked(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -294,7 +294,7 @@ def all(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -325,7 +325,7 @@ def and_(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -365,7 +365,7 @@ def and_kleene(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -396,7 +396,7 @@ def and_not(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -438,7 +438,7 @@ def and_not_kleene(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -513,7 +513,7 @@ def any(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -561,7 +561,7 @@ def approximate_median(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -607,7 +607,7 @@ def array_filter(array, selection_filter, null_selection_behavior='drop', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array, selection_filter], _computed_options, memory_pool)
     )
 
@@ -660,7 +660,7 @@ def array_sort_indices(array, order='ascending', *, null_placement='at_end',
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -706,7 +706,7 @@ def array_take(array, indices, *, boundscheck=True, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array, indices], _computed_options, memory_pool)
     )
 
@@ -738,7 +738,7 @@ def ascii_capitalize(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -785,7 +785,7 @@ def ascii_center(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -816,7 +816,7 @@ def ascii_is_alnum(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -847,7 +847,7 @@ def ascii_is_alpha(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -877,7 +877,7 @@ def ascii_is_decimal(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -907,7 +907,7 @@ def ascii_is_lower(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -937,7 +937,7 @@ def ascii_is_printable(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -968,7 +968,7 @@ def ascii_is_space(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1000,7 +1000,7 @@ def ascii_is_title(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1030,7 +1030,7 @@ def ascii_is_upper(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1061,7 +1061,7 @@ def ascii_lower(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1107,7 +1107,7 @@ def ascii_lpad(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1151,7 +1151,7 @@ def ascii_ltrim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1182,7 +1182,7 @@ def ascii_ltrim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1213,7 +1213,7 @@ def ascii_reverse(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1259,7 +1259,7 @@ def ascii_rpad(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1303,7 +1303,7 @@ def ascii_rtrim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1335,7 +1335,7 @@ def ascii_rtrim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1387,7 +1387,7 @@ def ascii_split_whitespace(strings, *, max_splits=None, reverse=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1419,7 +1419,7 @@ def ascii_swapcase(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1452,7 +1452,7 @@ def ascii_title(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1496,7 +1496,7 @@ def ascii_trim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1528,7 +1528,7 @@ def ascii_trim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1559,7 +1559,7 @@ def ascii_upper(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1588,7 +1588,7 @@ def asin(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -1617,7 +1617,7 @@ def asin_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -1675,7 +1675,7 @@ def assume_timezone(timestamps, timezone=None, *, ambiguous='raise',
             _computed_options
         )
 
-    return(
+    return (
         func.call([timestamps], _computed_options, memory_pool)
     )
 
@@ -1704,7 +1704,7 @@ def atan(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -1734,7 +1734,7 @@ def atan2(y, x, *, memory_pool=None):
             [y, x]
         )
 
-    return(
+    return (
         func.call([y, x], memory_pool=memory_pool)
     )
 
@@ -1766,7 +1766,7 @@ def binary_join(strings, separator, *, memory_pool=None):
             [strings, separator]
         )
 
-    return(
+    return (
         func.call([strings, separator], memory_pool=memory_pool)
     )
 
@@ -1810,7 +1810,7 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
         null_replacement=null_replacement
     )
     func = pyarrow._compute.get_function('binary_join_element_wise')
-    return(
+    return (
         func.call([*strings], _computed_options, memory_pool)
     )
 
@@ -1839,7 +1839,7 @@ def binary_length(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1869,7 +1869,7 @@ def binary_repeat(strings, num_repeats, *, memory_pool=None):
             [strings, num_repeats]
         )
 
-    return(
+    return (
         func.call([strings, num_repeats], memory_pool=memory_pool)
     )
 
@@ -1922,7 +1922,7 @@ def binary_replace_slice(strings, start=None, stop=None, replacement=None, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -1953,7 +1953,7 @@ def binary_reverse(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -1983,7 +1983,7 @@ def bit_wise_and(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -2011,7 +2011,7 @@ def bit_wise_not(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -2041,7 +2041,7 @@ def bit_wise_or(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -2071,7 +2071,7 @@ def bit_wise_xor(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -2105,7 +2105,7 @@ def case_when(cond, *cases, memory_pool=None):
     """
 
     func = pyarrow._compute.get_function('case_when')
-    return(
+    return (
         func.call([cond, *cases], memory_pool=memory_pool)
     )
 
@@ -2167,7 +2167,7 @@ def cast(input, target_type=None, *, allow_int_overflow=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([input], _computed_options, memory_pool)
     )
 
@@ -2195,7 +2195,7 @@ def ceil(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -2280,7 +2280,7 @@ def ceil_temporal(timestamps, multiple=1, unit='day', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([timestamps], _computed_options, memory_pool)
     )
 
@@ -2308,7 +2308,7 @@ def choose(indices, *values, memory_pool=None):
     """
 
     func = pyarrow._compute.get_function('choose')
-    return(
+    return (
         func.call([indices, *values], memory_pool=memory_pool)
     )
 
@@ -2333,7 +2333,7 @@ def coalesce(*values, memory_pool=None):
     """
 
     func = pyarrow._compute.get_function('coalesce')
-    return(
+    return (
         func.call([*values], memory_pool=memory_pool)
     )
 
@@ -2362,7 +2362,7 @@ def cos(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -2391,7 +2391,7 @@ def cos_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -2461,7 +2461,7 @@ def count(array, mode='only_valid', *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -2533,7 +2533,7 @@ def count_distinct(array, mode='only_valid', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -2581,7 +2581,7 @@ def count_substring(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -2630,7 +2630,7 @@ def count_substring_regex(strings, pattern=None, *, ignore_case=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -2678,7 +2678,7 @@ def cumulative_sum(values, start=0.0, *, skip_nulls=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -2727,7 +2727,7 @@ def cumulative_sum_checked(values, start=0.0, *, skip_nulls=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -2757,7 +2757,7 @@ def day(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -2812,7 +2812,7 @@ def day_of_week(values, *, count_from_zero=True, week_start=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -2843,7 +2843,7 @@ def day_of_year(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -2880,7 +2880,7 @@ def day_time_interval_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -2913,7 +2913,7 @@ def days_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -2958,7 +2958,7 @@ def dictionary_encode(array, null_encoding='mask', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -2991,7 +2991,7 @@ def divide(dividend, divisor, *, memory_pool=None):
             [dividend, divisor]
         )
 
-    return(
+    return (
         func.call([dividend, divisor], memory_pool=memory_pool)
     )
 
@@ -3023,7 +3023,7 @@ def divide_checked(dividend, divisor, *, memory_pool=None):
             [dividend, divisor]
         )
 
-    return(
+    return (
         func.call([dividend, divisor], memory_pool=memory_pool)
     )
 
@@ -3054,7 +3054,7 @@ def drop_null(input, *, memory_pool=None):
             [input]
         )
 
-    return(
+    return (
         func.call([input], memory_pool=memory_pool)
     )
 
@@ -3102,7 +3102,7 @@ def ends_with(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -3132,7 +3132,7 @@ def equal(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -3177,7 +3177,7 @@ def extract_regex(strings, pattern=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -3208,7 +3208,7 @@ def fill_null_backward(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3238,7 +3238,7 @@ def fill_null_forward(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3303,7 +3303,7 @@ def filter(input, selection_filter, null_selection_behavior='drop', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([input, selection_filter], _computed_options, memory_pool)
     )
 
@@ -3352,7 +3352,7 @@ def find_substring(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -3402,7 +3402,7 @@ def find_substring_regex(strings, pattern=None, *, ignore_case=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -3430,7 +3430,7 @@ def floor(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -3516,7 +3516,7 @@ def floor_temporal(timestamps, multiple=1, unit='day', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([timestamps], _computed_options, memory_pool)
     )
 
@@ -3546,7 +3546,7 @@ def greater(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -3576,7 +3576,7 @@ def greater_equal(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -3606,7 +3606,7 @@ def hour(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3639,7 +3639,7 @@ def hours_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -3673,7 +3673,7 @@ def if_else(cond, left, right, *, memory_pool=None):
             [cond, left, right]
         )
 
-    return(
+    return (
         func.call([cond, left, right], memory_pool=memory_pool)
     )
 
@@ -3734,7 +3734,7 @@ def index(array, value=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -3784,7 +3784,7 @@ def index_in(values, value_set=None, *, skip_nulls=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -3816,7 +3816,7 @@ def index_in_meta_binary(values, value_set, *, memory_pool=None):
             [values, value_set]
         )
 
-    return(
+    return (
         func.call([values, value_set], memory_pool=memory_pool)
     )
 
@@ -3864,7 +3864,7 @@ def indices_nonzero(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3890,7 +3890,7 @@ def invert(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3921,7 +3921,7 @@ def is_dst(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -3950,7 +3950,7 @@ def is_finite(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4000,7 +4000,7 @@ def is_in(values, value_set=None, *, skip_nulls=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -4032,7 +4032,7 @@ def is_in_meta_binary(values, value_set, *, memory_pool=None):
             [values, value_set]
         )
 
-    return(
+    return (
         func.call([values, value_set], memory_pool=memory_pool)
     )
 
@@ -4060,7 +4060,7 @@ def is_inf(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4090,7 +4090,7 @@ def is_leap_year(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4118,7 +4118,7 @@ def is_nan(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4160,7 +4160,7 @@ def is_null(values, *, nan_is_null=False, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -4188,7 +4188,7 @@ def is_valid(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4219,7 +4219,7 @@ def iso_calendar(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4252,7 +4252,7 @@ def iso_week(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4284,7 +4284,7 @@ def iso_year(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -4314,7 +4314,7 @@ def less(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -4344,7 +4344,7 @@ def less_equal(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -4376,7 +4376,7 @@ def list_element(lists, index, *, memory_pool=None):
             [lists, index]
         )
 
-    return(
+    return (
         func.call([lists, index], memory_pool=memory_pool)
     )
 
@@ -4406,7 +4406,7 @@ def list_flatten(lists, *, memory_pool=None):
             [lists]
         )
 
-    return(
+    return (
         func.call([lists], memory_pool=memory_pool)
     )
 
@@ -4437,7 +4437,7 @@ def list_parent_indices(lists, *, memory_pool=None):
             [lists]
         )
 
-    return(
+    return (
         func.call([lists], memory_pool=memory_pool)
     )
 
@@ -4468,7 +4468,7 @@ def list_value_length(lists, *, memory_pool=None):
             [lists]
         )
 
-    return(
+    return (
         func.call([lists], memory_pool=memory_pool)
     )
 
@@ -4498,7 +4498,7 @@ def ln(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4527,7 +4527,7 @@ def ln_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4557,7 +4557,7 @@ def log10(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4587,7 +4587,7 @@ def log10_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4618,7 +4618,7 @@ def log1p(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4648,7 +4648,7 @@ def log1p_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4678,7 +4678,7 @@ def log2(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4708,7 +4708,7 @@ def log2_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -4740,7 +4740,7 @@ def logb(x, b, *, memory_pool=None):
             [x, b]
         )
 
-    return(
+    return (
         func.call([x, b], memory_pool=memory_pool)
     )
 
@@ -4772,7 +4772,7 @@ def logb_checked(x, b, *, memory_pool=None):
             [x, b]
         )
 
-    return(
+    return (
         func.call([x, b], memory_pool=memory_pool)
     )
 
@@ -4814,7 +4814,7 @@ def make_struct(*args, field_names=(), field_nullability=None,
         field_metadata=field_metadata
     )
     func = pyarrow._compute.get_function('make_struct')
-    return(
+    return (
         func.call([*args], _computed_options, memory_pool)
     )
 
@@ -4861,7 +4861,7 @@ def map_lookup(container, query_key=None, occurrence=None, *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([container], _computed_options, memory_pool)
     )
 
@@ -4911,7 +4911,7 @@ def match_like(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -4959,7 +4959,7 @@ def match_substring(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -5009,7 +5009,7 @@ def match_substring_regex(strings, pattern=None, *, ignore_case=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -5056,7 +5056,7 @@ def max(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -5091,7 +5091,7 @@ def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
         skip_nulls=skip_nulls
     )
     func = pyarrow._compute.get_function('max_element_wise')
-    return(
+    return (
         func.call([*args], _computed_options, memory_pool)
     )
 
@@ -5144,7 +5144,7 @@ def mean(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -5176,7 +5176,7 @@ def microsecond(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -5211,7 +5211,7 @@ def microseconds_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5242,7 +5242,7 @@ def millisecond(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -5277,7 +5277,7 @@ def milliseconds_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5324,7 +5324,7 @@ def min(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -5359,7 +5359,7 @@ def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
         skip_nulls=skip_nulls
     )
     func = pyarrow._compute.get_function('min_element_wise')
-    return(
+    return (
         func.call([*args], _computed_options, memory_pool)
     )
 
@@ -5406,7 +5406,7 @@ def min_max(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -5436,7 +5436,7 @@ def minute(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -5470,7 +5470,7 @@ def minutes_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5538,7 +5538,7 @@ def mode(array, n=1, *, skip_nulls=True, min_count=0, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -5569,7 +5569,7 @@ def month(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -5607,7 +5607,7 @@ def month_day_nano_interval_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5641,7 +5641,7 @@ def month_interval_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5673,7 +5673,7 @@ def multiply(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -5705,7 +5705,7 @@ def multiply_checked(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -5736,7 +5736,7 @@ def nanosecond(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -5771,7 +5771,7 @@ def nanoseconds_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -5801,7 +5801,7 @@ def negate(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -5831,7 +5831,7 @@ def negate_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -5861,7 +5861,7 @@ def not_equal(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -5892,7 +5892,7 @@ def or_(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -5932,7 +5932,7 @@ def or_kleene(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -5994,7 +5994,7 @@ def partition_nth_indices(array, pivot=None, *, null_placement='at_end',
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -6026,7 +6026,7 @@ def power(base, exponent, *, memory_pool=None):
             [base, exponent]
         )
 
-    return(
+    return (
         func.call([base, exponent], memory_pool=memory_pool)
     )
 
@@ -6058,7 +6058,7 @@ def power_checked(base, exponent, *, memory_pool=None):
             [base, exponent]
         )
 
-    return(
+    return (
         func.call([base, exponent], memory_pool=memory_pool)
     )
 
@@ -6106,7 +6106,7 @@ def product(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -6169,7 +6169,7 @@ def quantile(array, q=0.5, *, interpolation='linear', skip_nulls=True,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -6200,7 +6200,7 @@ def quarter(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -6235,7 +6235,7 @@ def quarters_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -6271,7 +6271,7 @@ def random(*, initializer='system', options=None, memory_pool=None):
         initializer=initializer
     )
     func = pyarrow._compute.get_function('random')
-    return(
+    return (
         func.call([], _computed_options, memory_pool)
     )
 
@@ -6341,7 +6341,7 @@ def rank(input, sort_keys='ascending', *, null_placement='at_end',
             _computed_options
         )
 
-    return(
+    return (
         func.call([input], _computed_options, memory_pool)
     )
 
@@ -6396,7 +6396,7 @@ def replace_substring(strings, pattern=None, replacement=None, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -6452,7 +6452,7 @@ def replace_substring_regex(strings, pattern=None, replacement=None, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -6490,7 +6490,7 @@ def replace_with_mask(values, mask, replacements, *, memory_pool=None):
             [values, mask, replacements]
         )
 
-    return(
+    return (
         func.call([values, mask, replacements], memory_pool=memory_pool)
     )
 
@@ -6539,7 +6539,7 @@ def round(x, ndigits=0, round_mode='half_to_even', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([x], _computed_options, memory_pool)
     )
 
@@ -6625,7 +6625,7 @@ def round_temporal(timestamps, multiple=1, unit='day', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([timestamps], _computed_options, memory_pool)
     )
 
@@ -6676,7 +6676,7 @@ def round_to_multiple(x, multiple=1.0, round_mode='half_to_even', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([x], _computed_options, memory_pool)
     )
 
@@ -6706,7 +6706,7 @@ def second(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -6740,7 +6740,7 @@ def seconds_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )
 
@@ -6797,7 +6797,7 @@ def select_k_unstable(input, k=None, sort_keys=None, *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([input], _computed_options, memory_pool)
     )
 
@@ -6835,7 +6835,7 @@ def shift_left(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -6874,7 +6874,7 @@ def shift_left_checked(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -6908,7 +6908,7 @@ def shift_right(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -6943,7 +6943,7 @@ def shift_right_checked(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -6973,7 +6973,7 @@ def sign(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7002,7 +7002,7 @@ def sin(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7031,7 +7031,7 @@ def sin_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7085,7 +7085,7 @@ def sort_indices(input, sort_keys=(), *, null_placement='at_end', options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([input], _computed_options, memory_pool)
     )
 
@@ -7138,7 +7138,7 @@ def split_pattern(strings, pattern=None, *, max_splits=None, reverse=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -7193,7 +7193,7 @@ def split_pattern_regex(strings, pattern=None, *, max_splits=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -7222,7 +7222,7 @@ def sqrt(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7251,7 +7251,7 @@ def sqrt_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7300,7 +7300,7 @@ def starts_with(strings, pattern=None, *, ignore_case=False, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -7352,7 +7352,7 @@ def stddev(array, *, ddof=0, skip_nulls=True, min_count=0, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -7405,7 +7405,7 @@ def strftime(timestamps, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([timestamps], _computed_options, memory_pool)
     )
 
@@ -7435,7 +7435,7 @@ def string_is_ascii(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -7486,7 +7486,7 @@ def strptime(strings, format=None, unit=None, error_is_null=False, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -7535,7 +7535,7 @@ def struct_field(values, indices=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -7566,7 +7566,7 @@ def subsecond(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -7598,7 +7598,7 @@ def subtract(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -7630,7 +7630,7 @@ def subtract_checked(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -7678,7 +7678,7 @@ def sum(array, *, skip_nulls=True, min_count=1, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -7723,7 +7723,7 @@ def take(input, indices, *, boundscheck=True, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([input, indices], _computed_options, memory_pool)
     )
 
@@ -7752,7 +7752,7 @@ def tan(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7781,7 +7781,7 @@ def tan_checked(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7838,7 +7838,7 @@ def tdigest(array, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -7868,7 +7868,7 @@ def true_unless_null(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -7896,7 +7896,7 @@ def trunc(x, *, memory_pool=None):
             [x]
         )
 
-    return(
+    return (
         func.call([x], memory_pool=memory_pool)
     )
 
@@ -7924,7 +7924,7 @@ def unique(array, *, memory_pool=None):
             [array]
         )
 
-    return(
+    return (
         func.call([array], memory_pool=memory_pool)
     )
 
@@ -7957,7 +7957,7 @@ def us_week(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -7990,7 +7990,7 @@ def us_year(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -8020,7 +8020,7 @@ def utf8_capitalize(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8067,7 +8067,7 @@ def utf8_center(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8097,7 +8097,7 @@ def utf8_is_alnum(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8127,7 +8127,7 @@ def utf8_is_alpha(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8157,7 +8157,7 @@ def utf8_is_decimal(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8186,7 +8186,7 @@ def utf8_is_digit(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8216,7 +8216,7 @@ def utf8_is_lower(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8246,7 +8246,7 @@ def utf8_is_numeric(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8277,7 +8277,7 @@ def utf8_is_printable(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8307,7 +8307,7 @@ def utf8_is_space(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8338,7 +8338,7 @@ def utf8_is_title(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8368,7 +8368,7 @@ def utf8_is_upper(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8397,7 +8397,7 @@ def utf8_length(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8425,7 +8425,7 @@ def utf8_lower(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8471,7 +8471,7 @@ def utf8_lpad(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8513,7 +8513,7 @@ def utf8_ltrim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8545,7 +8545,7 @@ def utf8_ltrim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8590,7 +8590,7 @@ def utf8_normalize(strings, form=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8642,7 +8642,7 @@ def utf8_replace_slice(strings, start=None, stop=None, replacement=None, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8674,7 +8674,7 @@ def utf8_reverse(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8720,7 +8720,7 @@ def utf8_rpad(strings, width=None, padding=' ', *, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8762,7 +8762,7 @@ def utf8_rtrim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8794,7 +8794,7 @@ def utf8_rtrim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8850,7 +8850,7 @@ def utf8_slice_codeunits(strings, start=None, stop=None, step=1, *,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8902,7 +8902,7 @@ def utf8_split_whitespace(strings, *, max_splits=None, reverse=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -8931,7 +8931,7 @@ def utf8_swapcase(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -8961,7 +8961,7 @@ def utf8_title(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -9003,7 +9003,7 @@ def utf8_trim(strings, characters=None, *, options=None, memory_pool=None):
             _computed_options
         )
 
-    return(
+    return (
         func.call([strings], _computed_options, memory_pool)
     )
 
@@ -9034,7 +9034,7 @@ def utf8_trim_whitespace(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -9062,7 +9062,7 @@ def utf8_upper(strings, *, memory_pool=None):
             [strings]
         )
 
-    return(
+    return (
         func.call([strings], memory_pool=memory_pool)
     )
 
@@ -9093,7 +9093,7 @@ def value_counts(array, *, memory_pool=None):
             [array]
         )
 
-    return(
+    return (
         func.call([array], memory_pool=memory_pool)
     )
 
@@ -9145,7 +9145,7 @@ def variance(array, *, ddof=0, skip_nulls=True, min_count=0, options=None,
             _computed_options
         )
 
-    return(
+    return (
         func.call([array], _computed_options, memory_pool)
     )
 
@@ -9202,7 +9202,7 @@ def week(values, *, week_starts_monday=True, count_from_zero=False,
             _computed_options
         )
 
-    return(
+    return (
         func.call([values], _computed_options, memory_pool)
     )
 
@@ -9252,7 +9252,7 @@ def weeks_between(start, end, *, count_from_zero=True, week_start=1,
             _computed_options
         )
 
-    return(
+    return (
         func.call([start, end], _computed_options, memory_pool)
     )
 
@@ -9282,7 +9282,7 @@ def xor(x, y, *, memory_pool=None):
             [x, y]
         )
 
-    return(
+    return (
         func.call([x, y], memory_pool=memory_pool)
     )
 
@@ -9312,7 +9312,7 @@ def year(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -9343,7 +9343,7 @@ def year_month_day(values, *, memory_pool=None):
             [values]
         )
 
-    return(
+    return (
         func.call([values], memory_pool=memory_pool)
     )
 
@@ -9376,6 +9376,6 @@ def years_between(start, end, *, memory_pool=None):
             [start, end]
         )
 
-    return(
+    return (
         func.call([start, end], memory_pool=memory_pool)
     )

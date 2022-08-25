@@ -374,12 +374,12 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
         function_text += "\n        )\n\n"
 
     if options_class:
-        function_text += f"""    return(
+        function_text += f"""    return (
         func.call({argstring}, _computed_options, memory_pool)
     )"""
     else:
 
-        function_text += f"""    return(
+        function_text += f"""    return (
         func.call({argstring}, memory_pool=memory_pool)
     )"""
 
