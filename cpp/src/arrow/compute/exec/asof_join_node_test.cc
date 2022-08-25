@@ -18,7 +18,6 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
-#include <iostream>
 #include <numeric>
 #include <random>
 #include <unordered_set>
@@ -64,7 +63,7 @@ bool is_temporal_primitive(Type::type type_id) {
   }
 }
 
-BatchesWithSchema MakeBatchesFromNumString(
+Result<BatchesWithSchema> MakeBatchesFromNumString(
     const std::shared_ptr<Schema>& schema,
     const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
   FieldVector num_fields;
@@ -85,8 +84,9 @@ BatchesWithSchema MakeBatchesFromNumString(
       auto type = schema->field(i)->type();
       if (is_base_binary_like(type->id())) {
         // casting to string first enables casting to binary
-        Datum as_string = Cast(num_batch.values[i], utf8()).ValueOrDie();
-        values.push_back(Cast(as_string, type).ValueOrDie());
+        ARROW_ASSIGN_OR_RAISE(Datum as_string, Cast(num_batch.values[i], utf8()));
+        ARROW_ASSIGN_OR_RAISE(Datum as_type, Cast(as_string, type));
+        values.push_back(as_type);
       } else {
         values.push_back(num_batch.values[i]);
       }
@@ -241,7 +241,7 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const BatchesWithSchema& r_batches,
                        const AsofJoinNodeOptions& join_options,
                        const std::string& expected_error_str,
-                       bool then_run_plan = false) {
+                       bool fail_on_plan_creation = false) {
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
 
@@ -251,7 +251,7 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
 
-  if (then_run_plan) {
+  if (fail_on_plan_creation) {
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                   .AddToPlan(plan.get()));
@@ -275,8 +275,8 @@ void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema,
                           const AsofJoinNodeOptions& join_options,
                           const std::string& expected_error_str) {
-  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {R"([])"});
-  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {R"([])"});
+  ASSERT_OK_AND_ASSIGN(auto l_batches, MakeBatchesFromNumString(l_schema, {R"([])"}));
+  ASSERT_OK_AND_ASSIGN(auto r_batches, MakeBatchesFromNumString(r_schema, {R"([])"}));
 
   return DoRunInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str);
 }
@@ -344,7 +344,10 @@ void DoRunAmbiguousByKeyTest(const std::shared_ptr<Schema>& l_schema,
   DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : Multiple matches");
 }
 
-std::string GetJsonString(int n_rows, int n_cols, bool unordered = false) {
+// Gets a batch for testing as a Json string
+// The batch will have n_rows rows n_cols columns, the first column being the on-field
+// If unordered is true then the first column will be out-of-order
+std::string GetTestBatchAsJsonString(int n_rows, int n_cols, bool unordered = false) {
   std::stringstream s;
   s << '[';
   for (int i = 0; i < n_rows; i++) {
@@ -374,10 +377,10 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
                             const std::string& expected_error_str) {
   ASSERT_TRUE(l_unordered || r_unordered);
   int n_rows = 5;
-  std::string l_str = GetJsonString(n_rows, l_schema->num_fields(), l_unordered);
-  std::string r_str = GetJsonString(n_rows, r_schema->num_fields(), r_unordered);
-  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {l_str});
-  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {r_str});
+  auto l_str = GetTestBatchAsJsonString(n_rows, l_schema->num_fields(), l_unordered);
+  auto r_str = GetTestBatchAsJsonString(n_rows, r_schema->num_fields(), r_unordered);
+  ASSERT_OK_AND_ASSIGN(auto l_batches, MakeBatchesFromNumString(l_schema, {l_str}));
+  ASSERT_OK_AND_ASSIGN(auto r_batches, MakeBatchesFromNumString(r_schema, {r_str}));
 
   return DoInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str,
                            /*then_run_plan=*/true);
@@ -396,10 +399,10 @@ void DoRunNullByKeyPlanTest(const std::shared_ptr<Schema>& l_schema,
   AsofJoinNodeOptions join_options{"time", "key2", 1000};
   std::string expected_error_str = "unexpected null by-key values";
   int n_rows = 5;
-  std::string l_str = GetJsonString(n_rows, l_schema->num_fields());
-  std::string r_str = GetJsonString(n_rows, r_schema->num_fields());
-  BatchesWithSchema l_batches = MakeBatchesFromNumString(l_schema, {l_str});
-  BatchesWithSchema r_batches = MakeBatchesFromNumString(r_schema, {r_str});
+  auto l_str = GetTestBatchAsJsonString(n_rows, l_schema->num_fields());
+  auto r_str = GetTestBatchAsJsonString(n_rows, r_schema->num_fields());
+  ASSERT_OK_AND_ASSIGN(auto l_batches, MakeBatchesFromNumString(l_schema, {l_str}));
+  ASSERT_OK_AND_ASSIGN(auto r_batches, MakeBatchesFromNumString(r_schema, {r_str}));
   l_batches = MutateByKey(l_batches, "key", "key2", true, true);
   r_batches = MutateByKey(r_batches, "key", "key2", true, true);
 
@@ -610,12 +613,13 @@ struct BasicTest {
     });
 
     // Test three table join
-    BatchesWithSchema l_batches, r0_batches, r1_batches, exp_nokey_batches, exp_batches;
-    l_batches = MakeBatchesFromNumString(l_schema, l_data);
-    r0_batches = MakeBatchesFromNumString(r0_schema, r0_data);
-    r1_batches = MakeBatchesFromNumString(r1_schema, r1_data);
-    exp_nokey_batches = MakeBatchesFromNumString(exp_schema, exp_nokey_data);
-    exp_batches = MakeBatchesFromNumString(exp_schema, exp_data);
+    ASSERT_OK_AND_ASSIGN(auto l_batches, MakeBatchesFromNumString(l_schema, l_data));
+    ASSERT_OK_AND_ASSIGN(auto r0_batches, MakeBatchesFromNumString(r0_schema, r0_data));
+    ASSERT_OK_AND_ASSIGN(auto r1_batches, MakeBatchesFromNumString(r1_schema, r1_data));
+    ASSERT_OK_AND_ASSIGN(auto exp_nokey_batches,
+                         MakeBatchesFromNumString(exp_schema, exp_nokey_data));
+    ASSERT_OK_AND_ASSIGN(auto exp_batches,
+                         MakeBatchesFromNumString(exp_schema, exp_data));
     batches_runner(l_batches, r0_batches, r1_batches, exp_nokey_batches, exp_batches);
   }
 

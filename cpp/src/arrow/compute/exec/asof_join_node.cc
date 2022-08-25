@@ -60,7 +60,6 @@ typedef uint64_t HashType;
 #define MAX_JOIN_TABLES 64
 typedef uint64_t row_index_t;
 typedef int col_index_t;
-typedef std::vector<col_index_t> vec_col_index_t;
 
 // normalize the value to 64-bits while preserving ordering of values
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
@@ -179,7 +178,7 @@ class KeyHasher {
   static constexpr int kMiniBatchLength = util::MiniBatch::kMiniBatchLength;
 
  public:
-  explicit KeyHasher(const vec_col_index_t& indices)
+  explicit KeyHasher(const std::vector<col_index_t>& indices)
       : indices_(indices),
         metadata_(indices.size()),
         batch_(NULLPTR),
@@ -224,7 +223,7 @@ class KeyHasher {
   }
 
  private:
-  vec_col_index_t indices_;
+  std::vector<col_index_t> indices_;
   std::vector<KeyColumnMetadata> metadata_;
   const RecordBatch* batch_;
   std::vector<HashType> hashes_;
@@ -241,7 +240,8 @@ class InputState {
  public:
   InputState(bool must_hash, bool nullable_by_key, KeyHasher* key_hasher,
              const std::shared_ptr<arrow::Schema>& schema,
-             const col_index_t time_col_index, const vec_col_index_t& key_col_index)
+             const col_index_t time_col_index,
+             const std::vector<col_index_t>& key_col_index)
       : queue_(),
         schema_(schema),
         time_col_index_(time_col_index),
@@ -452,7 +452,7 @@ class InputState {
   // Index of the time col
   col_index_t time_col_index_;
   // Index of the key col
-  vec_col_index_t key_col_index_;
+  std::vector<col_index_t> key_col_index_;
   // Type id of the time column
   Type::type time_type_id_;
   // Type id of the key column
@@ -828,9 +828,9 @@ class AsofJoinNode : public ExecNode {
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-               const vec_col_index_t& indices_of_on_key,
-               const std::vector<vec_col_index_t>& indices_of_by_key, OnType tolerance,
-               std::shared_ptr<Schema> output_schema);
+               const std::vector<col_index_t>& indices_of_on_key,
+               const std::vector<std::vector<col_index_t>>& indices_of_by_key,
+               OnType tolerance, std::shared_ptr<Schema> output_schema);
 
   Status InternalInit(bool must_hash, bool nullable_by_key,
                       std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
@@ -854,12 +854,91 @@ class AsofJoinNode : public ExecNode {
     process_thread_.join();
   }
 
-  const vec_col_index_t& indices_of_on_key() { return indices_of_on_key_; }
-  const std::vector<vec_col_index_t>& indices_of_by_key() { return indices_of_by_key_; }
+  const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
+  const std::vector<std::vector<col_index_t>>& indices_of_by_key() {
+    return indices_of_by_key_;
+  }
+
+  static Status is_valid_on_field(const std::shared_ptr<Field>& field) {
+    switch (field->type()->id()) {
+      case Type::INT8:
+      case Type::INT16:
+      case Type::INT32:
+      case Type::INT64:
+      case Type::UINT8:
+      case Type::UINT16:
+      case Type::UINT32:
+      case Type::UINT64:
+      case Type::DATE32:
+      case Type::DATE64:
+      case Type::TIME32:
+      case Type::TIME64:
+      case Type::TIMESTAMP:
+        return Status::OK();
+      default:
+        return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
+                               field->type()->ToString());
+    }
+  }
+
+  static Status is_valid_by_field(const std::shared_ptr<Field>& field) {
+    switch (field->type()->id()) {
+      case Type::INT8:
+      case Type::INT16:
+      case Type::INT32:
+      case Type::INT64:
+      case Type::UINT8:
+      case Type::UINT16:
+      case Type::UINT32:
+      case Type::UINT64:
+      case Type::DATE32:
+      case Type::DATE64:
+      case Type::TIME32:
+      case Type::TIME64:
+      case Type::TIMESTAMP:
+      case Type::STRING:
+      case Type::LARGE_STRING:
+      case Type::BINARY:
+      case Type::LARGE_BINARY:
+        return Status::OK();
+      default:
+        return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
+                               field->type()->ToString());
+    }
+  }
+
+  static Status is_valid_data_field(const std::shared_ptr<Field>& field) {
+    switch (field->type()->id()) {
+      case Type::INT8:
+      case Type::INT16:
+      case Type::INT32:
+      case Type::INT64:
+      case Type::UINT8:
+      case Type::UINT16:
+      case Type::UINT32:
+      case Type::UINT64:
+      case Type::FLOAT:
+      case Type::DOUBLE:
+      case Type::DATE32:
+      case Type::DATE64:
+      case Type::TIME32:
+      case Type::TIME64:
+      case Type::TIMESTAMP:
+      case Type::STRING:
+      case Type::LARGE_STRING:
+      case Type::BINARY:
+      case Type::LARGE_BINARY:
+        return Status::OK();
+      default:
+        return Status::Invalid("Unsupported type for data field ", field->name(), " : ",
+                               field->type()->ToString());
+    }
+  }
 
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
-      const std::vector<ExecNode*>& inputs, const vec_col_index_t& indices_of_on_key,
-      const std::vector<vec_col_index_t>& indices_of_by_key) {
+      const std::vector<ExecNode*>& inputs,
+      const std::vector<col_index_t>& indices_of_on_key,
+      const std::vector<std::vector<col_index_t>>& indices_of_by_key) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
     size_t n_by = indices_of_by_key[0].size();
@@ -901,84 +980,19 @@ class AsofJoinNode : public ExecNode {
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (i == on_field_ix) {
-          switch (field->type()->id()) {
-            case Type::INT8:
-            case Type::INT16:
-            case Type::INT32:
-            case Type::INT64:
-            case Type::UINT8:
-            case Type::UINT16:
-            case Type::UINT32:
-            case Type::UINT64:
-            case Type::DATE32:
-            case Type::DATE64:
-            case Type::TIME32:
-            case Type::TIME64:
-            case Type::TIMESTAMP:
-              break;
-            default:
-              return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
-                                     field->type()->ToString());
-          }
+          ARROW_RETURN_NOT_OK(is_valid_on_field(field));
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else if (std_has(by_field_ix, i)) {
-          switch (field->type()->id()) {
-            case Type::INT8:
-            case Type::INT16:
-            case Type::INT32:
-            case Type::INT64:
-            case Type::UINT8:
-            case Type::UINT16:
-            case Type::UINT32:
-            case Type::UINT64:
-            case Type::DATE32:
-            case Type::DATE64:
-            case Type::TIME32:
-            case Type::TIME64:
-            case Type::TIMESTAMP:
-            case Type::STRING:
-            case Type::LARGE_STRING:
-            case Type::BINARY:
-            case Type::LARGE_BINARY:
-              break;
-            default:
-              return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
-                                     field->type()->ToString());
-          }
+          ARROW_RETURN_NOT_OK(is_valid_by_field(field));
           // Only add by field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else {
-          switch (field->type()->id()) {
-            case Type::INT8:
-            case Type::INT16:
-            case Type::INT32:
-            case Type::INT64:
-            case Type::UINT8:
-            case Type::UINT16:
-            case Type::UINT32:
-            case Type::UINT64:
-            case Type::FLOAT:
-            case Type::DOUBLE:
-            case Type::DATE32:
-            case Type::DATE64:
-            case Type::TIME32:
-            case Type::TIME64:
-            case Type::TIMESTAMP:
-            case Type::STRING:
-            case Type::LARGE_STRING:
-            case Type::BINARY:
-            case Type::LARGE_BINARY:
-              break;
-            default:
-              return Status::Invalid("Unsupported type for field ", field->name(), " : ",
-                                     field->type()->ToString());
-          }
-
+          ARROW_RETURN_NOT_OK(is_valid_data_field(field));
           fields.push_back(field);
         }
       }
@@ -988,7 +1002,7 @@ class AsofJoinNode : public ExecNode {
 
   static inline Result<col_index_t> FindColIndex(const Schema& schema,
                                                  const FieldRef& field_ref,
-                                                 const util::string_view& key_kind) {
+                                                 util::string_view key_kind) {
     auto match_res = field_ref.FindOne(schema);
     if (!match_res.ok()) {
       return Status::Invalid("Bad join key on table : ", match_res.status().message());
@@ -1016,8 +1030,9 @@ class AsofJoinNode : public ExecNode {
 
     size_t n_input = inputs.size(), n_by = join_options.by_key.size();
     std::vector<std::string> input_labels(n_input);
-    vec_col_index_t indices_of_on_key(n_input);
-    std::vector<vec_col_index_t> indices_of_by_key(n_input, vec_col_index_t(n_by));
+    std::vector<col_index_t> indices_of_on_key(n_input);
+    std::vector<std::vector<col_index_t>> indices_of_by_key(
+        n_input, std::vector<col_index_t>(n_by));
     for (size_t i = 0; i < n_input; ++i) {
       input_labels[i] = i == 0 ? "left" : "right_" + std::to_string(i);
       const Schema& input_schema = *inputs[i]->output_schema();
@@ -1100,8 +1115,8 @@ class AsofJoinNode : public ExecNode {
  private:
   arrow::Future<> finished_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
-  vec_col_index_t indices_of_on_key_;
-  std::vector<vec_col_index_t> indices_of_by_key_;
+  std::vector<col_index_t> indices_of_on_key_;
+  std::vector<std::vector<col_index_t>> indices_of_by_key_;
   // InputStates
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
@@ -1120,8 +1135,8 @@ class AsofJoinNode : public ExecNode {
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
-                           const vec_col_index_t& indices_of_on_key,
-                           const std::vector<vec_col_index_t>& indices_of_by_key,
+                           const std::vector<col_index_t>& indices_of_on_key,
+                           const std::vector<std::vector<col_index_t>>& indices_of_by_key,
                            OnType tolerance, std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
