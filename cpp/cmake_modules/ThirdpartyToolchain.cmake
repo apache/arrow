@@ -227,8 +227,13 @@ endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
-  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
-  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES REQUIRED_VERSIONS)
+  set(one_value_args
+      FORCE_ANY_NEWER_VERSION
+      HAVE_ALT
+      IS_RUNTIME_DEPENDENCY
+      REQUIRED_VERSION
+      USE_CONFIG)
+  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -246,31 +251,28 @@ macro(resolve_dependency DEPENDENCY_NAME)
   else()
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
-  set(FIND_PACKAGE_ARGUMENTS_BEFORE_VERSION ${PACKAGE_NAME})
-  set(FIND_PACKAGE_ARGUMENTS_AFTER_VERSION)
+  set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
+  if(ARG_REQUIRED_VERSION AND NOT FORCE_ANY_NEWER_VERSION)
+    list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
+  endif()
   if(ARG_USE_CONFIG)
-    list(APPEND FIND_PACKAGE_ARGUMENTS_AFTER_VERSION CONFIG)
+    list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
   endif()
   if(ARG_COMPONENTS)
-    list(APPEND FIND_PACKAGE_ARGUMENTS_AFTER_VERSION COMPONENTS ${ARG_COMPONENTS})
-  endif()
-  if(ARG_REQUIRED_VERSION)
-    list(APPEND ARG_REQUIRED_VERSIONS ${ARG_REQUIRED_VERSION})
+    list(APPEND FIND_PACKAGE_ARGUMENTS COMPONENTS ${ARG_COMPONENTS})
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    if(ARG_REQUIRED_VERSIONS)
-      foreach(VERSION ${ARG_REQUIRED_VERSIONS})
-        find_package(${FIND_PACKAGE_ARGUMENTS_BEFORE_VERSION} ${VERSION}
-                     ${FIND_PACKAGE_ARGUMENTS_AFTER_VERSION})
-        if(${${PACKAGE_NAME}_FOUND})
-          break()
-        endif()
-      endforeach()
-    else()
-      find_package(${FIND_PACKAGE_ARGUMENTS_BEFORE_VERSION}
-                   ${FIND_PACKAGE_ARGUMENTS_AFTER_VERSION})
+    find_package(${FIND_PACKAGE_ARGUMENTS})
+    set(COMPATIBLE ${${PACKAGE_NAME}_FOUND})
+    if(COMPATIBLE
+       AND FORCE_ANY_NEWER_VERSION
+       AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(DEBUG "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+        set(COMPATIBLE FALSE)
+      endif()
     endif()
-    if(${${PACKAGE_NAME}_FOUND})
+    if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -279,20 +281,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    if(ARG_REQUIRED_VERSIONS)
-      foreach(VERSION ${ARG_REQUIRED_VERSIONS})
-        find_package(${FIND_PACKAGE_ARGUMENTS_BEFORE_VERSION} ${VERSION}
-                     ${FIND_PACKAGE_ARGUMENTS_AFTER_VERSION})
-        if(${${PACKAGE_NAME}_FOUND})
-          break()
-        endif()
-      endforeach()
+    if(FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
+      find_package(${FIND_PACKAGE_ARGUMENTS})
       if(NOT ${${PACKAGE_NAME}_FOUND})
         message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME}")
       endif()
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+      endif()
     else()
-      find_package(${FIND_PACKAGE_ARGUMENTS_BEFORE_VERSION}
-                   ${FIND_PACKAGE_ARGUMENTS_AFTER_VERSION} REQUIRED)
+      find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
@@ -2279,7 +2277,11 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd REQUIRED_VERSIONS "9.0.0" "8.1.0")
+  resolve_dependency(xsimd
+                     REQUIRED_VERSION
+                     "8.1.0"
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(xsimd INTERFACE IMPORTED)
