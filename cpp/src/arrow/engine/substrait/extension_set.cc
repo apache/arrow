@@ -846,6 +846,12 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
                                       DecodeTemporalExtractionMapping()));
     DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, "concat"},
                                       DecodeConcatMapping()));
+    DCHECK_OK(
+        AddSubstraitCallToArrow({kSubstraitComparisonFunctionsUri, "is_null"},
+                                DecodeOptionlessBasicMapping("is_null", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitComparisonFunctionsUri, "is_not_null"},
+        DecodeOptionlessBasicMapping("is_valid", /*max_args=*/1)));
 
     // --------------- Substrait -> Arrow Aggregates --------------
     for (const auto& fn_name : {"sum", "min", "max"}) {
@@ -854,6 +860,9 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     }
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
                                            DecodeBasicAggregate("mean")));
+    DCHECK_OK(
+        AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
+                                     DecodeBasicAggregate("count")));
 
     // --------------- Arrow -> Substrait Functions ---------------
     for (const auto& fn_name : {"add", "subtract", "multiply", "divide"}) {
