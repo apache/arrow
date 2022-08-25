@@ -201,14 +201,15 @@ register_user_bindings <- function(quo, .env) {
     # functions
     parent.env(.env) <- rlang::quo_get_env(quo)
     for (i in seq_along(functions)) {
+      if (registrable(functions[[i]], .env))
       environment(functions[[i]]) <- .env
+      register_binding(
+        unknown_functions[[i]],
+        functions[[i]],
+        registry = .env,
+        update_cache = TRUE
+      )
     }
-
-    purrr::walk2(
-      .x = unknown_functions,
-      .y = functions,
-      .f = ~ register_binding(.x, .y, registry = .env, update_cache = TRUE)
-    )
   }
 }
 
