@@ -17,9 +17,7 @@
 
 @echo on
 
-set "PATH=C:\Miniconda37-x64;C:\Miniconda37-x64\Scripts;C:\Miniconda37-x64\Library\bin;%PATH%"
-set BOOST_ROOT=C:\Libraries\boost_1_67_0
-set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
+set "PATH=C:\Miniconda38-x64;C:\Miniconda38-x64\Scripts;C:\Miniconda38-x64\Library\bin;%PATH%"
 
 @rem
 @rem Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
@@ -31,6 +29,8 @@ rd /s /q C:\OpenSSL-v11-Win32
 rd /s /q C:\OpenSSL-v11-Win64
 rd /s /q C:\OpenSSL-v111-Win32
 rd /s /q C:\OpenSSL-v111-Win64
+rd /s /q C:\OpenSSL-v30-Win32
+rd /s /q C:\OpenSSL-v30-Win64
 
 @rem
 @rem Configure miniconda
@@ -52,9 +52,8 @@ conda install -q -y -c conda-forge mamba python=3.9 || exit /B
 mamba update -q -y -c conda-forge --all || exit /B
 
 @rem
-@rem Create conda environment for Build and Toolchain jobs
+@rem Create conda environment
 @rem
-@rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
 
 set CONDA_PACKAGES=
 
@@ -62,37 +61,26 @@ if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva_win.txt
 )
-if "%JOB%" == "Toolchain" (
-  @rem Install pre-built "toolchain" packages for faster builds
-  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
-)
-if "%JOB%" NEQ "Build_Debug" (
-  @rem Arrow conda environment is only required for the Build and Toolchain jobs
-  mamba create -n arrow -q -y -c conda-forge ^
-    --file=ci\conda_env_python.txt ^
-    %CONDA_PACKAGES%  ^
-    "cmake" ^
-    "ninja" ^
-    "nomkl" ^
-    "pandas" ^
-    "fsspec" ^
-    "python=%PYTHON%" ^
-    || exit /B
-)
+@rem Install pre-built "toolchain" packages for faster builds
+set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
+@rem Arrow conda environment
+mamba create -n arrow -q -y -c conda-forge ^
+  --file=ci\conda_env_python.txt ^
+  %CONDA_PACKAGES%  ^
+  "cmake" ^
+  "ninja" ^
+  "nomkl" ^
+  "pandas" ^
+  "fsspec" ^
+  "python=%PYTHON%" ^
+  || exit /B
 
 @rem
 @rem Configure compiler
 @rem
-if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
-if defined need_vcvarsall (
-    if "%APPVEYOR_BUILD_WORKER_IMAGE%" NEQ "Visual Studio 2017" (
-        @rem ARROW-14070 Visual Studio 2015 no longer supported
-        exit /B
-    )
-    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
-    set CC=cl.exe
-    set CXX=cl.exe
-)
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+set CC=cl.exe
+set CXX=cl.exe
 
 @rem
 @rem Use clcache for faster builds
@@ -109,7 +97,7 @@ powershell.exe -Command "Start-Process clcache-server" || exit /B
 @rem Download Minio somewhere on PATH, for unit tests
 @rem
 if "%ARROW_S3%" == "ON" (
-    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -FileName C:\Windows\Minio.exe || exit /B
+  appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -FileName C:\Windows\Minio.exe || exit /B
 )
 
 
