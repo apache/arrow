@@ -180,11 +180,9 @@ Result<std::vector<KeyColumnArray>> ColumnArraysFromArraySpan(const ArraySpan& a
   flattened_spans.reserve(1 + array_span.child_data.size());
 
   // Construct a KeyColumnArray from the given ArraySpan
-  // NOTE: we can't add buffers for a struct or map, but we will recurse on their children
-  if (array_span.type->id() != Type::STRUCT && array_span.type->id() != Type::MAP) {
-    ARROW_ASSIGN_OR_RAISE(auto keycol_arr,
-                          ColumnArrayFromArraySpan(array_span, num_rows));
-    flattened_spans.push_back(keycol_arr);
+  auto keycol_result = ColumnArrayFromArraySpan(array_span, num_rows);
+  if (keycol_result.ok()) {
+    flattened_spans.push_back(*keycol_result);
   }
 
   // Recurse on each child of the ArraySpan in DFS-order
