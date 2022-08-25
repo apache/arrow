@@ -64,7 +64,6 @@
 %define use_gflags (!%{is_amazon_linux})
 %define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %%define use_s3 (%%{rhel} >= 8)
@@ -115,10 +114,6 @@ BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
-%if %{use_python}
-BuildRequires:	python%{python_version}-devel
-BuildRequires:	python%{python_version}-numpy
-%endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
@@ -175,9 +170,6 @@ cd cpp
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
-%if %{use_python}
-  -DARROW_PYTHON=ON \
-%endif
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -191,10 +183,6 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
-%if %{use_python}
-  -DPythonInterp_FIND_VERSION=ON \
-  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%endif
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
