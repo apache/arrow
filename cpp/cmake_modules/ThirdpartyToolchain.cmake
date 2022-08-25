@@ -227,7 +227,12 @@ endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
-  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
+  set(one_value_args
+      FORCE_ANY_NEWER_VERSION
+      HAVE_ALT
+      IS_RUNTIME_DEPENDENCY
+      REQUIRED_VERSION
+      USE_CONFIG)
   set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -247,7 +252,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
   set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
-  if(ARG_REQUIRED_VERSION)
+  if(ARG_REQUIRED_VERSION AND NOT ARG_FORCE_ANY_NEWER_VERSION)
     list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
   endif()
   if(ARG_USE_CONFIG)
@@ -258,7 +263,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
-    if(${${PACKAGE_NAME}_FOUND})
+    set(COMPATIBLE ${${PACKAGE_NAME}_FOUND})
+    if(COMPATIBLE
+       AND ARG_FORCE_ANY_NEWER_VERSION
+       AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(DEBUG "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+        set(COMPATIBLE FALSE)
+      endif()
+    endif()
+    if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -268,6 +282,11 @@ macro(resolve_dependency DEPENDENCY_NAME)
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
+    if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+      endif()
+    endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
     provide_find_module(${PACKAGE_NAME})
@@ -2253,7 +2272,11 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+  resolve_dependency(xsimd
+                     REQUIRED_VERSION
+                     "8.1.0"
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(xsimd INTERFACE IMPORTED)
