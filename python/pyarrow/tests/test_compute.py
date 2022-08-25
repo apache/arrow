@@ -804,14 +804,14 @@ def test_generated_signatures():
 
     # Without options
     sig = inspect.signature(pc.add)
-    assert str(sig) == "(x, y, /, *, memory_pool=None)"
+    assert str(sig) == "(x, y, *, memory_pool=None)"
     # With options
     sig = inspect.signature(pc.min_max)
-    assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, "
+    assert str(sig) == ("(array, *, skip_nulls=True, min_count=1, "
                         "options=None, memory_pool=None)")
     # With positional options
     sig = inspect.signature(pc.quantile)
-    assert str(sig) == ("(array, /, q=0.5, *, interpolation='linear', "
+    assert str(sig) == ("(array, q=0.5, *, interpolation='linear', "
                         "skip_nulls=True, min_count=0, "
                         "options=None, memory_pool=None)")
     # Varargs with options
@@ -821,7 +821,7 @@ def test_generated_signatures():
                         "memory_pool=None)")
     # Varargs without options
     sig = inspect.signature(pc.choose)
-    assert str(sig) == "(indices, /, *values, memory_pool=None)"
+    assert str(sig) == "(indices, *values, memory_pool=None)"
     # Nullary with options
     sig = inspect.signature(pc.random)
 

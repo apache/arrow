@@ -50,7 +50,7 @@ def _handle_options(name, options_class, options, args, **kwargs):
     return None
 
 
-def abs(x, /, *, memory_pool=None):
+def abs(x, *, memory_pool=None):
     """Calculate the absolute value of the argument element-wise.
 
     Results will wrap around on integer overflow.
@@ -80,7 +80,7 @@ def abs(x, /, *, memory_pool=None):
     )
 
 
-def abs_checked(x, /, *, memory_pool=None):
+def abs_checked(x, *, memory_pool=None):
     """Calculate the absolute value of the argument element-wise.
 
     This function returns an error on overflow.  For a variant that
@@ -109,7 +109,7 @@ def abs_checked(x, /, *, memory_pool=None):
     )
 
 
-def acos(x, /, *, memory_pool=None):
+def acos(x, *, memory_pool=None):
     """Compute the inverse cosine.
 
     NaN is returned for invalid input values;
@@ -138,7 +138,7 @@ def acos(x, /, *, memory_pool=None):
     )
 
 
-def acos_checked(x, /, *, memory_pool=None):
+def acos_checked(x, *, memory_pool=None):
     """Compute the inverse cosine.
 
     Invalid input values raise an error;
@@ -167,7 +167,7 @@ def acos_checked(x, /, *, memory_pool=None):
     )
 
 
-def add(x, y, /, *, memory_pool=None):
+def add(x, y, *, memory_pool=None):
     """Add the arguments element-wise.
 
     Results will wrap around on integer overflow.
@@ -199,7 +199,7 @@ def add(x, y, /, *, memory_pool=None):
     )
 
 
-def add_checked(x, y, /, *, memory_pool=None):
+def add_checked(x, y, *, memory_pool=None):
     """Add the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
@@ -230,7 +230,7 @@ def add_checked(x, y, /, *, memory_pool=None):
     )
 
 
-def all(array, /, *, skip_nulls=True, min_count=1, options=None,
+def all(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Test whether all elements in a boolean array evaluate to true.
 
@@ -299,7 +299,7 @@ def all(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def and_(x, y, /, *, memory_pool=None):
+def and_(x, y, *, memory_pool=None):
     """Logical 'and' boolean values.
 
     When a null is encountered in either input, a null is output.
@@ -330,7 +330,7 @@ def and_(x, y, /, *, memory_pool=None):
     )
 
 
-def and_kleene(x, y, /, *, memory_pool=None):
+def and_kleene(x, y, *, memory_pool=None):
     """Logical 'and' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
@@ -370,7 +370,7 @@ def and_kleene(x, y, /, *, memory_pool=None):
     )
 
 
-def and_not(x, y, /, *, memory_pool=None):
+def and_not(x, y, *, memory_pool=None):
     """Logical 'and not' boolean values.
 
     When a null is encountered in either input, a null is output.
@@ -401,7 +401,7 @@ def and_not(x, y, /, *, memory_pool=None):
     )
 
 
-def and_not_kleene(x, y, /, *, memory_pool=None):
+def and_not_kleene(x, y, *, memory_pool=None):
     """Logical 'and not' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
@@ -443,7 +443,7 @@ def and_not_kleene(x, y, /, *, memory_pool=None):
     )
 
 
-def any(array, /, *, skip_nulls=True, min_count=1, options=None,
+def any(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Test whether any element in a boolean array evaluates to true.
 
@@ -518,7 +518,7 @@ def any(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def approximate_median(array, /, *, skip_nulls=True, min_count=1, options=None,
+def approximate_median(array, *, skip_nulls=True, min_count=1, options=None,
                        memory_pool=None):
     """Approximate median of a numeric array with T-Digest algorithm.
 
@@ -566,7 +566,7 @@ def approximate_median(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def array_filter(array, selection_filter, /, null_selection_behavior='drop', *,
+def array_filter(array, selection_filter, null_selection_behavior='drop', *,
                  options=None, memory_pool=None):
     """Filter with a boolean selection filter.
 
@@ -612,7 +612,7 @@ def array_filter(array, selection_filter, /, null_selection_behavior='drop', *,
     )
 
 
-def array_sort_indices(array, /, order='ascending', *, null_placement='at_end',
+def array_sort_indices(array, order='ascending', *, null_placement='at_end',
                        options=None, memory_pool=None):
     """Return the indices that would sort an array.
 
@@ -665,7 +665,7 @@ def array_sort_indices(array, /, order='ascending', *, null_placement='at_end',
     )
 
 
-def array_take(array, indices, /, *, boundscheck=True, options=None,
+def array_take(array, indices, *, boundscheck=True, options=None,
                memory_pool=None):
     """Select values from an array based on indices from another array.
 
@@ -711,7 +711,7 @@ def array_take(array, indices, /, *, boundscheck=True, options=None,
     )
 
 
-def ascii_capitalize(strings, /, *, memory_pool=None):
+def ascii_capitalize(strings, *, memory_pool=None):
     """Capitalize the first character of ASCII input.
 
     For each string in `strings`, return a capitalized version.
@@ -743,7 +743,7 @@ def ascii_capitalize(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_center(strings, /, width=None, padding=' ', *, options=None,
+def ascii_center(strings, width=None, padding=' ', *, options=None,
                  memory_pool=None):
     """Center strings by padding with a given character.
 
@@ -790,7 +790,7 @@ def ascii_center(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def ascii_is_alnum(strings, /, *, memory_pool=None):
+def ascii_is_alnum(strings, *, memory_pool=None):
     """Classify strings as ASCII alphanumeric.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -821,7 +821,7 @@ def ascii_is_alnum(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_alpha(strings, /, *, memory_pool=None):
+def ascii_is_alpha(strings, *, memory_pool=None):
     """Classify strings as ASCII alphabetic.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -852,7 +852,7 @@ def ascii_is_alpha(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_decimal(strings, /, *, memory_pool=None):
+def ascii_is_decimal(strings, *, memory_pool=None):
     """Classify strings as ASCII decimal.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -882,7 +882,7 @@ def ascii_is_decimal(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_lower(strings, /, *, memory_pool=None):
+def ascii_is_lower(strings, *, memory_pool=None):
     """Classify strings as ASCII lowercase.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -912,7 +912,7 @@ def ascii_is_lower(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_printable(strings, /, *, memory_pool=None):
+def ascii_is_printable(strings, *, memory_pool=None):
     """Classify strings as ASCII printable.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -942,7 +942,7 @@ def ascii_is_printable(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_space(strings, /, *, memory_pool=None):
+def ascii_is_space(strings, *, memory_pool=None):
     """Classify strings as ASCII whitespace.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -973,7 +973,7 @@ def ascii_is_space(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_title(strings, /, *, memory_pool=None):
+def ascii_is_title(strings, *, memory_pool=None):
     """Classify strings as ASCII titlecase.
 
     For each string in `strings`, emit true iff the string is title-cased,
@@ -1005,7 +1005,7 @@ def ascii_is_title(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_is_upper(strings, /, *, memory_pool=None):
+def ascii_is_upper(strings, *, memory_pool=None):
     """Classify strings as ASCII uppercase.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -1035,7 +1035,7 @@ def ascii_is_upper(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_lower(strings, /, *, memory_pool=None):
+def ascii_lower(strings, *, memory_pool=None):
     """Transform ASCII input to lowercase.
 
     For each string in `strings`, return a lowercase version.
@@ -1066,7 +1066,7 @@ def ascii_lower(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_lpad(strings, /, width=None, padding=' ', *, options=None,
+def ascii_lpad(strings, width=None, padding=' ', *, options=None,
                memory_pool=None):
     """Right-align strings by padding with a given character.
 
@@ -1112,8 +1112,7 @@ def ascii_lpad(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def ascii_ltrim(strings, /, characters=None, *, options=None,
-                memory_pool=None):
+def ascii_ltrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading characters.
 
     For each string in `strings`, remove any leading characters
@@ -1157,7 +1156,7 @@ def ascii_ltrim(strings, /, characters=None, *, options=None,
     )
 
 
-def ascii_ltrim_whitespace(strings, /, *, memory_pool=None):
+def ascii_ltrim_whitespace(strings, *, memory_pool=None):
     """Trim leading ASCII whitespace characters.
 
     For each string in `strings`, emit a string with leading ASCII whitespace
@@ -1188,7 +1187,7 @@ def ascii_ltrim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_reverse(strings, /, *, memory_pool=None):
+def ascii_reverse(strings, *, memory_pool=None):
     """Reverse ASCII input.
 
     For each ASCII string in `strings`, return a reversed version.
@@ -1219,7 +1218,7 @@ def ascii_reverse(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_rpad(strings, /, width=None, padding=' ', *, options=None,
+def ascii_rpad(strings, width=None, padding=' ', *, options=None,
                memory_pool=None):
     """Left-align strings by padding with a given character.
 
@@ -1265,8 +1264,7 @@ def ascii_rpad(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def ascii_rtrim(strings, /, characters=None, *, options=None,
-                memory_pool=None):
+def ascii_rtrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim trailing characters.
 
     For each string in `strings`, remove any trailing characters
@@ -1310,7 +1308,7 @@ def ascii_rtrim(strings, /, characters=None, *, options=None,
     )
 
 
-def ascii_rtrim_whitespace(strings, /, *, memory_pool=None):
+def ascii_rtrim_whitespace(strings, *, memory_pool=None):
     """Trim trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with trailing ASCII
@@ -1342,7 +1340,7 @@ def ascii_rtrim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_split_whitespace(strings, /, *, max_splits=None, reverse=False,
+def ascii_split_whitespace(strings, *, max_splits=None, reverse=False,
                            options=None,
                            memory_pool=None):
     """Split string according to any ASCII whitespace.
@@ -1394,7 +1392,7 @@ def ascii_split_whitespace(strings, /, *, max_splits=None, reverse=False,
     )
 
 
-def ascii_swapcase(strings, /, *, memory_pool=None):
+def ascii_swapcase(strings, *, memory_pool=None):
     """Transform ASCII input by inverting casing.
 
     For each string in `strings`, return a string with opposite casing.
@@ -1426,7 +1424,7 @@ def ascii_swapcase(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_title(strings, /, *, memory_pool=None):
+def ascii_title(strings, *, memory_pool=None):
     """Titlecase each word of ASCII input.
 
     For each string in `strings`, return a titlecased version.
@@ -1459,7 +1457,7 @@ def ascii_title(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_trim(strings, /, characters=None, *, options=None, memory_pool=None):
+def ascii_trim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
@@ -1503,7 +1501,7 @@ def ascii_trim(strings, /, characters=None, *, options=None, memory_pool=None):
     )
 
 
-def ascii_trim_whitespace(strings, /, *, memory_pool=None):
+def ascii_trim_whitespace(strings, *, memory_pool=None):
     """Trim leading and trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing
@@ -1535,7 +1533,7 @@ def ascii_trim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def ascii_upper(strings, /, *, memory_pool=None):
+def ascii_upper(strings, *, memory_pool=None):
     """Transform ASCII input to uppercase.
 
     For each string in `strings`, return an uppercase version.
@@ -1566,7 +1564,7 @@ def ascii_upper(strings, /, *, memory_pool=None):
     )
 
 
-def asin(x, /, *, memory_pool=None):
+def asin(x, *, memory_pool=None):
     """Compute the inverse sine.
 
     NaN is returned for invalid input values;
@@ -1595,7 +1593,7 @@ def asin(x, /, *, memory_pool=None):
     )
 
 
-def asin_checked(x, /, *, memory_pool=None):
+def asin_checked(x, *, memory_pool=None):
     """Compute the inverse sine.
 
     Invalid input values raise an error;
@@ -1624,7 +1622,7 @@ def asin_checked(x, /, *, memory_pool=None):
     )
 
 
-def assume_timezone(timestamps, /, timezone=None, *, ambiguous='raise',
+def assume_timezone(timestamps, timezone=None, *, ambiguous='raise',
                     nonexistent='raise', options=None,
                     memory_pool=None):
     """Convert naive timestamp to timezone-aware timestamp.
@@ -1682,7 +1680,7 @@ def assume_timezone(timestamps, /, timezone=None, *, ambiguous='raise',
     )
 
 
-def atan(x, /, *, memory_pool=None):
+def atan(x, *, memory_pool=None):
     """Compute the inverse tangent of x.
 
     The return value is in the range [-pi/2, pi/2];
@@ -1711,7 +1709,7 @@ def atan(x, /, *, memory_pool=None):
     )
 
 
-def atan2(y, x, /, *, memory_pool=None):
+def atan2(y, x, *, memory_pool=None):
     """Compute the inverse tangent of y/x.
 
     The return value is in the range [-pi, pi].
@@ -1741,7 +1739,7 @@ def atan2(y, x, /, *, memory_pool=None):
     )
 
 
-def binary_join(strings, separator, /, *, memory_pool=None):
+def binary_join(strings, separator, *, memory_pool=None):
     """Join a list of strings together with a separator.
 
     Concatenate the strings in `list`. The `separator` is inserted
@@ -1817,7 +1815,7 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
     )
 
 
-def binary_length(strings, /, *, memory_pool=None):
+def binary_length(strings, *, memory_pool=None):
     """Compute string lengths.
 
     For each string in `strings`, emit its length of bytes.
@@ -1846,7 +1844,7 @@ def binary_length(strings, /, *, memory_pool=None):
     )
 
 
-def binary_repeat(strings, num_repeats, /, *, memory_pool=None):
+def binary_repeat(strings, num_repeats, *, memory_pool=None):
     """Repeat a binary string.
 
     For each binary string in `strings`, return a replicated version.
@@ -1876,8 +1874,8 @@ def binary_repeat(strings, num_repeats, /, *, memory_pool=None):
     )
 
 
-def binary_replace_slice(strings, /, start=None, stop=None, replacement=None,
-                         *, options=None,
+def binary_replace_slice(strings, start=None, stop=None, replacement=None, *,
+                         options=None,
                          memory_pool=None):
     """Replace a slice of a binary string.
 
@@ -1929,7 +1927,7 @@ def binary_replace_slice(strings, /, start=None, stop=None, replacement=None,
     )
 
 
-def binary_reverse(strings, /, *, memory_pool=None):
+def binary_reverse(strings, *, memory_pool=None):
     """Reverse binary input.
 
     For each binary string in `strings`, return a reversed version.
@@ -1960,7 +1958,7 @@ def binary_reverse(strings, /, *, memory_pool=None):
     )
 
 
-def bit_wise_and(x, y, /, *, memory_pool=None):
+def bit_wise_and(x, y, *, memory_pool=None):
     """Bit-wise AND the arguments element-wise.
 
     Null values return null.
@@ -1990,7 +1988,7 @@ def bit_wise_and(x, y, /, *, memory_pool=None):
     )
 
 
-def bit_wise_not(x, /, *, memory_pool=None):
+def bit_wise_not(x, *, memory_pool=None):
     """Bit-wise negate the arguments element-wise.
 
     Null values return null.
@@ -2018,7 +2016,7 @@ def bit_wise_not(x, /, *, memory_pool=None):
     )
 
 
-def bit_wise_or(x, y, /, *, memory_pool=None):
+def bit_wise_or(x, y, *, memory_pool=None):
     """Bit-wise OR the arguments element-wise.
 
     Null values return null.
@@ -2048,7 +2046,7 @@ def bit_wise_or(x, y, /, *, memory_pool=None):
     )
 
 
-def bit_wise_xor(x, y, /, *, memory_pool=None):
+def bit_wise_xor(x, y, *, memory_pool=None):
     """Bit-wise XOR the arguments element-wise.
 
     Null values return null.
@@ -2078,7 +2076,7 @@ def bit_wise_xor(x, y, /, *, memory_pool=None):
     )
 
 
-def case_when(cond, /, *cases, memory_pool=None):
+def case_when(cond, *cases, memory_pool=None):
     """Choose values based on multiple conditions.
 
     `cond` must be a struct of Boolean values. `cases` can be a mix
@@ -2112,7 +2110,7 @@ def case_when(cond, /, *cases, memory_pool=None):
     )
 
 
-def cast(input, /, target_type=None, *, allow_int_overflow=None,
+def cast(input, target_type=None, *, allow_int_overflow=None,
          allow_time_truncate=None, allow_time_overflow=None,
          allow_decimal_truncate=None, allow_float_truncate=None,
          allow_invalid_utf8=None, options=None, memory_pool=None):
@@ -2174,7 +2172,7 @@ def cast(input, /, target_type=None, *, allow_int_overflow=None,
     )
 
 
-def ceil(x, /, *, memory_pool=None):
+def ceil(x, *, memory_pool=None):
     """Round up to the nearest integer.
 
     Compute the smallest integer value not less in magnitude than `x`.
@@ -2202,7 +2200,7 @@ def ceil(x, /, *, memory_pool=None):
     )
 
 
-def ceil_temporal(timestamps, /, multiple=1, unit='day', *,
+def ceil_temporal(timestamps, multiple=1, unit='day', *,
                   week_starts_monday=True,
                   ceil_is_strictly_greater=False,
                   calendar_based_origin=False, options=None,
@@ -2287,7 +2285,7 @@ def ceil_temporal(timestamps, /, multiple=1, unit='day', *,
     )
 
 
-def choose(indices, /, *values, memory_pool=None):
+def choose(indices, *values, memory_pool=None):
     """Choose values from several arrays.
 
     For each row, the value of the first argument is used as a 0-based index
@@ -2340,7 +2338,7 @@ def coalesce(*values, memory_pool=None):
     )
 
 
-def cos(x, /, *, memory_pool=None):
+def cos(x, *, memory_pool=None):
     """Compute the cosine.
 
     NaN is returned for invalid input values;
@@ -2369,7 +2367,7 @@ def cos(x, /, *, memory_pool=None):
     )
 
 
-def cos_checked(x, /, *, memory_pool=None):
+def cos_checked(x, *, memory_pool=None):
     """Compute the cosine.
 
     Infinite values raise an error;
@@ -2398,7 +2396,7 @@ def cos_checked(x, /, *, memory_pool=None):
     )
 
 
-def count(array, /, mode='only_valid', *, options=None, memory_pool=None):
+def count(array, mode='only_valid', *, options=None, memory_pool=None):
     """Count the number of null / non-null values.
 
     By default, only non-null values are counted.
@@ -2468,7 +2466,7 @@ def count(array, /, mode='only_valid', *, options=None, memory_pool=None):
     )
 
 
-def count_distinct(array, /, mode='only_valid', *, options=None,
+def count_distinct(array, mode='only_valid', *, options=None,
                    memory_pool=None):
     """Count the number of unique values.
 
@@ -2540,8 +2538,8 @@ def count_distinct(array, /, mode='only_valid', *, options=None,
     )
 
 
-def count_substring(strings, /, pattern=None, *, ignore_case=False,
-                    options=None, memory_pool=None):
+def count_substring(strings, pattern=None, *, ignore_case=False, options=None,
+                    memory_pool=None):
     """Count occurrences of substring.
 
     For each string in `strings`, emit the number of occurrences of the given
@@ -2588,7 +2586,7 @@ def count_substring(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def count_substring_regex(strings, /, pattern=None, *, ignore_case=False,
+def count_substring_regex(strings, pattern=None, *, ignore_case=False,
                           options=None,
                           memory_pool=None):
     """Count occurrences of substring.
@@ -2637,7 +2635,7 @@ def count_substring_regex(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def cumulative_sum(values, /, start=0.0, *, skip_nulls=False, options=None,
+def cumulative_sum(values, start=0.0, *, skip_nulls=False, options=None,
                    memory_pool=None):
     """Compute the cumulative sum over a numeric input.
 
@@ -2685,7 +2683,7 @@ def cumulative_sum(values, /, start=0.0, *, skip_nulls=False, options=None,
     )
 
 
-def cumulative_sum_checked(values, /, start=0.0, *, skip_nulls=False,
+def cumulative_sum_checked(values, start=0.0, *, skip_nulls=False,
                            options=None,
                            memory_pool=None):
     """Compute the cumulative sum over a numeric input.
@@ -2734,7 +2732,7 @@ def cumulative_sum_checked(values, /, start=0.0, *, skip_nulls=False,
     )
 
 
-def day(values, /, *, memory_pool=None):
+def day(values, *, memory_pool=None):
     """Extract day number.
 
     Null values emit null.
@@ -2764,7 +2762,7 @@ def day(values, /, *, memory_pool=None):
     )
 
 
-def day_of_week(values, /, *, count_from_zero=True, week_start=1, options=None,
+def day_of_week(values, *, count_from_zero=True, week_start=1, options=None,
                 memory_pool=None):
     """Extract day of the week number.
 
@@ -2819,7 +2817,7 @@ def day_of_week(values, /, *, count_from_zero=True, week_start=1, options=None,
     )
 
 
-def day_of_year(values, /, *, memory_pool=None):
+def day_of_year(values, *, memory_pool=None):
     """Extract day of year number.
 
     January 1st maps to day number 1, February 1st to 32, etc.
@@ -2850,7 +2848,7 @@ def day_of_year(values, /, *, memory_pool=None):
     )
 
 
-def day_time_interval_between(start, end, /, *, memory_pool=None):
+def day_time_interval_between(start, end, *, memory_pool=None):
     """Compute the number of days and milliseconds between two timestamps.
 
     Returns the number of days and milliseconds from `start` to `end`.
@@ -2887,7 +2885,7 @@ def day_time_interval_between(start, end, /, *, memory_pool=None):
     )
 
 
-def days_between(start, end, /, *, memory_pool=None):
+def days_between(start, end, *, memory_pool=None):
     """Compute the number of days between two timestamps.
 
     Returns the number of day boundaries crossed from `start` to `end`.
@@ -2920,7 +2918,7 @@ def days_between(start, end, /, *, memory_pool=None):
     )
 
 
-def dictionary_encode(array, /, null_encoding='mask', *, options=None,
+def dictionary_encode(array, null_encoding='mask', *, options=None,
                       memory_pool=None):
     """Dictionary-encode array.
 
@@ -2965,7 +2963,7 @@ def dictionary_encode(array, /, null_encoding='mask', *, options=None,
     )
 
 
-def divide(dividend, divisor, /, *, memory_pool=None):
+def divide(dividend, divisor, *, memory_pool=None):
     """Divide the arguments element-wise.
 
     Integer division by zero returns an error. However, integer overflow
@@ -2998,7 +2996,7 @@ def divide(dividend, divisor, /, *, memory_pool=None):
     )
 
 
-def divide_checked(dividend, divisor, /, *, memory_pool=None):
+def divide_checked(dividend, divisor, *, memory_pool=None):
     """Divide the arguments element-wise.
 
     An error is returned when trying to divide by zero, or when
@@ -3030,7 +3028,7 @@ def divide_checked(dividend, divisor, /, *, memory_pool=None):
     )
 
 
-def drop_null(input, /, *, memory_pool=None):
+def drop_null(input, *, memory_pool=None):
     """Drop nulls from the input.
 
     The output is populated with values from the input (Array, ChunkedArray,
@@ -3061,7 +3059,7 @@ def drop_null(input, /, *, memory_pool=None):
     )
 
 
-def ends_with(strings, /, pattern=None, *, ignore_case=False, options=None,
+def ends_with(strings, pattern=None, *, ignore_case=False, options=None,
               memory_pool=None):
     """Check if strings end with a literal pattern.
 
@@ -3109,7 +3107,7 @@ def ends_with(strings, /, pattern=None, *, ignore_case=False, options=None,
     )
 
 
-def equal(x, y, /, *, memory_pool=None):
+def equal(x, y, *, memory_pool=None):
     """Compare values for equality (x == y).
 
     A null on either side emits a null comparison result.
@@ -3139,7 +3137,7 @@ def equal(x, y, /, *, memory_pool=None):
     )
 
 
-def extract_regex(strings, /, pattern=None, *, options=None, memory_pool=None):
+def extract_regex(strings, pattern=None, *, options=None, memory_pool=None):
     """Extract substrings captured by a regex pattern.
 
     For each string in `strings`, match the regular expression and, if
@@ -3184,7 +3182,7 @@ def extract_regex(strings, /, pattern=None, *, options=None, memory_pool=None):
     )
 
 
-def fill_null_backward(values, /, *, memory_pool=None):
+def fill_null_backward(values, *, memory_pool=None):
     """Carry non-null values backward to fill null slots.
 
     Given an array, propagate next valid observation backward to previous
@@ -3215,7 +3213,7 @@ def fill_null_backward(values, /, *, memory_pool=None):
     )
 
 
-def fill_null_forward(values, /, *, memory_pool=None):
+def fill_null_forward(values, *, memory_pool=None):
     """Carry non-null values forward to fill null slots.
 
     Given an array, propagate last valid observation forward to next valid
@@ -3245,7 +3243,7 @@ def fill_null_forward(values, /, *, memory_pool=None):
     )
 
 
-def filter(input, selection_filter, /, null_selection_behavior='drop', *,
+def filter(input, selection_filter, null_selection_behavior='drop', *,
            options=None, memory_pool=None):
     """Filter with a boolean selection filter.
 
@@ -3310,8 +3308,8 @@ def filter(input, selection_filter, /, null_selection_behavior='drop', *,
     )
 
 
-def find_substring(strings, /, pattern=None, *, ignore_case=False,
-                   options=None, memory_pool=None):
+def find_substring(strings, pattern=None, *, ignore_case=False, options=None,
+                   memory_pool=None):
     """Find first occurrence of substring.
 
     For each string in `strings`, emit the index in bytes of the first
@@ -3359,7 +3357,7 @@ def find_substring(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def find_substring_regex(strings, /, pattern=None, *, ignore_case=False,
+def find_substring_regex(strings, pattern=None, *, ignore_case=False,
                          options=None,
                          memory_pool=None):
     """Find location of first match of regex pattern.
@@ -3409,7 +3407,7 @@ def find_substring_regex(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def floor(x, /, *, memory_pool=None):
+def floor(x, *, memory_pool=None):
     """Round down to the nearest integer.
 
     Compute the largest integer value not greater in magnitude than `x`.
@@ -3437,7 +3435,7 @@ def floor(x, /, *, memory_pool=None):
     )
 
 
-def floor_temporal(timestamps, /, multiple=1, unit='day', *,
+def floor_temporal(timestamps, multiple=1, unit='day', *,
                    week_starts_monday=True,
                    ceil_is_strictly_greater=False,
                    calendar_based_origin=False, options=None,
@@ -3523,7 +3521,7 @@ def floor_temporal(timestamps, /, multiple=1, unit='day', *,
     )
 
 
-def greater(x, y, /, *, memory_pool=None):
+def greater(x, y, *, memory_pool=None):
     """Compare values for ordered inequality (x > y).
 
     A null on either side emits a null comparison result.
@@ -3553,7 +3551,7 @@ def greater(x, y, /, *, memory_pool=None):
     )
 
 
-def greater_equal(x, y, /, *, memory_pool=None):
+def greater_equal(x, y, *, memory_pool=None):
     """Compare values for ordered inequality (x >= y).
 
     A null on either side emits a null comparison result.
@@ -3583,7 +3581,7 @@ def greater_equal(x, y, /, *, memory_pool=None):
     )
 
 
-def hour(values, /, *, memory_pool=None):
+def hour(values, *, memory_pool=None):
     """Extract hour value.
 
     Null values emit null.
@@ -3613,7 +3611,7 @@ def hour(values, /, *, memory_pool=None):
     )
 
 
-def hours_between(start, end, /, *, memory_pool=None):
+def hours_between(start, end, *, memory_pool=None):
     """Compute the number of hours between two timestamps.
 
     Returns the number of hour boundaries crossed from `start` to `end`.
@@ -3646,7 +3644,7 @@ def hours_between(start, end, /, *, memory_pool=None):
     )
 
 
-def if_else(cond, left, right, /, *, memory_pool=None):
+def if_else(cond, left, right, *, memory_pool=None):
     """Choose values based on a condition.
 
     `cond` must be a Boolean scalar/ array.
@@ -3680,7 +3678,7 @@ def if_else(cond, left, right, /, *, memory_pool=None):
     )
 
 
-def index(array, /, value=None, *, options=None, memory_pool=None):
+def index(array, value=None, *, options=None, memory_pool=None):
     """Find the index of the first occurrence of a given value.
 
     -1 is returned if the value is not found in the array.
@@ -3741,7 +3739,7 @@ def index(array, /, value=None, *, options=None, memory_pool=None):
     )
 
 
-def index_in(values, /, value_set=None, *, skip_nulls=False, options=None,
+def index_in(values, value_set=None, *, skip_nulls=False, options=None,
              memory_pool=None):
     """Return index of each element in a set of values.
 
@@ -3791,7 +3789,7 @@ def index_in(values, /, value_set=None, *, skip_nulls=False, options=None,
     )
 
 
-def index_in_meta_binary(values, value_set, /, *, memory_pool=None):
+def index_in_meta_binary(values, value_set, *, memory_pool=None):
     """Return index of each element in a set of values.
 
     For each element in `values`, return its index in the `value_set`,
@@ -3823,7 +3821,7 @@ def index_in_meta_binary(values, value_set, /, *, memory_pool=None):
     )
 
 
-def indices_nonzero(values, /, *, memory_pool=None):
+def indices_nonzero(values, *, memory_pool=None):
     """Return the indices of the values in the array that are non-zero.
 
     For each input value, check if it's zero, false or null. Emit the index
@@ -3871,7 +3869,7 @@ def indices_nonzero(values, /, *, memory_pool=None):
     )
 
 
-def invert(values, /, *, memory_pool=None):
+def invert(values, *, memory_pool=None):
     """Invert boolean values.
 
     This wraps the "invert" compute function in the Arrow C++ library.
@@ -3897,7 +3895,7 @@ def invert(values, /, *, memory_pool=None):
     )
 
 
-def is_dst(values, /, *, memory_pool=None):
+def is_dst(values, *, memory_pool=None):
     """Extracts if currently observing daylight savings.
 
     IsDaylightSavings returns true if a timestamp has a daylight saving
@@ -3928,7 +3926,7 @@ def is_dst(values, /, *, memory_pool=None):
     )
 
 
-def is_finite(values, /, *, memory_pool=None):
+def is_finite(values, *, memory_pool=None):
     """Return true if value is finite.
 
     For each input value, emit true iff the value is finite
@@ -3957,7 +3955,7 @@ def is_finite(values, /, *, memory_pool=None):
     )
 
 
-def is_in(values, /, value_set=None, *, skip_nulls=False, options=None,
+def is_in(values, value_set=None, *, skip_nulls=False, options=None,
           memory_pool=None):
     """Find each element in a set of values.
 
@@ -4007,7 +4005,7 @@ def is_in(values, /, value_set=None, *, skip_nulls=False, options=None,
     )
 
 
-def is_in_meta_binary(values, value_set, /, *, memory_pool=None):
+def is_in_meta_binary(values, value_set, *, memory_pool=None):
     """Find each element in a set of values.
 
     For each element in `values`, return true if it is found in `value_set`,
@@ -4039,7 +4037,7 @@ def is_in_meta_binary(values, value_set, /, *, memory_pool=None):
     )
 
 
-def is_inf(values, /, *, memory_pool=None):
+def is_inf(values, *, memory_pool=None):
     """Return true if infinity.
 
     For each input value, emit true iff the value is infinite (inf or -inf).
@@ -4067,7 +4065,7 @@ def is_inf(values, /, *, memory_pool=None):
     )
 
 
-def is_leap_year(values, /, *, memory_pool=None):
+def is_leap_year(values, *, memory_pool=None):
     """Extract if year is a leap year.
 
     Null values emit null.
@@ -4097,7 +4095,7 @@ def is_leap_year(values, /, *, memory_pool=None):
     )
 
 
-def is_nan(values, /, *, memory_pool=None):
+def is_nan(values, *, memory_pool=None):
     """Return true if NaN.
 
     For each input value, emit true iff the value is NaN.
@@ -4125,7 +4123,7 @@ def is_nan(values, /, *, memory_pool=None):
     )
 
 
-def is_null(values, /, *, nan_is_null=False, options=None, memory_pool=None):
+def is_null(values, *, nan_is_null=False, options=None, memory_pool=None):
     """Return true if null (and optionally NaN).
 
     For each input value, emit true iff the value is null.
@@ -4167,7 +4165,7 @@ def is_null(values, /, *, nan_is_null=False, options=None, memory_pool=None):
     )
 
 
-def is_valid(values, /, *, memory_pool=None):
+def is_valid(values, *, memory_pool=None):
     """Return true if non-null.
 
     For each input value, emit true iff the value is valid (i.e. non-null).
@@ -4195,7 +4193,7 @@ def is_valid(values, /, *, memory_pool=None):
     )
 
 
-def iso_calendar(values, /, *, memory_pool=None):
+def iso_calendar(values, *, memory_pool=None):
     """Extract (ISO year, ISO week, ISO day of week) struct.
 
     ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
@@ -4226,7 +4224,7 @@ def iso_calendar(values, /, *, memory_pool=None):
     )
 
 
-def iso_week(values, /, *, memory_pool=None):
+def iso_week(values, *, memory_pool=None):
     """Extract ISO week of year number.
 
     First ISO week has the majority (4 or more) of its days in January.
@@ -4259,7 +4257,7 @@ def iso_week(values, /, *, memory_pool=None):
     )
 
 
-def iso_year(values, /, *, memory_pool=None):
+def iso_year(values, *, memory_pool=None):
     """Extract ISO year number.
 
     First week of an ISO year has the majority (4 or more) of its days in
@@ -4291,7 +4289,7 @@ def iso_year(values, /, *, memory_pool=None):
     )
 
 
-def less(x, y, /, *, memory_pool=None):
+def less(x, y, *, memory_pool=None):
     """Compare values for ordered inequality (x < y).
 
     A null on either side emits a null comparison result.
@@ -4321,7 +4319,7 @@ def less(x, y, /, *, memory_pool=None):
     )
 
 
-def less_equal(x, y, /, *, memory_pool=None):
+def less_equal(x, y, *, memory_pool=None):
     """Compare values for ordered inequality (x <= y).
 
     A null on either side emits a null comparison result.
@@ -4351,7 +4349,7 @@ def less_equal(x, y, /, *, memory_pool=None):
     )
 
 
-def list_element(lists, index, /, *, memory_pool=None):
+def list_element(lists, index, *, memory_pool=None):
     """Compute elements using of nested list values using an index.
 
     `lists` must have a list-like type.
@@ -4383,7 +4381,7 @@ def list_element(lists, index, /, *, memory_pool=None):
     )
 
 
-def list_flatten(lists, /, *, memory_pool=None):
+def list_flatten(lists, *, memory_pool=None):
     """Flatten list values.
 
     `lists` must have a list-like type.
@@ -4413,7 +4411,7 @@ def list_flatten(lists, /, *, memory_pool=None):
     )
 
 
-def list_parent_indices(lists, /, *, memory_pool=None):
+def list_parent_indices(lists, *, memory_pool=None):
     """Compute parent indices of nested list values.
 
     `lists` must have a list-like type.
@@ -4444,7 +4442,7 @@ def list_parent_indices(lists, /, *, memory_pool=None):
     )
 
 
-def list_value_length(lists, /, *, memory_pool=None):
+def list_value_length(lists, *, memory_pool=None):
     """Compute list lengths.
 
     `lists` must have a list-like type.
@@ -4475,7 +4473,7 @@ def list_value_length(lists, /, *, memory_pool=None):
     )
 
 
-def ln(x, /, *, memory_pool=None):
+def ln(x, *, memory_pool=None):
     """Compute natural logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
@@ -4505,7 +4503,7 @@ def ln(x, /, *, memory_pool=None):
     )
 
 
-def ln_checked(x, /, *, memory_pool=None):
+def ln_checked(x, *, memory_pool=None):
     """Compute natural logarithm.
 
     Non-positive values raise an error. Null values return null.
@@ -4534,7 +4532,7 @@ def ln_checked(x, /, *, memory_pool=None):
     )
 
 
-def log10(x, /, *, memory_pool=None):
+def log10(x, *, memory_pool=None):
     """Compute base 10 logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
@@ -4564,7 +4562,7 @@ def log10(x, /, *, memory_pool=None):
     )
 
 
-def log10_checked(x, /, *, memory_pool=None):
+def log10_checked(x, *, memory_pool=None):
     """Compute base 10 logarithm.
 
     Non-positive values raise an error. Null values return null.
@@ -4594,7 +4592,7 @@ def log10_checked(x, /, *, memory_pool=None):
     )
 
 
-def log1p(x, /, *, memory_pool=None):
+def log1p(x, *, memory_pool=None):
     """Compute natural log of (1+x).
 
     Values <= -1 return -inf or NaN. Null values return null.
@@ -4625,7 +4623,7 @@ def log1p(x, /, *, memory_pool=None):
     )
 
 
-def log1p_checked(x, /, *, memory_pool=None):
+def log1p_checked(x, *, memory_pool=None):
     """Compute natural log of (1+x).
 
     Values <= -1 return -inf or NaN. Null values return null.
@@ -4655,7 +4653,7 @@ def log1p_checked(x, /, *, memory_pool=None):
     )
 
 
-def log2(x, /, *, memory_pool=None):
+def log2(x, *, memory_pool=None):
     """Compute base 2 logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
@@ -4685,7 +4683,7 @@ def log2(x, /, *, memory_pool=None):
     )
 
 
-def log2_checked(x, /, *, memory_pool=None):
+def log2_checked(x, *, memory_pool=None):
     """Compute base 2 logarithm.
 
     Non-positive values raise an error. Null values return null.
@@ -4715,7 +4713,7 @@ def log2_checked(x, /, *, memory_pool=None):
     )
 
 
-def logb(x, b, /, *, memory_pool=None):
+def logb(x, b, *, memory_pool=None):
     """Compute base `b` logarithm.
 
     Values <= 0 return -inf or NaN. Null values return null.
@@ -4747,7 +4745,7 @@ def logb(x, b, /, *, memory_pool=None):
     )
 
 
-def logb_checked(x, b, /, *, memory_pool=None):
+def logb_checked(x, b, *, memory_pool=None):
     """Compute base `b` logarithm.
 
     Values <= 0 return -inf or NaN. Null values return null.
@@ -4821,7 +4819,7 @@ def make_struct(*args, field_names=(), field_nullability=None,
     )
 
 
-def map_lookup(container, /, query_key=None, occurrence=None, *, options=None,
+def map_lookup(container, query_key=None, occurrence=None, *, options=None,
                memory_pool=None):
     """Find the items corresponding to a given key in a Map.
 
@@ -4868,7 +4866,7 @@ def map_lookup(container, /, query_key=None, occurrence=None, *, options=None,
     )
 
 
-def match_like(strings, /, pattern=None, *, ignore_case=False, options=None,
+def match_like(strings, pattern=None, *, ignore_case=False, options=None,
                memory_pool=None):
     """Match strings against SQL-style LIKE pattern.
 
@@ -4918,8 +4916,8 @@ def match_like(strings, /, pattern=None, *, ignore_case=False, options=None,
     )
 
 
-def match_substring(strings, /, pattern=None, *, ignore_case=False,
-                    options=None, memory_pool=None):
+def match_substring(strings, pattern=None, *, ignore_case=False, options=None,
+                    memory_pool=None):
     """Match strings against literal pattern.
 
     For each string in `strings`, emit true iff it contains a given pattern.
@@ -4966,7 +4964,7 @@ def match_substring(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def match_substring_regex(strings, /, pattern=None, *, ignore_case=False,
+def match_substring_regex(strings, pattern=None, *, ignore_case=False,
                           options=None,
                           memory_pool=None):
     """Match strings against regex pattern.
@@ -5016,7 +5014,7 @@ def match_substring_regex(strings, /, pattern=None, *, ignore_case=False,
     )
 
 
-def max(array, /, *, skip_nulls=True, min_count=1, options=None,
+def max(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the minimum or maximum values of a numeric array.
 
@@ -5098,7 +5096,7 @@ def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     )
 
 
-def mean(array, /, *, skip_nulls=True, min_count=1, options=None,
+def mean(array, *, skip_nulls=True, min_count=1, options=None,
          memory_pool=None):
     """Compute the mean of a numeric array.
 
@@ -5151,7 +5149,7 @@ def mean(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def microsecond(values, /, *, memory_pool=None):
+def microsecond(values, *, memory_pool=None):
     """Extract microsecond values.
 
     Millisecond returns number of microseconds since the last full
@@ -5183,7 +5181,7 @@ def microsecond(values, /, *, memory_pool=None):
     )
 
 
-def microseconds_between(start, end, /, *, memory_pool=None):
+def microseconds_between(start, end, *, memory_pool=None):
     """Compute the number of microseconds between two timestamps.
 
     Returns the number of microsecond boundaries crossed from `start` to
@@ -5218,7 +5216,7 @@ def microseconds_between(start, end, /, *, memory_pool=None):
     )
 
 
-def millisecond(values, /, *, memory_pool=None):
+def millisecond(values, *, memory_pool=None):
     """Extract millisecond values.
 
     Millisecond returns number of milliseconds since the last full second.
@@ -5249,7 +5247,7 @@ def millisecond(values, /, *, memory_pool=None):
     )
 
 
-def milliseconds_between(start, end, /, *, memory_pool=None):
+def milliseconds_between(start, end, *, memory_pool=None):
     """Compute the number of millisecond boundaries between two timestamps.
 
     Returns the number of millisecond boundaries crossed from `start` to
@@ -5284,7 +5282,7 @@ def milliseconds_between(start, end, /, *, memory_pool=None):
     )
 
 
-def min(array, /, *, skip_nulls=True, min_count=1, options=None,
+def min(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the minimum or maximum values of a numeric array.
 
@@ -5366,7 +5364,7 @@ def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     )
 
 
-def min_max(array, /, *, skip_nulls=True, min_count=1, options=None,
+def min_max(array, *, skip_nulls=True, min_count=1, options=None,
             memory_pool=None):
     """Compute the minimum and maximum values of a numeric array.
 
@@ -5413,7 +5411,7 @@ def min_max(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def minute(values, /, *, memory_pool=None):
+def minute(values, *, memory_pool=None):
     """Extract minute values.
 
     Null values emit null.
@@ -5443,7 +5441,7 @@ def minute(values, /, *, memory_pool=None):
     )
 
 
-def minutes_between(start, end, /, *, memory_pool=None):
+def minutes_between(start, end, *, memory_pool=None):
     """Compute the number of minute boundaries between two timestamps.
 
     Returns the number of minute boundaries crossed from `start` to `end`.
@@ -5477,7 +5475,7 @@ def minutes_between(start, end, /, *, memory_pool=None):
     )
 
 
-def mode(array, /, n=1, *, skip_nulls=True, min_count=0, options=None,
+def mode(array, n=1, *, skip_nulls=True, min_count=0, options=None,
          memory_pool=None):
     """Compute the modal (most common) values of a numeric array.
 
@@ -5545,7 +5543,7 @@ def mode(array, /, n=1, *, skip_nulls=True, min_count=0, options=None,
     )
 
 
-def month(values, /, *, memory_pool=None):
+def month(values, *, memory_pool=None):
     """Extract month number.
 
     Month is encoded as January=1, December=12.
@@ -5576,7 +5574,7 @@ def month(values, /, *, memory_pool=None):
     )
 
 
-def month_day_nano_interval_between(start, end, /, *, memory_pool=None):
+def month_day_nano_interval_between(start, end, *, memory_pool=None):
     """Compute the number of months, days and nanoseconds between two
         timestamps.
 
@@ -5614,7 +5612,7 @@ def month_day_nano_interval_between(start, end, /, *, memory_pool=None):
     )
 
 
-def month_interval_between(start, end, /, *, memory_pool=None):
+def month_interval_between(start, end, *, memory_pool=None):
     """Compute the number of months between two timestamps.
 
     Returns the number of month boundaries crossed from `start` to `end`.
@@ -5648,7 +5646,7 @@ def month_interval_between(start, end, /, *, memory_pool=None):
     )
 
 
-def multiply(x, y, /, *, memory_pool=None):
+def multiply(x, y, *, memory_pool=None):
     """Multiply the arguments element-wise.
 
     Results will wrap around on integer overflow.
@@ -5680,7 +5678,7 @@ def multiply(x, y, /, *, memory_pool=None):
     )
 
 
-def multiply_checked(x, y, /, *, memory_pool=None):
+def multiply_checked(x, y, *, memory_pool=None):
     """Multiply the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
@@ -5712,7 +5710,7 @@ def multiply_checked(x, y, /, *, memory_pool=None):
     )
 
 
-def nanosecond(values, /, *, memory_pool=None):
+def nanosecond(values, *, memory_pool=None):
     """Extract nanosecond values.
 
     Nanosecond returns number of nanoseconds since the last full microsecond.
@@ -5743,7 +5741,7 @@ def nanosecond(values, /, *, memory_pool=None):
     )
 
 
-def nanoseconds_between(start, end, /, *, memory_pool=None):
+def nanoseconds_between(start, end, *, memory_pool=None):
     """Compute the number of nanoseconds between two timestamps.
 
     Returns the number of nanosecond boundaries crossed from `start` to
@@ -5778,7 +5776,7 @@ def nanoseconds_between(start, end, /, *, memory_pool=None):
     )
 
 
-def negate(x, /, *, memory_pool=None):
+def negate(x, *, memory_pool=None):
     """Negate the argument element-wise.
 
     Results will wrap around on integer overflow.
@@ -5808,7 +5806,7 @@ def negate(x, /, *, memory_pool=None):
     )
 
 
-def negate_checked(x, /, *, memory_pool=None):
+def negate_checked(x, *, memory_pool=None):
     """Negate the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
@@ -5838,7 +5836,7 @@ def negate_checked(x, /, *, memory_pool=None):
     )
 
 
-def not_equal(x, y, /, *, memory_pool=None):
+def not_equal(x, y, *, memory_pool=None):
     """Compare values for inequality (x != y).
 
     A null on either side emits a null comparison result.
@@ -5868,7 +5866,7 @@ def not_equal(x, y, /, *, memory_pool=None):
     )
 
 
-def or_(x, y, /, *, memory_pool=None):
+def or_(x, y, *, memory_pool=None):
     """Logical 'or' boolean values.
 
     When a null is encountered in either input, a null is output.
@@ -5899,7 +5897,7 @@ def or_(x, y, /, *, memory_pool=None):
     )
 
 
-def or_kleene(x, y, /, *, memory_pool=None):
+def or_kleene(x, y, *, memory_pool=None):
     """Logical 'or' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
@@ -5939,7 +5937,7 @@ def or_kleene(x, y, /, *, memory_pool=None):
     )
 
 
-def partition_nth_indices(array, /, pivot=None, *, null_placement='at_end',
+def partition_nth_indices(array, pivot=None, *, null_placement='at_end',
                           options=None,
                           memory_pool=None):
     """Return the indices that would partition an array around a pivot.
@@ -6001,7 +5999,7 @@ def partition_nth_indices(array, /, pivot=None, *, null_placement='at_end',
     )
 
 
-def power(base, exponent, /, *, memory_pool=None):
+def power(base, exponent, *, memory_pool=None):
     """Raise arguments to power element-wise.
 
     Integer to negative integer power returns an error. However, integer
@@ -6033,7 +6031,7 @@ def power(base, exponent, /, *, memory_pool=None):
     )
 
 
-def power_checked(base, exponent, /, *, memory_pool=None):
+def power_checked(base, exponent, *, memory_pool=None):
     """Raise arguments to power element-wise.
 
     An error is returned when integer to negative integer power is
@@ -6065,7 +6063,7 @@ def power_checked(base, exponent, /, *, memory_pool=None):
     )
 
 
-def product(array, /, *, skip_nulls=True, min_count=1, options=None,
+def product(array, *, skip_nulls=True, min_count=1, options=None,
             memory_pool=None):
     """Compute the product of values in a numeric array.
 
@@ -6113,7 +6111,7 @@ def product(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def quantile(array, /, q=0.5, *, interpolation='linear', skip_nulls=True,
+def quantile(array, q=0.5, *, interpolation='linear', skip_nulls=True,
              min_count=0, options=None, memory_pool=None):
     """Compute an array of quantiles of a numeric array or chunked array.
 
@@ -6176,7 +6174,7 @@ def quantile(array, /, q=0.5, *, interpolation='linear', skip_nulls=True,
     )
 
 
-def quarter(values, /, *, memory_pool=None):
+def quarter(values, *, memory_pool=None):
     """Extract quarter of year number.
 
     First quarter maps to 1 and forth quarter maps to 4.
@@ -6207,7 +6205,7 @@ def quarter(values, /, *, memory_pool=None):
     )
 
 
-def quarters_between(start, end, /, *, memory_pool=None):
+def quarters_between(start, end, *, memory_pool=None):
     """Compute the number of quarters between two timestamps.
 
     Returns the number of quarter start boundaries crossed from `start` to
@@ -6278,7 +6276,7 @@ def random(*, initializer='system', options=None, memory_pool=None):
     )
 
 
-def rank(input, /, sort_keys='ascending', *, null_placement='at_end',
+def rank(input, sort_keys='ascending', *, null_placement='at_end',
          tiebreaker='first', options=None, memory_pool=None):
     """Compute numerical ranks of an array (1-based).
 
@@ -6348,7 +6346,7 @@ def rank(input, /, sort_keys='ascending', *, null_placement='at_end',
     )
 
 
-def replace_substring(strings, /, pattern=None, replacement=None, *,
+def replace_substring(strings, pattern=None, replacement=None, *,
                       max_replacements=None, options=None,
                       memory_pool=None):
     """Replace matching non-overlapping substrings with replacement.
@@ -6403,7 +6401,7 @@ def replace_substring(strings, /, pattern=None, replacement=None, *,
     )
 
 
-def replace_substring_regex(strings, /, pattern=None, replacement=None, *,
+def replace_substring_regex(strings, pattern=None, replacement=None, *,
                             max_replacements=None,
                             options=None,
                             memory_pool=None):
@@ -6459,7 +6457,7 @@ def replace_substring_regex(strings, /, pattern=None, replacement=None, *,
     )
 
 
-def replace_with_mask(values, mask, replacements, /, *, memory_pool=None):
+def replace_with_mask(values, mask, replacements, *, memory_pool=None):
     """Replace items selected with a mask.
 
     Given an array and a boolean mask (either scalar or of equal length),
@@ -6497,7 +6495,7 @@ def replace_with_mask(values, mask, replacements, /, *, memory_pool=None):
     )
 
 
-def round(x, /, ndigits=0, round_mode='half_to_even', *, options=None,
+def round(x, ndigits=0, round_mode='half_to_even', *, options=None,
           memory_pool=None):
     """Round to a given precision.
 
@@ -6546,7 +6544,7 @@ def round(x, /, ndigits=0, round_mode='half_to_even', *, options=None,
     )
 
 
-def round_temporal(timestamps, /, multiple=1, unit='day', *,
+def round_temporal(timestamps, multiple=1, unit='day', *,
                    week_starts_monday=True,
                    ceil_is_strictly_greater=False,
                    calendar_based_origin=False, options=None,
@@ -6632,7 +6630,7 @@ def round_temporal(timestamps, /, multiple=1, unit='day', *,
     )
 
 
-def round_to_multiple(x, /, multiple=1.0, round_mode='half_to_even', *,
+def round_to_multiple(x, multiple=1.0, round_mode='half_to_even', *,
                       options=None, memory_pool=None):
     """Round to a given multiple.
 
@@ -6683,7 +6681,7 @@ def round_to_multiple(x, /, multiple=1.0, round_mode='half_to_even', *,
     )
 
 
-def second(values, /, *, memory_pool=None):
+def second(values, *, memory_pool=None):
     """Extract second values.
 
     Null values emit null.
@@ -6713,7 +6711,7 @@ def second(values, /, *, memory_pool=None):
     )
 
 
-def seconds_between(start, end, /, *, memory_pool=None):
+def seconds_between(start, end, *, memory_pool=None):
     """Compute the number of seconds between two timestamps.
 
     Returns the number of second boundaries crossed from `start` to `end`.
@@ -6747,7 +6745,7 @@ def seconds_between(start, end, /, *, memory_pool=None):
     )
 
 
-def select_k_unstable(input, /, k=None, sort_keys=None, *, options=None,
+def select_k_unstable(input, k=None, sort_keys=None, *, options=None,
                       memory_pool=None):
     """Select the indices of the first `k` ordered elements from the input.
 
@@ -6804,7 +6802,7 @@ def select_k_unstable(input, /, k=None, sort_keys=None, *, options=None,
     )
 
 
-def shift_left(x, y, /, *, memory_pool=None):
+def shift_left(x, y, *, memory_pool=None):
     """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the
@@ -6842,7 +6840,7 @@ def shift_left(x, y, /, *, memory_pool=None):
     )
 
 
-def shift_left_checked(x, y, /, *, memory_pool=None):
+def shift_left_checked(x, y, *, memory_pool=None):
     """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the
@@ -6881,7 +6879,7 @@ def shift_left_checked(x, y, /, *, memory_pool=None):
     )
 
 
-def shift_right(x, y, /, *, memory_pool=None):
+def shift_right(x, y, *, memory_pool=None):
     """Right shift `x` by `y`.
 
     This is equivalent to dividing `x` by 2 to the power `y`.
@@ -6915,7 +6913,7 @@ def shift_right(x, y, /, *, memory_pool=None):
     )
 
 
-def shift_right_checked(x, y, /, *, memory_pool=None):
+def shift_right_checked(x, y, *, memory_pool=None):
     """Right shift `x` by `y`.
 
     This is equivalent to dividing `x` by 2 to the power `y`.
@@ -6950,7 +6948,7 @@ def shift_right_checked(x, y, /, *, memory_pool=None):
     )
 
 
-def sign(x, /, *, memory_pool=None):
+def sign(x, *, memory_pool=None):
     """Get the signedness of the arguments element-wise.
 
     Output is any of (-1,1) for nonzero inputs and 0 for zero input.
@@ -6980,7 +6978,7 @@ def sign(x, /, *, memory_pool=None):
     )
 
 
-def sin(x, /, *, memory_pool=None):
+def sin(x, *, memory_pool=None):
     """Compute the sine.
 
     NaN is returned for invalid input values;
@@ -7009,7 +7007,7 @@ def sin(x, /, *, memory_pool=None):
     )
 
 
-def sin_checked(x, /, *, memory_pool=None):
+def sin_checked(x, *, memory_pool=None):
     """Compute the sine.
 
     Invalid input values raise an error;
@@ -7038,8 +7036,8 @@ def sin_checked(x, /, *, memory_pool=None):
     )
 
 
-def sort_indices(input, /, sort_keys=(), *, null_placement='at_end',
-                 options=None, memory_pool=None):
+def sort_indices(input, sort_keys=(), *, null_placement='at_end', options=None,
+                 memory_pool=None):
     """Return the indices that would sort an array, record batch or table.
 
     This function computes an array of indices that define a stable sort
@@ -7092,7 +7090,7 @@ def sort_indices(input, /, sort_keys=(), *, null_placement='at_end',
     )
 
 
-def split_pattern(strings, /, pattern=None, *, max_splits=None, reverse=False,
+def split_pattern(strings, pattern=None, *, max_splits=None, reverse=False,
                   options=None, memory_pool=None):
     """Split string according to separator.
 
@@ -7145,7 +7143,7 @@ def split_pattern(strings, /, pattern=None, *, max_splits=None, reverse=False,
     )
 
 
-def split_pattern_regex(strings, /, pattern=None, *, max_splits=None,
+def split_pattern_regex(strings, pattern=None, *, max_splits=None,
                         reverse=False, options=None,
                         memory_pool=None):
     """Split string according to regex pattern.
@@ -7200,7 +7198,7 @@ def split_pattern_regex(strings, /, pattern=None, *, max_splits=None,
     )
 
 
-def sqrt(x, /, *, memory_pool=None):
+def sqrt(x, *, memory_pool=None):
     """Takes the square root of arguments element-wise.
 
     A negative argument returns a NaN.  For a variant that returns an
@@ -7229,7 +7227,7 @@ def sqrt(x, /, *, memory_pool=None):
     )
 
 
-def sqrt_checked(x, /, *, memory_pool=None):
+def sqrt_checked(x, *, memory_pool=None):
     """Takes the square root of arguments element-wise.
 
     A negative argument returns an error.  For a variant that returns a
@@ -7258,7 +7256,7 @@ def sqrt_checked(x, /, *, memory_pool=None):
     )
 
 
-def starts_with(strings, /, pattern=None, *, ignore_case=False, options=None,
+def starts_with(strings, pattern=None, *, ignore_case=False, options=None,
                 memory_pool=None):
     """Check if strings start with a literal pattern.
 
@@ -7307,7 +7305,7 @@ def starts_with(strings, /, pattern=None, *, ignore_case=False, options=None,
     )
 
 
-def stddev(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
+def stddev(array, *, ddof=0, skip_nulls=True, min_count=0, options=None,
            memory_pool=None):
     """Calculate the standard deviation of a numeric array.
 
@@ -7359,7 +7357,7 @@ def stddev(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
     )
 
 
-def strftime(timestamps, /, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
+def strftime(timestamps, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
              options=None, memory_pool=None):
     """Format temporal values according to a format string.
 
@@ -7412,7 +7410,7 @@ def strftime(timestamps, /, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
     )
 
 
-def string_is_ascii(strings, /, *, memory_pool=None):
+def string_is_ascii(strings, *, memory_pool=None):
     """Classify strings as ASCII.
 
     For each string in `strings`, emit true iff the string consists only
@@ -7442,7 +7440,7 @@ def string_is_ascii(strings, /, *, memory_pool=None):
     )
 
 
-def strptime(strings, /, format=None, unit=None, error_is_null=False, *,
+def strptime(strings, format=None, unit=None, error_is_null=False, *,
              options=None, memory_pool=None):
     """Parse timestamps.
 
@@ -7493,7 +7491,7 @@ def strptime(strings, /, format=None, unit=None, error_is_null=False, *,
     )
 
 
-def struct_field(values, /, indices=None, *, options=None, memory_pool=None):
+def struct_field(values, indices=None, *, options=None, memory_pool=None):
     """Extract children of a struct or union by index.
 
     Given a list of indices (passed via StructFieldOptions), extract
@@ -7542,7 +7540,7 @@ def struct_field(values, /, indices=None, *, options=None, memory_pool=None):
     )
 
 
-def subsecond(values, /, *, memory_pool=None):
+def subsecond(values, *, memory_pool=None):
     """Extract subsecond values.
 
     Subsecond returns the fraction of a second since the last full second.
@@ -7573,7 +7571,7 @@ def subsecond(values, /, *, memory_pool=None):
     )
 
 
-def subtract(x, y, /, *, memory_pool=None):
+def subtract(x, y, *, memory_pool=None):
     """Subtract the arguments element-wise.
 
     Results will wrap around on integer overflow.
@@ -7605,7 +7603,7 @@ def subtract(x, y, /, *, memory_pool=None):
     )
 
 
-def subtract_checked(x, y, /, *, memory_pool=None):
+def subtract_checked(x, y, *, memory_pool=None):
     """Subtract the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
@@ -7637,7 +7635,7 @@ def subtract_checked(x, y, /, *, memory_pool=None):
     )
 
 
-def sum(array, /, *, skip_nulls=True, min_count=1, options=None,
+def sum(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the sum of a numeric array.
 
@@ -7685,8 +7683,7 @@ def sum(array, /, *, skip_nulls=True, min_count=1, options=None,
     )
 
 
-def take(input, indices, /, *, boundscheck=True, options=None,
-         memory_pool=None):
+def take(input, indices, *, boundscheck=True, options=None, memory_pool=None):
     """Select values from an input based on indices from another array.
 
     The output is populated with values from the input at positions
@@ -7731,7 +7728,7 @@ def take(input, indices, /, *, boundscheck=True, options=None,
     )
 
 
-def tan(x, /, *, memory_pool=None):
+def tan(x, *, memory_pool=None):
     """Compute the tangent.
 
     NaN is returned for invalid input values;
@@ -7760,7 +7757,7 @@ def tan(x, /, *, memory_pool=None):
     )
 
 
-def tan_checked(x, /, *, memory_pool=None):
+def tan_checked(x, *, memory_pool=None):
     """Compute the tangent.
 
     Infinite values raise an error;
@@ -7789,7 +7786,7 @@ def tan_checked(x, /, *, memory_pool=None):
     )
 
 
-def tdigest(array, /, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
+def tdigest(array, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
             min_count=0, options=None, memory_pool=None):
     """Approximate quantiles of a numeric array with T-Digest algorithm.
 
@@ -7846,7 +7843,7 @@ def tdigest(array, /, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
     )
 
 
-def true_unless_null(values, /, *, memory_pool=None):
+def true_unless_null(values, *, memory_pool=None):
     """Return true if non-null, else return null.
 
     For each input value, emit true iff the value
@@ -7876,7 +7873,7 @@ def true_unless_null(values, /, *, memory_pool=None):
     )
 
 
-def trunc(x, /, *, memory_pool=None):
+def trunc(x, *, memory_pool=None):
     """Compute the integral part.
 
     Compute the nearest integer not greater in magnitude than `x`.
@@ -7904,7 +7901,7 @@ def trunc(x, /, *, memory_pool=None):
     )
 
 
-def unique(array, /, *, memory_pool=None):
+def unique(array, *, memory_pool=None):
     """Compute unique elements.
 
     Return an array with distinct values.  Nulls in the input are ignored.
@@ -7932,7 +7929,7 @@ def unique(array, /, *, memory_pool=None):
     )
 
 
-def us_week(values, /, *, memory_pool=None):
+def us_week(values, *, memory_pool=None):
     """Extract US week of year number.
 
     First US week has the majority (4 or more) of its days in January.
@@ -7965,7 +7962,7 @@ def us_week(values, /, *, memory_pool=None):
     )
 
 
-def us_year(values, /, *, memory_pool=None):
+def us_year(values, *, memory_pool=None):
     """Extract US epidemiological year number.
 
     First week of US epidemiological year has the majority (4 or more) of
@@ -7998,7 +7995,7 @@ def us_year(values, /, *, memory_pool=None):
     )
 
 
-def utf8_capitalize(strings, /, *, memory_pool=None):
+def utf8_capitalize(strings, *, memory_pool=None):
     """Capitalize the first character of input.
 
     For each string in `strings`, return a capitalized version,
@@ -8028,7 +8025,7 @@ def utf8_capitalize(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_center(strings, /, width=None, padding=' ', *, options=None,
+def utf8_center(strings, width=None, padding=' ', *, options=None,
                 memory_pool=None):
     """Center strings by padding with a given character.
 
@@ -8075,7 +8072,7 @@ def utf8_center(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def utf8_is_alnum(strings, /, *, memory_pool=None):
+def utf8_is_alnum(strings, *, memory_pool=None):
     """Classify strings as alphanumeric.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8105,7 +8102,7 @@ def utf8_is_alnum(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_alpha(strings, /, *, memory_pool=None):
+def utf8_is_alpha(strings, *, memory_pool=None):
     """Classify strings as alphabetic.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8135,7 +8132,7 @@ def utf8_is_alpha(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_decimal(strings, /, *, memory_pool=None):
+def utf8_is_decimal(strings, *, memory_pool=None):
     """Classify strings as decimal.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8165,7 +8162,7 @@ def utf8_is_decimal(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_digit(strings, /, *, memory_pool=None):
+def utf8_is_digit(strings, *, memory_pool=None):
     """Classify strings as digits.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8194,7 +8191,7 @@ def utf8_is_digit(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_lower(strings, /, *, memory_pool=None):
+def utf8_is_lower(strings, *, memory_pool=None):
     """Classify strings as lowercase.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8224,7 +8221,7 @@ def utf8_is_lower(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_numeric(strings, /, *, memory_pool=None):
+def utf8_is_numeric(strings, *, memory_pool=None):
     """Classify strings as numeric.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8254,7 +8251,7 @@ def utf8_is_numeric(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_printable(strings, /, *, memory_pool=None):
+def utf8_is_printable(strings, *, memory_pool=None):
     """Classify strings as printable.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8285,7 +8282,7 @@ def utf8_is_printable(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_space(strings, /, *, memory_pool=None):
+def utf8_is_space(strings, *, memory_pool=None):
     """Classify strings as whitespace.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8315,7 +8312,7 @@ def utf8_is_space(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_title(strings, /, *, memory_pool=None):
+def utf8_is_title(strings, *, memory_pool=None):
     """Classify strings as titlecase.
 
     For each string in `strings`, emit true iff the string is title-cased,
@@ -8346,7 +8343,7 @@ def utf8_is_title(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_is_upper(strings, /, *, memory_pool=None):
+def utf8_is_upper(strings, *, memory_pool=None):
     """Classify strings as uppercase.
 
     For each string in `strings`, emit true iff the string is non-empty
@@ -8376,7 +8373,7 @@ def utf8_is_upper(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_length(strings, /, *, memory_pool=None):
+def utf8_length(strings, *, memory_pool=None):
     """Compute UTF8 string lengths.
 
     For each string in `strings`, emit its length in UTF8 characters.
@@ -8405,7 +8402,7 @@ def utf8_length(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_lower(strings, /, *, memory_pool=None):
+def utf8_lower(strings, *, memory_pool=None):
     """Transform input to lowercase.
 
     For each string in `strings`, return a lowercase version.
@@ -8433,7 +8430,7 @@ def utf8_lower(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_lpad(strings, /, width=None, padding=' ', *, options=None,
+def utf8_lpad(strings, width=None, padding=' ', *, options=None,
               memory_pool=None):
     """Right-align strings by padding with a given character.
 
@@ -8479,7 +8476,7 @@ def utf8_lpad(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def utf8_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
+def utf8_ltrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading characters.
 
     For each string in `strings`, remove any leading characters
@@ -8521,7 +8518,7 @@ def utf8_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
     )
 
 
-def utf8_ltrim_whitespace(strings, /, *, memory_pool=None):
+def utf8_ltrim_whitespace(strings, *, memory_pool=None):
     """Trim leading whitespace characters.
 
     For each string in `strings`, emit a string with leading whitespace
@@ -8553,7 +8550,7 @@ def utf8_ltrim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_normalize(strings, /, form=None, *, options=None, memory_pool=None):
+def utf8_normalize(strings, form=None, *, options=None, memory_pool=None):
     """Utf8-normalize input.
 
     For each string in `strings`, return the normal form.
@@ -8598,7 +8595,7 @@ def utf8_normalize(strings, /, form=None, *, options=None, memory_pool=None):
     )
 
 
-def utf8_replace_slice(strings, /, start=None, stop=None, replacement=None, *,
+def utf8_replace_slice(strings, start=None, stop=None, replacement=None, *,
                        options=None, memory_pool=None):
     """Replace a slice of a string.
 
@@ -8650,7 +8647,7 @@ def utf8_replace_slice(strings, /, start=None, stop=None, replacement=None, *,
     )
 
 
-def utf8_reverse(strings, /, *, memory_pool=None):
+def utf8_reverse(strings, *, memory_pool=None):
     """Reverse input.
 
     For each string in `strings`, return a reversed version.
@@ -8682,7 +8679,7 @@ def utf8_reverse(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_rpad(strings, /, width=None, padding=' ', *, options=None,
+def utf8_rpad(strings, width=None, padding=' ', *, options=None,
               memory_pool=None):
     """Left-align strings by padding with a given character.
 
@@ -8728,7 +8725,7 @@ def utf8_rpad(strings, /, width=None, padding=' ', *, options=None,
     )
 
 
-def utf8_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
+def utf8_rtrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim trailing characters.
 
     For each string in `strings`, remove any trailing characters
@@ -8770,7 +8767,7 @@ def utf8_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
     )
 
 
-def utf8_rtrim_whitespace(strings, /, *, memory_pool=None):
+def utf8_rtrim_whitespace(strings, *, memory_pool=None):
     """Trim trailing whitespace characters.
 
     For each string in `strings`, emit a string with trailing whitespace
@@ -8802,7 +8799,7 @@ def utf8_rtrim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_slice_codeunits(strings, /, start=None, stop=None, step=1, *,
+def utf8_slice_codeunits(strings, start=None, stop=None, step=1, *,
                          options=None,
                          memory_pool=None):
     """Slice string.
@@ -8858,7 +8855,7 @@ def utf8_slice_codeunits(strings, /, start=None, stop=None, step=1, *,
     )
 
 
-def utf8_split_whitespace(strings, /, *, max_splits=None, reverse=False,
+def utf8_split_whitespace(strings, *, max_splits=None, reverse=False,
                           options=None,
                           memory_pool=None):
     """Split string according to any Unicode whitespace.
@@ -8910,7 +8907,7 @@ def utf8_split_whitespace(strings, /, *, max_splits=None, reverse=False,
     )
 
 
-def utf8_swapcase(strings, /, *, memory_pool=None):
+def utf8_swapcase(strings, *, memory_pool=None):
     """Transform input lowercase characters to uppercase and uppercase
         characters to lowercase.
 
@@ -8939,7 +8936,7 @@ def utf8_swapcase(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_title(strings, /, *, memory_pool=None):
+def utf8_title(strings, *, memory_pool=None):
     """Titlecase each word of input.
 
     For each string in `strings`, return a titlecased version.
@@ -8969,7 +8966,7 @@ def utf8_title(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_trim(strings, /, characters=None, *, options=None, memory_pool=None):
+def utf8_trim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
@@ -9011,7 +9008,7 @@ def utf8_trim(strings, /, characters=None, *, options=None, memory_pool=None):
     )
 
 
-def utf8_trim_whitespace(strings, /, *, memory_pool=None):
+def utf8_trim_whitespace(strings, *, memory_pool=None):
     """Trim leading and trailing whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing
@@ -9042,7 +9039,7 @@ def utf8_trim_whitespace(strings, /, *, memory_pool=None):
     )
 
 
-def utf8_upper(strings, /, *, memory_pool=None):
+def utf8_upper(strings, *, memory_pool=None):
     """Transform input to uppercase.
 
     For each string in `strings`, return an uppercase version.
@@ -9070,7 +9067,7 @@ def utf8_upper(strings, /, *, memory_pool=None):
     )
 
 
-def value_counts(array, /, *, memory_pool=None):
+def value_counts(array, *, memory_pool=None):
     """Compute counts of unique elements.
 
     For each distinct value, compute the number of times it occurs in the
@@ -9101,7 +9098,7 @@ def value_counts(array, /, *, memory_pool=None):
     )
 
 
-def variance(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
+def variance(array, *, ddof=0, skip_nulls=True, min_count=0, options=None,
              memory_pool=None):
     """Calculate the variance of a numeric array.
 
@@ -9153,7 +9150,7 @@ def variance(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
     )
 
 
-def week(values, /, *, week_starts_monday=True, count_from_zero=False,
+def week(values, *, week_starts_monday=True, count_from_zero=False,
          first_week_is_fully_in_year=False, options=None,
          memory_pool=None):
     """Extract week of year number.
@@ -9210,7 +9207,7 @@ def week(values, /, *, week_starts_monday=True, count_from_zero=False,
     )
 
 
-def weeks_between(start, end, /, *, count_from_zero=True, week_start=1,
+def weeks_between(start, end, *, count_from_zero=True, week_start=1,
                   options=None, memory_pool=None):
     """Compute the number of weeks between two timestamps.
 
@@ -9260,7 +9257,7 @@ def weeks_between(start, end, /, *, count_from_zero=True, week_start=1,
     )
 
 
-def xor(x, y, /, *, memory_pool=None):
+def xor(x, y, *, memory_pool=None):
     """Logical 'xor' boolean values.
 
     When a null is encountered in either input, a null is output.
@@ -9290,7 +9287,7 @@ def xor(x, y, /, *, memory_pool=None):
     )
 
 
-def year(values, /, *, memory_pool=None):
+def year(values, *, memory_pool=None):
     """Extract year number.
 
     Null values emit null.
@@ -9320,7 +9317,7 @@ def year(values, /, *, memory_pool=None):
     )
 
 
-def year_month_day(values, /, *, memory_pool=None):
+def year_month_day(values, *, memory_pool=None):
     """Extract (year, month, day) struct.
 
     Null values emit null.
@@ -9351,7 +9348,7 @@ def year_month_day(values, /, *, memory_pool=None):
     )
 
 
-def years_between(start, end, /, *, memory_pool=None):
+def years_between(start, end, *, memory_pool=None):
     """Compute the number of years between two timestamps.
 
     Returns the number of year boundaries crossed from `start` to `end`.

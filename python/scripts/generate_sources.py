@@ -299,7 +299,7 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
     else:
         argstring = f"[{', '.join(argnames)}]"
 
-    full_signature = inspect.Signature(all_params)
+    full_signature_obj = inspect.Signature(all_params)
 
     # because we are indeed committing the output to a file that will be linted
     # we need to wrap lines appropriately, and wrapping/linting requirements
@@ -309,13 +309,16 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
     # analysis. 
 
     # --- handle the function name and parameter signature
-
     function_text = f"def {name}"
+    
     # now add the parameters, which need to be aligned to the parenthesis
-    # to pass the linter (E128)
+    # to pass the linter (E128).
+    # We also need to strip out the '/' that indicates the end of the ordered 
+    # parameters because that is not compatiable with python 3.7
+    full_signature = f"{full_signature_obj}:".replace('/, ', '')
     maxchar = 79 - len(function_text)
     function_text += textwrap.fill(
-        f"{full_signature}:", 
+        full_signature, 
         width = maxchar, 
         subsequent_indent = " "*(len(function_text)+1),
     )
