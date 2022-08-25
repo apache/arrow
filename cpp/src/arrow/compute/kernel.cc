@@ -282,7 +282,7 @@ class RunLengthEncodedMatcher : public TypeMatcher {
 
   bool Matches(const DataType& type) const override {
     if (type.id() == Type::RUN_LENGTH_ENCODED) {
-      auto& encoding_type = dynamic_cast<const EncodingType&>(type);
+      auto &encoding_type = checked_cast<const EncodingType&>(type);
       return encoded_type_matcher->Matches(*encoding_type.encoded_type());
     } else {
       return false;
