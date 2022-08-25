@@ -101,36 +101,7 @@ arrow_mask <- function(.data, aggregation = FALSE, exprs = NULL) {
   if (!is.null(exprs)) {
     for (i in seq_along(exprs)) {
       expr <- exprs[[i]]
-      # figure out which of the calls in expr are unknown (do not have
-      # matching bindings)
-      unknown_functions <- setdiff(
-        all_funs(expr),
-        union(
-          names(f_env),
-          translation_exceptions
-        )
-      )
-
-      if (length(unknown_functions != 0)) {
-        # get the functions from the expr (quosure) original environment or, if
-        # the call contains `::`, get the function from the corresponding namespace
-        functions <- purrr::map_if(
-          .x = unknown_functions,
-          .p = ~ !grepl("::", .x),
-          .f = ~ as_function(.x, env = rlang::quo_get_env(expr)),
-          .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
-        )
-        parent.env(f_env) <- rlang::quo_get_env(expr)
-        for (i in seq_along(functions)) {
-          environment(functions[[i]]) <- f_env
-        }
-
-        purrr::walk2(
-          .x = unknown_functions,
-          .y = functions,
-          .f = ~ register_binding(.x, .y, registry = f_env, update_cache = TRUE)
-        )
-      }
+      register_user_bindings(expr, f_env)
     }
   }
 
@@ -206,3 +177,53 @@ translation_exceptions <- c(
   "decimal128",
   "decimal256"
 )
+
+register_user_bindings <- function(quo, .env) {
+  unknown_functions <- setdiff(
+    all_funs(quo),
+    union(
+      names(.env),
+      translation_exceptions
+    )
+  )
+
+  if (length(unknown_functions != 0)) {
+    # get the actual functions from the quosure's original environment or, if
+    # the call contains `::`, get the function from the corresponding namespace
+    functions <- purrr::map_if(
+      .x = unknown_functions,
+      .p = ~ !grepl("::", .x),
+      .f = ~ as_function(.x, env = rlang::quo_get_env(quo)),
+      .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
+    )
+
+    # set the original quosure environment as the parent environment for the
+    # functions
+    parent.env(.env) <- rlang::quo_get_env(quo)
+    for (i in seq_along(functions)) {
+      environment(functions[[i]]) <- .env
+    }
+
+    purrr::walk2(
+      .x = unknown_functions,
+      .y = functions,
+      .f = ~ register_binding(.x, .y, registry = .env, update_cache = TRUE)
+    )
+  }
+}
+
+registrable <- function(.fun, .env) {
+  if (is.primitive(.fun)) return(FALSE)
+  function_body <- rlang::fn_body(.fun)
+  # get all the function calls inside the body of the unknown binding
+  # the second element is the actual body of a function (the first one are the
+  # curly brackets)
+  body_calls <- all_funs(function_body[[2]])
+
+  # we can translate if all calls have matching bindings in env
+  if (all(body_calls %in% names(.env))) {
+    TRUE
+  } else {
+    FALSE
+  }
+}
