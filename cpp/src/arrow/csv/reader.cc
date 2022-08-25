@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -28,7 +29,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -546,12 +546,12 @@ class BlockDecodingOperator {
 /////////////////////////////////////////////////////////////////////////
 // Base class for common functionality
 
-template <typename T = std::shared_ptr<io::InputStream>>
+template <typename T>
 class ReaderMixin {
  public:
-  ReaderMixin(io::IOContext io_context, T input,
-              const ReadOptions& read_options, const ParseOptions& parse_options,
-              const ConvertOptions& convert_options, bool count_rows)
+  ReaderMixin(io::IOContext io_context, T input, const ReadOptions& read_options,
+              const ParseOptions& parse_options, const ConvertOptions& convert_options,
+              bool count_rows)
       : io_context_(std::move(io_context)),
         read_options_(read_options),
         parse_options_(parse_options),
@@ -768,7 +768,8 @@ class ReaderMixin {
 /////////////////////////////////////////////////////////////////////////
 // Base class for one-shot table readers
 
-class BaseTableReader : public ReaderMixin<>, public csv::TableReader {
+class BaseTableReader : public ReaderMixin<std::shared_ptr<io::InputStream>>,
+                        public csv::TableReader {
  public:
   using ReaderMixin::ReaderMixin;
 
@@ -840,7 +841,7 @@ class BaseTableReader : public ReaderMixin<>, public csv::TableReader {
 /////////////////////////////////////////////////////////////////////////
 // Base class for streaming readers
 
-class StreamingReaderImpl : public ReaderMixin<>,
+class StreamingReaderImpl : public ReaderMixin<std::shared_ptr<io::InputStream>>,
                             public csv::StreamingReader,
                             public std::enable_shared_from_this<StreamingReaderImpl> {
  public:
@@ -972,69 +973,28 @@ class StreamingReaderImpl : public ReaderMixin<>,
   std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
 };
 
-
-
-// this is just like a MapGenerator but the map fun returns a thing instead of a future
-template <typename T, typename ApplyFn,
-          typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
-          typename V = typename EnsureResult<Applied>::type::ValueType>
-AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply_fun, internal::Executor* cpu_exec) {
-
-  struct State {
-    explicit State(AsyncGenerator<T> source_gen_, ApplyFn apply_fun_, internal::Executor* cpu_exec_) : 
-    source_gen(std::move(source_gen_)), apply_fun(std::move(apply_fun_)), cpu_exec(cpu_exec_), finished(false) {}
-
-    AsyncGenerator<T> source_gen;
-    ApplyFn apply_fun;
-    internal::Executor* cpu_exec;
-    bool finished;
-  };
-
-  auto state = std::make_shared<State>(std::move(source_gen), std::move(apply_fun), cpu_exec);
-  return [state]() {
-
-    CallbackOptions options;
-    options.executor = state->cpu_exec;
-    options.should_schedule = ShouldSchedule::Always;
-    
-    return state->source_gen().Then([state] (const T& next) -> Result<V> {
-      if(IsIterationEnd(next)) 
-      {
-        return IterationTraits<V>::End();
-      } else {
-        auto value = state->apply_fun(next);
-        if (!value.ok()) {
-          return Status::NotImplemented("not implemented");
-        } else {
-          return value.ValueOrDie();   
-        }
-      }
-    }, {}, options = options);
-  };
-}
-
 /////////////////////////////////////////////////////////////////////////
 // Base class for streaming readers
 
 class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>,
-                            public csv::StreamingReader,
-                            public std::enable_shared_from_this<TonyReaderImpl> {
+                       public csv::StreamingReader,
+                       public std::enable_shared_from_this<TonyReaderImpl> {
  public:
   TonyReaderImpl(io::IOContext io_context, std::shared_ptr<io::RandomAccessFile> input,
-                      const ReadOptions& read_options, const ParseOptions& parse_options,
-                      const ConvertOptions& convert_options, bool count_rows)
+                 const ReadOptions& read_options, const ParseOptions& parse_options,
+                 const ConvertOptions& convert_options, bool count_rows)
       : ReaderMixin(io_context, std::move(input), read_options, parse_options,
                     convert_options, count_rows),
         bytes_decoded_(std::make_shared<std::atomic<int64_t>>(0)) {}
 
   Future<> Init(Executor* cpu_executor) {
-    
-    
-    ARROW_ASSIGN_OR_RAISE(AsyncGenerator<std::shared_ptr<Buffer>> ifile_gen, 
-                  io::MakeRandomAccessFileGenerator(input_, read_options_.block_size));
+    ARROW_ASSIGN_OR_RAISE(
+        AsyncGenerator<std::shared_ptr<Buffer>> ifile_gen,
+        io::MakeRandomAccessFileGenerator(input_, read_options_.block_size));
 
     // TODO Consider exposing readahead as a read option (ARROW-12090)
-    auto prefetch_gen = MakeReadaheadGenerator(ifile_gen, io_context_.executor()->GetCapacity());
+    auto prefetch_gen =
+        MakeReadaheadGenerator(ifile_gen, io_context_.executor()->GetCapacity());
 
     auto transferred_it = MakeTransferredGenerator(prefetch_gen, cpu_executor);
 
@@ -1045,7 +1005,8 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
 
     return buffer_generator().Then([self, buffer_generator, max_readahead, cpu_executor](
                                        const std::shared_ptr<Buffer>& first_buffer) {
-      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead, cpu_executor);
+      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead,
+                                        cpu_executor);
     });
   }
 
@@ -1066,7 +1027,7 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
  protected:
   Future<> InitAfterFirstBuffer(const std::shared_ptr<Buffer>& first_buffer,
                                 AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-                                int max_readahead, internal::Executor * cpu_executor) {
+                                int max_readahead, internal::Executor* cpu_executor) {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
@@ -1085,14 +1046,16 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
+    auto parsed_block_gen =
+        MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor);
+    auto preparse_gen =
+        MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
+    auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
+
     // auto parsed_block_gen =
     //     MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
-    // auto preparse_gen = MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
-    // auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
-
-    auto parsed_block_gen =
-        MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
-    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
+    // auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen),
+    // std::move(decoder_op));
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
@@ -1153,7 +1116,6 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
   // bytes which have been decoded and asked for by the caller
   std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
 };
-
 
 /////////////////////////////////////////////////////////////////////////
 // Serial TableReader implementation
@@ -1370,7 +1332,7 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
 /////////////////////////////////////////////////////////////////////////
 // Row count implementation
 
-class CSVRowCounter : public ReaderMixin<>,
+class CSVRowCounter : public ReaderMixin<std::shared_ptr<io::InputStream>>,
                       public std::enable_shared_from_this<CSVRowCounter> {
  public:
   CSVRowCounter(io::IOContext io_context, Executor* cpu_executor,
