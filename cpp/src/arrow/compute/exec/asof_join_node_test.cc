@@ -37,13 +37,17 @@
 #include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
-#define TRACED_TEST(t_class, t_name)          \
-  static void _##t_class##_##t_name();        \
+#define TRACED_TEST(t_class, t_name, t_body)  \
   TEST(t_class, t_name) {                     \
     ARROW_SCOPED_TRACE(#t_class "_" #t_name); \
-    _##t_class##_##t_name();                  \
-  }                                           \
-  static void _##t_class##_##t_name()
+    t_body;                                   \
+  }
+
+#define TRACED_TEST_P(t_class, t_name, t_body)                              \
+  TEST_P(t_class, t_name) {                                                 \
+    ARROW_SCOPED_TRACE(#t_class "_" #t_name "_" + std::get<1>(GetParam())); \
+    t_body;                                                                 \
+  }
 
 using testing::UnorderedElementsAreArray;
 
@@ -428,24 +432,24 @@ struct BasicTest {
         exp_data(std::move(exp_data)),
         tolerance(tolerance) {}
 
-  template <typename TypeCond>
-  static inline void init_types(const std::vector<std::shared_ptr<DataType>>& all_types,
-                                std::vector<std::shared_ptr<DataType>>& types,
-                                TypeCond type_cond) {
-    if (types.size() == 0) {
-      for (auto type : all_types) {
-        if (type_cond(type)) {
-          types.push_back(type);
-        }
-      }
-    }
+  static inline void check_init(const std::vector<std::shared_ptr<DataType>>& types) {
+    ASSERT_NE(0, types.size());
   }
 
-  void RunSingleByKey(std::vector<std::shared_ptr<DataType>> time_types = {},
-                      std::vector<std::shared_ptr<DataType>> key_types = {},
-                      std::vector<std::shared_ptr<DataType>> l_types = {},
-                      std::vector<std::shared_ptr<DataType>> r0_types = {},
-                      std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  template <typename TypeCond>
+  static inline std::vector<std::shared_ptr<DataType>> init_types(
+      const std::vector<std::shared_ptr<DataType>>& all_types, TypeCond type_cond) {
+    std::vector<std::shared_ptr<DataType>> types;
+    for (auto type : all_types) {
+      if (type_cond(type)) {
+        types.push_back(type);
+      }
+    }
+    check_init(types);
+    return types;
+  }
+
+  void RunSingleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
@@ -453,11 +457,8 @@ struct BasicTest {
                      tolerance);
     });
   }
-  void RunDoubleByKey(std::vector<std::shared_ptr<DataType>> time_types = {},
-                      std::vector<std::shared_ptr<DataType>> key_types = {},
-                      std::vector<std::shared_ptr<DataType>> l_types = {},
-                      std::vector<std::shared_ptr<DataType>> r0_types = {},
-                      std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  static void DoSingleByKey(BasicTest& basic_tests) { basic_tests.RunSingleByKey(); }
+  void RunDoubleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
@@ -465,11 +466,8 @@ struct BasicTest {
                      {"key", "key"}, tolerance);
     });
   }
-  void RunMutateByKey(std::vector<std::shared_ptr<DataType>> time_types = {},
-                      std::vector<std::shared_ptr<DataType>> key_types = {},
-                      std::vector<std::shared_ptr<DataType>> l_types = {},
-                      std::vector<std::shared_ptr<DataType>> r0_types = {},
-                      std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  static void DoDoubleByKey(BasicTest& basic_tests) { basic_tests.RunDoubleByKey(); }
+  void RunMutateByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
@@ -481,11 +479,8 @@ struct BasicTest {
                      {"key", "key2"}, tolerance);
     });
   }
-  void RunMutateNoKey(std::vector<std::shared_ptr<DataType>> time_types = {},
-                      std::vector<std::shared_ptr<DataType>> key_types = {},
-                      std::vector<std::shared_ptr<DataType>> l_types = {},
-                      std::vector<std::shared_ptr<DataType>> r0_types = {},
-                      std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  static void DoMutateByKey(BasicTest& basic_tests) { basic_tests.RunMutateByKey(); }
+  void RunMutateNoKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
@@ -498,11 +493,8 @@ struct BasicTest {
                      tolerance);
     });
   }
-  void RunMutateNullKey(std::vector<std::shared_ptr<DataType>> time_types = {},
-                        std::vector<std::shared_ptr<DataType>> key_types = {},
-                        std::vector<std::shared_ptr<DataType>> l_types = {},
-                        std::vector<std::shared_ptr<DataType>> r0_types = {},
-                        std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  static void DoMutateNoKey(BasicTest& basic_tests) { basic_tests.RunMutateNoKey(); }
+  void RunMutateNullKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
@@ -518,13 +510,9 @@ struct BasicTest {
                                          /*nullable_by_key=*/true));
     });
   }
+  static void DoMutateNullKey(BasicTest& basic_tests) { basic_tests.RunMutateNullKey(); }
   template <typename BatchesRunner>
-  void RunBatches(BatchesRunner batches_runner,
-                  std::vector<std::shared_ptr<DataType>> time_types = {},
-                  std::vector<std::shared_ptr<DataType>> key_types = {},
-                  std::vector<std::shared_ptr<DataType>> l_types = {},
-                  std::vector<std::shared_ptr<DataType>> r0_types = {},
-                  std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  void RunBatches(BatchesRunner batches_runner) {
     std::vector<std::shared_ptr<DataType>> all_types = {
         utf8(),
         large_utf8(),
@@ -552,17 +540,12 @@ struct BasicTest {
         float64()};
     using T = const std::shared_ptr<DataType>;
     // byte_width > 1 below allows fitting the tested data
-    init_types(all_types, time_types,
-               [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
-    ASSERT_NE(0, time_types.size());
-    init_types(all_types, key_types, [](T& t) { return !is_floating(t->id()); });
-    ASSERT_NE(0, key_types.size());
-    init_types(all_types, l_types, [](T& t) { return true; });
-    ASSERT_NE(0, l_types.size());
-    init_types(all_types, r0_types, [](T& t) { return t->byte_width() > 1; });
-    ASSERT_NE(0, r0_types.size());
-    init_types(all_types, r1_types, [](T& t) { return t->byte_width() > 1; });
-    ASSERT_NE(0, r1_types.size());
+    auto time_types = init_types(
+        all_types, [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
+    auto key_types = init_types(all_types, [](T& t) { return !is_floating(t->id()); });
+    auto l_types = init_types(all_types, [](T& t) { return true; });
+    auto r0_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
+    auto r1_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
 
     // sample a limited number of type-combinations to keep the runnning time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
@@ -636,6 +619,10 @@ struct BasicTest {
   int64_t tolerance;
 };
 
+using AsofJoinBasicParams = std::tuple<std::function<void(BasicTest&)>, std::string>;
+
+struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {};
+
 class AsofJoinTest : public testing::Test {};
 
 #define ASOFJOIN_TEST_SET(name, num)                           \
@@ -664,7 +651,12 @@ BasicTest GetBasicTest1() {
       /*exp_nokey*/ {R"([[0, 0, 1, 11, null], [1000, 0, 2, 11, 101]])"},
       /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Basic, 1)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic1, {
+  BasicTest basic_test = GetBasicTest1();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetBasicTest2() {
   // Single key, multiple batches
@@ -675,7 +667,12 @@ BasicTest GetBasicTest2() {
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Basic, 2)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic2, {
+  BasicTest basic_test = GetBasicTest2();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetBasicTest3() {
   // Single key, multiple left batches, single right batches
@@ -686,7 +683,13 @@ BasicTest GetBasicTest3() {
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Basic, 3)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic3, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetBasicTest3();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetBasicTest4() {
   // Multi key, multiple batches, misaligned batches
@@ -708,7 +711,12 @@ BasicTest GetBasicTest4() {
        R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
       1000);
 }
-ASOFJOIN_TEST_SET(Basic, 4)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic4, {
+  BasicTest basic_test = GetBasicTest4();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetBasicTest5() {
   // Multi key, multiple batches, misaligned batches, smaller tolerance
@@ -729,7 +737,13 @@ BasicTest GetBasicTest5() {
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
                    500);
 }
-ASOFJOIN_TEST_SET(Basic, 5)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic5, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetBasicTest5();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetBasicTest6() {
   // Multi key, multiple batches, misaligned batches, zero tolerance
@@ -750,7 +764,13 @@ BasicTest GetBasicTest6() {
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, null, null]])"},
                    0);
 }
-ASOFJOIN_TEST_SET(Basic, 6)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic6, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic6_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetBasicTest6();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetEmptyTest1() {
   // Empty left batch
@@ -767,7 +787,13 @@ BasicTest GetEmptyTest1() {
                    /*exp*/
                    {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Empty, 1)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest1();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetEmptyTest2() {
   // Empty left input
@@ -784,7 +810,13 @@ BasicTest GetEmptyTest2() {
                    /*exp*/
                    {R"([])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Empty, 2)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest2();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetEmptyTest3() {
   // Empty right batch
@@ -804,7 +836,13 @@ BasicTest GetEmptyTest3() {
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
                    1000);
 }
-ASOFJOIN_TEST_SET(Empty, 3)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest3();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetEmptyTest4() {
   // Empty right input
@@ -824,7 +862,13 @@ BasicTest GetEmptyTest4() {
                     R"([[2000, 1, 4, null, 103], [2000, 2, 24, null, 1002]])"},
                    1000);
 }
-ASOFJOIN_TEST_SET(Empty, 4)
+
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest4();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
 
 BasicTest GetEmptyTest5() {
   // All empty
@@ -839,31 +883,45 @@ BasicTest GetEmptyTest5() {
                    /*exp*/
                    {R"([])"}, 1000);
 }
-ASOFJOIN_TEST_SET(Empty, 5)
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedOntype) {
+TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5_" + std::get<1>(GetParam()));
+  BasicTest basic_test = GetEmptyTest5();
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
+
+INSTANTIATE_TEST_SUITE_P(
+    AsofJoinNodeTest, AsofJoinBasicTest,
+    testing::Values(AsofJoinBasicParams(BasicTest::DoSingleByKey, "single by-key"),
+                    AsofJoinBasicParams(BasicTest::DoDoubleByKey, "double by-key"),
+                    AsofJoinBasicParams(BasicTest::DoMutateByKey, "mutate by-key"),
+                    AsofJoinBasicParams(BasicTest::DoMutateNoKey, "mutate no-key"),
+                    AsofJoinBasicParams(BasicTest::DoMutateNullKey, "mutate null-key")));
+
+TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
   DoRunInvalidTypeTest(schema({field("time", list(int32())), field("key", int32()),
                                field("l_v0", float64())}),
                        schema({field("time", list(int32())), field("key", int32()),
                                field("r0_v0", float32())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedBytype) {
+TRACED_TEST(AsofJoinTest, TestUnsupportedBytype, {
   DoRunInvalidTypeTest(schema({field("time", int64()), field("key", list(int32())),
                                field("l_v0", float64())}),
                        schema({field("time", int64()), field("key", list(int32())),
                                field("r0_v0", float32())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedDatatype) {
+TRACED_TEST(AsofJoinTest, TestUnsupportedDatatype, {
   // List is unsupported
   DoRunInvalidTypeTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()),
               field("r0_v0", list(int32()))}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestMissingKeys) {
+TRACED_TEST(AsofJoinTest, TestMissingKeys, {
   DoRunMissingKeysTest(
       schema({field("time1", int64()), field("key", int32()), field("l_v0", float64())}),
       schema(
@@ -873,85 +931,85 @@ TRACED_TEST(AsofJoinTest, TestMissingKeys) {
       schema({field("time", int64()), field("key1", int32()), field("l_v0", float64())}),
       schema(
           {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedTolerance) {
+TRACED_TEST(AsofJoinTest, TestUnsupportedTolerance, {
   // Utf8 is unsupported
   DoRunInvalidToleranceTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestEmptyByKey) {
+TRACED_TEST(AsofJoinTest, TestEmptyByKey, {
   DoRunEmptyByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestMissingOnKey) {
+TRACED_TEST(AsofJoinTest, TestMissingOnKey, {
   DoRunMissingOnKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestMissingByKey) {
+TRACED_TEST(AsofJoinTest, TestMissingByKey, {
   DoRunMissingByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestNestedOnKey) {
+TRACED_TEST(AsofJoinTest, TestNestedOnKey, {
   DoRunNestedOnKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestNestedByKey) {
+TRACED_TEST(AsofJoinTest, TestNestedByKey, {
   DoRunNestedByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestAmbiguousOnKey) {
+TRACED_TEST(AsofJoinTest, TestAmbiguousOnKey, {
   DoRunAmbiguousOnKeyTest(
       schema({field("time", int64()), field("time", int64()), field("key", int32()),
               field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestAmbiguousByKey) {
+TRACED_TEST(AsofJoinTest, TestAmbiguousByKey, {
   DoRunAmbiguousByKeyTest(
       schema({field("time", int64()), field("key", int64()), field("key", int32()),
               field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestLeftUnorderedOnKey) {
+TRACED_TEST(AsofJoinTest, TestLeftUnorderedOnKey, {
   DoRunUnorderedPlanTest(
       /*l_unordered=*/true, /*r_unordered=*/false,
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestRightUnorderedOnKey) {
+TRACED_TEST(AsofJoinTest, TestRightUnorderedOnKey, {
   DoRunUnorderedPlanTest(
       /*l_unordered=*/false, /*r_unordered=*/true,
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestUnorderedOnKey) {
+TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
   DoRunUnorderedPlanTest(
       /*l_unordered=*/true, /*r_unordered=*/true,
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
-TRACED_TEST(AsofJoinTest, TestNullByKey) {
+TRACED_TEST(AsofJoinTest, TestNullByKey, {
   DoRunNullByKeyPlanTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-}
+})
 
 }  // namespace compute
 }  // namespace arrow
