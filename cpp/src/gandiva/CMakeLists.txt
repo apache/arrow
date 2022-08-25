@@ -102,10 +102,15 @@ if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.18)
   list(APPEND GANDIVA_OPENSSL_TARGETS OpenSSL::applink)
 endif()
 
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
-                                     ${GANDIVA_OPENSSL_TARGETS} Boost::headers)
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_TARGETS}
-                             Boost::headers)
+set(GANDIVA_SHARED_LINK_LIBS arrow_shared LLVM::LLVM_HEADERS)
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_TARGETS}
+                                     Boost::headers)
+set(GANDIVA_STATIC_LINK_LIBS
+    arrow_static
+    LLVM::LLVM_HEADERS
+    LLVM::LLVM_LIBS
+    ${GANDIVA_OPENSSL_TARGETS}
+    Boost::headers)
 if(ARROW_WITH_RE2)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
   list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
@@ -113,10 +118,6 @@ endif()
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
   list(APPEND GANDIVA_STATIC_LINK_LIBS utf8proc::utf8proc)
-endif()
-if(ARROW_USE_XSIMD)
-  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS xsimd)
-  list(APPEND GANDIVA_STATIC_LINK_LIBS xsimd)
 endif()
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
@@ -157,17 +158,17 @@ add_arrow_lib(gandiva
               SHARED_LINK_FLAGS
               ${GANDIVA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
-              arrow_shared
+              ${GANDIVA_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared
-              LLVM::LLVM_INTERFACE
+              LLVM::LLVM_HEADERS
               STATIC_LINK_LIBS
               ${GANDIVA_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static
-              LLVM::LLVM_INTERFACE)
+              LLVM::LLVM_HEADERS)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
@@ -182,13 +183,11 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
 arrow_install_all_headers("gandiva")
 
-set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS}
-                                  LLVM::LLVM_INTERFACE)
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS}
-                                  LLVM::LLVM_INTERFACE)
+set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS})
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS utf8proc::utf8proc)
-  list(APPEND GANDIVA_STATIC_TEST_LIBS utf8proc::utf8proc)
+  list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS utf8proc::utf8proc)
 endif()
 if(WIN32)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})

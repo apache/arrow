@@ -93,12 +93,14 @@ if(LLVM_FOUND)
                      clang-${LLVM_VERSION_MAJOR} clang
                HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
-
-  set_target_properties(LLVM::LLVM_INTERFACE
+  add_library(LLVM::LLVM_HEADERS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_HEADERS
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
+                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}")
+
+  add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "${LLVM_LIBS}")
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)
