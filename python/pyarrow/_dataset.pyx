@@ -2347,7 +2347,7 @@ cdef class Scanner(_Weakrefable):
             RAM usage but could also improve IO utilization.
         fragment_readahead : int, default 4
             The number of files to read ahead. Increasing this number will increase
-            RAM usage but also improve IO utilization.
+            RAM usage but could also improve IO utilization.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
