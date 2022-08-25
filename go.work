@@ -14,13 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrow
 
-import "errors"
+go 1.18
 
-var (
-	ErrInvalid        = errors.New("invalid")
-	ErrNotImplemented = errors.New("not implemented")
-	ErrType           = errors.New("type error")
-	ErrKey            = errors.New("key error")
+use (
+	./go
+	./go/arrow/compute
 )

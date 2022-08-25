@@ -48,6 +48,10 @@ func SliceBuffer(buf *Buffer, offset, length int) *Buffer {
 	return &Buffer{refCount: 1, parent: buf, buf: buf.Bytes()[offset : offset+length], length: length}
 }
 
+// Parent returns either nil or a pointer to the parent buffer if this buffer
+// was sliced from another.
+func (b *Buffer) Parent() *Buffer { return b.parent }
+
 // Retain increases the reference count by 1.
 func (b *Buffer) Retain() {
 	if b.mem != nil || b.parent != nil {

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal_test
+package exec_test
 
 import (
 	"reflect"
@@ -24,7 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
@@ -53,7 +53,7 @@ func TestBufferSpan_SetBuffer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := &internal.BufferSpan{
+			b := &exec.BufferSpan{
 				Buf:       tt.fields.Buf,
 				Owner:     tt.fields.Owner,
 				SelfAlloc: tt.fields.SelfAlloc,
@@ -86,7 +86,7 @@ func TestBufferSpan_WrapBuffer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := &internal.BufferSpan{
+			b := &exec.BufferSpan{
 				Buf:       tt.fields.Buf,
 				Owner:     tt.fields.Owner,
 				SelfAlloc: tt.fields.SelfAlloc,
@@ -105,9 +105,9 @@ func TestArraySpan_UpdateNullCount(t *testing.T) {
 		Len      int64
 		Nulls    int64
 		Offset   int64
-		Buffers  [3]internal.BufferSpan
+		Buffers  [3]exec.BufferSpan
 		Scratch  [2]uint64
-		Children []internal.ArraySpan
+		Children []exec.ArraySpan
 	}
 	tests := []struct {
 		name   string
@@ -118,16 +118,16 @@ func TestArraySpan_UpdateNullCount(t *testing.T) {
 		{"unknown", fields{
 			Nulls:   array.UnknownNullCount,
 			Len:     8, // 0b01101101
-			Buffers: [3]internal.BufferSpan{{Buf: []byte{109}}, {}, {}}}, 3},
+			Buffers: [3]exec.BufferSpan{{Buf: []byte{109}}, {}, {}}}, 3},
 		{"unknown with offset", fields{
 			Nulls:   array.UnknownNullCount,
 			Len:     4,
 			Offset:  2, // 0b01101101
-			Buffers: [3]internal.BufferSpan{{Buf: []byte{109}}, {}, {}}}, 1},
+			Buffers: [3]exec.BufferSpan{{Buf: []byte{109}}, {}, {}}}, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
+			a := &exec.ArraySpan{
 				Type:     tt.fields.Type,
 				Len:      tt.fields.Len,
 				Nulls:    tt.fields.Nulls,
@@ -149,21 +149,21 @@ func TestArraySpan_Dictionary(t *testing.T) {
 		Len      int64
 		Nulls    int64
 		Offset   int64
-		Buffers  [3]internal.BufferSpan
+		Buffers  [3]exec.BufferSpan
 		Scratch  [2]uint64
-		Children []internal.ArraySpan
+		Children []exec.ArraySpan
 	}
-	children := []internal.ArraySpan{{}}
+	children := []exec.ArraySpan{{}}
 	tests := []struct {
 		name   string
 		fields fields
-		want   *internal.ArraySpan
+		want   *exec.ArraySpan
 	}{
 		{"basic", fields{Children: children}, &children[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
+			a := &exec.ArraySpan{
 				Type:     tt.fields.Type,
 				Len:      tt.fields.Len,
 				Nulls:    tt.fields.Nulls,
@@ -185,9 +185,9 @@ func TestArraySpan_NumBuffers(t *testing.T) {
 		Len      int64
 		Nulls    int64
 		Offset   int64
-		Buffers  [3]internal.BufferSpan
+		Buffers  [3]exec.BufferSpan
 		Scratch  [2]uint64
-		Children []internal.ArraySpan
+		Children []exec.ArraySpan
 	}
 
 	arrow.RegisterExtensionType(types.NewUUIDType())
@@ -210,7 +210,7 @@ func TestArraySpan_NumBuffers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
+			a := &exec.ArraySpan{
 				Type:     tt.fields.Type,
 				Len:      tt.fields.Len,
 				Nulls:    tt.fields.Nulls,
@@ -232,9 +232,9 @@ func TestArraySpan_MakeData(t *testing.T) {
 		Len      int64
 		Nulls    int64
 		Offset   int64
-		Buffers  [3]internal.BufferSpan
+		Buffers  [3]exec.BufferSpan
 		Scratch  [2]uint64
-		Children []internal.ArraySpan
+		Children []exec.ArraySpan
 	}
 
 	var (
@@ -307,7 +307,7 @@ func TestArraySpan_MakeData(t *testing.T) {
 			ret := fields{
 				Type: arrow.ListOf(arrow.PrimitiveTypes.Int8),
 				Len:  1,
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.PrimitiveTypes.Int8,
 					Len:  4,
 				}},
@@ -350,7 +350,7 @@ func TestArraySpan_MakeData(t *testing.T) {
 			ret := fields{
 				Type: types.NewDictExtensionType(),
 				Len:  1,
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.BinaryTypes.String,
 					Len:  2,
 				}},
@@ -395,7 +395,7 @@ func TestArraySpan_MakeData(t *testing.T) {
 
 			t.Run("MakeData", func(t *testing.T) {
 				f := tt.fields(mem)
-				a := &internal.ArraySpan{
+				a := &exec.ArraySpan{
 					Type:     f.Type,
 					Len:      f.Len,
 					Nulls:    f.Nulls,
@@ -415,7 +415,7 @@ func TestArraySpan_MakeData(t *testing.T) {
 
 			t.Run("MakeArray", func(t *testing.T) {
 				f := tt.fields(mem)
-				a := &internal.ArraySpan{
+				a := &exec.ArraySpan{
 					Type:     f.Type,
 					Len:      f.Len,
 					Nulls:    f.Nulls,
@@ -444,9 +444,9 @@ func TestArraySpan_SetSlice(t *testing.T) {
 		Len      int64
 		Nulls    int64
 		Offset   int64
-		Buffers  [3]internal.BufferSpan
+		Buffers  [3]exec.BufferSpan
 		Scratch  [2]uint64
-		Children []internal.ArraySpan
+		Children []exec.ArraySpan
 	}
 	type args struct {
 		off    int64
@@ -463,7 +463,7 @@ func TestArraySpan_SetSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
+			a := &exec.ArraySpan{
 				Type:     tt.fields.Type,
 				Len:      tt.fields.Len,
 				Nulls:    tt.fields.Nulls,
@@ -495,56 +495,56 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 	tests := []struct {
 		name string
 		args scalar.Scalar
-		exp  internal.ArraySpan
+		exp  exec.ArraySpan
 	}{
 		{"null-type",
 			scalar.MakeNullScalar(arrow.Null),
-			internal.ArraySpan{Type: arrow.Null, Len: 1, Nulls: 1}},
+			exec.ArraySpan{Type: arrow.Null, Len: 1, Nulls: 1}},
 		{"bool valid",
 			scalar.MakeScalar(true),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.FixedWidthTypes.Boolean,
 				Len:     1,
 				Nulls:   0,
-				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x01}}, {}},
+				Buffers: [3]exec.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x01}}, {}},
 			}},
 		{"bool valid false",
 			scalar.MakeScalar(false),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.FixedWidthTypes.Boolean,
 				Len:     1,
 				Nulls:   0,
-				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x00}}, {}},
+				Buffers: [3]exec.BufferSpan{{Buf: []byte{0x01}}, {Buf: []byte{0x00}}, {}},
 			}},
 		{"primitive null",
 			scalar.MakeNullScalar(arrow.PrimitiveTypes.Int32),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.PrimitiveTypes.Int32,
 				Len:     1,
 				Nulls:   1,
-				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x00}}, {Buf: []byte{0, 0, 0, 0}}, {}},
+				Buffers: [3]exec.BufferSpan{{Buf: []byte{0x00}}, {Buf: []byte{0, 0, 0, 0}}, {}},
 			}},
 		{"decimal valid",
 			scalar.NewDecimal128Scalar(decimal128.FromU64(1234), &arrow.Decimal128Type{Precision: 12, Scale: 2}),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    &arrow.Decimal128Type{Precision: 12, Scale: 2},
 				Len:     1,
 				Nulls:   0,
-				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}}, {Buf: expDecimalBuf[:]}, {}},
+				Buffers: [3]exec.BufferSpan{{Buf: []byte{0x01}}, {Buf: expDecimalBuf[:]}, {}},
 			}},
 		{"dictionary scalar",
 			scalar.NewDictScalar(scalar.NewInt8Scalar(1), dict),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:  &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String},
 				Len:   1,
 				Nulls: 0,
-				Buffers: [3]internal.BufferSpan{{Buf: []byte{0x01}},
+				Buffers: [3]exec.BufferSpan{{Buf: []byte{0x01}},
 					{Buf: []byte{1}}, {},
 				},
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.BinaryTypes.String,
 					Len:  2,
-					Buffers: [3]internal.BufferSpan{
+					Buffers: [3]exec.BufferSpan{
 						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
 						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
 						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
@@ -554,12 +554,12 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 		},
 		{"binary scalar",
 			scalar.NewBinaryScalar(dict.Data().Buffers()[2], arrow.BinaryTypes.String),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.BinaryTypes.String,
 				Len:     1,
 				Nulls:   0,
 				Scratch: expScratch,
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x01}},
 					{Buf: arrow.Uint64Traits.CastToBytes(expScratch[:1])},
 					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}},
@@ -567,55 +567,55 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 		},
 		{"large binary",
 			scalar.NewLargeStringScalarFromBuffer(dict.Data().Buffers()[2]),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.BinaryTypes.LargeString,
 				Len:     1,
 				Nulls:   0,
 				Scratch: [2]uint64{0, 10},
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x01}},
 					{Buf: arrow.Uint64Traits.CastToBytes([]uint64{0, 10})},
 					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}},
 			}},
 		{"fixed size binary",
 			scalar.NewFixedSizeBinaryScalar(dict.Data().Buffers()[2], &arrow.FixedSizeBinaryType{ByteWidth: 10}),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: &arrow.FixedSizeBinaryType{ByteWidth: 10},
 				Len:  1,
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x01}},
 					{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]}, {},
 				},
 			}},
 		{"map scalar null value",
 			scalar.MakeNullScalar(arrow.MapOf(arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String)),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:  arrow.MapOf(arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String),
 				Len:   1,
 				Nulls: 1,
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0}},
 					{Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}},
 					{},
 				},
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.StructOf(arrow.Field{Name: "key", Type: arrow.PrimitiveTypes.Int8},
 						arrow.Field{Name: "value", Type: arrow.BinaryTypes.String, Nullable: true}),
 					Len:   0,
 					Nulls: 0,
-					Buffers: [3]internal.BufferSpan{
+					Buffers: [3]exec.BufferSpan{
 						{Buf: []byte{}}, {}, {},
 					},
-					Children: []internal.ArraySpan{
+					Children: []exec.ArraySpan{
 						{
 							Type: arrow.PrimitiveTypes.Int8,
-							Buffers: [3]internal.BufferSpan{
+							Buffers: [3]exec.BufferSpan{
 								{Buf: []byte{}}, {Buf: []byte{}}, {},
 							},
 						},
 						{
 							Type: arrow.BinaryTypes.String,
-							Buffers: [3]internal.BufferSpan{
+							Buffers: [3]exec.BufferSpan{
 								{Buf: []byte{}}, {Buf: []byte{}}, {Buf: []byte{}},
 							},
 						},
@@ -624,21 +624,21 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 			}},
 		{"list scalar",
 			scalar.NewListScalarData(dict.Data()),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: arrow.ListOf(arrow.BinaryTypes.String),
 				Len:  1,
 				Scratch: [2]uint64{
 					*(*uint64)(unsafe.Pointer(&[]int32{0, 2}[0])),
 					0,
 				},
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x1}},
 					{Buf: arrow.Int32Traits.CastToBytes([]int32{0, 2})},
 				},
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.BinaryTypes.String,
 					Len:  2,
-					Buffers: [3]internal.BufferSpan{
+					Buffers: [3]exec.BufferSpan{
 						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
 						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
 						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
@@ -648,18 +648,18 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 		},
 		{"large list scalar",
 			scalar.NewLargeListScalarData(dict.Data()),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type:    arrow.LargeListOf(arrow.BinaryTypes.String),
 				Len:     1,
 				Scratch: [2]uint64{0, 2},
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x1}},
 					{Buf: arrow.Int64Traits.CastToBytes([]int64{0, 2})},
 				},
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.BinaryTypes.String,
 					Len:  2,
-					Buffers: [3]internal.BufferSpan{
+					Buffers: [3]exec.BufferSpan{
 						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
 						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
 						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
@@ -669,17 +669,17 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 		},
 		{"fixed size list",
 			scalar.NewFixedSizeListScalar(dict),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: arrow.FixedSizeListOf(2, arrow.BinaryTypes.String),
 				Len:  1,
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x1}},
 					{}, {},
 				},
-				Children: []internal.ArraySpan{{
+				Children: []exec.ArraySpan{{
 					Type: arrow.BinaryTypes.String,
 					Len:  2,
-					Buffers: [3]internal.BufferSpan{
+					Buffers: [3]exec.BufferSpan{
 						{Buf: dict.NullBitmapBytes(), Owner: dict.Data().Buffers()[0]},
 						{Buf: dict.Data().Buffers()[1].Bytes(), Owner: dict.Data().Buffers()[1]},
 						{Buf: dict.Data().Buffers()[2].Bytes(), Owner: dict.Data().Buffers()[2]},
@@ -694,19 +694,19 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 				}, []string{"int32", "uint8"})
 				return s
 			}(),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: arrow.StructOf(
 					arrow.Field{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
 					arrow.Field{Name: "uint8", Type: arrow.PrimitiveTypes.Uint8, Nullable: true}),
-				Buffers: [3]internal.BufferSpan{
+				Buffers: [3]exec.BufferSpan{
 					{Buf: []byte{0x1}}, {}, {},
 				},
 				Len: 1,
-				Children: []internal.ArraySpan{
+				Children: []exec.ArraySpan{
 					{
 						Type: arrow.PrimitiveTypes.Int32,
 						Len:  1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x1}},
 							{Buf: arrow.Int32Traits.CastToBytes([]int32{5})},
 							{},
@@ -715,7 +715,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 					{
 						Type: arrow.PrimitiveTypes.Uint8,
 						Len:  1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x1}},
 							{Buf: []byte{10}},
 							{},
@@ -733,7 +733,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 				}, []arrow.UnionTypeCode{3, 42, 43})
 				return scalar.NewDenseUnionScalar(scalar.MakeScalar(uint64(25)), 42, dt.(*arrow.DenseUnionType))
 			}(),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: arrow.UnionOf(arrow.DenseMode, []arrow.Field{
 					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
 					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
@@ -741,20 +741,20 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 				}, []arrow.UnionTypeCode{3, 42, 43}),
 				Len:     1,
 				Scratch: [2]uint64{42, 1},
-				Buffers: [3]internal.BufferSpan{{},
+				Buffers: [3]exec.BufferSpan{{},
 					{Buf: []byte{42}}, {Buf: arrow.Int32Traits.CastToBytes([]int32{0, 1})},
 				},
-				Children: []internal.ArraySpan{
+				Children: []exec.ArraySpan{
 					{
 						Type: arrow.BinaryTypes.String,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{}}, {Buf: []byte{}}, {Buf: []byte{}},
 						},
 					},
 					{
 						Type: arrow.PrimitiveTypes.Uint64,
 						Len:  1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x1}},
 							{Buf: arrow.Uint64Traits.CastToBytes([]uint64{25})},
 							{},
@@ -762,7 +762,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 					},
 					{
 						Type: arrow.PrimitiveTypes.Uint64,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{}}, {Buf: []byte{}}, {},
 						},
 					},
@@ -778,7 +778,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 				}, []arrow.UnionTypeCode{3, 42, 43})
 				return scalar.NewSparseUnionScalarFromValue(scalar.MakeScalar(uint64(25)), 1, dt.(*arrow.SparseUnionType))
 			}(),
-			internal.ArraySpan{
+			exec.ArraySpan{
 				Type: arrow.UnionOf(arrow.SparseMode, []arrow.Field{
 					{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
 					{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
@@ -786,15 +786,15 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 				}, []arrow.UnionTypeCode{3, 42, 43}),
 				Len:     1,
 				Scratch: [2]uint64{42, 0},
-				Buffers: [3]internal.BufferSpan{{},
+				Buffers: [3]exec.BufferSpan{{},
 					{Buf: []byte{42}}, {},
 				},
-				Children: []internal.ArraySpan{
+				Children: []exec.ArraySpan{
 					{
 						Type:  arrow.BinaryTypes.String,
 						Len:   1,
 						Nulls: 1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x0}},
 							{Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}},
 							{},
@@ -803,7 +803,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 					{
 						Type: arrow.PrimitiveTypes.Uint64,
 						Len:  1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x1}},
 							{Buf: arrow.Uint64Traits.CastToBytes([]uint64{25})},
 							{},
@@ -813,7 +813,7 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 						Type:  arrow.PrimitiveTypes.Uint64,
 						Len:   1,
 						Nulls: 1,
-						Buffers: [3]internal.BufferSpan{
+						Buffers: [3]exec.BufferSpan{
 							{Buf: []byte{0x0}}, {Buf: []byte{0, 0, 0, 0, 0, 0, 0, 0}}, {},
 						},
 					},
@@ -823,9 +823,9 @@ func TestArraySpan_FillFromScalar(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &internal.ArraySpan{
+			a := &exec.ArraySpan{
 				Nulls:   array.UnknownNullCount,
-				Buffers: [3]internal.BufferSpan{{SelfAlloc: true, Owner: &memory.Buffer{}}, {SelfAlloc: true, Owner: &memory.Buffer{}}, {}},
+				Buffers: [3]exec.BufferSpan{{SelfAlloc: true, Owner: &memory.Buffer{}}, {SelfAlloc: true, Owner: &memory.Buffer{}}, {}},
 			}
 			a.FillFromScalar(tt.args)
 			assert.Equal(t, tt.exp, *a)

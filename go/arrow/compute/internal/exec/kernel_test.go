@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal_test
+package exec_test
 
 import (
 	"fmt"
@@ -23,30 +23,30 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTypeMatcherSameTypeID(t *testing.T) {
-	matcher := internal.SameTypeID(arrow.DECIMAL128)
+	matcher := exec.SameTypeID(arrow.DECIMAL128)
 	assert.True(t, matcher.Matches(&arrow.Decimal128Type{Precision: 12, Scale: 2}))
 	assert.False(t, matcher.Matches(arrow.PrimitiveTypes.Int8))
 
 	assert.Equal(t, "Type::DECIMAL128", matcher.String())
 
 	assert.True(t, matcher.Equals(matcher))
-	assert.True(t, matcher.Equals(internal.SameTypeID(arrow.DECIMAL)))
-	assert.False(t, matcher.Equals(internal.SameTypeID(arrow.TIMESTAMP)))
-	assert.False(t, matcher.Equals(internal.Time32TypeUnit(arrow.Microsecond)))
+	assert.True(t, matcher.Equals(exec.SameTypeID(arrow.DECIMAL)))
+	assert.False(t, matcher.Equals(exec.SameTypeID(arrow.TIMESTAMP)))
+	assert.False(t, matcher.Equals(exec.Time32TypeUnit(arrow.Microsecond)))
 }
 
 func TestTypeMatcherTimestampTypeUnit(t *testing.T) {
-	matcher := internal.TimestampTypeUnit(arrow.Millisecond)
-	matcher2 := internal.Time32TypeUnit(arrow.Millisecond)
-	matcher3 := internal.Time64TypeUnit(arrow.Microsecond)
-	matcher4 := internal.DurationTypeUnit(arrow.Microsecond)
+	matcher := exec.TimestampTypeUnit(arrow.Millisecond)
+	matcher2 := exec.Time32TypeUnit(arrow.Millisecond)
+	matcher3 := exec.Time64TypeUnit(arrow.Microsecond)
+	matcher4 := exec.DurationTypeUnit(arrow.Microsecond)
 
 	assert.True(t, matcher.Matches(arrow.FixedWidthTypes.Timestamp_ms))
 	assert.True(t, matcher.Matches(&arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "utc"}))
@@ -60,73 +60,73 @@ func TestTypeMatcherTimestampTypeUnit(t *testing.T) {
 	assert.False(t, matcher4.Matches(arrow.FixedWidthTypes.Duration_ms))
 
 	// check String() representation
-	assert.Equal(t, "timestamp(s)", internal.TimestampTypeUnit(arrow.Second).String())
-	assert.Equal(t, "timestamp(ms)", internal.TimestampTypeUnit(arrow.Millisecond).String())
-	assert.Equal(t, "timestamp(us)", internal.TimestampTypeUnit(arrow.Microsecond).String())
-	assert.Equal(t, "timestamp(ns)", internal.TimestampTypeUnit(arrow.Nanosecond).String())
+	assert.Equal(t, "timestamp(s)", exec.TimestampTypeUnit(arrow.Second).String())
+	assert.Equal(t, "timestamp(ms)", exec.TimestampTypeUnit(arrow.Millisecond).String())
+	assert.Equal(t, "timestamp(us)", exec.TimestampTypeUnit(arrow.Microsecond).String())
+	assert.Equal(t, "timestamp(ns)", exec.TimestampTypeUnit(arrow.Nanosecond).String())
 
 	// equals implementation
 	assert.True(t, matcher.Equals(matcher))
-	assert.True(t, matcher.Equals(internal.TimestampTypeUnit(arrow.Millisecond)))
-	assert.False(t, matcher.Equals(internal.TimestampTypeUnit(arrow.Microsecond)))
-	assert.False(t, matcher.Equals(internal.Time32TypeUnit(arrow.Millisecond)))
+	assert.True(t, matcher.Equals(exec.TimestampTypeUnit(arrow.Millisecond)))
+	assert.False(t, matcher.Equals(exec.TimestampTypeUnit(arrow.Microsecond)))
+	assert.False(t, matcher.Equals(exec.Time32TypeUnit(arrow.Millisecond)))
 	assert.False(t, matcher3.Equals(matcher2))
 	assert.False(t, matcher4.Equals(matcher3))
-	assert.True(t, matcher4.Equals(internal.DurationTypeUnit(arrow.Microsecond)))
-	assert.False(t, matcher.Equals(internal.SameTypeID(arrow.TIMESTAMP)))
+	assert.True(t, matcher4.Equals(exec.DurationTypeUnit(arrow.Microsecond)))
+	assert.False(t, matcher.Equals(exec.SameTypeID(arrow.TIMESTAMP)))
 }
 
 func TestIntegerMatcher(t *testing.T) {
-	match := internal.Integer()
+	match := exec.Integer()
 
 	assert.Equal(t, "integer", match.String())
 	assert.True(t, match.Matches(arrow.PrimitiveTypes.Int8))
 	assert.True(t, match.Matches(arrow.PrimitiveTypes.Uint64))
-	assert.True(t, match.Equals(internal.Integer()))
-	assert.False(t, match.Equals(internal.BinaryLike()))
+	assert.True(t, match.Equals(exec.Integer()))
+	assert.False(t, match.Equals(exec.BinaryLike()))
 }
 
 func TestBinaryLikeMatcher(t *testing.T) {
-	match := internal.BinaryLike()
+	match := exec.BinaryLike()
 
 	assert.Equal(t, "binary-like", match.String())
 	assert.True(t, match.Matches(arrow.BinaryTypes.String))
 	assert.True(t, match.Matches(arrow.BinaryTypes.Binary))
 	assert.False(t, match.Matches(arrow.BinaryTypes.LargeString))
 	assert.False(t, match.Matches(arrow.BinaryTypes.LargeBinary))
-	assert.False(t, match.Equals(internal.LargeBinaryLike()))
-	assert.True(t, match.Equals(internal.BinaryLike()))
+	assert.False(t, match.Equals(exec.LargeBinaryLike()))
+	assert.True(t, match.Equals(exec.BinaryLike()))
 }
 
 func TestLargeBinaryLikeMatcher(t *testing.T) {
-	match := internal.LargeBinaryLike()
+	match := exec.LargeBinaryLike()
 
 	assert.Equal(t, "large-binary-like", match.String())
 	assert.False(t, match.Matches(arrow.BinaryTypes.String))
 	assert.False(t, match.Matches(arrow.BinaryTypes.Binary))
 	assert.True(t, match.Matches(arrow.BinaryTypes.LargeString))
 	assert.True(t, match.Matches(arrow.BinaryTypes.LargeBinary))
-	assert.True(t, match.Equals(internal.LargeBinaryLike()))
-	assert.False(t, match.Equals(internal.BinaryLike()))
+	assert.True(t, match.Equals(exec.LargeBinaryLike()))
+	assert.False(t, match.Equals(exec.BinaryLike()))
 }
 
 func TestFixedSizeBinaryMatcher(t *testing.T) {
-	match := internal.FixedSizeBinaryLike()
+	match := exec.FixedSizeBinaryLike()
 
 	assert.Equal(t, "fixed-size-binary-like", match.String())
 	assert.False(t, match.Matches(arrow.BinaryTypes.String))
 	assert.True(t, match.Matches(&arrow.Decimal128Type{Precision: 12, Scale: 5}))
 	assert.True(t, match.Matches(&arrow.Decimal256Type{Precision: 12, Scale: 10}))
 	assert.True(t, match.Matches(&arrow.FixedSizeBinaryType{}))
-	assert.False(t, match.Equals(internal.LargeBinaryLike()))
-	assert.True(t, match.Equals(internal.FixedSizeBinaryLike()))
+	assert.False(t, match.Equals(exec.LargeBinaryLike()))
+	assert.True(t, match.Equals(exec.FixedSizeBinaryLike()))
 }
 
 func TestPrimitiveMatcher(t *testing.T) {
-	match := internal.Primitive()
+	match := exec.Primitive()
 
 	assert.Equal(t, "primitive", match.String())
-	assert.True(t, match.Equals(internal.Primitive()))
+	assert.True(t, match.Equals(exec.Primitive()))
 
 	types := []arrow.DataType{
 		arrow.FixedWidthTypes.Boolean,
@@ -160,38 +160,38 @@ func TestPrimitiveMatcher(t *testing.T) {
 }
 
 func TestInputTypeAnyType(t *testing.T) {
-	var ty internal.InputType
-	assert.Equal(t, internal.InputAny, ty.Kind)
+	var ty exec.InputType
+	assert.Equal(t, exec.InputAny, ty.Kind)
 }
 
 func TestInputType(t *testing.T) {
-	ty1 := internal.NewExactInput(arrow.PrimitiveTypes.Int8)
-	assert.Equal(t, internal.InputExact, ty1.Kind)
+	ty1 := exec.NewExactInput(arrow.PrimitiveTypes.Int8)
+	assert.Equal(t, exec.InputExact, ty1.Kind)
 	assert.True(t, arrow.TypeEqual(arrow.PrimitiveTypes.Int8, ty1.Type))
 	assert.Equal(t, "int8", ty1.String())
 
-	ty2 := internal.NewIDInput(arrow.DECIMAL)
-	assert.Equal(t, internal.InputUseMatcher, ty2.Kind)
+	ty2 := exec.NewIDInput(arrow.DECIMAL)
+	assert.Equal(t, exec.InputUseMatcher, ty2.Kind)
 	assert.Equal(t, "Type::DECIMAL128", ty2.String())
 	assert.True(t, ty2.Matcher.Matches(&arrow.Decimal128Type{Precision: 12, Scale: 2}))
 	assert.False(t, ty2.Matcher.Matches(arrow.PrimitiveTypes.Int16))
 
-	ty3 := internal.NewMatchedInput(internal.TimestampTypeUnit(arrow.Microsecond))
+	ty3 := exec.NewMatchedInput(exec.TimestampTypeUnit(arrow.Microsecond))
 	assert.Equal(t, "timestamp(us)", ty3.String())
 
-	var ty4 internal.InputType
+	var ty4 exec.InputType
 	assert.Equal(t, "any", ty4.String())
 	// InputAny matches anything
 	assert.True(t, ty4.Matches((arrow.DataType)(nil)))
 }
 
 func TestInputTypeEquals(t *testing.T) {
-	t1 := internal.NewExactInput(arrow.PrimitiveTypes.Int8)
-	t2 := internal.NewExactInput(arrow.PrimitiveTypes.Int8)
-	t3 := internal.NewExactInput(arrow.PrimitiveTypes.Int32)
+	t1 := exec.NewExactInput(arrow.PrimitiveTypes.Int8)
+	t2 := exec.NewExactInput(arrow.PrimitiveTypes.Int8)
+	t3 := exec.NewExactInput(arrow.PrimitiveTypes.Int32)
 
-	t5 := internal.NewIDInput(arrow.DECIMAL)
-	t6 := internal.NewIDInput(arrow.DECIMAL)
+	t5 := exec.NewIDInput(arrow.DECIMAL)
+	t6 := exec.NewIDInput(arrow.DECIMAL)
 
 	assert.True(t, t1.Equals(&t2))
 	assert.False(t, t1.Equals(&t3))
@@ -199,26 +199,26 @@ func TestInputTypeEquals(t *testing.T) {
 	assert.True(t, t5.Equals(&t5))
 	assert.True(t, t5.Equals(&t6))
 
-	var ty internal.InputType
-	assert.True(t, ty.Equals(&internal.InputType{Kind: internal.InputAny}))
+	var ty exec.InputType
+	assert.True(t, ty.Equals(&exec.InputType{Kind: exec.InputAny}))
 
 	// for now, an ID matcher for arrow.INT32 and a ExactInput for
 	// arrow.PrimitiveTypes.Int32 are treated as being different.
 	// this could be made equivalent later if desireable
 
 	// check that field metadata is excluded from equality checks
-	t7 := internal.NewExactInput(arrow.ListOfField(
+	t7 := exec.NewExactInput(arrow.ListOfField(
 		arrow.Field{Name: "item", Type: arrow.BinaryTypes.String,
 			Nullable: true, Metadata: arrow.NewMetadata([]string{"foo"}, []string{"bar"})}))
-	t8 := internal.NewExactInput(arrow.ListOf(arrow.BinaryTypes.String))
+	t8 := exec.NewExactInput(arrow.ListOf(arrow.BinaryTypes.String))
 	assert.True(t, t7.Equals(&t8))
 }
 
 func TestInputTypeHash(t *testing.T) {
 	var (
-		t0 internal.InputType
-		t1 = internal.NewExactInput(arrow.PrimitiveTypes.Int8)
-		t2 = internal.NewIDInput(arrow.DECIMAL)
+		t0 exec.InputType
+		t1 = exec.NewExactInput(arrow.PrimitiveTypes.Int8)
+		t2 = exec.NewIDInput(arrow.DECIMAL)
 	)
 
 	// these checks try to determine first of all whether hash
@@ -233,12 +233,12 @@ func TestInputTypeHash(t *testing.T) {
 }
 
 func TestInputTypeMatches(t *testing.T) {
-	in1 := internal.NewExactInput(arrow.PrimitiveTypes.Int8)
+	in1 := exec.NewExactInput(arrow.PrimitiveTypes.Int8)
 
 	assert.True(t, in1.Matches(arrow.PrimitiveTypes.Int8))
 	assert.False(t, in1.Matches(arrow.PrimitiveTypes.Int16))
 
-	in2 := internal.NewIDInput(arrow.DECIMAL)
+	in2 := exec.NewIDInput(arrow.DECIMAL)
 	assert.True(t, in2.Matches(&arrow.Decimal128Type{Precision: 12, Scale: 2}))
 
 	ty2 := &arrow.Decimal128Type{Precision: 12, Scale: 2}
@@ -265,27 +265,27 @@ func TestInputTypeMatches(t *testing.T) {
 }
 
 func TestOutputType(t *testing.T) {
-	ty1 := internal.NewOutputType(arrow.PrimitiveTypes.Int8)
-	assert.Equal(t, internal.ResolveFixed, ty1.Kind)
+	ty1 := exec.NewOutputType(arrow.PrimitiveTypes.Int8)
+	assert.Equal(t, exec.ResolveFixed, ty1.Kind)
 	assert.True(t, arrow.TypeEqual(arrow.PrimitiveTypes.Int8, ty1.Type))
 
-	dummyResolver := func(_ *internal.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	dummyResolver := func(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 		return arrow.PrimitiveTypes.Int32, nil
 	}
 
-	ty2 := internal.NewComputedOutputType(dummyResolver)
-	assert.Equal(t, internal.ResolveComputed, ty2.Kind)
+	ty2 := exec.NewComputedOutputType(dummyResolver)
+	assert.Equal(t, exec.ResolveComputed, ty2.Kind)
 
 	outType2, err := ty2.Resolve(nil, nil)
 	assert.NoError(t, err)
 	assert.Same(t, arrow.PrimitiveTypes.Int32, outType2)
 
 	ty3 := ty1
-	assert.Equal(t, internal.ResolveFixed, ty3.Kind)
+	assert.Equal(t, exec.ResolveFixed, ty3.Kind)
 	assert.True(t, arrow.TypeEqual(ty1.Type, ty3.Type))
 
 	ty4 := ty2
-	assert.Equal(t, internal.ResolveComputed, ty4.Kind)
+	assert.Equal(t, exec.ResolveComputed, ty4.Kind)
 	outType4, err := ty4.Resolve(nil, nil)
 	assert.NoError(t, err)
 	assert.Same(t, arrow.PrimitiveTypes.Int32, outType4)
@@ -295,7 +295,7 @@ func TestOutputType(t *testing.T) {
 }
 
 func TestOutputTypeResolve(t *testing.T) {
-	ty1 := internal.NewOutputType(arrow.PrimitiveTypes.Int32)
+	ty1 := exec.NewOutputType(arrow.PrimitiveTypes.Int32)
 
 	result, err := ty1.Resolve(nil, nil)
 	assert.NoError(t, err)
@@ -309,17 +309,17 @@ func TestOutputTypeResolve(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Same(t, arrow.PrimitiveTypes.Int32, result)
 
-	resolver := func(_ *internal.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
+	resolver := func(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 		return args[0], nil
 	}
-	ty2 := internal.NewComputedOutputType(resolver)
+	ty2 := exec.NewComputedOutputType(resolver)
 
 	result, err = ty2.Resolve(nil, []arrow.DataType{arrow.BinaryTypes.String})
 	assert.NoError(t, err)
 	assert.Same(t, arrow.BinaryTypes.String, result)
 
 	// type resolver that returns an error
-	ty3 := internal.NewComputedOutputType(func(_ *internal.KernelCtx, dt []arrow.DataType) (arrow.DataType, error) {
+	ty3 := exec.NewComputedOutputType(func(_ *exec.KernelCtx, dt []arrow.DataType) (arrow.DataType, error) {
 		// checking the value types versus the function arity should be validated
 		// elsewhere. this is just for illustration purposes
 		if len(dt) == 0 {
@@ -332,7 +332,7 @@ func TestOutputTypeResolve(t *testing.T) {
 	assert.ErrorIs(t, err, arrow.ErrInvalid)
 
 	// resolver returns a fixed value
-	ty4 := internal.NewComputedOutputType(func(*internal.KernelCtx, []arrow.DataType) (arrow.DataType, error) {
+	ty4 := exec.NewComputedOutputType(func(*exec.KernelCtx, []arrow.DataType) (arrow.DataType, error) {
 		return arrow.PrimitiveTypes.Int32, nil
 	})
 	result, err = ty4.Resolve(nil, []arrow.DataType{arrow.PrimitiveTypes.Int8})
@@ -344,46 +344,46 @@ func TestOutputTypeResolve(t *testing.T) {
 }
 
 func TestKernelSignatureEquals(t *testing.T) {
-	sig1 := internal.KernelSignature{
-		InputTypes: []internal.InputType{},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String)}
-	sig1Copy := internal.KernelSignature{
-		InputTypes: []internal.InputType{},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String)}
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+	sig1 := exec.KernelSignature{
+		InputTypes: []exec.InputType{},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String)}
+	sig1Copy := exec.KernelSignature{
+		InputTypes: []exec.InputType{},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String)}
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
 
 	// output type doesn't matter (for now)
-	sig3 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType: internal.NewOutputType(arrow.PrimitiveTypes.Int32),
+	sig3 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType: exec.NewOutputType(arrow.PrimitiveTypes.Int32),
 	}
 
-	sig4 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int16),
+	sig4 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int16),
 		},
-		OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+		OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
-	sig4Copy := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int16),
+	sig4Copy := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int16),
 		},
-		OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+		OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
-	sig5 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int16),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int32),
+	sig5 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int16),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int32),
 		},
-		OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+		OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
 
 	assert.True(t, sig1.Equals(sig1))
@@ -399,19 +399,19 @@ func TestKernelSignatureEquals(t *testing.T) {
 }
 
 func TestKernelSignatureVarArgsEqual(t *testing.T) {
-	sig1 := internal.KernelSignature{
-		InputTypes: []internal.InputType{internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+	sig1 := exec.KernelSignature{
+		InputTypes: []exec.InputType{exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 		IsVarArgs:  true,
 	}
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 		IsVarArgs:  true,
 	}
-	sig3 := internal.KernelSignature{
-		InputTypes: []internal.InputType{internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+	sig3 := exec.KernelSignature{
+		InputTypes: []exec.InputType{exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 	}
 
 	assert.True(t, sig1.Equals(sig2))
@@ -419,19 +419,19 @@ func TestKernelSignatureVarArgsEqual(t *testing.T) {
 }
 
 func TestKernelSignatureHash(t *testing.T) {
-	sig1 := internal.KernelSignature{
-		InputTypes: []internal.InputType{},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+	sig1 := exec.KernelSignature{
+		InputTypes: []exec.InputType{},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 	}
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 	}
-	sig3 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int32)},
-		OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+	sig3 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int32)},
+		OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
 
 	assert.Equal(t, sig1.Hash(), sig1.Hash())
@@ -442,18 +442,18 @@ func TestKernelSignatureHash(t *testing.T) {
 
 func TestKernelSignatureMatchesInputs(t *testing.T) {
 	// () -> boolean
-	sig1 := internal.KernelSignature{
-		OutType: internal.NewOutputType(arrow.FixedWidthTypes.Boolean)}
+	sig1 := exec.KernelSignature{
+		OutType: exec.NewOutputType(arrow.FixedWidthTypes.Boolean)}
 
 	assert.True(t, sig1.MatchesInputs([]arrow.DataType{}))
 	assert.False(t, sig1.MatchesInputs([]arrow.DataType{arrow.PrimitiveTypes.Int8}))
 
 	// (int8, decimal) -> boolean
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewIDInput(arrow.DECIMAL)},
-		OutType: internal.NewOutputType(arrow.FixedWidthTypes.Boolean),
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewIDInput(arrow.DECIMAL)},
+		OutType: exec.NewOutputType(arrow.FixedWidthTypes.Boolean),
 	}
 	assert.False(t, sig2.MatchesInputs([]arrow.DataType{}))
 	assert.False(t, sig2.MatchesInputs([]arrow.DataType{arrow.PrimitiveTypes.Int8}))
@@ -462,12 +462,12 @@ func TestKernelSignatureMatchesInputs(t *testing.T) {
 		&arrow.Decimal128Type{Precision: 12, Scale: 2}}))
 
 	// (int8, int32) -> boolean
-	sig3 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int32),
+	sig3 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int32),
 		},
-		OutType: internal.NewOutputType(arrow.FixedWidthTypes.Boolean),
+		OutType: exec.NewOutputType(arrow.FixedWidthTypes.Boolean),
 	}
 	assert.False(t, sig3.MatchesInputs(nil))
 	assert.True(t, sig3.MatchesInputs([]arrow.DataType{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Int32}))
@@ -476,9 +476,9 @@ func TestKernelSignatureMatchesInputs(t *testing.T) {
 
 func TestKernelSignatureVarArgsMatchesInputs(t *testing.T) {
 	{
-		sig := internal.KernelSignature{
-			InputTypes: []internal.InputType{internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-			OutType:    internal.NewOutputType(arrow.BinaryTypes.String),
+		sig := exec.KernelSignature{
+			InputTypes: []exec.InputType{exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+			OutType:    exec.NewOutputType(arrow.BinaryTypes.String),
 			IsVarArgs:  true,
 		}
 
@@ -490,12 +490,12 @@ func TestKernelSignatureVarArgsMatchesInputs(t *testing.T) {
 		assert.False(t, sig.MatchesInputs(args))
 	}
 	{
-		sig := internal.KernelSignature{
-			InputTypes: []internal.InputType{
-				internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-				internal.NewExactInput(arrow.BinaryTypes.String),
+		sig := exec.KernelSignature{
+			InputTypes: []exec.InputType{
+				exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+				exec.NewExactInput(arrow.BinaryTypes.String),
 			},
-			OutType:   internal.NewOutputType(arrow.BinaryTypes.String),
+			OutType:   exec.NewOutputType(arrow.BinaryTypes.String),
 			IsVarArgs: true,
 		}
 
@@ -509,43 +509,43 @@ func TestKernelSignatureVarArgsMatchesInputs(t *testing.T) {
 }
 
 func TestKernelSignatureToString(t *testing.T) {
-	inTypes := []internal.InputType{
-		internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-		internal.NewIDInput(arrow.DECIMAL),
-		internal.NewExactInput(arrow.BinaryTypes.String),
+	inTypes := []exec.InputType{
+		exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+		exec.NewIDInput(arrow.DECIMAL),
+		exec.NewExactInput(arrow.BinaryTypes.String),
 	}
 
-	sig := internal.KernelSignature{
-		InputTypes: inTypes, OutType: internal.NewOutputType(arrow.BinaryTypes.String),
+	sig := exec.KernelSignature{
+		InputTypes: inTypes, OutType: exec.NewOutputType(arrow.BinaryTypes.String),
 	}
 	assert.Equal(t, "(int8, Type::DECIMAL128, utf8) -> utf8", sig.String())
 
-	outType := internal.NewComputedOutputType(func(*internal.KernelCtx, []arrow.DataType) (arrow.DataType, error) {
+	outType := exec.NewComputedOutputType(func(*exec.KernelCtx, []arrow.DataType) (arrow.DataType, error) {
 		return nil, arrow.ErrInvalid
 	})
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8),
-			internal.NewIDInput(arrow.DECIMAL)},
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8),
+			exec.NewIDInput(arrow.DECIMAL)},
 		OutType: outType,
 	}
 	assert.Equal(t, "(int8, Type::DECIMAL128) -> computed", sig2.String())
 }
 
 func TestKernelSignatureVarArgsToString(t *testing.T) {
-	sig1 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:   internal.NewOutputType(arrow.BinaryTypes.String),
+	sig1 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:   exec.NewOutputType(arrow.BinaryTypes.String),
 		IsVarArgs: true,
 	}
 	assert.Equal(t, "varargs[int8*] -> utf8", sig1.String())
 
-	sig2 := internal.KernelSignature{
-		InputTypes: []internal.InputType{
-			internal.NewExactInput(arrow.BinaryTypes.String),
-			internal.NewExactInput(arrow.PrimitiveTypes.Int8)},
-		OutType:   internal.NewOutputType(arrow.BinaryTypes.String),
+	sig2 := exec.KernelSignature{
+		InputTypes: []exec.InputType{
+			exec.NewExactInput(arrow.BinaryTypes.String),
+			exec.NewExactInput(arrow.PrimitiveTypes.Int8)},
+		OutType:   exec.NewOutputType(arrow.BinaryTypes.String),
 		IsVarArgs: true,
 	}
 	assert.Equal(t, "varargs[utf8, int8*] -> utf8", sig2.String())

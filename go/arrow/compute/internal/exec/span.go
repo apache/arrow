@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package exec
 
 import (
 	"reflect"
@@ -314,7 +314,7 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		} else {
 			// even when the value is null, we must populate
 			// child data to yield a valid array. ugh
-			fillZeroLength(sc.DataType().(arrow.NestedType).Fields()[0].Type, &a.Children[0])
+			FillZeroLength(sc.DataType().(arrow.NestedType).Fields()[0].Type, &a.Children[0])
 		}
 
 		switch typeID {
@@ -365,7 +365,7 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 				if i == childIDS[sc.TypeCode] {
 					a.Children[i].FillFromScalar(sc.Value)
 				} else {
-					fillZeroLength(f.Type, &a.Children[i])
+					FillZeroLength(f.Type, &a.Children[i])
 				}
 			}
 		case *scalar.SparseUnion:
@@ -496,7 +496,9 @@ func getNumBuffers(dt arrow.DataType) int {
 	}
 }
 
-func fillZeroLength(dt arrow.DataType, span *ArraySpan) {
+// FillZeroLength fills an ArraySpan with the appropriate information for
+// a Zero Length Array of the provided type.
+func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 	span.Scratch[0], span.Scratch[1] = 0, 0
 	span.Type = dt
 	span.Len = 0
@@ -524,7 +526,7 @@ func fillZeroLength(dt arrow.DataType, span *ArraySpan) {
 		span.Children = make([]ArraySpan, len(nt.Fields()))
 	}
 	for i, f := range nt.Fields() {
-		fillZeroLength(f.Type, &span.Children[i])
+		FillZeroLength(f.Type, &span.Children[i])
 	}
 }
 

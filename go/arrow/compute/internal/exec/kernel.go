@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package exec
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
 
@@ -54,6 +53,17 @@ func GetAllocator(ctx context.Context) memory.Allocator {
 type Kernel interface {
 	GetInitFn() KernelInitFn
 	GetSig() *KernelSignature
+}
+
+// NonAggKernel builds on the base Kernel interface for
+// non aggregate execution kernels. Specifically this will
+// represent Scalar and Vector kernels.
+type NonAggKernel interface {
+	Kernel
+	Exec(*KernelCtx, *ExecSpan, *ExecResult) error
+	GetNullHandling() NullHandling
+	GetMemAlloc() MemAlloc
+	CanFillSlices() bool
 }
 
 // KernelCtx is a small struct holding the context for a kernel execution
@@ -496,7 +506,7 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 		}
 
 		for i, t := range types {
-			if !k.InputTypes[min(i, len(k.InputTypes)-1)].Matches(t) {
+			if !k.InputTypes[Min(i, len(k.InputTypes)-1)].Matches(t) {
 				return false
 			}
 		}
@@ -513,9 +523,65 @@ func (k KernelSignature) MatchesInputs(types []arrow.DataType) bool {
 	return true
 }
 
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
+// ArrayKernelExec is an alias definition for a kernel's execution function.
+//
+// This is used for both stateless and stateful kernels. If a kernel
+// depends on some execution state, it can be accessed from the KernelCtx
+// object, which also contains the context.Context object which can be
+// used for shortcircuiting by checking context.Done / context.Err.
+// This allows kernels to control handling timeouts or cancellation of
+// computation.
+type ArrayKernelExec = func(*KernelCtx, *ExecSpan, *ExecResult) error
+
+type kernel struct {
+	Init           KernelInitFn
+	Signature      *KernelSignature
+	Data           KernelState
+	Parallelizable bool
 }
+
+func (k kernel) GetInitFn() KernelInitFn  { return k.Init }
+func (k kernel) GetSig() *KernelSignature { return k.Signature }
+
+// A ScalarKernel is the kernel implementation for a Scalar Function.
+// In addition to the members found in the base Kernel, it contains
+// the null handling and memory pre-allocation preferences.
+type ScalarKernel struct {
+	kernel
+
+	ExecFn             ArrayKernelExec
+	CanWriteIntoSlices bool
+	NullHandling       NullHandling
+	MemAlloc           MemAlloc
+}
+
+// NewScalarKernel constructs a new kernel for scalar execution, constructing
+// a KernelSignature with the provided input types and output type, and using
+// the passed in execution implementation and initialization function.
+func NewScalarKernel(in []InputType, out OutputType, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
+	return NewScalarKernelWithSig(&KernelSignature{
+		InputTypes: in,
+		OutType:    out,
+	}, exec, init)
+}
+
+// NewScalarKernelWithSig is a convenience when you already have a signature
+// to use for constructing a kernel. It's equivalent to passing the components
+// of the signature (input and output types) to NewScalarKernel.
+func NewScalarKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) ScalarKernel {
+	return ScalarKernel{
+		kernel:             kernel{Signature: sig, Init: init, Parallelizable: true},
+		ExecFn:             exec,
+		CanWriteIntoSlices: true,
+		NullHandling:       NullIntersection,
+		MemAlloc:           MemPrealloc,
+	}
+}
+
+func (s *ScalarKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error {
+	return s.ExecFn(ctx, sp, out)
+}
+
+func (s ScalarKernel) GetNullHandling() NullHandling { return s.NullHandling }
+func (s ScalarKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
+func (s ScalarKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }
