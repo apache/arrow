@@ -77,7 +77,7 @@ func newCastFunction(name string, outType arrow.Type) *castFunction {
 }
 
 func (cf *castFunction) AddTypeCast(in arrow.Type, kernel exec.ScalarKernel) error {
-	kernel.Init = exec.OptionsInit[CastOptions]
+	kernel.Init = exec.OptionsInit[kernels.CastState]
 	if err := cf.AddKernel(kernel); err != nil {
 		return err
 	}
@@ -167,10 +167,31 @@ func getBooleanCasts() []*castFunction {
 	return []*castFunction{fn}
 }
 
+// CastDatum is a convenience function for casting a Datum to another type.
+// It is equivalent to calling CallFunction(ctx, "cast", opts, Datum) and
+// should work for Scalar, Array or ChunkedArray Datums.
 func CastDatum(ctx context.Context, val Datum, opts *CastOptions) (Datum, error) {
 	return CallFunction(ctx, "cast", opts, val)
 }
 
+// CastArray is a convenience function for casting an Array to another type.
+// It is equivalent to constructing a Datum for the array and using
+// CallFunction(ctx, "cast", ...).
+func CastArray(ctx context.Context, val arrow.Array, opts *CastOptions) (arrow.Array, error) {
+	d := NewDatum(val)
+	defer d.Release()
+
+	out, err := CastDatum(ctx, d, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	defer out.Release()
+	return out.(*ArrayDatum).MakeArray(), nil
+}
+
+// CanCast returns true if there is an implementation for casting an array
+// or scalar value from the specified DataType to the other data type.
 func CanCast(from, to arrow.DataType) bool {
 	fn, err := getCastFunction(to)
 	if err != nil {

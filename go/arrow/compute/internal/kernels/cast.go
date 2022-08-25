@@ -34,9 +34,16 @@ type CastOptions struct {
 
 func (CastOptions) TypeName() string { return "CastOptions" }
 
+// CastState is the kernel state for Cast functions, it is an alias to
+// the CastOptions object.
 type CastState = CastOptions
 
-func ZeroCopyCastExec(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+// ZeroCopyCastExec is a kernel for performing a cast which can be executed
+// as a zero-copy operation. It simply forwards the buffers to the output.
+//
+// This can be used for casting a type to itself, or for casts between
+// equivalent representations such as Int32 and Date32.
+func ZeroCopyCastExec(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	dt := out.Type
 	*out = batch.Values[0].Array
 	out.Type = dt
@@ -58,6 +65,9 @@ func recursiveSetSelfAlloc(arr *exec.ArraySpan) {
 	}
 }
 
+// CastFromNull is a simple kernel for constructing an array of null values
+// for the requested data type, allowing casting of an arrow.Null typed value
+// to any other arbitrary data type.
 func CastFromNull(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	arr := array.MakeArrayOfNull(exec.GetAllocator(ctx.Ctx), out.Type, int(batch.Len))
 	defer arr.Release()
@@ -67,7 +77,9 @@ func CastFromNull(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResul
 	return nil
 }
 
-func OutputAllNull(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+// OutputAllNull is a simple kernel that initializes the output as an array
+// whose output is all null by setting nulls to the length.
+func OutputAllNull(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	out.Nulls = batch.Len
 	return nil
 }
@@ -76,6 +88,8 @@ func canCastFromDict(id arrow.Type) bool {
 	return arrow.IsPrimitive(id) || arrow.IsBaseBinary(id) || arrow.IsFixedSizeBinary(id)
 }
 
+// GetZeroCastKernel returns a kernel for performing ZeroCast execution using
+// the ZeroCopyCastExec kernel function.
 func GetZeroCastKernel(inID arrow.Type, inType exec.InputType, out exec.OutputType) exec.ScalarKernel {
 	k := exec.NewScalarKernel([]exec.InputType{inType}, out, ZeroCopyCastExec, nil)
 	k.NullHandling = exec.NullComputedNoPrealloc
@@ -83,6 +97,9 @@ func GetZeroCastKernel(inID arrow.Type, inType exec.InputType, out exec.OutputTy
 	return k
 }
 
+// GetCommonCastKernels returns the list of kernels common to all types
+// such as casting from null or from Extension types of the appropriate
+// underlying type.
 func GetCommonCastKernels(outID arrow.Type, outType arrow.DataType) (out []exec.ScalarKernel) {
 	out = make([]exec.ScalarKernel, 0, 2)
 
@@ -92,11 +109,11 @@ func GetCommonCastKernels(outID arrow.Type, outType arrow.DataType) (out []exec.
 	kernel.MemAlloc = exec.MemNoPrealloc
 	out = append(out, kernel)
 
-	if canCastFromDict(outID) {
-		// dictionary unpacking not implemented for boolean or nested types
-		// TODO dict cast
-		// panic(fmt.Errorf("%w: dictionary casting", arrow.ErrNotImplemented))
-	}
+	// if canCastFromDict(outID) {
+	// dictionary unpacking not implemented for boolean or nested types
+	// TODO dict cast
+	// panic(fmt.Errorf("%w: dictionary casting", arrow.ErrNotImplemented))
+	// }
 
 	// Cast from extension
 	return

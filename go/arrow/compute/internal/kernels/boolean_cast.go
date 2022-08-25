@@ -33,6 +33,8 @@ func isNonZero[T exec.FixedWidthTypes](ctx *exec.KernelCtx, in []T, out []byte) 
 	return nil
 }
 
+// GetBooleanCastKernels returns the slice of scalar kernels for casting
+// values *to* a boolean type.
 func GetBooleanCastKernels() []exec.ScalarKernel {
 	kernels := GetCommonCastKernels(arrow.BOOL, arrow.FixedWidthTypes.Boolean)
 	kernels = append(kernels, GetZeroCastKernel(arrow.BOOL,
@@ -74,12 +76,12 @@ func GetBooleanCastKernels() []exec.ScalarKernel {
 		var ex exec.ArrayKernelExec
 		switch ty.ID() {
 		case arrow.BINARY, arrow.STRING:
-			ex = ScalarUnaryNotNullBinaryArgBoolOut[int32](func(_ *exec.KernelCtx, b []byte) (bool, error) {
+			ex = ScalarUnaryNotNullBinaryArgBoolOut[int32](false, func(_ *exec.KernelCtx, b []byte) (bool, error) {
 				v := *(*string)(unsafe.Pointer(&b))
 				return strconv.ParseBool(v)
 			})
 		case arrow.LARGE_BINARY, arrow.LARGE_STRING:
-			ex = ScalarUnaryNotNullBinaryArgBoolOut[int64](func(_ *exec.KernelCtx, b []byte) (bool, error) {
+			ex = ScalarUnaryNotNullBinaryArgBoolOut[int64](false, func(_ *exec.KernelCtx, b []byte) (bool, error) {
 				v := *(*string)(unsafe.Pointer(&b))
 				return strconv.ParseBool(v)
 			})

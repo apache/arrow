@@ -96,6 +96,12 @@ func Min[T constraints.Ordered](a, b T) T {
 	return b
 }
 
+// OptionsInit should be used in the case where a KernelState is simply
+// represented with a specific type by value (instead of pointer).
+// This will initialize the KernelState as a value-copied instance of
+// the passed in function options argument to ensure separation
+// and allow the kernel to manipulate the options if necessary without
+// any negative consequences since it will have its own copy of the options.
 func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) {
 	if opts, ok := args.Options.(*T); ok {
 		return *opts, nil

@@ -159,9 +159,7 @@ func checkCast(t *testing.T, input arrow.Array, exp arrow.Array, opts compute.Ca
 }
 
 func checkCastFails(t *testing.T, input arrow.Array, opt compute.CastOptions) {
-	d := compute.NewDatum(input)
-	defer d.Release()
-	_, err := compute.CastDatum(context.Background(), d, &opt)
+	_, err := compute.CastArray(context.Background(), input, &opt)
 	assert.ErrorIs(t, err, arrow.ErrInvalid)
 
 	// for scalars, check that at least one of the input fails
@@ -183,19 +181,14 @@ func checkCastFails(t *testing.T, input arrow.Array, opt compute.CastOptions) {
 }
 
 func checkCastZeroCopy(t *testing.T, input arrow.Array, toType arrow.DataType, opts *compute.CastOptions) {
-	d := compute.NewDatum(input)
-	defer d.Release()
 	opts.ToType = toType
-	out, err := compute.CastDatum(context.Background(), d, opts)
+	out, err := compute.CastArray(context.Background(), input, opts)
 	assert.NoError(t, err)
 	defer out.Release()
 
-	outArr := out.(*compute.ArrayDatum).MakeArray()
-	defer outArr.Release()
-
-	assert.Len(t, outArr.Data().Buffers(), len(input.Data().Buffers()))
-	for i := range outArr.Data().Buffers() {
-		assertBufferSame(t, outArr, input, i)
+	assert.Len(t, out.Data().Buffers(), len(input.Data().Buffers()))
+	for i := range out.Data().Buffers() {
+		assertBufferSame(t, out, input, i)
 	}
 }
 

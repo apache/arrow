@@ -22,6 +22,13 @@ import (
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 )
 
+// ScalarUnary returns a kernel for performing a unary operation on
+// FixedWidth types which is implemented using the passed in function
+// which will receive a slice containing the raw input data along with
+// a slice to populate for the output data.
+//
+// Note that bool is not included in exec.FixedWidthTypes since it is
+// represented as a bitmap, not as a slice of bool.
 func ScalarUnary[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Arg0T, []OutT) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		arg0 := in.Values[0].Array
@@ -31,6 +38,9 @@ func ScalarUnary[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Ar
 	}
 }
 
+// ScalarUnaryBoolOutput is like ScalarUnary only it is for cases of boolean
+// output. The function should take in a slice of the input type and a slice
+// of bytes to fill with the output boolean bitmap.
 func ScalarUnaryBoolOutput[Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Arg0T, []byte) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		arg0 := in.Values[0].Array
@@ -39,7 +49,15 @@ func ScalarUnaryBoolOutput[Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, 
 	}
 }
 
-func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](op func(*exec.KernelCtx, []byte) (bool, error)) exec.ArrayKernelExec {
+// ScalarUnaryNotNullBinaryArgBoolOut creates a unary kernel that accepts
+// a binary type input (Binary [offset int32], String [offset int32],
+// LargeBinary [offset int64], LargeString [offset int64]) and returns
+// a boolean output which is never null.
+//
+// It implements the handling to iterate the offsets and values calling
+// the provided function on each byte slice. The provided default value
+// will be used as the output for elements of the input that are null.
+func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op func(*exec.KernelCtx, []byte) (bool, error)) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0        = in.Values[0].Array
@@ -59,13 +77,21 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](op func(*exec.Ker
 				bitutil.SetBitTo(outData, int(out.Offset)+outPos, res)
 				outPos++
 			}, func() {
-				bitutil.ClearBit(outData, int(out.Offset)+outPos)
+				bitutil.SetBitTo(outData, int(out.Offset)+outPos, defVal)
 				outPos++
 			})
 		return err
 	}
 }
 
+// ScalarUnaryNotNullBinaryArg creates a unary kernel that accepts
+// a binary type input (Binary [offset int32], String [offset int32],
+// LargeBinary [offset int64], LargeString [offset int64]) and returns
+// a FixedWidthType output which is never null.
+//
+// It implements the handling to iterate the offsets and values calling
+// the provided function on each byte slice. The zero value of the OutT
+// will be used as the output for elements of the input that are null.
 func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte) (OutT, error)) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
