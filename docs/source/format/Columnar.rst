@@ -774,22 +774,20 @@ Run-Length is a data representation that represents data as sequences of the
 same value, called runs. Each run is represented as a value, and an integer
 describing how often this value is repeated.
 
-Any array can be run-length encoded. A run-length encoded array has a single
-buffer holding a signed 32-bit integer for each run. The actual
-values are held in a child array, which is just a regular array.
+Any array can be run-length encoded. A run-length encoded array has no buffers
+by itself, but has two child arrays. The first one holds a signed 32-bit integer
+for each run. The actual values of each run are held the second child array.
 
-The values in the parent array buffer represent the length of each run. They do
+The values in the first child array represent the length of each run. They do
 not hold the length of the respective run directly, but the accumulated length
-of all runs from the first to the current one. This allows relatively efficient
-random access from a logical index using binary search. The length of an
-individual run can be determined by subtracting two adjacent values.
+of all runs from the first to the current one, i.e. the logical index where the
+current run ends. This allows relatively efficient random access from a logical
+index using binary search. The length of an individual run can be determined by
+subtracting two adjacent values.
 
 A run has to have a length of at least 1. This means the values in the
-accumulated run lengths buffer are all positive and in strictly ascending
-order.
-
-An accumulated run length cannot be null, therefore the parent array has no
-validity buffer.
+run ends array all positive and in strictly ascending order. A run end cannot be
+null.
 
 As an example, you could have the following data: ::
 
@@ -801,15 +799,18 @@ In Run-length-encoded form, this could appear as:
 ::
 
     * Length: 7, Null count: 2
-    * Accumulated run lengths buffer:
-
-      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
-      |-------------|-------------|-------------|-----------------------|
-      | 4           | 6           | 7           | unspecified (padding) |
-
     * Children arrays:
 
-      * values (Float32):
+      * run ends (Int32):
+        * Length: 3, Null count: 0
+        * Validity bitmap buffer: Not required
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 4           | 6           | 7           | unspecified (padding) |
+
+    * values (Float32):
         * Length: 3, Null count: 1
         * Validity bitmap buffer:
 
@@ -843,6 +844,7 @@ of memory buffers for each layout.
    "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
+   "Run-length encoded",,,
 
 Logical Types
 =============
