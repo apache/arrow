@@ -193,7 +193,7 @@ register_user_bindings <- function(quo, .env) {
     unknown_functions <- purrr::map_if(
       .x = unknown_functions_chr,
       .p = ~ !grepl("::", .x),
-      .f = ~ as_function(.x, env = rlang::quo_get_env(quo)),
+      .f = ~ tryCatch(as_function(.x, env = rlang::quo_get_env(quo)), error = function(e) NULL),
       .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
     )
 
@@ -201,19 +201,29 @@ register_user_bindings <- function(quo, .env) {
     # functions
     parent.env(.env) <- rlang::quo_get_env(quo)
     for (i in seq_along(unknown_functions)) {
-      if (registrable(unknown_functions[[i]], .env)) {
-        environment(unknown_functions[[i]]) <- .env
+      unknown_fn_name <- unknown_functions_chr[[i]]
+      unknown_fn <- unknown_functions[[i]]
+      if (!is.null(unknown_fn) && registrable(unknown_fn, .env)) {
+        environment(unknown_fn) <- .env
         register_binding(
-          unknown_functions_chr[[i]],
-          unknown_functions[[i]],
+          unknown_fn_name,
+          unknown_fn,
           registry = .env,
           update_cache = TRUE
         )
       } else {
         # if there are call we don't have bindings for, try to register them first
-        unknown_function_body <- rlang::fn_body(unknown_functions[[i]])
-        new_quo <- new_quosure(unknown_function_body[[2]], env = quo_get_env(quo))
-        register_user_bindings(new_quo, .env)
+        unknown_function_body <-
+          tryCatch(
+            rlang::fn_body(unknown_fn),
+            error = function(e) NULL
+          )
+        if (!is.null(unknown_function_body)) {
+          new_quo <- rlang::new_quosure(unknown_function_body[[2]], env = quo_get_env(quo))
+          register_user_bindings(new_quo, .env)
+        } else {
+          register_binding(unknown_fn_name, NULL, registry = .env, update_cache = TRUE)
+        }
         register_user_bindings(quo, .env)
       }
     }
