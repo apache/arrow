@@ -71,18 +71,8 @@ test_that("user-defined function evaluation with mutate()", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar5 <- function(x) 4 + nchar2(x)
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        var1 = nchar(my_string),
-        var5 = nchar5(my_string)) %>%
-      collect(),
-    tibble::tibble(my_string = "1234")
-  )
-
-  nchar6 <- function(x) 4 + nchar2(x) + nchar4(x)
+  nchar5 <- function(x) 1 + nchar(x)
+  nchar6 <- function(x) 1 + nchar5(x)
 
   compare_dplyr_binding(
     .input %>%
@@ -93,13 +83,28 @@ test_that("user-defined function evaluation with mutate()", {
     tibble::tibble(my_string = "1234")
   )
 
-  nchar7 <- function(x) 6 + nchar5(x)
+  nchar7 <- function(x) 1 + nchar(x)
+  nchar8 <- function(x) 3 + base::nchar(x)
+  nchar9 <- function(x) 4 + nchar7(x) + nchar8(x)
 
   compare_dplyr_binding(
     .input %>%
       mutate(
         var1 = nchar(my_string),
-        var7 = nchar7(my_string)) %>%
+        var9 = nchar9(my_string)) %>%
+      collect(),
+    tibble::tibble(my_string = "1234")
+  )
+
+  nchar10 <- function(x) 1 + nchar(x)
+  nchar11 <- function(x) 1 + nchar10(x)
+  nchar12 <- function(x) 6 + nchar11(x)
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        var1 = nchar(my_string),
+        var12 = nchar12(my_string)) %>%
       collect(),
     tibble::tibble(my_string = "1234")
   )
