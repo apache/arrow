@@ -141,7 +141,8 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   return Loop(std::move(loop_body));
 }
 
-/// \brief this is just like a MapGenerator but the map fun returns a thing instead of a future
+/// \brief this is just like a MapGenerator but the map fun returns a thing instead of a
+/// future
 template <typename T, typename ApplyFn,
           typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
           typename V = typename EnsureResult<Applied>::type::ValueType>
@@ -181,7 +182,7 @@ AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply
             }
           }
         },
-        {}, options = options);
+        {}, options);
   };
 }
 
