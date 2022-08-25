@@ -135,7 +135,7 @@ translation_exceptions <- c(
   "c",
   "$",
   "factor",
-  # "~",
+  "~",
   # "(",
   "across",
   ":",
@@ -187,7 +187,7 @@ register_user_bindings <- function(quo, .env) {
     )
   )
 
-  if (length(unknown_functions_chr != 0)) {
+  if (length(unknown_functions_chr) != 0) {
     # get the actual functions from the quosure's original environment or, if
     # the call contains `::`, get the function from the namespace
     unknown_functions <- purrr::map_if(
@@ -205,12 +205,25 @@ register_user_bindings <- function(quo, .env) {
       unknown_fn <- unknown_functions[[i]]
       if (!is.null(unknown_fn) && registrable(unknown_fn, .env)) {
         environment(unknown_fn) <- .env
-        register_binding(
-          unknown_fn_name,
-          unknown_fn,
-          registry = .env,
-          update_cache = TRUE
-        )
+        function_body <- rlang::fn_body(unknown_fn)
+        body_calls <- all_funs(function_body[[2]])
+
+        # only register if none of the calls in body come back as NULL
+        if (purrr::none(mget(body_calls, envir = .env), is.null)) {
+          register_binding(
+            unknown_fn_name,
+            unknown_fn,
+            registry = .env,
+            update_cache = TRUE
+          )
+        } else {
+          register_binding(
+            unknown_fn_name,
+            NULL,
+            registry = .env,
+            update_cache = TRUE
+          )
+        }
       } else {
         # if there are call we don't have bindings for, try to register them first
         unknown_function_body <-
