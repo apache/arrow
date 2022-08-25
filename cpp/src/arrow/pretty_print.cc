@@ -380,12 +380,14 @@ class ArrayPrinter : public PrettyPrinter {
   Status Visit(const RunLengthEncodedArray& array) {
     Newline();
     Indent();
-    Write("-- dictionary:\n");
+    Write("-- run ends array (offset: ");
+    Write(std::to_string(array.offset()));
+    Write(")\n");
     RETURN_NOT_OK(PrettyPrint(*array.run_ends_array(), ChildOptions(true), sink_));
 
     Newline();
     Indent();
-    Write("-- indices:\n");
+    Write("-- values:\n");
     return PrettyPrint(*array.values_array(), ChildOptions(true), sink_);
   }
 
