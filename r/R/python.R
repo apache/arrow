@@ -125,7 +125,8 @@ py_to_r.pyarrow.lib.Table <- function(x, ...) {
   )
 
   r_rbr <- maybe_py_to_r(py_rbr)
-  r_rbr$read_table()
+  thread_safe_rbr <- map_batches(r_rbr, identity, .schema = r_rbr$schema)
+  thread_safe_rbr$read_table()
 }
 
 py_to_r.pyarrow.lib.Schema <- function(x, ...) {
