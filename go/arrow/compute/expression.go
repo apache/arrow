@@ -29,7 +29,7 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/compute/internal"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -376,7 +376,7 @@ func (c *Call) Hash() uint64 {
 	h.WriteString(c.funcName)
 	c.cachedHash = h.Sum64()
 	for _, arg := range c.args {
-		c.cachedHash = internal.HashCombine(c.cachedHash, arg.Hash())
+		c.cachedHash = exec.HashCombine(c.cachedHash, arg.Hash())
 	}
 	return c.cachedHash
 }

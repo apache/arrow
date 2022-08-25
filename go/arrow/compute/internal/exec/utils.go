@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package exec
 
 import (
 	"unsafe"
@@ -78,4 +78,11 @@ type FixedWidthTypes interface {
 func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len)
 	return ret[span.Offset:]
+}
+
+func Min[T constraints.Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
 }
