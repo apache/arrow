@@ -124,10 +124,12 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 		}
 	}
 
+	ectx := GetExecCtx(ctx)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan Datum, 10)
+	ch := make(chan Datum, ectx.ExecChannelSize)
 	go func() {
 		defer close(ch)
 		if err = executor.Execute(ctx, &input, ch); err != nil {

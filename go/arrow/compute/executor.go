@@ -43,6 +43,7 @@ type ExecCtx struct {
 	ChunkSize          int64
 	PreallocContiguous bool
 	Registry           FunctionRegistry
+	ExecChannelSize    int
 }
 
 type ctxExecKey struct{}
@@ -58,6 +59,7 @@ func init() {
 	defaultExecCtx.ChunkSize = DefaultMaxChunkSize
 	defaultExecCtx.PreallocContiguous = true
 	defaultExecCtx.Registry = GetFunctionRegistry()
+	defaultExecCtx.ExecChannelSize = 10
 }
 
 // SetExecCtx returns a new child context containing the passed in ExecCtx
