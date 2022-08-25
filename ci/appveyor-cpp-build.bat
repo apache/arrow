@@ -31,51 +31,13 @@ set ARROW_DEBUG_MEMORY_POOL=trap
 set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 
-@rem
-@rem In the configurations below we disable building the Arrow static library
-@rem to save some time.  Unfortunately this will still build the Parquet static
-@rem library because of PARQUET-1420 (Thrift-generated symbols not exported in DLL).
-@rem
-if "%JOB%" == "Build_Debug" (
-  mkdir cpp\build-debug
-  pushd cpp\build-debug
-
-  cmake -G "%GENERATOR%" ^
-        -DARROW_BOOST_USE_SHARED=OFF ^
-        -DARROW_BUILD_EXAMPLES=ON ^
-        -DARROW_BUILD_STATIC=OFF ^
-        -DARROW_BUILD_TESTS=ON ^
-        -DARROW_CXXFLAGS="/MP" ^
-        -DARROW_ENABLE_TIMING_TESTS=OFF ^
-        -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DCMAKE_BUILD_TYPE="Debug" ^
-        -DCMAKE_UNITY_BUILD=ON ^
-        .. || exit /B
-
-  cmake --build . --config Debug || exit /B
-  ctest --output-on-failure || exit /B
-  popd
-
-  @rem Finish Debug build successfully
-  exit /B 0
-)
 
 call activate arrow
-
-@rem Use Boost from Anaconda
-set BOOST_ROOT=%CONDA_PREFIX%\Library
-set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)
 
-if "%JOB%" == "Toolchain" (
-  set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
-) else (
-  @rem We're in a conda environment but don't want to use it for the dependencies
-  set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=AUTO
-)
+set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
@@ -119,6 +81,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DCMAKE_BUILD_TYPE="Release" ^
       -DCMAKE_CXX_COMPILER=clcache ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD /Od /UNDEBUG" ^
+      -DCMAKE_CXX_STANDARD=17 ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DCMAKE_UNITY_BUILD=ON ^
       -DCMAKE_VERBOSE_MAKEFILE=OFF ^

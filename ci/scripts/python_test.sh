@@ -54,4 +54,4 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow
+pytest -r s ${PYTEST_ARGS} --pyargs pyarrow

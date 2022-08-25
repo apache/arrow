@@ -14,11 +14,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package compute_test
 
-// ADAPTED FROM HASH UTILITIES FOR BOOST
+import (
+	"testing"
 
-func hashCombine(seed, value uint64) uint64 {
-	seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2)
-	return seed
+	"github.com/apache/arrow/go/v10/arrow/compute"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestArityBasics(t *testing.T) {
+	nullary := compute.Nullary()
+	assert.Equal(t, 0, nullary.NArgs)
+	assert.False(t, nullary.IsVarArgs)
+
+	unary := compute.Unary()
+	assert.Equal(t, 1, unary.NArgs)
+	assert.False(t, unary.IsVarArgs)
+
+	binary := compute.Binary()
+	assert.Equal(t, 2, binary.NArgs)
+	assert.False(t, binary.IsVarArgs)
+
+	ternary := compute.Ternary()
+	assert.Equal(t, 3, ternary.NArgs)
+	assert.False(t, ternary.IsVarArgs)
+
+	varargs := compute.VarArgs(2)
+	assert.Equal(t, 2, varargs.NArgs)
+	assert.True(t, varargs.IsVarArgs)
 }

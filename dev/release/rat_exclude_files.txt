@@ -141,8 +141,9 @@ go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
 go/arrow/unionmode_string.go
+go/arrow/compute/go.sum
 go/arrow/compute/datumkind_string.go
-go/arrow/compute/valueshape_string.go
+go/arrow/compute/funckind_string.go
 go/*.tmpldata
 go/*.s
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go

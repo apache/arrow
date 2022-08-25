@@ -77,11 +77,26 @@ func flightInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, op
 	return cl.getFlightInfo(ctx, desc, opts...)
 }
 
+func schemaForCommand(ctx context.Context, cl *Client, cmd proto.Message, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return cl.getSchema(ctx, desc, opts...)
+}
+
 // Execute executes the desired query on the server and returns a FlightInfo
 // object describing where to retrieve the results.
 func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := pb.CommandStatementQuery{Query: query}
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+// GetExecuteSchema gets the schema of the result set of a query without
+// executing the query itself.
+func (c *Client) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	cmd := pb.CommandStatementQuery{Query: query}
+	return schemaForCommand(ctx, c, &cmd, opts...)
 }
 
 // ExecuteUpdate is for executing an update query and only returns the number of affected rows.
@@ -128,10 +143,20 @@ func (c *Client) GetCatalogs(ctx context.Context, opts ...grpc.CallOption) (*fli
 	return flightInfoForCommand(ctx, c, &pb.CommandGetCatalogs{}, opts...)
 }
 
+// GetCatalogsSchema requests the schema of GetCatalogs from the server
+func (c *Client) GetCatalogsSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetCatalogs{}, opts...)
+}
+
 // GetDBSchemas requests the list of schemas from the database and
 // returns a FlightInfo object where the response can be retrieved
 func (c *Client) GetDBSchemas(ctx context.Context, cmdOpts *GetDBSchemasOpts, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return flightInfoForCommand(ctx, c, (*pb.CommandGetDbSchemas)(cmdOpts), opts...)
+}
+
+// GetDBSchemasSchema requests the schema of GetDBSchemas from the server
+func (c *Client) GetDBSchemasSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetDbSchemas{}, opts...)
 }
 
 // DoGet uses the provided flight ticket to request the stream of data.
@@ -154,6 +179,11 @@ func (c *Client) GetTables(ctx context.Context, reqOptions *GetTablesOpts, opts 
 	return flightInfoForCommand(ctx, c, (*pb.CommandGetTables)(reqOptions), opts...)
 }
 
+// GetTablesSchema requests the schema of GetTables from the server.
+func (c *Client) GetTablesSchema(ctx context.Context, reqOptions *GetTablesOpts, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, (*pb.CommandGetTables)(reqOptions), opts...)
+}
+
 // GetPrimaryKeys requests the primary keys for a specific table from the
 // server, specified using a TableRef. Returns a FlightInfo object where
 // the response can be retrieved.
@@ -164,6 +194,11 @@ func (c *Client) GetPrimaryKeys(ctx context.Context, ref TableRef, opts ...grpc.
 		Table:    ref.Table,
 	}
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+// GetPrimaryKeysSchema requests the schema of GetPrimaryKeys from the server.
+func (c *Client) GetPrimaryKeysSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetPrimaryKeys{}, opts...)
 }
 
 // GetExportedKeys retrieves a description about the foreign key columns
@@ -178,6 +213,11 @@ func (c *Client) GetExportedKeys(ctx context.Context, ref TableRef, opts ...grpc
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+// GetExportedKeysSchema requests the schema of GetExportedKeys from the server.
+func (c *Client) GetExportedKeysSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetExportedKeys{}, opts...)
+}
+
 // GetImportedKeys returns the foreign key columns for the specified table.
 // Returns a FlightInfo object indicating where the response can be retrieved.
 func (c *Client) GetImportedKeys(ctx context.Context, ref TableRef, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
@@ -187,6 +227,11 @@ func (c *Client) GetImportedKeys(ctx context.Context, ref TableRef, opts ...grpc
 		Table:    ref.Table,
 	}
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+// GetImportedKeysSchema requests the schema of GetImportedKeys from the server.
+func (c *Client) GetImportedKeysSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetImportedKeys{}, opts...)
 }
 
 // GetCrossReference retrieves a description of the foreign key columns
@@ -206,6 +251,11 @@ func (c *Client) GetCrossReference(ctx context.Context, pkTable, fkTable TableRe
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+// GetCrossReferenceSchema requests the schema of GetCrossReference from the server.
+func (c *Client) GetCrossReferenceSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetCrossReference{}, opts...)
+}
+
 // GetTableTypes requests a list of the types of tables available on this
 // server. Returns a FlightInfo object indicating where the response can
 // be retrieved.
@@ -213,11 +263,21 @@ func (c *Client) GetTableTypes(ctx context.Context, opts ...grpc.CallOption) (*f
 	return flightInfoForCommand(ctx, c, &pb.CommandGetTableTypes{}, opts...)
 }
 
+// GetTableTypesSchema requests the schema of GetTableTypes from the server.
+func (c *Client) GetTableTypesSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetTableTypes{}, opts...)
+}
+
 // GetXdbcTypeInfo requests the information about all the data types supported
 // (dataType == nil) or a specific data type. Returns a FlightInfo object
 // indicating where the response can be retrieved.
 func (c *Client) GetXdbcTypeInfo(ctx context.Context, dataType *int32, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return flightInfoForCommand(ctx, c, &pb.CommandGetXdbcTypeInfo{DataType: dataType}, opts...)
+}
+
+// GetXdbcTypeInfoSchema requests the schema of GetXdbcTypeInfo from the server.
+func (c *Client) GetXdbcTypeInfoSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetXdbcTypeInfo{}, opts...)
 }
 
 // GetSqlInfo returns a list of the requested SQL information corresponding
@@ -230,6 +290,11 @@ func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.Ca
 		cmd.Info[i] = uint32(v)
 	}
 	return flightInfoForCommand(ctx, c, cmd, opts...)
+}
+
+// GetSqlInfoSchema requests the schema of  GetSqlInfo from the server.
+func (c *Client) GetSqlInfoSchema(ctx context.Context, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return schemaForCommand(ctx, c, &pb.CommandGetSqlInfo{}, opts...)
 }
 
 // Prepare creates a PreparedStatement object for the specified query.
@@ -300,6 +365,10 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 
 func (c *Client) getFlightInfo(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return c.Client.GetFlightInfo(ctx, desc, opts...)
+}
+
+func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
+	return c.Client.GetSchema(ctx, desc, opts...)
 }
 
 // Close will close the underlying flight Client in use by this flightsql.Client
@@ -429,6 +498,25 @@ func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSche
 // ParameterSchema may be nil if the server did not return it when creating
 // the prepared statement.
 func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSchema }
+
+// GetSchema re-requests the schema of the result set of the prepared
+// statement from the server. It should otherwise be identical to DatasetSchema.
+//
+// Will error if already closed.
+func (p *PreparedStatement) GetSchema(ctx context.Context) (*flight.SchemaResult, error) {
+	if p.closed {
+		return nil, errors.New("arrow/flightsql: prepared statement already closed")
+	}
+
+	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.client.getSchema(ctx, desc, p.opts...)
+}
 
 // SetParameters takes a record batch to send as the parameter bindings when
 // executing. It should match the schema from ParameterSchema.

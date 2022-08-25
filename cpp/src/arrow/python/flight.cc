@@ -380,10 +380,7 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
 
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
                           std::unique_ptr<arrow::flight::SchemaResult>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto result, arrow::flight::SchemaResult::Make(*schema));
-  *out = std::unique_ptr<arrow::flight::SchemaResult>(
-      new arrow::flight::SchemaResult(std::move(result)));
-  return Status::OK();
+  return arrow::flight::SchemaResult::Make(*schema).Value(out);
 }
 
 }  // namespace flight
