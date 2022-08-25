@@ -696,7 +696,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
