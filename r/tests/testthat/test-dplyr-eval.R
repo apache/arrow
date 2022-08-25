@@ -109,8 +109,18 @@ test_that("user-defined function evaluation with mutate()", {
     tibble::tibble(my_string = "1234")
   )
 
-  # TODO add test for a function that isn't namespaced and not present in the
+  # test for a function that isn't namespaced and not present in the
   # caller environment
+  nchar14 <- function(x) 1 + nchar13(x)
+  expect_error(
+    tibble::tibble(my_string = "1234") %>%
+      arrow_table() %>%
+      mutate(
+        var1 = nchar(my_string),
+        var14 = nchar14(my_string)) %>%
+      collect(),
+    regexp = "could not find function \\\"nchar13\\\""
+  )
 })
 
 test_that("user-defined function evaluation with filter()", {
