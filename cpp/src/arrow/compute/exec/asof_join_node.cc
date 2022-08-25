@@ -832,9 +832,9 @@ class AsofJoinNode : public ExecNode {
                const std::vector<std::vector<col_index_t>>& indices_of_by_key,
                OnType tolerance, std::shared_ptr<Schema> output_schema);
 
-  Status InternalInit(bool must_hash, bool nullable_by_key,
-                      std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
-    key_hashers_.swap(key_hashers);
+  void InternalInit(bool must_hash, bool nullable_by_key,
+                    std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
+    key_hashers_ = std::move(key_hashers);
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); ++i) {
       state_.push_back(::arrow::internal::make_unique<InputState>(
@@ -845,8 +845,6 @@ class AsofJoinNode : public ExecNode {
     col_index_t dst_offset = 0;
     for (auto& state : state_)
       dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);
-
-    return Status::OK();
   }
 
   virtual ~AsofJoinNode() {
@@ -1007,7 +1005,7 @@ class AsofJoinNode : public ExecNode {
     if (!match_res.ok()) {
       return Status::Invalid("Bad join key on table : ", match_res.status().message());
     }
-    auto match = match_res.ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(auto match, match_res);
     if (match.indices().size() != 1) {
       return Status::Invalid("AsOfJoinNode does not support a nested ",
                              to_string(key_kind), "-key ", field_ref.ToString());
@@ -1062,7 +1060,7 @@ class AsofJoinNode : public ExecNode {
           ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
       RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
     }
-    RETURN_NOT_OK(node->InternalInit(must_hash, nullable_by_key, std::move(key_hashers)));
+    node->InternalInit(must_hash, nullable_by_key, std::move(key_hashers));
     return node;
   }
 

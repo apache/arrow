@@ -125,17 +125,17 @@ void BuildZeroBaseBinaryArray(std::shared_ptr<Array>& empty, int64_t length) {
 }
 
 // mutates by copying from_key into to_key and changing from_key to zero
-BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
-                              std::string to_key, bool replace_key = false,
-                              bool null_key = false) {
+Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string from_key,
+                                      std::string to_key, bool replace_key = false,
+                                      bool null_key = false) {
   int from_index = batches.schema->GetFieldIndex(from_key);
   int n_fields = batches.schema->num_fields();
   auto fields = batches.schema->fields();
   BatchesWithSchema new_batches;
   auto new_field = batches.schema->field(from_index)->WithName(to_key);
-  new_batches.schema = (replace_key ? batches.schema->SetField(from_index, new_field)
-                                    : batches.schema->AddField(from_index, new_field))
-                           .ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(new_batches.schema,
+                        replace_key ? batches.schema->SetField(from_index, new_field)
+                                    : batches.schema->AddField(from_index, new_field));
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
@@ -171,7 +171,8 @@ BatchesWithSchema MutateByKey(BatchesWithSchema& batches, std::string from_key,
           }
           new_values.push_back(empty);
         } else {
-          new_values.push_back(Subtract(value, value).ValueOrDie());
+          ARROW_ASSIGN_OR_RAISE(auto sub, Subtract(value, value));
+          new_values.push_back(sub);
         }
         if (replace_key) {
           continue;
@@ -403,8 +404,8 @@ void DoRunNullByKeyPlanTest(const std::shared_ptr<Schema>& l_schema,
   auto r_str = GetTestBatchAsJsonString(n_rows, r_schema->num_fields());
   ASSERT_OK_AND_ASSIGN(auto l_batches, MakeBatchesFromNumString(l_schema, {l_str}));
   ASSERT_OK_AND_ASSIGN(auto r_batches, MakeBatchesFromNumString(r_schema, {r_str}));
-  l_batches = MutateByKey(l_batches, "key", "key2", true, true);
-  r_batches = MutateByKey(r_batches, "key", "key2", true, true);
+  ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2", true, true));
+  ASSERT_OK_AND_ASSIGN(r_batches, MutateByKey(r_batches, "key", "key2", true, true));
 
   return DoInvalidPlanTest(l_batches, r_batches, join_options, expected_error_str,
                            /*then_run_plan=*/true);
@@ -472,10 +473,10 @@ struct BasicTest {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
-      l_batches = MutateByKey(l_batches, "key", "key2");
-      r0_batches = MutateByKey(r0_batches, "key", "key2");
-      r1_batches = MutateByKey(r1_batches, "key", "key2");
-      exp_batches = MutateByKey(exp_batches, "key", "key2");
+      ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2"));
+      ASSERT_OK_AND_ASSIGN(r0_batches, MutateByKey(r0_batches, "key", "key2"));
+      ASSERT_OK_AND_ASSIGN(r1_batches, MutateByKey(r1_batches, "key", "key2"));
+      ASSERT_OK_AND_ASSIGN(exp_batches, MutateByKey(exp_batches, "key", "key2"));
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time",
                      {"key", "key2"}, tolerance);
     });
@@ -488,10 +489,11 @@ struct BasicTest {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
-      l_batches = MutateByKey(l_batches, "key", "key2", true);
-      r0_batches = MutateByKey(r0_batches, "key", "key2", true);
-      r1_batches = MutateByKey(r1_batches, "key", "key2", true);
-      exp_nokey_batches = MutateByKey(exp_nokey_batches, "key", "key2", true);
+      ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2", true));
+      ASSERT_OK_AND_ASSIGN(r0_batches, MutateByKey(r0_batches, "key", "key2", true));
+      ASSERT_OK_AND_ASSIGN(r1_batches, MutateByKey(r1_batches, "key", "key2", true));
+      ASSERT_OK_AND_ASSIGN(exp_nokey_batches,
+                           MutateByKey(exp_nokey_batches, "key", "key2", true));
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches, "time", "key2",
                      tolerance);
     });
@@ -504,10 +506,13 @@ struct BasicTest {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
                       B exp_batches) {
-      l_batches = MutateByKey(l_batches, "key", "key2", true, true);
-      r0_batches = MutateByKey(r0_batches, "key", "key2", true, true);
-      r1_batches = MutateByKey(r1_batches, "key", "key2", true, true);
-      exp_nokey_batches = MutateByKey(exp_nokey_batches, "key", "key2", true, true);
+      ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2", true, true));
+      ASSERT_OK_AND_ASSIGN(r0_batches,
+                           MutateByKey(r0_batches, "key", "key2", true, true));
+      ASSERT_OK_AND_ASSIGN(r1_batches,
+                           MutateByKey(r1_batches, "key", "key2", true, true));
+      ASSERT_OK_AND_ASSIGN(exp_nokey_batches,
+                           MutateByKey(exp_nokey_batches, "key", "key2", true, true));
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_nokey_batches,
                      AsofJoinNodeOptions("time", "key2", tolerance,
                                          /*nullable_by_key=*/true));
