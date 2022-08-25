@@ -29,12 +29,21 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestScalarHash, HashPrimitive64) {
+TEST(TestScalarHash, FastHash64Primitive) {
   for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
     auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
 
     ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {input_arr}));
   }
+}
+
+TEST(TestScalarHash, FastHash64Map) {
+  auto test_map = ArrayFromJSON(map(utf8(), uint8()),
+                                R"([[["first-A", 1], ["second-A", 2], ["third-A", 3]],
+                                    [["first-B", 10], ["second-B", 20], ["third-B", 30]]
+                                    ])");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_map}));
 }
 
 }  // namespace compute
