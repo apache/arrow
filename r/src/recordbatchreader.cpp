@@ -45,8 +45,6 @@ cpp11::list RecordBatchReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto result = RunWithCapturedRIfPossible<arrow::RecordBatchVector>(
       [&]() { return reader->ToRecordBatches(); });
-
-  arrow::StopIfNotOk(reader->Close());
   return arrow::r::to_r_list(ValueOrStop(result));
 }
 
@@ -120,7 +118,6 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
   auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
       [&]() { return reader->ToTable(); });
 
-  arrow::StopIfNotOk(reader->Close());
   return ValueOrStop(result);
 }
 
