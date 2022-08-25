@@ -179,7 +179,7 @@ translation_exceptions <- c(
 )
 
 register_user_bindings <- function(quo, .env) {
-  unknown_functions <- setdiff(
+  unknown_functions_chr <- setdiff(
     all_funs(quo),
     union(
       names(.env),
@@ -187,11 +187,11 @@ register_user_bindings <- function(quo, .env) {
     )
   )
 
-  if (length(unknown_functions != 0)) {
+  if (length(unknown_functions_chr != 0)) {
     # get the actual functions from the quosure's original environment or, if
-    # the call contains `::`, get the function from the corresponding namespace
-    functions <- purrr::map_if(
-      .x = unknown_functions,
+    # the call contains `::`, get the function from the namespace
+    unknown_functions <- purrr::map_if(
+      .x = unknown_functions_chr,
       .p = ~ !grepl("::", .x),
       .f = ~ as_function(.x, env = rlang::quo_get_env(quo)),
       .else = ~ asNamespace(sub(":{+}.*?$", "", .x))[[sub("^.*?:{+}", "", .x)]]
@@ -200,15 +200,22 @@ register_user_bindings <- function(quo, .env) {
     # set the original quosure environment as the parent environment for the
     # functions
     parent.env(.env) <- rlang::quo_get_env(quo)
-    for (i in seq_along(functions)) {
-      if (registrable(functions[[i]], .env))
-      environment(functions[[i]]) <- .env
-      register_binding(
-        unknown_functions[[i]],
-        functions[[i]],
-        registry = .env,
-        update_cache = TRUE
-      )
+    for (i in seq_along(unknown_functions)) {
+      if (registrable(unknown_functions[[i]], .env)) {
+        environment(unknown_functions[[i]]) <- .env
+        register_binding(
+          unknown_functions_chr[[i]],
+          unknown_functions[[i]],
+          registry = .env,
+          update_cache = TRUE
+        )
+      } else {
+        # if there are call we don't have bindings for, try to register them first
+        unknown_function_body <- rlang::fn_body(unknown_functions[[i]])
+        new_quo <- new_quosure(unknown_function_body[[2]], env = quo_get_env(quo))
+        register_user_bindings(new_quo, .env)
+        register_user_bindings(quo, .env)
+      }
     }
   }
 }
