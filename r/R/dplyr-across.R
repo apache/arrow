@@ -96,21 +96,12 @@ quosures_from_func_list <- function(setup, quo_env) {
 across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   cols <- enquo(cols)
 
-  if (is.null(fns) && quo_is_call(cols, "~")) {
-    bullets <- c(
-      "Must supply a column selection.",
-      i = glue::glue("You most likely meant: `{across_if_fn}(everything(), {as_label(cols)})`."),
-      i = "The first argument `.cols` selects a set of columns.",
-      i = "The second argument `.fns` operates on each selected columns."
-    )
-    abort(bullets, call = call(across_if_fn))
-  }
   vars <- names(dplyr::select(mask, !!cols))
 
   if (is.null(fns)) {
     if (!is.null(names)) {
-      glue_mask <- across_glue_mask(.caller_env, .col = names_vars, .fn = "1")
-      names <- vctrs::vec_as_names(glue(names, .envir = glue_mask), repair = "check_unique")
+      glue_mask <- across_glue_mask(.caller_env, .col = vars, .fn = "1")
+      names <- vctrs::vec_as_names(glue::glue(names, .envir = glue_mask), repair = "check_unique")
     } else {
       names <- vars
     }
