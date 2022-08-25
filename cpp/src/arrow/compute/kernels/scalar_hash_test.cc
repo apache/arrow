@@ -37,6 +37,21 @@ TEST(TestScalarHash, FastHash64Primitive) {
   }
 }
 
+TEST(TestScalarHash, FastHash64Strings) {
+  auto test_strarr = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A",
+                                               "first-B", "second-B", "third-B"])");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_strarr}));
+}
+
+TEST(TestScalarHash, FastHash64List) {
+  auto test_list = ArrayFromJSON(list(utf8()),
+                                 R"([["first-A", "second-A", "third-A"],
+                                     ["first-B", "second-B", "third-B"]])");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_list}));
+}
+
 TEST(TestScalarHash, FastHash64Map) {
   auto test_map = ArrayFromJSON(map(utf8(), uint8()),
                                 R"([[["first-A", 1], ["second-A", 2], ["third-A", 3]],
