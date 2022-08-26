@@ -93,6 +93,7 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
     def run(self):
+        self._run_cmake_pyarrow_cpp()
         self._run_cmake()
         _build_ext.run(self)
 
@@ -227,6 +228,126 @@ class build_ext(_build_ext):
         '_hdfsio',
         'gandiva']
 
+    def _run_cmake_pyarrow_cpp(self):
+        # check if build_type is correctly passed / set
+        if self.build_type.lower() not in ('release', 'debug'):
+            raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
+                             "be 'release' or 'debug'")
+
+        # The directory containing this setup.py
+        source = os.path.dirname(os.path.abspath(__file__))
+        # The directory containing this PyArrow cpp CMakeLists.txt
+        source_pyarrow_cpp = pjoin(source, "pyarrow/src")
+
+        # The directory for the module being built
+        build_cmd = self.get_finalized_command('build')
+        saved_cwd = os.getcwd()
+        build_dir = pjoin(saved_cwd, 'build', 'dist')
+        build_include = pjoin(saved_cwd, 'build', 'dist', 'include')
+        build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
+
+        # The directory containing Arrow C++ build
+        arrow_build_dir = os.environ.get('ARROW_BUILD_DIR', 'build')
+        if self.inplace:
+            # a bit hacky
+            build_lib = saved_cwd
+        if not os.path.isdir(build_dir):
+            self.mkpath(build_dir)
+        if not os.path.isdir(build_lib):
+            self.mkpath(build_lib)
+        if not os.path.isdir(build_include):
+            self.mkpath(build_include)
+
+        # Change to the build directory
+        with changed_dir(build_dir):
+            # cmake args
+            cmake_options = [
+                '-DCMAKE_INSTALL_PREFIX=' + str(build_dir),
+                '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
+                '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
+                '-DPYTHON_EXECUTABLE=' + str(sys.executable),
+                '-DPython3_EXECUTABLE=' + str(sys.executable),
+            ]
+
+            # Check for specific options
+            def append_cmake_bool(value, varname):
+                cmake_options.append('-D{0}={1}'.format(
+                    varname, 'on' if value else 'off'))
+
+            append_cmake_bool(self.with_dataset, 'PYARROW_WITH_DATASET')
+            append_cmake_bool(self.with_parquet_encryption,
+                              'PYARROW_WITH_PARQUET_ENCRYPTION')
+            append_cmake_bool(self.with_hdfs,
+                              'PYARROW_WITH_HDFS')
+
+            # Windows
+            if self.cmake_generator:
+                cmake_options += ['-G', self.cmake_generator]
+
+            # build args
+            build_tool_args = []
+            if os.environ.get('PYARROW_PARALLEL'):
+                build_tool_args.append('--')
+                build_tool_args.append(
+                    '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+
+            # run cmake
+            print("-- Running cmake for pyarrow cpp")
+            self.spawn(['cmake'] + cmake_options + [source_pyarrow_cpp])
+            print("-- Finished cmake for pyarrow cpp")
+            # run make & install
+            print("-- Running cmake build and install for pyarrow cpp")
+            self.spawn(['cmake', '--build', '.', '--config',
+                       self.build_type, '--target', 'install'] +
+                       build_tool_args)
+            print("-- Finished cmake build and install for pyarrow cpp")
+
+            # Move the libraries to the place expected by the Python build
+            try:
+                os.makedirs(pjoin(build_lib, 'pyarrow'))
+            except OSError:
+                pass
+
+            # helper function
+            def copy_libs(folder_name):
+                for libname in os.listdir(pjoin(build_dir, folder_name)):
+                    if "python" in libname:
+                        libname_path = pjoin(build_lib, "pyarrow", libname)
+                        if os.path.exists(libname_path):
+                            os.remove(libname_path)
+                        print(
+                            f"Copying {pjoin(build_dir, folder_name, libname)}"
+                            f" to {pjoin(build_lib, 'pyarrow', libname)}")
+                        shutil.copy(pjoin(build_dir, folder_name, libname),
+                                    pjoin(build_lib, "pyarrow"))
+
+            # Move libraries to python/pyarrow
+            # For windows builds, move dll from bin
+            try:
+                copy_libs("bin")
+            except OSError:
+                pass
+            try:
+                folder_name, = (name for name in ["lib", "lib64"]
+                                if os.path.exists(pjoin(build_dir, name)))
+                copy_libs(folder_name)
+            except ValueError:
+                print("There are multiple or none libraries for PyArrow cpp ")
+                print("installed in the python/build/dist folder. Check the ")
+                print("installation process and be sure there is exactly one ")
+                print("library folder created")
+
+            # Copy headers to python/pyarrow/include
+            pyarrow_cpp_include = pjoin(build_include, "arrow", "python")
+            pyarrow_include = pjoin(
+                build_lib, "pyarrow", "include", "arrow", "python")
+            if os.path.exists(pyarrow_include):
+                shutil.rmtree(pyarrow_include)
+            print(
+                f"Copying include folder: {pyarrow_cpp_include}"
+                f" to {pyarrow_include}")
+            shutil.copytree(pyarrow_cpp_include, pyarrow_include)
+
     def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
@@ -244,6 +365,10 @@ class build_ext(_build_ext):
 
         if not os.path.isdir(build_temp):
             self.mkpath(build_temp)
+
+        if self.inplace:
+            # a bit hacky
+            build_lib = saved_cwd
 
         # Change to the build directory
         with changed_dir(build_temp):
@@ -266,6 +391,7 @@ class build_ext(_build_ext):
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
                 '-DPython3_EXECUTABLE=%s' % sys.executable,
+                '-DPYARROW_CPP_HOME=' + str(pjoin(build_lib, "pyarrow")),
                 static_lib_option,
             ]
 
@@ -332,10 +458,6 @@ class build_ext(_build_ext):
                        build_tool_args)
             print("-- Finished cmake --build for pyarrow")
 
-            if self.inplace:
-                # a bit hacky
-                build_lib = saved_cwd
-
             # Move the libraries to the place expected by the Python build
             try:
                 os.makedirs(pjoin(build_lib, 'pyarrow'))
@@ -353,6 +475,16 @@ class build_ext(_build_ext):
                     shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
                 shutil.move(pjoin(build_prefix, 'include'),
                             pjoin(build_lib, 'pyarrow'))
+
+                # pyarrow/include file is first deleted in the previous step
+                # so we need to add the PyArrow cpp include folder again
+                build_pyarrow_cpp_include = pjoin(
+                    saved_cwd, 'build/dist/include')
+                shutil.move(pjoin(
+                    build_pyarrow_cpp_include, "arrow", "python"),
+                    pjoin(
+                    build_lib, "pyarrow", "include",
+                    "arrow", "python"))
 
             # Move the built C-extension to the place expected by the Python
             # build
@@ -408,8 +540,6 @@ class build_ext(_build_ext):
             move_shared_libs(build_prefix, build_lib, "arrow_substrait")
         if self.with_flight:
             move_shared_libs(build_prefix, build_lib, "arrow_flight")
-            move_shared_libs(build_prefix, build_lib,
-                             "arrow_python_flight")
         if self.with_dataset:
             move_shared_libs(build_prefix, build_lib, "arrow_dataset")
         if self.with_plasma:
