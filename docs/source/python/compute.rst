@@ -381,7 +381,7 @@ User-Defined Functions
 
 PyArrow allows defining and registering custom compute functions in Python.
 Those functions can then be called from Python as well as C++ (and potentially
-any other implementation wrapping Arrow C++, such as the R ``arrow`` package`)
+any other implementation wrapping Arrow C++, such as the R ``arrow`` package)
 using their registered function name.
 
 To register a UDF, a function name, function docs, input types and
@@ -414,7 +414,7 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
                                input_types,
                                output_type)
 
-The implementation of a user-defined function always takes a first *context*
+The implementation of a user-defined function always takes first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
 :class:`pyarrow.compute.ScalarUdfContext`.
 This context exposes several useful attributes, particularly a
@@ -432,22 +432,21 @@ Generalizing Usage
 ------------------
 
 PyArrow UDFs accept input types of both scalar and array. Also it can have
-vivid combinations of these types. It is important that the UDF author must make sure,
-the UDF is defined such that it can handle such combinations well. 
+any combination of these types. It is important that the UDF author ensures
+the UDF can handle such combinations correctly. Also the ability to use UDFs
+with existing data processing libraries is very useful.
 
-For instance, when the passed values to a function are all scalars, internally
-each scalar is passed as an array of size 1.
-
-To elaborate on this, let's consider a scenario where we have a function
-which computes a scalar `y` value based on scalar inputs 
-`m`, `x` and `c` using python arithmetic operations.
+Let's consider a scenario where we have a function
+which computes a scalar `y` value based on scalar/array inputs 
+`m`, `x` and `c` using Numpy arithmetic operations.
 
 .. code-block:: python
 
-   >>> import pyarrow.compute as pc
-   >>> function_name = "affine_with_python"
+   >>> import pyarrow as pa
+   >>> import numpy as np
+   >>> function_name = "affine_with_numpy"
    >>> function_docs = {
-   ...        "summary": "Calculate y = mx + c with Python",
+   ...        "summary": "Calculate y = mx + c with Numpy",
    ...        "description":
    ...            "Compute the affine function y = mx + c.\n"
    ...            "This function takes three inputs, m, x and c, in order."
@@ -459,24 +458,36 @@ which computes a scalar `y` value based on scalar inputs
    ... }
    >>> output_type = pa.float64()
    >>> 
-   >>> def affine_with_python(ctx, m, x, c):
-   ...     m = m[0].as_py()
-   ...     x = x[0].as_py()
-   ...     c = c[0].as_py()
-   ...     return pa.array([m * x + c])
+   >>> def to_numpy(val):
+   ...     if isinstance(val, pa.Scalar):
+   ...         return val.as_py()
+   ...     else:
+   ...         return np.array(val)
    ... 
-   >>> pc.register_scalar_function(affine_with_python,
+   >>> def affine_with_numpy(ctx, m, x, c):
+   ...     m = to_numpy(m)
+   ...     x = to_numpy(x)
+   ...     c = to_numpy(c)
+   ...     return pa.array(m * x + c)
+   ... 
+   >>> pc.register_scalar_function(affine_with_numpy,
    ...                             function_name,
-   ...                         function_docs,
+   ...                             function_docs,
    ...                             input_types,
    ...                             output_type)
-   >>> 
    >>> pc.call_function(function_name, [pa.scalar(10.1), pa.scalar(10.2), pa.scalar(20.2)])
    <pyarrow.DoubleScalar: 123.22>
+   >>> pc.call_function(function_name, [pa.scalar(10.1), pa.array([10.2, 20.2]), pa.scalar(20.2)])
+   <pyarrow.lib.DoubleArray object at 0x10e38eb20>
+   [
+      123.22,
+      224.21999999999997
+   ]
 
-Note that here the the final output is returned as an array. Depending the usage of vivid libraries
-inside the UDF, make sure it is generalized to support the passed input values and return suitable
-values. 
+Note that there is a helper function `to_numpy` to handle the conversion of scalar an array inputs
+to the UDf. Also, the final output is returned as a scalr or an array depending on the inputs.
+Depending on the usage of any libraries inside the UDF, make sure it is generalized to support
+the passed input values and return suitable values. 
 
 Working with Datasets
 ---------------------
@@ -486,10 +497,10 @@ can be referred to by its name. For example, they can be called on a dataset's
 column using :meth:`Expression._call`:
 
 Consider an instance where the data is in a table and you need to create a new 
-column using existing values in a column by using a mathematical formula.
+column using existing values in another column by using a mathematical formula.
 For instance, let's consider a simple affine operation on values using the
-mathematical expression, `y = mx + c`. We will be re-using the registered `affine`
-function.
+mathematical expression, `y = mx + c`. Here, we will be re-using the registered
+`affine` function.
 
 .. code-block:: python
 
@@ -513,22 +524,20 @@ function.
    total_amount($): [[10,20,45,15]]
    trip_name: [["A","B","C","D"]]
 
-Here note that the `ds.field('')_call()` returns an expression. The passed arguments
+Note that the `ds.field('')_call()` returns an expression. The passed arguments
 to this function call are expressions not scalar values 
-(i.e `pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)`). This expression is evaluated
-when the project operator uses this expression.
+(i.e `pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)`, notice the difference 
+of `pa.scalar` vs `pc.scalar`, the latter produces an expression). This expression is evaluated
+when the project operator executes it.
 
-Support
--------
-
-It is defined that the current support is only for scalar functions. 
-A scalar function (:class:`arrow::compute::ScalarFunction`) executes elementwise operations
-on arrays or scalars. Generally, the result of such an execution doesn't
-depend on the order of values.
-
-There is a limitation in the support to UDFs in the current API.
-For instance, with project node, if a UDF is used as the compute function,
-it expects the function to be a scalar function. Although, this doesn't stop the user
-registering a non-scalar function and using it in a programme. 
-But it could lead to unexpected behaviors or errors when it is applied in such occasions. 
-The current UDF support could enhance with the addition of more settings to the API (i.e aggregate UDFs).
+Projection Expressions
+^^^^^^^^^^^^^^^^^^^^^^
+In the above example we used an expression to add a new column (`total_amount_projected`)
+to our table.  Adding new, dynamically computed, columns to a table is known as "projection"
+and there are limitations on what kinds of functions can be used in projection expressions.
+A projection function must emit a single output value for each input row.  That output value
+should be calculated entirely from the input row and should not depend on any other row.
+For example, the "affine" function that we've been using as an example above is a valid
+function to use in a projection.  A "cumulative sum" function would not be a valid function
+since the result of each input rows depends on the rows that came before.  A "drop nulls"
+function would also be invalid because it doesn't emit a value for some rows.
