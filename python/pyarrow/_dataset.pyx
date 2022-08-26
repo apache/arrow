@@ -1306,9 +1306,9 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
         self._read_options_py = read_options
-        if read_options.encoding != 'utf8':
+        if codecs.lookup(read_options.encoding).name != 'utf-8':
             self.csv_options.stream_transform_func = deref(
-                make_streamwrap_func(read_options.encoding, 'utf8'))
+                make_streamwrap_func(read_options.encoding, 'utf-8'))
 
     def equals(self, CsvFragmentScanOptions other):
         return (
