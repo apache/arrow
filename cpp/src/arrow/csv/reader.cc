@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -546,10 +545,10 @@ class BlockDecodingOperator {
 /////////////////////////////////////////////////////////////////////////
 // Base class for common functionality
 
-template <typename T>
+template <typename InputType>
 class ReaderMixin {
  public:
-  ReaderMixin(io::IOContext io_context, T input, const ReadOptions& read_options,
+  ReaderMixin(io::IOContext io_context, InputType input, const ReadOptions& read_options,
               const ParseOptions& parse_options, const ConvertOptions& convert_options,
               bool count_rows)
       : io_context_(std::move(io_context)),
@@ -761,7 +760,7 @@ class ReaderMixin {
   std::vector<std::string> column_names_;
   ConversionSchema conversion_schema_;
 
-  T input_;
+  InputType input_;
   std::shared_ptr<TaskGroup> task_group_;
 };
 
@@ -976,13 +975,16 @@ class StreamingReaderImpl : public ReaderMixin<std::shared_ptr<io::InputStream>>
 /////////////////////////////////////////////////////////////////////////
 // Base class for streaming readers
 
-class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>,
-                       public csv::StreamingReader,
-                       public std::enable_shared_from_this<TonyReaderImpl> {
+class ParallelStreamingReaderImpl
+    : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>,
+      public csv::StreamingReader,
+      public std::enable_shared_from_this<ParallelStreamingReaderImpl> {
  public:
-  TonyReaderImpl(io::IOContext io_context, std::shared_ptr<io::RandomAccessFile> input,
-                 const ReadOptions& read_options, const ParseOptions& parse_options,
-                 const ConvertOptions& convert_options, bool count_rows)
+  ParallelStreamingReaderImpl(io::IOContext io_context,
+                              std::shared_ptr<io::RandomAccessFile> input,
+                              const ReadOptions& read_options,
+                              const ParseOptions& parse_options,
+                              const ConvertOptions& convert_options, bool count_rows)
       : ReaderMixin(io_context, std::move(input), read_options, parse_options,
                     convert_options, count_rows),
         bytes_decoded_(std::make_shared<std::atomic<int64_t>>(0)) {}
@@ -1027,7 +1029,7 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
  protected:
   Future<> InitAfterFirstBuffer(const std::shared_ptr<Buffer>& first_buffer,
                                 AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-                                int max_readahead, internal::Executor* cpu_executor) {
+                                int max_readahead, Executor* cpu_executor) {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
@@ -1051,11 +1053,6 @@ class TonyReaderImpl : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>
     auto preparse_gen =
         MakeSerialReadaheadGenerator(parsed_block_gen, cpu_executor->GetCapacity());
     auto rb_gen = MakeMappedGenerator(std::move(preparse_gen), std::move(decoder_op));
-
-    // auto parsed_block_gen =
-    //     MakeApplyGenerator(std::move(block_gen), std::move(parser_op), cpu_executor );
-    // auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen),
-    // std::move(decoder_op));
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
@@ -1320,8 +1317,8 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
   RETURN_NOT_OK(convert_options.Validate());
-  std::shared_ptr<TonyReaderImpl> reader;
-  reader = std::make_shared<TonyReaderImpl>(
+  std::shared_ptr<ParallelStreamingReaderImpl> reader;
+  reader = std::make_shared<ParallelStreamingReaderImpl>(
       io_context, input, read_options, parse_options, convert_options,
       /*count_rows=*/!read_options.use_threads || cpu_executor->GetCapacity() == 1);
   return reader->Init(cpu_executor).Then([reader] {

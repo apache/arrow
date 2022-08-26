@@ -18,7 +18,6 @@
 #include "arrow/dataset/file_csv.h"
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
