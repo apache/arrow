@@ -422,6 +422,7 @@ Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int
 Status DirectFileOutputStream::Close() {
   // some operations will call Close() on a file that is not open. In which case don't do
   // all this.
+#if defined(__linux__)
   if (!closed()) {
     // have to flush out the temprorary data, but then trim the file
     if (cached_length > 0) {
@@ -431,11 +432,10 @@ Status DirectFileOutputStream::Close() {
     auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
 // this is just to help compile. If you are not on Linux you would have failed out way
 // before this point.
-#if defined(__linux__)
     fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
-#endif
   }
+#endif
   return impl_->Close();
 }
 
