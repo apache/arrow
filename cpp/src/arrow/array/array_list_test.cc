@@ -202,15 +202,15 @@ class TestListArray : public ::testing::Test {
 
     std::vector<offset_type> offsets = {0, 1, 1, 3, 4};
 
-    std::vector<bool> offsets_w_nulls_flags = {true, false, true, true, true};
-    std::vector<bool> offsets_wo_nulls_flags = {true, true, true, true, true};
+    std::vector<bool> offsets_w_nulls_is_valid = {true, false, true, true, true};
+    std::vector<bool> offsets_wo_nulls_is_valid = {true, true, true, true, true};
 
     std::vector<int32_t> null_bitmap_values = {1, 0, 1, 1};
     std::shared_ptr<Buffer> null_bitmap = Buffer::Wrap(null_bitmap_values);
 
-    ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_flags, offsets,
+    ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_is_valid, offsets,
                                              &offsets_w_nulls);
-    ArrayFromVector<OffsetType, offset_type>(offsets_wo_nulls_flags, offsets,
+    ArrayFromVector<OffsetType, offset_type>(offsets_wo_nulls_is_valid, offsets,
                                              &offsets_wo_nulls);
 
     auto type = std::make_shared<T>(int32());
