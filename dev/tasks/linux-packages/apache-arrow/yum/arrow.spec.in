@@ -64,7 +64,6 @@
 %define use_gflags (!%{is_amazon_linux})
 %define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %%define use_s3 (%%{rhel} >= 8)
@@ -115,10 +114,6 @@ BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
-%if %{use_python}
-BuildRequires:	python%{python_version}-devel
-BuildRequires:	python%{python_version}-numpy
-%endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
@@ -175,9 +170,6 @@ cd cpp
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
-%if %{use_python}
-  -DARROW_PYTHON=ON \
-%endif
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -191,10 +183,6 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
-%if %{use_python}
-  -DPythonInterp_FIND_VERSION=ON \
-  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%endif
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
@@ -504,86 +492,6 @@ Libraries and header files for Gandiva.
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
 %{_libdir}/pkgconfig/gandiva.pc
-%endif
-
-%if %{use_python}
-%package -n %{name}%{major_version}-python-libs
-Summary:	Python integration library for Apache Arrow
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	python%{python_version}-numpy
-
-%description -n %{name}%{major_version}-python-libs
-This package contains the Python integration library for Apache Arrow.
-
-%files -n %{name}%{major_version}-python-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/libarrow_python.so.*
-
-%package python-devel
-Summary:	Libraries and header files for Python integration library for Apache Arrow
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
-Requires:	%{name}-devel = %{version}-%{release}
-Requires:	python%{python_version}-devel
-
-%description python-devel
-Libraries and header files for Python integration library for Apache Arrow.
-
-%files python-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_includedir}/arrow/python/
-%exclude %{_includedir}/arrow/python/flight.h
-%{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowPythonTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowPython.cmake
-%{_libdir}/libarrow_python.a
-%{_libdir}/libarrow_python.so
-%{_libdir}/pkgconfig/arrow-python.pc
-
-%if %{use_flight}
-%package -n %{name}%{major_version}-python-flight-libs
-Summary:	Python integration library for Apache Arrow Flight
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
-Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
-
-%description -n %{name}%{major_version}-python-flight-libs
-This package contains the Python integration library for Apache Arrow Flight.
-
-%files -n %{name}%{major_version}-python-flight-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/libarrow_python_flight.so.*
-
-%package python-flight-devel
-Summary:	Libraries and header files for Python integration library for Apache Arrow Flight.
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-python-flight-libs = %{version}-%{release}
-Requires:	%{name}-flight-devel = %{version}-%{release}
-Requires:	%{name}-python-devel = %{version}-%{release}
-
-%description python-flight-devel
-Libraries and header files for Python integration library for
-Apache Arrow Flight.
-
-%files python-flight-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_includedir}/arrow/python/flight.h
-%{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowPythonFlight.cmake
-%{_libdir}/libarrow_python_flight.a
-%{_libdir}/libarrow_python_flight.so
-%{_libdir}/pkgconfig/arrow-python-flight.pc
-%endif
 %endif
 
 %package -n plasma%{major_version}-libs

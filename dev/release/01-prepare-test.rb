@@ -198,6 +198,13 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "python/pyarrow/src/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_PYTHON_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
         path: "python/setup.py",
         hunks: [
           ["-default_version = '#{@snapshot_version}'",

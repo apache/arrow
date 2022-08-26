@@ -50,7 +50,7 @@ find_package(ArrowPython ${find_package_arguments})
 
 if(ARROW_PYTHON_FOUND AND ARROW_FLIGHT_FOUND)
   arrow_find_package(ARROW_PYTHON_FLIGHT
-                     "${ARROW_HOME}"
+                     "${PYARROW_CPP_HOME}"
                      arrow_python_flight
                      arrow/python/flight.h
                      ArrowPythonFlight
