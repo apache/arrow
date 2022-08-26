@@ -292,6 +292,8 @@ func (c *CastSuite) TestCanCast() {
 		expectCanCast(from, toSet, false)
 	}
 
+	// will uncomment lines as support for those casts is added
+
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.Null, numericTypes)
 	cannotCast(arrow.Null, baseBinaryTypes)
@@ -1144,6 +1146,69 @@ func (c *CastSuite) TestDecimal256ToDecimal128() {
 			checkCastFails(c.T(), d42, opts)
 		}
 	})
+}
+
+func (c *CastSuite) TestFloatingToDecimal() {
+	for _, fltType := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float64} {
+		c.Run("from "+fltType.String(), func() {
+			for _, decType := range []arrow.DataType{&arrow.Decimal128Type{Precision: 5, Scale: 2}, &arrow.Decimal256Type{Precision: 5, Scale: 2}} {
+				c.Run("to "+decType.String(), func() {
+					c.checkCast(fltType, decType,
+						`[0.0, null, 123.45, 123.456, 999.994]`, `["0.00", null, "123.45", "123.46", "999.99"]`)
+
+					c.Run("overflow", func() {
+						opts := compute.CastOptions{ToType: decType}
+						c.checkCastFails(fltType, `[999.996]`, &opts)
+
+						opts.AllowDecimalTruncate = true
+						c.checkCastOpts(fltType, decType, `[0.0, null, 999.996, 123.45, 999.994]`,
+							`["0.00", null, "0.00", "123.45", "999.99"]`, opts)
+					})
+				})
+			}
+		})
+	}
+
+	dec128 := func(prec, scale int32) arrow.DataType {
+		return &arrow.Decimal128Type{Precision: prec, Scale: scale}
+	}
+	dec256 := func(prec, scale int32) arrow.DataType {
+		return &arrow.Decimal256Type{Precision: prec, Scale: scale}
+	}
+
+	type decFunc func(int32, int32) arrow.DataType
+
+	for _, decType := range []decFunc{dec128, dec256} {
+		// 2**64 + 2**41 (exactly representable as a float)
+		c.checkCast(arrow.PrimitiveTypes.Float32, decType(20, 0),
+			`[1.8446746e+19, -1.8446746e+19]`,
+			`[18446746272732807168, -18446746272732807168]`)
+
+		c.checkCast(arrow.PrimitiveTypes.Float64, decType(20, 0),
+			`[1.8446744073709556e+19, -1.8446744073709556e+19]`,
+			`[18446744073709555712, -18446744073709555712]`)
+
+		c.checkCast(arrow.PrimitiveTypes.Float32, decType(20, 4),
+			`[1.8446746e+15, -1.8446746e+15]`,
+			`[1844674627273280.7168, -1844674627273280.7168]`)
+
+		c.checkCast(arrow.PrimitiveTypes.Float64, decType(20, 4),
+			`[1.8446744073709556e+15, -1.8446744073709556e+15]`,
+			`[1844674407370955.5712, -1844674407370955.5712]`)
+	}
+}
+
+func (c *CastSuite) TestDecimalToFloating() {
+	for _, flt := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float64} {
+		c.Run(flt.String(), func() {
+			for _, dec := range []arrow.DataType{&arrow.Decimal128Type{Precision: 5, Scale: 2}, &arrow.Decimal256Type{Precision: 5, Scale: 2}} {
+				c.Run(dec.String(), func() {
+					c.checkCast(dec, flt, `["0.00", null, "123.45", "999.99"]`,
+						`[0.0, null, 123.45, 999.99]`)
+				})
+			}
+		})
+	}
 }
 
 func (c *CastSuite) checkCastZeroCopy(dt arrow.DataType, json string) {
