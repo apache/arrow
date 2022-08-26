@@ -18,26 +18,13 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
-User Guide
-==========
+Getting Started
+===============
 
 .. toctree::
 
-   overview
-   memory
-   arrays
-   datatypes
-   tables
-   compute
-   streaming_execution
-   io
-   ipc
-   orc
-   parquet
-   csv
-   json
-   dataset
-   flight
-   gdb
-   threading
-   env_vars
+   build_system
+   conventions
+   tutorials/basic_arrow.rst
+   
+   
