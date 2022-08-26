@@ -537,12 +537,17 @@ func (p *PrimitiveReaderSuite) TestRepetitionLvlBytesWithMaxRepZero() {
 	p.maxRepLvl = 0
 	typ := schema.NewInt32Node("a", parquet.Repetitions.Optional, -1)
 	descr := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
-	pageData := [21]byte{0x3, 0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
+	// Bytes here came from the example parquet file in ARROW-17453's int32
+	// column which was delta bit-packed. The key part is the first three
+	// bytes: the page header reports 1 byte for repetition levels even
+	// though the max rep level is 0. If that byte isn't skipped then
+	// we get def levels of [1, 1, 0, 0] instead of the correct [1, 1, 1, 0].
+	pageData := [...]byte{0x3, 0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
 		0x18, 0x1, 0x2, 0x0, 0x0, 0x0, 0xc,
 		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 
 	p.pages = append(p.pages, file.NewDataPageV2(memory.NewBufferBytes(pageData[:]), batchSize, 1, batchSize,
-		parquet.Encodings.DeltaBinaryPacked, 2, 1, 21, false))
+		parquet.Encodings.DeltaBinaryPacked, 2, 1, int32(len(pageData)), false))
 
 	p.initReader(descr)
 	p.NotPanics(func() { p.reader.HasNext() })
