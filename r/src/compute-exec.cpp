@@ -56,6 +56,15 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
+// This class is a special RecordBatchReader that holds a reference to the
+// underlying exec plan so that (1) it can request that the ExecPlan *stop*
+// producing when this object is deleted and (2) it can defer requesting
+// the ExecPlan to *start* producing until the first batch has been pulled.
+// This allows it to be transformed (e.g., using map_batches() or head())
+// and queried (i.e., used as input to another ExecPlan), at the R level
+// while maintaining the ability for the entire plan to be executed at once
+// (e.g., to support user-defined functions) or never executed at all (e.g.,
+// to support printing a nested ExecPlan without having to execute it).
 class ExecPlanReader : public arrow::RecordBatchReader {
  public:
   enum ExecPlanReaderStatus { PLAN_NOT_STARTED, PLAN_RUNNING, PLAN_FINISHED };
@@ -107,7 +116,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
         StopProducing();
         return batch_result.status();
       }
-      
+
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();

@@ -116,6 +116,14 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
   return ValueOrStop(reader->ToTable());
 }
 
+// Because the head() operation can leave a RecordBatchReader whose contents
+// will never be drained, we implement a wrapper class here that takes care
+// to (1) return only the requested number of rows (or fewer) and (2) Close
+// and release the underlying reader as soon as possible. This is mostly
+// useful for the ExecPlanReader, whose Close() method also requests
+// that the ExecPlan stop producing, but may also be useful for readers
+// that point to an open file and whose Close() or delete method releases
+// the file.
 class RecordBatchReaderHead : public arrow::RecordBatchReader {
  public:
   RecordBatchReaderHead(std::shared_ptr<arrow::RecordBatchReader> reader,
@@ -172,6 +180,9 @@ class RecordBatchReaderHead : public arrow::RecordBatchReader {
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
     const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
   if (num_rows <= 0) {
+    // If we are never going to pull any batches from this reader, close it
+    // immediately.
+    StopIfNotOk(reader->Close());
     return ValueOrStop(arrow::RecordBatchReader::Make({}, reader->schema()));
   } else {
     return std::make_shared<RecordBatchReaderHead>(reader, num_rows);
