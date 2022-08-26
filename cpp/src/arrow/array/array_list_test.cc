@@ -202,12 +202,10 @@ class TestListArray : public ::testing::Test {
 
     std::vector<offset_type> offsets = {0, 1, 1, 3, 4};
     std::vector<bool> offsets_w_nulls_is_valid = {true, false, true, true, true};
-    std::vector<bool> offsets_wo_nulls_is_valid = {true, true, true, true, true};
 
     ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_is_valid, offsets,
                                              &offsets_w_nulls);
-    ArrayFromVector<OffsetType, offset_type>(offsets_wo_nulls_is_valid, offsets,
-                                             &offsets_wo_nulls);
+    ArrayFromVector<OffsetType, offset_type>(offsets, &offsets_wo_nulls);
 
     auto type = std::make_shared<T>(int32());
     auto expected = std::dynamic_pointer_cast<ArrayType>(
