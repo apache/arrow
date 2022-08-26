@@ -109,12 +109,5 @@ func GetCommonCastKernels(outID arrow.Type, outType arrow.DataType) (out []exec.
 	kernel.MemAlloc = exec.MemNoPrealloc
 	out = append(out, kernel)
 
-	// if canCastFromDict(outID) {
-	// dictionary unpacking not implemented for boolean or nested types
-	// TODO dict cast
-	// panic(fmt.Errorf("%w: dictionary casting", arrow.ErrNotImplemented))
-	// }
-
-	// Cast from extension
 	return
 }
