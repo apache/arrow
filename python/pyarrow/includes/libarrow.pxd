@@ -58,6 +58,7 @@ cdef extern from "arrow/util/optional.h" namespace "arrow::util" nogil:
     cdef cppclass c_optional"arrow::util::optional"[T]:
         c_bool has_value()
         T value()
+        c_optional()
         c_optional(T&)
         c_optional& operator=[U](U&)
 
@@ -1267,6 +1268,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     CIOContext c_default_io_context "arrow::io::default_io_context"()
     int GetIOThreadPoolCapacity()
     CStatus SetIOThreadPoolCapacity(int threads)
+
+    cdef struct ReadRange:
+        int64_t offset
+        int64_t length
 
     cdef cppclass FileStatistics:
         int64_t size

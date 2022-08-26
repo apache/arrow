@@ -89,9 +89,15 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
-Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(int64_t start,
-                                                               int64_t end) const {
+Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(
+    io::ReadRange read_range) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
+
+  ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
+
+  if (read_range.offset + read_range.length > size) {
+    return Status::ExecutionError("Out of bounds file read detected.");
+  }
 
   auto actual_compression = Compression::type::UNCOMPRESSED;
 
@@ -108,7 +114,7 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(int64_t start,
   if (actual_compression != Compression::type::UNCOMPRESSED) {
     return Status::NotImplemented("Cannot byte range read a compressed file.");
   }
-  return io::RandomAccessFile::GetStream(file, start, end - start);
+  return io::RandomAccessFile::GetStream(file, read_range.offset, read_range.length);
 }
 
 bool FileSource::Equals(const FileSource& other) const {

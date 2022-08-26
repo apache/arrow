@@ -250,7 +250,7 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderForRangeAsync(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor,
-    int64_t start, int64_t end) {
+    io::ReadRange read_range) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
   std::shared_ptr<io::InputStream> input;
   ARROW_ASSIGN_OR_RAISE(input, source.OpenRange(start, end));
@@ -321,13 +321,13 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto source = file->source();
   Future<std::shared_ptr<csv::StreamingReader>> reader_fut;
-  if (file->start_byte() == 0 && file->end_byte() == 0) {
+  if (!file->get_read_range().has_value()) {
     reader_fut = OpenReaderAsync(source, *this, scan_options,
                                  ::arrow::internal::GetCpuThreadPool());
   } else {
     reader_fut = OpenReaderForRangeAsync(source, *this, scan_options,
                                          ::arrow::internal::GetCpuThreadPool(),
-                                         file->start_byte(), file->end_byte());
+                                         file->get_read_range().value());
   }
 
   auto generator = GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
