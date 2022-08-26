@@ -34,7 +34,6 @@ test_that("ExecPlanReader evaluates nested exec plans lazily", {
   expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
 
   head_reader <- head(reader, 4)
-  expect_identical(head_reader$PlanStatus(), "PLAN_NOT_STARTED")
   expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
 
   expect_equal(
@@ -42,7 +41,6 @@ test_that("ExecPlanReader evaluates nested exec plans lazily", {
     arrow_table(a = 1:4)
   )
 
-  expect_identical(head_reader$PlanStatus(), "PLAN_FINISHED")
   expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
 })
 
@@ -58,7 +56,6 @@ test_that("ExecPlanReader evaluates head() lazily", {
     arrow_table(a = 1:4)
   )
 
-  expect_identical(head_reader$PlanStatus(), "PLAN_FINISHED")
   expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
 })
 

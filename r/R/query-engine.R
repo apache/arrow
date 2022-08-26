@@ -362,15 +362,6 @@ ExecPlanReader <- R6Class("ExecPlanReader",
   )
 )
 
-# We need the head() of a ExecPlanReader to also be a ExecPlanReader
-# because we need batches() and read_table() to evaluate in a way
-# that supports user-defined functions.
-#' @export
-head.ExecPlanReader <- function(x, n = 6L, ...) {
-  head_reader <- NextMethod()
-  as_record_batch_reader(as_adq(head_reader))
-}
-
 do_exec_plan_substrait <- function(substrait_plan) {
   if (is.string(substrait_plan)) {
     substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
