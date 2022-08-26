@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/compute"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/decimal256"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
@@ -297,16 +298,61 @@ func (c *CastSuite) TestCanCast() {
 	cannotCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
 	})
+	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.Null}, []arrow.DataType{arrow.Null})
 
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
-	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
 	canCast(arrow.FixedWidthTypes.Boolean, numericTypes)
+	// canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.FixedWidthTypes.Boolean}, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+
+	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
+	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
+	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{
+		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s})
 
 	for _, from := range numericTypes {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
+		// canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
+
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
+
+	for _, from := range baseBinaryTypes {
+		// canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+		// canCast(from, numericTypes)
+		// canCast(from, baseBinaryTypes)
+		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
+
+		// any cast which is valid for the dictionary is valid for the dictionary array
+		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
+		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: from}, baseBinaryTypes)
+
+		cannotCast(from, []arrow.DataType{arrow.Null})
+	}
+
+	// canCast(arrow.BinaryTypes.String, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ms})
+	// canCast(arrow.BinaryTypes.LargeString, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ns})
+	// no formatting supported
+	cannotCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
+
+	// canCast(&arrow.FixedSizeBinaryType{ByteWidth: 3}, []arrow.DataType{
+	// 	arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString,
+	// 	&arrow.FixedSizeBinaryType{ByteWidth: 3}})
+
+	arrow.RegisterExtensionType(types.NewSmallintType())
+	defer arrow.UnregisterExtensionType("smallint")
+	// canCast(types.NewSmallintType(), []arrow.DataType{arrow.PrimitiveTypes.Int16})
+	// canCast(types.NewSmallintType(), numericTypes) // any cast which is valid for storage is supported
+	// canCast(arrow.Null, []arrow.DataType{types.NewSmallintType()})
+
+	// canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(arrow.FixedWidthTypes.Timestamp_ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(arrow.FixedWidthTypes.Time32ms, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	// canCast(arrow.FixedWidthTypes.Time64ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
@@ -317,7 +363,7 @@ func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *comput
 }
 
 func (c *CastSuite) checkCastOpts(dtIn, dtOut arrow.DataType, inJSON, outJSON string, opts compute.CastOptions) {
-	inArr, _, _ := array.FromJSON(c.mem, dtIn, strings.NewReader(inJSON))
+	inArr, _, _ := array.FromJSON(c.mem, dtIn, strings.NewReader(inJSON), array.WithUseNumber())
 	outArr, _, _ := array.FromJSON(c.mem, dtOut, strings.NewReader(outJSON), array.WithUseNumber())
 	defer inArr.Release()
 	defer outArr.Release()
@@ -753,6 +799,350 @@ func (c *CastSuite) TestIntegerToDecimal() {
 
 		opts.ToType = &arrow.Decimal256Type{Precision: 76, Scale: 67}
 		c.checkCastFails(arrow.PrimitiveTypes.Int32, `[0]`, &opts)
+	})
+}
+
+func (c *CastSuite) TestDecimal128ToDecimal128() {
+	var opts compute.CastOptions
+
+	for _, allowDecTruncate := range []bool{false, true} {
+		c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+			opts.AllowDecimalTruncate = allowDecTruncate
+
+			noTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+				strings.NewReader(`["02.0000000000", "30.0000000000", "22.0000000000", "-121.0000000000", null]`))
+			expected, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 28, Scale: 10},
+				strings.NewReader(`["02.", "30.", "22.", "-121.", null]`))
+
+			defer noTruncate.Release()
+			defer expected.Release()
+
+			checkCast(c.T(), noTruncate, expected, opts)
+			checkCast(c.T(), expected, noTruncate, opts)
+		})
+	}
+
+	c.Run("same scale diff precision", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				d52, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 5, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+				d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 4, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+
+				defer d52.Release()
+				defer d42.Release()
+
+				checkCast(c.T(), d52, d42, opts)
+				checkCast(c.T(), d42, d52, opts)
+			})
+		}
+	})
+
+	c.Run("rescale leads to trunc", func() {
+		dP38S10, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.1234567890", "30.1234567890", null]`))
+		dP28S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 28, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		dP38S10RoundTripped, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.0000000000", "30.0000000000", null]`))
+		defer func() {
+			dP38S10.Release()
+			dP28S0.Release()
+			dP38S10RoundTripped.Release()
+		}()
+
+		opts.AllowDecimalTruncate = true
+		checkCast(c.T(), dP38S10, dP28S0, opts)
+		checkCast(c.T(), dP28S0, dP38S10RoundTripped, opts)
+
+		opts.AllowDecimalTruncate = false
+		opts.ToType = dP28S0.DataType()
+		checkCastFails(c.T(), dP38S10, opts)
+		checkCast(c.T(), dP28S0, dP38S10RoundTripped, opts)
+	})
+
+	c.Run("precision loss without rescale = trunc", func() {
+		d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 4, Scale: 2},
+			strings.NewReader(`["12.34"]`))
+		defer d42.Release()
+		for _, dt := range []arrow.DataType{
+			&arrow.Decimal128Type{Precision: 3, Scale: 2},
+			&arrow.Decimal128Type{Precision: 4, Scale: 3},
+			&arrow.Decimal128Type{Precision: 2, Scale: 1}} {
+
+			opts.AllowDecimalTruncate = true
+			opts.ToType = dt
+			out, err := compute.CastArray(context.Background(), d42, &opts)
+			out.Release()
+			c.NoError(err)
+
+			opts.AllowDecimalTruncate = false
+			opts.ToType = dt
+			checkCastFails(c.T(), d42, opts)
+		}
+	})
+}
+
+func (c *CastSuite) TestDecimal256ToDecimal256() {
+	var opts compute.CastOptions
+
+	for _, allowDecTruncate := range []bool{false, true} {
+		c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+			opts.AllowDecimalTruncate = allowDecTruncate
+
+			noTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 38, Scale: 10},
+				strings.NewReader(`["02.0000000000", "30.0000000000", "22.0000000000", "-121.0000000000", null]`))
+			expected, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 28, Scale: 10},
+				strings.NewReader(`["02.", "30.", "22.", "-121.", null]`))
+
+			defer noTruncate.Release()
+			defer expected.Release()
+
+			checkCast(c.T(), noTruncate, expected, opts)
+			checkCast(c.T(), expected, noTruncate, opts)
+		})
+	}
+
+	c.Run("same scale diff precision", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				d52, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 5, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+				d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 4, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+
+				defer d52.Release()
+				defer d42.Release()
+
+				checkCast(c.T(), d52, d42, opts)
+				checkCast(c.T(), d42, d52, opts)
+			})
+		}
+	})
+
+	c.Run("rescale leads to trunc", func() {
+		dP38S10, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.1234567890", "30.1234567890", null]`))
+		dP28S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 28, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		dP38S10RoundTripped, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.0000000000", "30.0000000000", null]`))
+		defer func() {
+			dP38S10.Release()
+			dP28S0.Release()
+			dP38S10RoundTripped.Release()
+		}()
+
+		opts.AllowDecimalTruncate = true
+		checkCast(c.T(), dP38S10, dP28S0, opts)
+		checkCast(c.T(), dP28S0, dP38S10RoundTripped, opts)
+
+		opts.AllowDecimalTruncate = false
+		opts.ToType = dP28S0.DataType()
+		checkCastFails(c.T(), dP38S10, opts)
+		checkCast(c.T(), dP28S0, dP38S10RoundTripped, opts)
+	})
+
+	c.Run("precision loss without rescale = trunc", func() {
+		d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 4, Scale: 2},
+			strings.NewReader(`["12.34"]`))
+		defer d42.Release()
+		for _, dt := range []arrow.DataType{
+			&arrow.Decimal256Type{Precision: 3, Scale: 2},
+			&arrow.Decimal256Type{Precision: 4, Scale: 3},
+			&arrow.Decimal256Type{Precision: 2, Scale: 1}} {
+
+			opts.AllowDecimalTruncate = true
+			opts.ToType = dt
+			out, err := compute.CastArray(context.Background(), d42, &opts)
+			out.Release()
+			c.NoError(err)
+
+			opts.AllowDecimalTruncate = false
+			opts.ToType = dt
+			checkCastFails(c.T(), d42, opts)
+		}
+	})
+}
+
+func (c *CastSuite) TestDecimal128ToDecimal256() {
+	var opts compute.CastOptions
+
+	for _, allowDecTruncate := range []bool{false, true} {
+		c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+			opts.AllowDecimalTruncate = allowDecTruncate
+
+			noTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+				strings.NewReader(`["02.0000000000", "30.0000000000", "22.0000000000", "-121.0000000000", null]`))
+			expected, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 28, Scale: 10},
+				strings.NewReader(`["02.", "30.", "22.", "-121.", null]`))
+
+			defer noTruncate.Release()
+			defer expected.Release()
+
+			checkCast(c.T(), noTruncate, expected, opts)
+		})
+	}
+
+	c.Run("same scale diff precision", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				d52, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 5, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+				d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 4, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+				d402, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+
+				defer d52.Release()
+				defer d42.Release()
+				defer d402.Release()
+
+				checkCast(c.T(), d52, d42, opts)
+				checkCast(c.T(), d52, d402, opts)
+			})
+		}
+	})
+
+	c.Run("rescale leads to trunc", func() {
+		d128P38S10, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.1234567890", "30.1234567890", null]`))
+		d128P28S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 28, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		d256P28S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 28, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		d256P38S10RoundTripped, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.0000000000", "30.0000000000", null]`))
+		defer func() {
+			d128P38S10.Release()
+			d128P28S0.Release()
+			d256P28S0.Release()
+			d256P38S10RoundTripped.Release()
+		}()
+
+		opts.AllowDecimalTruncate = true
+		checkCast(c.T(), d128P38S10, d256P28S0, opts)
+		checkCast(c.T(), d128P28S0, d256P38S10RoundTripped, opts)
+
+		opts.AllowDecimalTruncate = false
+		opts.ToType = d256P28S0.DataType()
+		checkCastFails(c.T(), d128P38S10, opts)
+		checkCast(c.T(), d128P28S0, d256P38S10RoundTripped, opts)
+	})
+
+	c.Run("precision loss without rescale = trunc", func() {
+		d128P4S2, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 4, Scale: 2},
+			strings.NewReader(`["12.34"]`))
+		defer d128P4S2.Release()
+		for _, dt := range []arrow.DataType{
+			&arrow.Decimal256Type{Precision: 3, Scale: 2},
+			&arrow.Decimal256Type{Precision: 4, Scale: 3},
+			&arrow.Decimal256Type{Precision: 2, Scale: 1}} {
+
+			opts.AllowDecimalTruncate = true
+			opts.ToType = dt
+			out, err := compute.CastArray(context.Background(), d128P4S2, &opts)
+			out.Release()
+			c.NoError(err)
+
+			opts.AllowDecimalTruncate = false
+			opts.ToType = dt
+			checkCastFails(c.T(), d128P4S2, opts)
+		}
+	})
+}
+
+func (c *CastSuite) TestDecimal256ToDecimal128() {
+	var opts compute.CastOptions
+
+	for _, allowDecTruncate := range []bool{false, true} {
+		c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+			opts.AllowDecimalTruncate = allowDecTruncate
+
+			noTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 42, Scale: 10},
+				strings.NewReader(`["02.0000000000", "30.0000000000", "22.0000000000", "-121.0000000000", null]`))
+			expected, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 28, Scale: 0},
+				strings.NewReader(`["02.", "30.", "22.", "-121.", null]`))
+
+			defer noTruncate.Release()
+			defer expected.Release()
+
+			checkCast(c.T(), noTruncate, expected, opts)
+			checkCast(c.T(), expected, noTruncate, opts)
+		})
+	}
+
+	c.Run("same scale diff precision", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("decTruncate="+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				dP42S2, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 42, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+				d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 4, Scale: 2},
+					strings.NewReader(`["12.34", "0.56"]`))
+
+				defer dP42S2.Release()
+				defer d42.Release()
+
+				checkCast(c.T(), dP42S2, d42, opts)
+				checkCast(c.T(), d42, dP42S2, opts)
+			})
+		}
+	})
+
+	c.Run("rescale leads to trunc", func() {
+		d256P52S10, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 52, Scale: 10},
+			strings.NewReader(`["-02.1234567890", "30.1234567890", null]`))
+		d256P42S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 42, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		d128P28S0, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 28, Scale: 0},
+			strings.NewReader(`["-02.", "30.", null]`))
+		d128P38S10RoundTripped, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 38, Scale: 10},
+			strings.NewReader(`["-02.0000000000", "30.0000000000", null]`))
+		defer func() {
+			d256P52S10.Release()
+			d256P42S0.Release()
+			d128P28S0.Release()
+			d128P38S10RoundTripped.Release()
+		}()
+
+		opts.AllowDecimalTruncate = true
+		checkCast(c.T(), d256P52S10, d128P28S0, opts)
+		checkCast(c.T(), d256P42S0, d128P38S10RoundTripped, opts)
+
+		opts.AllowDecimalTruncate = false
+		opts.ToType = d128P28S0.DataType()
+		checkCastFails(c.T(), d256P52S10, opts)
+		checkCast(c.T(), d256P42S0, d128P38S10RoundTripped, opts)
+	})
+
+	c.Run("precision loss without rescale = trunc", func() {
+		d42, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 4, Scale: 2},
+			strings.NewReader(`["12.34"]`))
+		defer d42.Release()
+		for _, dt := range []arrow.DataType{
+			&arrow.Decimal128Type{Precision: 3, Scale: 2},
+			&arrow.Decimal128Type{Precision: 4, Scale: 3},
+			&arrow.Decimal128Type{Precision: 2, Scale: 1}} {
+
+			opts.AllowDecimalTruncate = true
+			opts.ToType = dt
+			out, err := compute.CastArray(context.Background(), d42, &opts)
+			out.Release()
+			c.NoError(err)
+
+			opts.AllowDecimalTruncate = false
+			opts.ToType = dt
+			checkCastFails(c.T(), d42, opts)
+		}
 	})
 }
 

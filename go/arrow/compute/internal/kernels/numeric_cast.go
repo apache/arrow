@@ -220,6 +220,8 @@ func CastIntegerToDecimal[OutT exec.DecimalTypes, Arg0 exec.IntTypes | exec.Uint
 	if err != nil {
 		return err
 	}
+
+	minPrecision += scale
 	if precision < minPrecision {
 		return fmt.Errorf("%w: precision is not great enough for result. It should be at least %d",
 			arrow.ErrInvalid, minPrecision)
