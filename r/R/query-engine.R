@@ -351,11 +351,12 @@ ExecPlanReader <- R6Class("ExecPlanReader",
     batches = function() ExecPlanReader__batches(self),
     read_table = function() Table__from_ExecPlanReader(self),
     Plan = function() ExecPlanReader__Plan(self),
+    PlanStatus = function() ExecPlanReader__PlanStatus(self),
     ToString = function() {
-      paste(
-        super$ToString(),
-        ExecPlanReader__ToString(self),
-        collapse = "\n"
+      sprintf(
+        "<Status: %s>\n\n%s\n\nSee $Plan() for details.",
+        self$PlanStatus(),
+        super$ToString()
       )
     }
   )

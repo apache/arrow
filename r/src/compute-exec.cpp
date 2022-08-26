@@ -96,10 +96,18 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     }
 
     auto out = sink_gen_().result();
-    ARROW_RETURN_NOT_OK(out);
+    if (!out.ok()) {
+      StopProducing();
+      return out.status();
+    }
+
     if (out.ValueUnsafe()) {
       auto batch_result = out.ValueUnsafe()->ToRecordBatch(schema_, gc_memory_pool());
-      ARROW_RETURN_NOT_OK(batch_result);
+      if (!batch_result.ok()) {
+        StopProducing();
+        return batch_result.status();
+      }
+      
       *batch_out = batch_result.ValueUnsafe();
     } else {
       batch_out->reset();
@@ -172,6 +180,11 @@ std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(
   }
 
   return reader->Plan();
+}
+
+// [[arrow::export]]
+std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader) {
+  return reader->PlanStatus();
 }
 
 // [[arrow::export]]

@@ -17,6 +17,35 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+test_that("ExecPlanReader does not start evaluating a query", {
+  rbr <- as_record_batch_reader(
+    function(x) stop("This query will error if started"),
+    schema = schema(a = int32())
+  )
+
+  reader <- as_record_batch_reader(as_adq(rbr))
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+  expect_error(reader$read_table(), "This query will error if started")
+  expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
+})
+
+test_that("ExecPlanReader evaluates head() lazily", {
+  reader <- as_record_batch_reader(as_adq(arrow_table(a = 1:10)))
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  head_reader <- as_record_batch_reader(head(as_adq(reader), 4))
+  expect_identical(head_reader$PlanStatus(), "PLAN_NOT_STARTED")
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  expect_equal(
+    head_reader$read_table(),
+    arrow_table(a = 1:4)
+  )
+
+  expect_identical(head_reader$PlanStatus(), "PLAN_FINISHED")
+  expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
+})
+
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
   skip_if_not_available("substrait")
 

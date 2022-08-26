@@ -416,6 +416,10 @@ ExecPlanReader__Plan <- function(reader) {
   .Call(`_arrow_ExecPlanReader__Plan`, reader)
 }
 
+ExecPlanReader__PlanStatus <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__PlanStatus`, reader)
+}
+
 ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }

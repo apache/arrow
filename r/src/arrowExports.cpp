@@ -893,6 +893,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader);
+extern "C" SEXP _arrow_ExecPlanReader__PlanStatus(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ExecPlanReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(ExecPlanReader__PlanStatus(reader));
+END_CPP11
+}
+// compute-exec.cpp
 std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
 extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
 BEGIN_CPP11
@@ -5298,6 +5306,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlanReader__batches", (DL_FUNC) &_arrow_ExecPlanReader__batches, 1}, 
 		{ "_arrow_Table__from_ExecPlanReader", (DL_FUNC) &_arrow_Table__from_ExecPlanReader, 1}, 
 		{ "_arrow_ExecPlanReader__Plan", (DL_FUNC) &_arrow_ExecPlanReader__Plan, 1}, 
+		{ "_arrow_ExecPlanReader__PlanStatus", (DL_FUNC) &_arrow_ExecPlanReader__PlanStatus, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
 		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 

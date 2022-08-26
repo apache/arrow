@@ -116,27 +116,66 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
   return ValueOrStop(reader->ToTable());
 }
 
+class RecordBatchReaderHead : public arrow::RecordBatchReader {
+ public:
+  RecordBatchReaderHead(std::shared_ptr<arrow::RecordBatchReader> reader,
+                        int64_t num_rows)
+      : schema_(reader->schema()), reader_(reader), num_rows_(num_rows) {}
+
+  std::shared_ptr<arrow::Schema> schema() const { return schema_; }
+
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) {
+    if (!reader_) {
+      // Close() has been called
+      batch_out = nullptr;
+      return arrow::Status::OK();
+    }
+
+    ARROW_RETURN_NOT_OK(reader_->ReadNext(batch_out));
+    if (batch_out->get()) {
+      num_rows_ -= batch_out->get()->num_rows();
+      if (num_rows_ < 0) {
+        auto smaller_batch =
+            batch_out->get()->Slice(0, batch_out->get()->num_rows() + num_rows_);
+        *batch_out = smaller_batch;
+      }
+
+      if (num_rows_ <= 0) {
+        // We've run out of num_rows before batches
+        ARROW_RETURN_NOT_OK(Close());
+      }
+    } else {
+      // We've run out of batches before num_rows
+      ARROW_RETURN_NOT_OK(Close());
+    }
+
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Close() {
+    if (reader_) {
+      arrow::Status result = reader_->Close();
+      reader_.reset();
+      return result;
+    } else {
+      return arrow::Status::OK();
+    }
+  }
+
+ private:
+  std::shared_ptr<arrow::Schema> schema_;
+  std::shared_ptr<arrow::RecordBatchReader> reader_;
+  int64_t num_rows_;
+};
+
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
     const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
-  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::RecordBatchReader>>(
-      [&]() -> arrow::Result<std::shared_ptr<arrow::RecordBatchReader>> {
-        std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-        arrow::Result<std::shared_ptr<arrow::RecordBatch>> this_batch;
-
-        while (num_rows > 0) {
-          this_batch = reader->Next();
-          ARROW_RETURN_NOT_OK(this_batch);
-          if (this_batch.ValueUnsafe() == nullptr) break;
-          batches.push_back(this_batch.ValueUnsafe()->Slice(0, num_rows));
-          num_rows -= this_batch.ValueUnsafe()->num_rows();
-        }
-
-        ARROW_RETURN_NOT_OK(reader->Close());
-        return arrow::RecordBatchReader::Make(std::move(batches), reader->schema());
-      });
-
-  return ValueOrStop(result);
+  if (num_rows <= 0) {
+    return ValueOrStop(arrow::RecordBatchReader::Make({}, reader->schema()));
+  } else {
+    return std::make_shared<RecordBatchReaderHead>(reader, num_rows);
+  }
 }
 
 // -------- RecordBatchStreamReader
