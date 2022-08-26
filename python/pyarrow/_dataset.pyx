@@ -1061,9 +1061,9 @@ cdef class FileFragment(Fragment):
 
         Parameters
         ----------
-        start: int, default None
+        start : int, default None
             the intended start byte in the fragment
-        end: int, default None
+        end : int, default None
             the intended end byte in the fragment
         """
 
