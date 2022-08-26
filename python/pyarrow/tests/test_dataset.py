@@ -3133,13 +3133,10 @@ def test_csv_fragment_options(tempdir, dataset_reader):
 def test_encoding(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
 
-    for encoding, input_rows, expected_table in [
-        ('latin-1', b"a,b\nun,\xe9l\xe9phant",
-         {'a': ["un"], 'b': [b"\xe9l\xe9phant"]}),
+    for encoding, input_rows in [
+        ('latin-1', b"a,b\nun,\xe9l\xe9phant"),
         ('utf16', b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
-         b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00',
-         {'a': [b"\x00u\x00n"],
-          'b': [b"\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00"]})
+         b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00'),
     ]:
 
         with open(path, 'wb') as sink:
