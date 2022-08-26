@@ -201,12 +201,8 @@ class TestListArray : public ::testing::Test {
     std::shared_ptr<Array> offsets_w_nulls, offsets_wo_nulls, values;
 
     std::vector<offset_type> offsets = {0, 1, 1, 3, 4};
-
     std::vector<bool> offsets_w_nulls_is_valid = {true, false, true, true, true};
     std::vector<bool> offsets_wo_nulls_is_valid = {true, true, true, true, true};
-
-    std::vector<int32_t> null_bitmap_values = {1, 0, 1, 1};
-    std::shared_ptr<Buffer> null_bitmap = Buffer::Wrap(null_bitmap_values);
 
     ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_is_valid, offsets,
                                              &offsets_w_nulls);
@@ -216,16 +212,27 @@ class TestListArray : public ::testing::Test {
     auto type = std::make_shared<T>(int32());
     auto expected = std::dynamic_pointer_cast<ArrayType>(
         ArrayFromJSON(type, "[[0], null, [0, null], [0]]"));
-
     values = expected->values();
 
-    ASSERT_OK(ArrayType::FromArrays(*offsets_w_nulls, *values, pool_));
-    ASSERT_OK(ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_));
+    // Offsets with nulls will match.
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         ArrayType::FromArrays(*offsets_w_nulls, *values, pool_));
+    AssertArraysEqual(*result, *expected);
 
-    // Specify non-null offsets with null_bitmap, but not null offsets w/ null_bitmap
-    ASSERT_OK(ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_, null_bitmap));
-    ASSERT_RAISES(Invalid,
-                  ArrayType::FromArrays(*offsets_w_nulls, *values, pool_, null_bitmap));
+    // Offets without nulls, will replace null with empty list
+    ASSERT_OK_AND_ASSIGN(result,
+                         ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_));
+    AssertArraysEqual(*result, *std::dynamic_pointer_cast<ArrayType>(
+                                   ArrayFromJSON(type, "[[0], [], [0, null], [0]]")));
+
+    // Specify non-null offsets with null_bitmap
+    ASSERT_OK_AND_ASSIGN(result, ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_,
+                                                       expected->null_bitmap()));
+    AssertArraysEqual(*result, *expected);
+
+    // Cannot specify both null offsets with null_bitmap
+    ASSERT_RAISES(Invalid, ArrayType::FromArrays(*offsets_w_nulls, *values, pool_,
+                                                 expected->null_bitmap()));
   }
 
   void TestFromArrays() {
