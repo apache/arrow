@@ -1901,8 +1901,9 @@ cdef class ListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type is
             used.
-        pool : MemoryPool
-        mask : Array (bool type)
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -2019,7 +2020,8 @@ cdef class LargeListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type is
             used.
-        pool : MemoryPool
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
 
         Returns
         -------
@@ -2825,7 +2827,7 @@ cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool
         inverted_mask = _pc().invert(mask, memory_pool=pool)
         c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
     else:
-        raise TypeError('Mask must be a pyarrow.Array of type bool')
+        raise TypeError('Mask must be a pyarrow.Array of type boolean')
     return c_mask
 
 
