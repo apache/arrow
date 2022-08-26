@@ -182,9 +182,10 @@ outputs:
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - cython
+        - llvmdev 10   # [not (osx and arm64)]
         - numpy
-        - python
         - openssl
+        - python
         - setuptools
         - setuptools_scm
         - six
