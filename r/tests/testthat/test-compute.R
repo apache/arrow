@@ -323,3 +323,29 @@ test_that("nested exec plans can contain user-defined functions", {
   result <- collect_plan_with_head()
   expect_equal(nrow(result), 11)
 })
+
+test_that("head() on exec plan containing user-defined functions", {
+  skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
+
+  register_scalar_function(
+    "times_32",
+    function(context, x) x * 32.0,
+    int32(),
+    float64(),
+    auto_convert = TRUE
+  )
+  on.exit({
+    unregister_binding("times_32", update_cache = TRUE)
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
+
+  result <- record_batch(a = 1:1000) %>%
+    dplyr::mutate(b = times_32(a)) %>%
+    as_record_batch_reader() %>%
+    head(11) %>%
+    dplyr::collect()
+
+  expect_equal(nrow(result), 11)
+})
