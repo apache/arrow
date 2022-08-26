@@ -186,6 +186,8 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
       const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
