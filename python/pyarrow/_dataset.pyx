@@ -1058,7 +1058,18 @@ cdef class FileFragment(Fragment):
             self.filesystem,
             self.partition_expression
         )
-        new_fragment.file_fragment.set_bounds(start, end)
+        cdef c_optional[ReadRange] old_range_optional = self.file_fragment.get_read_range()
+        cdef ReadRange old_range
+        if old_range_optional.has_value():
+            old_range = old_range_optional.value()
+            old_offset = old_range.offset
+            old_length = old_range.length
+            assert end - start <= old_length
+            new_fragment.file_fragment.set_bounds(
+                old_offset + start, old_offset + end - start)
+        else:
+            new_fragment.file_fragment.set_bounds(start, end)
+
         return new_fragment
 
     @property

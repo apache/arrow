@@ -165,7 +165,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
   /// \brief Override the set_bounds method of FileFragment to raise a warning that it's
   /// not supported.
-  void set_bounds(int64_t start, int64_t end);
+  Status set_bounds(int64_t start, int64_t end);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
