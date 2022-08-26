@@ -356,6 +356,34 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
                ParquetException);
 }
 
+// Repetition level byte length reported in Page but Max Repetition level
+// is zero for the column.
+TEST_F(TestPrimitiveReader, TestRepetitionLvlBytesWithMaxRepetitionZero) {
+  constexpr int batch_size = 4;
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  NodePtr type = schema::Int32("a", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  const std::array<uint8_t, 21> page_data{0x3,  0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
+                                          0x18, 0x1, 0x2, 0x0,  0x0, 0x0, 0xc,
+                                          0x0,  0x0, 0x0, 0x0,  0x0, 0x0, 0x0};
+
+  std::shared_ptr<DataPageV2> data_page =
+      std::make_shared<DataPageV2>(Buffer::Wrap(page_data.data(), page_data.size()), 4, 1,
+                                   4, Encoding::DELTA_BINARY_PACKED, 2, 1, 21);
+
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  auto reader = static_cast<Int32Reader*>(reader_.get());
+  int16_t def_levels_out[batch_size];
+  int32_t values[batch_size];
+  int64_t values_read;
+  ASSERT_TRUE(reader->HasNext());
+  EXPECT_EQ(4, reader->ReadBatch(batch_size, def_levels_out, /*replevels=*/nullptr,
+                                 values, &values_read));
+  EXPECT_EQ(3, values_read);
+}
+
 // Page claims to have two values but only 1 is present.
 TEST_F(TestPrimitiveReader, TestReadValuesMissingWithDictionary) {
   constexpr int batch_size = 1;

@@ -531,6 +531,35 @@ func (p *PrimitiveReaderSuite) TestInt32FlatRequiredSkip() {
 	})
 }
 
+func (p *PrimitiveReaderSuite) TestRepetitionLvlBytesWithMaxRepZero() {
+	const batchSize = 4
+	p.maxDefLvl = 1
+	p.maxRepLvl = 0
+	typ := schema.NewInt32Node("a", parquet.Repetitions.Optional, -1)
+	descr := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
+	pageData := [21]byte{0x3, 0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
+		0x18, 0x1, 0x2, 0x0, 0x0, 0x0, 0xc,
+		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+
+	p.pages = append(p.pages, file.NewDataPageV2(memory.NewBufferBytes(pageData[:]), batchSize, 1, batchSize,
+		parquet.Encodings.DeltaBinaryPacked, 2, 1, 21, false))
+
+	p.initReader(descr)
+	p.NotPanics(func() { p.reader.HasNext() })
+
+	var (
+		values  [4]int32
+		defLvls [4]int16
+	)
+	i32Rdr := p.reader.(*file.Int32ColumnChunkReader)
+	total, read, err := i32Rdr.ReadBatch(batchSize, values[:], defLvls[:], nil)
+	p.NoError(err)
+	p.EqualValues(batchSize, total)
+	p.EqualValues(3, read)
+	p.Equal([]int16{1, 1, 1, 0}, defLvls[:])
+	p.Equal([]int32{12, 11, 13, 0}, values[:])
+}
+
 func (p *PrimitiveReaderSuite) TestDictionaryEncodedPages() {
 	p.maxDefLvl = 0
 	p.maxRepLvl = 0
