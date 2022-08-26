@@ -361,7 +361,7 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
 TEST_F(TestPrimitiveReader, TestRepetitionLvlBytesWithMaxRepetitionZero) {
   constexpr int batch_size = 4;
   max_def_level_ = 1;
-  max_rep_level_ = 0
+  max_rep_level_ = 0;
   NodePtr type = schema::Int32("a", Repetition::OPTIONAL);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
   // Bytes here came from the example parquet file in ARROW-17453's int32
@@ -370,8 +370,8 @@ TEST_F(TestPrimitiveReader, TestRepetitionLvlBytesWithMaxRepetitionZero) {
   // though the max rep level is 0. If that byte isn't skipped then
   // we get def levels of [1, 1, 0, 0] instead of the correct [1, 1, 1, 0].
   const std::vector<uint8_t> page_data{0x3,  0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
-                                          0x18, 0x1, 0x2, 0x0,  0x0, 0x0, 0xc,
-                                          0x0,  0x0, 0x0, 0x0,  0x0, 0x0, 0x0};
+                                       0x18, 0x1, 0x2, 0x0,  0x0, 0x0, 0xc,
+                                       0x0,  0x0, 0x0, 0x0,  0x0, 0x0, 0x0};
 
   std::shared_ptr<DataPageV2> data_page =
       std::make_shared<DataPageV2>(Buffer::Wrap(page_data.data(), page_data.size()), 4, 1,
