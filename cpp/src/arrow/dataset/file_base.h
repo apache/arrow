@@ -115,7 +115,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
       util::optional<Compression::type> compression = util::nullopt) const;
 
   /// \brief Open a byte range of the file source.
-  /// \param[in] read_range. This struct is defined in interfaces.cc and will give offset
+  /// \param[in] read_range This struct is defined in interfaces.cc and will give offset
   /// and bytes to read as a ReadRange. Note that this implementation currently does not
   /// check if the range go over file size!
   Result<std::shared_ptr<io::InputStream>> OpenRange(io::ReadRange read_range) const;
