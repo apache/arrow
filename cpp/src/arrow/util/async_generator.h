@@ -148,7 +148,8 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
 }
 
 /// \brief this is just like a MapGenerator but the map fun returns a thing instead of a
-/// future
+/// future. Then we will launch each map fun as an independent task, instead of piggy
+/// backing it to the future from the source.
 template <typename T, typename ApplyFn,
           typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
           typename V = typename EnsureResult<Applied>::type::ValueType>
@@ -180,12 +181,7 @@ AsyncGenerator<V> MakeApplyGenerator(AsyncGenerator<T> source_gen, ApplyFn apply
           if (IsIterationEnd(next)) {
             return IterationTraits<V>::End();
           } else {
-            auto value = state->apply_fun(next);
-            if (!value.ok()) {
-              return Status::NotImplemented("not implemented");
-            } else {
-              return value.ValueOrDie();
-            }
+            return state->apply_fun(next);
           }
         },
         {}, options);

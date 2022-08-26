@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <iostream>
 #include <iterator>
 #include <list>
 #include <memory>
@@ -143,10 +142,9 @@ Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
     explicit State(std::shared_ptr<RandomAccessFile> file_, int64_t block_size_)
         : file(std::move(file_)), block_size(block_size_), position(0) {}
 
-    Status init() {
+    Status Init() {
       RETURN_NOT_OK(file->Seek(0));
-      // if seek worked this will also work.
-      total_size = file->GetSize().ValueOrDie();
+      ARROW_ASSIGN_OR_RAISE(total_size, file->GetSize());
       return Status::OK();
     }
 
@@ -157,7 +155,7 @@ Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
   };
 
   auto state = std::make_shared<State>(std::move(file), block_size);
-  RETURN_NOT_OK(state->init());
+  RETURN_NOT_OK(state->Init());
   return [state]() {
     auto pos = state->position.fetch_add(state->block_size);
     if (pos >= state->total_size) {
