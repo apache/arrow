@@ -319,7 +319,14 @@ cdef class ParquetFileFragment(FileFragment):
 
     def slice(self, start, end):
         """
-        Slice is not implemented for Parquet files.
+        Slice is not implemented yet for Parquet files.
+
+        Parameters
+        ----------
+        start: int, default None
+            the intended start byte in the fragment
+        end: int, default None
+            the intended end byte in the fragment
         """
         raise NotImplementedError(
             "You cannot slice a Parquet file by byte range yet. Try using the subset method")

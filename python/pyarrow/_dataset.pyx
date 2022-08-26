@@ -1058,6 +1058,13 @@ cdef class FileFragment(Fragment):
         Returns a new FileFragment object that will only read 
         a slice of the old FileFragment defined by start (start byte)
         and end (end byte).
+
+        Parameters
+        ----------
+        start: int, default None
+            the intended start byte in the fragment
+        end: int, default None
+            the intended end byte in the fragment
         """
 
         cdef FileFragment new_fragment = self.format.make_fragment(
