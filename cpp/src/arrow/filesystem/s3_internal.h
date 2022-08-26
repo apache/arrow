@@ -91,20 +91,18 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
 // TODO qualify error messages with a prefix indicating context
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
-Status ErrorToStatus(const std::string& prefix,
-		     const std::string& operation,
+Status ErrorToStatus(const std::string& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   return Status::IOError(prefix, "AWS Error [code ",
-                         static_cast<int>(error.GetErrorType()),
-                         "] during ", operation, " call: ", error.GetMessage());
+                         static_cast<int>(error.GetErrorType()), "] during ", operation,
+                         " call: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
-Status ErrorToStatus(const std::tuple<Args&...>& prefix,
-		     const std::string& operation,
+Status ErrorToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   std::stringstream ss;
   ::arrow::internal::PrintTuple(&ss, prefix);
@@ -112,13 +110,13 @@ Status ErrorToStatus(const std::tuple<Args&...>& prefix,
 }
 
 template <typename ErrorType>
-Status ErrorToStatus(const std::string& operation, const Aws::Client::AWSError<ErrorType>& error) {
+Status ErrorToStatus(const std::string& operation,
+                     const Aws::Client::AWSError<ErrorType>& error) {
   return ErrorToStatus(std::string(), operation, error);
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const std::string& prefix,
-		       const std::string& operation,
+Status OutcomeToStatus(const std::string& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
@@ -128,8 +126,7 @@ Status OutcomeToStatus(const std::string& prefix,
 }
 
 template <typename AwsResult, typename Error, typename... Args>
-Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
-		       const std::string& operation,
+Status OutcomeToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
@@ -139,12 +136,14 @@ Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const std::string& operation, const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
+Status OutcomeToStatus(const std::string& operation,
+                       const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   return OutcomeToStatus(std::string(), operation, outcome);
 }
 
 template <typename AwsResult, typename Error>
-Result<AwsResult> OutcomeToResult(const std::string& operation, Aws::Utils::Outcome<AwsResult, Error> outcome) {
+Result<AwsResult> OutcomeToResult(const std::string& operation,
+                                  Aws::Utils::Outcome<AwsResult, Error> outcome) {
   if (outcome.IsSuccess()) {
     return std::move(outcome).GetResultWithOwnership();
   } else {

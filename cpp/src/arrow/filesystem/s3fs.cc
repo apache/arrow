@@ -629,8 +629,7 @@ class S3Client : public Aws::S3::S3Client {
       } else if (!outcome.IsSuccess()) {
         return ErrorToStatus(std::forward_as_tuple("When resolving region for bucket '",
                                                    request.GetBucket(), "': "),
-			     "HeadBucket",
-                             outcome.GetError());
+                             "HeadBucket", outcome.GetError());
       } else {
         return Status::IOError("When resolving region for bucket '", request.GetBucket(),
                                "': missing 'x-amz-bucket-region' header in response");
@@ -1077,8 +1076,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
         return ErrorToStatus(
             std::forward_as_tuple("When reading information for key '", path_.key,
                                   "' in bucket '", path_.bucket, "': "),
-	    "HeadObject",
-            outcome.GetError());
+            "HeadObject", outcome.GetError());
       }
     }
     content_length_ = outcome.GetResult().GetContentLength();
@@ -1252,8 +1250,7 @@ class ObjectOutputStream final : public io::OutputStream {
       return ErrorToStatus(
           std::forward_as_tuple("When initiating multiple part upload for key '",
                                 path_.key, "' in bucket '", path_.bucket, "': "),
-	  "CreateMultipartUpload",
-          outcome.GetError());
+          "CreateMultipartUpload", outcome.GetError());
     }
     upload_id_ = outcome.GetResult().GetUploadId();
     upload_state_ = std::make_shared<UploadState>();
@@ -1276,8 +1273,7 @@ class ObjectOutputStream final : public io::OutputStream {
       return ErrorToStatus(
           std::forward_as_tuple("When aborting multiple part upload for key '", path_.key,
                                 "' in bucket '", path_.bucket, "': "),
-	  "AbortMultipartUpload",
-          outcome.GetError());
+          "AbortMultipartUpload", outcome.GetError());
     }
     current_part_.reset();
     client_ = nullptr;
@@ -1325,8 +1321,7 @@ class ObjectOutputStream final : public io::OutputStream {
         return ErrorToStatus(
             std::forward_as_tuple("When completing multiple part upload for key '",
                                   path_.key, "' in bucket '", path_.bucket, "': "),
-	    "CompleteMultipartUpload",
-            outcome.GetError());
+            "CompleteMultipartUpload", outcome.GetError());
       }
 
       client_ = nullptr;
@@ -1519,8 +1514,7 @@ class ObjectOutputStream final : public io::OutputStream {
     return ErrorToStatus(
         std::forward_as_tuple("When uploading part for key '", req.GetKey(),
                               "' in bucket '", req.GetBucket(), "': "),
-	"UploadPart",
-        outcome.GetError());
+        "UploadPart", outcome.GetError());
   }
 
  protected:
@@ -1750,8 +1744,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       if (!IsNotFound(outcome.GetError())) {
         return ErrorToStatus(std::forward_as_tuple(
                                  "When testing for existence of bucket '", bucket, "': "),
-			     "HeadBucket",
-                             outcome.GetError());
+                             "HeadBucket", outcome.GetError());
       }
       return false;
     }
@@ -1771,8 +1764,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       } else if (!IsNotFound(outcome.GetError())) {
         return ErrorToStatus(
             std::forward_as_tuple("When creating bucket '", bucket, "': "),
-	    "CreateBucket",
-            outcome.GetError());
+            "CreateBucket", outcome.GetError());
       }
 
       if (!options().allow_bucket_creation) {
@@ -1798,8 +1790,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     auto outcome = client_->CreateBucket(req);
     if (!outcome.IsSuccess() && !IsAlreadyExists(outcome.GetError())) {
       return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
-			   "CreateBucket",
-                           outcome.GetError());
+                           "CreateBucket", outcome.GetError());
     }
     return Status::OK();
   }
@@ -1812,8 +1803,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
-	"PutObject",
-        client_->PutObject(req));
+        "PutObject", client_->PutObject(req));
   }
 
   Status CreateEmptyDir(const std::string& bucket, const std::string& key) {
@@ -1827,8 +1817,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     req.SetKey(ToAwsString(key));
     return OutcomeToStatus(
         std::forward_as_tuple("When delete key '", key, "' in bucket '", bucket, "': "),
-	"DeleteObject",
-        client_->DeleteObject(req));
+        "DeleteObject", client_->DeleteObject(req));
   }
 
   Status CopyObject(const S3Path& src_path, const S3Path& dest_path) {
@@ -1842,8 +1831,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
                               src_path.bucket, "' to key '", dest_path.key,
                               "' in bucket '", dest_path.bucket, "': "),
-	"CopyObject",
-        client_->CopyObject(req));
+        "CopyObject", client_->CopyObject(req));
   }
 
   // On Minio, an empty "directory" doesn't satisfy the same API requests as
@@ -1897,8 +1885,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     }
     return ErrorToStatus(std::forward_as_tuple("When reading information for key '", key,
                                                "' in bucket '", bucket, "': "),
-			 "HeadObject",
-                         outcome.GetError());
+                         "HeadObject", outcome.GetError());
   }
 
   Result<bool> IsEmptyDirectory(
@@ -1924,8 +1911,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return ErrorToStatus(
         std::forward_as_tuple("When listing objects under key '", path.key,
                               "' in bucket '", path.bucket, "': "),
-	"ListObjectsV2",
-        outcome.GetError());
+        "ListObjectsV2", outcome.GetError());
   }
 
   Status CheckNestingDepth(int32_t nesting_depth) {
@@ -2005,8 +1991,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       }
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
                                                  "' in bucket '", bucket, "': "),
-			   "ListObjectsV2",
-                           error);
+                           "ListObjectsV2", error);
     };
 
     auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
@@ -2044,8 +2029,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       }
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
                                                  "' in bucket '", bucket, "': "),
-			   "ListObjectsV2",
-                           error);
+                           "ListObjectsV2", error);
     };
 
     auto handle_recursion = [producer, select,
@@ -2107,8 +2091,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     auto handle_error = [=](const AWSError<S3Errors>& error) -> Status {
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
                                                  "' in bucket '", bucket, "': "),
-			   "ListObjectsV2",
-                           error);
+                           "ListObjectsV2", error);
     };
 
     auto self = shared_from_this();
@@ -2218,8 +2201,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   static Result<std::vector<std::string>> ProcessListBuckets(
       const Aws::S3::Model::ListBucketsOutcome& outcome) {
     if (!outcome.IsSuccess()) {
-      return ErrorToStatus(std::forward_as_tuple("When listing buckets: "),
-			   "ListBuckets",
+      return ErrorToStatus(std::forward_as_tuple("When listing buckets: "), "ListBuckets",
                            outcome.GetError());
     }
     std::vector<std::string> buckets;
@@ -2326,8 +2308,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
         return ErrorToStatus(
             std::forward_as_tuple("When getting information for bucket '", path.bucket,
                                   "': "),
-	    "HeadBucket",
-            outcome.GetError());
+            "HeadBucket", outcome.GetError());
       }
       info.set_type(FileType::NotFound);
       return info;
@@ -2352,8 +2333,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
       return ErrorToStatus(
           std::forward_as_tuple("When getting information for key '", path.key,
                                 "' in bucket '", path.bucket, "': "),
-	  "HeadObject",
-          outcome.GetError());
+          "HeadObject", outcome.GetError());
     }
     // Not found => perhaps it's an empty "directory"
     ARROW_ASSIGN_OR_RAISE(bool is_dir, impl_->IsEmptyDirectory(path, &outcome));
@@ -2498,8 +2478,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
     req.SetBucket(ToAwsString(path.bucket));
     return OutcomeToStatus(
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
-	"DeleteBucket",
-        impl_->client_->DeleteBucket(req));
+        "DeleteBucket", impl_->client_->DeleteBucket(req));
   } else if (path.key.empty()) {
     return Status::IOError("Would delete bucket '", path.bucket, "'. ",
                            "To delete buckets, enable the allow_bucket_deletion option.");
@@ -2557,8 +2536,7 @@ Status S3FileSystem::DeleteFile(const std::string& s) {
       return ErrorToStatus(
           std::forward_as_tuple("When getting information for key '", path.key,
                                 "' in bucket '", path.bucket, "': "),
-	  "DeleteBucket",
-          outcome.GetError());
+          "DeleteBucket", outcome.GetError());
     }
   }
   // Object found, delete it
