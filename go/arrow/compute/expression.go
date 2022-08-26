@@ -512,6 +512,14 @@ func DefaultCastOptions(safe bool) *CastOptions {
 	}
 }
 
+func UnsafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, false)
+}
+
+func SafeCastOptions(dt arrow.DataType) *CastOptions {
+	return NewCastOptions(dt, true)
+}
+
 func NewCastOptions(dt arrow.DataType, safe bool) *CastOptions {
 	opts := DefaultCastOptions(safe)
 	if dt != nil {

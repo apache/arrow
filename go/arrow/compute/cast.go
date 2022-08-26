@@ -174,7 +174,7 @@ func getNumericCasts() []*castFunction {
 	getFn := func(name string, ty arrow.Type, kns []exec.ScalarKernel) *castFunction {
 		fn := newCastFunction(name, ty)
 		for _, k := range kns {
-			if err := fn.AddTypeCast(k.Signature.InputTypes[0].Type.ID(), k); err != nil {
+			if err := fn.AddTypeCast(k.Signature.InputTypes[0].MatchID(), k); err != nil {
 				panic(err)
 			}
 		}
@@ -218,12 +218,14 @@ func getNumericCasts() []*castFunction {
 	out = append(out, getFn("cast_uint32", arrow.UINT32, kernels.GetCastToInteger[uint32](arrow.PrimitiveTypes.Uint32)))
 	out = append(out, getFn("cast_uint64", arrow.UINT64, kernels.GetCastToInteger[uint64](arrow.PrimitiveTypes.Uint64)))
 
-	out = append(out, getFn("cast_half_float", arrow.FLOAT16, kernels.GetCommonCastKernels(arrow.FLOAT16, arrow.FixedWidthTypes.Float16)))
+	out = append(out, getFn("cast_half_float", arrow.FLOAT16, kernels.GetCommonCastKernels(arrow.FLOAT16, exec.NewOutputType(arrow.FixedWidthTypes.Float16))))
 	out = append(out, getFn("cast_float", arrow.FLOAT32, kernels.GetCastToFloating[float32](arrow.PrimitiveTypes.Float32)))
 	out = append(out, getFn("cast_double", arrow.FLOAT64, kernels.GetCastToFloating[float64](arrow.PrimitiveTypes.Float64)))
 
 	// cast to decimal128
+	out = append(out, getFn("cast_decimal", arrow.DECIMAL128, kernels.GetCastToDecimal128()))
 	// cast to decimal256
+	out = append(out, getFn("cast_decimal256", arrow.DECIMAL256, kernels.GetCastToDecimal256()))
 	return out
 }
 

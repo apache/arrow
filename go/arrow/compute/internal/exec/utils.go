@@ -81,7 +81,6 @@ func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 	return ret[span.Offset:]
 }
 
-<<<<<<< HEAD
 // GetSpanOffsets is like GetSpanValues, except it is only for int32
 // or int64 and adds the additional 1 expected value for an offset
 // buffer (ie. len(output) == span.Len+1)
@@ -90,15 +89,12 @@ func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 	return ret[span.Offset:]
 }
 
-=======
->>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)
 func Min[T constraints.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}
 	return b
 }
-<<<<<<< HEAD
 
 // OptionsInit should be used in the case where a KernelState is simply
 // represented with a specific type by value (instead of pointer).
@@ -114,5 +110,3 @@ func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) 
 	return nil, fmt.Errorf("%w: attempted to initialize kernel state from invalid function options",
 		arrow.ErrInvalid)
 }
-=======
->>>>>>> 35228b3db (ARROW-17455: [Go] Initial Function and Kernel architecture)

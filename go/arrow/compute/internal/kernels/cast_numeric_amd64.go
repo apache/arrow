@@ -18,22 +18,16 @@
 
 package kernels
 
-import "unsafe"
+import (
+	"golang.org/x/sys/cpu"
+)
 
-{{ $arch := .D.arch }}
-{{ $typelist := .In }}
-{{range .In}}
-{{ $src := .Type }}
-{{ $srcName := .Name }}
-{{ range $typelist }}
-{{ $dest := .Type }}
-{{ $destName := .Name }}
-
-//go:noescape
-func _cast_numeric_{{printf "%s_%s_%s" $src $dest $arch}}(in, out unsafe.Pointer, len int)
-
-func castNumeric{{ $srcName }}{{ $destName }}{{ $arch }}(src []{{$src}}, dest []{{$dest}}) {
-    _cast_numeric_{{printf "%s_%s_%s" $src $dest $arch}}(unsafe.Pointer(&src[0]), unsafe.Pointer(&dest[0]), len(src))
+func init() {
+	if cpu.X86.HasAVX2 {
+		castNumericUnsafe = castNumericAvx2
+	} else if cpu.X86.HasSSE42 {
+		castNumericUnsafe = castNumericSSE4
+	} else {
+		castNumericUnsafe = castNumericGo
+	}
 }
-{{ end }}
-{{ end }}

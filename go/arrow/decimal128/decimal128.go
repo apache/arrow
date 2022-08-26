@@ -201,6 +201,10 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+func (n Num) GreaterEqual(other Num) bool {
+	return n == other || !n.Less(other)
+}
+
 // Less returns true if the value represented by n is < other
 func (n Num) Less(other Num) bool {
 	return n.hi < other.hi || (n.hi == other.hi && n.lo < other.lo)

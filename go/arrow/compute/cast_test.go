@@ -19,12 +19,16 @@ package compute_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
@@ -220,6 +224,34 @@ type CastSuite struct {
 	mem *memory.CheckedAllocator
 }
 
+func (c *CastSuite) allocateEmptyBitmap(len int) *memory.Buffer {
+	buf := memory.NewResizableBuffer(c.mem)
+	buf.Resize(int(bitutil.BytesForBits(int64(len))))
+	return buf
+}
+
+func (c *CastSuite) maskArrayWithNullsAt(input arrow.Array, toMask []int) arrow.Array {
+	masked := input.Data().(*array.Data).Copy()
+	defer masked.Release()
+	if masked.Buffers()[0] != nil {
+		masked.Buffers()[0].Release()
+	}
+	masked.Buffers()[0] = c.allocateEmptyBitmap(input.Len())
+	masked.SetNullN(array.UnknownNullCount)
+
+	if original := input.NullBitmapBytes(); len(original) > 0 {
+		bitutil.CopyBitmap(original, input.Data().Offset(), input.Len(), masked.Buffers()[0].Bytes(), 0)
+	} else {
+		bitutil.SetBitsTo(masked.Buffers()[0].Bytes(), 0, int64(input.Len()), true)
+	}
+
+	for _, i := range toMask {
+		bitutil.SetBitTo(masked.Buffers()[0].Bytes(), i, false)
+	}
+
+	return array.MakeFromData(masked)
+}
+
 func (c *CastSuite) invalidUtf8Arr(dt arrow.DataType) arrow.Array {
 	arr, _, err := array.FromJSON(c.mem, dt, strings.NewReader(`["Hi", "olá mundo", "你好世界", "", "`+"\xa0\xa1"+`"]`))
 	c.Require().NoError(err)
@@ -278,19 +310,29 @@ func (c *CastSuite) TestCanCast() {
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
-	inArr, _, _ := array.FromJSON(c.mem, dt, strings.NewReader(input))
+	inArr, _, _ := array.FromJSON(c.mem, dt, strings.NewReader(input), array.WithUseNumber())
 	defer inArr.Release()
 
 	checkCastFails(c.T(), inArr, *opts)
 }
 
-func (c *CastSuite) checkCast(dtIn, dtOut arrow.DataType, inJSON, outJSON string) {
+func (c *CastSuite) checkCastOpts(dtIn, dtOut arrow.DataType, inJSON, outJSON string, opts compute.CastOptions) {
 	inArr, _, _ := array.FromJSON(c.mem, dtIn, strings.NewReader(inJSON))
-	outArr, _, _ := array.FromJSON(c.mem, dtOut, strings.NewReader(outJSON))
+	outArr, _, _ := array.FromJSON(c.mem, dtOut, strings.NewReader(outJSON), array.WithUseNumber())
 	defer inArr.Release()
 	defer outArr.Release()
 
-	checkCast(c.T(), inArr, outArr, *compute.DefaultCastOptions(true))
+	checkCast(c.T(), inArr, outArr, opts)
+}
+
+func (c *CastSuite) checkCast(dtIn, dtOut arrow.DataType, inJSON, outJSON string) {
+	c.checkCastOpts(dtIn, dtOut, inJSON, outJSON, *compute.DefaultCastOptions(true))
+}
+
+func (c *CastSuite) checkCastArr(in arrow.Array, dtOut arrow.DataType, json string, opts compute.CastOptions) {
+	outArr, _, _ := array.FromJSON(c.mem, dtOut, strings.NewReader(json), array.WithUseNumber())
+	defer outArr.Release()
+	checkCast(c.T(), in, outArr, opts)
 }
 
 func (c *CastSuite) TestNumericToBool() {
@@ -390,6 +432,328 @@ func (c *CastSuite) TestIntegerSignedToUnsigned() {
 	u16s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Uint16, strings.NewReader(`[0, null, 0, 0, 65535]`))
 	defer u16s.Release()
 	checkCast(c.T(), i32s, u16s, options)
+}
+
+func (c *CastSuite) TestIntegerUnsignedToSigned() {
+	u32s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Uint32, strings.NewReader(`[4294967295, null, 0, 32768]`))
+	defer u32s.Release()
+	// same width
+	checkCastFails(c.T(), u32s, *compute.SafeCastOptions(arrow.PrimitiveTypes.Int32))
+
+	// narrower
+	checkCastFails(c.T(), u32s, *compute.SafeCastOptions(arrow.PrimitiveTypes.Int16))
+	sl := array.NewSlice(u32s, 1, int64(u32s.Len()))
+	defer sl.Release()
+	checkCastFails(c.T(), sl, *compute.SafeCastOptions(arrow.PrimitiveTypes.Int16))
+
+	var opts compute.CastOptions
+	opts.AllowIntOverflow = true
+	c.checkCastArr(u32s, arrow.PrimitiveTypes.Int32, `[-1, null, 0, 32768]`, opts)
+	c.checkCastArr(u32s, arrow.PrimitiveTypes.Int64, `[4294967295, null, 0, 32768]`, opts)
+	c.checkCastArr(u32s, arrow.PrimitiveTypes.Int16, `[-1, null, 0, -32768]`, opts)
+}
+
+func (c *CastSuite) TestToIntDowncastUnsafe() {
+	opts := compute.CastOptions{AllowIntOverflow: true}
+	c.checkCastOpts(arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Uint8,
+		`[0, null, 200, 1, 2]`, `[0, null, 200, 1, 2]`, opts)
+
+	c.checkCastOpts(arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Uint8,
+		`[0, null, 256, 1, 2, -1]`, `[0, null, 0, 1, 2, 255]`, opts)
+
+	c.checkCastOpts(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int16,
+		`[0, null, 2000, 1, 2, -1]`, `[0, null, 2000, 1, 2, -1]`, opts)
+
+	c.checkCastOpts(arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int16,
+		`[0, null, 2000, 70000, -70000]`, `[0, null, 2000, 4464, -4464]`, opts)
+}
+
+func (c *CastSuite) TestFloatingToInt() {
+	for _, from := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float64} {
+		for _, to := range []arrow.DataType{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64} {
+			// float to int no truncation
+			c.checkCast(from, to, `[1.0, null, 0.0, -1.0, 5.0]`, `[1, null, 0, -1, 5]`)
+
+			// float to int truncate error
+			opts := compute.SafeCastOptions(to)
+			c.checkCastFails(from, `[1.5, 0.0, null, 0.5, -1.5, 5.5]`, opts)
+
+			// float to int truncate allowed
+			opts.AllowFloatTruncate = true
+			c.checkCastOpts(from, to, `[1.5, 0.0, null, 0.5, -1.5, 5.5]`, `[1, 0, null, 0, -1, 5]`, *opts)
+		}
+	}
+}
+
+func (c *CastSuite) TestIntToFloating() {
+	for _, from := range []arrow.DataType{arrow.PrimitiveTypes.Uint32, arrow.PrimitiveTypes.Int32} {
+		two24 := `[16777216, 16777217]`
+		c.checkCastFails(from, two24, compute.SafeCastOptions(arrow.PrimitiveTypes.Float32))
+		one24 := `[16777216]`
+		c.checkCast(from, arrow.PrimitiveTypes.Float32, one24, one24)
+	}
+
+	i64s, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int64,
+		strings.NewReader(`[-9223372036854775808, -9223372036854775807, 0, 9223372036854775806,  9223372036854775807]`),
+		array.WithUseNumber())
+	defer i64s.Release()
+
+	checkCastFails(c.T(), i64s, *compute.SafeCastOptions(arrow.PrimitiveTypes.Float64))
+	masked := c.maskArrayWithNullsAt(i64s, []int{0, 1, 3, 4})
+	defer masked.Release()
+	c.checkCastArr(masked, arrow.PrimitiveTypes.Float64, `[null, null, 0, null, null]`, *compute.DefaultCastOptions(true))
+
+	c.checkCastFails(arrow.PrimitiveTypes.Uint64, `[9007199254740992, 9007199254740993]`, compute.SafeCastOptions(arrow.PrimitiveTypes.Float64))
+}
+
+func (c *CastSuite) TestDecimal128ToInt() {
+	opts := compute.SafeCastOptions(arrow.PrimitiveTypes.Int64)
+
+	c.Run("no overflow no truncate", func() {
+		for _, allowIntOverflow := range []bool{false, true} {
+			c.Run(fmt.Sprintf("int_overflow=%t", allowIntOverflow), func() {
+				for _, allowDecTruncate := range []bool{false, true} {
+					c.Run(fmt.Sprintf("dec_truncate=%t", allowDecTruncate), func() {
+						opts.AllowIntOverflow = allowIntOverflow
+						opts.AllowDecimalTruncate = allowDecTruncate
+
+						noOverflowNoTrunc, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+							strings.NewReader(`["02.0000000000", "-11.0000000000", "22.0000000000", "-121.000000000", null]`))
+
+						c.checkCastArr(noOverflowNoTrunc, arrow.PrimitiveTypes.Int64, `[2, -11, 22, -121, null]`, *opts)
+						noOverflowNoTrunc.Release()
+					})
+				}
+			})
+		}
+	})
+
+	c.Run("truncate no overflow", func() {
+		for _, allowIntOverflow := range []bool{false, true} {
+			c.Run("allow overflow"+strconv.FormatBool(allowIntOverflow), func() {
+				opts.AllowIntOverflow = allowIntOverflow
+				truncNoOverflow, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+					strings.NewReader(`["02.1000000000", "-11.0000004500", "22.0000004500", "-121.1210000000", null]`))
+
+				opts.AllowDecimalTruncate = true
+				c.checkCastArr(truncNoOverflow, arrow.PrimitiveTypes.Int64, `[2, -11, 22, -121, null]`, *opts)
+
+				opts.AllowDecimalTruncate = false
+				checkCastFails(c.T(), truncNoOverflow, *opts)
+				truncNoOverflow.Release()
+			})
+		}
+	})
+
+	c.Run("overflow no truncate", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("allow truncate "+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				overflowNoTrunc, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+					strings.NewReader(`[
+						"12345678901234567890000.0000000000", 
+						"99999999999999999999999.0000000000",
+						null]`), array.WithUseNumber())
+				defer overflowNoTrunc.Release()
+				opts.AllowIntOverflow = true
+				c.checkCastArr(overflowNoTrunc, arrow.PrimitiveTypes.Int64,
+					// 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
+					`[4807115922877858896, 200376420520689663, null]`, *opts)
+
+				opts.AllowIntOverflow = false
+				checkCastFails(c.T(), overflowNoTrunc, *opts)
+			})
+		}
+	})
+
+	c.Run("overflow and truncate", func() {
+		for _, allowIntOverFlow := range []bool{false, true} {
+			c.Run("allow overflow = "+strconv.FormatBool(allowIntOverFlow), func() {
+				for _, allowDecTruncate := range []bool{false, true} {
+					c.Run("allow truncate = "+strconv.FormatBool(allowDecTruncate), func() {
+						opts.AllowIntOverflow = allowIntOverFlow
+						opts.AllowDecimalTruncate = allowDecTruncate
+
+						overflowAndTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
+							strings.NewReader(`[
+							"12345678901234567890000.0045345000",
+							"99999999999999999999999.0000344300",
+							null]`), array.WithUseNumber())
+						defer overflowAndTruncate.Release()
+						if opts.AllowIntOverflow && opts.AllowDecimalTruncate {
+							c.checkCastArr(overflowAndTruncate, arrow.PrimitiveTypes.Int64,
+								// 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
+								`[4807115922877858896, 200376420520689663, null]`, *opts)
+						} else {
+							checkCastFails(c.T(), overflowAndTruncate, *opts)
+						}
+					})
+				}
+			})
+		}
+	})
+
+	c.Run("negative scale", func() {
+		bldr := array.NewDecimal128Builder(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: -4})
+		defer bldr.Release()
+
+		var err error
+		for _, d := range []decimal128.Num{decimal128.FromU64(1234567890000), decimal128.FromI64(-120000)} {
+			d, err = d.Rescale(0, -4)
+			c.Require().NoError(err)
+			bldr.Append(d)
+		}
+		negScale := bldr.NewArray()
+		defer negScale.Release()
+
+		opts.AllowIntOverflow = true
+		opts.AllowDecimalTruncate = true
+		c.checkCastArr(negScale, arrow.PrimitiveTypes.Int64, `[1234567890000, -120000]`, *opts)
+	})
+}
+
+func (c *CastSuite) TestDecimal256ToInt() {
+	opts := compute.SafeCastOptions(arrow.PrimitiveTypes.Int64)
+
+	c.Run("no overflow no truncate", func() {
+		for _, allowIntOverflow := range []bool{false, true} {
+			c.Run(fmt.Sprintf("int_overflow=%t", allowIntOverflow), func() {
+				for _, allowDecTruncate := range []bool{false, true} {
+					c.Run(fmt.Sprintf("dec_truncate=%t", allowDecTruncate), func() {
+						opts.AllowIntOverflow = allowIntOverflow
+						opts.AllowDecimalTruncate = allowDecTruncate
+
+						noOverflowNoTrunc, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: 10},
+							strings.NewReader(`["02.0000000000", "-11.0000000000", "22.0000000000", "-121.000000000", null]`))
+
+						c.checkCastArr(noOverflowNoTrunc, arrow.PrimitiveTypes.Int64, `[2, -11, 22, -121, null]`, *opts)
+						noOverflowNoTrunc.Release()
+					})
+				}
+			})
+		}
+	})
+
+	c.Run("truncate no overflow", func() {
+		for _, allowIntOverflow := range []bool{false, true} {
+			c.Run("allow overflow"+strconv.FormatBool(allowIntOverflow), func() {
+				opts.AllowIntOverflow = allowIntOverflow
+				truncNoOverflow, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: 10},
+					strings.NewReader(`["02.1000000000", "-11.0000004500", "22.0000004500", "-121.1210000000", null]`))
+
+				opts.AllowDecimalTruncate = true
+				c.checkCastArr(truncNoOverflow, arrow.PrimitiveTypes.Int64, `[2, -11, 22, -121, null]`, *opts)
+
+				opts.AllowDecimalTruncate = false
+				checkCastFails(c.T(), truncNoOverflow, *opts)
+				truncNoOverflow.Release()
+			})
+		}
+	})
+
+	c.Run("overflow no truncate", func() {
+		for _, allowDecTruncate := range []bool{false, true} {
+			c.Run("allow truncate "+strconv.FormatBool(allowDecTruncate), func() {
+				opts.AllowDecimalTruncate = allowDecTruncate
+
+				overflowNoTrunc, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: 10},
+					strings.NewReader(`[
+						"1234567890123456789000000.0000000000",
+						"9999999999999999999999999.0000000000",
+						null]`), array.WithUseNumber())
+				defer overflowNoTrunc.Release()
+				opts.AllowIntOverflow = true
+				c.checkCastArr(overflowNoTrunc, arrow.PrimitiveTypes.Int64,
+					// 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+					`[1096246371337547584, 1590897978359414783, null]`, *opts)
+
+				opts.AllowIntOverflow = false
+				checkCastFails(c.T(), overflowNoTrunc, *opts)
+			})
+		}
+	})
+
+	c.Run("overflow and truncate", func() {
+		for _, allowIntOverFlow := range []bool{false, true} {
+			c.Run("allow overflow = "+strconv.FormatBool(allowIntOverFlow), func() {
+				for _, allowDecTruncate := range []bool{false, true} {
+					c.Run("allow truncate = "+strconv.FormatBool(allowDecTruncate), func() {
+						opts.AllowIntOverflow = allowIntOverFlow
+						opts.AllowDecimalTruncate = allowDecTruncate
+
+						overflowAndTruncate, _, _ := array.FromJSON(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: 10},
+							strings.NewReader(`[
+							"1234567890123456789000000.0045345000",
+							"9999999999999999999999999.0000344300",
+							null]`), array.WithUseNumber())
+						defer overflowAndTruncate.Release()
+						if opts.AllowIntOverflow && opts.AllowDecimalTruncate {
+							c.checkCastArr(overflowAndTruncate, arrow.PrimitiveTypes.Int64,
+								// 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+								`[1096246371337547584, 1590897978359414783, null]`, *opts)
+						} else {
+							checkCastFails(c.T(), overflowAndTruncate, *opts)
+						}
+					})
+				}
+			})
+		}
+	})
+
+	c.Run("negative scale", func() {
+		bldr := array.NewDecimal256Builder(c.mem, &arrow.Decimal256Type{Precision: 40, Scale: -4})
+		defer bldr.Release()
+
+		var err error
+		for _, d := range []decimal256.Num{decimal256.FromU64(1234567890000), decimal256.FromI64(-120000)} {
+			d, err = d.Rescale(0, -4)
+			c.Require().NoError(err)
+			bldr.Append(d)
+		}
+		negScale := bldr.NewArray()
+		defer negScale.Release()
+
+		opts.AllowIntOverflow = true
+		opts.AllowDecimalTruncate = true
+		c.checkCastArr(negScale, arrow.PrimitiveTypes.Int64, `[1234567890000, -120000]`, *opts)
+	})
+}
+
+func (c *CastSuite) TestIntegerToDecimal() {
+	for _, decType := range []arrow.DataType{&arrow.Decimal128Type{Precision: 22, Scale: 2}, &arrow.Decimal256Type{Precision: 22, Scale: 2}} {
+		c.Run(decType.String(), func() {
+			for _, intType := range integerTypes {
+				c.Run(intType.String(), func() {
+					c.checkCast(intType, decType, `[0, 7, null, 100, 99]`, `["0.00", "7.00", null, "100.00", "99.00"]`)
+				})
+			}
+		})
+	}
+
+	c.Run("extreme value", func() {
+		for _, dt := range []arrow.DataType{&arrow.Decimal128Type{Precision: 19, Scale: 0}, &arrow.Decimal256Type{Precision: 19, Scale: 0}} {
+			c.Run(dt.String(), func() {
+				c.checkCast(arrow.PrimitiveTypes.Int64, dt,
+					`[-9223372036854775808, 9223372036854775807]`, `["-9223372036854775808", "9223372036854775807"]`)
+			})
+		}
+		for _, dt := range []arrow.DataType{&arrow.Decimal128Type{Precision: 20, Scale: 0}, &arrow.Decimal256Type{Precision: 20, Scale: 0}} {
+			c.Run(dt.String(), func() {
+				c.checkCast(arrow.PrimitiveTypes.Uint64, dt,
+					`[0, 18446744073709551615]`, `["0", "18446744073709551615"]`)
+			})
+		}
+	})
+
+	c.Run("insufficient output precision", func() {
+		var opts compute.CastOptions
+		opts.ToType = &arrow.Decimal128Type{Precision: 5, Scale: 3}
+		c.checkCastFails(arrow.PrimitiveTypes.Int8, `[0]`, &opts)
+
+		opts.ToType = &arrow.Decimal256Type{Precision: 76, Scale: 67}
+		c.checkCastFails(arrow.PrimitiveTypes.Int32, `[0]`, &opts)
+	})
 }
 
 func (c *CastSuite) checkCastZeroCopy(dt arrow.DataType, json string) {

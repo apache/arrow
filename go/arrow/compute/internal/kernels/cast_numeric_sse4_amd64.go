@@ -14,23 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
+
 package kernels
 
-// default functions point to pure go implementation
-// others can then use init() to re-point to architecture specific impls
+import (
+	"unsafe"
 
-// any architecture without a specific file impl, will inherit these
-// rather than requiring explicit creation per-architecture
-
-var (
-{{ $typelist := .In }}
-{{range .In}}
-{{ $src := .Type -}}
-{{ $srcName := .Name -}}
-{{ range $typelist -}}
-{{ $dest := .Type -}}
-{{ $destName := .Name -}}
-    cast{{$srcName}}To{{$destName}} = doStaticCast[{{$src}}, {{$dest}}]
-{{end}}
-{{end}}
+	"github.com/apache/arrow/go/v10/arrow"
 )
+
+//go:noescape
+func _cast_type_numeric_sse4(itype, otype int, in, out unsafe.Pointer, len int)
+
+func castNumericSSE4(itype, otype arrow.Type, in, out []byte, len int) {
+	_cast_type_numeric_sse4(int(itype), int(otype), unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len)
+}

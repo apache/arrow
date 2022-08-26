@@ -42,6 +42,33 @@ func ScalarUnary[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Ar
 	}
 }
 
+// ScalarUnaryNotNull is for generating a kernel to operate only on the
+// non-null values in the input array. The zerovalue of the output type
+// is used for any null input values.
+func ScalarUnaryNotNull[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, Arg0T, *error) OutT) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
+		var (
+			arg0     = &in.Values[0].Array
+			arg0Data = exec.GetSpanValues[Arg0T](arg0, 1)
+			outPos   = 0
+			def      OutT
+			outData  = exec.GetSpanValues[OutT](out, 1)
+			bitmap   = arg0.Buffers[0].Buf
+			err      error
+		)
+
+		bitutils.VisitBitBlocks(bitmap, arg0.Offset, arg0.Len,
+			func(pos int64) {
+				outData[outPos] = op(ctx, arg0Data[pos], &err)
+				outPos++
+			}, func() {
+				outData[outPos] = def
+				outPos++
+			})
+		return err
+	}
+}
+
 // ScalarUnaryBoolOutput is like ScalarUnary only it is for cases of boolean
 // output. The function should take in a slice of the input type and a slice
 // of bytes to fill with the output boolean bitmap.
@@ -61,7 +88,7 @@ func ScalarUnaryBoolOutput[Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, 
 // It implements the handling to iterate the offsets and values calling
 // the provided function on each byte slice. The provided default value
 // will be used as the output for elements of the input that are null.
-func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op func(*exec.KernelCtx, []byte) (bool, error)) exec.ArrayKernelExec {
+func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op func(*exec.KernelCtx, []byte, *error) bool) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0        = in.Values[0].Array
@@ -77,7 +104,7 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 		bitutils.VisitBitBlocks(bitmap, arg0.Offset, arg0.Len,
 			func(pos int64) {
 				v := arg0Data[arg0Offsets[pos]:arg0Offsets[pos+1]]
-				res, err = op(ctx, v)
+				res = op(ctx, v, &err)
 				bitutil.SetBitTo(outData, int(out.Offset)+outPos, res)
 				outPos++
 			}, func() {
@@ -99,10 +126,10 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte) (OutT, error)) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
-			arg0        = in.Values[0].Array
+			arg0        = &in.Values[0].Array
 			outData     = exec.GetSpanValues[OutT](out, 1)
 			outPos      = 0
-			arg0Offsets = exec.GetSpanOffsets[OffsetT](&arg0, 1)
+			arg0Offsets = exec.GetSpanOffsets[OffsetT](arg0, 1)
 			def         OutT
 			arg0Data    = arg0.Buffers[2].Buf
 			bitmap      = arg0.Buffers[0].Buf
@@ -119,6 +146,13 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 				outPos++
 			})
 		return err
+	}
+}
+
+func ScalarUnaryBoolArg[OutT exec.FixedWidthTypes](op func(*exec.KernelCtx, []byte, []OutT) error) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, input *exec.ExecSpan, out *exec.ExecResult) error {
+		outData := exec.GetSpanValues[OutT](out, 1)
+		return op(ctx, input.Values[0].Array.Buffers[1].Buf, outData)
 	}
 }
 
@@ -366,63 +400,27 @@ func castNumberMemCpy(in, out *exec.ArraySpan) {
 	}
 }
 
-func callCastImpl[InT, OutT numeric](in, out *exec.ArraySpan) {
-	inData := exec.GetSpanValues[InT](in, 1)
-	outData := exec.GetSpanValues[OutT](out, 1)
-	castNumbersUnsafe(inData, outData)
-}
-
-func castNumberToNumberUnsafeImpl[T numeric](in, out *exec.ArraySpan) {
-	switch out.Type.ID() {
-	case arrow.INT8:
-		callCastImpl[T, int8](in, out)
-	case arrow.UINT8:
-		callCastImpl[T, uint8](in, out)
-	case arrow.INT16:
-		callCastImpl[T, int16](in, out)
-	case arrow.UINT16:
-		callCastImpl[T, uint16](in, out)
-	case arrow.INT32:
-		callCastImpl[T, int32](in, out)
-	case arrow.UINT32:
-		callCastImpl[T, uint32](in, out)
-	case arrow.INT64:
-		callCastImpl[T, int64](in, out)
-	case arrow.UINT64:
-		callCastImpl[T, uint64](in, out)
-	case arrow.FLOAT32:
-		callCastImpl[T, float32](in, out)
-	case arrow.FLOAT64:
-		callCastImpl[T, float64](in, out)
-	}
-}
-
 func castNumberToNumberUnsafe(in, out *exec.ArraySpan) {
 	if in.Type.ID() == out.Type.ID() {
 		castNumberMemCpy(in, out)
 		return
 	}
 
-	switch in.Type.ID() {
-	case arrow.INT8:
-		castNumberToNumberUnsafeImpl[int8](in, out)
-	case arrow.UINT8:
-		castNumberToNumberUnsafeImpl[uint8](in, out)
-	case arrow.INT16:
-		castNumberToNumberUnsafeImpl[int16](in, out)
-	case arrow.UINT16:
-		castNumberToNumberUnsafeImpl[uint16](in, out)
-	case arrow.INT32:
-		castNumberToNumberUnsafeImpl[int32](in, out)
-	case arrow.UINT32:
-		castNumberToNumberUnsafeImpl[uint32](in, out)
+	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf, out.Buffers[1].Buf, int(in.Len))
+}
+
+func maxDecimalDigitsForInt(id arrow.Type) (int32, error) {
+	switch id {
+	case arrow.INT8, arrow.UINT8:
+		return 3, nil
+	case arrow.INT16, arrow.UINT16:
+		return 5, nil
+	case arrow.INT32, arrow.UINT32:
+		return 10, nil
 	case arrow.INT64:
-		castNumberToNumberUnsafeImpl[int64](in, out)
+		return 19, nil
 	case arrow.UINT64:
-		castNumberToNumberUnsafeImpl[uint64](in, out)
-	case arrow.FLOAT32:
-		castNumberToNumberUnsafeImpl[float32](in, out)
-	case arrow.FLOAT64:
-		castNumberToNumberUnsafeImpl[float64](in, out)
+		return 20, nil
 	}
+	return -1, fmt.Errorf("%w: not an integer type: %s", arrow.ErrInvalid, id)
 }
