@@ -352,7 +352,7 @@ class ARROW_DS_EXPORT FileWriter {
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
   std::shared_ptr<FileWriteOptions> file_write_options =
-      CsvFileFormat().DefaultWriteOptions();
+      ParquetFileFormat::DefaultWriteOptions();
 
   /// FileSystem into which a dataset will be written.
   std::shared_ptr<fs::FileSystem> filesystem =
@@ -369,7 +369,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
-  std::string basename_template = "data_{i}.arrow";
+  std::string basename_template = "part-{i}." + format()->type_name();
 
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
@@ -389,7 +389,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// and only write the row groups to the disk when sufficient rows have accumulated.
   /// The final row group size may be less than this value and other options such as
   /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
-  uint64_t min_rows_per_group = 10;
+  uint64_t min_rows_per_group = 1 << 18;
 
   /// If greater than 0 then the dataset writer may split up large incoming batches into
   /// multiple row groups.  If this value is set then min_rows_per_group should also be
