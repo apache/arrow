@@ -132,6 +132,7 @@ format_expr <- function(x) {
 # vector of function names that do not have corresponding bindings, but we
 # shouldn't try to translate
 translation_exceptions <- c(
+  # commmon R or dplyr functions we do not have bindings for
   "c",
   "$",
   "factor",
@@ -178,7 +179,26 @@ translation_exceptions <- c(
   "decimal256"
 )
 
+#' Register user defined bindings
+#'
+#' The function takes a quosure for the evaluation of which a data mask is
+#' required. If there are corresponding bindings (in the functions registry) for
+#' all the function calls inside the quosure's expression, it does nothing.
+#' If there are any unknown ones, it decomposes and assesses whether there are
+#' matching bindings. It does this recursively.
+#'
+#' It sets a copy of the bindings environment (i.e. the function registry) as
+#' the parent environment for the user-defined functions' environments.
+#'
+#' @param quo quosure for which the data mask is being built
+#' @param .env bindings environment to register against
+#'
+#' @return the function does not return anything, it is used for its side-effects
+#' @keywords internal
+#' @noRd
 register_user_bindings <- function(quo, .env) {
+  # figure out which of the calls we do not have bindings for or we shouldn't
+  # translate
   unknown_functions_chr <- setdiff(
     all_funs(quo),
     union(
@@ -208,7 +228,8 @@ register_user_bindings <- function(quo, .env) {
         function_body <- rlang::fn_body(unknown_fn)
         body_calls <- all_funs(function_body[[2]])
 
-        # only register if none of the calls in body come back as NULL
+        # only register a valid bindings if none of the calls in body come back
+        # as NULL, otherwise register NULL
         if (purrr::none(mget(body_calls, envir = .env), is.null)) {
           register_binding(
             unknown_fn_name,
@@ -225,24 +246,42 @@ register_user_bindings <- function(quo, .env) {
           )
         }
       } else {
-        # if there are call we don't have bindings for, try to register them first
+        # if there are calls we don't have bindings for, attempt to register
+        # them first (in case we can recursively translate a function), if we
+        # can't then register them as NULL
         unknown_function_body <-
           tryCatch(
             rlang::fn_body(unknown_fn),
             error = function(e) NULL
           )
         if (!is.null(unknown_function_body)) {
+          # make it a quosure before attempting to register again with
+          # `register_user_bindings`
           new_quo <- rlang::new_quosure(unknown_function_body[[2]], env = quo_get_env(quo))
           register_user_bindings(new_quo, .env)
         } else {
           register_binding(unknown_fn_name, NULL, registry = .env, update_cache = TRUE)
         }
+        # once all unknown calls in the stack have been attempted, make a final
+        # attempt with the original quosure
         register_user_bindings(quo, .env)
       }
     }
   }
+  invisible()
 }
 
+#' Assess if a function is registrable
+#'
+#' A function is considered registrable when all the function calls in its body
+#' have corresponding bindings.
+#'
+#' @param .fun function to assess
+#' @param .env bindings environment to assess against
+#'
+#' @return (logical) `TRUE` or `FALSE`
+#' @keywords internal
+#' @noRd
 registrable <- function(.fun, .env) {
   if (is.primitive(.fun)) return(FALSE)
   function_body <- rlang::fn_body(.fun)
