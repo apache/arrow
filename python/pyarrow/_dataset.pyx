@@ -837,8 +837,8 @@ cdef class FileFormat(_Weakrefable):
         # CsvFileFormat stores a Python-specific encoding field that needs
         # to be restored because it does not exist in the C++ struct
         if isinstance(self, CsvFileFormat):
-            if self.read_options_py is not None:
-                dfso.read_options = self.read_options_py
+            if self._read_options_py is not None:
+                dfso.read_options = self._read_options_py
         return dfso
 
     @default_fragment_scan_options.setter
@@ -1181,7 +1181,7 @@ cdef class CsvFileFormat(FileFormat):
         # The encoding field in ReadOptions does not exist in the C++ struct.
         # We need to store it here and override it when reading
         # default_fragment_scan_options.read_options
-        public ReadOptions read_options_py
+        public ReadOptions _read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1210,7 +1210,7 @@ cdef class CsvFileFormat(FileFormat):
                             'a dictionary or an instance of '
                             'CsvFragmentScanOptions')
         if read_options is not None:
-            self.read_options_py = read_options
+            self._read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1234,7 +1234,7 @@ cdef class CsvFileFormat(FileFormat):
         if options.type_name == 'csv':
             self.csv_format.default_fragment_scan_options = options.wrapped
             self.default_fragment_scan_options.read_options = options.read_options
-            self.read_options_py = options.read_options
+            self._read_options_py = options.read_options
         else:
             super()._set_default_fragment_scan_options(options)
 
@@ -1268,7 +1268,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
         CCsvFragmentScanOptions* csv_options
         # The encoding field in ReadOptions does not exist in the C++ struct.
         # We need to store it here and override it when reading read_options
-        ReadOptions read_options_py
+        ReadOptions _read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1281,7 +1281,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
             self.convert_options = convert_options
         if read_options is not None:
             self.read_options = read_options
-            self.read_options_py = read_options
+            self._read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1298,14 +1298,14 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     @property
     def read_options(self):
         read_options = ReadOptions.wrap(self.csv_options.read_options)
-        if self.read_options_py is not None:
-            read_options.encoding = self.read_options_py.encoding
+        if self._read_options_py is not None:
+            read_options.encoding = self._read_options_py.encoding
         return read_options
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
-        self.read_options_py = read_options
+        self._read_options_py = read_options
         if read_options.encoding != 'utf8':
             self.csv_options.stream_transform_func = deref(
                 make_streamwrap_func(read_options.encoding, 'utf8'))
