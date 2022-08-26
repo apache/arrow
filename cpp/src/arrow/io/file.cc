@@ -429,8 +429,12 @@ Status DirectFileOutputStream::Close() {
       RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
     }
     auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
+// this is just to help compile. If you are not on Linux you would have failed out way
+// before this point.
+#if defined(__linux__)
     fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
+#endif
   }
   return impl_->Close();
 }
