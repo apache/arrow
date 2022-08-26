@@ -570,7 +570,7 @@ TYPED_TEST(TestListArray, ValuesEquality) { this->TestValuesEquality(); }
 
 TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
 
-TYPED_TEST(TestListArray, TestFromArraysWithNullBitMap) {
+TYPED_TEST(TestListArray, FromArraysWithNullBitMap) {
   this->TestFromArraysWithNullBitMap();
 }
 
