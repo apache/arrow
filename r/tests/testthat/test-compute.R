@@ -91,11 +91,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     int32(), float64(),
     auto_convert = TRUE
   )
-  on.exit({
-    unregister_binding("times_32", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -127,11 +123,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit({
-    unregister_binding("times_32_bad_return_type_array", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32_bad_return_type_array", update_cache = TRUE))
 
   expect_error(
     call_function("times_32_bad_return_type_array", Array$create(1L)),
@@ -144,11 +136,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit({
-    unregister_binding("times_32_bad_return_type_scalar", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32_bad_return_type_scalar", update_cache = TRUE))
 
   expect_error(
     call_function("times_32_bad_return_type_scalar", Array$create(1L)),
@@ -166,11 +154,7 @@ test_that("register_scalar_function() can register multiple kernels", {
     out_type = function(in_types) in_types[[1]],
     auto_convert = TRUE
   )
-  on.exit({
-    unregister_binding("times_32", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   expect_equal(
     call_function("times_32", Scalar$create(1L, int32())),
@@ -189,9 +173,6 @@ test_that("register_scalar_function() can register multiple kernels", {
 })
 
 test_that("register_scalar_function() errors for unsupported specifications", {
-  # TODO(ARROW-17178) remove the need for this!
-  on.exit(Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF"))
-
   expect_error(
     register_scalar_function(
       "no_kernels",
@@ -256,11 +237,7 @@ test_that("user-defined functions work during multi-threaded execution", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit({
-    unregister_binding("times_32", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   # check a regular collect()
   result <- open_dataset(tf_dataset) %>%
@@ -293,11 +270,7 @@ test_that("nested exec plans can contain user-defined functions", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit({
-    unregister_binding("times_32", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   stream_plan_with_udf <- function() {
    record_batch(a = 1:1000) %>%
@@ -335,11 +308,7 @@ test_that("head() on exec plan containing user-defined functions", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit({
-    unregister_binding("times_32", update_cache = TRUE)
-    # TODO(ARROW-17178) remove the need for this!
-    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
-  })
+  on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   result <- record_batch(a = 1:1000) %>%
     dplyr::mutate(b = times_32(a)) %>%
