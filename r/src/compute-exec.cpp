@@ -58,11 +58,26 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
 
 class ExecPlanReader : public arrow::RecordBatchReader {
  public:
+  enum ExecPlanReaderStatus { PLAN_NOT_STARTED, PLAN_RUNNING, PLAN_FINISHED };
+
   ExecPlanReader(
       const std::shared_ptr<arrow::compute::ExecPlan>& plan,
       const std::shared_ptr<arrow::Schema>& schema,
       arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen)
-      : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(0) {}
+      : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
+
+  std::string PlanStatus() {
+    switch (status_) {
+      case PLAN_NOT_STARTED:
+        return "PLAN_NOT_STARTED";
+      case PLAN_RUNNING:
+        return "PLAN_RUNNING";
+      case PLAN_FINISHED:
+        return "PLAN_FINISHED";
+      default:
+        return "UNKNOWN";
+    }
+  }
 
   std::shared_ptr<arrow::Schema> schema() const { return schema_; }
 
@@ -71,12 +86,12 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
     // If this is the first batch getting pulled, tell the exec plan to
     // start producing
-    if (status_ == 0) {
+    if (status_ == PLAN_NOT_STARTED) {
       ARROW_RETURN_NOT_OK(StartProducing());
     }
 
     // If we've closed the reader, this is invalid
-    if (status_ == 2) {
+    if (status_ == PLAN_FINISHED) {
       return arrow::Status::Invalid("ExecPlanReader has been closed");
     }
 
@@ -111,12 +126,12 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   arrow::Status StartProducing() {
     ARROW_RETURN_NOT_OK(plan_->StartProducing());
-    status_ = 1;
+    status_ = PLAN_RUNNING;
     return arrow::Status::OK();
   }
 
   void StopProducing() {
-    if (status_ == 1) {
+    if (status_ == PLAN_RUNNING) {
       std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
       bool not_finished_yet = plan_->finished().TryAddCallback(
           [&plan] { return [plan](const arrow::Status&) {}; });
@@ -124,15 +139,43 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       if (not_finished_yet) {
         plan_->StopProducing();
       }
-
-      status_ = 2;
-      plan_.reset();
-      sink_gen_ = arrow::MakeEmptyGenerator<arrow::util::optional<compute::ExecBatch>>();
     }
+
+    status_ = PLAN_FINISHED;
+    plan_.reset();
+    sink_gen_ = arrow::MakeEmptyGenerator<arrow::util::optional<compute::ExecBatch>>();
   }
 };
 
-std::shared_ptr<ExecPlanReader> ExecPlan_prepare(
+// [[arrow::export]]
+cpp11::list ExecPlanReader__batches(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  auto result = RunWithCapturedRIfPossible<arrow::RecordBatchVector>(
+      [&]() { return reader->ToRecordBatches(); });
+  return arrow::r::to_r_list(ValueOrStop(result));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ToTable(); });
+
+  return ValueOrStop(result);
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(
+    const std::shared_ptr<ExecPlanReader>& reader) {
+  if (reader->PlanStatus() == "PLAN_FINISHED") {
+    cpp11::stop("Can't extract ExecPlan from a finished ExecPlanReader");
+  }
+
+  return reader->Plan();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ExecPlanReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     cpp11::strings metadata, int64_t head = -1) {
@@ -177,40 +220,14 @@ std::shared_ptr<ExecPlanReader> ExecPlan_prepare(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
-  return ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Table> ExecPlan_read_table(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
-  auto reader = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
-      [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
-        return reader->ToTable();
-      });
-
-  return ValueOrStop(result);
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->ToString();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
-}
-
-// [[arrow::export]]
-std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
-                                  const std::shared_ptr<compute::ExecNode>& final_node,
-                                  cpp11::list sort_options, cpp11::strings metadata,
-                                  int64_t head = -1) {
-  auto reader = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  return reader->Plan()->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)

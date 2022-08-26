@@ -259,39 +259,8 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
-    # SinkNodes (involved in arrange and/or head/tail operations) are created in
-    # ExecPlan_run and are not captured by the regulat print method. We take a
-    # similar approach to expose them before calling the print method.
-    BuildAndShow = function(node) {
-      # a section of this code is copied from `Run()` - the 2 need to be in sync
-      # Start of chunk copied from `Run()`
-
-      assert_is(node, "ExecNode")
-
-      # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
-      sorting <- node$extras$sort %||% list()
-      select_k <- node$extras$head %||% -1L
-      has_sorting <- length(sorting) > 0
-      if (has_sorting) {
-        if (!is.null(node$extras$tail)) {
-          # Reverse the sort order and take the top K, then after we'll reverse
-          # the resulting rows so that it is ordered as expected
-          sorting$orders <- !sorting$orders
-          select_k <- node$extras$tail
-        }
-        sorting$orders <- as.integer(sorting$orders)
-      }
-
-      # End of chunk copied from `Run()`
-
-      ExecPlan_BuildAndShow(
-        self,
-        node,
-        sorting,
-        character(),
-        select_k
-      )
+    ToString = function() {
+      ExecPlan_ToString(self)
     }
   )
 )
@@ -373,6 +342,22 @@ ExecNode <- R6Class("ExecNode",
   ),
   active = list(
     schema = function() ExecNode_output_schema(self)
+  )
+)
+
+ExecPlanReader <- R6Class("ExecPlanReader",
+  inherit = RecordBatchReader,
+  public = list(
+    batches = function() ExecPlanReader__batches(self),
+    read_table = function() Table__from_ExecPlanReader(self),
+    Plan = function() ExecPlanReader__Plan(self),
+    ToString = function() {
+      paste(
+        super$ToString(),
+        ExecPlanReader__ToString(self),
+        collapse = "\n"
+      )
+    }
   )
 )
 

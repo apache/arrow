@@ -404,20 +404,28 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
+ExecPlanReader__batches <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__batches`, reader)
+}
+
+Table__from_ExecPlanReader <- function(reader) {
+  .Call(`_arrow_Table__from_ExecPlanReader`, reader)
+}
+
+ExecPlanReader__Plan <- function(reader) {
+  .Call(`_arrow_ExecPlanReader__Plan`, reader)
+}
+
 ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
+ExecPlan_ToString <- function(plan) {
+  .Call(`_arrow_ExecPlan_ToString`, plan)
 }
 
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
-}
-
-ExecPlan_BuildAndShow <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_BuildAndShow`, plan, final_node, sort_options, metadata, head)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
