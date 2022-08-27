@@ -940,9 +940,9 @@ ensure_source_directory() {
 
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
-  export CMAKE_PREFIX_PATH=$ARROW_HOME/lib/cmake:${CMAKE_PREFIX_PATH:-}
+  export CMAKE_PREFIX_PATH=$ARROW_HOME${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
