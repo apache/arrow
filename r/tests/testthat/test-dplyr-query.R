@@ -631,3 +631,18 @@ test_that("collect() is identical to compute() %>% collect()", {
       collect()
   )
 })
+
+test_that("Scalars in expressions match the type of the field, if possible", {
+  tab <- Table$create(tbl)
+  expect_output(
+    tab %>%
+      filter(int == 4) %>%
+      show_exec_plan(),
+    "int == 4"
+  )
+  # TODO:
+  # * test int == 4.2 (cast to int errors so send as float and let int cast)
+  # * what about int == "4"?
+  # * special handling for date == "string", this should work (has separate jira)
+  # * what about functions where types should not be the same? (timestamp - duration?)
+})

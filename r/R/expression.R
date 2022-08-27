@@ -217,12 +217,7 @@ build_expr <- function(FUN,
       )
     )
   } else {
-    args <- lapply(args, function(x) {
-      if (!inherits(x, "Expression")) {
-        x <- Expression$scalar(x)
-      }
-      x
-    })
+    args <- wrap_scalars(args, FUN)
 
     # In Arrow, "divide" is one function, which does integer division on
     # integer inputs and floating-point division on floats
@@ -256,6 +251,52 @@ build_expr <- function(FUN,
     expr <- Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)
   }
   expr
+}
+
+wrap_scalars <- function(args, FUN) {
+  arrow_fun <- .array_function_map[[FUN]] %||% FUN
+  if (arrow_fun == "if_else") {
+    # For if_else, the first arg should be a bool Expression, and we don't
+    # want to consider that when casting the other args to the same type
+    args[-1] <- wrap_scalars(args[-1], FUN = "")
+    return(args)
+  }
+
+  is_expr <- map_lgl(args, ~ inherits(., "Expression"))
+  if (all(is_expr)) {
+    # No wrapping is required
+    return(args)
+  }
+
+  args[!is_expr] <- lapply(args[!is_expr], Scalar$create)
+
+  # Some special casing by function
+  # * %/%: we switch behavior based on int vs. dbl in R (see build_expr) so skip
+  # * binary_repeat, list_element: 2nd arg must be integer, Acero will handle it
+  if (any(is_expr) && !(arrow_fun %in% c("binary_repeat", "list_element")) && !(FUN %in% "%/%")) {
+    if (sum(is_expr) == 1) {
+      # Simple case: just one expr so take its type
+      try(
+        {
+          # If the Expression has no Schema embedded, we cannot resolve its
+          # type here, so this will error, hence the try() wrapping it
+          to_type <- args[[which(is_expr)]]$type()
+          # Try casting to this type, but if the cast fails,
+          # we'll just keep the original
+          args[!is_expr] <- lapply(args[!is_expr], function(x) x$cast(to_type))
+        },
+        silent = TRUE
+      )
+    } else {
+      # TODO: check if all expression types are the same, and if so, cast to that
+      # Functions that exercise code that go through here (in our tests):
+      # * case_when
+      # * pmin/pmax
+    }
+  }
+
+  args[!is_expr] <- lapply(args[!is_expr], Expression$scalar)
+  args
 }
 
 #' @export
