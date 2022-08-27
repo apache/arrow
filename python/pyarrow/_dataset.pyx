@@ -2513,6 +2513,16 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         columns : list of str, default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -2601,6 +2611,16 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         columns : list of str, default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -2634,9 +2654,6 @@ cdef class Scanner(_Weakrefable):
             The number of batches to read ahead in a file. This might not work
             for all file formats. Increasing this number will increase
             RAM usage but could also improve IO utilization.
-        fragment_scan_options : FragmentScanOptions, default None
-            Options specific to a particular scan and fragment type, which
-            can change between different scans of the same dataset.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2647,6 +2664,9 @@ cdef class Scanner(_Weakrefable):
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()

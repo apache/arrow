@@ -104,14 +104,6 @@ cdef class ReadOptions(_Weakrefable):
     skip_rows : int, optional (default 0)
         The number of rows to skip before the column names (if any)
         and the CSV data.
-    skip_rows_after_names : int, optional (default 0)
-        The number of rows to skip after the column names.
-        This number can be larger than the number of rows in one
-        block, and empty rows are counted.
-        The order of application is as follows:
-        - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
-        - `skip_rows_after_names` is applied (if non-zero).
     column_names : list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -123,6 +115,14 @@ cdef class ReadOptions(_Weakrefable):
     encoding : str, optional (default 'utf8')
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
+    skip_rows_after_names : int, optional (default 0)
+        The number of rows to skip after the column names.
+        This number can be larger than the number of rows in one
+        block, and empty rows are counted.
+        The order of application is as follows:
+        - `skip_rows` is applied (if non-zero);
+        - column names aread (unless `column_names` is set);
+        - `skip_rows_after_names` is applied (if non-zero).
 
     Examples
     --------
