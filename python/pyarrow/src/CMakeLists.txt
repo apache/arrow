@@ -37,9 +37,11 @@ get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
 get_filename_component(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR} DIRECTORY)
 set(ARROW_CPP_SOURCE_DIR "${ARROW_SOURCE_DIR}/cpp")
 
+set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules")
+
 # normalize ARROW_HOME path
 file(TO_CMAKE_PATH "$ENV{ARROW_HOME}" ARROW_HOME)
-set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "${ARROW_HOME}/lib/cmake/arrow")
+list(INSERT CMAKE_PREFIX_PATH 0 "${ARROW_HOME}")
 
 #
 # Arrow version
@@ -59,7 +61,6 @@ endif()
 #
 
 find_package(Arrow REQUIRED)
-include(ArrowOptions)
 
 #
 # Python
@@ -104,18 +105,36 @@ set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
 
 #
-# Arrow vs PyArrow cpp options
+# Shared/static link libs
 #
 
-# Check all the options from Arrow and PyArrow cpp to be in line
+set(ARROW_PYTHON_SHARED_LINK_LIBS)
+set(ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS)
+set(ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS)
+set(ARROW_PYTHON_STATIC_LINK_LIBS)
+set(ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS)
+
+#
+# Arrow vs PyArrow C++ options
+#
+
+# Check all the options from Arrow and PyArrow C++ to be in line
 if(PYARROW_WITH_DATASET)
   find_package(ArrowDataset REQUIRED)
+  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+  list(APPEND ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS ArrowDataset::arrow_dataset_shared)
+  list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS ArrowDataset::arrow_dataset_static)
+  list(APPEND ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS ArrowDataset::arrow_dataset_static)
 endif()
 
 if(PYARROW_WITH_PARQUET_ENCRYPTION)
   if(PARQUET_REQUIRE_ENCRYPTION)
     list(APPEND ARROW_PYTHON_SRCS parquet_encryption.cc)
     find_package(Parquet REQUIRED)
+    list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS Parquet::parquet_shared)
+    list(APPEND ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
+    list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS Parquet::parquet_static)
+    list(APPEND ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS Parquet::parquet_static)
   else()
     message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
   endif()
@@ -136,19 +155,28 @@ if(ARROW_FILESYSTEM)
   list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
 endif()
 
-# Link to arrow dependecies
-if(ARROW_BUILD_SHARED)
-  set(ARROW_PYTHON_DEPENDENCIES arrow_shared)
-else()
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-  set(ARROW_PYTHON_DEPENDENCIES arrow_static Threads::Threads)
-endif()
-
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE pyarrow.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
+endif()
+
+if(NOT ARROW_PYTHON_SHARED_LINK_LIBS)
+  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS Arrow::arrow_shared)
+endif()
+if(NOT ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS)
+  list(APPEND ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+endif()
+if(NOT ARROW_PYTHON_STATIC_LINK_LIBS)
+  list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS Arrow::arrow_static)
+endif()
+list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS ${PYTHON_OTHER_LIBS})
+if(NOT ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS)
+  list(APPEND ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+endif()
+
+if(WIN32)
+  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
 endif()
 
 #
@@ -168,35 +196,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Needed compiler flags
 include(SetupCxxFlags)
 
-#
-# Shared/static link libs
-#
-
-set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
-set(ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS)
-set(ARROW_PYTHON_STATIC_LINK_LIBS ${PYTHON_OTHER_LIBS})
-
-if(WIN32)
-  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
-endif()
-
-if(PARQUET_REQUIRE_ENCRYPTION AND PYARROW_WITH_PARQUET_ENCRYPTION)
-  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS parquet_shared)
-endif()
-
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 # Inlude macros needed to find and use add_arrow_lib function
 include(BuildUtils)
 include(CMakePackageConfigHelpers)
 
-# Set the output directory for cmake module
+# Set the output directory for CMake files
 # (CMAKE_INSTALL_PREFIX = python/build/dist! should be set in setup.py!)
-set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake")
 
 # Changing ARROW_SOURCE_DIR for sdist build
 # In this case cpp/cmake_modules doesn't exist
-if(NOT EXISTS "${ARROW_SOURCE_DIR}/cpp/cmake_modules/Find${MODULE}.cmake")
+if(NOT EXISTS "${ARROW_SOURCE_DIR}/cpp/cmake_modules")
   set(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR})
 endif()
 
@@ -211,16 +223,18 @@ add_arrow_lib(arrow_python
               "$<$<COMPILE_LANGUAGE:CXX>:pch.h>"
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
-              DEPENDENCIES
-              ${ARROW_PYTHON_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS}
               SHARED_LINK_LIBS
               ${ARROW_PYTHON_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              ${ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_PYTHON_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              ${ARROW_PYTHON_STATIC_INSTALL_INTERFACE_LIBS}
               EXTRA_INCLUDES
               "${ARROW_PYTHON_INCLUDES}")
 
@@ -242,7 +256,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
    # in Flight)
   find_package(ArrowFlight REQUIRED)
 
-  set(FLIGHT_LINK_LIBS arrow_flight_shared)
+  set(FLIGHT_LINK_LIBS ArrowFlight::arrow_flight_shared)
 
   add_arrow_lib(arrow_python_flight
                 CMAKE_PACKAGE_NAME
@@ -257,9 +271,16 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                 ${ARROW_VERSION_SCRIPT_FLAGS}
                 SHARED_LINK_LIBS
                 arrow_python_shared
-                arrow_flight_shared
+                ArrowFlight::arrow_flight_shared
+                SHARED_INSTALL_INTERFACE_LIBS
+                ArrowPython::arrow_python_shared
+                ArrowFlight::arrow_flight_shared
                 STATIC_LINK_LIBS
-                ${PYTHON_OTHER_LIBS}
+                arrow_python_static
+                ArrowFlight::arrow_flight_static
+                STATIC_INSTALL_INTERFACE_LIBS
+                ArrowPython::arrow_python_static
+                ArrowFlight::arrow_flight_static
                 EXTRA_INCLUDES
                 "${ARROW_PYTHON_INCLUDES}"
                 PRIVATE_INCLUDES
@@ -272,7 +293,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   endforeach()
 
   if(ARROW_BUILD_STATIC AND MSVC)
-    target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
+    target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_PYTHON_STATIC)
   endif()
 endif()
 
@@ -367,9 +388,9 @@ if(ARROW_BUILD_TESTS)
 
     # Link libraries to avoid include error on Linux
     if(ARROW_TEST_LINKAGE STREQUAL shared)
-      target_link_libraries(arrow_python_test_main arrow_shared)
+      target_link_libraries(arrow_python_test_main Arrow::arrow_shared)
     else()
-      target_link_libraries(arrow_python_test_main arrow_static)
+      target_link_libraries(arrow_python_test_main Arrow::arrow_static)
     endif()
 
     if(APPLE)
@@ -382,10 +403,10 @@ if(ARROW_BUILD_TESTS)
 
     if(ARROW_TEST_LINKAGE STREQUAL shared)
       set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_shared
-                                      arrow_testing_shared arrow_shared)
+                                      ArrowTesting::arrow_testing_shared)
     else()
       set(ARROW_PYTHON_TEST_LINK_LIBS arrow_python_test_main arrow_python_static
-                                      arrow_testing_static arrow_static)
+                                      ArrowTesting::arrow_testing_static)
     endif()
 
     #
@@ -450,8 +471,8 @@ if(ARROW_BUILD_TESTS)
                  PROPERTY LABELS ${LABELS})
 
   else()
-    message(STATUS "Tests for PyArrow CPP not build")
+    message(STATUS "Tests for PyArrow C++ not build")
     message(STATUS "Set -DGTest_SOURCE=BUNDLED when building Arrow C++
-                    to enable building tests for PyArrow CPP")
+                    to enable building tests for PyArrow C++")
   endif()
 endif()

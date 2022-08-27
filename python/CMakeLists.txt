@@ -33,6 +33,10 @@ if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
+if(PYARROW_CPP_HOME)
+  list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
+endif()
+
 include(CMakeParseArguments)
 
 # Only interpret if() arguments as variables or keywords when unquoted.
