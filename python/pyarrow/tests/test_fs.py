@@ -191,9 +191,14 @@ def localfs_with_mmap(request, tempdir):
     )
 
 
-@pytest.fixture
-@pytest.mark.skipif(sys.platform != 'linux',
-                    reason="DirectIO only works on Linux currently.")
+@pytest.fixture(
+    params=[pytest.param(
+        pytest.lazy_fixture('localfs_with_directio'),
+        id='LocalFileSystem(use_directio=True)',
+        marks=pytest.mark.skipif(sys.platform != 'linux',
+            reason="DirectIO only works on Linux currently.")
+    ), ]
+)
 def localfs_with_directio(request, tempdir):
     return dict(
         fs=LocalFileSystem(use_directio=True),
