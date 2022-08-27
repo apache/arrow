@@ -63,21 +63,15 @@ typedef int col_index_t;
 
 // normalize the value to 64-bits while preserving ordering of values
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-static inline uint64_t norm_value(T t) {
+static inline uint64_t time_value(T t) {
   uint64_t bias = std::is_signed<T>::value ? (uint64_t)1 << (8 * sizeof(T) - 1) : 0;
   return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t);
-}
-
-// indicates normalization of a time value
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-static inline uint64_t time_value(T t) {
-  return norm_value(t);
 }
 
 // indicates normalization of a key value
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
 static inline uint64_t key_value(T t) {
-  return norm_value(t);
+  return static_cast<uint64_t>(t);
 }
 
 /**
@@ -642,23 +636,10 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
-  // this should really be a method on ArrayData
-  static bool IsNull(const std::shared_ptr<ArrayData>& source, row_index_t row) {
-    return ((source->buffers[0] != NULLPTR)
-                ? !bit_util::GetBit(source->buffers[0]->data(), row + source->offset)
-                : source->null_count.load() == source->length);
-  }
-
-  template <typename T>
-  using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
-
-  template <typename T, typename R = void>
-  using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
-
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
   enable_if_fixed_width_type<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
-    if (IsNull(source, row)) {
+    if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
     }
@@ -670,7 +651,7 @@ class CompositeReferenceTable {
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
   enable_if_base_binary<Type, Status> static BuilderAppend(
       Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
-    if (IsNull(source, row)) {
+    if (source->IsNull(row)) {
       return builder.AppendNull();
     }
     using offset_type = typename Type::offset_type;

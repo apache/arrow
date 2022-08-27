@@ -167,6 +167,11 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
+  bool IsNull(int64_t i) const {
+    return ((buffers[0] != NULLPTR) ? !bit_util::GetBit(buffers[0]->data(), i + offset)
+                                    : null_count.load() == length);
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
