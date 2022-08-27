@@ -174,6 +174,10 @@ class ARROW_EXPORT SelectionVector {
 /// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
+
+/// \addtogroup execnode-components
+/// @{
+
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
@@ -399,6 +403,8 @@ struct ARROW_EXPORT ExecSpan {
   int64_t length = 0;
   std::vector<ExecValue> values;
 };
+
+/// @}
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

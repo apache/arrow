@@ -352,3 +352,12 @@ on:
 
 {% set r_release = '4.2' %}
 {% set r_oldrel = '4.1' %}
+
+{%- macro github_set_env(env) -%}
+  {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
+{%- endmacro -%}

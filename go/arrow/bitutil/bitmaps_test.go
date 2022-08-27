@@ -521,6 +521,22 @@ func TestBitmapOps(t *testing.T) {
 	suite.Run(t, new(BitmapOpSuite))
 }
 
+func TestSmallBitmapOp(t *testing.T) {
+	// 0b01111111 0b11001111
+	left := [2]byte{127, 207}
+	// 0b11111110 0b01111111
+	right := [2]byte{254, 127}
+	// 0b01111110 0b01001111
+	results := [2]byte{126, 79}
+
+	var out [2]byte
+	bitutil.BitmapAnd(left[:], right[:], 0, 0, out[:], 0, 8)
+	assert.Equal(t, results[:1], out[:1])
+
+	bitutil.BitmapAnd(left[:], right[:], 0, 0, out[:], 0, 16)
+	assert.Equal(t, results, out)
+}
+
 func createRandomBuffer(mem memory.Allocator, src *rand.Rand, nbytes int) []byte {
 	buf := mem.Allocate(nbytes)
 	src.Read(buf)

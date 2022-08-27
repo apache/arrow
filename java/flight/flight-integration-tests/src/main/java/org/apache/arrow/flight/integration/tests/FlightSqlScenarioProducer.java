@@ -126,8 +126,17 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   }
 
   @Override
+  public SchemaResult getSchemaPreparedStatement(FlightSql.CommandPreparedStatementQuery command, CallContext context,
+                                                 FlightDescriptor descriptor) {
+    IntegrationAssertions.assertEquals(command.getPreparedStatementHandle().toStringUtf8(),
+        "SELECT PREPARED STATEMENT HANDLE");
+    return new SchemaResult(getQuerySchema());
+  }
+
+  @Override
   public SchemaResult getSchemaStatement(FlightSql.CommandStatementQuery command,
                                          CallContext context, FlightDescriptor descriptor) {
+    IntegrationAssertions.assertEquals(command.getQuery(), "SELECT STATEMENT");
     return new SchemaResult(getQuerySchema());
   }
 

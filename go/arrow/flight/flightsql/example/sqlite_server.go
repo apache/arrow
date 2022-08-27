@@ -14,8 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build go1.17
-// +build go1.17
+//go:build go1.18
+// +build go1.18
 
 // Package example contains a FlightSQL Server implementation using
 // sqlite as the backing engine.
@@ -30,9 +30,10 @@
 // package, it's easy to swap them out if desired as the modernc.org/sqlite
 // package is slower than go-sqlite3.
 //
-// One other important note is that modernc.org/sqlite only works in go
-// 1.17+ so this entire package is given the build constraint to only
-// build when using go1.17 or higher
+// One other important note is that modernc.org/sqlite only works
+// correctly (specifically pragma_table_info) in go 1.18+ so this
+// entire package is given the build constraint to only build when
+// using go1.18 or higher
 package example
 
 import (

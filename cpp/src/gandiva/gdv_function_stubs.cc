@@ -754,14 +754,13 @@ GANDIVA_EXPORT
 gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
                                           gdv_timestamp time_miliseconds,
                                           const char* timezone, gdv_int32 length) {
-  using arrow_vendored::date::make_zoned;
   using arrow_vendored::date::sys_time;
+  using arrow_vendored::date::zoned_time;
   using std::chrono::milliseconds;
 
-  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
-  const auto utc_tz = make_zoned(std::string("Etc/UTC"), tp);
+  const sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
   try {
-    const auto local_tz = make_zoned(std::string(timezone, length), utc_tz);
+    const zoned_time<milliseconds> local_tz{std::string(timezone, length), tp};
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
     return time_miliseconds + static_cast<gdv_timestamp>(offset);
   } catch (...) {

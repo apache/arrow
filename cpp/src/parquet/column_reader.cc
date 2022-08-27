@@ -752,8 +752,11 @@ class ColumnReaderImplBase {
       repetition_level_decoder_.SetDataV2(page.repetition_levels_byte_length(),
                                           max_rep_level_,
                                           static_cast<int>(num_buffered_values_), buffer);
-      buffer += page.repetition_levels_byte_length();
     }
+    // ARROW-17453: Even if max_rep_level_ is 0, there may still be
+    // repetition level bytes written and/or reported in the header by
+    // some writers (e.g. Athena)
+    buffer += page.repetition_levels_byte_length();
 
     if (max_def_level_ > 0) {
       definition_level_decoder_.SetDataV2(page.definition_levels_byte_length(),
