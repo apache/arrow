@@ -241,9 +241,7 @@ class build_ext(_build_ext):
         source_pyarrow_cpp = pjoin(source, "pyarrow/src")
 
         # The directory for the module being built
-        build_cmd = self.get_finalized_command('build')
-        saved_cwd = os.getcwd()
-        build_dir = pjoin(saved_cwd, 'build', 'cpp')
+        build_dir = pjoin(os.getcwd(), 'build', 'cpp')
 
         # The directory containing Arrow C++ build
         arrow_build_dir = os.environ.get('ARROW_BUILD_DIR', 'build')
@@ -446,7 +444,7 @@ class build_ext(_build_ext):
                 # pyarrow/include file is first deleted in the previous step
                 # so we need to add the PyArrow C++ include folder again
                 pyarrow_cpp_include = pjoin(pyarrow_cpp_home, 'include')
-                shutil.move(pjoin(build_pyarrow_cpp_include, 'arrow', 'python'),
+                shutil.move(pjoin(pyarrow_cpp_include, 'arrow', 'python'),
                             pjoin(pyarrow_include, 'arrow', 'python'))
 
             # Move the built C-extension to the place expected by the Python
