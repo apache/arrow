@@ -245,6 +245,10 @@ Status BufferedOutputStream::Flush() { return impl_->Flush(); }
 
 std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->raw(); }
 
+Result<std::shared_ptr<const KeyValueMetadata>> BufferedOutputStream::ReadMetadata() {
+  return impl_->raw()->ReadMetadata();
+}
+
 // ----------------------------------------------------------------------
 // BufferedInputStream implementation
 

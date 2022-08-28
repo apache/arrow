@@ -201,6 +201,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
                                   const int load_frequency)
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
+
+        CResult[shared_ptr[CRandomAccessFile]] OpenInputFileWithVersion(
+            const c_string& path, const c_string& version)
+        CResult[shared_ptr[CInputStream]] OpenInputStreamWithVersion(
+            const c_string& path, const c_string& version)
+
         @staticmethod
         CResult[shared_ptr[CS3FileSystem]] Make(const CS3Options& options)
         CS3Options options()

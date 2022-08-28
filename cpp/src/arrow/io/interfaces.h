@@ -205,6 +205,17 @@ class ARROW_EXPORT Readable {
 };
 
 class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable {
+ public:
+  /// \brief Read and return stream metadata
+  ///
+  /// If the stream implementation doesn't support metadata, empty metadata
+  /// is returned.  Note that it is allowed to return a null pointer rather
+  /// than an allocated empty metadata.
+  ///
+  /// The metadata may be populated by the stream being closed.
+  ///
+  virtual Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
  protected:
   OutputStream() = default;
 };

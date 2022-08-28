@@ -117,6 +117,10 @@ Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
   return std::shared_ptr<const KeyValueMetadata>{};
 }
 
+Result<std::shared_ptr<const KeyValueMetadata>> OutputStream::ReadMetadata() {
+  return std::shared_ptr<const KeyValueMetadata>{};
+}
+
 // Default ReadMetadataAsync() implementation: simply issue the read on the context's
 // executor
 Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(

@@ -1274,7 +1274,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
-        pass
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
 
     cdef cppclass CInputStream" arrow::io::InputStream"(FileInterface,
                                                         Readable):

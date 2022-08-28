@@ -992,6 +992,10 @@ def test_open_output_stream_metadata(fs, pathfn):
     with fs.open_output_stream(p, metadata=metadata) as f:
         f.write(data)
 
+    if fs.type_name in ['s3']:
+        write_metadata = f.metadata()
+        assert "ETag" in write_metadata
+
     with fs.open_input_stream(p) as f:
         assert f.read() == data
         got_metadata = f.metadata()

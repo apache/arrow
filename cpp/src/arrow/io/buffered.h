@@ -82,6 +82,8 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Return the underlying raw output stream.
   std::shared_ptr<OutputStream> raw() const;
 
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override;
+
  private:
   explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw, MemoryPool* pool);
 

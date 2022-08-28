@@ -25,6 +25,18 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
+from pyarrow.lib cimport *
+
+cdef inline c_string _path_as_bytes(path) except *:
+    # handle only abstract paths, not bound to any filesystem like pathlib is,
+    # so we only accept plain strings
+    if not isinstance(path, (bytes, str)):
+        raise TypeError('Path must be a string')
+    # tobytes always uses utf-8, which is more or less ok, at least on Windows
+    # since the C++ side then decodes from utf-8. On Unix, os.fsencode may be
+    # better.
+    return tobytes(path)
+
 
 cpdef enum S3LogLevel:
     Off = <int8_t> CS3LogLevel_Off
@@ -141,9 +153,9 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
-    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
-    True), it does not pass any non-default settings. In AWS S3, the bucket and 
-    all objects will be not publicly visible, and will have no bucket policies 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is
+    True), it does not pass any non-default settings. In AWS S3, the bucket and
+    all objects will be not publicly visible, and will have no bucket policies
     and no resource tags. To have more control over how buckets are created,
     use a different API to create them.
 
@@ -206,10 +218,10 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_bucket_creation : bool, default False
-        Whether to allow CreateDir at the bucket-level. This option may also be 
+        Whether to allow CreateDir at the bucket-level. This option may also be
         passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
@@ -359,6 +371,93 @@ cdef class S3FileSystem(FileSystem):
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
+
+    def open_input_file_with_version(self, path, version):
+        """
+        Open an input file for random access reading while specifying
+        a specific version of the file.
+
+        Parameters
+        ----------
+        path : str
+            The source to open for reading.
+        version : str
+            The version of the source to open for reading.
+
+        Returns
+        -------
+        stream : NativeFile
+
+        Examples
+        --------
+        Print the data from the file with `open_input_file_with_version()`:
+
+        >>> with local.open_input_file_with_version(path, version) as f:
+        ...     print(f.readall())
+        b'data'
+        """
+        cdef:
+            c_string pathstr = _path_as_bytes(path)
+            c_string versionstr = tobytes(version)
+
+            NativeFile stream = NativeFile()
+            shared_ptr[CRandomAccessFile] in_handle
+
+        with nogil:
+            in_handle = GetResultValue(self.s3fs.OpenInputFileWithVersion(pathstr, versionstr))
+
+        stream.set_random_access_file(in_handle)
+        stream.is_readable = True
+        return stream
+
+    def open_input_stream_with_version(self, path, version, compression='detect', buffer_size=None):
+        """
+        Open an input stream for sequential reading.
+
+        Parameters
+        ----------
+        path : str
+            The source to open for reading.
+        version : str
+            The version of the source to open for reading
+        compression : str optional, default 'detect'
+            The compression algorithm to use for on-the-fly decompression.
+            If "detect" and source is a file path, then compression will be
+            chosen based on the file extension.
+            If None, no compression will be applied. Otherwise, a well-known
+            algorithm name must be supplied (e.g. "gzip").
+        buffer_size : int optional, default None
+            If None or 0, no buffering will happen. Otherwise the size of the
+            temporary read buffer.
+
+        Returns
+        -------
+        stream : NativeFile
+
+        Examples
+        --------
+        Print the data from the file with `open_input_stream()`:
+
+        >>> with local.open_input_stream_with_version(path, version) as f:
+        ...     print(f.readall())
+        b'data'
+        """
+        cdef:
+            c_string pathstr = _path_as_bytes(path)
+            c_string versionstr = tobytes(version)
+            NativeFile stream = NativeFile()
+            shared_ptr[CInputStream] in_handle
+
+        with nogil:
+            in_handle = GetResultValue(self.s3fs.OpenInputStreamWithVersion(pathstr, versionstr))
+
+        stream.set_input_stream(in_handle)
+        stream.is_readable = True
+
+        return self._wrap_input_stream(
+            stream, path=path, compression=compression, buffer_size=buffer_size
+        )
+
 
     @classmethod
     def _reconstruct(cls, kwargs):

@@ -45,6 +45,7 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
+#include <aws/s3/model/PutBucketVersioningRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/sts/STSClient.h>
@@ -401,13 +402,14 @@ TEST_F(TestMinioServer, Connect) {
 ////////////////////////////////////////////////////////////////////////////
 // Concrete S3 tests
 
-class TestS3FS : public S3TestMixin {
+class TestS3FSBase : public S3TestMixin {
  public:
-  void SetUp() override {
+  void SetUpWithVersioning(bool use_versioning) {
     S3TestMixin::SetUp();
     // Most tests will create buckets
     options_.allow_bucket_creation = true;
     options_.allow_bucket_deletion = true;
+    use_versioning_ = use_versioning;
     MakeFileSystem();
     // Set up test bucket
     {
@@ -416,6 +418,27 @@ class TestS3FS : public S3TestMixin {
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
       req.SetBucket(ToAwsString("empty-bucket"));
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+
+      if(use_versioning) {
+        // Enable versioning on the bucket.
+        {
+          Aws::S3::Model::PutBucketVersioningRequest versioning_request;
+          versioning_request.SetBucket(ToAwsString("bucket"));
+          Aws::S3::Model::VersioningConfiguration versioning_config;
+          versioning_config.SetStatus(Aws::S3::Model::BucketVersioningStatus::Enabled);
+          versioning_request.SetVersioningConfiguration(versioning_config);
+          ASSERT_OK(OutcomeToStatus(client_->PutBucketVersioning(versioning_request)));
+        }
+
+        {
+          Aws::S3::Model::PutBucketVersioningRequest versioning_request;
+          versioning_request.SetBucket(ToAwsString("empty-bucket"));
+          Aws::S3::Model::VersioningConfiguration versioning_config;
+          versioning_config.SetStatus(Aws::S3::Model::BucketVersioningStatus::Enabled);
+          versioning_request.SetVersioningConfiguration(versioning_config);
+          ASSERT_OK(OutcomeToStatus(client_->PutBucketVersioning(versioning_request)));
+        }
+      }
     }
     {
       Aws::S3::Model::PutObjectRequest req;
@@ -428,16 +451,40 @@ class TestS3FS : public S3TestMixin {
       req.SetKey(ToAwsString("somedir/subdir/subfile"));
       req.SetBody(std::make_shared<std::stringstream>("sub data"));
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
-      req.SetKey(ToAwsString("somefile"));
-      req.SetBody(std::make_shared<std::stringstream>("some data"));
-      req.SetContentType("x-arrow/test");
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+
+
+      if(use_versioning) {
+        req.SetKey(ToAwsString("somefile"));
+        req.SetBody(std::make_shared<std::stringstream>("some data (first version)"));
+        req.SetContentType("x-arrow/test");
+        Aws::S3::Model::PutObjectOutcome put_result = client_->PutObject(req);
+        ASSERT_OK(OutcomeToStatus(put_result));
+        Aws::String first_version_id = put_result.GetResult().GetVersionId();
+        req.SetKey(ToAwsString("somefile"));
+        req.SetBody(std::make_shared<std::stringstream>("some data (second version)"));
+        req.SetContentType("x-arrow/test");
+        put_result = client_->PutObject(req);
+        ASSERT_OK(OutcomeToStatus(put_result));
+        Aws::String second_version_id = put_result.GetResult().GetVersionId();
+
+        first_version_id_ = std::string(first_version_id.c_str(), first_version_id.size());
+        second_version_id_ = std::string(second_version_id.c_str(), second_version_id.size());
+      } else {
+        req.SetKey(ToAwsString("somefile"));
+        req.SetBody(std::make_shared<std::stringstream>("some data"));
+        req.SetContentType("x-arrow/test");
+        ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      }
+
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
     }
   }
 
+  std::string first_version_id_;
+  std::string second_version_id_;
+  bool use_versioning_;
   void MakeFileSystem() {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
@@ -488,6 +535,13 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Close());
     AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+
+    ASSERT_OK_AND_ASSIGN(auto got_metadata, stream->ReadMetadata());
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_TRUE(got_metadata->Contains("ETag"));
+    if (use_versioning_) {
+      ASSERT_TRUE(got_metadata->Contains("VersionId"));
+    }
 
     // Create new file with 1 small write
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile2"));
@@ -566,6 +620,21 @@ class TestS3FS : public S3TestMixin {
   S3Options options_;
   std::shared_ptr<S3FileSystem> fs_;
 };
+
+class TestS3FS : public TestS3FSBase {
+ public:
+  void SetUp() override {
+    TestS3FSBase::SetUpWithVersioning(false);
+  }
+};
+
+class TestS3FSVersioned : public TestS3FSBase {
+ public:
+  void SetUp() override {
+    TestS3FSBase::SetUpWithVersioning(true);
+  }
+};
+
 
 TEST_F(TestS3FS, GetFileInfoRoot) { AssertFileInfo(fs_.get(), "", FileType::Directory); }
 
@@ -1048,6 +1117,65 @@ TEST_F(TestS3FS, OpenInputFile) {
   ASSERT_RAISES(IOError, file->Seek(10));
 }
 
+TEST_F(TestS3FSVersioned, OpenInputFileWithVersionButNotSpecified) {
+  std::shared_ptr<io::RandomAccessFile> file;
+  std::shared_ptr<Buffer> buf;
+
+  // Nonexistent
+  ASSERT_RAISES(IOError, fs_->OpenInputFileWithVersion("nonexistent-bucket/somefile", ""));
+  ASSERT_RAISES(IOError, fs_->OpenInputFileWithVersion("bucket/zzzt", ""));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->OpenInputFileWithVersion("s3:bucket/somefile", ""));
+
+  // "Files"
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFileWithVersion("bucket/somefile", ""));
+  ASSERT_OK_AND_EQ(26, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(26));
+  // Check that if the version is not passed the latest
+  // version of the data is returned.
+  AssertBufferEqual(*buf, "some data (second version)");
+}
+
+TEST_F(TestS3FSVersioned, OpenInputFileWithVersion) {
+  std::shared_ptr<io::RandomAccessFile> file;
+  std::shared_ptr<Buffer> buf;
+
+  // Test that an unknown version returns an IOError.
+  ASSERT_RAISES(IOError, fs_->OpenInputFileWithVersion("bucket/somefile", "6B6A3C3A-8E89-4650-A8EE-7F0E458D91C6"));
+
+  // Test that files can be retrieved using a version id match
+  // the expected content.
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFileWithVersion("bucket/somefile", first_version_id_.c_str()));
+  ASSERT_OK_AND_EQ(25, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(25));
+  AssertBufferEqual(*buf, "some data (first version)");
+
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFileWithVersion("bucket/somefile", second_version_id_.c_str()));
+  ASSERT_OK_AND_EQ(26, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(26));
+  AssertBufferEqual(*buf, "some data (second version)");
+}
+
+TEST_F(TestS3FSVersioned, OpenInputStreamWithVersion) {
+  std::shared_ptr<io::InputStream> stream;
+  std::shared_ptr<Buffer> buf;
+
+  // Test that an unknown version returns an IOError.
+  ASSERT_RAISES(IOError, fs_->OpenInputStreamWithVersion("bucket/somefile", "6B6A3C3A-8E89-4650-A8EE-7F0E458D91C6"));
+
+  // Test that streams can be retrieved using a version id match
+  // the expected content.
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStreamWithVersion("bucket/somefile", first_version_id_.c_str()));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(25));
+  AssertBufferEqual(*buf, "some data (first version)");
+
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStreamWithVersion("bucket/somefile", second_version_id_.c_str()));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(26));
+  AssertBufferEqual(*buf, "some data (second version)");
+}
+
+
 TEST_F(TestS3FS, OpenOutputStreamBackgroundWrites) { TestOpenOutputStream(); }
 
 TEST_F(TestS3FS, OpenOutputStreamSyncWrites) {
@@ -1200,9 +1328,11 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
   void SetUp() override {
     S3TestMixin::SetUp();
     // Set up test bucket
+
+    const char* bucket_name = "s3fs-test-bucket";
     {
       Aws::S3::Model::CreateBucketRequest req;
-      req.SetBucket(ToAwsString("s3fs-test-bucket"));
+      req.SetBucket(ToAwsString(bucket_name));
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
     }
 
@@ -1211,7 +1341,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     options_.endpoint_override = minio_->connect_string();
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
-    fs_ = std::make_shared<SubTreeFileSystem>("s3fs-test-bucket", s3fs_);
+    fs_ = std::make_shared<SubTreeFileSystem>(bucket_name, s3fs_);
   }
 
  protected:

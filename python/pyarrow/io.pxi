@@ -244,9 +244,14 @@ cdef class NativeFile(_Weakrefable):
         cdef:
             shared_ptr[const CKeyValueMetadata] c_metadata
 
-        handle = self.get_input_stream()
-        with nogil:
-            c_metadata = GetResultValue(handle.get().ReadMetadata())
+        if self.is_readable:
+            read_handle = self.get_input_stream()
+            with nogil:
+                c_metadata = GetResultValue(read_handle.get().ReadMetadata())
+        else:
+            write_handle = self.output_stream
+            with nogil:
+                c_metadata = GetResultValue(write_handle.get().ReadMetadata())
 
         metadata = {}
         if c_metadata.get() != nullptr:

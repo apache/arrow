@@ -938,13 +938,18 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
 }
 
 Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
-                                                const S3Path& path, int64_t start,
+                                                const S3Path& path,
+                                                const std::string& version,
+                                                int64_t start,
                                                 int64_t length, void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
+  if (!version.empty()) {
+    req.SetVersionId(ToAwsString(version));
+  }
   return OutcomeToResult(client->GetObject(req));
 }
 
@@ -1050,10 +1055,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<Aws::S3::S3Client> client,
                   const io::IOContext& io_context, const S3Path& path,
+                  const std::string& version,
                   int64_t size = kNoSize)
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
+        version_(version),
         content_length_(size) {}
 
   Status Init() {
@@ -1067,6 +1074,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    if (!version_.empty()) {
+      // A S3 version is specifed.
+      req.SetVersionId(ToAwsString(version_));
+    }
 
     auto outcome = client_->HeadObject(req);
     if (!outcome.IsSuccess()) {
@@ -1150,7 +1161,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
     // Read the desired range of bytes
     ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
-                          GetObjectRange(client_.get(), path_, position, nbytes, out));
+                          GetObjectRange(client_.get(), path_, version_, position, nbytes, out));
 
     auto& stream = result.GetBody();
     stream.ignore(nbytes);
@@ -1192,6 +1203,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
   S3Path path_;
+  std::string version_;
 
   bool closed_ = false;
   int64_t pos_ = 0;
@@ -1217,6 +1229,7 @@ class ObjectOutputStream final : public io::OutputStream {
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
+        final_metadata_(nullptr),
         metadata_(metadata),
         default_metadata_(options.default_metadata),
         background_writes_(options.background_writes) {}
@@ -1225,6 +1238,17 @@ class ObjectOutputStream final : public io::OutputStream {
     // For compliance with the rest of the IO stack, Close rather than Abort,
     // even though it may be more expensive.
     io::internal::CloseFromDestructor(this);
+  }
+
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    if (final_metadata_ && final_metadata_->size() != 0) {
+      return final_metadata_;
+    } else if (metadata_ && metadata_->size() != 0) {
+      return metadata_;
+    } else if (default_metadata_ && default_metadata_->size() != 0) {
+      return default_metadata_;
+    }
+    return std::shared_ptr<const KeyValueMetadata>{};
   }
 
   Status Init() {
@@ -1324,8 +1348,22 @@ class ObjectOutputStream final : public io::OutputStream {
             outcome.GetError());
       }
 
+      // Store the metadata of the completed upload.
+      auto md = std::make_shared<KeyValueMetadata>();
+
+      auto push = [&](std::string k, const Aws::String& v) {
+        if (!v.empty()) {
+          md->Append(std::move(k), FromAwsString(v).to_string());
+        }
+      };
+
+      push("ETag", outcome.GetResult().GetETag());
+      push("VersionId", outcome.GetResult().GetVersionId());
+      final_metadata_ = std::move(md);
+
       client_ = nullptr;
       closed_ = true;
+
       return Status::OK();
     });
   }
@@ -1521,6 +1559,8 @@ class ObjectOutputStream final : public io::OutputStream {
   std::shared_ptr<S3Client> client_;
   const io::IOContext io_context_;
   const S3Path path_;
+  std::shared_ptr<KeyValueMetadata> final_metadata_;
+
   const std::shared_ptr<const KeyValueMetadata> metadata_;
   const std::shared_ptr<const KeyValueMetadata> default_metadata_;
   const bool background_writes_;
@@ -2226,16 +2266,25 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         });
   }
 
-  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
-                                                         S3FileSystem* fs) {
+
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFileWithVersion(const std::string& s,
+                                                                    const std::string& v,
+                                                                    S3FileSystem* fs) {
     ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
-
-    auto ptr = std::make_shared<ObjectInputFile>(client_, fs->io_context(), path);
+    auto version = std::string(v);
+    auto ptr = std::make_shared<ObjectInputFile>(client_, fs->io_context(), path, version);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
+                                                         S3FileSystem* fs) {
+    return OpenInputFileWithVersion(s, "", fs);
+  }
+
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          S3FileSystem* fs) {
@@ -2251,7 +2300,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     RETURN_NOT_OK(ValidateFilePath(path));
 
     auto ptr =
-        std::make_shared<ObjectInputFile>(client_, fs->io_context(), path, info.size());
+        std::make_shared<ObjectInputFile>(client_, fs->io_context(), path, "", info.size());
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -2581,6 +2630,12 @@ Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
   return impl_->OpenInputFile(s, this);
 }
 
+Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStreamWithVersion(
+    const std::string& s,
+    const std::string& v) {
+  return impl_->OpenInputFileWithVersion(s, v, this);
+}
+
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const FileInfo& info) {
   return impl_->OpenInputFile(info, this);
@@ -2588,7 +2643,13 @@ Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
     const std::string& s) {
-  return impl_->OpenInputFile(s, this);
+  return impl_->OpenInputFileWithVersion(s, "", this);
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFileWithVersion(
+    const std::string& s,
+    const std::string& v) {
+  return impl_->OpenInputFileWithVersion(s, v, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
