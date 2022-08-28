@@ -241,7 +241,7 @@ class InputState {
         time_col_index_(time_col_index),
         key_col_index_(key_col_index),
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
-        key_type_id_(schema_->num_fields()),
+        key_type_id_(key_col_index.size()),
         key_hasher_(key_hasher),
         must_hash_(must_hash),
         nullable_by_key_(nullable_by_key) {
@@ -292,6 +292,9 @@ class InputState {
   }
 
   ByType GetLatestKey() const {
+    if (key_col_index_.size() == 0) {
+      return 0;
+    }
     const RecordBatch* batch = queue_.UnsyncFront().get();
     if (must_hash_) {
       return key_hasher_->HashesFor(batch)[latest_ref_row_];
@@ -398,7 +401,8 @@ class InputState {
   }
 
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
-    if (!nullable_by_key_ && rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
+    if (!nullable_by_key_ && key_col_index_.size() == 1 &&
+        rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
       return Status::Invalid("AsofJoin does not allow unexpected null by-key values");
     }
     if (rb->num_rows() > 0) {
@@ -999,9 +1003,6 @@ class AsofJoinNode : public ExecNode {
     DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
 
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
-    if (join_options.by_key.size() == 0) {
-      return Status::Invalid("AsOfJoin by_key must not be empty");
-    }
     if (join_options.tolerance < 0) {
       return Status::Invalid("AsOfJoin tolerance must be non-negative but is ",
                              join_options.tolerance);
@@ -1032,9 +1033,11 @@ class AsofJoinNode : public ExecNode {
         std::move(output_schema));
     auto node_output_schema = node->output_schema();
     auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
-    auto single_key_field = inputs[0]->output_schema()->field(indices_of_by_key[0][0]);
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
-    bool must_hash = n_by > 1 || !is_primitive(single_key_field->type()->id());
+    bool must_hash =
+        n_by != 1 ||
+        !is_primitive(
+            inputs[0]->output_schema()->field(indices_of_by_key[0][0])->type()->id());
     bool nullable_by_key = join_options.nullable_by_key;
     for (size_t i = 0; i < n_input; i++) {
       key_hashers.push_back(
@@ -1088,7 +1091,12 @@ class AsofJoinNode : public ExecNode {
     DCHECK_EQ(output, outputs_[0]);
     StopProducing();
   }
-  void StopProducing() override { finished_.MarkFinished(); }
+  void StopProducing() override {
+    // avoid finishing twice, to prevent "Plan was destroyed before finishing" error
+    if (finished_.state() == FutureState::PENDING) {
+      finished_.MarkFinished();
+    }
+  }
   arrow::Future<> finished() override { return finished_; }
 
  private:

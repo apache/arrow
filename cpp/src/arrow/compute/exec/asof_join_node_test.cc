@@ -131,20 +131,27 @@ void BuildZeroBaseBinaryArray(std::shared_ptr<Array>& empty, int64_t length) {
 // mutates by copying from_key into to_key and changing from_key to zero
 Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string from_key,
                                       std::string to_key, bool replace_key = false,
-                                      bool null_key = false) {
+                                      bool null_key = false, bool remove_key = false) {
   int from_index = batches.schema->GetFieldIndex(from_key);
   int n_fields = batches.schema->num_fields();
   auto fields = batches.schema->fields();
   BatchesWithSchema new_batches;
-  auto new_field = batches.schema->field(from_index)->WithName(to_key);
-  ARROW_ASSIGN_OR_RAISE(new_batches.schema,
-                        replace_key ? batches.schema->SetField(from_index, new_field)
-                                    : batches.schema->AddField(from_index, new_field));
+  if (remove_key) {
+    ARROW_ASSIGN_OR_RAISE(new_batches.schema, batches.schema->RemoveField(from_index));
+  } else {
+    auto new_field = batches.schema->field(from_index)->WithName(to_key);
+    ARROW_ASSIGN_OR_RAISE(new_batches.schema,
+                          replace_key ? batches.schema->SetField(from_index, new_field)
+                                      : batches.schema->AddField(from_index, new_field));
+  }
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
       const Datum& value = batch.values[i];
       if (i == from_index) {
+        if (remove_key) {
+          continue;
+        }
         auto type = fields[i]->type();
         if (null_key) {
           std::shared_ptr<Array> empty;
@@ -221,6 +228,9 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                 .AddToPlan(plan.get()));
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+  for (auto batch : res) {
+    ASSERT_EQ(exp_batches.schema->num_fields(), batch.values.size());
+  }
 
   ASSERT_OK_AND_ASSIGN(auto exp_table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
@@ -307,12 +317,6 @@ void DoRunInvalidToleranceTest(const std::shared_ptr<Schema>& l_schema,
 void DoRunMissingKeysTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
   DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : No match");
-}
-
-void DoRunEmptyByKeyTest(const std::shared_ptr<Schema>& l_schema,
-                         const std::shared_ptr<Schema>& r_schema) {
-  DoRunInvalidPlanTest(l_schema, r_schema, AsofJoinNodeOptions("time", {}, 0),
-                       "AsOfJoin by_key must not be empty");
 }
 
 void DoRunMissingOnKeyTest(const std::shared_ptr<Schema>& l_schema,
@@ -424,11 +428,13 @@ struct BasicTest {
             const std::vector<util::string_view>& r0_data,
             const std::vector<util::string_view>& r1_data,
             const std::vector<util::string_view>& exp_nokey_data,
+            const std::vector<util::string_view>& exp_emptykey_data,
             const std::vector<util::string_view>& exp_data, int64_t tolerance)
       : l_data(std::move(l_data)),
         r0_data(std::move(r0_data)),
         r1_data(std::move(r1_data)),
         exp_nokey_data(std::move(exp_nokey_data)),
+        exp_emptykey_data(std::move(exp_emptykey_data)),
         exp_data(std::move(exp_data)),
         tolerance(tolerance) {}
 
@@ -452,7 +458,7 @@ struct BasicTest {
   void RunSingleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
-                      B exp_batches) {
+                      B exp_emptykey_batches, B exp_batches) {
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
                      tolerance);
     });
@@ -461,7 +467,7 @@ struct BasicTest {
   void RunDoubleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
-                      B exp_batches) {
+                      B exp_emptykey_batches, B exp_batches) {
       CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time",
                      {"key", "key"}, tolerance);
     });
@@ -470,7 +476,7 @@ struct BasicTest {
   void RunMutateByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
-                      B exp_batches) {
+                      B exp_emptykey_batches, B exp_batches) {
       ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2"));
       ASSERT_OK_AND_ASSIGN(r0_batches, MutateByKey(r0_batches, "key", "key2"));
       ASSERT_OK_AND_ASSIGN(r1_batches, MutateByKey(r1_batches, "key", "key2"));
@@ -483,7 +489,7 @@ struct BasicTest {
   void RunMutateNoKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
-                      B exp_batches) {
+                      B exp_emptykey_batches, B exp_batches) {
       ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2", true));
       ASSERT_OK_AND_ASSIGN(r0_batches, MutateByKey(r0_batches, "key", "key2", true));
       ASSERT_OK_AND_ASSIGN(r1_batches, MutateByKey(r1_batches, "key", "key2", true));
@@ -497,7 +503,7 @@ struct BasicTest {
   void RunMutateNullKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
-                      B exp_batches) {
+                      B exp_emptykey_batches, B exp_batches) {
       ASSERT_OK_AND_ASSIGN(l_batches, MutateByKey(l_batches, "key", "key2", true, true));
       ASSERT_OK_AND_ASSIGN(r0_batches,
                            MutateByKey(r0_batches, "key", "key2", true, true));
@@ -511,6 +517,21 @@ struct BasicTest {
     });
   }
   static void DoMutateNullKey(BasicTest& basic_tests) { basic_tests.RunMutateNullKey(); }
+  void RunMutateEmptyKey() {
+    using B = BatchesWithSchema;
+    RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
+                      B exp_emptykey_batches, B exp_batches) {
+      ASSERT_OK_AND_ASSIGN(r0_batches,
+                           MutateByKey(r0_batches, "key", "key", false, false, true));
+      ASSERT_OK_AND_ASSIGN(r1_batches,
+                           MutateByKey(r1_batches, "key", "key", false, false, true));
+      CheckRunOutput(l_batches, r0_batches, r1_batches, exp_emptykey_batches,
+                     AsofJoinNodeOptions("time", {}, tolerance));
+    });
+  }
+  static void DoMutateEmptyKey(BasicTest& basic_tests) {
+    basic_tests.RunMutateEmptyKey();
+  }
   template <typename BatchesRunner>
   void RunBatches(BatchesRunner batches_runner) {
     std::vector<std::shared_ptr<DataType>> all_types = {
@@ -606,15 +627,19 @@ struct BasicTest {
     ASSERT_OK_AND_ASSIGN(auto r1_batches, MakeBatchesFromNumString(r1_schema, r1_data));
     ASSERT_OK_AND_ASSIGN(auto exp_nokey_batches,
                          MakeBatchesFromNumString(exp_schema, exp_nokey_data));
+    ASSERT_OK_AND_ASSIGN(auto exp_emptykey_batches,
+                         MakeBatchesFromNumString(exp_schema, exp_emptykey_data));
     ASSERT_OK_AND_ASSIGN(auto exp_batches,
                          MakeBatchesFromNumString(exp_schema, exp_data));
-    batches_runner(l_batches, r0_batches, r1_batches, exp_nokey_batches, exp_batches);
+    batches_runner(l_batches, r0_batches, r1_batches, exp_nokey_batches,
+                   exp_emptykey_batches, exp_batches);
   }
 
   std::vector<util::string_view> l_data;
   std::vector<util::string_view> r0_data;
   std::vector<util::string_view> r1_data;
   std::vector<util::string_view> exp_nokey_data;
+  std::vector<util::string_view> exp_emptykey_data;
   std::vector<util::string_view> exp_data;
   int64_t tolerance;
 };
@@ -625,23 +650,6 @@ struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {}
 
 class AsofJoinTest : public testing::Test {};
 
-#define ASOFJOIN_TEST_SET(name, num)                           \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_SingleByKey) {   \
-    Get##name##Test##num().RunSingleByKey();                   \
-  }                                                            \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_DoubleByKey) {   \
-    Get##name##Test##num().RunDoubleByKey();                   \
-  }                                                            \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateByKey) {   \
-    Get##name##Test##num().RunMutateByKey();                   \
-  }                                                            \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNoKey) {   \
-    Get##name##Test##num().RunMutateNoKey();                   \
-  }                                                            \
-  TRACED_TEST(AsofJoinTest, Test##name##num##_MutateNullKey) { \
-    Get##name##Test##num().RunMutateNullKey();                 \
-  }
-
 BasicTest GetBasicTest1() {
   // Single key, single batch
   return BasicTest(
@@ -649,6 +657,7 @@ BasicTest GetBasicTest1() {
       /*r0*/ {R"([[0, 1, 11]])"},
       /*r1*/ {R"([[1000, 1, 101]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, null], [1000, 0, 2, 11, 101]])"},
+      /*exp_emptykey*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"},
       /*exp*/ {R"([[0, 1, 1, 11, null], [1000, 1, 2, 11, 101]])"}, 1000);
 }
 
@@ -665,6 +674,7 @@ BasicTest GetBasicTest2() {
       /*r0*/ {R"([[0, 1, 11]])", R"([[1000, 1, 12]])"},
       /*r1*/ {R"([[0, 1, 101]])", R"([[1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
+      /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
@@ -681,6 +691,7 @@ BasicTest GetBasicTest3() {
       /*r0*/ {R"([[0, 1, 11], [1000, 1, 12]])"},
       /*r1*/ {R"([[0, 1, 101], [1000, 1, 102]])"},
       /*exp_nokey*/ {R"([[0, 0, 1, 11, 101], [1000, 0, 2, 12, 102]])"},
+      /*exp_emptykey*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"},
       /*exp*/ {R"([[0, 1, 1, 11, 101], [1000, 1, 2, 12, 102]])"}, 1000);
 }
 
@@ -706,6 +717,9 @@ BasicTest GetBasicTest4() {
       /*exp_nokey*/
       {R"([[0, 0, 1, 11, 1001], [0, 0, 21, 11, 1001], [500, 0, 2, 31, 101], [1000, 0, 22, 12, 102], [1500, 0, 3, 32, 1002], [1500, 0, 23, 32, 1002]])",
        R"([[2000, 0, 4, 13, 103], [2000, 0, 24, 13, 103]])"},
+      /*exp_emptykey*/
+      {R"([[0, 1, 1, 11, 1001], [0, 2, 21, 11, 1001], [500, 1, 2, 31, 101], [1000, 2, 22, 12, 102], [1500, 1, 3, 32, 1002], [1500, 2, 23, 32, 1002]])",
+       R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
       /*exp*/
       {R"([[0, 1, 1, 11, null], [0, 2, 21, null, 1001], [500, 1, 2, 11, 101], [1000, 2, 22, 31, 1001], [1500, 1, 3, 12, 102], [1500, 2, 23, 32, 1002]])",
        R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
@@ -732,6 +746,9 @@ BasicTest GetBasicTest5() {
                    /*exp_nokey*/
                    {R"([[0, 0, 1, 11, 1001], [0, 0, 21, 11, 1001], [500, 0, 2, 31, 101], [1000, 0, 22, 12, 102], [1500, 0, 3, 32, 1002], [1500, 0, 23, 32, 1002]])",
                     R"([[2000, 0, 4, 13, 103], [2000, 0, 24, 13, 103]])"},
+                   /*exp_emptykey*/
+                   {R"([[0, 1, 1, 11, 1001], [0, 2, 21, 11, 1001], [500, 1, 2, 31, 101], [1000, 2, 22, 12, 102], [1500, 1, 3, 32, 1002], [1500, 2, 23, 32, 1002]])",
+                    R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
                    {R"([[0, 1, 1, 11, null], [0, 2, 21, null, 1001], [500, 1, 2, 11, 101], [1000, 2, 22, 31, null], [1500, 1, 3, 12, 102], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
@@ -759,6 +776,9 @@ BasicTest GetBasicTest6() {
                    /*exp_nokey*/
                    {R"([[0, 0, 1, 11, 1001], [0, 0, 21, 11, 1001], [500, 0, 2, 31, 101], [1000, 0, 22, 12, 102], [1500, 0, 3, 32, 1002], [1500, 0, 23, 32, 1002]])",
                     R"([[2000, 0, 4, 13, 103], [2000, 0, 24, 13, 103]])"},
+                   /*exp_emptykey*/
+                   {R"([[0, 1, 1, 11, 1001], [0, 2, 21, 11, 1001], [500, 1, 2, 31, 101], [1000, 2, 22, 12, 102], [1500, 1, 3, 32, 1002], [1500, 2, 23, 32, 1002]])",
+                    R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
                    {R"([[0, 1, 1, 11, null], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, null], [1500, 1, 3, null, null], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, null, null]])"},
@@ -784,6 +804,8 @@ BasicTest GetEmptyTest1() {
                     R"([[1000, 1, 102], [1500, 2, 1002], [2000, 1, 103]])"},
                    /*exp_nokey*/
                    {R"([[2000, 0, 4, 13, 103], [2000, 0, 24, 13, 103]])"},
+                   /*exp_emptykey*/
+                   {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
                    {R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"}, 1000);
 }
@@ -806,6 +828,8 @@ BasicTest GetEmptyTest2() {
                    {R"([[0, 2, 1001], [500, 1, 101]])",
                     R"([[1000, 1, 102], [1500, 2, 1002], [2000, 1, 103]])"},
                    /*exp_nokey*/
+                   {R"([])"},
+                   /*exp_emptykey*/
                    {R"([])"},
                    /*exp*/
                    {R"([])"}, 1000);
@@ -831,6 +855,9 @@ BasicTest GetEmptyTest3() {
                    /*exp_nokey*/
                    {R"([[0, 0, 1, null, 1001], [0, 0, 21, null, 1001], [500, 0, 2, null, 101], [1000, 0, 22, null, 102], [1500, 0, 3, 32, 1002], [1500, 0, 23, 32, 1002]])",
                     R"([[2000, 0, 4, 13, 103], [2000, 0, 24, 13, 103]])"},
+                   /*exp_emptykey*/
+                   {R"([[0, 1, 1, null, 1001], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 102], [1500, 1, 3, 32, 1002], [1500, 2, 23, 32, 1002]])",
+                    R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 13, 103]])"},
                    /*exp*/
                    {R"([[0, 1, 1, null, null], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 1001], [1500, 1, 3, null, 102], [1500, 2, 23, 32, 1002]])",
                     R"([[2000, 1, 4, 13, 103], [2000, 2, 24, 32, 1002]])"},
@@ -857,6 +884,9 @@ BasicTest GetEmptyTest4() {
                    /*exp_nokey*/
                    {R"([[0, 0, 1, null, 1001], [0, 0, 21, null, 1001], [500, 0, 2, null, 101], [1000, 0, 22, null, 102], [1500, 0, 3, null, 1002], [1500, 0, 23, null, 1002]])",
                     R"([[2000, 0, 4, null, 103], [2000, 0, 24, null, 103]])"},
+                   /*exp_emptykey*/
+                   {R"([[0, 1, 1, null, 1001], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 102], [1500, 1, 3, null, 1002], [1500, 2, 23, null, 1002]])",
+                    R"([[2000, 1, 4, null, 103], [2000, 2, 24, null, 103]])"},
                    /*exp*/
                    {R"([[0, 1, 1, null, null], [0, 2, 21, null, 1001], [500, 1, 2, null, 101], [1000, 2, 22, null, 1001], [1500, 1, 3, null, 102], [1500, 2, 23, null, 1002]])",
                     R"([[2000, 1, 4, null, 103], [2000, 2, 24, null, 1002]])"},
@@ -880,6 +910,8 @@ BasicTest GetEmptyTest5() {
                    {R"([])"},
                    /*exp_nokey*/
                    {R"([])"},
+                   /*exp_emptykey*/
+                   {R"([])"},
                    /*exp*/
                    {R"([])"}, 1000);
 }
@@ -893,11 +925,12 @@ TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5, {
 
 INSTANTIATE_TEST_SUITE_P(
     AsofJoinNodeTest, AsofJoinBasicTest,
-    testing::Values(AsofJoinBasicParams(BasicTest::DoSingleByKey, "single by-key"),
-                    AsofJoinBasicParams(BasicTest::DoDoubleByKey, "double by-key"),
-                    AsofJoinBasicParams(BasicTest::DoMutateByKey, "mutate by-key"),
-                    AsofJoinBasicParams(BasicTest::DoMutateNoKey, "mutate no-key"),
-                    AsofJoinBasicParams(BasicTest::DoMutateNullKey, "mutate null-key")));
+    testing::Values(AsofJoinBasicParams(BasicTest::DoSingleByKey, "SingleByKey"),
+                    AsofJoinBasicParams(BasicTest::DoDoubleByKey, "DoubleByKey"),
+                    AsofJoinBasicParams(BasicTest::DoMutateByKey, "MutateByKey"),
+                    AsofJoinBasicParams(BasicTest::DoMutateNoKey, "MutateNoKey"),
+                    AsofJoinBasicParams(BasicTest::DoMutateNullKey, "MutateNullKey"),
+                    AsofJoinBasicParams(BasicTest::DoMutateEmptyKey, "MutateEmptyKey")));
 
 TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
   DoRunInvalidTypeTest(schema({field("time", list(int32())), field("key", int32()),
@@ -936,12 +969,6 @@ TRACED_TEST(AsofJoinTest, TestMissingKeys, {
 TRACED_TEST(AsofJoinTest, TestUnsupportedTolerance, {
   // Utf8 is unsupported
   DoRunInvalidToleranceTest(
-      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
-      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
-})
-
-TRACED_TEST(AsofJoinTest, TestEmptyByKey, {
-  DoRunEmptyByKeyTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
