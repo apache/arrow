@@ -457,10 +457,10 @@ else()
 endif()
 
 if(DEFINED ENV{ARROW_AZURE_STORAGE_BLOB_URL})
-  set(AZURE_STORAGE_BLOB_SOURCE_URL "$ENV{ARROW_AZURE_STORAGE_BLOB_URL}")
+  set(AZURE_STORAGE_BLOBS_SOURCE_URL "$ENV{ARROW_AZURE_STORAGE_BLOB_URL}")
 else()
-  set_urls(AZURE_STORAGE_BLOB_SOURCE_URL
-           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-storage-blobs_${ARROW_AZURE_STORAGE_BLOB_BUILD_VERSION}.tar.gz"
+  set_urls(AZURE_STORAGE_BLOBS_SOURCE_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/azure-storage-blobs_${ARROW_AZURE_STORAGE_BLOBS_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -4841,14 +4841,15 @@ macro(build_azuresdk)
 
   set(AZURESDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${AZURESDK_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${AZURESDK_PREFIX}"
       -DBUILD_SHARED_LIBS=OFF
       -DCMAKE_INSTALL_LIBDIR=${AZURESDK_LIB_DIR}
+      -DDISABLE_AZURE_CORE_OPENTELEMETRY=ON
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
-      -DWARNINGS_AS_ERRORS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${AZURESDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AZURESDK_PREFIX}")
+      -DWARNINGS_AS_ERRORS=OFF)
 
   file(MAKE_DIRECTORY ${AZURESDK_INCLUDE_DIR})
 
@@ -4894,8 +4895,8 @@ macro(build_azuresdk)
   externalproject_add(azure_storage_blobs_ep
                       ${EP_LOG_OPTIONS}
                       INSTALL_DIR ${AZURESDK_PREFIX}
-                      URL ${AZURE_STORAGE_BLOB_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_AZURE_STORAGE_BLOB_BUILD_SHA256_CHECKSUM}"
+                      URL ${AZURE_STORAGE_BLOBS_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AZURE_STORAGE_BLOBS_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AZURESDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY})
   add_library(Azure::azure-storage-blobs STATIC IMPORTED)

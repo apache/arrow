@@ -113,12 +113,12 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
 }
 
 Status AzureOptions::ConfigureConnectionStringCredentials(
-    const std::string& connection_string_uri) {
+    const std::string& connection_string_key) {
   ARROW_ASSIGN_OR_RAISE(auto account_name,
-                        GetAccountNameFromConnectionString(connection_string_uri));
+                        GetAccountNameFromConnectionString(connection_string_key));
   account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
   account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
-  connection_string = connection_string_uri;
+  connection_string = connection_string_key;
   credentials_kind = AzureCredentialsKind::ConnectionString;
   return Status::OK();
 }
@@ -1876,7 +1876,7 @@ Status AzureBlobFileSystem::CreateDir(const std::string& s, bool recursive) {
   } else {
     // Check parent dir exists
     if (path.has_parent()) {
-      AzurePath parent_path = path.parent();
+      auto parent_path = path.parent();
       if (parent_path.path_to_file.empty()) {
         ARROW_ASSIGN_OR_RAISE(auto exists, impl_->ContainerExists(parent_path.container));
         if (!exists) {
