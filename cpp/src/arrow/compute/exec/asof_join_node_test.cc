@@ -357,6 +357,7 @@ void DoRunAmbiguousByKeyTest(const std::shared_ptr<Schema>& l_schema,
 // The batch will have n_rows rows n_cols columns, the first column being the on-field
 // If unordered is true then the first column will be out-of-order
 std::string GetTestBatchAsJsonString(int n_rows, int n_cols, bool unordered = false) {
+  int order_mask = unordered ? 1 : 0;
   std::stringstream s;
   s << '[';
   for (int i = 0; i < n_rows; i++) {
@@ -368,7 +369,7 @@ std::string GetTestBatchAsJsonString(int n_rows, int n_cols, bool unordered = fa
       if (j > 0) {
         s << ", " << j;
       } else if (j < 2) {
-        s << (i ^ unordered);
+        s << (i ^ order_mask);
       } else {
         s << i;
       }
