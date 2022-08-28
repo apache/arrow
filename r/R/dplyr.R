@@ -110,6 +110,9 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
+  # If we are using this augmented field, it won't be in the schema
+  schm[["__filename"]] <- string()
+
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
@@ -183,6 +186,28 @@ dim.arrow_dplyr_query <- function(x) {
   }
   c(rows, cols)
 }
+
+#' @export
+unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+
+  if (isTRUE(incomparables)) {
+    arrow_not_supported("`unique()` with `incomparables = TRUE`")
+  }
+
+  if (fromLast == TRUE) {
+    arrow_not_supported("`unique()` with `fromLast = TRUE`")
+  }
+
+  dplyr::distinct(x)
+}
+
+#' @export
+unique.Dataset <- unique.arrow_dplyr_query
+#' @export
+unique.ArrowTabular <- unique.arrow_dplyr_query
+#' @export
+unique.RecordBatchReader <- unique.arrow_dplyr_query
+
 
 #' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {

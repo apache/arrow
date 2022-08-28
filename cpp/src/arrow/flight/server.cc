@@ -323,6 +323,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
     }
   }
 
+  Status Close() { return reader_->Close(); }
+
  private:
   Status GetNextDictionary(FlightPayload* payload) {
     const auto& it = dictionaries_[dictionary_index_++];
@@ -344,6 +346,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 FlightMetadataWriter::~FlightMetadataWriter() = default;
 
 FlightDataStream::~FlightDataStream() {}
+Status FlightDataStream::Close() { return Status::OK(); }
 
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                                      const ipc::IpcWriteOptions& options) {
@@ -351,6 +354,8 @@ RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& r
 }
 
 RecordBatchStream::~RecordBatchStream() {}
+
+Status RecordBatchStream::Close() { return impl_->Close(); }
 
 std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
 

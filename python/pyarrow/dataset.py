@@ -964,7 +964,7 @@ Table/RecordBatch, or iterable of RecordBatch
     # was converted to one of those two. So we can grab the schema
     # to build the partitioning object from Dataset.
     if isinstance(data, Scanner):
-        partitioning_schema = data.dataset_schema
+        partitioning_schema = data.projected_schema
     else:
         partitioning_schema = data.schema
     partitioning = _ensure_write_partitioning(partitioning,

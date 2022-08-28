@@ -30,7 +30,7 @@ set(ORC_MIN_TEST_LIBS
     GTest::gtest_main
     GTest::gtest
     ${Snappy_TARGET}
-    lz4::lz4
+    LZ4::lz4
     ZLIB::ZLIB)
 
 if(ARROW_BUILD_STATIC)

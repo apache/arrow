@@ -394,6 +394,14 @@ def test_mode_chunked_array():
     assert len(pc.mode(arr)) == 0
 
 
+def test_empty_chunked_array():
+    msg = "cannot construct ChunkedArray from empty vector and omitted type"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pa.chunked_array([])
+
+    pa.chunked_array([], type=pa.int8())
+
+
 def test_variance():
     data = [1, 2, 3, 4, 5, 6, 7, 8]
     assert pc.variance(data).as_py() == 5.25

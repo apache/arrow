@@ -147,7 +147,8 @@ class JiraIssue(object):
             return tuple(int(_) for _ in numeric_version.split("."))
         return sorted(versions, key=version_tuple, reverse=True)
 
-    def get_candidate_fix_versions(self, merge_branches=('master',)):
+    def get_candidate_fix_versions(self, merge_branches=('master',),
+                                   maintenance_branches=()):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
         unreleased_versions = [x for x in all_versions
@@ -166,11 +167,18 @@ class JiraIssue(object):
             # If there is a non-patch release, suggest that instead
             mainline_versions = mainline_non_patch_versions
 
+        mainline_versions = self._filter_maintenance_versions(
+            mainline_versions, maintenance_branches
+        )
         default_fix_versions = [
             fix_version_from_branch(x, mainline_versions).name
             for x in merge_branches]
 
         return all_versions, default_fix_versions
+
+    def _filter_maintenance_versions(self, versions, maintenance_branches):
+        return [v for v in versions
+                if f"maint-{v.name}" not in maintenance_branches]
 
     def _filter_mainline_versions(self, versions):
         if self.project == 'PARQUET':
@@ -270,6 +278,10 @@ class GitHubAPI(object):
         return get_json("%s/pulls/%s/commits" % (self.github_api, number),
                         headers=self.headers)
 
+    def get_branches(self):
+        return get_json("%s/branches" % (self.github_api),
+                        headers=self.headers)
+
     def merge_pr(self, number, commit_title, commit_message):
         url = f'{self.github_api}/pulls/{number}/merge'
         payload = {
@@ -349,6 +361,11 @@ class PullRequest(object):
     @property
     def is_mergeable(self):
         return bool(self._pr_data["mergeable"])
+
+    @property
+    def maintenance_branches(self):
+        return [x["name"] for x in self._github_api.get_branches()
+                if x["name"].startswith("maint-")]
 
     def _get_jira(self):
         if self.title.startswith("MINOR:"):
@@ -468,9 +485,11 @@ def get_primary_author(cmd, distinct_authors):
     return primary_author, distinct_other_authors
 
 
-def prompt_for_fix_version(cmd, jira_issue):
+def prompt_for_fix_version(cmd, jira_issue, maintenance_branches=()):
     (all_versions,
-     default_fix_versions) = jira_issue.get_candidate_fix_versions()
+     default_fix_versions) = jira_issue.get_candidate_fix_versions(
+        maintenance_branches=maintenance_branches
+    )
 
     default_fix_versions = ",".join(default_fix_versions)
 
@@ -571,7 +590,8 @@ def cli():
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue)
+    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue,
+                                               pr.maintenance_branches)
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 

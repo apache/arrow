@@ -23,8 +23,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 namespace {
 
 /// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
@@ -136,18 +134,10 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
   return nested_extension_id_registry(default_extension_id_registry());
 }
 
-Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
-                        const std::string& id_name,
-                        const std::string& arrow_function_name) {
-  return registry.RegisterFunction(id_uri, id_name, arrow_function_name);
-}
-
 const std::string& default_extension_types_uri() {
   static std::string uri = engine::kArrowExtTypesUri.to_string();
   return uri;
 }
-
-}  // namespace substrait
 
 }  // namespace engine
 

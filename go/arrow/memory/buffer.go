@@ -19,7 +19,7 @@ package memory
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Buffer is a wrapper type for a buffer of bytes.
@@ -47,6 +47,10 @@ func SliceBuffer(buf *Buffer, offset, length int) *Buffer {
 	buf.Retain()
 	return &Buffer{refCount: 1, parent: buf, buf: buf.Bytes()[offset : offset+length], length: length}
 }
+
+// Parent returns either nil or a pointer to the parent buffer if this buffer
+// was sliced from another.
+func (b *Buffer) Parent() *Buffer { return b.parent }
 
 // Retain increases the reference count by 1.
 func (b *Buffer) Retain() {

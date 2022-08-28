@@ -163,15 +163,31 @@ build_formats <- function(orders) {
   # process the `orders` (even if supplied in the desired format)
   # Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
+
   orders <- gsub("[^A-Za-z]", "", orders)
   orders <- gsub("Y", "y", orders)
+
+  valid_formats <- "[a|A|b|B|d|H|I|j|m|Om|M|Op|p|q|OS|S|U|w|W|y|Y|r|R|T|z]"
+  invalid_orders <- nchar(gsub(valid_formats, "", orders)) > 0
+
+  if (any(invalid_orders)) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          orders[invalid_orders]
+        ),
+        " `orders`"
+      )
+    )
+  }
 
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
   # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
   # this is needed for 2 reasons:
   # 1. strptime does not parse "2022-05" -> we add "-01", thus changing the format,
   # 2. for equivalence to lubridate, which parses `ym` to the first day of the month
-  short_orders <- c("ym", "my")
+  short_orders <- c("ym", "my", "yOm", "Omy")
+  quarter_orders <- c("yq", "qy")
 
   if (any(orders %in% short_orders)) {
     orders1 <- setdiff(orders, short_orders)
@@ -179,51 +195,10 @@ build_formats <- function(orders) {
     orders2 <- paste0(orders2, "d")
     orders <- unique(c(orders2, orders1))
   }
-
-  if (any(orders == "yq")) {
-    orders1 <- setdiff(orders, "yq")
-    orders2 <- "ymd"
-    orders <- unique(c(orders1, orders2))
+  if (any(orders %in% quarter_orders)) {
+    orders <- c(setdiff(orders, quarter_orders), "ymd")
   }
-
-  if (any(orders == "qy")) {
-    orders1 <- setdiff(orders, "qy")
-    orders2 <- "ymd"
-    orders <- unique(c(orders1, orders2))
-  }
-
-  ymd_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
-  ymd_hms_orders <- c(
-    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
-    "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
-  )
-  # support "%I" hour formats
-  ymd_ims_orders <- gsub("H", "I", ymd_hms_orders)
-
-  supported_orders <- c(
-    ymd_orders,
-    ymd_hms_orders,
-    gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as order separators
-    gsub("_", "", ymd_hms_orders),
-    ymd_ims_orders,
-    gsub("_", " ", ymd_ims_orders), # allow "_", " " and "" as order separators
-    gsub("_", "", ymd_ims_orders)
-  )
-
-  unsupported_passed_orders <- setdiff(orders, supported_orders)
-  supported_passed_orders <- intersect(orders, supported_orders)
-
-  # error only if there isn't at least one valid order we can try
-  if (length(supported_passed_orders) == 0) {
-    arrow_not_supported(
-      paste0(
-        oxford_paste(
-          unsupported_passed_orders
-        ),
-        " `orders`"
-      )
-    )
-  }
+  orders <- unique(orders)
 
   formats_list <- map(orders, build_format_from_order)
   formats <- purrr::flatten_chr(formats_list)
@@ -239,26 +214,47 @@ build_formats <- function(orders) {
 #'
 #' @noRd
 build_format_from_order <- function(order) {
+  month_formats <- c("%m", "%B", "%b")
+  week_formats <- c("%a", "%A")
+  year_formats <- c("%y", "%Y")
   char_list <- list(
-    "y" = c("%y", "%Y"),
-    "m" = c("%m", "%B", "%b"),
-    "d" = "%d",
-    "H" = "%H",
-    "M" = "%M",
-    "S" = "%S",
-    "I" = "%I"
+    "%y" = year_formats,
+    "%Y" = year_formats,
+    "%m" = month_formats,
+    "%Om" = month_formats,
+    "%b" = month_formats,
+    "%B" = month_formats,
+    "%a" = week_formats,
+    "%A" = week_formats,
+    "%d" = "%d",
+    "%H" = "%H",
+    "%j" = "%j",
+    "%OS" = "%OS",
+    "%I" = "%I",
+    "%S" = "%S",
+    "%q" = "%q",
+    "%M" = "%M",
+    "%U" = "%U",
+    "%w" = "%w",
+    "%W" = "%W",
+    "%p" = "%p",
+    "%Op" = "%Op",
+    "%z" = "%z",
+    "%r" = c("%H", "%I-%p"),
+    "%R" = c("%H-%M", "%I-%M-%p"),
+    "%T" = c("%I-%M-%S-%p", "%H-%M-%S", "%H-%M-%OS")
   )
 
-  split_order <- strsplit(order, split = "")[[1]]
-
+  split_order <- regmatches(order, gregexpr("(O{0,1}[a-zA-Z])", order))[[1]]
+  split_order <- paste0("%", split_order)
   outcome <- expand.grid(char_list[split_order])
+
   # we combine formats with and without the "-" separator, we will later
   # coalesce through all of them (benchmarking indicated this is a more
   # computationally efficient approach rather than figuring out if a string has
-  # separators or not and applying only )
-  # during parsing if the string to be parsed does not contain a separator
+  # separators or not and applying the relevant order afterwards)
   formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
-  formats_without_sep <- do.call(paste, c(outcome, sep = ""))
+  formats_without_sep <- gsub("-", "", formats_with_sep)
   c(formats_with_sep, formats_without_sep)
 }
 

@@ -97,10 +97,7 @@ def test_chunked_array_construction():
     assert len(arr) == 3
     assert len(arr.chunks) == 2
 
-    msg = (
-        "When passing an empty collection of arrays you must also pass the "
-        "data type"
-    )
+    msg = "cannot construct ChunkedArray from empty vector and omitted type"
     with pytest.raises(ValueError, match=msg):
         assert pa.chunked_array([])
 
@@ -118,6 +115,16 @@ def test_combine_chunks():
     assert res.equals(expected)
 
 
+def test_chunked_array_can_combine_chunks_with_no_chunks():
+    # https://issues.apache.org/jira/browse/ARROW-17256
+    assert pa.chunked_array([], type=pa.bool_()).combine_chunks() == pa.array(
+        [], type=pa.bool_()
+    )
+    assert pa.chunked_array(
+        [pa.array([], type=pa.bool_())], type=pa.bool_()
+    ).combine_chunks() == pa.array([], type=pa.bool_())
+
+
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],
@@ -133,14 +140,15 @@ def test_chunked_array_to_numpy():
 
 
 def test_chunked_array_mismatch_types():
-    with pytest.raises(TypeError):
+    msg = "chunks must all be same type"
+    with pytest.raises(TypeError, match=msg):
         # Given array types are different
         pa.chunked_array([
             pa.array([1, 2, 3]),
             pa.array([1., 2., 3.])
         ])
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=msg):
         # Given array type is different from explicit type argument
         pa.chunked_array([pa.array([1, 2, 3])], type=pa.float64())
 

@@ -21,16 +21,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func TestIntegration(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-integration-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	const verbose = true
 	for name, recs := range arrdata.Records {

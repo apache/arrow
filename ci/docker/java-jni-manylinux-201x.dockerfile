@@ -28,9 +28,18 @@ RUN vcpkg install \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=parquet \
-        --x-feature=gandiva
+        --x-feature=gandiva \
+        --x-feature=s3
 
 # Install Java
 ARG java=1.8.0
-RUN yum install -y java-$java-openjdk-devel && yum clean all
+RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
+
+# For ci/scripts/java_*.sh
+ENV ARROW_GANDIVA_JAVA=ON \
+    ARROW_HOME=/tmp/local \
+    ARROW_JAVA_CDATA=ON \
+    ARROW_JNI=ON \
+    ARROW_PLASMA=ON \
+    ARROW_USE_CCACHE=ON

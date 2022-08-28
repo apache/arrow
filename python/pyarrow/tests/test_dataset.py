@@ -4706,3 +4706,28 @@ def test_dataset_filter(tempdir):
         "colA": [1, 2],
         "col2": ["a", "b"]
     })
+
+
+def test_write_dataset_with_scanner_use_projected_schema(tempdir):
+    """
+    Ensure the projected schema is used to validate partitions for scanner
+
+    https://issues.apache.org/jira/browse/ARROW-17228
+    """
+    table = pa.table([pa.array(range(20))], names=["original_column"])
+    table_dataset = ds.dataset(table)
+    columns = {
+        "renamed_column": ds.field("original_column"),
+    }
+    scanner = table_dataset.scanner(columns=columns)
+
+    ds.write_dataset(
+        scanner, tempdir, partitioning=["renamed_column"], format="ipc")
+    with (
+        pytest.raises(
+            KeyError, match=r"'Column original_column does not exist in schema"
+        )
+    ):
+        ds.write_dataset(
+            scanner, tempdir, partitioning=["original_column"], format="ipc"
+        )

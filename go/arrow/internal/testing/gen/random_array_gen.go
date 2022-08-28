@@ -17,10 +17,10 @@
 package gen
 
 import (
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -291,6 +291,36 @@ func (r *RandomArrayGenerator) String(size int64, minLength, maxLength int, null
 		out := buf[:n]
 		for i := range out {
 			out[i] = uint8(dist.Int31n(int32('z')-int32('A')+1) + int32('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsValid(i) {
+			bldr.Append(gen(lengths.Value(i)))
+		} else {
+			bldr.AppendNull()
+		}
+	}
+
+	return bldr.NewArray()
+}
+
+func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int64, nullprob float64) arrow.Array {
+	lengths := r.Int64(size, minLength, maxLength, nullprob).(*array.Int64)
+	defer lengths.Release()
+
+	bldr := array.NewLargeStringBuilder(r.mem)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int64) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int63n(int64('z')-int64('A')+1) + int64('A'))
 		}
 		return string(out)
 	}

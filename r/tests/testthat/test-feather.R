@@ -207,6 +207,22 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   )
 })
 
+test_that("write_feather() does not detect compression from filename", {
+  # TODO(ARROW-17221): should this be supported?
+  without <- tempfile(fileext = ".arrow")
+  with_zst <- tempfile(fileext = ".arrow.zst")
+  write_feather(mtcars, without)
+  write_feather(mtcars, with_zst)
+  expect_equal(file.size(without), file.size(with_zst))
+})
+
+test_that("read_feather() handles (ignores) compression in filename", {
+  df <- tibble::tibble(x = 1:5)
+  f <- tempfile(fileext = ".parquet.zst")
+  write_feather(df, f)
+  expect_equal(read_feather(f), df)
+})
+
 test_that("read_feather() and write_feather() accept connection objects", {
   skip_if_not(CanRunWithCapturedR())
 

@@ -271,8 +271,7 @@ struct CompareKernel {
     if (out_is_byte_aligned) {
       out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
     } else {
-      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp,
-                            ctx->Allocate(bit_util::BytesForBits(batch.length)));
+      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp, ctx->AllocateBitmap(batch.length));
       out_buffer = out_buffer_tmp->mutable_data();
     }
     if (batch[0].is_array() && batch[1].is_array()) {

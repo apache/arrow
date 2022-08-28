@@ -45,7 +45,7 @@ index 2d7baf1..c2e86e0 100644
  
  if(ARROW_MIMALLOC)
 diff --git a/cpp/cmake_modules/ThirdpartyToolchain.cmake b/cpp/cmake_modules/ThirdpartyToolchain.cmake
-index bc38952..ff81d00 100644
+index bc38952..84fc279 100644
 --- a/cpp/cmake_modules/ThirdpartyToolchain.cmake
 +++ b/cpp/cmake_modules/ThirdpartyToolchain.cmake
 @@ -953,14 +953,7 @@ else()
@@ -90,7 +90,23 @@ index bc38952..ff81d00 100644
    # TODO: Don't use global includes but rather target_include_directories
    get_target_property(BROTLI_INCLUDE_DIR Brotli::brotlicommon
                        INTERFACE_INCLUDE_DIRECTORIES)
-@@ -1228,10 +1224,13 @@ macro(build_glog)
+@@ -1156,6 +1152,15 @@ if(PARQUET_REQUIRE_ENCRYPTION
+     set(OpenSSL_USE_STATIC_LIBS ON)
+     set(OPENSSL_USE_STATIC_LIBS ON)
+     find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
++    find_package(OpenSSL REQUIRED CONFIG)
++    message("OPENSSL_FOUND: ${OPENSSL_FOUND}")
++    message("OPENSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
++    message("OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
++    message("OPENSSL_CRYPTO_LIBRARIES: ${OPENSSL_CRYPTO_LIBRARIES}")
++    message("OPENSSL_SSL_LIBRARY: ${OPENSSL_SSL_LIBRARY}")
++    message("OPENSSL_SSL_LIBRARIES: ${OPENSSL_SSL_LIBRARIES}")
++    message("OPENSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
++    message("OPENSSL_VERSION: ${OPENSSL_VERSION}")
+   endif()
+   set(ARROW_USE_OPENSSL ON)
+ endif()
+@@ -1228,10 +1233,13 @@ macro(build_glog)
  endmacro()
  
  if(ARROW_USE_GLOG)
@@ -104,7 +120,7 @@ index bc38952..ff81d00 100644
  endif()
  
  # ----------------------------------------------------------------------
-@@ -1300,14 +1299,7 @@ macro(build_gflags)
+@@ -1300,17 +1308,11 @@ macro(build_gflags)
  endmacro()
  
  if(ARROW_NEED_GFLAGS)
@@ -120,7 +136,22 @@ index bc38952..ff81d00 100644
    # TODO: Don't use global includes but rather target_include_directories
    include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
  
-@@ -1400,6 +1392,7 @@ macro(build_thrift)
++if(0)
+   if(NOT TARGET ${GFLAGS_LIBRARIES})
+     if(TARGET gflags-shared)
+       set(GFLAGS_LIBRARIES gflags-shared)
+@@ -1318,6 +1320,10 @@ if(ARROW_NEED_GFLAGS)
+       set(GFLAGS_LIBRARIES gflags_shared)
+     endif()
+   endif()
++else()
++  set(GFLAGS_LIBRARIES gflags::gflags)
++endif()
++
+ endif()
+ 
+ # ----------------------------------------------------------------------
+@@ -1400,6 +1406,7 @@ macro(build_thrift)
  endmacro()
  
  if(ARROW_WITH_THRIFT)
@@ -128,7 +159,7 @@ index bc38952..ff81d00 100644
    # We already may have looked for Thrift earlier, when considering whether
    # to build Boost, so don't look again if already found.
    if(NOT Thrift_FOUND)
-@@ -1412,6 +1405,9 @@ if(ARROW_WITH_THRIFT)
+@@ -1412,6 +1419,9 @@ if(ARROW_WITH_THRIFT)
    endif()
    # TODO: Don't use global includes but rather target_include_directories
    include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
@@ -138,7 +169,7 @@ index bc38952..ff81d00 100644
  
    string(REPLACE "." ";" VERSION_LIST ${THRIFT_VERSION})
    list(GET VERSION_LIST 0 THRIFT_VERSION_MAJOR)
-@@ -1606,7 +1602,7 @@ if(ARROW_JEMALLOC)
+@@ -1606,7 +1616,7 @@ if(ARROW_JEMALLOC)
    # conflict with the default allocator as well as other jemalloc
    # installations.
    # find_package(jemalloc)
@@ -147,7 +178,7 @@ index bc38952..ff81d00 100644
    set(ARROW_JEMALLOC_USE_SHARED OFF)
    set(JEMALLOC_PREFIX
        "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-@@ -1664,6 +1660,9 @@ if(ARROW_JEMALLOC)
+@@ -1664,6 +1674,9 @@ if(ARROW_JEMALLOC)
                                     "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
    add_dependencies(jemalloc::jemalloc jemalloc_ep)
  
@@ -157,7 +188,7 @@ index bc38952..ff81d00 100644
    list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
  endif()
  
-@@ -1671,6 +1670,8 @@ endif()
+@@ -1671,6 +1684,8 @@ endif()
  # mimalloc - Cross-platform high-performance allocator, from Microsoft
  
  if(ARROW_MIMALLOC)
@@ -166,7 +197,7 @@ index bc38952..ff81d00 100644
    message(STATUS "Building (vendored) mimalloc from source")
    # We only use a vendored mimalloc as we want to control its build options.
  
-@@ -1715,6 +1716,13 @@ if(ARROW_MIMALLOC)
+@@ -1715,6 +1730,13 @@ if(ARROW_MIMALLOC)
    add_dependencies(mimalloc::mimalloc mimalloc_ep)
    add_dependencies(toolchain mimalloc_ep)
  
@@ -180,7 +211,26 @@ index bc38952..ff81d00 100644
    list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
  endif()
  
-@@ -2036,10 +2044,21 @@ macro(build_xsimd)
+@@ -1999,6 +2021,7 @@ macro(build_rapidjson)
+ endmacro()
+ 
+ if(ARROW_WITH_RAPIDJSON)
++if(0)
+   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
+   resolve_dependency(RapidJSON
+                      HAVE_ALT
+@@ -2011,6 +2034,10 @@ if(ARROW_WITH_RAPIDJSON)
+   if(RapidJSON_INCLUDE_DIR)
+     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
+   endif()
++else()
++  find_package(RapidJSON REQUIRED)
++  set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
++endif()
+ 
+   # TODO: Don't use global includes but rather target_include_directories
+   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+@@ -2036,10 +2063,21 @@ macro(build_xsimd)
    set(XSIMD_VENDORED TRUE)
  endmacro()
  
@@ -204,7 +254,7 @@ index bc38952..ff81d00 100644
    # TODO: Don't use global includes but rather target_include_directories
    include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
  endif()
-@@ -2082,11 +2101,14 @@ macro(build_zlib)
+@@ -2082,11 +2120,14 @@ macro(build_zlib)
  endmacro()
  
  if(ARROW_WITH_ZLIB)
@@ -219,7 +269,7 @@ index bc38952..ff81d00 100644
  endif()
  
  macro(build_lz4)
-@@ -2140,11 +2162,14 @@ macro(build_lz4)
+@@ -2140,11 +2181,14 @@ macro(build_lz4)
  endmacro()
  
  if(ARROW_WITH_LZ4)
@@ -234,7 +284,7 @@ index bc38952..ff81d00 100644
  endif()
  
  macro(build_zstd)
-@@ -2205,6 +2230,7 @@ macro(build_zstd)
+@@ -2205,6 +2249,7 @@ macro(build_zstd)
  endmacro()
  
  if(ARROW_WITH_ZSTD)
@@ -242,7 +292,7 @@ index bc38952..ff81d00 100644
    # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
    resolve_dependency(zstd
                       PC_PACKAGE_NAMES
-@@ -2232,6 +2258,8 @@ if(ARROW_WITH_ZSTD)
+@@ -2232,6 +2277,8 @@ if(ARROW_WITH_ZSTD)
    get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                        INTERFACE_INCLUDE_DIRECTORIES)
    include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
@@ -251,7 +301,7 @@ index bc38952..ff81d00 100644
  endif()
  
  # ----------------------------------------------------------------------
-@@ -2271,6 +2299,7 @@ macro(build_re2)
+@@ -2271,6 +2318,7 @@ macro(build_re2)
  endmacro()
  
  if(ARROW_WITH_RE2)
@@ -259,7 +309,7 @@ index bc38952..ff81d00 100644
    # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
    # include -std=c++11. It's not compatible with C source and C++
    # source not uses C++ 11.
-@@ -2284,6 +2313,8 @@ if(ARROW_WITH_RE2)
+@@ -2284,6 +2332,8 @@ if(ARROW_WITH_RE2)
    # TODO: Don't use global includes but rather target_include_directories
    get_target_property(RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
    include_directories(SYSTEM ${RE2_INCLUDE_DIR})
@@ -268,7 +318,7 @@ index bc38952..ff81d00 100644
  endif()
  
  macro(build_bzip2)
-@@ -2335,10 +2366,7 @@ macro(build_bzip2)
+@@ -2335,10 +2385,7 @@ macro(build_bzip2)
  endmacro()
  
  if(ARROW_WITH_BZ2)
@@ -280,7 +330,7 @@ index bc38952..ff81d00 100644
  
    if(NOT TARGET BZip2::BZip2)
      add_library(BZip2::BZip2 UNKNOWN IMPORTED)
-@@ -2390,11 +2418,7 @@ macro(build_utf8proc)
+@@ -2390,11 +2437,7 @@ macro(build_utf8proc)
  endmacro()
  
  if(ARROW_WITH_UTF8PROC)
@@ -293,7 +343,7 @@ index bc38952..ff81d00 100644
  
    add_definitions(-DARROW_WITH_UTF8PROC)
  
-@@ -3554,33 +3578,12 @@ if(ARROW_WITH_GRPC)
+@@ -3554,33 +3597,12 @@ if(ARROW_WITH_GRPC)
      message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
      set(gRPC_SOURCE "${Protobuf_SOURCE}")
    endif()
@@ -328,6 +378,35 @@ index bc38952..ff81d00 100644
  endif()
  
  # ----------------------------------------------------------------------
+@@ -3770,7 +3792,12 @@ macro(build_google_cloud_cpp_storage)
+ endmacro()
+ 
+ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
++if(0)
+   resolve_dependency(google_cloud_cpp_storage)
++else()
++  find_package(google-cloud-cpp REQUIRED)
++endif()
++
+   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
+                       INTERFACE_INCLUDE_DIRECTORIES)
+   include_directories(SYSTEM ${google_cloud_cpp_storage_INCLUDE_DIR})
+@@ -4097,11 +4124,15 @@ macro(build_opentelemetry)
+ endmacro()
+ 
+ if(ARROW_WITH_OPENTELEMETRY)
++if(0)
+   set(opentelemetry-cpp_SOURCE "AUTO")
+   resolve_dependency(opentelemetry-cpp)
+   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                       INTERFACE_INCLUDE_DIRECTORIES)
+   include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
++else()
++  find_package(opentelemetry-cpp REQUIRED)
++endif()
+   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+ endif()
+ 
 diff --git a/cpp/src/arrow/CMakeLists.txt b/cpp/src/arrow/CMakeLists.txt
 index 84975e2..7779c08 100644
 --- a/cpp/src/arrow/CMakeLists.txt

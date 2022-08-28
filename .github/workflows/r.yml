@@ -327,6 +327,14 @@ jobs:
         shell: Rscript {0}
         working-directory: r
         run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+          )
+          # we use pak for package installation since it is faster, safer and more convenient
+          pak::local_install()
           pak::pak("lintr")
           lintr::expect_lint_free()
       - name: Dump install logs

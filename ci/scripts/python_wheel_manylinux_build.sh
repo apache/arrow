@@ -151,6 +151,7 @@ export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
+export ARROW_HOME=/tmp/arrow-dist
 # PyArrow build configuration
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/tmp/arrow-dist/lib/pkgconfig
 

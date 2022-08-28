@@ -383,5 +383,25 @@ size_t ThreadIndexer::Check(size_t thread_index) {
   return thread_index;
 }
 
+Status TableSinkNodeConsumer::Init(const std::shared_ptr<Schema>& schema,
+                                   BackpressureControl* backpressure_control) {
+  // If the user is collecting into a table then backpressure is meaningless
+  ARROW_UNUSED(backpressure_control);
+  schema_ = schema;
+  return Status::OK();
+}
+
+Status TableSinkNodeConsumer::Consume(ExecBatch batch) {
+  auto guard = consume_mutex_.Lock();
+  ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema_, pool_));
+  batches_.push_back(std::move(rb));
+  return Status::OK();
+}
+
+Future<> TableSinkNodeConsumer::Finish() {
+  ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
+  return Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -26,3 +26,4 @@ sphinx>=4.2
 sphinx-copybutton
 # Requirement for doctest-cython
 pytest-cython
+pandas

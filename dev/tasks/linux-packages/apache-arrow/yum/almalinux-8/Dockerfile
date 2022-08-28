@@ -40,7 +40,6 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     json-devel \
     libarchive \
     libzstd-devel \
@@ -53,8 +52,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python39 \
-    python39-devel \
-    python39-numpy \
     python39-pip \
     re2-devel \
     # rapidjson-devel \
