@@ -221,7 +221,9 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
   list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+  if(NOT THRIFT_VENDORED)
+    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+  endif()
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -273,8 +275,6 @@ if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
   target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
 endif()
-
-add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
 add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})

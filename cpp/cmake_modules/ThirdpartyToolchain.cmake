@@ -1502,6 +1502,7 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+  set(THRIFT_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
