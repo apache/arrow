@@ -83,6 +83,13 @@ TEST(FlightTypes, LocationUnknownScheme) {
 }
 
 TEST(FlightTypes, RoundTripTypes) {
+  Action action{"action1", Buffer::FromString("action1-content")};
+  ASSERT_OK_AND_ASSIGN(std::string action_serialized, action.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Action action_deserialized,
+                       Action::Deserialize(action_serialized));
+  ASSERT_EQ(action.type, action_deserialized.type);
+  ASSERT_TRUE(action.body->Equals(*action_deserialized.body));
+
   Ticket ticket{"foo"};
   ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,

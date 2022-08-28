@@ -374,6 +374,32 @@ bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
 }
 
+arrow::Result<std::string> Action::SerializeToString() const {
+  pb::Action pb_action;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_action));
+
+  std::string out;
+  if (!pb_action.SerializeToString(&out)) {
+    return Status::IOError("Serialized action exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<Action> Action::Deserialize(arrow::util::string_view serialized) {
+  pb::Action pb_action;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized Action size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_action.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid action");
+  }
+  Action out;
+  RETURN_NOT_OK(internal::FromProto(pb_action, &out));
+  return out;
+}
+
 Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
 
 Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {

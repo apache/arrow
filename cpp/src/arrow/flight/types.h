@@ -163,6 +163,18 @@ struct ARROW_FLIGHT_EXPORT Action {
 
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static arrow::Result<Action> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief Opaque result returned after executing an action
