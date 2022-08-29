@@ -304,8 +304,8 @@ def status(obj, job_name, fetch, task_filters, validate):
 @click.option('--arrow-remote', '-r', default=None,
               help='Set GitHub remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/raulcd/arrow.')
+                   'locally. Examples: "https://github.com/apache/arrow" or '
+                   '"raulcd/arrow".')
 @click.option('--crossbow', '-c', default='ursacomputing/crossbow',
               help='Crossbow repository on github to use')
 @click.option('--fetch/--no-fetch', default=True,

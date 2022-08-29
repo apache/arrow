@@ -211,10 +211,13 @@ def _git_ssh_to_https(url):
 def _parse_github_user_repo(remote_url):
     m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -557,7 +560,8 @@ class Repo:
                 if title in pull.title:
                     return pull
             raise CrossbowError(
-                f"Pull request with Title: {title} not found"
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
             )
 
 
