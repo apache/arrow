@@ -19,7 +19,6 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_S3: {{ arrow_s3 }}
   CC: "clang"
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
