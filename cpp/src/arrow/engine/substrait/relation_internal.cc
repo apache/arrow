@@ -433,7 +433,7 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto rel = make_unique<substrait::Rel>();
-  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, rel, conversion_options));
+  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   return std::move(rel);
 }
 
@@ -547,7 +547,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
 
 Status SerializeAndCombineRelations(const compute::Declaration& declaration,
                                     ExtensionSet* ext_set,
-                                    std::unique_ptr<substrait::Rel>& rel,
+                                    std::unique_ptr<substrait::Rel>* rel,
                                     const ConversionOptions& conversion_options) {
   std::vector<compute::Declaration::Input> inputs = declaration.inputs;
   for (auto& input : inputs) {
@@ -566,12 +566,12 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
       ARROW_ASSIGN_OR_RAISE(
           auto read_rel,
           ScanRelationConverter(schema, declaration, ext_set, conversion_options));
-      rel->set_allocated_read(read_rel.release());
+      (*rel)->set_allocated_read(read_rel.release());
     } else if (factory_name == "filter") {
       ARROW_ASSIGN_OR_RAISE(
           auto filter_rel,
           FilterRelationConverter(schema, declaration, ext_set, conversion_options));
-      rel->set_allocated_filter(filter_rel.release());
+      (*rel)->set_allocated_filter(filter_rel.release());
     } else {
       return Status::NotImplemented("Factory ", factory_name,
                                     " not implemented for roundtripping.");

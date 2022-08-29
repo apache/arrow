@@ -142,7 +142,7 @@ Result<std::unique_ptr<substrait::Plan>> PlanToProto(
   auto subs_plan = internal::make_unique<substrait::Plan>();
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
   auto rel = internal::make_unique<substrait::Rel>();
-  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, rel, conversion_options));
+  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   plan_rel->set_allocated_rel(rel.release());
   subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
   RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));

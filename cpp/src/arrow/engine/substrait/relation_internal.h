@@ -45,29 +45,26 @@ ARROW_ENGINE_EXPORT
 Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
                                   const ConversionOptions&);
 
-/// \brief Serializes a Declaration, produce a Substrait Rel and update the global
-/// Substrait plan. A Substrait Rel is passed as a the plan and it is updated with
+/// \brief Convert a Declaration (and its inputs) to a Substrait Rel
+///
+/// A Substrait Rel is passed as a the plan and it is updated with
 /// corresponding Declaration passed for serialization.
 ///
-/// Note that this is a rather a helper method useful to fuse a partially serialized
-/// plan with another plan. The reason for having a partially serialized plan is to
-/// avoid unnecessary complication and enable partial plan serialization without
-/// affecting a global plan. Since kept as unique_ptr resources are relased efficiently
-/// upon releasing for the global plan.
+/// Note that this used to fuse a partially serialized plan with another plan.
+/// Partially serialized plan is recursively being used to generate global plan.
+/// Since kept as unique_ptr resources are relased efficiently upon releasing for
+/// the global plan.
 ARROW_ENGINE_EXPORT Status SerializeAndCombineRelations(const compute::Declaration&,
                                                         ExtensionSet*,
-                                                        std::unique_ptr<substrait::Rel>&,
+                                                        std::unique_ptr<substrait::Rel>*,
                                                         const ConversionOptions&);
 
-/// \brief Serialize a Declaration and produces a Substrait Rel.
+/// \brief Convert an Acero Declaration to a Substrait Rel
 ///
 /// Note that in order to provide a generic interface for ToProto for
-/// declaration it is not specialized for each relation within the Substrait Rel.
-/// Rather a serialized relation is set as a member for the Substrait Rel
-/// (partial Relation) which is later on extracted to update a Substrait Rel
-/// which would be included in the fully serialized Acero Exec Plan.
-/// The ExecNode or ExecPlan is not used in this context as Declaration is preferred
-/// in the Substrait space rather than internal components of Acero execution engine.
+/// declaration. The ExecNode or ExecPlan is not used in this context as Declaration
+/// is preferred in the Substrait space rather than internal components of
+/// Acero execution engine.
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration&, ExtensionSet*, const ConversionOptions&);
 
