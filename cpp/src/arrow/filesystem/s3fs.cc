@@ -1763,8 +1763,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         return Status::OK();
       } else if (!IsNotFound(outcome.GetError())) {
         return ErrorToStatus(
-            std::forward_as_tuple("When creating bucket '", bucket, "': "),
-            "HeadBucket", outcome.GetError());
+            std::forward_as_tuple("When creating bucket '", bucket, "': "), "HeadBucket",
+            outcome.GetError());
       }
 
       if (!options().allow_bucket_creation) {
