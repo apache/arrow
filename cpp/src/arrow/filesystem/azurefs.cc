@@ -85,7 +85,8 @@ Result<std::string> AzureOptions::GetAccountNameFromConnectionString(
     return Status::Invalid("Invalid Azure Blob Storage connection string: '",
                            connection_string, "' passed");
   }
-  std::string account_name = connection_string.substr(pos_text + text.size(), pos_semicolon);
+  std::string account_name =
+      connection_string.substr(pos_text + text.size(), pos_semicolon);
   return account_name;
 }
 
@@ -256,7 +257,8 @@ struct AzurePath {
     // path_to_file = testdir/testfile.txt
     // path_to_file_parts = [testdir, testfile.txt]
 
-    // Expected input here => s = synapsemlfs/testdir/testfile.txt, http://127.0.0.1/accountName/pathToBlob
+    // Expected input here => s = synapsemlfs/testdir/testfile.txt,
+    // http://127.0.0.1/accountName/pathToBlob
     auto src = internal::RemoveTrailingSlash(s);
     if (src.starts_with("https://127.0.0.1") || src.starts_with("http://127.0.0.1")) {
       RETURN_NOT_OK(FromLocalHostString(&src));
