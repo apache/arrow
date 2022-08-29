@@ -83,7 +83,7 @@ to step 3:
 2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
    integrations on for the newly created queue repository.
 
-   -  turn off Travis’ `auto cancellation`_ feature on branches
+   -  Confirm the Travis’ `auto cancellation`_ feature is turned off on branches. This should be the default setting.
 
 3. Clone either ursacomputing/crossbow if you are using that, or the newly
    created repository next to the arrow repository:
