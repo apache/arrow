@@ -83,8 +83,6 @@ to step 3:
 2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
    integrations on for the newly created queue repository.
 
-   -  Confirm the Travis’ `auto cancellation`_ feature is turned off on branches. This should be the default setting.
-
 3. Clone either `ursacomputing_crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
 
@@ -118,8 +116,12 @@ to step 3:
    ``crossbow``):
 
    -  TravisCI: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
+      -  Confirm the `auto cancellation`_ feature is turned off
+         for branch builds. This should be the default setting.
    -  Appveyor:
       ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
+      -  Check the ``skip branches without appveyor.yml`` checkbox
+         on the web UI under crossbow repository’s settings.
    -  CircleCI:
       ``https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars``
 
@@ -176,8 +178,8 @@ The script does the following:
 3. Reads and renders the required build configurations with the
    parameters substituted.
 
-4. Create a branch per task, prefixed with the job id. For example to
-   build conda recipes on linux it will create a new branch:
+4. Create a branch per task, prefixed with the job id. For example, to
+   build conda recipes on linux, it will create a new branch:
    ``crossbow@build-<id>-conda-linux``.
 
 5. Pushes the modified branches to GitHub which triggers the builds. For
@@ -256,7 +258,7 @@ see its help page:
 .. _Appveyor: https://www.appveyor.com/docs/
 .. _CircleCI: https://circleci.com/docs/2.0/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
-.. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit
+.. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
 .. _Create a Personal Access Token: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 .. _setuptools_scm: https://pypi.python.org/pypi/setuptools_scm
 .. _ursacomputing_crossbow: https://github.com/ursacomputing/crossbow
