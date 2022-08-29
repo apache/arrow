@@ -283,10 +283,10 @@ class SerializedPageReader : public PageReader {
   // Maximum allowed page size
   uint32_t max_page_header_size_;
 
-  // Number of rows read in data pages so far
+  // Number of values read in data pages so far
   int64_t seen_num_values_;
 
-  // Number of rows in all the data pages
+  // Number of values in all the data pages
   int64_t total_num_values_;
 
   // data_page_aad_ and data_page_header_aad_ contain the AAD for data page and data page
