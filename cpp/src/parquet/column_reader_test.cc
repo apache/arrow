@@ -229,7 +229,7 @@ class TestPrimitiveReader : public ::testing::Test {
 };
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
-  int levels_per_page = 100;
+  int levels_per_page = 10;
   int num_pages = 50;
   max_def_level_ = 0;
   max_rep_level_ = 0;

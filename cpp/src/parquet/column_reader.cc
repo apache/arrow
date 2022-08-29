@@ -222,15 +222,15 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
+  SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
                        Compression::type codec, const ReaderProperties& properties,
                        const CryptoContext* crypto_ctx, bool always_compressed)
       : properties_(properties),
         stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
-        seen_num_rows_(0),
-        total_num_rows_(total_num_rows),
+        seen_num_values_(0),
+        total_num_values_(total_num_values),
         decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
@@ -284,10 +284,10 @@ class SerializedPageReader : public PageReader {
   uint32_t max_page_header_size_;
 
   // Number of rows read in data pages so far
-  int64_t seen_num_rows_;
+  int64_t seen_num_values_;
 
   // Number of rows in all the data pages
-  int64_t total_num_rows_;
+  int64_t total_num_values_;
 
   // data_page_aad_ and data_page_header_aad_ contain the AAD for data page and data page
   // header in a single column respectively.
@@ -335,7 +335,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
-  while (seen_num_rows_ < total_num_rows_) {
+  while (seen_num_values_ < total_num_values_) {
     uint32_t header_size = 0;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
 
@@ -430,7 +430,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         throw ParquetException("Invalid page header (negative number of values)");
       }
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_rows_ += header.num_values;
+      seen_num_values_ += header.num_values;
 
       // Uncompress if needed
       page_buffer =
@@ -457,7 +457,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           (header.__isset.is_compressed ? header.is_compressed : false) ||
           always_compressed_;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
-      seen_num_rows_ += header.num_values;
+      seen_num_values_ += header.num_values;
 
       // Uncompress if needed
       int levels_byte_len;
@@ -519,23 +519,23 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 }  // namespace
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
-                                             int64_t total_num_rows,
+                                             int64_t total_num_values,
                                              Compression::type codec,
                                              const ReaderProperties& properties,
                                              bool always_compressed,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), total_num_rows, codec, properties, ctx, always_compressed));
+      std::move(stream), total_num_values, codec, properties, ctx, always_compressed));
 }
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
-                                             int64_t total_num_rows,
+                                             int64_t total_num_values,
                                              Compression::type codec,
                                              bool always_compressed,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec,
+      new SerializedPageReader(std::move(stream), total_num_values, codec,
                                ReaderProperties(pool), ctx, always_compressed));
 }
 
@@ -901,7 +901,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
                           int64_t* levels_read, int64_t* values_read,
                           int64_t* null_count) override;
 
-  int64_t Skip(int64_t num_rows_to_skip) override;
+  int64_t Skip(int64_t num_values_to_skip) override;
 
   Type::type type() const override { return this->descr_->physical_type(); }
 
