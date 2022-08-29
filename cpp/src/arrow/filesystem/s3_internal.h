@@ -98,7 +98,7 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   return Status::IOError(prefix, "AWS Error [code ",
                          static_cast<int>(error.GetErrorType()), "] during ", operation,
-                         " call: ", error.GetMessage());
+                         " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
