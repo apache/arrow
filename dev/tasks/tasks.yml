@@ -478,9 +478,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
-                                                              ("10.13", "high-sierra", "ON", "ON")] %}
+{% for macos_version, macos_codename in [("10.13", "high-sierra")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -489,8 +487,6 @@ tasks:
     params:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      arrow_s3: "{{ arrow_s3 }}"
-      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
