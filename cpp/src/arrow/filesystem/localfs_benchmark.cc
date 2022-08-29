@@ -27,7 +27,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/formatting.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
@@ -66,13 +65,9 @@ class LocalFSFixture : public benchmark::Fixture {
                                   arrow::internal::PlatformFilename cur_root_dir) {
     ASSERT_OK(arrow::internal::CreateDir(cur_root_dir));
 
-    arrow::internal::StringFormatter<Int32Type> format;
     for (size_t i = 0; i < num_files_; ++i) {
-      std::string fname = "file_";
-      format(i, [&fname](util::string_view formatted) {
-        fname.append(formatted.data(), formatted.size());
-      });
-      ASSERT_OK_AND_ASSIGN(auto path, cur_root_dir.Join(std::move(fname)));
+      ASSERT_OK_AND_ASSIGN(auto path,
+                           cur_root_dir.Join(std::string{"file_" + std::to_string(i)}));
       ASSERT_OK(MakeEmptyFile(path.ToString()));
     }
 
@@ -81,11 +76,8 @@ class LocalFSFixture : public benchmark::Fixture {
     }
 
     for (size_t i = 0; i < num_dirs_; ++i) {
-      std::string dirname = "dir_";
-      format(i, [&dirname](util::string_view formatted) {
-        dirname.append(formatted.data(), formatted.size());
-      });
-      ASSERT_OK_AND_ASSIGN(auto path, cur_root_dir.Join(std::move(dirname)));
+      ASSERT_OK_AND_ASSIGN(auto path,
+                           cur_root_dir.Join(std::string{"dir_" + std::to_string(i)}));
       InitializeDatasetStructure(cur_nesting_level + 1, std::move(path));
     }
   }

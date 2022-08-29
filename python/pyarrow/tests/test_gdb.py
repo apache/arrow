@@ -154,7 +154,7 @@ class GdbSession:
         # but it's not available on old GDB versions (such as 8.1.1),
         # so instead parse the stack trace for a matching frame number.
         out = self.run_command("info stack")
-        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + " "
+        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + r"\b"
         m = re.search(pat, out)
         if m is None:
             pytest.fail(f"Could not select frame for function {func_name}")

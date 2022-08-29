@@ -98,10 +98,6 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.doc-base
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib1000.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight1000.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python1000.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow1000.install
 dev/tasks/linux-packages/apache-arrow/debian/libgandiva-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libgandiva-glib-dev.install

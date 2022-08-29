@@ -193,7 +193,7 @@ jobs:
     name: AMD64 ${{ matrix.name }} C++17
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -202,14 +202,12 @@ jobs:
         include:
           - os: windows-2019
             name: Windows 2019
-            generator: Visual Studio 16 2019
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
-      ARROW_CXXFLAGS: "/std:c++17"
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
@@ -227,11 +225,13 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
-      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
+      OPENSSL_ROOT_DIR: >-
+        C:\Program Files\OpenSSL-Win64
       NPROC: 3
     steps:
       - name: Disable Crash Dialogs
@@ -254,9 +254,30 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
-      - name: Build
+      - name: Install ccache
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: |
+          ci/scripts/install_ccache.sh 4.6.2 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build

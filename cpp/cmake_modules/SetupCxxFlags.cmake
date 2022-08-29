@@ -205,6 +205,24 @@ if(WIN32)
     #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
 
+    if(ARROW_USE_CCACHE)
+      foreach(c_flag
+              CMAKE_CXX_FLAGS
+              CMAKE_CXX_FLAGS_RELEASE
+              CMAKE_CXX_FLAGS_DEBUG
+              CMAKE_CXX_FLAGS_MINSIZEREL
+              CMAKE_CXX_FLAGS_RELWITHDEBINFO
+              CMAKE_C_FLAGS
+              CMAKE_C_FLAGS_RELEASE
+              CMAKE_C_FLAGS_DEBUG
+              CMAKE_C_FLAGS_MINSIZEREL
+              CMAKE_C_FLAGS_RELWITHDEBINFO)
+        # ccache doesn't work with /Zi.
+        # See also: https://github.com/ccache/ccache/issues/1040
+        string(REPLACE "/Zi" "/Z7" ${c_flag} "${${c_flag}}")
+      endforeach()
+    endif()
+
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
               CMAKE_CXX_FLAGS
@@ -217,7 +235,7 @@ if(WIN32)
               CMAKE_C_FLAGS_DEBUG
               CMAKE_C_FLAGS_MINSIZEREL
               CMAKE_C_FLAGS_RELWITHDEBINFO)
-        string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+        string(REPLACE "/MD" "/MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
 

@@ -21,7 +21,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
@@ -46,8 +48,10 @@ func (*mockFn) NumKernels() int          { return 0 }
 func (*mockFn) Execute(context.Context, compute.FunctionOptions, ...compute.Datum) (compute.Datum, error) {
 	return nil, errors.New("not implemented")
 }
-func (*mockFn) DefaultOptions() compute.FunctionOptions { return nil }
-func (*mockFn) Validate() error                         { return nil }
+func (*mockFn) DefaultOptions() compute.FunctionOptions              { return nil }
+func (*mockFn) Validate() error                                      { return nil }
+func (*mockFn) DispatchExact(...arrow.DataType) (exec.Kernel, error) { return nil, nil }
+func (*mockFn) DispatchBest(...arrow.DataType) (exec.Kernel, error)  { return nil, nil }
 
 func TestRegistryBasics(t *testing.T) {
 	tests := []struct {
