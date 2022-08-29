@@ -283,7 +283,25 @@ wrap_scalars <- function(args, FUN) {
           to_type <- args[[which(is_expr)]]$type()
           # Try casting to this type, but if the cast fails,
           # we'll just keep the original
-          args[!is_expr] <- lapply(args[!is_expr], function(x) x$cast(to_type))
+          args[!is_expr] <- lapply(args[!is_expr], function(x) {
+            if (x$type == string()) {
+              if (to_type == date32()) {
+                x <- call_function(
+                  "strptime",
+                  x,
+                  options = list(format = "%Y-%m-%d", unit = 0L)
+                )
+              } else if (to_type$id == Type[["TIMESTAMP"]]) {
+                x <- call_function(
+                  "strptime",
+                  x,
+                  options = list(format = "%Y-%m-%d %H:%M:%S", unit = 1L)
+                )
+                # TODO: assume_timezone?
+              }
+            }
+            x$cast(to_type)
+          })
         },
         silent = TRUE
       )

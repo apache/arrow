@@ -677,8 +677,31 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     1
   )
 
-  skip("Auto casting string to date/timestamp not implemented")
-  tab %>%
-    filter(dates > "2022-09-01") %>%
-    show_exec_plan()
+  # Strings automatically parsed to date/timestamp
+  expect_output(
+    tab %>%
+      filter(dates > "2022-09-01") %>%
+      show_exec_plan(),
+    "dates > 2022-09-01"
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(dates > "2022-09-01") %>%
+      collect(),
+    tbl_with_datetime
+  )
+
+  expect_output(
+    tab %>%
+      filter(times > "2018-10-07 19:04:05") %>%
+      show_exec_plan(),
+    "times > 2018-10-07 19:04:05"
+  )
+  skip("Timezones?")
+  compare_dplyr_binding(
+    .input %>%
+      filter(times > "2018-10-07 19:04:05") %>%
+      collect(),
+    tbl_with_datetime
+  )
 })
