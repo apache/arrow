@@ -79,6 +79,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libxml2-dev \
         ninja-build \
         pkg-config \
         protobuf-compiler \

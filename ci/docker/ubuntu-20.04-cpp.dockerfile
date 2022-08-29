@@ -90,6 +90,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
         make \
         ninja-build \
