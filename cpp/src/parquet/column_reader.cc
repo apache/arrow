@@ -1133,8 +1133,8 @@ template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   while (HasNext() && values_to_skip > 0) {
-    // If the number of values to skip is more than the number of undecoded values, skip the
-    // Page.
+    // If the number of values to skip is more than the number of undecoded values, skip
+    // the Page.
     if (values_to_skip > (this->num_buffered_values_ - this->num_decoded_values_)) {
       values_to_skip -= this->num_buffered_values_ - this->num_decoded_values_;
       this->num_decoded_values_ = this->num_buffered_values_;
