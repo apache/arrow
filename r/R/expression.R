@@ -288,7 +288,7 @@ wrap_scalars <- function(args, FUN) {
         silent = TRUE
       )
     } else {
-      # TODO: check if all expression types are the same, and if so, cast to that
+      # TODO: check if all expr types are the same, and if so, cast to that
       # Functions that exercise code that go through here (in our tests):
       # * case_when
       # * pmin/pmax

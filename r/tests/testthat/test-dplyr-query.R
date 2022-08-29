@@ -633,16 +633,52 @@ test_that("collect() is identical to compute() %>% collect()", {
 })
 
 test_that("Scalars in expressions match the type of the field, if possible", {
-  tab <- Table$create(tbl)
+  tbl_with_datetime <- tbl
+  tbl_with_datetime$dates <- as.Date("2022-08-28") + 1:10
+  tbl_with_datetime$times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
+  tab <- Table$create(tbl_with_datetime)
+
+  # 5 is double in R but is properly interpreted as int, no cast is added
   expect_output(
     tab %>%
-      filter(int == 4) %>%
+      filter(int == 5) %>%
       show_exec_plan(),
-    "int == 4"
+    "int == 5"
   )
-  # TODO:
-  # * test int == 4.2 (cast to int errors so send as float and let int cast)
-  # * what about int == "4"?
-  # * special handling for date == "string", this should work (has separate jira)
-  # * what about functions where types should not be the same? (timestamp - duration?)
+
+  # Because 5.2 can't cast to int32 without truncation, we pass as is
+  # and Acero will cast int to float64
+  expect_output(
+    tab %>%
+      filter(int == 5.2) %>%
+      show_exec_plan(),
+    "filter=(cast(int, {to_type=double",
+    fixed = TRUE
+  )
+  expect_equal(
+    tab %>%
+      filter(int == 5.2) %>%
+      nrow(),
+    0
+  )
+
+  # int == string, this works in dplyr and here too
+  expect_output(
+    tab %>%
+      filter(int == "5") %>%
+      show_exec_plan(),
+    "int == 5",
+    fixed = TRUE
+  )
+  expect_equal(
+    tab %>%
+      filter(int == "5") %>%
+      nrow(),
+    1
+  )
+
+  skip("Auto casting string to date/timestamp not implemented")
+  tab %>%
+    filter(dates > "2022-09-01") %>%
+    show_exec_plan()
 })
