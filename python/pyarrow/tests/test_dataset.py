@@ -3624,12 +3624,12 @@ def test_write_dataset(tempdir):
 
     # full string path
     target = tempdir / 'single-file-target'
-    expected_files = [target / "part-0.arrow"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
-    expected_files = [target / "part-0.arrow"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
@@ -3646,7 +3646,7 @@ def test_write_dataset(tempdir):
     dataset = ds.dataset(directory)
 
     target = tempdir / 'single-directory-target'
-    expected_files = [target / "part-0.arrow"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
@@ -3661,8 +3661,8 @@ def test_write_dataset_partitioned(tempdir):
     # hive partitioning
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
-        target / "part=a", target / "part=a" / "part-0.arrow",
-        target / "part=b", target / "part=b" / "part-0.arrow"
+        target / "part=a", target / "part=a" / "part-0.feather",
+        target / "part=b", target / "part=b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -3673,8 +3673,8 @@ def test_write_dataset_partitioned(tempdir):
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.arrow",
-        target / "b", target / "b" / "part-0.arrow"
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
@@ -4081,8 +4081,8 @@ def test_write_dataset_partitioned_dict(tempdir):
         partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.arrow",
-        target / "b", target / "b" / "part-0.arrow"
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-0.feather"
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),
@@ -4117,8 +4117,8 @@ def test_write_dataset_use_threads(tempdir):
     )
 
     expected_paths = {
-        target1 / 'part=a' / 'part-0.arrow',
-        target1 / 'part=b' / 'part-0.arrow'
+        target1 / 'part=a' / 'part-0.feather',
+        target1 / 'part=b' / 'part-0.feather'
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
     assert paths_written_set == expected_paths
@@ -4192,27 +4192,27 @@ def test_write_table_multiple_fragments(tempdir):
     # Table with multiple batches written as single Fragment by default
     base_dir = tempdir / 'single'
     ds.write_dataset(table, base_dir, format="feather")
-    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.arrow"])
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Same for single-element list of Table
     base_dir = tempdir / 'single-list'
     ds.write_dataset([table], base_dir, format="feather")
-    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.arrow"])
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Provide list of batches to write multiple fragments
     base_dir = tempdir / 'multiple'
     ds.write_dataset(table.to_batches(), base_dir, format="feather")
     assert set(base_dir.rglob("*")) == set(
-        [base_dir / "part-0.arrow"])
+        [base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Provide list of tables to write multiple fragments
     base_dir = tempdir / 'multiple-table'
     ds.write_dataset([table, table], base_dir, format="feather")
     assert set(base_dir.rglob("*")) == set(
-        [base_dir / "part-0.arrow"])
+        [base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
         pa.concat_tables([table]*2)
     )
@@ -4425,7 +4425,7 @@ def test_write_dataset_schema_metadata(tempdir):
     table = table.replace_schema_metadata({b'key': b'value'})
     ds.write_dataset(table, tempdir, format="feather")
 
-    schema = feather.read_table(tempdir / "part-0.arrow").schema
+    schema = feather.read_table(tempdir / "part-0.feather").schema
     assert schema.metadata == {b'key': b'value'}
 
 
