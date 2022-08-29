@@ -18,7 +18,6 @@
 #include "arrow/engine/substrait/plan_internal.h"
 
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
@@ -141,9 +140,10 @@ Result<std::unique_ptr<substrait::Plan>> PlanToProto(
     const ConversionOptions& conversion_options) {
   auto subs_plan = internal::make_unique<substrait::Plan>();
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
-  auto rel = internal::make_unique<substrait::Rel>();
-  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
-  plan_rel->set_allocated_rel(rel.release());
+  auto rel_root = internal::make_unique<substrait::RelRoot>();
+  ARROW_ASSIGN_OR_RAISE(auto rel, ToProto(declr, ext_set, conversion_options));
+  rel_root->set_allocated_input(rel.release());
+  plan_rel->set_allocated_root(rel_root.release());
   subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
   RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));
   return std::move(subs_plan);

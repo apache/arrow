@@ -40,24 +40,10 @@ struct DeclarationInfo {
   int num_columns;
 };
 
-/// \brief A function to extract Acero Declaration from a Substrait Rel object
+/// \brief Convert a Substrait Rel object to an Acero declaration
 ARROW_ENGINE_EXPORT
 Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
                                   const ConversionOptions&);
-
-/// \brief Convert a Declaration (and its inputs) to a Substrait Rel
-///
-/// A Substrait Rel is passed as a the plan and it is updated with
-/// corresponding Declaration passed for serialization.
-///
-/// Note that this used to fuse a partially serialized plan with another plan.
-/// Partially serialized plan is recursively being used to generate global plan.
-/// Since kept as unique_ptr resources are relased efficiently upon releasing for
-/// the global plan.
-ARROW_ENGINE_EXPORT Status SerializeAndCombineRelations(const compute::Declaration&,
-                                                        ExtensionSet*,
-                                                        std::unique_ptr<substrait::Rel>*,
-                                                        const ConversionOptions&);
 
 /// \brief Convert an Acero Declaration to a Substrait Rel
 ///
