@@ -306,3 +306,60 @@ func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 func (s *ScalarFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 	return execInternal(ctx, s, opts, -1, args...)
 }
+
+// MetaFunctionImpl is the signature needed for implementing a MetaFunction
+// which is a function that dispatches to another function instead.
+type MetaFunctionImpl func(context.Context, FunctionOptions, ...Datum) (Datum, error)
+
+// MetaFunction is a function which dispatches to other functions, the impl
+// must not be nil.
+//
+// For Array, ChunkedArray and Scalar datums, this may rely on the execution
+// of concrete function types, but this must handle other Datum kinds on its
+// own.
+type MetaFunction struct {
+	baseFunction
+	impl MetaFunctionImpl
+}
+
+// NewMetaFunction constructs a new MetaFunction which will call the provided
+// impl for dispatching with the expected arity.
+//
+// Will panic if impl is nil.
+func NewMetaFunction(name string, arity Arity, doc FunctionDoc, impl MetaFunctionImpl) Function {
+	if impl == nil {
+		panic("arrow/compute: cannot construct MetaFunction with nil impl")
+	}
+	return &MetaFunction{
+		baseFunction: baseFunction{
+			name:  name,
+			arity: arity,
+			doc:   doc,
+		},
+		impl: impl,
+	}
+}
+
+func (MetaFunction) NumKernels() int { return 0 }
+func (m *MetaFunction) DispatchExact(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) DispatchBest(...arrow.DataType) (exec.Kernel, error) {
+	return nil, fmt.Errorf("%w: dispatch for metafunction", arrow.ErrNotImplemented)
+}
+
+func (m *MetaFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	if err := m.checkArity(len(args)); err != nil {
+		return nil, err
+	}
+	if err := checkOptions(m, opts); err != nil {
+		return nil, err
+	}
+
+	if opts == nil {
+		opts = m.defaultOpts
+	}
+
+	return m.impl(ctx, opts, args...)
+}
