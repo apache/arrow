@@ -725,11 +725,13 @@ def test_struct_array_from_chunked():
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
-def test_dictionary_from_buffers():
+@pytest.mark.parametrize("offset", (0, 1))
+def test_dictionary_from_buffers(offset):
     a = pa.array(["one", "two", "three", "two", "one"]).dictionary_encode()
-    b = pa.DictionaryArray.from_buffers(
-        a.type, len(a), a.indices.buffers(), a.dictionary)
-    assert a == b
+    b = pa.DictionaryArray.from_buffers(a.type, len(a)-offset,
+                                        a.indices.buffers(), a.dictionary,
+                                        offset=offset)
+    assert a[offset:] == b
 
 
 def test_dictionary_from_numpy():

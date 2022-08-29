@@ -2479,11 +2479,13 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_buffers(DataType type, int64_t length, buffers, dictionary,
-                     int64_t null_count=-1, int64_t offset=0, memory_pool=None):
+    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
+                     int64_t null_count=-1, int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
 
+        Parameters
+        ----------
         type : pyarrow.DataType
         length : int
             The number of values in the array.
@@ -2497,11 +2499,12 @@ cdef class DictionaryArray(Array):
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
             start of each buffer.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise uses default pool.
+
+        Returns
+        -------
+        dict_array : DictionaryArray
         """
         cdef:
-            Array _dictionary
             vector[shared_ptr[CBuffer]] c_buffers
             shared_ptr[CDataType] c_type
             shared_ptr[CArrayData] c_data
@@ -2510,17 +2513,12 @@ cdef class DictionaryArray(Array):
         for buf in buffers:
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
 
-        if isinstance(dictionary, Array):
-            _dictionary = dictionary
-        else:
-            _dictionary = array(dictionary, memory_pool=memory_pool)
-
         c_type = pyarrow_unwrap_data_type(type)
 
         with nogil:
             c_data = CArrayData.Make(
                 c_type, length, c_buffers, null_count, offset)
-            c_data.get().dictionary = _dictionary.sp_array.get().data()
+            c_data.get().dictionary = dictionary.sp_array.get().data()
             c_result.reset(new CDictionaryArray(c_data))
 
         cdef Array result = pyarrow_wrap_array(c_result)
