@@ -79,10 +79,10 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         shared_ptr[CDataType] c_type
         CCastOptions cast_options = CCastOptions(safe)
 
-    if safe:
-        c_type = _ndarray_to_type(values, type)
-    else:
+    if type and not safe:
         c_type = _ndarray_to_type(values, None)
+    else:
+        c_type = _ndarray_to_type(values, type)
 
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
@@ -92,7 +92,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         array = pyarrow_wrap_chunked_array(chunked_out)
     else:
         array = pyarrow_wrap_array(chunked_out.get().chunk(0))
-    if not safe:
+    if type and not safe:
         array = array.cast(type, safe=safe)
     return array
 
