@@ -149,6 +149,9 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 	}
 }
 
+// ScalarUnaryBoolArg is like ScalarUnary except it specifically expects a
+// function that takes a byte slice since booleans arrays are represented
+// as a bitmap.
 func ScalarUnaryBoolArg[OutT exec.FixedWidthTypes](op func(*exec.KernelCtx, []byte, []OutT) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, input *exec.ExecSpan, out *exec.ExecResult) error {
 		outData := exec.GetSpanValues[OutT](out, 1)
@@ -156,6 +159,9 @@ func ScalarUnaryBoolArg[OutT exec.FixedWidthTypes](op func(*exec.KernelCtx, []by
 	}
 }
 
+// SizeOf determines the size in number of bytes for an integer
+// based on the generic value in a way that the compiler should
+// be able to easily evaluate and create as a constant.
 func SizeOf[T constraints.Integer]() uint {
 	x := uint16(1 << 8)
 	y := uint32(2 << 16)
@@ -163,6 +169,8 @@ func SizeOf[T constraints.Integer]() uint {
 	return 1 + uint(T(x))>>8 + uint(T(y))>>16 + uint(T(z))>>32
 }
 
+// MinOf returns the minimum value for a given type since there is not
+// currently a generic way to do this with Go generics yet.
 func MinOf[T constraints.Integer]() T {
 	if ones := ^T(0); ones < 0 {
 		return ones << (8*SizeOf[T]() - 1)
@@ -170,6 +178,9 @@ func MinOf[T constraints.Integer]() T {
 	return 0
 }
 
+// MaxOf determines the max value for a given type since there is not
+// currently a generic way to do this for Go generics yet as all of the
+// math.Max/Min values are constants.
 func MaxOf[T constraints.Integer]() T {
 	ones := ^T(0)
 	if ones < 0 {
