@@ -55,7 +55,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -604,29 +604,27 @@ foreach(module ${CYTHON_EXTENSIONS})
                                                     ${module_output_directory})
   endif()
 
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    # In the event that we are bundling the shared libraries (e.g. in a
-    # manylinux1 wheel), we need to set the RPATH of the extensions to the
-    # root of the pyarrow/ package so that libarrow/libarrow_python are able
-    # to be loaded properly
-    if(APPLE)
-      set(module_install_rpath "@loader_path/")
-    else()
-      set(module_install_rpath "\$ORIGIN")
-    endif()
-
-    # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
-    # modules in interior directories. Since all of our C extensions and
-    # bundled libraries are in the same place, we can skip this part
-
-    # list(LENGTH directories i)
-    # while(${i} GREATER 0)
-    #   set(module_install_rpath "${module_install_rpath}/..")
-    #   math(EXPR i "${i} - 1" )
-    # endwhile(${i} GREATER 0)
-
-    set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
+  # In the event that we are bundling the shared libraries (e.g. in a
+  # manylinux1 wheel), we need to set the RPATH of the extensions to the
+  # root of the pyarrow/ package so that libarrow is able to be
+  # loaded properly
+  if(APPLE)
+    set(module_install_rpath "@loader_path/")
+  else()
+    set(module_install_rpath "\$ORIGIN")
   endif()
+
+  # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
+  # modules in interior directories. Since all of our C extensions and
+  # bundled libraries are in the same place, we can skip this part
+
+  # list(LENGTH directories i)
+  # while(${i} GREATER 0)
+  #   set(module_install_rpath "${module_install_rpath}/..")
+  #   math(EXPR i "${i} - 1" )
+  # endwhile(${i} GREATER 0)
+
+  set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
 
   if(PYARROW_GENERATE_COVERAGE)
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS

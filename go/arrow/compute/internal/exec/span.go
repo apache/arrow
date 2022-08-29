@@ -134,7 +134,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	)
 
 	if a.Type.ID() == arrow.NULL {
-		nulls = int(length)
+		nulls = length
 	} else if len(a.Buffers[0].Buf) == 0 {
 		nulls = 0
 	}

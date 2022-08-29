@@ -805,10 +805,6 @@ if(ARROW_ORC)
   add_subdirectory(adapters/orc)
 endif()
 
-if(ARROW_PYTHON)
-  add_subdirectory(python)
-endif()
-
 if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
 endif()

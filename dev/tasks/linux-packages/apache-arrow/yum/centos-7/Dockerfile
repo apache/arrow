@@ -47,8 +47,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python36 \
-    python36-devel \
-    python36-numpy \
     rapidjson-devel \
     rpmdevtools \
     snappy-devel \

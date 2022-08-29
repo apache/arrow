@@ -61,6 +61,8 @@ type Datum interface {
 	Len() int64
 	Equals(Datum) bool
 	Release()
+
+	data() any
 }
 
 // ArrayLikeDatum is an interface for treating a Datum similarly to an Array,
@@ -92,6 +94,7 @@ func (EmptyDatum) Equals(other Datum) bool {
 	_, ok := other.(EmptyDatum)
 	return ok
 }
+func (EmptyDatum) data() any { return nil }
 
 // ScalarDatum contains a scalar value
 type ScalarDatum struct {
@@ -106,7 +109,7 @@ func (d *ScalarDatum) String() string       { return d.Value.String() }
 func (d *ScalarDatum) ToScalar() (scalar.Scalar, error) {
 	return d.Value, nil
 }
-
+func (d *ScalarDatum) data() any { return d.Value }
 func (d *ScalarDatum) NullN() int64 {
 	if d.Value.IsValid() {
 		return 0
@@ -151,7 +154,7 @@ func (d *ArrayDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
 }
-
+func (d *ArrayDatum) data() any { return d.Value }
 func (d *ArrayDatum) Equals(other Datum) bool {
 	rhs, ok := other.(*ArrayDatum)
 	if !ok {
@@ -177,7 +180,7 @@ func (d *ChunkedDatum) Len() int64            { return int64(d.Value.Len()) }
 func (d *ChunkedDatum) NullN() int64          { return int64(d.Value.NullN()) }
 func (d *ChunkedDatum) String() string        { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
 func (d *ChunkedDatum) Chunks() []arrow.Array { return d.Value.Chunks() }
-
+func (d *ChunkedDatum) data() any             { return d.Value }
 func (d *ChunkedDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
@@ -200,7 +203,7 @@ func (RecordDatum) Kind() DatumKind          { return KindRecord }
 func (RecordDatum) String() string           { return "RecordBatch" }
 func (r *RecordDatum) Len() int64            { return r.Value.NumRows() }
 func (r *RecordDatum) Schema() *arrow.Schema { return r.Value.Schema() }
-
+func (r *RecordDatum) data() any             { return r.Value }
 func (r *RecordDatum) Release() {
 	r.Value.Release()
 	r.Value = nil
@@ -223,7 +226,7 @@ func (TableDatum) Kind() DatumKind          { return KindTable }
 func (TableDatum) String() string           { return "Table" }
 func (d *TableDatum) Len() int64            { return d.Value.NumRows() }
 func (d *TableDatum) Schema() *arrow.Schema { return d.Value.Schema() }
-
+func (d *TableDatum) data() any             { return d.Value }
 func (d *TableDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
@@ -245,7 +248,6 @@ func (d *TableDatum) Equals(other Datum) bool {
 // An array.Chunked gets a ChunkedDatum
 // An array.Record gets a RecordDatum
 // an array.Table gets a TableDatum
-// a []Datum gets a CollectionDatum
 // a scalar.Scalar gets a ScalarDatum
 //
 // Anything else is passed to scalar.MakeScalar and recieves a scalar
@@ -253,7 +255,7 @@ func (d *TableDatum) Equals(other Datum) bool {
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {
 	case Datum:
-		return v
+		return NewDatum(v.data())
 	case arrow.Array:
 		v.Data().Retain()
 		return &ArrayDatum{v.Data().(*array.Data)}
