@@ -5133,6 +5133,14 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+// threadpool.cpp
+void WaitForIdleThreadPool();
+extern "C" SEXP _arrow_WaitForIdleThreadPool(){
+BEGIN_CPP11
+	WaitForIdleThreadPool();
+	return R_NilValue;
+END_CPP11
+}
 // type_infer.cpp
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
 extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
@@ -5712,6 +5720,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
 		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
+		{ "_arrow_WaitForIdleThreadPool", (DL_FUNC) &_arrow_WaitForIdleThreadPool, 0}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{NULL, NULL, 0}
 };
