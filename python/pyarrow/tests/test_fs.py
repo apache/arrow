@@ -191,14 +191,7 @@ def localfs_with_mmap(request, tempdir):
     )
 
 
-@pytest.fixture(
-    params=[pytest.param(
-        pytest.lazy_fixture('localfs_with_directio'),
-        id='LocalFileSystem(use_directio=True)',
-        marks=pytest.mark.skipif(sys.platform != 'linux',
-            reason="DirectIO only works on Linux currently.")
-    ), ]
-)
+@pytest.fixture
 def localfs_with_directio(request, tempdir):
     return dict(
         fs=LocalFileSystem(use_directio=True),
@@ -386,7 +379,10 @@ def py_fsspec_s3fs(request, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('localfs_with_directio'),
-        id='LocalFileSystem(use_directio=True)'
+        id='LocalFileSystem(use_directio=True)',
+        marks=[pytest.mark.skipif(
+            sys.platform != 'linux',
+            reason="DirectIO only works on Linux currently.")]
     ),
     pytest.param(
         pytest.lazy_fixture('subtree_localfs'),
