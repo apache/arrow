@@ -2708,7 +2708,6 @@ def test_fixed_size_list_array_flatten():
     typ1 = pa.list_(pa.int64(), 2)
     arr1 = pa.array([
         [1, 2], [3, 4], [5, 6],
-        None, None, None,
         [7, None], None, [8, 9]
     ], type=typ1)
     assert arr1.type.equals(typ1)
@@ -2716,13 +2715,17 @@ def test_fixed_size_list_array_flatten():
 
     typ0 = pa.int64()
     arr0 = pa.array([
-        1, 2, 3, 4, 5, 6,
-        None, None, None, None, None, None,
-        7, None, None, None, 8, 9,
+        1, 2, 3, 4, 5, 6, 7, None, 8, 9,
     ], type=typ0)
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_fixed_size_list_array_flatten_with_slice():
+    array = pa.array([[1], [2], [3]],
+                     type=pa.list_(pa.float64(), list_size=1))
+    assert array[2:].flatten() == pa.array([3], type=pa.float64())
 
 
 def test_map_array_values_offsets():

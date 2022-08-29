@@ -383,7 +383,7 @@ cdef class MapArray(ListArray):
     pass
 
 
-cdef class FixedSizeListArray(Array):
+cdef class FixedSizeListArray(BaseListArray):
     pass
 
 
