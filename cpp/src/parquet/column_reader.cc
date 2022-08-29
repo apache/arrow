@@ -1130,13 +1130,13 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
 }
 
 template <typename DType>
-int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
-  int64_t rows_to_skip = num_rows_to_skip;
-  while (HasNext() && rows_to_skip > 0) {
-    // If the number of rows to skip is more than the number of undecoded values, skip the
+int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
+  int64_t values_to_skip = num_values_to_skip;
+  while (HasNext() && values_to_skip > 0) {
+    // If the number of values to skip is more than the number of undecoded values, skip the
     // Page.
-    if (rows_to_skip > (this->num_buffered_values_ - this->num_decoded_values_)) {
-      rows_to_skip -= this->num_buffered_values_ - this->num_decoded_values_;
+    if (values_to_skip > (this->num_buffered_values_ - this->num_decoded_values_)) {
+      values_to_skip -= this->num_buffered_values_ - this->num_decoded_values_;
       this->num_decoded_values_ = this->num_buffered_values_;
     } else {
       // We need to read this Page
@@ -1151,17 +1151,17 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
           this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
 
       do {
-        batch_size = std::min(batch_size, rows_to_skip);
+        batch_size = std::min(batch_size, values_to_skip);
         values_read =
             ReadBatch(static_cast<int>(batch_size),
                       reinterpret_cast<int16_t*>(scratch->mutable_data()),
                       reinterpret_cast<int16_t*>(scratch->mutable_data()),
                       reinterpret_cast<T*>(scratch->mutable_data()), &values_read);
-        rows_to_skip -= values_read;
-      } while (values_read > 0 && rows_to_skip > 0);
+        values_to_skip -= values_read;
+      } while (values_read > 0 && values_to_skip > 0);
     }
   }
-  return num_rows_to_skip - rows_to_skip;
+  return num_values_to_skip - values_to_skip;
 }
 
 }  // namespace
