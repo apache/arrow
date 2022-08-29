@@ -104,12 +104,12 @@ class PARQUET_EXPORT PageReader {
   virtual ~PageReader() = default;
 
   static std::unique_ptr<PageReader> Open(
-      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
+      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
       Compression::type codec, bool always_compressed = false,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
   static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
-                                          int64_t total_num_rows, Compression::type codec,
+                                          int64_t total_num_values, Compression::type codec,
                                           const ReaderProperties& properties,
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
@@ -218,9 +218,11 @@ class TypedColumnReader : public ColumnReader {
                                   int64_t valid_bits_offset, int64_t* levels_read,
                                   int64_t* values_read, int64_t* null_count) = 0;
 
-  // Skip reading levels
-  // Returns the number of levels skipped
-  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+  // Skip reading values.
+  // Returns the number of values skipped.
+  // This function will NOT skip rows, and repeated fields may have multiple values
+  // corresponding to the same row.
+  virtual int64_t Skip(int64_t num_values_to_skip) = 0;
 
   // Read a batch of repetition levels, definition levels, and indices from the
   // column. And read the dictionary if a dictionary page is encountered during
