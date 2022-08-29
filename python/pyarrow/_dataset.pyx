@@ -1154,6 +1154,13 @@ cdef class IpcFileFormat(FileFormat):
         return IpcFileFormat, tuple()
 
 
+cdef class FeatherFileFormat(IpcFileFormat):
+
+    @property
+    def default_extname(self):
+        return "feather"
+
+
 cdef class CsvFileFormat(FileFormat):
     """
     FileFormat for CSV files.
