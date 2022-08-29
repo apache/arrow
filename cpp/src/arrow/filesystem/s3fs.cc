@@ -1764,7 +1764,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       } else if (!IsNotFound(outcome.GetError())) {
         return ErrorToStatus(
             std::forward_as_tuple("When creating bucket '", bucket, "': "),
-            "CreateBucket", outcome.GetError());
+            "HeadBucket", outcome.GetError());
       }
 
       if (!options().allow_bucket_creation) {
@@ -2536,7 +2536,7 @@ Status S3FileSystem::DeleteFile(const std::string& s) {
       return ErrorToStatus(
           std::forward_as_tuple("When getting information for key '", path.key,
                                 "' in bucket '", path.bucket, "': "),
-          "DeleteBucket", outcome.GetError());
+          "HeadObject", outcome.GetError());
     }
   }
   // Object found, delete it
