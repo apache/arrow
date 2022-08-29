@@ -31,17 +31,15 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
+using ::arrow::internal::UriFromAbsolutePath;
 using internal::checked_cast;
 using internal::make_unique;
 
 namespace engine {
-
-using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
-    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
-    const ConversionOptions&)>;
 
 template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
@@ -439,18 +437,19 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(
   return std::move(rel);
 }
 
-Status SetRelation(const std::unique_ptr<substrait::Rel>& plan,
-                   const std::unique_ptr<substrait::Rel>& partial_plan,
-                   const std::string& factory_name) {
-  if (factory_name == "scan" && partial_plan->has_read()) {
-    plan->set_allocated_read(partial_plan->release_read());
-  } else if (factory_name == "filter" && partial_plan->has_filter()) {
-    plan->set_allocated_filter(partial_plan->release_filter());
-  } else {
-    return Status::NotImplemented("Substrait converter ", factory_name,
-                                  " not supported.");
+namespace {
+
+Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  auto declr_input = declaration.inputs[0];
+  // Note that the input is expected in declaration.
+  // ExecNode inputs are not accepted
+  if (util::get_if<compute::ExecNode*>(&declr_input)) {
+    return Status::NotImplemented("Only support Plans written in Declaration format.");
   }
-  return Status::OK();
+  return ToProto(util::get<compute::Declaration>(declr_input), ext_set,
+                 conversion_options);
 }
 
 Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& declr) {
@@ -471,59 +470,9 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   return bind_schema;
 }
 
-Status SerializeAndCombineRelations(const compute::Declaration& declaration,
-                                    ExtensionSet* ext_set,
-                                    std::unique_ptr<substrait::Rel>& rel,
-                                    const ConversionOptions& conversion_options) {
-  std::vector<compute::Declaration::Input> inputs = declaration.inputs;
-  for (auto& input : inputs) {
-    auto input_decl = util::get<compute::Declaration>(input);
-    RETURN_NOT_OK(
-        SerializeAndCombineRelations(input_decl, ext_set, rel, conversion_options));
-  }
-  const auto& factory_name = declaration.factory_name;
-  ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
-  // Note that the sink declaration factory doesn't exist for serialization as
-  // Substrait doesn't deal with a sink node definition
-  std::unique_ptr<substrait::Rel> factory_rel;
-  if (factory_name == "scan") {
-    ARROW_ASSIGN_OR_RAISE(factory_rel, ScanRelationConverter(schema, declaration, ext_set,
-                                                             conversion_options));
-  } else if (factory_name == "filter") {
-    ARROW_ASSIGN_OR_RAISE(
-        factory_rel,
-        FilterRelationConverter(schema, declaration, ext_set, conversion_options));
-  } else {
-    return Status::NotImplemented("Factory ", factory_name,
-                                  " not implemented for roundtripping.");
-  }
-
-  if (factory_rel != nullptr) {
-    RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
-  } else {
-    return Status::Invalid("Conversion on factory ", factory_name,
-                           " returned an invalid relation");
-  }
-  return Status::OK();
-}
-
-Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
-    const compute::Declaration& declaration, ExtensionSet* ext_set,
-    const ConversionOptions& conversion_options) {
-  auto declr_input = declaration.inputs[0];
-  // Note that the input is expected in declaration.
-  // ExecNode inputs are not accepted
-  if (util::get_if<compute::ExecNode*>(&declr_input)) {
-    return Status::NotImplemented("Only support Plans written in Declaration format.");
-  }
-  return ToProto(util::get<compute::Declaration>(declr_input), ext_set,
-                 conversion_options);
-}
-
-Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
+Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto rel = make_unique<substrait::Rel>();
   auto read_rel = make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
       checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
@@ -541,7 +490,7 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
   auto read_rel_lfs = make_unique<substrait::ReadRel_LocalFiles>();
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
-    read_rel_lfs_ffs->set_uri_path("file://" + file);
+    read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     // arrow and feather are temporarily handled via the Parquet format until
     // upgraded to the latest Substrait version.
@@ -564,14 +513,12 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
   }
   read_rel->set_allocated_local_files(read_rel_lfs.release());
-  rel->set_allocated_read(read_rel.release());
-  return std::move(rel);
+  return std::move(read_rel);
 }
 
-Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
+Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto rel = make_unique<substrait::Rel>();
   auto filter_rel = make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
       checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
@@ -593,8 +540,44 @@ Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
                         ToProto(bound_expression, ext_set, conversion_options));
   filter_rel->set_allocated_condition(subs_expr.release());
-  rel->set_allocated_filter(filter_rel.release());
-  return std::move(rel);
+  return std::move(filter_rel);
+}
+
+}  // namespace
+
+Status SerializeAndCombineRelations(const compute::Declaration& declaration,
+                                    ExtensionSet* ext_set,
+                                    std::unique_ptr<substrait::Rel>& rel,
+                                    const ConversionOptions& conversion_options) {
+  std::vector<compute::Declaration::Input> inputs = declaration.inputs;
+  for (auto& input : inputs) {
+    auto input_decl = util::get<compute::Declaration>(input);
+    RETURN_NOT_OK(
+        SerializeAndCombineRelations(input_decl, ext_set, rel, conversion_options));
+  }
+  const auto& factory_name = declaration.factory_name;
+  ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
+  // Note that the sink declaration factory doesn't exist for serialization as
+  // Substrait doesn't deal with a sink node definition
+
+  // ignore the sink relation in a plan, since sink is implicitly added
+  if (factory_name != "sink") {
+    if (factory_name == "scan") {
+      ARROW_ASSIGN_OR_RAISE(
+          auto read_rel,
+          ScanRelationConverter(schema, declaration, ext_set, conversion_options));
+      rel->set_allocated_read(read_rel.release());
+    } else if (factory_name == "filter") {
+      ARROW_ASSIGN_OR_RAISE(
+          auto filter_rel,
+          FilterRelationConverter(schema, declaration, ext_set, conversion_options));
+      rel->set_allocated_filter(filter_rel.release());
+    } else {
+      return Status::NotImplemented("Factory ", factory_name,
+                                    " not implemented for roundtripping.");
+    }
+  }
+  return Status::OK();
 }
 
 }  // namespace engine

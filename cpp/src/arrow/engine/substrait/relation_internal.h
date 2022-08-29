@@ -71,15 +71,5 @@ ARROW_ENGINE_EXPORT Status SerializeAndCombineRelations(const compute::Declarati
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration&, ExtensionSet*, const ConversionOptions&);
 
-/// \brief Acero to Substrait converter for Acero scan relation.
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
-    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
-    const ConversionOptions&);
-
-/// \brief Acero to Substrait converter for Acero filter relation.
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
-    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
-    const ConversionOptions&);
-
 }  // namespace engine
 }  // namespace arrow

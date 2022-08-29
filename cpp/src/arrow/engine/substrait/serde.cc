@@ -53,9 +53,10 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
 }
 
 Result<std::shared_ptr<Buffer>> SerializePlan(
-    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  ARROW_ASSIGN_OR_RAISE(auto subs_plan, PlanToProto(declr, ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto subs_plan,
+                        PlanToProto(declaration, ext_set, conversion_options));
   std::string serialized = subs_plan->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }

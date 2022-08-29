@@ -36,9 +36,17 @@
 namespace arrow {
 namespace engine {
 
+/// \brief Serialize an Acero Plan to a binary protobuf Substrait message
+///
+/// \param[in] declaration the Acero declaration to serialize.
+/// This declaration is the sink relation of the Acero plan.
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializePlan(
-    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the node that consumes the batches produced by
@@ -207,14 +215,13 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
     const compute::Expression& expr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
-/// \brief Serializes an Arrow compute Declaration to a Substrait Relation message
+/// \brief Serialize an Acero Declaration to a binary protobuf Substrait message
 ///
-/// \param[in] declaration the Arrow compute declaration to serialize
+/// \param[in] declaration the Acero declaration to serialize
 /// \param[in,out] ext_set the extension mapping to use; may be updated to add
 /// \param[in] conversion_options options to control how the conversion is done
-/// mappings for the components in the used declaration
-/// \return a buffer containing the protobuf serialization of the corresponding Substrait
-/// relation message
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
     const compute::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});

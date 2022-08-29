@@ -104,5 +104,10 @@ std::string UriEncodeHost(const std::string& host);
 ARROW_EXPORT
 bool IsValidUriScheme(const arrow::util::string_view s);
 
+/// Create a file uri from a given URI
+/// file:///<some_path>
+ARROW_EXPORT
+std::string UriFromAbsolutePath(const std::string& path);
+
 }  // namespace internal
 }  // namespace arrow

@@ -32,6 +32,7 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
@@ -40,6 +41,7 @@ namespace internal {
 using ::arrow::internal::FileDescriptor;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
+using ::arrow::internal::UriFromAbsolutePath;
 
 class LocalFSTestMixin : public ::testing::Test {
  public:
@@ -173,16 +175,6 @@ class TestLocalFS : public LocalFSTestMixin {
     fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
   }
 
-  std::string UriFromAbsolutePath(const std::string& path) {
-#ifdef _WIN32
-    // Path is supposed to start with "X:/..."
-    return "file:///" + path;
-#else
-    // Path is supposed to start with "/..."
-    return "file://" + path;
-#endif
-  }
-
   template <typename FileSystemFromUriFunc>
   void CheckFileSystemFromUriFunc(const std::string& uri,
                                   FileSystemFromUriFunc&& fs_from_uri) {
@@ -307,7 +299,7 @@ TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
   // Concrete test with actual file
-  const auto uri_string = this->UriFromAbsolutePath(this->local_path_);
+  const auto uri_string = UriFromAbsolutePath(this->local_path_);
   this->TestFileSystemFromUri(uri_string);
   this->TestFileSystemFromUriOrPath(uri_string);
 
