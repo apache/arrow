@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -495,17 +496,7 @@ type ArithmeticOptions struct {
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
 
-type CastOptions struct {
-	ToType               arrow.DataType `compute:"to_type"`
-	AllowIntOverflow     bool           `compute:"allow_int_overflow"`
-	AllowTimeTruncate    bool           `compute:"allow_time_truncate"`
-	AllowTimeOverflow    bool           `compute:"allow_time_overflow"`
-	AllowDecimalTruncate bool           `compute:"allow_decimal_truncate"`
-	AllowFloatTruncate   bool           `compute:"allow_float_truncate"`
-	AllowInvalidUtf8     bool           `compute:"allow_invalid_utf8"`
-}
-
-func (CastOptions) TypeName() string { return "CastOptions" }
+type CastOptions = kernels.CastOptions
 
 func DefaultCastOptions(safe bool) *CastOptions {
 	if safe {
