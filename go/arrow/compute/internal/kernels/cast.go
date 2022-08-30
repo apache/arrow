@@ -100,10 +100,10 @@ func GetZeroCastKernel(inID arrow.Type, inType exec.InputType, out exec.OutputTy
 // GetCommonCastKernels returns the list of kernels common to all types
 // such as casting from null or from Extension types of the appropriate
 // underlying type.
-func GetCommonCastKernels(outID arrow.Type, outType arrow.DataType) (out []exec.ScalarKernel) {
+func GetCommonCastKernels(outID arrow.Type, outType exec.OutputType) (out []exec.ScalarKernel) {
 	out = make([]exec.ScalarKernel, 0, 2)
 
-	kernel := exec.NewScalarKernel([]exec.InputType{exec.NewExactInput(arrow.Null)}, exec.NewOutputType(outType),
+	kernel := exec.NewScalarKernel([]exec.InputType{exec.NewExactInput(arrow.Null)}, outType,
 		CastFromNull, nil)
 	kernel.NullHandling = exec.NullComputedNoPrealloc
 	kernel.MemAlloc = exec.MemNoPrealloc

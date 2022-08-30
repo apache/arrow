@@ -265,6 +265,19 @@ func NewMatchedInput(match TypeMatcher) InputType {
 }
 func NewIDInput(id arrow.Type) InputType { return NewMatchedInput(SameTypeID(id)) }
 
+func (it InputType) MatchID() arrow.Type {
+	switch it.Kind {
+	case InputExact:
+		return it.Type.ID()
+	case InputUseMatcher:
+		if idMatch, ok := it.Matcher.(*sameTypeIDMatcher); ok {
+			return idMatch.accepted
+		}
+	}
+	debug.Assert(false, "MatchID called on non-id matching InputType")
+	return -1
+}
+
 func (it InputType) String() string {
 	switch it.Kind {
 	case InputAny:

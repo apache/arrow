@@ -138,9 +138,11 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 	}()
 
 	result = executor.WrapResults(ctx, ch, haveChunkedArray(input.Values))
-	debug.Assert(executor.CheckResultType(result) == nil, "invalid result type")
+	if err == nil {
+		debug.Assert(executor.CheckResultType(result) == nil, "invalid result type")
+	}
 
-	if ctx.Err() == context.Canceled {
+	if ctx.Err() == context.Canceled && result != nil {
 		result.Release()
 	}
 
