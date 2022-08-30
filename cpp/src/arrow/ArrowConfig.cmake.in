@@ -25,8 +25,8 @@
 #
 # This config sets the following targets in your project::
 #
-#   arrow_shared - for linked as shared library if shared library is built
-#   arrow_static - for linked as static library if static library is built
+#   Arrow::arrow_shared - for linked as shared library if shared library is built
+#   Arrow::arrow_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
@@ -34,61 +34,130 @@ set(ARROW_VERSION "@ARROW_VERSION@")
 set(ARROW_SO_VERSION "@ARROW_SO_VERSION@")
 set(ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
 
-set(ARROW_LIBRARY_PATH_SUFFIXES "@ARROW_LIBRARY_PATH_SUFFIXES@")
-set(ARROW_INCLUDE_PATH_SUFFIXES "@ARROW_INCLUDE_PATH_SUFFIXES@")
-set(ARROW_SYSTEM_DEPENDENCIES "@ARROW_SYSTEM_DEPENDENCIES@")
 set(ARROW_BUNDLED_STATIC_LIBS "@ARROW_BUNDLED_STATIC_LIBS@")
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS "@ARROW_STATIC_INSTALL_INTERFACE_LIBS@")
+set(ARROW_INCLUDE_PATH_SUFFIXES "@ARROW_INCLUDE_PATH_SUFFIXES@")
+set(ARROW_LIBRARY_PATH_SUFFIXES "@ARROW_LIBRARY_PATH_SUFFIXES@")
+set(ARROW_LLVM_VERSIONS "@ARROW_LLVM_VERSIONS@")
+set(ARROW_LLVM_VERSION_PRIMARY_MAJOR "@ARROW_LLVM_VERSION_PRIMARY_MAJOR@")
+set(ARROW_SYSTEM_DEPENDENCIES "@ARROW_SYSTEM_DEPENDENCIES@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 
-include(CMakeFindDependencyMacro)
+if(ARROW_BUILD_STATIC)
+  include(CMakeFindDependencyMacro)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET arrow_shared OR TARGET arrow_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
+  set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_dependency(Threads)
 
-  if(TARGET arrow_static)
-    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-    set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-    find_dependency(Threads)
+  if(DEFINED CMAKE_MODULE_PATH)
+    set(_CMAKE_MODULE_PATH_OLD ${CMAKE_MODULE_PATH})
+  endif()
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
-    if(DEFINED CMAKE_MODULE_PATH)
-      set(_CMAKE_MODULE_PATH_OLD ${CMAKE_MODULE_PATH})
+  foreach(_DEPENDENCY ${ARROW_SYSTEM_DEPENDENCIES})
+    set(ARROW_OPENSSL_HOMEBREW_MAKE_DETECTABLE FALSE)
+    if(${_DEPENDENCY} STREQUAL "OpenSSL" AND NOT OPENSSL_ROOT_DIR)
+      find_program(ARROW_BREW brew)
+      if(ARROW_BREW)
+        set(ARROW_OPENSSL_ROOT_DIR_ORIGINAL ${OPENSSL_ROOT_DIR})
+        execute_process(COMMAND ${ARROW_BREW} --prefix "openssl@1.1"
+                        OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(OPENSSL11_BREW_PREFIX)
+          set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
+          set(ARROW_OPENSSL_HOMEBREW_MAKE_DETECTABLE TRUE)
+        else()
+          execute_process(COMMAND ${ARROW_BREW} --prefix "openssl"
+                          OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                          OUTPUT_STRIP_TRAILING_WHITESPACE)
+          if(OPENSSL_BREW_PREFIX)
+            set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+            set(ARROW_OPENSSL_HOMEBREW_MAKE_DETECTABLE TRUE)
+          endif()
+        endif()
+      endif()
     endif()
-    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
-
-    foreach(_DEPENDENCY ${ARROW_SYSTEM_DEPENDENCIES})
-      find_dependency(${_DEPENDENCY})
-    endforeach()
-
-    if(DEFINED _CMAKE_MODULE_PATH_OLD)
-      set(CMAKE_MODULE_PATH ${_CMAKE_MODULE_PATH_OLD})
-      unset(_CMAKE_MODULE_PATH_OLD)
-    else()
-      unset(CMAKE_MODULE_PATH)
+    find_dependency(${_DEPENDENCY})
+    if(ARROW_OPENSSL_HOMEBREW_MAKE_DETECTABLE)
+      set(OPENSSL_ROOT_DIR ${ARROW_OPENSSL_ROOT_DIR_ORIGINAL})
     endif()
+  endforeach()
 
-    get_property(arrow_static_loc TARGET arrow_static PROPERTY LOCATION)
-    get_filename_component(arrow_lib_dir ${arrow_static_loc} DIRECTORY)
-
-    if(ARROW_BUNDLED_STATIC_LIBS)
-      add_library(arrow_bundled_dependencies STATIC IMPORTED)
-      set_target_properties(
-        arrow_bundled_dependencies
-        PROPERTIES
-          IMPORTED_LOCATION
-          "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
-          INTERFACE_LINK_LIBRARIES
-          "${ARROW_STATIC_INSTALL_INTERFACE_LIBS}"
-      )
-      get_property(arrow_static_interface_link_libraries
-                   TARGET arrow_static
-                   PROPERTY INTERFACE_LINK_LIBRARIES)
-      set_target_properties(
-        arrow_static PROPERTIES INTERFACE_LINK_LIBRARIES
-        "${arrow_static_interface_link_libraries};arrow_bundled_dependencies")
-    endif()
+  if(DEFINED _CMAKE_MODULE_PATH_OLD)
+    set(CMAKE_MODULE_PATH ${_CMAKE_MODULE_PATH_OLD})
+    unset(_CMAKE_MODULE_PATH_OLD)
+  else()
+    unset(CMAKE_MODULE_PATH)
   endif()
 endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
+
+if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
+  add_library(Arrow::arrow_bundled_dependencies STATIC IMPORTED)
+  get_target_property(arrow_static_location Arrow::arrow_static LOCATION)
+  get_filename_component(arrow_lib_dir "${arrow_static_location}" DIRECTORY)
+  set_target_properties(Arrow::arrow_bundled_dependencies
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+endif()
+
+macro(arrow_keep_backward_compatibility namespace target_base_name)
+  string(TOUPPER ${target_base_name} target_base_name_upper)
+
+  if(NOT CMAKE_VERSION VERSION_LESS 3.18)
+    if(TARGET ${namespace}::${target_base_name} AND NOT TARGET ${target_base_name}_shared)
+      add_library(${target_base_name}_shared ALIAS
+                  ${namespace}::${target_base_name}_shared)
+    endif()
+    if(TARGET ${namespace}::${target_base_name}_static AND NOT TARGET
+                                                           ${target_base_name}_static)
+      add_library(${target_base_name}_static ALIAS
+                  ${namespace}::${target_base_name}_static)
+    endif()
+  endif()
+
+  if(TARGET ${namespace}::${target_base_name}_shared)
+    get_target_property(${target_base_name_upper}_INCLUDE_DIR
+                        ${namespace}::${target_base_name}_shared
+                        INTERFACE_INCLUDE_DIRECTORIES)
+  else()
+    get_target_property(${target_base_name_upper}_INCLUDE_DIR
+                        ${namespace}::${target_base_name}_static
+                        INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+
+  foreach(BUILD_TYPE_SUFFIX
+          "_RELEASE"
+          "_RELWITHDEBINFO"
+          "_MINSIZEREL"
+          "_DEBUG"
+          "")
+    if(TARGET ${namespace}::${target_base_name}_shared)
+      if(NOT ${target_base_name_upper}_SHARED_LIB)
+        get_target_property(${target_base_name_upper}_SHARED_LIB
+                            ${namespace}::${target_base_name}_shared
+                            IMPORTED_LOCATION${BUILD_TYPE_SUFFIX})
+      endif()
+      if(NOT ${target_base_name_upper}_IMPORT_LIB)
+        get_target_property(${target_base_name_upper}_IMPORT_LIB
+                            ${namespace}::${target_base_name}_shared
+                            IMPORTED_IMPLIB${BUILD_TYPE_SUFFIX})
+      endif()
+    endif()
+
+    if(TARGET ${namespace}::${target_base_name}_static)
+      if(NOT ${target_base_name_upper}_STATIC_LIB)
+        get_target_property(${target_base_name_upper}_STATIC_LIB
+                            ${namespace}::${target_base_name}_static
+                            IMPORTED_LOCATION${BUILD_TYPE_SUFFIX})
+      endif()
+    endif()
+  endforeach()
+endmacro()
+
+arrow_keep_backward_compatibility(Arrow arrow)
+
+check_required_components(Arrow)

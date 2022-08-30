@@ -33,6 +33,10 @@ if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
+if(PYARROW_CPP_HOME)
+  list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
+endif()
+
 include(CMakeParseArguments)
 
 # Only interpret if() arguments as variables or keywords when unquoted.
@@ -263,7 +267,7 @@ function(bundle_arrow_lib library_path)
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
                    COPYONLY)
   else()
-    configure_file(${${library_path}}.${ARG_SO_VERSION}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    COPYONLY)
   endif()
@@ -410,7 +414,7 @@ set(CYTHON_EXTENSIONS
     _hdfsio
     _json)
 
-set(LINK_LIBS arrow_shared arrow_python_shared)
+set(LINK_LIBS ArrowPython::arrow_python_shared)
 
 if(PYARROW_BUILD_GCS)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
@@ -434,7 +438,7 @@ if(PYARROW_BUILD_CUDA)
       bundle_arrow_import_lib(ARROW_CUDA_IMPORT_LIB)
     endif()
   endif()
-  set(CUDA_LINK_LIBS arrow_cuda_shared)
+  set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
@@ -450,7 +454,7 @@ if(PYARROW_BUILD_DATASET)
     endif()
   endif()
 
-  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
 endif()
 
@@ -472,7 +476,7 @@ if(PYARROW_BUILD_PARQUET)
         bundle_arrow_import_lib(PARQUET_IMPORT_LIB)
       endif()
     endif()
-    set(PARQUET_LINK_LIBS parquet_shared)
+    set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
     find_package(Thrift)
     if(PYARROW_BOOST_USE_SHARED)
@@ -508,7 +512,7 @@ if(PYARROW_BUILD_PLASMA)
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(PLASMA_SHARED_LIB SO_VERSION ${PLASMA_SO_VERSION})
   endif()
-  set(PLASMA_LINK_LIBS plasma_shared)
+  set(PLASMA_LINK_LIBS Plasma::plasma_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
   file(COPY ${PLASMA_STORE_SERVER} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
@@ -540,7 +544,7 @@ if(PYARROW_BUILD_FLIGHT)
     endif()
   endif()
 
-  set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
+  set(FLIGHT_LINK_LIBS ArrowPythonFlight::arrow_python_flight_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
 endif()
 
@@ -554,7 +558,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
   endif()
 
-  set(SUBSTRAIT_LINK_LIBS arrow_substrait_shared)
+  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
 endif()
 
@@ -575,7 +579,7 @@ if(PYARROW_BUILD_GANDIVA)
     endif()
   endif()
 
-  set(GANDIVA_LINK_LIBS gandiva_shared)
+  set(GANDIVA_LINK_LIBS Gandiva::gandiva_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 

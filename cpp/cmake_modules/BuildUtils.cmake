@@ -73,7 +73,7 @@ endfunction()
 
 # Based on MIT-licensed
 # https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
-function(create_merged_static_lib output_target)
+function(arrow_create_merged_static_lib output_target)
   set(options)
   set(one_value_args NAME ROOT)
   set(multi_value_args TO_MERGE)
@@ -136,17 +136,37 @@ function(create_merged_static_lib output_target)
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
 
-  add_custom_command(COMMAND ${BUNDLE_COMMAND}
-                     OUTPUT ${output_lib_path}
-                     COMMENT "Bundling ${output_lib_path}"
-                     VERBATIM)
+  add_custom_target(${output_target}_merge ALL
+                    ${BUNDLE_COMMAND}
+                    DEPENDS ${ARG_ROOT} ${ARG_TO_MERGE}
+                    BYPRODUCTS ${output_lib_path}
+                    COMMENT "Bundling ${output_lib_path}"
+                    VERBATIM)
 
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
-  add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
-  add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
-  install(FILES ${output_lib_path} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  add_library(${output_target} STATIC IMPORTED)
+  set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
+  add_dependencies(${output_target} ${output_target}_merge)
+endfunction()
+
+function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
+  set(CONFIG_CMAKE "${PACKAGE_NAME}Config.cmake")
+  set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
+  configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
+                                INSTALL_DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+  set(CONFIG_VERSION_CMAKE "${PACKAGE_NAME}ConfigVersion.cmake")
+  set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
+  write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
+                                   COMPATIBILITY SameMajorVersion)
+  install(FILES "${BUILT_CONFIG_CMAKE}" "${BUILT_CONFIG_VERSION_CMAKE}"
+          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+  set(TARGETS_CMAKE "${PACKAGE_NAME}Targets.cmake")
+  install(EXPORT ${EXPORT_NAME}
+          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
+          NAMESPACE "${PACKAGE_NAME}::"
+          FILE "${TARGETS_CMAKE}")
 endfunction()
 
 # \arg OUTPUTS list to append built targets to
@@ -247,9 +267,17 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_PRIVATE_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
-    target_link_libraries(${LIB_NAME}_objlib
-                          PRIVATE ${ARG_SHARED_LINK_LIBS} ${ARG_SHARED_PRIVATE_LINK_LIBS}
-                                  ${ARG_STATIC_LINK_LIBS})
+    if(BUILD_SHARED)
+      if(ARG_SHARED_LINK_LIBS)
+        target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_SHARED_LINK_LIBS})
+      endif()
+      if(ARG_SHARED_PRIVATE_LINK_LIBS)
+        target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
+      endif()
+    endif()
+    if(BUILD_STATIC AND ARG_STATIC_LINK_LIBS)
+      target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_STATIC_LINK_LIBS})
+    endif()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
     # TODO: add PCH directives
@@ -309,11 +337,9 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      SOVERSION "${ARROW_SO_VERSION}")
 
     target_link_libraries(${LIB_NAME}_shared
-                          LINK_PUBLIC
-                          "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
-                          "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
-                          LINK_PRIVATE
-                          ${ARG_SHARED_PRIVATE_LINK_LIBS})
+                          PUBLIC "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
+                                 "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
+                          PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if(USE_OBJLIB)
       # Ensure that dependencies are built before compilation of objects in
@@ -394,8 +420,9 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      OUTPUT_NAME ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
-      target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
-                            "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>")
+      target_link_libraries(${LIB_NAME}_static
+                            INTERFACE "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>"
+      )
     endif()
 
     if(ARG_STATIC_LINK_LIBS)
@@ -422,26 +449,7 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   if(ARG_CMAKE_PACKAGE_NAME)
-    arrow_install_cmake_find_module("${ARG_CMAKE_PACKAGE_NAME}")
-
-    set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
-    install(EXPORT ${LIB_NAME}_targets
-            FILE "${TARGETS_CMAKE}"
-            DESTINATION "${ARROW_CMAKE_DIR}")
-
-    set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
-    set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
-    configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
-                                  INSTALL_DESTINATION "${ARROW_CMAKE_DIR}")
-    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_DIR}")
-
-    set(CONFIG_VERSION_CMAKE "${ARG_CMAKE_PACKAGE_NAME}ConfigVersion.cmake")
-    set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
-    write_basic_package_version_file(
-      "${BUILT_CONFIG_VERSION_CMAKE}"
-      VERSION ${${PROJECT_NAME}_VERSION}
-      COMPATIBILITY AnyNewerVersion)
-    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}" DESTINATION "${ARROW_CMAKE_DIR}")
+    arrow_install_cmake_package(${ARG_CMAKE_PACKAGE_NAME} ${LIB_NAME}_targets)
   endif()
 
   if(ARG_PKG_CONFIG_NAME)
@@ -904,11 +912,6 @@ function(ARROW_ADD_PKG_CONFIG MODULE)
   configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc" @ONLY)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-endfunction()
-
-function(ARROW_INSTALL_CMAKE_FIND_MODULE MODULE)
-  install(FILES "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake"
-          DESTINATION "${ARROW_CMAKE_DIR}")
 endfunction()
 
 # Implementations of lisp "car" and "cdr" functions

@@ -26,6 +26,10 @@
 # Usage of this module as follows:
 # find_package(SQLite3Alt)
 
+if(FindSQLite3Alt_FOUND)
+  return()
+endif()
+
 find_path(SQLite3_INCLUDE_DIR sqlite3.h)
 find_library(SQLite3_LIBRARY NAMES sqlite3)
 
