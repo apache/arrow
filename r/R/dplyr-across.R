@@ -16,6 +16,7 @@
 # under the License.
 
 expand_across <- function(.data, quos_in) {
+  quos_out <- list()
   # retrieve items using their values to preserve naming of quos other than across
   for (quo_i in seq_along(quos_in)) {
     quo_in <- quos_in[quo_i]
@@ -51,13 +52,7 @@ expand_across <- function(.data, quos_in) {
         inline = TRUE
       )
 
-      # calling across() with .fns = NULL returns all columns unchanged
-      # this is a no-op in mutate() but may need updating for other funcs
-      if (is_empty(setup$fns)) {
-        return()
-      }
-
-      if (!is_list(setup$fns) && as.character(setup$fns)[[1]] == "~") {
+      if (!is_list(setup$fns) && !is.null(setup$fns) && as.character(setup$fns)[[1]] == "~") {
         abort(
           paste(
             "purrr-style lambda functions as `.fns` argument to `across()`",
@@ -66,7 +61,7 @@ expand_across <- function(.data, quos_in) {
         )
       }
 
-      new_quos <- quosures_from_func_list(setup, quo_env)
+      new_quos <- quosures_from_setup(setup, quo_env)
 
       quos_out <- append(quos_out, new_quos)
     } else {
@@ -78,15 +73,23 @@ expand_across <- function(.data, quos_in) {
 }
 
 # given a named list of functions and column names, create a list of new quosures
-quosures_from_func_list <- function(setup, quo_env) {
-  func_list_full <- rep(setup$fns, length(setup$vars))
-  cols_list_full <- rep(setup$vars, each = length(setup$fns))
+quosures_from_setup <- function(setup, quo_env) {
+  if (!is.null(setup$fns)) {
+    func_list_full <- rep(setup$fns, length(setup$vars))
+    cols_list_full <- rep(setup$vars, each = length(setup$fns))
 
-  # get new quosures
-  new_quo_list <- map2(
-    func_list_full, cols_list_full,
-    ~ quo(!!call2(.x, sym(.y)))
-  )
+    # get new quosures
+    new_quo_list <- map2(
+      func_list_full, cols_list_full,
+      ~ quo(!!call2(.x, sym(.y)))
+    )
+  } else {
+    # if there's no functions, just map to variables themselves
+    new_quo_list <- map(
+      setup$vars,
+      ~ quo(!!sym(.x))
+    )
+  }
 
   quosures <- set_names(new_quo_list, setup$names)
   map(quosures, ~ quo_set_env(.x, quo_env))
@@ -104,6 +107,7 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     } else {
       names <- vars
     }
+
     value <- list(vars = vars, fns = fns, names = names)
     return(value)
   }
