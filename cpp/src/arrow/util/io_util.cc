@@ -1134,7 +1134,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
 #if defined(__linux__)
     oflag |= O_DIRECT;  // will cause issues on Apple on Windows
 #else
-    return Status::IOError("Direct IO does not support Mac OS.");
+    return Status::IOError("Direct IO is only supported on Linux.");
 #endif
   }
 
