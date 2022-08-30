@@ -307,7 +307,7 @@ public class ArrowFlightJdbcDriverTest {
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("test1"), "test1value");
-    assertEquals(parsedArgs.get("test2%26continue"), "test2value");
+    assertEquals(parsedArgs.get("test2&continue"), "test2value");
     assertEquals(parsedArgs.get("test3"), "test3value");
   }
 

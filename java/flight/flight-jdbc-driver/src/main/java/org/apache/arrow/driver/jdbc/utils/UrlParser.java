@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +29,7 @@ public class UrlParser {
   /**
    * Parse URL key value parameters.
    *
-   * <p>Does not URL-decode keys or values.
+   * <p>URL-decodes keys and values.
    *
    * @param url {@link String}
    * @return {@link Map}
@@ -37,13 +39,19 @@ public class UrlParser {
     String[] keyValues = url.split(separator);
 
     for (String keyValue : keyValues) {
-      int separatorKey = keyValue.indexOf("="); // Find the first equal sign to split key and value.
-      String key = keyValue.substring(0, separatorKey);
-      String value = "";
-      if (!keyValue.endsWith("=")) { // Avoid crashes for empty values.
-        value = keyValue.substring(separatorKey + 1);
+      try {
+        int separatorKey = keyValue.indexOf("="); // Find the first equal sign to split key and value.
+        String key = keyValue.substring(0, separatorKey);
+        key = URLDecoder.decode(key, "UTF-8");
+        String value = "";
+        if (!keyValue.endsWith("=")) { // Avoid crashes for empty values.
+          value = keyValue.substring(separatorKey + 1);
+        }
+        value = URLDecoder.decode(value, "UTF-8");
+        resultMap.put(key, value);
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(e);
       }
-      resultMap.put(key, value);
     }
 
     return resultMap;

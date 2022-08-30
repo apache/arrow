@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertNotNull;
 
+import java.net.URLEncoder;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -300,9 +301,9 @@ public class ConnectionTlsTest {
             userTest,
             passTest,
             ArrowFlightConnectionProperty.TRUST_STORE.camelName(),
-            trustStorePath,
+            URLEncoder.encode(trustStorePath, "UTF-8"),
             ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(),
-            trustStorePass));
+            URLEncoder.encode(trustStorePass, "UTF-8")));
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
