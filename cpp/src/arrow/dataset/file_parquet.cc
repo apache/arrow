@@ -515,6 +515,14 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
       std::move(physical_schema), util::nullopt));
 }
 
+Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
+    FileSource source, compute::Expression partition_expression,
+    std::shared_ptr<Schema> physical_schema, io::ReadRange read_range) {
+  return Status::NotImplemented(
+      "Setting byte bounds for a ParquetFileFragment not supported yet! Use subset "
+      "instead.");
+}
+
 //
 // ParquetFileWriter, ParquetFileWriteOptions
 //
@@ -579,12 +587,6 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
-Status ParquetFileFragment::set_bounds(int64_t start, int64_t end) {
-  return Status::NotImplemented(
-      "Setting byte bounds for a ParquetFileFragment not supported yet! Use subset "
-      "instead.");
-}
-
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
   if (metadata_ != nullptr) {
@@ -648,9 +650,11 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
   FragmentVector fragments(row_groups.size());
   int i = 0;
   for (int row_group : row_groups) {
+    // read_range can also be bracket initialized, need to help the compiler
+    std::vector<int> argument = {row_group};
     ARROW_ASSIGN_OR_RAISE(auto fragment,
                           parquet_format_.MakeFragment(source_, partition_expression(),
-                                                       physical_schema_, {row_group}));
+                                                       physical_schema_, argument));
 
     RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
     fragments[i++] = std::move(fragment);

@@ -110,6 +110,12 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema) override;
 
+  /// \brief Create a Fragment targeting all RowGroups with a read range, not implemented
+  /// yet.
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema, io::ReadRange read_range) override;
+
   /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<ParquetFileFragment>> MakeFragment(
       FileSource source, compute::Expression partition_expression,
@@ -162,10 +168,6 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
-
-  /// \brief Override the set_bounds method of FileFragment to raise a warning that it's
-  /// not supported.
-  Status set_bounds(int64_t start, int64_t end);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
