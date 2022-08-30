@@ -2050,7 +2050,7 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
-    WRITE_ZERO_COPY_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT, FixedSizeBinaryType, FLBAType)
     default:
       break;
   }
