@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertNotNull;
 
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -33,6 +34,7 @@ import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
 import org.junit.Assert;
@@ -68,13 +70,17 @@ public class ConnectionTlsTest {
         .build();
   }
 
-  private final String trustStorePath = getClass().getResource("/keys/keyStore.jks").getPath();
-  private final String noCertificateKeyStorePath = getClass().getResource("/keys/noCertificate.jks").getPath();
+  private String trustStorePath;
+  private String noCertificateKeyStorePath;
   private final String trustStorePass = "flight";
   private BufferAllocator allocator;
 
   @Before
   public void setUp() throws Exception {
+    trustStorePath = Paths.get(
+        Preconditions.checkNotNull(getClass().getResource("/keys/keyStore.jks")).toURI()).toString();
+    noCertificateKeyStorePath = Paths.get(
+        Preconditions.checkNotNull(getClass().getResource("/keys/noCertificate.jks")).toURI()).toString();
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
