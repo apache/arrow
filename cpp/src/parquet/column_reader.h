@@ -218,10 +218,13 @@ class TypedColumnReader : public ColumnReader {
                                   int64_t valid_bits_offset, int64_t* levels_read,
                                   int64_t* values_read, int64_t* null_count) = 0;
 
-  // Skip reading values.
+  // Skip reading values. This method will work for both repeated and
+  // non-repeated fields. Note that this method is skipping values and not
+  // records. This distinction is important for repeated fields, meaning that
+  // we are not skipping over the values to the next record. We are skipping
+  // through them. So after the skip the iterator could be in the middle of a
+  // repeated field.
   // Returns the number of values skipped.
-  // This function will NOT skip rows, and repeated fields may have multiple values
-  // corresponding to the same row.
   virtual int64_t Skip(int64_t num_values_to_skip) = 0;
 
   // Read a batch of repetition levels, definition levels, and indices from the
