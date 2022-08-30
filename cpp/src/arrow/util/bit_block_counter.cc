@@ -37,6 +37,12 @@ BitBlockCount BitBlockCounter::GetBlockSlow(int64_t block_size) noexcept {
   return {run_length, popcount};
 }
 
+OptionalBitBlockCounter::OptionalBitBlockCounter() :
+  has_bitmap_(false),
+  position_(0),
+  length_(0),
+  counter_(util::MakeNonNull(static_cast<const uint8_t*>(NULLPTR)), 0, 0) {}
+
 OptionalBitBlockCounter::OptionalBitBlockCounter(const uint8_t* validity_bitmap,
                                                  int64_t offset, int64_t length)
     : has_bitmap_(validity_bitmap != nullptr),

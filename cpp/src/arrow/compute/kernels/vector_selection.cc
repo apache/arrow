@@ -262,6 +262,170 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
   return Status::OK();
 }
 
+template <typename ArrayKind, typename ValueType>
+struct PrimitiveGetter {};
+
+template <>
+struct PrimitiveGetter<ArraySpan, bool> {
+  // For boolean, we can't add offset at beginning because values is a bitmap.
+  explicit PrimitiveGetter(ArraySpan&& array)
+      : inner(std::move(array)),
+        values(array.GetValues<uint8_t>(1)),
+        bit_block_counter(array.buffers[0].data, array.offset, array.length){};
+
+  bool IsValid(int64_t i) const {
+    return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
+  }
+
+  bool GetValue(int64_t i) const { return bit_util::GetBit(values, inner.offset + i); }
+
+  OptionalBitBlockCounter& BitBlockCounter(int64_t i) { return bit_block_counter; }
+
+  int64_t null_count() const { return inner.null_count; }
+  int64_t length() const { return inner.length; }
+
+  ArraySpan inner;
+  uint8_t* values;
+  OptionalBitBlockCounter bit_block_counter;
+};
+
+template <typename ValueType>
+struct PrimitiveGetter<ArraySpan, ValueType> {
+  explicit PrimitiveGetter(ArraySpan&& array)
+      : inner(std::move(array)), values(array.GetValues<ValueType>(1) + array.offset){};
+
+  bool IsValid(int64_t i) const {
+    return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
+  }
+
+  OptionalBitBlockCounter& BitBlockCounter(int64_t i) const { return bit_block_counter; }
+
+  ValueType GetValue(int64_t i) const { return values[i]; }
+
+  int64_t null_count() const { return inner.null_count; }
+  int64_t length() const { return inner.length; }
+
+  ArraySpan inner;
+  ValueType* values;
+  OptionalBitBlockCounter bit_block_counter;
+};
+
+OptionalBitBlockCounter* GetBitBlockCounter(const ChunkedArray& array, int64_t chunk_i) {
+  if (array.num_chunks() > 0) {
+    auto chunk = array.chunks()[chunk_i];
+    return new OptionalBitBlockCounter(chunk->null_bitmap_data(), chunk->offset(),
+                                       chunk->length());
+  } else {
+    return new OptionalBitBlockCounter();
+  }
+}
+
+template <>
+struct PrimitiveGetter<ChunkedArray, bool> {
+  explicit PrimitiveGetter(const ChunkedArray& array)
+      : inner(array),
+        resolver(ChunkResolver(array.chunks())),
+        null_count_(array.null_count()),
+        length_(array.length()),
+        current_counter_(0),
+        bit_block_counter_(GetBitBlockCounter(array, 0)) {
+    values_data =
+        MapVector([](const auto& x) { return x->data()->template GetValues<uint8_t>(1); },
+                  array.chunks());
+    values_is_valid =
+        MapVector([](const auto& x) { return x->null_bitmap_data(); }, array.chunks());
+    values_offset = MapVector([](const auto& x) { return x->offset(); }, array.chunks());
+  }
+
+  bool IsValid(int64_t i) const {
+    ChunkLocation loc = resolver.Resolve(i);
+    return bit_util::GetBit(values_is_valid[loc.chunk_index],
+                            values_offset[loc.chunk_index] + loc.index_in_chunk);
+  }
+
+  bool GetValue(int64_t i) const {
+    ChunkLocation loc = resolver.Resolve(i);
+    return bit_util::GetBit(values_data[loc.chunk_index],
+                            values_offset[loc.chunk_index] + loc.index_in_chunk);
+  }
+
+  OptionalBitBlockCounter& BitBlockCounter(int64_t i) {
+    ChunkLocation loc = resolver.Resolve(i);
+    if (loc.chunk_index != current_counter_) {
+      // New chunk, so we need to change counters
+      delete bit_block_counter_;
+      bit_block_counter_ = GetBitBlockCounter(inner, loc.chunk_index);
+    }
+    return *bit_block_counter_;
+  }
+
+  int64_t null_count() const { return null_count_; }
+  int64_t length() const { return length_; }
+
+  const ChunkedArray& inner;
+  ChunkResolver resolver;
+  int64_t null_count_;
+  int64_t length_;
+  int64_t current_counter_;
+  OptionalBitBlockCounter* bit_block_counter_;
+  std::vector<const uint8_t*> values_data;
+  std::vector<const uint8_t*> values_is_valid;
+  std::vector<int64_t> values_offset;
+};
+
+template <typename ValueType>
+struct PrimitiveGetter<ChunkedArray, ValueType> {
+  explicit PrimitiveGetter(const ChunkedArray& array)
+      : inner(array),
+        resolver(ChunkResolver(array.chunks())),
+        null_count_(array.null_count()),
+        length_(array.length()),
+        current_counter_(0),
+        bit_block_counter_(GetBitBlockCounter(array, 0)) {
+    values_data = MapVector(
+        [](const auto& x) { return x->data()->template GetValues<ValueType>(1); },
+        array.chunks());
+    values_is_valid =
+        MapVector([](const auto& x) { return x->null_bitmap_data(); }, array.chunks());
+    values_offset = MapVector([](const auto& x) { return x->offset(); }, array.chunks());
+  }
+
+  bool IsValid(int64_t i) const {
+    ChunkLocation loc = resolver.Resolve(i);
+    return bit_util::GetBit(values_is_valid[loc.chunk_index],
+                            values_offset[loc.chunk_index] + loc.index_in_chunk);
+  }
+
+  ValueType GetValue(int64_t i) const {
+    ChunkLocation loc = resolver.Resolve(i);
+    ValueType* data = values_data[loc.chunk_index];
+    return data[i];
+  }
+
+  OptionalBitBlockCounter& BitBlockCounter(int64_t i) {
+    ChunkLocation loc = resolver.Resolve(i);
+    if (loc.chunk_index != current_counter_) {
+      // New chunk, so we need to change counters
+      delete bit_block_counter_;
+      bit_block_counter_ = GetBitBlockCounter(inner, loc.chunk_index);
+    }
+    return *bit_block_counter_;
+  }
+
+  int64_t null_count() const { return null_count_; }
+  int64_t length() const { return length_; }
+
+  const ChunkedArray& inner;
+  ChunkResolver resolver;
+  int64_t null_count_;
+  int64_t length_;
+  int64_t current_counter_;
+  OptionalBitBlockCounter* bit_block_counter_;
+  std::vector<const ValueType*> values_data;
+  std::vector<const uint8_t*> values_is_valid;
+  std::vector<int64_t> values_offset;
+};
+
 // ----------------------------------------------------------------------
 // Implement optimized take for primitive types from boolean to 1/2/4/8-byte
 // C-type based types. Use common implementation for every byte width and only
@@ -781,30 +945,21 @@ class DropNullCounter {
 /// generate one take function for each byte width. We use the same
 /// implementation here for boolean and fixed-byte-size inputs with some
 /// template specialization.
-template <typename ArrowType>
+template <typename ArrayKind, typename ArrowType>
 class PrimitiveFilterImpl {
  public:
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
-
-  PrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
+  PrimitiveFilterImpl(const PrimitiveGetter<ArrayKind, T>& values_getter,
+                      const ArraySpan& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
                       ArrayData* out_arr)
-      : values_is_valid_(values.buffers[0].data),
-        values_data_(reinterpret_cast<const T*>(values.buffers[1].data)),
-        values_null_count_(values.null_count),
-        values_offset_(values.offset),
-        values_length_(values.length),
+      : values_getter_(values_getter),
         filter_is_valid_(filter.buffers[0].data),
         filter_data_(filter.buffers[1].data),
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
         null_selection_(null_selection) {
-    if (values.type->id() != Type::BOOL) {
-      // No offset applied for boolean because it's a bitmap
-      values_data_ += values.offset;
-    }
-
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
@@ -818,7 +973,7 @@ class PrimitiveFilterImpl {
   void ExecNonNull() {
     // Fast filter when values and filter are not null
     ::arrow::internal::VisitSetBitRunsVoid(
-        filter_data_, filter_offset_, values_length_,
+        filter_data_, filter_offset_, values_getter_.length(),
         [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
   }
 
@@ -829,11 +984,11 @@ class PrimitiveFilterImpl {
 
     // Bit counters used for both null_selection behaviors
     DropNullCounter drop_null_counter(filter_is_valid_, filter_data_, filter_offset_,
-                                      values_length_);
-    OptionalBitBlockCounter data_counter(values_is_valid_, values_offset_,
-                                         values_length_);
+                                      values_getter_.length());
+    // ???
+    OptionalBitBlockCounter& data_counter;
     OptionalBitBlockCounter filter_valid_counter(filter_is_valid_, filter_offset_,
-                                                 values_length_);
+                                                 values_getter_.length());
 
     auto WriteNotNull = [&](int64_t index) {
       bit_util::SetBit(out_is_valid_, out_offset_ + out_position_);
@@ -843,13 +998,15 @@ class PrimitiveFilterImpl {
 
     auto WriteMaybeNull = [&](int64_t index) {
       bit_util::SetBitTo(out_is_valid_, out_offset_ + out_position_,
-                         bit_util::GetBit(values_is_valid_, values_offset_ + index));
+                         values_getter_.Validity(index));
       // Increments out_position_
       WriteValue(index);
     };
 
     int64_t in_position = 0;
     while (in_position < values_length_) {
+      // In chunked array, block counter will change as we enter new chunks.
+      data_counter = values_getter_.BitBlockCounter(in_position);
       BitBlockCount filter_block = drop_null_counter.NextBlock();
       BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
       BitBlockCount data_block = data_counter.NextWord();
@@ -951,26 +1108,78 @@ class PrimitiveFilterImpl {
 
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
-  void WriteValue(int64_t in_position) {
-    out_data_[out_position_++] = values_data_[in_position];
+  std::enable_if_t<!is_boolean_type<T>::value, void> WriteValue(int64_t in_position) {
+    out_data_[out_position_++] = values_getter_.GetValue(in_position);
   }
 
-  void WriteValueSegment(int64_t in_start, int64_t length) {
-    std::memcpy(out_data_ + out_position_, values_data_ + in_start, length * sizeof(T));
-    out_position_ += length;
+  enable_if_boolean<T, void> WriteValue(int64_t in_position) {
+    bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
+                       values_getter_.GetValue(in_position));
   }
 
-  void WriteNull() {
+  std::enable_if_t<!is_boolean_type<T>::value, void> WriteNull() {
     // Zero the memory
     out_data_[out_position_++] = T{};
   }
 
+  enable_if_boolean<T, void> WriteNull() {
+    // Zero the bit
+    bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
+  }
+
+  enable_if_t<(std::is_same<ArrayKind, ArraySpan>::value && !is_boolean_type<T>::value), void>
+  WriteValueSegment(int64_t in_start, int64_t length) {
+    std::memcpy(out_data_ + out_position_, values.values + in_start, length * sizeof(T));
+    out_position_ += length;
+  }
+
+  enable_if_t<(std::is_same<ArrayKind, ChunkedArray>::value && !is_boolean_type<T>::value), void>
+  WriteValueSegment(int64_t in_start, int64_t length) {
+    // Find initial chunk
+    ChunkLocation loc = values.resolver.Resolve(in_start);
+    int64_t processed_length = 0;
+    // While processed_length < length, keep copying more chunks
+    while (processed_length < length) {
+      std::shared_ptr<Array> chunk = values.inner.chunk(loc.chunk_index);
+      int64_t copyable_length = min(chunk.length(), length - processed_length);
+      std::memcpy(out_data_ + out_position_,
+                  values.values_data[loc.chunk_index] + loc.index_in_chunk,
+                  copyable_length * sizeof(T));
+      // Advance to beginning of next chunk
+      ++loc.chunk_index;
+      loc.index_in_chunk = 0;
+    }
+    out_position_ += length;
+  }
+
+  enable_if_t<std::is_same<ArrayKind, ArraySpan> && is_boolean_type<T>, void>
+  WriteValueSegment(int64_t in_start, int64_t length) {
+    CopyBitmap(values_getter_.values, values_getter_.inner.offset + in_start, length,
+               out_data_, out_offset_ + out_position_);
+    out_position_ += length;
+  }
+
+  enable_if_t<std::is_same<ArrayKind, ChunkedArray> && is_boolean_type<T>, void>
+  WriteValueSegment(int64_t in_start, int64_t length) {
+    // Find initial chunk
+    ChunkLocation loc = values_getter_.resolver.Resolve(in_start);
+    int64_t processed_length = 0;
+    // While processed_length < length, keep copying more chunks
+    while (processed_length < length) {
+      std::shared_ptr<Array> chunk = values_getter_.inner.chunk(loc.chunk_index);
+      int64_t copyable_length = min(chunk.length(), length - processed_length);
+      CopyBitmap(values_getter_.values_data[loc.chunk_index],
+                 values_getter_.values_offset[loc.chunk_index] + loc.index_in_chunk,
+                 copyable_length, out_data_, out_offset_ + out_position_);
+      // Advance to beginning of next chunk
+      ++loc.chunk_index;
+      loc.index_in_chunk = 0;
+    }
+    out_position_ += length;
+  }
+
  private:
-  const uint8_t* values_is_valid_;
-  const T* values_data_;
-  int64_t values_null_count_;
-  int64_t values_offset_;
-  int64_t values_length_;
+  const PrimitiveGetter<ArrayKind, T>& values_getter_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
   int64_t filter_null_count_;
@@ -983,24 +1192,15 @@ class PrimitiveFilterImpl {
   int64_t out_position_;
 };
 
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position) {
-  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
-                     bit_util::GetBit(values_data_, values_offset_ + in_position));
-}
+template <typename ArrowType>
+void PrimitiveFilterDispatch(const ArraySpan& values, const ArraySpan& filter,
+                             FilterOptions::NullSelectionBehavior null_selection,
+                             ArrayData* out) {
+  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
+                                      uint8_t, typename ArrowType::c_type>::type;
 
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start,
-                                                                int64_t length) {
-  CopyBitmap(values_data_, values_offset_ + in_start, length, out_data_,
-             out_offset_ + out_position_);
-  out_position_ += length;
-}
-
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
-  // Zero the bit
-  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
+  auto getter = PrimitiveGetter<ArraySpan, T>(values);
+  PrimitiveFilterImpl<ArrowType>(getter, filter, null_selection, out).Exec();
 }
 
 Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1034,24 +1234,79 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   switch (bit_width) {
     case 1:
-      PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      PrimitiveFilterDispatch<BooleanType>(values, filter, null_selection, out_arr);
       break;
     case 8:
-      PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      PrimitiveFilterDispatch<UInt8Type>(values, filter, null_selection, out_arr);
       break;
     case 16:
-      PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      PrimitiveFilterDispatch<UInt16Type>(values, filter, null_selection, out_arr);
       break;
     case 32:
-      PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      PrimitiveFilterDispatch<UInt32Type>(values, filter, null_selection, out_arr);
       break;
     case 64:
-      PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      PrimitiveFilterDispatch<UInt64Type>(values, filter, null_selection, out_arr);
       break;
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
   }
+  return Status::OK();
+}
+
+template <typename ArrowType>
+void PrimitiveFilterDispatch(const ChunkedArray& values, const ChunkedArray& filter,
+                             FilterOptions::NullSelectionBehavior null_selection,
+                             ArrayDataVector* out) {
+  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
+                                      uint8_t, typename ArrowType::c_type>::type;
+
+  auto getter = PrimitiveGetter<ChunkedArray, T>(values);
+  auto impl = PrimitiveFilterImpl<ArrowType>(values, null_selection);
+
+  // Will match the chunking structure of the filter array.
+  for (const auto& filter_chunk : filter.chunks()) {
+    auto chunk_out = ArrayData::Make(values.type(), filter.length());
+    PrimitiveFilterImpl<ArrowType>(getter, filter_chunk, null_selection, chunk_out)
+        .Exec();
+    out_data->push_back(chunk_out);
+  }
+}
+
+Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const ChunkedArray& values = *batch[0].chunked_array();
+  const ChunkedArray& filter = *batch[1].chunked_array();
+
+  FilterOptions::NullSelectionBehavior null_selection =
+      FilterState::Get(ctx).null_selection_behavior;
+
+  ArrayDataVector out_data;
+
+  const int bit_width = values.type()->bit_width();
+  switch (bit_width) {
+    case 1:
+      PrimitiveFilterDispatch<BooleanType>(values, filter, null_selection, &out_data);
+      break;
+    case 8:
+      PrimitiveFilterDispatch<UInt8Type>(values, filter, null_selection, &out_data);
+      break;
+    case 16:
+      PrimitiveFilterDispatch<UInt16Type>(values, filter, null_selection, &out_data);
+      break;
+    case 32:
+      PrimitiveFilterDispatch<UInt32Type>(values, filter, null_selection, &out_data);
+      break;
+    case 64:
+      PrimitiveFilterDispatch<UInt64Type>(values, filter, null_selection, &out_data);
+      break;
+    default:
+      DCHECK(false) << "Invalid values bit width";
+      break;
+  }
+
+  *out = std::make_shared<ChunkedArray>(MapVector(MakeArray, out_data), values.type());
+
   return Status::OK();
 }
 
