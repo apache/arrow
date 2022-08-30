@@ -67,7 +67,7 @@ struct SetLookupState : public KernelState {
     auto visit_valid = [&](T v) {
       const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
       int32_t unused_memo_index;
-      // (capture `memo_index` by value because of ARROW-17567
+      // (capture `memo_size` by value because of ARROW-17567)
       auto on_found = [&, memo_size](int32_t memo_index) {
         DCHECK_LT(memo_index, memo_size);
       };
