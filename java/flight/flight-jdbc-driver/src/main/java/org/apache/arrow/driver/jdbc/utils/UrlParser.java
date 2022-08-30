@@ -25,7 +25,10 @@ import java.util.Map;
 /**
  * URL Parser for extracting key values from a connection string.
  */
-public class UrlParser {
+public final class UrlParser {
+  private UrlParser() {
+  }
+
   /**
    * Parse URL key value parameters.
    *
