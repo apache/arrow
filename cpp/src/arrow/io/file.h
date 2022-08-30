@@ -123,7 +123,7 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   std::unique_ptr<DirectFileOutputStreamImpl> impl_;
   std::vector<uint8_t> cached_data_;
   uint8_t* aligned_cached_data_;
-  int64_t cached_length = 0;
+  int64_t cached_length_ = 0;
 };
 
 /// \brief An operating system file open in read-only mode.

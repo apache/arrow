@@ -425,13 +425,11 @@ Status DirectFileOutputStream::Close() {
 #if defined(__linux__)
   if (!closed()) {
     // have to flush out the temprorary data, but then trim the file
-    if (cached_length > 0) {
-      std::memset(aligned_cached_data_ + cached_length, 0, 4096 - cached_length);
+    if (cached_length_ > 0) {
+      std::memset(aligned_cached_data_ + cached_length_, 0, 4096 - cached_length_);
       RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
     }
-    auto new_length = Tell().ValueOrDie() - 4096 + cached_length;
-    // this is just to help compile. If you are not on Linux you would have failed out way
-    // before this point.
+    auto new_length = Tell().ValueOrDie() - 4096 + cached_length_;
     fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
   }
@@ -446,26 +444,26 @@ Result<int64_t> DirectFileOutputStream::Tell() const { return impl_->Tell(); }
 Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   RETURN_NOT_OK(impl_->CheckClosed());
 
-  if (cached_length + length < 4096) {
-    std::memcpy(aligned_cached_data_ + cached_length, data, length);
-    cached_length += length;
+  if (cached_length_ + length < 4096) {
+    std::memcpy(aligned_cached_data_ + cached_length_, data, length);
+    cached_length_ += length;
     return Status::OK();
   }
 
-  auto bytes_to_write = (cached_length + length) / 4096 * 4096;
-  auto bytes_leftover = cached_length + length - bytes_to_write;
+  auto bytes_to_write = (cached_length_ + length) / 4096 * 4096;
+  auto bytes_leftover = cached_length_ + length - bytes_to_write;
   uintptr_t mask = (uintptr_t)(4095);
   std::vector<uint8_t> mem;
   mem.reserve(bytes_to_write + 4095);
   uint8_t* new_ptr =
       reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(&mem[0] + 4095) & ~(mask));
-  std::memcpy(new_ptr, aligned_cached_data_, cached_length);
-  std::memcpy(new_ptr + cached_length, data, bytes_to_write - cached_length);
-  std::memset(aligned_cached_data_, 0, cached_length);  // this is not required.
+  std::memcpy(new_ptr, aligned_cached_data_, cached_length_);
+  std::memcpy(new_ptr + cached_length_, data, bytes_to_write - cached_length_);
+  std::memset(aligned_cached_data_, 0, cached_length_);  // this is not required.
   std::memcpy(aligned_cached_data_,
-              reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length,
+              reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length_,
               bytes_leftover);
-  cached_length = bytes_leftover;
+  cached_length_ = bytes_leftover;
   auto status = impl_->Write(new_ptr, bytes_to_write);
   return status;
 }
