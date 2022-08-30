@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -38,5 +39,9 @@ public final class ExtensionTypeRegistry {
 
   public static ExtensionType lookup(String name) {
     return registry.get(name);
+  }
+
+  public static Collection<String> getExtensionNames() {
+    return registry.keySet();
   }
 }

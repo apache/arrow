@@ -32,6 +32,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -41,6 +42,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -80,8 +82,11 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.TestExtensionType.UuidType;
+import org.apache.arrow.vector.types.pojo.TestExtensionType.UuidVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.junit.After;
@@ -109,12 +114,13 @@ public class BaseFileTest {
   }
 
 
-  private static short [] uint1Values = new short[]{0, 255, 1, 128, 2};
-  private static char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
-  private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1L, 1, Integer.MAX_VALUE * 2L, 2};
-  private static BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
+  private static final short [] uint1Values = new short[]{0, 255, 1, 128, 2};
+  private static final char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
+  private static final long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1L, 1, Integer.MAX_VALUE * 2L, 2};
+  private static final BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
       BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)), BigInteger.valueOf(2),
       BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(1)), BigInteger.valueOf(2)};
+  private static final UUID[] uuidValues = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
 
   protected void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -844,6 +850,29 @@ public class BaseFileTest {
         assertEquals(j, sortedMapReader.key().readLong().longValue());
         assertEquals(j, sortedMapReader.value().readInteger().intValue());
       }
+    }
+  }
+
+  protected VectorSchemaRoot writeUuidData(BufferAllocator allocator) {
+    ExtensionTypeRegistry.register(new UuidType());
+
+    FixedSizeBinaryVector fixedSizeBinaryVector = new FixedSizeBinaryVector("fixedSizeBinary", allocator, 16);
+    UuidVector uuidVector = new UuidVector("uuid", allocator, fixedSizeBinaryVector);
+
+    fixedSizeBinaryVector.allocateNew(3);
+    uuidVector.set(0, uuidValues[0]);
+    uuidVector.set(1, uuidValues[1]);
+    uuidVector.set(2, uuidValues[2]);
+
+    VectorSchemaRoot root = VectorSchemaRoot.of(uuidVector);
+    root.setRowCount(3);
+    return root;
+  }
+
+  protected void validateUuidData(VectorSchemaRoot root) {
+    UuidVector uuidVector = (UuidVector) root.getVector("uuid");
+    for (int i = 0; i < 3; i++) {
+      assertEquals(uuidValues[i], uuidVector.getObject(i));
     }
   }
 }
