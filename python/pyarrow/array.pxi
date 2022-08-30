@@ -2490,7 +2490,7 @@ cdef class DictionaryArray(Array):
         length : int
             The number of values in the array.
         buffers : List[Buffer]
-            The buffers backing this array.
+            The buffers backing the indices array.
         dictionary : pyarrow.Array, ndarray or pandas.Series
             The array of values referenced by the indices.
         null_count : int, default -1
