@@ -261,7 +261,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
   ASSERT_NO_FATAL_FAILURE(ExecuteDict(num_pages, levels_per_page, &descr));
 }
 
-TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
+// Tests skipping around page boundaries.
+TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
   int levels_per_page = 100;
   int num_pages = 5;
   max_def_level_ = 0;
@@ -290,10 +291,10 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
       values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
-  // 2) skip_size == page_size (skip across two pages)
+  // 2) skip_size == page_size (skip across two pages from page 2.5 to 3.5)
   levels_skipped = reader->Skip(levels_per_page);
   ASSERT_EQ(levels_per_page, levels_skipped);
-  // Read half a page
+  // Read half a page (page 3.5 to 4)
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
@@ -304,10 +305,10 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 3) skip_size < page_size (skip limited to a single page)
-  // Skip half a page
+  // Skip half a page (page 4 to 4.5)
   levels_skipped = reader->Skip(levels_per_page / 2);
   ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
-  // Read half a page
+  // Read half a page (page 4.5 to 5)
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
   sub_values.clear();
@@ -317,11 +318,62 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
       values_.end());
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
+  // 4) skip_size = 0
+  levels_skipped = reader->Skip(0);
+  ASSERT_EQ(0, levels_skipped);
+
+  // 5) Skip past the end page. There are 5 pages and we have either skipped
+  // or read all of them, so there is nothing left to skip.
+  levels_skipped = reader->Skip(10);
+  ASSERT_EQ(0, levels_skipped);
+
   values_.clear();
   def_levels_.clear();
   rep_levels_.clear();
   pages_.clear();
   reader_.reset();
+}
+
+// Skip with repeated field. This test makes it clear that we are skipping
+// values and not records.
+TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
+  // Example schema: message M { repeated int32 b = 1 }
+  max_def_level_ = 1;
+  max_rep_level_ = 1;
+  NodePtr type = schema::Int32("b", Repetition::REPEATED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+  // Example rows: {}, {[10, 10]}, {[20, 20, 20]}
+  std::vector<int32_t> values = {10, 10, 20, 20, 20};
+  std::vector<int16_t> def_levels{0, 1, 1, 1, 1, 1};
+  std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
+  std::shared_ptr<DataPageV1> page =
+      MakeDataPage<Int32Type>(&descr, values, /*num_values=*/def_levels.size(),
+                              Encoding::PLAIN, /*indices=*/{},
+                              /*indices_size=*/0, def_levels, max_def_level_,
+                              rep_levels, max_rep_level_);
+
+  pages_.push_back(std::move(page));
+
+  InitReader(&descr);
+  Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
+
+  std::vector<int32_t> vresult(4, -1);
+  std::vector<int16_t> dresult(4, -1);
+  std::vector<int16_t> rresult(4, -1);
+
+  // Skip two levels.
+  int64_t levels_skipped = reader->Skip(2);
+  ASSERT_EQ(2, levels_skipped);
+
+  int64_t values_read = 0;
+  // Read the next set of values
+  reader->ReadBatch(10, dresult.data(), rresult.data(), vresult.data(),
+                    &values_read);
+  ASSERT_EQ(values_read, 4);
+  // Note that we end up in the record with {[10, 10]}
+  ASSERT_TRUE(vector_equal({10, 20, 20, 20}, vresult));
+  ASSERT_TRUE(vector_equal({1, 1, 1, 1}, dresult));
+  ASSERT_TRUE(vector_equal({1, 0, 1, 1}, rresult));
 }
 
 // Page claims to have two values but only 1 is present.
