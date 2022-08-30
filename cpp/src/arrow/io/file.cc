@@ -30,7 +30,6 @@
 #include <sys/mman.h>
 #include <unistd.h>  // IWYU pragma: keep
 #endif
-
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -429,17 +428,21 @@ Status DirectFileOutputStream::Close() {
       std::memset(aligned_cached_data_ + cached_length_, 0, 4096 - cached_length_);
       RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
     }
-    auto new_length = Tell().ValueOrDie() - 4096 + cached_length_;
+    auto new_length = impl_->Tell().ValueOrDie() - 4096 + cached_length_;
     fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
   }
 #endif
+  cached_length_ = 0;
   return impl_->Close();
 }
 
 bool DirectFileOutputStream::closed() const { return !impl_->is_open(); }
 
-Result<int64_t> DirectFileOutputStream::Tell() const { return impl_->Tell(); }
+Result<int64_t> DirectFileOutputStream::Tell() const {
+  ARROW_ASSIGN_OR_RAISE(auto tell_length, impl_->Tell());
+  return tell_length + cached_length_;
+}
 
 Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   RETURN_NOT_OK(impl_->CheckClosed());
