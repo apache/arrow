@@ -297,7 +297,7 @@ func (c *CastSuite) TestCanCast() {
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.Null, numericTypes)
 	cannotCast(arrow.Null, baseBinaryTypes)
-	cannotCast(arrow.Null, []arrow.DataType{
+	canCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
 	})
 	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.Null}, []arrow.DataType{arrow.Null})
