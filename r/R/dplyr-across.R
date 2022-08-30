@@ -51,6 +51,12 @@ expand_across <- function(.data, quos_in) {
         inline = TRUE
       )
 
+      # calling across() with .fns = NULL returns all columns unchanged
+      # this is a no-op in mutate() but may need updating for other funcs
+      if (is_empty(setup$fns)) {
+        return()
+      }
+
       if (!is_list(setup$fns) && as.character(setup$fns)[[1]] == "~") {
         abort(
           paste(
