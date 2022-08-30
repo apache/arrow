@@ -141,6 +141,10 @@ translation_exceptions <- c(
   "across",
   ":",
   "[",
+  "{",
+  "<-",
+  "==",
+  "-",
   "regex",
   "fixed",
   "list",
@@ -226,9 +230,13 @@ register_user_bindings <- function(quo, .env) {
       if (!is.null(unknown_fn) && registrable(unknown_fn, .env)) {
         environment(unknown_fn) <- .env
         function_body <- rlang::fn_body(unknown_fn)
-        body_calls <- all_funs(function_body[[2]])
+        body_calls <-
+          setdiff(
+            all_funs(function_body),
+            translation_exceptions
+          )
 
-        # only register a valid bindings if none of the calls in body come back
+        # only register a valid binding if none of the calls in body come back
         # as NULL, otherwise register NULL
         if (purrr::none(mget(body_calls, envir = .env), is.null)) {
           register_binding(
@@ -288,7 +296,10 @@ registrable <- function(.fun, .env) {
   # get all the function calls inside the body of the unknown binding
   # the second element is the actual body of a function (the first one are the
   # curly brackets)
-  body_calls <- all_funs(function_body[[2]])
+  body_calls <- setdiff(
+    all_funs(function_body),
+    translation_exceptions
+  )
 
   # we can translate if all calls have matching bindings in env
   if (all(body_calls %in% names(.env))) {
