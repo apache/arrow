@@ -382,6 +382,8 @@ class ArrayPrinter : public PrettyPrinter {
     Indent();
     Write("-- run ends array (offset: ");
     Write(std::to_string(array.offset()));
+    Write(", logical length: ");
+    Write(std::to_string(array.length()));
     Write(")\n");
     RETURN_NOT_OK(PrettyPrint(*array.run_ends_array(), ChildOptions(true), sink_));
 

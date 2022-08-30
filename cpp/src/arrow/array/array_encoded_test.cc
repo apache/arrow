@@ -32,8 +32,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/pretty_print.h"
 
-#include <iostream>
-
 namespace arrow {
 
 using internal::checked_cast;
@@ -123,7 +121,7 @@ TEST(RunLengthEncodedArray, Printing) {
   std::stringstream ss;
   ASSERT_OK(PrettyPrint(*int_array, {}, &ss));
   ASSERT_EQ(ss.str(), "\n"
-                      "-- run ends array (offset: 0)\n"
+                      "-- run ends array (offset: 0, logical length: 30)\n"
                       "  [\n"
                       "    10,\n"
                       "    20,\n"
@@ -142,7 +140,7 @@ TEST(RunLengthEncodedArray, Printing) {
   ss = {};
   ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
   ASSERT_EQ(ss.str(), "\n"
-                      "-- run ends array (offset: 0)\n"
+                      "-- run ends array (offset: 0, logical length: 30)\n"
                       "  [\n"
                       "    10,\n"
                       "    20,\n"
@@ -159,7 +157,7 @@ TEST(RunLengthEncodedArray, Printing) {
   ss = {};
   ASSERT_OK(PrettyPrint(*sliced_array, {}, &ss));
   ASSERT_EQ(ss.str(), "\n"
-                      "-- run ends array (offset: 15)\n"
+                      "-- run ends array (offset: 15, logical length: 6)\n"
                       "  [\n"
                       "    10,\n"
                       "    20,\n"
@@ -175,10 +173,11 @@ TEST(RunLengthEncodedArray, Printing) {
   ASSERT_OK_AND_ASSIGN(auto empty_array,
                        RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
                                                    ArrayFromJSON(binary(), "[]"), 0));
+
   ss = {};
   ASSERT_OK(PrettyPrint(*empty_array, {}, &ss));
   ASSERT_EQ(ss.str(), "\n"
-                      "-- run ends array (offset: 0)\n"
+                      "-- run ends array (offset: 0, logical length: 0)\n"
                       "  []\n"
                       "-- values:\n"
                       "  []");
