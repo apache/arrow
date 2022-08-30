@@ -220,7 +220,7 @@ macro(provide_find_module PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
     message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}")
+    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
   endif()
   unset(module_)
 endmacro()
@@ -1248,52 +1248,22 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
-if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
-                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if(OPENSSL11_BREW_PREFIX)
-    set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-  else()
-    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
-                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
-    endif()
-  endif()
-endif()
-
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
    OR ARROW_S3)
-  # OpenSSL is required
-  if(ARROW_OPENSSL_USE_SHARED)
-    # Find shared OpenSSL libraries.
-    set(OpenSSL_USE_STATIC_LIBS OFF)
-    # Seems that different envs capitalize this differently?
-    set(OPENSSL_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static OpenSSL headers and libs
-    set(OpenSSL_USE_STATIC_LIBS ON)
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-  endif()
+  set(OpenSSL_SOURCE "SYSTEM")
+  resolve_dependency(OpenSSL
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_OPENSSL_REQUIRED_VERSION})
   set(ARROW_USE_OPENSSL ON)
 endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-
-  list(APPEND ARROW_SYSTEM_DEPENDENCIES OpenSSL)
 else()
   message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
@@ -1532,6 +1502,7 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+  set(THRIFT_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
@@ -4064,7 +4035,10 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  if(NOT OpenSSL_FOUND)
+    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
+                       ${ARROW_OPENSSL_REQUIRED_VERSION})
+  endif()
 
   # Build google-cloud-cpp, with only storage_client
 

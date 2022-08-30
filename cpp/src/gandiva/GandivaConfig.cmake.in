@@ -21,16 +21,17 @@
 #
 # This config sets the following targets in your project::
 #
-#   gandiva_shared - for linked as shared library if shared library is built
-#   gandiva_static - for linked as static library if static library is built
+#   Gandiva::gandiva_shared - for linked as shared library if shared library is built
+#   Gandiva::gandiva_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+find_dependency(LLVMAlt)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET gandiva_shared OR TARGET gandiva_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/GandivaTargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/GandivaTargets.cmake")
+
+arrow_keep_backward_compatibility(Gandiva gandiva)
+
+check_required_components(Gandiva)

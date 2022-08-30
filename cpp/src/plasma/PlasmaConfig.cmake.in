@@ -22,18 +22,27 @@
 #
 # This config sets the following targets in your project::
 #
-#   plasma_shared - for linked as shared library if shared library is built
-#   plasma_static - for linked as static library if static library is built
+#   Plasma::plasma_shared - for linked as shared library if shared library is built
+#   Plasma::plasma_static - for linked as static library if static library is built
+#   Plasma::plasma-store-server - for plasma-store-server executable
 
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
-
-set(PLASMA_STORE_SERVER "@CMAKE_INSTALL_FULL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@")
-
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET plasma_shared OR TARGET plasma_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/PlasmaTargets.cmake")
+if(ARROW_CUDA)
+  find_dependency(ArrowCUDA)
 endif()
+
+set(PLASMA_VERSION "@ARROW_VERSION@")
+set(PLASMA_SO_VERSION "@ARROW_SO_VERSION@")
+set(PLASMA_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
+
+set(PLASMA_STORE_SERVER
+    "@CMAKE_INSTALL_FULL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@")
+
+include("${CMAKE_CURRENT_LIST_DIR}/PlasmaTargets.cmake")
+
+arrow_keep_backward_compatibility(Plasma plasma)
+
+check_required_components(Plasma)

@@ -24,8 +24,8 @@
 #
 # This config sets the following targets in your project::
 #
-#   parquet_shared - for linked as shared library if shared library is built
-#   parquet_static - for linked as static library if static library is built
+#   Parquet::parquet_shared - for linked as shared library if shared library is built
+#   Parquet::parquet_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
@@ -36,8 +36,8 @@ set(PARQUET_VERSION "@ARROW_VERSION@")
 set(PARQUET_SO_VERSION "@ARROW_SO_VERSION@")
 set(PARQUET_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET parquet_shared OR TARGET parquet_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ParquetTargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ParquetTargets.cmake")
+
+arrow_keep_backward_compatibility(Parquet parquet)
+
+check_required_components(Parquet)

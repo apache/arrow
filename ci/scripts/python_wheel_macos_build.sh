@@ -158,7 +158,7 @@ export PYARROW_WITH_S3=${ARROW_S3}
 export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 export ARROW_HOME=${build_dir}/install
 # PyArrow build configuration
-export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
+export CMAKE_PREFIX_PATH=${build_dir}/install
 # Set PyArrow version explicitly
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
