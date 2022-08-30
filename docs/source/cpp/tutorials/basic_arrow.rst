@@ -18,101 +18,136 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+.. cpp:namespace:: arrow
+
 ===========================
 Basic Arrow Data Structures
 ===========================
 
 Apache Arrow provides fundamental data structures for representing data:
-:class:`arrow::Array`, :class:`arrow::ChunkedArray`, :class:`arrow::RecordBatch`, and :class:`arrow::Table`. This article shows how to
-construct these data structures from primitive data types; specifically,
-we will work with integers of varying size representing days, months,
-and years. We will use them to create Arrow Arrays and ChunkedArrays,
-and use those to construct tabular data structures, i.e., RecordBatch
-and Table.
+:class:`Array`, :class:`ChunkedArray`, :class:`RecordBatch`, and :class:`Table`. 
+This article shows how to construct these data structures from primitive 
+data types; specifically, we will work with integers of varying size 
+representing days, months, and years. We will use them to create Arrow :class:`Arrays <Array>`
+and :class:`ChunkedArrays<ChunkedArray>`, and use those to construct tabular data structures,
+i.e., :class:`RecordBatch` and :class:`Table`.
 
 Setup
 =====
 
-First, we need a ``main()`` – a common pattern in Arrow looks like the
+First, as ever, we need some includes. We'll get ``iostream`` for output, then import Arrow's basic
+functionality from ``api.h``, like so: 
+
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Includes)
+  :end-before: (Doc section: Includes)
+
+Next, we need a ``main()`` – a common pattern with Arrow looks like the
 following:
 
-<MAIN WITH STATUS CHECKER>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Main)
+  :end-before: (Doc section: Main)
 
 This allows us to easily use Arrow’s error-handling macros, which will
 return back to ``main()`` with a :class:`arrow::Status` object if a failure occurs – and
 this ``main()`` will report the error. Note that this means Arrow never
-raises exceptions, instead relying upon returning Status. For more on
+raises exceptions, instead relying upon returning :class:`Status`. For more on
 that, read here: <LINK TO CONCEPTUAL OVERVIEW>
 
-To accompany this ``main()``, we have a ``RunMain()`` from which any Status
+To accompany this ``main()``, we have a ``RunMain()`` from which any :class:`Status`
 objects can return – this is where we’ll write the rest of the program:
 
-<RUNMAIN START>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: RunMain Start)
+  :end-before: (Doc section: RunMain Start)
+
 
 Making an Arrow Array
 =====================
 
-Next, we want to get the data from an array in standard C++ into an
-Arrow Array. We still guarantee contiguity of memory in an Array, so no
-worries about a performance loss when using Arrow Array vs C++ arrays.
-The easiest way to construct an Arrow Array uses a Builder class. <RST
+We want to get the data from an array in standard C++ into an
+Arrow array. We still guarantee contiguity of memory in an :class:`Array`, so no
+worries about a performance loss when using :class:`Array` vs C++ arrays.
+The easiest way to construct an :class:`Array` uses an :class:`ArrayBuilder`. <RST
 NOTE NEAR HERE: for more technical details, check out…> The following
-code initializes a Builder for an Arrow Array that will hold 8 bit
+code initializes an :class:`ArrayBuilder` for an :class:`Array` that will hold 8 bit
 integers, and uses the ``AppendValues()`` method, present in concrete 
 :class:`arrow::ArrayBuilder` subclasses, to fill it with the
 contents of a standard C++ array. Note the use of :c:macro:`ARROW_RETURN_NOT_OK`.
 If ``AppendValues()`` fails, this macro will return to ``main()``, which will
 print out the meaning of the failure.
 
-<INT8BUILDER USE 1 APPEND>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: int8builder 1 Append)
+  :end-before: (Doc section: int8builder 1 Append)
 
-Once a Builder has the values we want in our Array, we can use :func:`~arrow::ArrayBuilder::Finish`
-to output the final structure to an Array – specifically, we output to a
-std::shared_ptr<arrow::Array>. Note the use of :c:macro:`ARROW_ASSIGN_OR_RAISE`.
-``Finish()`` outputs a :class:`arrow::Result` object, which :c:macro:`ARROW_ASSIGN_OR_RAISE` can
-process. If the method fails, it will return to ``main()`` with a ``Status``
+Once an :class:`ArrayBuilder` has the values we want in our :class:`Array`, we can use 
+:func:`ArrayBuilder::Finish` to output the final structure to an :class:`Array` – specifically, 
+we output to a ``std::shared_ptr<arrow::Array>``. Note the use of :c:macro:`ARROW_ASSIGN_OR_RAISE`
+in the following code. :func:`~ArrayBuilder::Finish` outputs a :class:`arrow::Result` object, which :c:macro:`ARROW_ASSIGN_OR_RAISE` 
+can process. If the method fails, it will return to ``main()`` with a :class:`Status`
 that will explain what went wrong. If it succeeds, then it will assign
 the final output to the left-hand variable.
 
-<INT8BUILDER USE 1 FINISH>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: int8builder 1 Finish)
+  :end-before: (Doc section: int8builder 1 Finish)
 
-Once a Builder has had its ``Finish()`` method called, its state resets, so
+Once an :class:`ArrayBuilder` has had its :func:`Finish <ArrayBuilder::Finish>` method called, its state resets, so
 it can be used again, like so:
 
-<INT8BUILDER USE 2 APPEND+FINISH>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: int8builder 2)
+  :end-before: (Doc section: int8builder 2)
 
-However, Builders cannot have their type changed in the middle of their
+However, an :class:`ArrayBuilder` cannot have its type changed in the middle of its
 use – we have to make a new one when we switch to year data, which
-requires a 16-bit integer at the minimum. Of course, there’s a Builder
+requires a 16-bit integer at the minimum. Of course, there’s an :class:`ArrayBuilder`
 for that:
 
-<INT16BUILDER USE 1 APPEND+FINISH>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: int16builder)
+  :end-before: (Doc section: int16builder)
 
-Now, we have three Arrow Arrays, with some variance in type.
+Now, we have three Arrow :class:`Arrays <arrow::Array>`, with some variance in type.
 
 Making a RecordBatch
 ====================
 
 A columnar data format only really comes into play when you have a table. 
-So, let’s make one. The first kind we’ll make is the RecordBatch – this 
-uses Arrays internally, which means all data will be contiguous within each 
+So, let’s make one. The first kind we’ll make is the :class:`RecordBatch` – this 
+uses :class:`Arrays <Array>` internally, which means all data will be contiguous within each 
 column, but any appending or concatenating will require copying.
 
-To get started making a RecordBatch, we first need to define
-characteristics of the columns, each represented by a :class:`arrow::Field` instance.
-Each Field contains a name and datatype for its associated column; then,
-a :class:`arrow::Schema` groups them together and sets the order of the columns, like
+To get started making a :class:`RecordBatch`, we first need to define
+characteristics of the columns, each represented by a :class:`Field` instance.
+Each :class:`Field` contains a name and datatype for its associated column; then,
+a :class:`Schema` groups them together and sets the order of the columns, like
 so:
 
-<SCHEMA CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Schema)
+  :end-before: (Doc section: Schema)
 
-With data in Arrays and column descriptions in our Schema, we can make
-the RecordBatch. Note that the length of the columns is necessary, and
+With data in :class:`Arrays <Array>` and column descriptions in our :class:`Schema`, we can make
+the :class:`RecordBatch`. Note that the length of the columns is necessary, and
 the length is shared by all columns.
 
-<RECORDBATCH CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: RBatch)
+  :end-before: (Doc section: RBatch)
 
-Now, we have our data in a nice tabular form, safely within the RecordBatch.
+Now, we have our data in a nice tabular form, safely within the :class:`RecordBatch`.
 
 Making a Table
 ==============
@@ -120,42 +155,69 @@ Making a Table
 Let’s say that we want an array made up of sub-arrays, because it
 can be useful for logic, for parallelizing work, for fitting each chunk
 cutely into cache, or for exceeding the 2,147,483,647 row limit in a
-standard Arrow Array. For this, Arrow offers ChunkedArray, which can be
-made up of individual Arrow Arrays. So, let’s build a few more Arrays,
+standard Arrow :class:`Array`. For this, Arrow offers :class:`ChunkedArray`, which can be
+made up of individual Arrow :class:`Arrays <Array>`. So, let’s build a few more :class:`Arrays <Array>`,
 using the same builders for ease of use:
 
-<THREE MORE ARRAYS CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: More Arrays)
+  :end-before: (Doc section: More Arrays)
 
-Now, we can get into the magic. First, we’ll get an :class:`arrow::ArrayVector` (vector
-of arrays):
+Now, we can get into the magic. First, we’ll get an :class:`ArrayVector` (vector
+of arrays) holding both of our day arrays:
 
-<INITIALIZE ARRAYVECTOR>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: ArrayVector)
+  :end-before: (Doc section: ArrayVector)
 
-This doesn’t have all the features of a ChunkedArray, so we don’t stop
-here. Instead, we use it to create our ChunkedArray:
+This doesn’t have all the features of a :class:`ChunkedArray`, so we don’t stop
+here. Instead, we use it to create our :class:`ChunkedArray`:
 
-<CHUNKEDARRAY CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: ChunkedArray Day)
+  :end-before: (Doc section: ChunkedArray Day)
 
-Now, we have a ChunkedArray for our day values. We’ll repeat that for
+Now, we have a :class:`ChunkedArray` for our day values. We’ll repeat that for
 months and years:
 
-<MONTH AND YEAR CHUNKEDARRAY CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: ChunkedArray Month Year)
+  :end-before: (Doc section: ChunkedArray Month Year)
 
-Now, we have ChunkedArrays which contain our newly extended data in
-bite-sized chunks. A RecordBatch is specifically for Arrays, and its
-counterpart for ChunkedArrays is the Table. Its constructor is
+Now, we have :class:`ChunkedArrays <ChunkedArray>` which contain our newly extended data in
+bite-sized chunks. A :class:`RecordBatch` is specifically for :class:`Arrays <Array>`, and its
+counterpart for :class:`ChunkedArrays <ChunkedArray>` is the :class:`Table`. Its constructor is
 effectively identical, it just happens to put the length of the columns
-in position 3, and makes a Table. We re-use the Schema from before, and
-make our Table:
+in position 3, and makes a :class:`Table`. We re-use the :class:`Schema` from before, and
+make our :class:`Table`:
 
-<TABLE CREATION>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Table)
+  :end-before: (Doc section: Table)
 
-After that, we just return arrow::Status::OK(), so the main() knows that
+After that, we just return :func:`Status::OK()`, so the ``main()`` knows that
 we’re done, and that everything’s okay.
 
-<RETURN STATEMENT>
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Ret)
+  :end-before: (Doc section: Ret)
 
 With that, you’ve created the fundamental data structures in Arrow, and
-can proceed to getting them in and out of a program with file I/O.
+can proceed to getting them in and out of a program with file I/O:
 
 <LINK TO NEXT ARTICLE>
+
+Refer to the below for a copy of the complete code:
+
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/arrow_example.cc
+  :language: cpp
+  :start-after: (Doc section: Basic Example)
+  :end-before: (Doc section: Basic Example)
+  :linenos:
+  :lineno-match:
