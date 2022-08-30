@@ -38,10 +38,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcPooledConnection;
+import org.apache.arrow.driver.jdbc.FlightSqlJdbcPooledConnection;
 
 /**
- * Auxiliary wrapper class for {@link Connection}, used on {@link ArrowFlightJdbcPooledConnection}.
+ * Auxiliary wrapper class for {@link Connection}, used on {@link FlightSqlJdbcPooledConnection}.
  */
 public class ConnectionWrapper implements Connection {
   private final Connection realConnection;

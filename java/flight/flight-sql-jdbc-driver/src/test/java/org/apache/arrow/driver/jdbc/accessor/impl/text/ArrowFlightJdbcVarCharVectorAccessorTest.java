@@ -37,9 +37,9 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.function.IntSupplier;
 
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowJdbcDateVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowJdbcTimeStampVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.driver.jdbc.utils.ThrowableAssertionUtils;
 import org.apache.arrow.vector.DateMilliVector;
@@ -61,7 +61,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
-  private ArrowFlightJdbcVarCharVectorAccessor accessor;
+  private ArrowJdbcVarCharVectorAccessor accessor;
   private final SimpleDateFormat dateTimeFormat =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
   private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSSXXX");
@@ -70,7 +70,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
   @Mock
-  private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
+  private ArrowJdbcVarCharVectorAccessor.Getter getter;
 
   @Rule
   public ErrorCollector collector = new ErrorCollector();
@@ -82,7 +82,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void setUp() {
     IntSupplier currentRowSupplier = () -> 0;
     accessor =
-        new ArrowFlightJdbcVarCharVectorAccessor(getter, currentRowSupplier, (boolean wasNull) -> {
+        new ArrowJdbcVarCharVectorAccessor(getter, currentRowSupplier, (boolean wasNull) -> {
         });
   }
 
@@ -682,8 +682,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   @Test
   public void testShouldGetTimeStampBeConsistentWithTimeStampAccessor() throws Exception {
     try (TimeStampVector timeStampVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
-      ArrowFlightJdbcTimeStampVectorAccessor timeStampVectorAccessor =
-          new ArrowFlightJdbcTimeStampVectorAccessor(timeStampVector, () -> 0,
+      ArrowJdbcTimeStampVectorAccessor timeStampVectorAccessor =
+          new ArrowJdbcTimeStampVectorAccessor(timeStampVector, () -> 0,
               (boolean wasNull) -> {
               });
 
@@ -698,8 +698,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   @Test
   public void testShouldGetTimeBeConsistentWithTimeAccessor() throws Exception {
     try (TimeMilliVector timeVector = rootAllocatorTestRule.createTimeMilliVector()) {
-      ArrowFlightJdbcTimeVectorAccessor timeVectorAccessor =
-          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {
+      ArrowJdbcTimeVectorAccessor timeVectorAccessor =
+          new ArrowJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {
           });
 
       Text value = new Text(timeVectorAccessor.getString());
@@ -713,8 +713,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   @Test
   public void testShouldGetDateBeConsistentWithDateAccessor() throws Exception {
     try (DateMilliVector dateVector = rootAllocatorTestRule.createDateMilliVector()) {
-      ArrowFlightJdbcDateVectorAccessor dateVectorAccessor =
-          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {
+      ArrowJdbcDateVectorAccessor dateVectorAccessor =
+          new ArrowJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {
           });
 
       Text value = new Text(dateVectorAccessor.getString());

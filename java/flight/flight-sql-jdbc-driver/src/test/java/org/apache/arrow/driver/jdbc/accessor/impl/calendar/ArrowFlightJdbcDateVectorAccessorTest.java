@@ -17,7 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor.getTimeUnitForVector;
+import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowJdbcDateVectorAccessor.getTimeUnitForVector;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
@@ -32,7 +32,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -64,21 +64,21 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   private BaseFixedWidthVector vector;
   private final Supplier<BaseFixedWidthVector> vectorSupplier;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDateVectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcDateVectorAccessor>
       accessorSupplier = (vector, getCurrentRow) -> {
         if (vector instanceof DateDayVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateDayVector) vector, getCurrentRow,
+          return new ArrowJdbcDateVectorAccessor((DateDayVector) vector, getCurrentRow,
               (boolean wasNull) -> {
               });
         } else if (vector instanceof DateMilliVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateMilliVector) vector, getCurrentRow,
+          return new ArrowJdbcDateVectorAccessor((DateMilliVector) vector, getCurrentRow,
               (boolean wasNull) -> {
               });
         }
         return null;
       };
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDateVectorAccessor>
+  private final AccessorTestUtils.AccessorIterator<ArrowJdbcDateVectorAccessor>
       accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
@@ -138,7 +138,7 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   @Test
   public void testShouldGetTimestampReturnNull() {
     vector.setNull(0);
-    ArrowFlightJdbcDateVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
+    ArrowJdbcDateVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getTimestamp(null), CoreMatchers.equalTo(null));
     collector.checkThat(accessor.wasNull(), is(true));
   }
@@ -168,7 +168,7 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   @Test
   public void testShouldGetDateReturnNull() {
     vector.setNull(0);
-    ArrowFlightJdbcDateVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
+    ArrowJdbcDateVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getDate(null), CoreMatchers.equalTo(null));
     collector.checkThat(accessor.wasNull(), is(true));
   }
@@ -191,7 +191,7 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vector, ArrowFlightJdbcDateVectorAccessor::getObjectClass,
+        .assertAccessorGetter(vector, ArrowJdbcDateVectorAccessor::getObjectClass,
             equalTo(Date.class));
   }
 
@@ -234,8 +234,8 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
     try (VarCharVector varCharVector = new VarCharVector("",
         rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
-      ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
-          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
+      ArrowJdbcVarCharVectorAccessor varCharVectorAccessor =
+          new ArrowJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
           });
 
       accessorIterator.iterate(vector, (accessor, currentRow) -> {

@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
+import org.apache.arrow.driver.jdbc.utils.FlightSqlConnectionConfigImpl;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
@@ -55,7 +55,7 @@ public class TokenAuthentication implements Authentication {
   @Override
   public void populateProperties(Properties properties) {
     this.validCredentials.forEach(value -> properties.put(
-        ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(), value));
+        FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(), value));
   }
 
   public static final class Builder {

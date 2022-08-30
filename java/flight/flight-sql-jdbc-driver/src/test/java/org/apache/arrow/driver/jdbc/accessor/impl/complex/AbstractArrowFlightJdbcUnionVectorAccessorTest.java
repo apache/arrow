@@ -25,8 +25,8 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Map;
 
-import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.ArrowJdbcNullVectorAccessor;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.Before;
@@ -40,9 +40,9 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
   @Mock
-  ArrowFlightJdbcAccessor innerAccessor;
+  ArrowJdbcAccessor innerAccessor;
   @Spy
-  AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
+  AbstractArrowJdbcUnionVectorAccessorMock accessor;
 
   @Before
   public void setup() {
@@ -239,16 +239,16 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
     verify(innerAccessor).getBigDecimal(2);
   }
 
-  private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
-      extends AbstractArrowFlightJdbcUnionVectorAccessor {
-    protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
+  private static class AbstractArrowJdbcUnionVectorAccessorMock
+      extends AbstractArrowJdbcUnionVectorAccessor {
+    protected AbstractArrowJdbcUnionVectorAccessorMock() {
       super(() -> 0, (boolean wasNull) -> {
       });
     }
 
     @Override
-    protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+    protected ArrowJdbcAccessor createAccessorForVector(ValueVector vector) {
+      return new ArrowJdbcNullVectorAccessor((boolean wasNull) -> {
       });
     }
 

@@ -22,8 +22,8 @@ import org.junit.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
-  ArrowFlightJdbcNullVectorAccessor accessor =
-      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+  ArrowJdbcNullVectorAccessor accessor =
+      new ArrowJdbcNullVectorAccessor((boolean wasNull) -> {
       });
 
   @Test

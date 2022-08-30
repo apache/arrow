@@ -80,7 +80,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
+   * Tests whether the {@link FlightSqlJdbcDriver} can run a query successfully.
    *
    * @throws Exception If the connection fails to be established.
    */
@@ -106,7 +106,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
+   * Tests whether the {@link FlightSqlJdbcDriver} query only returns only the
    * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
    *
    * @throws Exception If the connection fails to be established.
@@ -136,7 +136,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting
+   * Tests whether the {@link FlightSqlJdbcDriver} fails upon attempting
    * to run an invalid query.
    *
    * @throws Exception If the connection fails to be established.
@@ -150,7 +150,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
+   * Tests whether the {@link FlightSqlJdbcDriver} query only returns only the
    * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setLargeMaxRows(long)} (int)}.
    *
    * @throws Exception If the connection fails to be established.
@@ -194,7 +194,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet
+   * Tests whether the {@link FlightSqlJdbcDriver} close the statement after complete ResultSet
    * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
@@ -212,7 +212,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet with max rows limit
+   * Tests whether the {@link FlightSqlJdbcDriver} close the statement after complete ResultSet with max rows limit
    * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
@@ -232,7 +232,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} not close the statement after complete ResultSet with max rows
+   * Tests whether the {@link FlightSqlJdbcDriver} not close the statement after complete ResultSet with max rows
    * limit when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
@@ -250,7 +250,7 @@ public class ResultSetTest {
       collector.checkThat(statement.isClosed(), is(false));
       resultSetNextUntilDone(resultSet);
       collector.checkThat(resultSet.isClosed(), is(false));
-      collector.checkThat(resultSet, is(instanceOf(ArrowFlightJdbcFlightStreamResultSet.class)));
+      collector.checkThat(resultSet, is(instanceOf(FlightStreamResultSet.class)));
     }
   }
 

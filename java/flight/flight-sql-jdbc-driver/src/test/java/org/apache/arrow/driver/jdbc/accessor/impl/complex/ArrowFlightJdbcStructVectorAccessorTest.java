@@ -57,13 +57,13 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
   private StructVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcStructVectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcStructVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowFlightJdbcStructVectorAccessor((StructVector) vector,
+          (vector, getCurrentRow) -> new ArrowJdbcStructVectorAccessor((StructVector) vector,
               getCurrentRow, (boolean wasNull) -> {
           });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor>
+  private final AccessorTestUtils.AccessorIterator<ArrowJdbcStructVectorAccessor>
       accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
@@ -99,13 +99,13 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   @Test
   public void testShouldGetObjectClassReturnMapClass() throws Exception {
     accessorIterator.assertAccessorGetter(vector,
-        ArrowFlightJdbcStructVectorAccessor::getObjectClass,
+        ArrowJdbcStructVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(Map.class));
   }
 
   @Test
   public void testShouldGetObjectReturnValidMap() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector, ArrowJdbcStructVectorAccessor::getObject,
         (accessor, currentRow) -> {
           Map<String, Object> expected = new HashMap<>();
           expected.put("int", 100 * (currentRow + 1));
@@ -119,7 +119,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   public void testShouldGetObjectReturnNull() throws Exception {
     vector.setNull(0);
     vector.setNull(1);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector, ArrowJdbcStructVectorAccessor::getObject,
         (accessor, currentRow) -> nullValue());
   }
 
@@ -142,7 +142,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   public void testShouldGetStructReturnNull() throws Exception {
     vector.setNull(0);
     vector.setNull(1);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getStruct,
+    accessorIterator.assertAccessorGetter(vector, ArrowJdbcStructVectorAccessor::getStruct,
         (accessor, currentRow) -> nullValue());
   }
 
@@ -198,8 +198,8 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
       expected.put("list", nestedList);
       expected.put("union", true);
 
-      ArrowFlightJdbcStructVectorAccessor accessor =
-          new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {
+      ArrowJdbcStructVectorAccessor accessor =
+          new ArrowJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {
           });
 
       Assert.assertEquals(accessor.getObject(), expected);
