@@ -17,182 +17,142 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
-test_that("Can use across() within mutate()", {
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(dbl, dbl2), round)) %>%
-      collect(),
+test_that("expand_across correctly expands quosures", {
+
+  # single unnamed function
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), round)),
+    quos(
+      dbl = round(dbl),
+      dbl2 = round(dbl2)
+    ),
     example_data
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        dbl2 = dbl * 2,
-        across(c(dbl, dbl2), round),
-        int2 = int * 2,
-        dbl = dbl + 3
-      ) %>%
-      collect(),
+  # multiple unnamed functions
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), list(exp, sqrt))),
+    quos(
+      dbl_1 = exp(dbl),
+      dbl_2 = sqrt(dbl),
+      dbl2_1 = exp(dbl2),
+      dbl2_2 = sqrt(dbl2)
+    ),
     example_data
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(dbl, dbl2), list(exp, sqrt))) %>%
-      collect(),
+  # multiple named arguments
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), list("fun1" = round, "fun2" = sqrt))),
+    quos(
+      dbl_fun1 = round(dbl),
+      dbl_fun2 = sqrt(dbl),
+      dbl2_fun1 = round(dbl2),
+      dbl2_fun2 = sqrt(dbl2)
+    ),
     example_data
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(dbl, dbl2), list("fun1" = round, "fun2" = sqrt))) %>%
-      collect(),
+  # .names argument
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")),
+    quos(
+      dbl.1 = round(dbl),
+      dbl2.1 = round(dbl2)
+    ),
     example_data
   )
 
-  # this is valid is neither R nor Arrow
-  expect_error(
-    expect_warning(
-      compare_dplyr_binding(
-        .input %>%
-          arrow_table() %>%
-          mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
-          collect(),
-        example_data,
-        warning = TRUE
-      )
-    )
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), round, .names = "round_{.col}")),
+    quos(
+      round_dbl = round(dbl),
+      round_dbl2 = round(dbl2)
+    ),
+    example_data
   )
 
   # across() arguments not in default order
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(.fns = round, c(dbl, dbl2))) %>%
-      collect(),
+  expect_across_equal(
+    quos(across(.fns = round, c(dbl, dbl2))),
+    quos(
+      dbl = round(dbl),
+      dbl2 = round(dbl2)
+    ),
     example_data
   )
 
   # across() with no columns named
-  compare_dplyr_binding(
-    .input %>%
-      select(int, dbl, dbl2) %>%
-      mutate(across(.fns = round)) %>%
-      collect(),
-    example_data
+  expect_across_equal(
+    quos(across(.fns = round)),
+    quos(
+      int = round(int),
+      dbl = round(dbl),
+      dbl2 = round(dbl2)
+    ),
+    example_data %>% select(int, dbl, dbl2)
   )
 
-  # across() with no functions
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(starts_with("dbl"))) %>%
-      collect(),
+  # across() with no functions returns columns unchanged
+  expect_across_equal(
+    quos(across(starts_with("dbl"))),
+    quos(
+      dbl = dbl,
+      dbl2 = dbl2
+    ),
     example_data
   )
 
   # dynamic variable name
   int <- c("dbl", "dbl2")
-  compare_dplyr_binding(
-    .input %>%
-      select(int, dbl, dbl2) %>%
-      mutate(across(all_of(int), sqrt)) %>%
-      collect(),
-    example_data
-  )
-
-  # .names argument
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
-      collect(),
-    example_data
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(dbl, dbl2), round, .names = "round_{.col}")) %>%
-      collect(),
+  expect_across_equal(
+    quos(across(all_of(int), sqrt)),
+    quos(
+      dbl = sqrt(dbl),
+      dbl2 = sqrt(dbl2)
+    ),
     example_data
   )
 
   # ellipses (...) are a deprecated argument
   expect_error(
-    example_data %>%
-      arrow_table() %>%
-      mutate(across(c(dbl, dbl2), round, digits = -1)) %>%
-      collect(),
+    expand_across(
+      example_data,
+      quos(across(c(dbl, dbl2), round, digits = -1))
+    ),
     regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
     fixed = TRUE
   )
 
   # alternative ways of specifying .fns - as a list
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(1:dbl2, list(round))) %>%
-      collect(),
+  expect_across_equal(
+    quos(across(1:dbl2, list(round))),
+    quos(
+      int_1 = round(int),
+      dbl_1 = round(dbl),
+      dbl2_1 = round(dbl2)
+    ),
     example_data
   )
 
   # supply .fns as a one-item vector
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(1:dbl2, c(round))) %>%
-      collect(),
+  expect_across_equal(
+    quos(across(1:dbl2, c(round))),
+    quos(
+      int_1 = round(int),
+      dbl_1 = round(dbl),
+      dbl2_1 = round(dbl2)
+    ),
     example_data
   )
 
   # ARROW-17366: purrr-style lambda functions not yet supported
   expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(1:dbl2, ~ round(.x, digits = -1))) %>%
-        collect(),
-      example_data
+    expand_across(
+      example_data,
+      quos(across(1:dbl2, ~ round(.x, digits = -1)))
     ),
     regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
-    fixed = TRUE
-  )
-
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(1:dbl2, list(~ round(.x, digits = -1), ~ sqrt(.x)))) %>%
-        collect(),
-      example_data
-    ),
-    regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
-    fixed = TRUE
-  )
-
-  # .fns = NULL, the default
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(1:dbl2, NULL)) %>%
-      collect(),
-    example_data
-  )
-
-  # ARROW-12778 - `where()` is not yet supported
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(where(is.double))) %>%
-        collect(),
-      example_data
-    ),
-    "Unsupported selection helper"
-  )
-
-  # gives the right error with window functions
-  expect_warning(
-    arrow_table(example_data) %>%
-      mutate(
-        x = int + 2,
-        across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
-        exp(dbl2)
-      ) %>%
-      collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
   )
 })
