@@ -815,21 +815,24 @@ class AsofJoinNode : public ExecNode {
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
                const std::vector<col_index_t>& indices_of_on_key,
                const std::vector<std::vector<col_index_t>>& indices_of_by_key,
-               OnType tolerance, std::shared_ptr<Schema> output_schema);
+               OnType tolerance, std::shared_ptr<Schema> output_schema,
+               std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
+               bool nullable_by_key);
 
-  void InternalInit(bool must_hash, bool nullable_by_key,
-                    std::vector<std::unique_ptr<KeyHasher>> key_hashers) {
-    key_hashers_ = std::move(key_hashers);
+  Status Init() {
     auto inputs = this->inputs();
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < inputs.size(); i++) {
+      RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
       state_.push_back(::arrow::internal::make_unique<InputState>(
-          must_hash, nullable_by_key, key_hashers_[i].get(), inputs[i]->output_schema(),
+          must_hash_, nullable_by_key_, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
 
     col_index_t dst_offset = 0;
     for (auto& state : state_)
       dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);
+
+    return Status::OK();
   }
 
   virtual ~AsofJoinNode() {
@@ -1027,25 +1030,20 @@ class AsofJoinNode : public ExecNode {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
                           MakeOutputSchema(inputs, indices_of_on_key, indices_of_by_key));
 
-    auto node = plan->EmplaceNode<AsofJoinNode>(
-        plan, inputs, std::move(input_labels), std::move(indices_of_on_key),
-        std::move(indices_of_by_key), time_value(join_options.tolerance),
-        std::move(output_schema));
-    auto node_output_schema = node->output_schema();
-    auto node_indices_of_by_key = checked_cast<AsofJoinNode*>(node)->indices_of_by_key();
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
+    for (size_t i = 0; i < n_input; i++) {
+      key_hashers.push_back(
+          ::arrow::internal::make_unique<KeyHasher>(indices_of_by_key[i]));
+    }
     bool must_hash =
         n_by != 1 ||
         !is_primitive(
             inputs[0]->output_schema()->field(indices_of_by_key[0][0])->type()->id());
     bool nullable_by_key = join_options.nullable_by_key;
-    for (size_t i = 0; i < n_input; i++) {
-      key_hashers.push_back(
-          ::arrow::internal::make_unique<KeyHasher>(node_indices_of_by_key[i]));
-      RETURN_NOT_OK(key_hashers[i]->Init(plan->exec_context(), node_output_schema));
-    }
-    node->InternalInit(must_hash, nullable_by_key, std::move(key_hashers));
-    return node;
+    return plan->EmplaceNode<AsofJoinNode>(
+        plan, inputs, std::move(input_labels), std::move(indices_of_on_key),
+        std::move(indices_of_by_key), time_value(join_options.tolerance),
+        std::move(output_schema), std::move(key_hashers), must_hash, nullable_by_key);
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -1101,9 +1099,11 @@ class AsofJoinNode : public ExecNode {
 
  private:
   arrow::Future<> finished_;
-  std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
   std::vector<col_index_t> indices_of_on_key_;
   std::vector<std::vector<col_index_t>> indices_of_by_key_;
+  std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
+  bool must_hash_;
+  bool nullable_by_key_;
   // InputStates
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
@@ -1124,12 +1124,17 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
                            const std::vector<col_index_t>& indices_of_on_key,
                            const std::vector<std::vector<col_index_t>>& indices_of_by_key,
-                           OnType tolerance, std::shared_ptr<Schema> output_schema)
+                           OnType tolerance, std::shared_ptr<Schema> output_schema,
+                           std::vector<std::unique_ptr<KeyHasher>> key_hashers,
+                           bool must_hash, bool nullable_by_key)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
       indices_of_on_key_(std::move(indices_of_on_key)),
       indices_of_by_key_(std::move(indices_of_by_key)),
+      key_hashers_(std::move(key_hashers)),
+      must_hash_(must_hash),
+      nullable_by_key_(nullable_by_key),
       tolerance_(tolerance),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
