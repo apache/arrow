@@ -2494,7 +2494,7 @@ cdef class DictionaryArray(Array):
         dictionary : pyarrow.Array, ndarray or pandas.Series
             The array of values referenced by the indices.
         null_count : int, default -1
-            The number of null entries in the array. Negative value means that
+            The number of null entries in the indices array. Negative value means that
             the null count is not known.
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
