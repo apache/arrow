@@ -4,7 +4,7 @@ indices_nonzero
 Returns
 -------
 
-pyarrow.lib.UInt64Array
+pyarrow.UInt64Array
     A pyarrow Integer array of the indices that have a non-False and valid value. 
 
 Details
