@@ -60,7 +60,8 @@ if(BUILD_TESTING)
   find_package(ArrowTesting REQUIRED)
   find_package(GTest REQUIRED)
   add_library(arrow_java_test INTERFACE IMPORTED)
-  target_link_libraries(arrow_java_test INTERFACE arrow_testing_static GTest::gtest_main)
+  target_link_libraries(arrow_java_test INTERFACE ArrowTesting::arrow_testing_static
+                                                  GTest::gtest_main)
 endif()
 
 if(ARROW_JAVA_JNI_ENABLE_C)
