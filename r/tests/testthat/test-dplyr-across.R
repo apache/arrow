@@ -82,6 +82,14 @@ test_that("Can use across() within mutate()", {
     example_data
   )
 
+  # across() with no functions
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(starts_with("dbl"))) %>%
+      collect(),
+    example_data
+  )
+
   # dynamic variable name
   int <- c("dbl", "dbl2")
   compare_dplyr_binding(

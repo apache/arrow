@@ -16,7 +16,6 @@
 # under the License.
 
 expand_across <- function(.data, quos_in) {
-  quos_out <- list()
   # retrieve items using their values to preserve naming of quos other than across
   for (quo_i in seq_along(quos_in)) {
     quo_in <- quos_in[quo_i]
@@ -51,12 +50,6 @@ expand_across <- function(.data, quos_in) {
         mask = .data,
         inline = TRUE
       )
-
-      # calling across() with .fns = NULL returns all columns unchanged
-      if (is_empty(setup$fns)) {
-        # this needs to be updated to match dplyr's version
-        return()
-      }
 
       if (!is_list(setup$fns) && as.character(setup$fns)[[1]] == "~") {
         abort(
