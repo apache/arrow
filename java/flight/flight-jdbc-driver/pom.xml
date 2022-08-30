@@ -298,6 +298,11 @@
                             <rules>
                                 <rule>
                                     <element>CLASS</element>
+                                    <excludes>
+                                        <exclude>org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl</exclude>
+                                        <!-- The uncovered branch is unreachable -->
+                                        <exclude>org.apache.arrow.driver.jdbc.utils.UrlParser</exclude>
+                                    </excludes>
                                     <limits>
                                         <limit implementation="org.jacoco.report.check.Limit">
                                             <counter>BRANCH</counter>
