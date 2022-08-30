@@ -80,7 +80,7 @@ add_arrow_lib(gandiva_jni
               ON
               BUILD_STATIC
               OFF
-              STATIC_LINK_LIBS
+              SHARED_LINK_LIBS
               ${GANDIVA_LINK_LIBS}
               DEPENDENCIES
               ${GANDIVA_LINK_LIBS}
