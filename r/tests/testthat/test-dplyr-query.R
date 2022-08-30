@@ -695,9 +695,8 @@ test_that("Scalars in expressions match the type of the field, if possible", {
     tab %>%
       filter(times > "2018-10-07 19:04:05") %>%
       show_exec_plan(),
-    "times > 2018-10-07 19:04:05"
+    "times > 2018-10-0. ..:..:05"
   )
-  skip("Timezones?")
   compare_dplyr_binding(
     .input %>%
       filter(times > "2018-10-07 19:04:05") %>%

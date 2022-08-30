@@ -297,7 +297,14 @@ wrap_scalars <- function(args, FUN) {
                   x,
                   options = list(format = "%Y-%m-%d %H:%M:%S", unit = 1L)
                 )
-                # TODO: assume_timezone?
+                # R assumes timestamps without timezone specified are
+                # local timezone while Arrow assumes UTC. For consistency
+                # with R behavior, specify local timezone here.
+                x <- call_function(
+                  "assume_timezone",
+                  x,
+                  options = list(timezone = Sys.timezone())
+                )
               }
             }
             x$cast(to_type)
