@@ -86,8 +86,7 @@ arrow::Status RunMain() {
   // filesystem starting at a given path. For the sake of simplicity, that'll be
   // the current directory.
   std::shared_ptr<arrow::fs::FileSystem> fs;
-  // This feels pretty bad, but I wasn't finding great solutions that're
-  // system-generic -- could use some advice on how to set this up.
+  // Get the CWD, use it to make the FileSystem object. 
   char init_path[256];
   getcwd(init_path, 256);
   ARROW_ASSIGN_OR_RAISE(fs, arrow::fs::FileSystemFromUriOrPath(init_path));
@@ -107,7 +106,7 @@ arrow::Status RunMain() {
   // dataset yet!
   ARROW_ASSIGN_OR_RAISE(auto factory, arrow::dataset::FileSystemDatasetFactory::Make(
                                           fs, selector, read_format, options));
-  // Now we read into our dataset from the factory.
+  // Now we build our dataset from the factory.
   ARROW_ASSIGN_OR_RAISE(auto read_dataset, factory->Finish());
   // Print out the fragments
   ARROW_ASSIGN_OR_RAISE(auto fragments, read_dataset->GetFragments());
@@ -148,8 +147,6 @@ arrow::Status RunMain() {
   write_options.file_write_options = write_format->DefaultWriteOptions();
   // Use the filesystem we already have.
   write_options.filesystem = fs;
-  // Can only really be run once at the moment, because it'll explode upon noticing
-  // the folder has anything.
   // Write to the folder "write_dataset" in current directory.
   write_options.base_dir = "write_dataset";
   // Use the partitioning declared above.
