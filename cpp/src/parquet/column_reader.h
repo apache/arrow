@@ -109,7 +109,8 @@ class PARQUET_EXPORT PageReader {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
   static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
-                                          int64_t total_num_values, Compression::type codec,
+                                          int64_t total_num_values,
+                                          Compression::type codec,
                                           const ReaderProperties& properties,
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
