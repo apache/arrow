@@ -3043,6 +3043,39 @@ def test_csv_format(tempdir, dataset_reader):
 
 
 @pytest.mark.pandas
+def test_csv_slice(tempdir):
+    import pandas as pd
+    path = str(tempdir / 'test.csv')
+    scheme = ["a", "b"]
+    csv_format = ds.CsvFileFormat(
+        read_options=pyarrow.csv.ReadOptions(column_names=scheme,
+                                             block_size=4))
+    pd.DataFrame({"a": [1, 3, 5, 7], "b": [2, 4, 6, 8]}
+                 ).to_csv(path, header=False, index=False)
+    dataset = ds.dataset(path, format=csv_format)
+    fragments = dataset.get_fragments()
+    f = next(fragments)
+    f1 = f.slice(3, 15)
+    s = f1.to_batches(batch_size=1)
+    batch = next(s)
+    assert batch.to_pandas().values.tolist() == [[3, 4]]
+
+    # make a new slice, which should make a new fragment
+    f2 = f1.slice(4, 8)
+    s1 = f2.to_batches()
+    batch = next(s1)
+    assert batch.to_pandas().values.tolist() == [[5, 6]]
+
+    # now see if the old scanner is still there
+    batch = next(s)
+    assert batch.to_pandas().values.tolist() == [[5, 6]]
+
+    # finally check if the original file fragment can be scanned
+    s = f.to_batches(batch_size=1)
+    assert next(s).to_pandas().values.tolist() == [[1, 2]]
+
+
+@pytest.mark.pandas
 @pytest.mark.parametrize("compression", [
     "bz2",
     "gzip",
