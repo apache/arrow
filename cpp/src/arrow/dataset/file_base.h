@@ -169,6 +169,11 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema);
 
+  /// \brief Open a fragment with read range
+  virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema, io::ReadRange read_range);
+
   /// \brief Create a FileFragment for a FileSource.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, compute::Expression partition_expression);
@@ -203,10 +208,21 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
   const util::optional<io::ReadRange> get_read_range() const { return read_range_; }
-  Status set_bounds(int64_t start, int64_t end) {
-    assert(end >= start);
-    read_range_ = io::ReadRange{start, end - start};
-    return Status::OK();
+
+  Result<std::shared_ptr<FileFragment>> Slice(int64_t start_byte, int64_t end_byte) {
+    assert(end_byte >= start_byte);
+    auto old_range_optional = get_read_range();
+    io::ReadRange read_range;
+    if (old_range_optional.has_value()) {
+      auto old_range = old_range_optional.value();
+      auto old_offset = old_range.offset;
+      assert(end_byte <= old_range.length);
+      read_range = io::ReadRange{old_offset + start_byte, end_byte - start_byte};
+    } else {
+      read_range = io::ReadRange{start_byte, end_byte - start_byte};
+    }
+    return format_->MakeFragment(source_, partition_expression_, physical_schema_,
+                                 read_range);
   }
 
   bool Equals(const FileFragment& other) const;
@@ -218,6 +234,14 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
         format_(std::move(format)) {}
+
+  FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+               compute::Expression partition_expression,
+               std::shared_ptr<Schema> physical_schema, io::ReadRange read_range)
+      : Fragment(std::move(partition_expression), std::move(physical_schema)),
+        source_(std::move(source)),
+        format_(std::move(format)),
+        read_range_(std::move(read_range)) {}
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
 

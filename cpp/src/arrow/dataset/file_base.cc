@@ -150,6 +150,14 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                        std::move(partition_expression), std::move(physical_schema)));
 }
 
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, compute::Expression partition_expression,
+    std::shared_ptr<Schema> physical_schema, io::ReadRange read_range) {
+  return std::shared_ptr<FileFragment>(new FileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression),
+      std::move(physical_schema), std::move(read_range)));
+}
+
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
