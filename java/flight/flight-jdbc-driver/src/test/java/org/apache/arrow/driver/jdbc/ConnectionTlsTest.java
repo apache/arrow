@@ -386,10 +386,10 @@ public class ConnectionTlsTest {
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
-            URLEncoder.encode(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), "UTF-8"),
-            trustStorePath,
-            URLEncoder.encode(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), "UTF-8"),
-            trustStorePass));
+            ArrowFlightConnectionProperty.TRUST_STORE.camelName(),
+            URLEncoder.encode(trustStorePath, "UTF-8"),
+            ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(),
+            URLEncoder.encode(trustStorePass, "UTF-8")));
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
