@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <random>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -359,6 +360,23 @@ struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   util::Mutex consume_mutex_;
+};
+
+class Random64BitCopy {
+ public:
+  Random64BitCopy() : rs{0, 0, 0, 0, 0, 0, 0, 0}, re(rs) {}
+  uint64_t next() { return rdist(re); }
+  template <typename T>
+  inline T from_range(const T& min_val, const T& max_val) {
+    return static_cast<T>(min_val + (next() % (max_val - min_val + 1)));
+  }
+  std::mt19937& get_engine() { return re; }
+
+ private:
+  std::random_device rd;
+  std::seed_seq rs;
+  std::mt19937 re;
+  std::uniform_int_distribution<uint64_t> rdist;
 };
 
 }  // namespace compute

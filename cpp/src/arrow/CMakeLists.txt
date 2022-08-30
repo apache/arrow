@@ -408,6 +408,10 @@ if(ARROW_COMPUTE)
        compute/exec/tpch_node.cc
        compute/exec/union_node.cc
        compute/exec/util.cc
+       compute/exec/window_functions/bit_vector_navigator.cc
+       compute/exec/window_functions/merge_tree.cc
+       compute/exec/window_functions/window_aggregate.cc
+       compute/exec/window_functions/window_distinct.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
