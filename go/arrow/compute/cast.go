@@ -141,6 +141,7 @@ func addCastFuncs(fn []*castFunction) {
 func initCastTable() {
 	castTable = make(map[arrow.Type]*castFunction)
 	addCastFuncs(getBooleanCasts())
+	addCastFuncs(getNumericCasts())
 }
 
 func getCastFunction(to arrow.DataType) (*castFunction, error) {
@@ -165,6 +166,67 @@ func getBooleanCasts() []*castFunction {
 	}
 
 	return []*castFunction{fn}
+}
+
+func getNumericCasts() []*castFunction {
+	out := make([]*castFunction, 0)
+
+	getFn := func(name string, ty arrow.Type, kns []exec.ScalarKernel) *castFunction {
+		fn := newCastFunction(name, ty)
+		for _, k := range kns {
+			if err := fn.AddTypeCast(k.Signature.InputTypes[0].MatchID(), k); err != nil {
+				panic(err)
+			}
+		}
+		return fn
+	}
+
+	out = append(out, getFn("cast_int8", arrow.INT8, kernels.GetCastToInteger[int8](arrow.PrimitiveTypes.Int8)))
+	out = append(out, getFn("cast_int16", arrow.INT16, kernels.GetCastToInteger[int8](arrow.PrimitiveTypes.Int16)))
+
+	castInt32 := getFn("cast_int32", arrow.INT32, kernels.GetCastToInteger[int32](arrow.PrimitiveTypes.Int32))
+	castInt32.AddTypeCast(arrow.DATE32,
+		kernels.GetZeroCastKernel(arrow.DATE32,
+			exec.NewExactInput(arrow.FixedWidthTypes.Date32),
+			exec.NewOutputType(arrow.PrimitiveTypes.Int32)))
+	castInt32.AddTypeCast(arrow.TIME32,
+		kernels.GetZeroCastKernel(arrow.TIME32,
+			exec.NewIDInput(arrow.TIME32), exec.NewOutputType(arrow.PrimitiveTypes.Int32)))
+	out = append(out, castInt32)
+
+	castInt64 := getFn("cast_int64", arrow.INT64, kernels.GetCastToInteger[int64](arrow.PrimitiveTypes.Int64))
+	castInt64.AddTypeCast(arrow.DATE64,
+		kernels.GetZeroCastKernel(arrow.DATE64,
+			exec.NewIDInput(arrow.DATE64),
+			exec.NewOutputType(arrow.PrimitiveTypes.Int64)))
+	castInt64.AddTypeCast(arrow.TIME64,
+		kernels.GetZeroCastKernel(arrow.TIME64,
+			exec.NewIDInput(arrow.TIME64),
+			exec.NewOutputType(arrow.PrimitiveTypes.Int64)))
+	castInt64.AddTypeCast(arrow.DURATION,
+		kernels.GetZeroCastKernel(arrow.DURATION,
+			exec.NewIDInput(arrow.DURATION),
+			exec.NewOutputType(arrow.PrimitiveTypes.Int64)))
+	castInt64.AddTypeCast(arrow.TIMESTAMP,
+		kernels.GetZeroCastKernel(arrow.TIMESTAMP,
+			exec.NewIDInput(arrow.TIMESTAMP),
+			exec.NewOutputType(arrow.PrimitiveTypes.Int64)))
+	out = append(out, castInt64)
+
+	out = append(out, getFn("cast_uint8", arrow.UINT8, kernels.GetCastToInteger[uint8](arrow.PrimitiveTypes.Uint8)))
+	out = append(out, getFn("cast_uint16", arrow.UINT16, kernels.GetCastToInteger[uint16](arrow.PrimitiveTypes.Uint16)))
+	out = append(out, getFn("cast_uint32", arrow.UINT32, kernels.GetCastToInteger[uint32](arrow.PrimitiveTypes.Uint32)))
+	out = append(out, getFn("cast_uint64", arrow.UINT64, kernels.GetCastToInteger[uint64](arrow.PrimitiveTypes.Uint64)))
+
+	out = append(out, getFn("cast_half_float", arrow.FLOAT16, kernels.GetCommonCastKernels(arrow.FLOAT16, exec.NewOutputType(arrow.FixedWidthTypes.Float16))))
+	out = append(out, getFn("cast_float", arrow.FLOAT32, kernels.GetCastToFloating[float32](arrow.PrimitiveTypes.Float32)))
+	out = append(out, getFn("cast_double", arrow.FLOAT64, kernels.GetCastToFloating[float64](arrow.PrimitiveTypes.Float64)))
+
+	// cast to decimal128
+	out = append(out, getFn("cast_decimal", arrow.DECIMAL128, kernels.GetCastToDecimal128()))
+	// cast to decimal256
+	out = append(out, getFn("cast_decimal256", arrow.DECIMAL256, kernels.GetCastToDecimal256()))
+	return out
 }
 
 // CastDatum is a convenience function for casting a Datum to another type.
