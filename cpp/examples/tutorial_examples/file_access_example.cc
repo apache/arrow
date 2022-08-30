@@ -62,7 +62,7 @@ arrow::Status GenInitialFile() {
 
   // Write out test files in IPC, CSV, and Parquet for the example to use.
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
-  ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_in.ipc"));
+  ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_in.arrow"));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc_writer,
                         arrow::ipc::MakeFileWriter(outfile, schema));
   ARROW_RETURN_NOT_OK(ipc_writer->WriteTable(*table));
@@ -92,9 +92,9 @@ arrow::Status RunMain() {
   // readers to the right data on disk. We'll be reusing this object, and rebinding
   // it to multiple files throughout the example.
   std::shared_ptr<arrow::io::ReadableFile> infile;
-  // Get "test_in.ipc" into our file pointer
+  // Get "test_in.arrow" into our file pointer
   ARROW_ASSIGN_OR_RAISE(
-      infile, arrow::io::ReadableFile::Open("test_in.ipc", arrow::default_memory_pool()));
+      infile, arrow::io::ReadableFile::Open("test_in.arrow", arrow::default_memory_pool()));
   // Open up the file with the IPC features of the library, gives us a reader object.
   ARROW_ASSIGN_OR_RAISE(auto ipc_reader, arrow::ipc::RecordBatchFileReader::Open(infile));
   // Using the reader, we can read Record Batches. Note that this is specific to IPC;
@@ -104,8 +104,8 @@ arrow::Status RunMain() {
 
   // Just like with input, we get an object for the output file.
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
-  // Bind it to "test_out.ipc"
-  ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_out.ipc"));
+  // Bind it to "test_out.arrow"
+  ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_out.arrow"));
   // Set up a writer with the output file -- and the schema! We're defining everything
   // here, loading to fire.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc_writer,
