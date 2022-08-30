@@ -175,7 +175,7 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   return Status::IOError(prefix, "AWS Error ",
-			 S3ErrorToString(static_cast<int>(error.GetErrorType())),
+                         S3ErrorToString(static_cast<int>(error.GetErrorType())),
                          " during ", operation, " operation: ", error.GetMessage());
 }
 
