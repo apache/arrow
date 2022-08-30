@@ -98,14 +98,12 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 			arg0Data    = arg0.Buffers[2].Buf
 			bitmap      = arg0.Buffers[0].Buf
 			err         error
-			res         bool
 		)
 
 		bitutils.VisitBitBlocks(bitmap, arg0.Offset, arg0.Len,
 			func(pos int64) {
 				v := arg0Data[arg0Offsets[pos]:arg0Offsets[pos+1]]
-				res = op(ctx, v, &err)
-				bitutil.SetBitTo(outData, int(out.Offset)+outPos, res)
+				bitutil.SetBitTo(outData, int(out.Offset)+outPos, op(ctx, v, &err))
 				outPos++
 			}, func() {
 				bitutil.SetBitTo(outData, int(out.Offset)+outPos, defVal)
@@ -123,7 +121,7 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 // It implements the handling to iterate the offsets and values calling
 // the provided function on each byte slice. The zero value of the OutT
 // will be used as the output for elements of the input that are null.
-func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte) (OutT, error)) exec.ArrayKernelExec {
+func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte, *error) OutT) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0        = &in.Values[0].Array
@@ -139,7 +137,7 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 		bitutils.VisitBitBlocks(bitmap, arg0.Offset, arg0.Len,
 			func(pos int64) {
 				v := arg0Data[arg0Offsets[pos]:arg0Offsets[pos+1]]
-				outData[outPos], err = op(ctx, v)
+				outData[outPos] = op(ctx, v, &err)
 				outPos++
 			}, func() {
 				outData[outPos] = def
@@ -435,3 +433,10 @@ func maxDecimalDigitsForInt(id arrow.Type) (int32, error) {
 	}
 	return -1, fmt.Errorf("%w: not an integer type: %s", arrow.ErrInvalid, id)
 }
+
+func ResolveOutputFromOptions(ctx *exec.KernelCtx, _ []arrow.DataType) (arrow.DataType, error) {
+	opts := ctx.State.(CastState)
+	return opts.ToType, nil
+}
+
+var OutputTargetType = exec.NewComputedOutputType(ResolveOutputFromOptions)

@@ -73,6 +73,12 @@ type FixedWidthTypes interface {
 		arrow.DayTimeInterval | arrow.MonthDayNanoInterval
 }
 
+type TemporalTypes interface {
+	arrow.Date32 | arrow.Date64 | arrow.Time32 | arrow.Time64 |
+		arrow.Timestamp | arrow.Duration | arrow.DayTimeInterval |
+		arrow.MonthInterval | arrow.MonthDayNanoInterval
+}
+
 // GetSpanValues returns a properly typed slice bye reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
