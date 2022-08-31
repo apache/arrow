@@ -94,7 +94,7 @@ public class ConnectionTest {
     properties.put("useEncryption", false);
 
     try (Connection connection = DriverManager.getConnection(
-        "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
+        "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
             FLIGHT_SERVER_TEST_RULE.getPort(), properties)) {
       assert connection.isValid(300);
     }
@@ -112,7 +112,7 @@ public class ConnectionTest {
 
     properties.put("user", userTest);
     properties.put("password", passTest);
-    final String invalidUrl = "jdbc:arrow-flight://";
+    final String invalidUrl = "jdbc:arrow-flight-sql://";
 
     DriverManager.getConnection(invalidUrl, properties);
   }
@@ -156,7 +156,7 @@ public class ConnectionTest {
         passTest);
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
         false);
-    final String invalidUrl = "jdbc:arrow-flight://" + FLIGHT_SERVER_TEST_RULE.getHost() +
+    final String invalidUrl = "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() +
         ":" + 65537;
 
     DriverManager.getConnection(invalidUrl, properties);
@@ -195,7 +195,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
         false);
     try (Connection connection = DriverManager
-        .getConnection("jdbc:arrow-flight://localhost:32010", properties)) {
+        .getConnection("jdbc:arrow-flight-sql://localhost:32010", properties)) {
       assert connection.isValid(300);
     }
   }
@@ -222,7 +222,7 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
         "invalidPassword");
 
-    try (Connection ignored = DriverManager.getConnection("jdbc:arrow-flight://localhost:32010",
+    try (Connection ignored = DriverManager.getConnection("jdbc:arrow-flight-sql://localhost:32010",
         properties)) {
       Assert.fail();
     }
@@ -241,7 +241,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=false",
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s&useEncryption=false",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -271,7 +271,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -299,7 +299,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -320,7 +320,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=0",
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s&useEncryption=0",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest));
@@ -350,7 +350,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -379,7 +379,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -400,7 +400,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&threadPoolSize=1&useEncryption=%s",
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s&threadPoolSize=1&useEncryption=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -432,7 +432,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -462,7 +462,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -483,7 +483,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=%s",
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s&useEncryption=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -514,7 +514,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -543,7 +543,7 @@ public class ConnectionTest {
 
     Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight://localhost:%s",
+            "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));

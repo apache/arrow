@@ -82,8 +82,10 @@ public class ArrowFlightJdbcDriverTest {
    */
   @Test
   public void testDriverIsRegisteredInDriverManager() throws Exception {
-    assert DriverManager.getDriver(
-        "jdbc:arrow-flight://localhost:32010") instanceof ArrowFlightJdbcDriver;
+    assertTrue(DriverManager.getDriver("jdbc:arrow-flight://localhost:32010") instanceof
+        ArrowFlightJdbcDriver);
+    assertTrue(DriverManager.getDriver("jdbc:arrow-flight-sql://localhost:32010") instanceof
+        ArrowFlightJdbcDriver);
   }
 
   /**
@@ -117,7 +119,15 @@ public class ArrowFlightJdbcDriverTest {
                      dataSource.getConfig().getPort() + "?" +
                      "useEncryption=false",
                  dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
-      assert connection.isValid(300);
+      assertTrue(connection.isValid(300));
+    }
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight-sql://" +
+                     dataSource.getConfig().getHost() + ":" +
+                     dataSource.getConfig().getPort() + "?" +
+                     "useEncryption=false",
+                 dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
+      assertTrue(connection.isValid(300));
     }
   }
 
@@ -132,7 +142,15 @@ public class ArrowFlightJdbcDriverTest {
                      dataSource.getConfig().getPort() + "?" +
                      "UseEncryptiOn=false",
                  dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
-      assert connection.isValid(300);
+      assertTrue(connection.isValid(300));
+    }
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight-sql://" +
+                     dataSource.getConfig().getHost() + ":" +
+                     dataSource.getConfig().getPort() + "?" +
+                     "UseEncryptiOn=false",
+                 dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
+      assertTrue(connection.isValid(300));
     }
   }
 
@@ -148,7 +166,13 @@ public class ArrowFlightJdbcDriverTest {
              driver.connect("jdbc:arrow-flight://" +
                  dataSource.getConfig().getHost() + ":" +
                  dataSource.getConfig().getPort(), properties)) {
-      assert connection.isValid(300);
+      assertTrue(connection.isValid(300));
+    }
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight-sql://" +
+                 dataSource.getConfig().getHost() + ":" +
+                 dataSource.getConfig().getPort(), properties)) {
+      assertTrue(connection.isValid(300));
     }
   }
 
@@ -186,11 +210,17 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort() {
     final Driver driver = new ArrowFlightJdbcDriver();
-    final String malformedUri = "jdbc:arrow-flight://localhost";
     SQLException e = assertThrows(SQLException.class, () -> {
       Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
           dataSource.getConfig().getPassword());
-      Connection conn = driver.connect(malformedUri, properties);
+      Connection conn = driver.connect("jdbc:arrow-flight://localhost", properties);
+      conn.close();
+    });
+    assertTrue(e.getMessage().contains("URL must have a port"));
+    e = assertThrows(SQLException.class, () -> {
+      Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
+          dataSource.getConfig().getPassword());
+      Connection conn = driver.connect("jdbc:arrow-flight-sql://localhost", properties);
       conn.close();
     });
     assertTrue(e.getMessage().contains("URL must have a port"));
@@ -203,11 +233,18 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost() {
     final Driver driver = new ArrowFlightJdbcDriver();
-    final String malformedUri = "jdbc:arrow-flight://32010:localhost";
     SQLException e = assertThrows(SQLException.class, () -> {
       Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
           dataSource.getConfig().getPassword());
-      Connection conn = driver.connect(malformedUri, properties);
+      Connection conn = driver.connect("jdbc:arrow-flight://32010:localhost", properties);
+      conn.close();
+    });
+    assertTrue(e.getMessage().contains("URL must have a host"));
+
+    e = assertThrows(SQLException.class, () -> {
+      Properties properties = dataSource.getProperties(dataSource.getConfig().getUser(),
+          dataSource.getConfig().getPassword());
+      Connection conn = driver.connect("jdbc:arrow-flight-sql://32010:localhost", properties);
       conn.close();
     });
     assertTrue(e.getMessage().contains("URL must have a host"));
@@ -224,7 +261,7 @@ public class ArrowFlightJdbcDriverTest {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
 
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
+        "jdbc:arrow-flight-sql://localhost:2222/?key1=value1&key2=value2&a=b");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
@@ -245,7 +282,7 @@ public class ArrowFlightJdbcDriverTest {
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithSemicolon() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight://localhost:2222/;key1=value1;key2=value2;a=b");
+        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1;key2=value2;a=b");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
@@ -266,7 +303,7 @@ public class ArrowFlightJdbcDriverTest {
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrlWithOneSemicolon() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight://localhost:2222/;key1=value1");
+        "jdbc:arrow-flight-sql://localhost:2222/;key1=value1");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(3, parsedArgs.size());
@@ -302,7 +339,7 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testDriverUrlParsingMechanismShouldWorkWithIPAddress() throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
-    final Map<Object, Object> parsedArgs = driver.getUrlsArgs("jdbc:arrow-flight://0.0.0.0:2222");
+    final Map<Object, Object> parsedArgs = driver.getUrlsArgs("jdbc:arrow-flight-sql://0.0.0.0:2222");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(2, parsedArgs.size());
@@ -325,7 +362,7 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
     final Map<Object, Object> parsedArgs = driver.getUrlsArgs(
-        "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
+        "jdbc:arrow-flight-sql://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
 
     // Check size == the amount of args provided (scheme not included)
     assertEquals(5, parsedArgs.size());
@@ -341,5 +378,4 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("test2&continue"), "test2value");
     assertEquals(parsedArgs.get("test3"), "test3value");
   }
-
 }

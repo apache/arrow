@@ -46,9 +46,9 @@ import org.apache.calcite.avatica.UnregisteredDriver;
  * JDBC driver for querying data from an Apache Arrow Flight server.
  */
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
-
-  private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight://[host][:port][?param1=value&...]";
+  private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight-sql://";
+  private static final String CONNECT_STRING_PREFIX_DEPRECATED = "jdbc:arrow-flight://";
+  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight-sql://[host][:port][?param1=value&...]";
   private static DriverVersion version;
 
   static {
@@ -148,7 +148,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   public boolean acceptsURL(final String url) {
-    return Preconditions.checkNotNull(url).startsWith(CONNECT_STRING_PREFIX);
+    Preconditions.checkNotNull(url);
+    return url.startsWith(CONNECT_STRING_PREFIX) || url.startsWith(CONNECT_STRING_PREFIX_DEPRECATED);
   }
 
   /**
@@ -156,7 +157,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * arguments after the {@link #CONNECT_STRING_PREFIX}.
    * <p>
    * This method gets the args if the provided URL follows this pattern:
-   * {@code jdbc:arrow-flight://<host>:<port>[/?key1=val1&key2=val2&(...)]}
+   * {@code jdbc:arrow-flight-sql://<host>:<port>[/?key1=val1&key2=val2&(...)]}
    *
    * <table border="1">
    *    <tr>
@@ -169,7 +170,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    *        <td>{@link #getConnectStringPrefix}</td>
    *        <td>
    *            the URL prefix accepted by this driver, i.e.,
-   *            {@code "jdbc:arrow-flight://"}
+   *            {@code "jdbc:arrow-flight-sql://"}
    *        </td>
    *    </tr>
    *    <tr>
@@ -214,7 +215,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      * =====
      *
      * Keep in mind that the URL must ALWAYS follow the pattern:
-     * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
+     * "jdbc:arrow-flight-sql://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      *
      */
 
@@ -237,7 +238,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       throw new SQLException("Malformed/invalid URL!", e);
     }
 
-    if (!Objects.equals(uri.getScheme(), "arrow-flight")) {
+    if (!Objects.equals(uri.getScheme(), "arrow-flight") &&
+        !Objects.equals(uri.getScheme(), "arrow-flight-sql")) {
       throw new SQLException("URL Scheme must be 'arrow-flight'. Expected format: " +
           CONNECTION_STRING_EXPECTED);
     }

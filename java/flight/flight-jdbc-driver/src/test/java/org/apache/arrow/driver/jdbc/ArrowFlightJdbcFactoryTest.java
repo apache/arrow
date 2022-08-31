@@ -81,7 +81,7 @@ public class ArrowFlightJdbcFactoryTest {
         ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), false));
 
     try (Connection connection = factory.newConnection(driver, constructor.newInstance(),
-        "jdbc:arrow-flight://localhost:32010", properties)) {
+        "jdbc:arrow-flight-sql://localhost:32010", properties)) {
       assert connection.isValid(300);
     }
   }
