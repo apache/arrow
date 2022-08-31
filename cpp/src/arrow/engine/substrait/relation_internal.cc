@@ -93,7 +93,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
                             FromProto(read.base_schema(), ext_set, conversion_options));
-      auto num_columns = static_cast<int>(base_schema->fields().size());
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
@@ -122,7 +121,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                              named_table.names().end());
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
-        return DeclarationInfo{std::move(source_decl), num_columns, base_schema};
+        return DeclarationInfo{std::move(source_decl), base_schema};
       }
 
       if (!read.has_local_files()) {
@@ -243,12 +242,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                 {{"scan",
                   dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            static_cast<int>(emit_expressions.size()), std::move(base_schema)};
+            std::move(base_schema)};
       } else {
         return DeclarationInfo{
             compute::Declaration{
                 "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
-            num_columns, std::move(base_schema)};
+            std::move(base_schema)};
       }
     }
 
@@ -276,14 +275,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                 {std::move(input.declaration),
                  {"filter", compute::FilterNodeOptions{std::move(condition)}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            static_cast<int>(emit_expressions.size()), input.output_schema};
+            input.output_schema};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence({
                 std::move(input.declaration),
                 {"filter", compute::FilterNodeOptions{std::move(condition)}},
             }),
-            input.num_columns, input.output_schema};
+            input.output_schema};
       }
     }
 
@@ -299,8 +298,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       // NOTE: Substrait ProjectRels *append* columns, while Acero's project node replaces
       // them. Therefore, we need to prefix all the current columns for compatibility.
       std::vector<compute::Expression> expressions;
-      expressions.reserve(input.num_columns + project.expressions().size());
-      for (int i = 0; i < input.num_columns; i++) {
+      int num_columns = input.output_schema->num_fields();
+      expressions.reserve(num_columns + project.expressions().size());
+      for (int i = 0; i < num_columns; i++) {
         expressions.emplace_back(compute::field_ref(FieldRef(i)));
       }
       std::vector<std::shared_ptr<Field>> new_fields(project.expressions().size());
@@ -319,7 +319,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           ARROW_ASSIGN_OR_RAISE(new_fields[i], field_path.Get(*input.output_schema));
         } else if (auto* literal = des_expr.literal()) {
           new_fields[i] =
-              field("field_" + std::to_string(input.num_columns + i), literal->type());
+              field("field_" + std::to_string(num_columns + i), literal->type());
         }
         i++;
         expressions.emplace_back(des_expr);
@@ -329,11 +329,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         ARROW_ASSIGN_OR_RAISE(
             project_schema,
             project_schema->AddField(
-                input.num_columns + static_cast<int>(new_fields.size()) - 1,
-                std::move(field)));
+                num_columns + static_cast<int>(new_fields.size()) - 1, std::move(field)));
         new_fields.pop_back();
       }
-      auto num_columns = static_cast<int>(expressions.size());
+
       if (HasEmit(project)) {
         ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
                               GetEmitInfo(project, project_schema));
@@ -344,14 +343,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                   "project"},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)},
                   "emit"}}),
-            static_cast<int>(emit_expressions.size()), project_schema};
+            project_schema};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence({
                 std::move(input.declaration),
                 {"project", compute::ProjectNodeOptions{std::move(expressions)}},
             }),
-            num_columns, project_schema};
+            project_schema};
       }
     }
 
@@ -446,7 +445,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};
-      auto num_columns = left.num_columns + right.num_columns;
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
 
@@ -456,9 +454,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             compute::Declaration::Sequence(
                 {std::move(join_dec),
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            static_cast<int>(emit_expressions.size()), std::move(join_schema)};
+            std::move(join_schema)};
       } else {
-        return DeclarationInfo{std::move(join_dec), num_columns, std::move(join_schema)};
+        return DeclarationInfo{std::move(join_dec), std::move(join_schema)};
       }
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
@@ -554,13 +552,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                 {std::move(input.declaration),
                  {"aggregate", compute::AggregateNodeOptions{aggregates, keys}},
                  {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            static_cast<int>(emit_expressions.size()), std::move(aggregate_schema)};
+            std::move(aggregate_schema)};
       } else {
         return DeclarationInfo{
             compute::Declaration::Sequence(
                 {std::move(input.declaration),
                  {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
-            static_cast<int>(aggregates.size()), std::move(aggregate_schema)};
+            std::move(aggregate_schema)};
       }
     }
 
