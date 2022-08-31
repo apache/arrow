@@ -41,7 +41,17 @@ test_that("expand_across correctly expands quosures", {
     example_data
   )
 
-  # multiple named arguments
+  # single named function
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), list("fun1" = round))),
+    quos(
+      dbl_fun1 = round(dbl),
+      dbl2_fun1 = round(dbl2)
+    ),
+    example_data
+  )
+
+  # multiple named functions
   expect_across_equal(
     quos(across(c(dbl, dbl2), list("fun1" = round, "fun2" = sqrt))),
     quos(
@@ -53,21 +63,24 @@ test_that("expand_across correctly expands quosures", {
     example_data
   )
 
-  # .names argument
+  # mix of named and unnamed functions
   expect_across_equal(
-    quos(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")),
+    quos(across(c(dbl, dbl2), list(round, "fun2" = sqrt))),
     quos(
-      dbl.1 = round(dbl),
-      dbl2.1 = round(dbl2)
+      dbl_1 = round(dbl),
+      dbl_fun2 = sqrt(dbl),
+      dbl2_1 = round(dbl2),
+      dbl2_fun2 = sqrt(dbl2)
     ),
     example_data
   )
 
+  # across() with no functions returns columns unchanged
   expect_across_equal(
-    quos(across(c(dbl, dbl2), round, .names = "round_{.col}")),
+    quos(across(starts_with("dbl"))),
     quos(
-      round_dbl = round(dbl),
-      round_dbl2 = round(dbl2)
+      dbl = dbl,
+      dbl2 = dbl2
     ),
     example_data
   )
@@ -93,17 +106,7 @@ test_that("expand_across correctly expands quosures", {
     example_data %>% select(int, dbl, dbl2)
   )
 
-  # across() with no functions returns columns unchanged
-  expect_across_equal(
-    quos(across(starts_with("dbl"))),
-    quos(
-      dbl = dbl,
-      dbl2 = dbl2
-    ),
-    example_data
-  )
-
-  # dynamic variable name
+  # column selection via dynamic variable name
   int <- c("dbl", "dbl2")
   expect_across_equal(
     quos(across(all_of(int), sqrt)),
@@ -154,5 +157,59 @@ test_that("expand_across correctly expands quosures", {
     ),
     regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
     fixed = TRUE
+  )
+
+  # .names argument
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")),
+    quos(
+      dbl.1 = round(dbl),
+      dbl2.1 = round(dbl2)
+    ),
+    example_data
+  )
+
+  # names argument with custom text
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), round, .names = "round_{.col}")),
+    quos(
+      round_dbl = round(dbl),
+      round_dbl2 = round(dbl2)
+    ),
+    example_data
+  )
+
+  # names argument supplied but no functions
+  expect_across_equal(
+    quos(across(starts_with("dbl"), .names = "new_{.col}")),
+    quos(
+      new_dbl = dbl,
+      new_dbl2 = dbl2
+    ),
+    example_data
+  )
+
+  # .names argument and functions named
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), list("my_round" = round, "my_exp" = exp), .names = "{.col}.{.fn}")),
+    quos(
+      dbl.my_round = round(dbl),
+      dbl.my_exp = exp(dbl),
+      dbl2.my_round = round(dbl2),
+      dbl2.my_exp = exp(dbl2)
+    ),
+    example_data
+  )
+
+  # .names argument and mix of named and unnamed functions
+  expect_across_equal(
+    quos(across(c(dbl, dbl2), list(round, "my_exp" = exp), .names = "{.col}.{.fn}")),
+    quos(
+      dbl.1 = round(dbl),
+      dbl.my_exp = exp(dbl),
+      dbl2.1 = round(dbl2),
+      dbl2.my_exp = exp(dbl2)
+    ),
+    example_data
   )
 })
