@@ -303,34 +303,32 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       for (int i = 0; i < num_columns; i++) {
         expressions.emplace_back(compute::field_ref(FieldRef(i)));
       }
-      std::vector<std::shared_ptr<Field>> new_fields(project.expressions().size());
+
       int i = 0;
       auto project_schema = input.output_schema;
       for (const auto& expr : project.expressions()) {
+        std::shared_ptr<Field> project_field;
         ARROW_ASSIGN_OR_RAISE(compute::Expression des_expr,
                               FromProto(expr, ext_set, conversion_options));
         auto bound_expr = des_expr.Bind(*input.output_schema);
         if (auto* expr_call = bound_expr->call()) {
-          new_fields[i] = field(expr_call->function_name,
+          project_field = field(expr_call->function_name,
                                 expr_call->kernel->signature->out_type().type());
         } else if (auto* field_ref = des_expr.field_ref()) {
           ARROW_ASSIGN_OR_RAISE(FieldPath field_path,
                                 field_ref->FindOne(*input.output_schema));
-          ARROW_ASSIGN_OR_RAISE(new_fields[i], field_path.Get(*input.output_schema));
+          ARROW_ASSIGN_OR_RAISE(project_field, field_path.Get(*input.output_schema));
         } else if (auto* literal = des_expr.literal()) {
-          new_fields[i] =
+          project_field =
               field("field_" + std::to_string(num_columns + i), literal->type());
         }
-        i++;
-        expressions.emplace_back(des_expr);
-      }
-      while (!new_fields.empty()) {
-        auto field = new_fields.back();
         ARROW_ASSIGN_OR_RAISE(
             project_schema,
             project_schema->AddField(
-                num_columns + static_cast<int>(new_fields.size()) - 1, std::move(field)));
-        new_fields.pop_back();
+                num_columns + static_cast<int>(project.expressions().size()) - 1,
+                std::move(project_field)));
+        i++;
+        expressions.emplace_back(des_expr);
       }
 
       if (HasEmit(project)) {
