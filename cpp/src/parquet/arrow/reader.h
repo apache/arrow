@@ -180,6 +180,15 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+
+  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices);
+  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
+      const std::vector<int>& row_group_indices);
+  ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader();
 
   /// \brief Return a generator of record batches.
   ///
@@ -195,10 +204,6 @@ class PARQUET_EXPORT FileReader {
                           const std::vector<int> column_indices,
                           ::arrow::internal::Executor* cpu_executor = NULLPTR,
                           int64_t rows_to_readahead = 0) = 0;
-
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// Read all columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
@@ -301,6 +306,11 @@ class PARQUET_EXPORT FileReaderBuilder {
                        const ReaderProperties& properties = default_reader_properties(),
                        std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
+  /// Create FileReaderBuilder from Arrow file and optional properties / metadata
+  ::arrow::Status OpenFile(const std::string& path, bool memory_map = false,
+      const ReaderProperties& props = default_reader_properties(),
+      std::shared_ptr<FileMetaData> metadata = NULLPTR);
+  
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
   /// Set Arrow MemoryPool for memory allocation
@@ -309,6 +319,7 @@ class PARQUET_EXPORT FileReaderBuilder {
   FileReaderBuilder* properties(const ArrowReaderProperties& arg_properties);
   /// Build FileReader instance
   ::arrow::Status Build(std::unique_ptr<FileReader>* out);
+  ::arrow::Result<std::unique_ptr<FileReader>> Build();
 
  private:
   ::arrow::MemoryPool* pool_;

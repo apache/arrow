@@ -766,7 +766,7 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
       out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so restore
-      // the actual ancenstor.
+      // the actual ancestor.
       out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
       return Status::OK();
     } else {

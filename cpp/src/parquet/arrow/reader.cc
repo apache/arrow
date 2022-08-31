@@ -60,6 +60,7 @@ using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::RecordBatchReader;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
@@ -1278,19 +1279,35 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
-  out->reset(tmp.release());
+  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices));
   return Status::OK();
 }
 
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         const std::vector<int>& column_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
-  out->reset(tmp.release());
+  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices, column_indices));
   return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader() {
+  std::vector<int> row_group_indices = Iota(num_row_groups());
+  return GetRecordBatchReader(row_group_indices);
+}
+
+Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader(
+    const std::vector<int>& row_group_indices) {
+  std::vector<int> column_indices = Iota(parquet_reader()->metadata()->num_columns());
+  return GetRecordBatchReader(row_group_indices, column_indices);
+}
+
+Result<std::shared_ptr<RecordBatchReader>> FileReader::GetRecordBatchReader(
+    const std::vector<int>& row_group_indices, const std::vector<int>& column_indices) {
+  std::unique_ptr<RecordBatchReader> tmp;
+  std::shared_ptr<RecordBatchReader> out;
+  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  out.reset(tmp.release());
+  return out;
 }
 
 Status FileReader::Make(::arrow::MemoryPool* pool,
@@ -1319,6 +1336,14 @@ Status FileReaderBuilder::Open(std::shared_ptr<::arrow::io::RandomAccessFile> fi
   return Status::OK();
 }
 
+Status FileReaderBuilder::OpenFile(const std::string& path, bool memory_map,
+                                   const ReaderProperties& properties,
+                                   std::shared_ptr<FileMetaData> metadata) {
+  PARQUET_CATCH_NOT_OK(raw_reader_ = ParquetReader::OpenFile(path, memory_map, properties,
+                                                             std::move(metadata)));
+  return Status::OK();
+}
+
 FileReaderBuilder* FileReaderBuilder::memory_pool(::arrow::MemoryPool* pool) {
   pool_ = pool;
   return this;
@@ -1332,6 +1357,12 @@ FileReaderBuilder* FileReaderBuilder::properties(
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
   return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+}
+
+Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
+  std::unique_ptr<FileReader> out;
+  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
+  return out;
 }
 
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,

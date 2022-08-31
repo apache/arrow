@@ -73,24 +73,39 @@ class PARQUET_EXPORT ReaderProperties {
   /// The primary reason for this control knobs is for resource control and not
   /// performance.
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
+  /// Enable buffered stream reading.
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
+  /// Disable buffered stream reading.
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
+  /// Return the size of the buffered stream buffer.
   int64_t buffer_size() const { return buffer_size_; }
+  /// Set the size of the buffered stream buffer in bytes.
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
+  /// \brief Return the size limit on thrift strings.
+  ///
+  /// This limit helps prevent space and time bombs in files, but may need to
+  /// be increased in order to read files with especially large headers.
   int32_t thrift_string_size_limit() const { return thrift_string_size_limit_; }
+  /// Set the size limit on thrift strings.
   void set_thrift_string_size_limit(int32_t size) { thrift_string_size_limit_ = size; }
 
+  /// \brief Return the size limit on thrift containers.
+  ///
+  /// This limit helps prevent space and time bombs in files, but may need to
+  /// be increased in order to read files with especially large headers.
   int32_t thrift_container_size_limit() const { return thrift_container_size_limit_; }
+  /// Set the size limit on thrift containers.
   void set_thrift_container_size_limit(int32_t size) {
     thrift_container_size_limit_ = size;
   }
 
+  /// Set the decryption properties.
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
   }
-
+  /// Return the decryption properties.
   const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties() const {
     return file_decryption_properties_;
   }
@@ -607,7 +622,7 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
-/// EXPERIMENTAL: Properties for configuring FileReader behavior.
+/// Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
@@ -618,10 +633,19 @@ class PARQUET_EXPORT ArrowReaderProperties {
         cache_options_(::arrow::io::CacheOptions::Defaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
+  /// \brief Set whether to use the IO thread pool to parse columns in parallel.
+  ///
+  /// Default is false.
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
-
+  /// Return whether will use multiple threads.
   bool use_threads() const { return use_threads_; }
 
+  /// \brief Set whether to read a particular column as dictionary encoded.
+  ///
+  /// If the file metadata contains a serialized Arrow schema, then ...
+  ////
+  /// This is only supported for columns with a Parquet physical type of
+  /// BYTE_ARRAY, such as string or binary types.
   void set_read_dictionary(int column_index, bool read_dict) {
     if (read_dict) {
       read_dict_indices_.insert(column_index);
@@ -629,6 +653,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
       read_dict_indices_.erase(column_index);
     }
   }
+  /// Return whether the column at the index will be read as dictionary.
   bool read_dictionary(int column_index) const {
     if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
       return true;
@@ -637,28 +662,31 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
+  /// \brief Set the maximum number of rows to read into a chunk or record batch.
+  ///
+  /// Will only be fewer rows when there are no more rows in the file.
   void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
-
+  /// Return the batch size.
   int64_t batch_size() const { return batch_size_; }
 
-  /// Enable read coalescing.
+  /// Enable read coalescing (default false).
   ///
   /// When enabled, the Arrow reader will pre-buffer necessary regions
   /// of the file in-memory. This is intended to improve performance on
   /// high-latency filesystems (e.g. Amazon S3).
   void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
-
+  /// Return whether read coalescing is enabled.
   bool pre_buffer() const { return pre_buffer_; }
 
   /// Set options for read coalescing. This can be used to tune the
   /// implementation for characteristics of different filesystems.
   void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
-
+  /// Return the options for read coalescing.
   const ::arrow::io::CacheOptions& cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
   void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }
-
+  /// Return the execution context used for read coalescing.
   const ::arrow::io::IOContext& io_context() const { return io_context_; }
 
   /// Set timestamp unit to use for deprecated INT96-encoded timestamps

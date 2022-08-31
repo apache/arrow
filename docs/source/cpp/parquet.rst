@@ -68,23 +68,78 @@ file.
 
       // Open Parquet file reader
       std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-      st = parquet::arrow::OpenFile(input, pool, &arrow_reader);
-      if (!st.ok()) {
-         // Handle error instantiating file reader...
-      }
+      ARROW_RETURN_NOT_OK(parquet::arrow::OpenFile(input, pool, &arrow_reader));
 
       // Read entire file as a single Arrow table
       std::shared_ptr<arrow::Table> table;
-      st = arrow_reader->ReadTable(&table);
-      if (!st.ok()) {
-         // Handle error reading Parquet data...
-      }
+      ARROW_RETURN_NOT_OK(arrow_reader->ReadTable(&table));
    }
 
 Finer-grained options are available through the
-:class:`arrow::FileReaderBuilder` helper class.
+:class:`arrow::FileReaderBuilder` helper class, and the :class:`ReaderProperties`
+and :class:`ArrowReaderProperties` classes.
 
-.. TODO write section about performance and memory efficiency
+For reading as a stream of batches, use the :meth:`arrow::FileReader::GetRecordBatchReader`.
+It will use the batch size set in :class:`ArrowReaderProperties`.
+
+.. code-block:: cpp
+
+   arrow::MemoryPool *pool = arrow::default_memory_pool();
+
+   // Configure general Parquet reader settings
+   auto reader_properties = parquet::ReaderProperties(pool);
+   reader_properties.set_buffer_size(settings.buffer_size);
+   reader_properties.enable_buffered_stream();
+
+   // Configure Arrow-specific Parquet reader settings
+   auto arrow_reader_props = parquet::ArrowReaderProperties();
+   arrow_reader_props.set_batch_size(128 * 1024); // default 64 * 1024
+
+   arrow::FileReaderBuilder reader_builder;
+   ARROW_RETURN_NOT_OK(reader_builder.OpenFile("example.parquet", /*memory_map*/=false, reader_properties));
+   reader_builder.memory_pool(pool);
+   reader_builder.properties(arrow_reader_props);
+   
+   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+   ARROW_ASSIGN_OR_RAISE(arrow_reader, reader_builder.Build());
+   
+   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+   ARROW_ASSIGN_OR_RAISE(rb_reader, arrow_reader->GetRecordBatchReader());
+   
+   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
+     // Operate on each batch...
+   }
+
+
+Performance and Memory Efficiency
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For remote filesystems, use read coalescing to reduce number of API calls:
+
+.. code-block:: cpp
+
+   auto reader_properties = parquet::ReaderProperties(pool);
+   reader_properties.enable_buffered_stream();
+   reader_properties.set_buffer_size(4096 * 4); // This is default value
+
+The defaults are generally tuned towards good performance, but parallel column
+decoding is off by default. Enable it in the constructor of :class:`ArrowReaderProperties`:
+
+.. code-block:: cpp
+
+   auto arrow_reader_props = parquet::ArrowReaderProperties(/*use_threads=*/true);
+
+If memory efficiency is more important than performance, then:
+
+#. Do not turn on read coalescing (prebuffering).
+#. Read data in batches.
+#. Turn off ``use_buffered_stream``.
+
+In addition, if you know certain columns contain many repeated values, you can
+read them as dictionary encoded columns. This is enabled with the ``set_read_dictionary``
+setting on :class:`ArrowReaderProperties`. If the files were written with Arrow
+C++ and the ``store_schema`` was activated, then the original Arrow schema will
+be automatically read and will override this setting.
 
 StreamReader
 ------------
