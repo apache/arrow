@@ -31,7 +31,7 @@ import java.util.Properties;
 import org.apache.arrow.driver.jdbc.authentication.Authentication;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
-import org.apache.arrow.driver.jdbc.utils.FlightSqlConnectionConfigImpl;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -60,7 +60,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
 
   private final Properties properties;
-  private final FlightSqlConnectionConfigImpl config;
+  private final ArrowFlightConnectionConfigImpl config;
   private final BufferAllocator allocator;
   private final FlightSqlProducer producer;
   private final Authentication authentication;
@@ -69,7 +69,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final MiddlewareCookie.Factory middlewareCookieFactory = new MiddlewareCookie.Factory();
 
   private FlightServerTestRule(final Properties properties,
-                               final FlightSqlConnectionConfigImpl config,
+                               final ArrowFlightConnectionConfigImpl config,
                                final BufferAllocator allocator,
                                final FlightSqlProducer producer,
                                final Authentication authentication,
@@ -102,22 +102,22 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .build();
   }
 
-  FlightSqlJdbcDataSource createDataSource() {
-    return FlightSqlJdbcDataSource.createNewDataSource(properties);
+  ArrowFlightJdbcDataSource createDataSource() {
+    return ArrowFlightJdbcDataSource.createNewDataSource(properties);
   }
 
-  FlightSqlJdbcDataSource createDataSource(String token) {
+  ArrowFlightJdbcDataSource createDataSource(String token) {
     properties.put("token", token);
-    return FlightSqlJdbcDataSource.createNewDataSource(properties);
+    return ArrowFlightJdbcDataSource.createNewDataSource(properties);
   }
 
-  public FlightSqlJdbcConnectionPoolDataSource createConnectionPoolDataSource() {
-    return FlightSqlJdbcConnectionPoolDataSource.createNewDataSource(properties);
+  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource() {
+    return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
-  public FlightSqlJdbcConnectionPoolDataSource createConnectionPoolDataSource(boolean useEncryption) {
+  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource(boolean useEncryption) {
     setUseEncryption(useEncryption);
-    return FlightSqlJdbcConnectionPoolDataSource.createNewDataSource(properties);
+    return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
   public Connection getConnection(boolean useEncryption, String token) throws SQLException {
@@ -235,7 +235,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return the Builder.
      */
     public Builder host(final String host) {
-      properties.put(FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(),
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(),
           host);
       return this;
     }
@@ -246,7 +246,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return the Builder.
      */
     public Builder randomPort() {
-      properties.put(FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
           FreePortFinder.findFreeLocalPort());
       return this;
     }
@@ -258,7 +258,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return the Builder.
      */
     public Builder port(final int port) {
-      properties.put(FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
           port);
       return this;
     }
@@ -306,7 +306,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      */
     public FlightServerTestRule build() {
       authentication.populateProperties(properties);
-      return new FlightServerTestRule(properties, new FlightSqlConnectionConfigImpl(properties),
+      return new FlightServerTestRule(properties, new ArrowFlightConnectionConfigImpl(properties),
           new RootAllocator(Long.MAX_VALUE), producer, authentication, certKeyPair);
     }
   }

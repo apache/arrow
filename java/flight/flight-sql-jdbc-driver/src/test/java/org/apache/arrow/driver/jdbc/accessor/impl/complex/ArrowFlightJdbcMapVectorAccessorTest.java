@@ -104,8 +104,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetObjectReturnValidMap() {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
-    ArrowJdbcMapVectorAccessor accessor =
-        new ArrowJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
         });
 
     Map<Object, Object> expected = new JsonStringHashMap<>();
@@ -134,8 +134,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetObjectReturnNull() {
     vector.setNull(0);
-    ArrowJdbcMapVectorAccessor accessor =
-        new ArrowJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
         });
 
     Assert.assertNull(accessor.getObject());
@@ -145,8 +145,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @Test
   public void testShouldGetArrayReturnValidArray() throws SQLException {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
-    ArrowJdbcMapVectorAccessor accessor =
-        new ArrowJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
         });
 
     Array array = accessor.getArray();
@@ -211,8 +211,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     vector.setNull(0);
     ((StructVector) vector.getDataVector()).setNull(0);
 
-    ArrowJdbcMapVectorAccessor accessor =
-        new ArrowJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
+    ArrowFlightJdbcMapVectorAccessor accessor =
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
         });
 
     Assert.assertNull(accessor.getArray());

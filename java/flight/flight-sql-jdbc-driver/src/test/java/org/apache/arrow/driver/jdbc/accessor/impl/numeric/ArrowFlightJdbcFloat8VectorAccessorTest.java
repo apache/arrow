@@ -51,13 +51,13 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
   private Float8Vector vector;
   private Float8Vector vectorWithNull;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcFloat8VectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcFloat8VectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowJdbcFloat8VectorAccessor((Float8Vector) vector,
+          (vector, getCurrentRow) -> new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector,
               getCurrentRow, (boolean wasNull) -> {
           });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowJdbcFloat8VectorAccessor>
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcFloat8VectorAccessor>
       accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
@@ -75,55 +75,55 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
   @Test
   public void testShouldGetDoubleMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getDouble,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getDouble,
         (accessor, currentRow) -> is(vector.getValueAsDouble(currentRow)));
   }
 
   @Test
   public void testShouldGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getObject,
         (accessor) -> is(accessor.getDouble()));
   }
 
   @Test
   public void testShouldGetStringMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getString,
         (accessor) -> is(Double.toString(accessor.getDouble())));
   }
 
   @Test
   public void testShouldGetBooleanMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getBoolean,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getBoolean,
         (accessor) -> is(accessor.getDouble() != 0.0));
   }
 
   @Test
   public void testShouldGetByteMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getByte,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getByte,
         (accessor) -> is((byte) accessor.getDouble()));
   }
 
   @Test
   public void testShouldGetShortMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getShort,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getShort,
         (accessor) -> is((short) accessor.getDouble()));
   }
 
   @Test
   public void testShouldGetIntMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getInt,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getInt,
         (accessor) -> is((int) accessor.getDouble()));
   }
 
   @Test
   public void testShouldGetLongMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getLong,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getLong,
         (accessor) -> is((long) accessor.getDouble()));
   }
 
   @Test
   public void testShouldGetFloatMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getFloat,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getFloat,
         (accessor) -> is((float) accessor.getDouble()));
   }
 
@@ -141,28 +141,28 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
   @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vector, ArrowJdbcFloat8VectorAccessor::getObjectClass,
+        .assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getObjectClass,
             equalTo(Double.class));
   }
 
   @Test
   public void testShouldGetStringMethodFromFloat8VectorWithNull() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vectorWithNull, ArrowJdbcFloat8VectorAccessor::getString,
+        .assertAccessorGetter(vectorWithNull, ArrowFlightJdbcFloat8VectorAccessor::getString,
             CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetFloatMethodFromFloat8VectorWithNull() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vectorWithNull, ArrowJdbcFloat8VectorAccessor::getFloat,
+        .assertAccessorGetter(vectorWithNull, ArrowFlightJdbcFloat8VectorAccessor::getFloat,
             is(0.0f));
   }
 
   @Test
   public void testShouldGetBigDecimalMethodFromFloat8VectorWithNull() throws Exception {
     accessorIterator.assertAccessorGetter(vectorWithNull,
-        ArrowJdbcFloat8VectorAccessor::getBigDecimal,
+        ArrowFlightJdbcFloat8VectorAccessor::getBigDecimal,
         CoreMatchers.nullValue());
   }
 
@@ -181,7 +181,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
   @Test
   public void testShouldGetObjectMethodFromFloat8VectorWithNull() throws Exception {
     accessorIterator
-        .assertAccessorGetter(vectorWithNull, ArrowJdbcFloat8VectorAccessor::getObject,
+        .assertAccessorGetter(vectorWithNull, ArrowFlightJdbcFloat8VectorAccessor::getObject,
             CoreMatchers.nullValue());
   }
 }

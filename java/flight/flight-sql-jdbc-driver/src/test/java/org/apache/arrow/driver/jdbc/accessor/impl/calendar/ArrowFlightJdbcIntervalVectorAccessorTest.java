@@ -29,7 +29,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
 
-import org.apache.arrow.driver.jdbc.accessor.ArrowJdbcAccessorFactory;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
@@ -57,21 +57,21 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcIntervalVectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcIntervalVectorAccessor>
       accessorSupplier = (vector, getCurrentRow) -> {
-        ArrowJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
         };
         if (vector instanceof IntervalDayVector) {
-          return new ArrowJdbcIntervalVectorAccessor((IntervalDayVector) vector,
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalDayVector) vector,
               getCurrentRow, noOpWasNullConsumer);
         } else if (vector instanceof IntervalYearVector) {
-          return new ArrowJdbcIntervalVectorAccessor((IntervalYearVector) vector,
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalYearVector) vector,
               getCurrentRow, noOpWasNullConsumer);
         }
         return null;
       };
 
-  final AccessorTestUtils.AccessorIterator<ArrowJdbcIntervalVectorAccessor> accessorIterator =
+  final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcIntervalVectorAccessor> accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
@@ -119,7 +119,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectReturnValidObject() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcIntervalVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
@@ -133,7 +133,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   @Test
   public void testShouldGetObjectReturnNull() throws Exception {
     setAllNullOnVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcIntervalVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> equalTo(null));
   }
 
@@ -197,14 +197,14 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetStringReturnCorrectString() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcIntervalVectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
   }
 
   @Test
   public void testShouldGetStringReturnNull() throws Exception {
     setAllNullOnVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcIntervalVectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> equalTo(null));
   }
 
@@ -212,7 +212,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(vector,
-        ArrowJdbcIntervalVectorAccessor::getObjectClass,
+        ArrowFlightJdbcIntervalVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(expectedObjectClass));
   }
 

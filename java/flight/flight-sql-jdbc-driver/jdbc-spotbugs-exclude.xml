@@ -17,7 +17,7 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="org.apache.arrow.driver.jdbc.client.FlightSqlClientHandler"/>
+        <Class name="org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
@@ -25,16 +25,16 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="org.apache.arrow.driver.jdbc.FlightSqlJdbcDataSource"/>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
-        <Class name="org.apache.arrow.driver.jdbc.FlightSqlJdbcCursor"/>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcCursor"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 
     <Match>
-        <Class name="org.apache.arrow.driver.jdbc.FlightSqlJdbcDataSource"/>
+        <Class name="org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource"/>
         <Bug pattern="EI_EXPOSE_REP"/>
     </Match>
 </FindBugsFilter>

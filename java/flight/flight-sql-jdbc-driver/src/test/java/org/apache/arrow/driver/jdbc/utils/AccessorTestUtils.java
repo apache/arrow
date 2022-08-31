@@ -27,7 +27,7 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-import org.apache.arrow.driver.jdbc.accessor.ArrowJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.hamcrest.Matcher;
 import org.junit.rules.ErrorCollector;
@@ -38,15 +38,15 @@ public class AccessorTestUtils {
     R apply(T t) throws SQLException;
   }
 
-  public interface AccessorSupplier<T extends ArrowJdbcAccessor> {
+  public interface AccessorSupplier<T extends ArrowFlightJdbcAccessor> {
     T supply(ValueVector vector, IntSupplier getCurrentRow);
   }
 
-  public interface AccessorConsumer<T extends ArrowJdbcAccessor> {
+  public interface AccessorConsumer<T extends ArrowFlightJdbcAccessor> {
     void accept(T accessor, int currentRow) throws Exception;
   }
 
-  public interface MatcherGetter<T extends ArrowJdbcAccessor, R> {
+  public interface MatcherGetter<T extends ArrowFlightJdbcAccessor, R> {
     Matcher<R> get(T accessor, int currentRow);
   }
 
@@ -71,7 +71,7 @@ public class AccessorTestUtils {
     }
   }
 
-  public static class AccessorIterator<T extends ArrowJdbcAccessor> {
+  public static class AccessorIterator<T extends ArrowFlightJdbcAccessor> {
     private final ErrorCollector collector;
     private final AccessorSupplier<T> accessorSupplier;
 

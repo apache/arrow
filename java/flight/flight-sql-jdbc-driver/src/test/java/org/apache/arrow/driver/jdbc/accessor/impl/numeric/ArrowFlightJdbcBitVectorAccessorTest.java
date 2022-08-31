@@ -40,11 +40,11 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
-  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcBitVectorAccessor>
-      accessorSupplier = (vector, getCurrentRow) -> new ArrowJdbcBitVectorAccessor((BitVector) vector,
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor>
+      accessorSupplier = (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector,
           getCurrentRow, (boolean wasNull) -> {
       });
-  private final AccessorIterator<ArrowJdbcBitVectorAccessor>
+  private final AccessorIterator<ArrowFlightJdbcBitVectorAccessor>
       accessorIterator =
       new AccessorIterator<>(collector, accessorSupplier);
   private BitVector vector;
@@ -64,7 +64,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(final CheckedFunction<ArrowJdbcBitVectorAccessor, T> function,
+  private <T> void iterate(final CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
                            final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
@@ -74,82 +74,82 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Test
   public void testShouldGetBooleanMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getBoolean, true, false, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getBoolean, true, false, vector);
   }
 
   @Test
   public void testShouldGetByteMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getByte, (byte) 1, (byte) 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getByte, (byte) 1, (byte) 0, vector);
   }
 
   @Test
   public void testShouldGetShortMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getShort, (short) 1, (short) 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getShort, (short) 1, (short) 0, vector);
   }
 
   @Test
   public void testShouldGetIntMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getInt, 1, 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getInt, 1, 0, vector);
 
   }
 
   @Test
   public void testShouldGetLongMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getLong, (long) 1, (long) 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getLong, (long) 1, (long) 0, vector);
 
   }
 
   @Test
   public void testShouldGetFloatMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getFloat, (float) 1, (float) 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getFloat, (float) 1, (float) 0, vector);
 
   }
 
   @Test
   public void testShouldGetDoubleMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getDouble, (double) 1, (double) 0, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getDouble, (double) 1, (double) 0, vector);
 
   }
 
   @Test
   public void testShouldGetBigDecimalMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO,
+    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO,
         vector);
   }
 
   @Test
   public void testShouldGetBigDecimalMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getBigDecimal, null, null, vectorWithNull);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, null, null, vectorWithNull);
 
   }
 
   @Test
   public void testShouldGetObjectMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getObject, true, false, vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, true, false, vector);
 
   }
 
   @Test
   public void testShouldGetObjectMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getObject, null, null, vectorWithNull);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, null, null, vectorWithNull);
 
   }
 
   @Test
   public void testShouldGetStringMethodFromBitVector() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getString, "true", "false", vector);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getString, "true", "false", vector);
 
   }
 
   @Test
   public void testShouldGetStringMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowJdbcBitVectorAccessor::getString, null, null, vectorWithNull);
+    iterate(ArrowFlightJdbcBitVectorAccessor::getString, null, null, vectorWithNull);
 
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowJdbcBitVectorAccessor::getObjectClass,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBitVectorAccessor::getObjectClass,
         equalTo(Boolean.class));
   }
 }

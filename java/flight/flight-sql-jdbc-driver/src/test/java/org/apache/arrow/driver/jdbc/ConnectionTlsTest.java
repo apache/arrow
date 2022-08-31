@@ -28,8 +28,8 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
-import org.apache.arrow.driver.jdbc.client.FlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.utils.FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.FlightSqlTestCertificates;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -101,8 +101,8 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         userTest, passTest);
 
-    try (FlightSqlClientHandler client =
-             new FlightSqlClientHandler.Builder()
+    try (ArrowFlightSqlClientHandler client =
+             new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
                  .withUsername(credentials.getUserName())
@@ -125,8 +125,8 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         userTest, passTest);
 
-    try (FlightSqlClientHandler client =
-             new FlightSqlClientHandler.Builder()
+    try (ArrowFlightSqlClientHandler client =
+             new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
                  .withUsername(credentials.getUserName())
@@ -150,8 +150,8 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
     final String noCertificateKeyStorePassword = "flight1";
 
-    try (FlightSqlClientHandler ignored =
-             new FlightSqlClientHandler.Builder()
+    try (ArrowFlightSqlClientHandler ignored =
+             new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withTrustStorePath(noCertificateKeyStorePath)
                  .withTrustStorePassword(noCertificateKeyStorePassword)
@@ -169,8 +169,8 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
-    try (FlightSqlClientHandler client =
-             new FlightSqlClientHandler.Builder()
+    try (ArrowFlightSqlClientHandler client =
+             new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(trustStorePass)
@@ -191,8 +191,8 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
     String keyStoreBadPassword = "badPassword";
 
-    try (FlightSqlClientHandler ignored =
-             new FlightSqlClientHandler.Builder()
+    try (ArrowFlightSqlClientHandler ignored =
+             new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(keyStoreBadPassword)
@@ -224,8 +224,8 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), false);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
-    final FlightSqlJdbcDataSource dataSource =
-        FlightSqlJdbcDataSource.createNewDataSource(properties);
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
       assert connection.isValid(300);
     }
@@ -253,8 +253,8 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), "badpassword");
 
-    final FlightSqlJdbcDataSource dataSource =
-        FlightSqlJdbcDataSource.createNewDataSource(properties);
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection ignored = dataSource.getConnection()) {
       Assert.fail();
     }
@@ -276,7 +276,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
-    final FlightSqlJdbcDataSource dataSource = FlightSqlJdbcDataSource.createNewDataSource(properties);
+    final ArrowFlightJdbcDataSource dataSource = ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
       assert connection.isValid(300);
     }
@@ -290,12 +290,12 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testTLSConnectionPropertyTrueCorrectCastUrlWithDriverManager() throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s" +
                 "&useEncryption=true&useSystemTrustStore=false&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
@@ -317,7 +317,7 @@ public class ConnectionTlsTest {
   @Test
   public void testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
       throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     Properties properties = new Properties();
@@ -331,7 +331,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight-sql://localhost:%s",
+            "jdbc:arrow-flight://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -347,7 +347,7 @@ public class ConnectionTlsTest {
   @Test
   public void testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
       throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     Properties properties = new Properties();
@@ -361,7 +361,7 @@ public class ConnectionTlsTest {
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight-sql://localhost:%s",
+            "jdbc:arrow-flight://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
@@ -377,13 +377,12 @@ public class ConnectionTlsTest {
   @Test
   public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlWithDriverManager()
       throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     final Connection connection = DriverManager.getConnection(
         String.format(
-            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
-                "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s",
+            "jdbc:arrow-flight://localhost:%s?user=%s&password=%s&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -404,7 +403,7 @@ public class ConnectionTlsTest {
   @Test
   public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
       throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     Properties properties = new Properties();
@@ -417,7 +416,7 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "0");
 
     final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+        String.format("jdbc:arrow-flight://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));
     connection.close();
@@ -432,7 +431,7 @@ public class ConnectionTlsTest {
   @Test
   public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
       throws Exception {
-    final Driver driver = new FlightSqlJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
     Properties properties = new Properties();
@@ -445,7 +444,7 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
     final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight-sql://localhost:%s",
+        String.format("jdbc:arrow-flight://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
         properties);
     Assert.assertTrue(connection.isValid(0));

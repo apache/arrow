@@ -21,7 +21,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>flight-sql-jdbc-driver</artifactId>
+    <artifactId>flight-jdbc-driver</artifactId>
     <name>Arrow Flight SQL JDBC Driver</name>
     <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
@@ -299,7 +299,7 @@
                                 <rule>
                                     <element>CLASS</element>
                                     <excludes>
-                                        <exclude>org.apache.arrow.driver.jdbc.utils.FlightSqlConnectionConfigImpl</exclude>
+                                        <exclude>org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl</exclude>
                                         <!-- The uncovered branch is unreachable -->
                                         <exclude>org.apache.arrow.driver.jdbc.utils.UrlParser</exclude>
                                     </excludes>

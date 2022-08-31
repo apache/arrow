@@ -51,7 +51,7 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
         .build();
   }
 
-  private FlightSqlJdbcConnectionPoolDataSource dataSource;
+  private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
   @Before
   public void setUp() {
@@ -98,19 +98,19 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
     Assert.assertFalse(connection.isClosed());
     connection.close();
     Assert.assertTrue(connection.isClosed());
-    Assert.assertFalse(connection.unwrap(FlightSqlConnection.class).isClosed());
+    Assert.assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
 
     PooledConnection pooledConnection2 = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection2 = ((ConnectionWrapper) pooledConnection2.getConnection());
     Assert.assertFalse(connection2.isClosed());
     connection2.close();
     Assert.assertTrue(connection2.isClosed());
-    Assert.assertFalse(connection2.unwrap(FlightSqlConnection.class).isClosed());
+    Assert.assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
 
     Assert.assertSame(pooledConnection, pooledConnection2);
     Assert.assertNotSame(connection, connection2);
-    Assert.assertSame(connection.unwrap(FlightSqlConnection.class),
-        connection2.unwrap(FlightSqlConnection.class));
+    Assert.assertSame(connection.unwrap(ArrowFlightConnection.class),
+        connection2.unwrap(ArrowFlightConnection.class));
   }
 
   @Test
@@ -120,18 +120,18 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
     Assert.assertFalse(connection.isClosed());
     connection.close();
     Assert.assertTrue(connection.isClosed());
-    Assert.assertFalse(connection.unwrap(FlightSqlConnection.class).isClosed());
+    Assert.assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
 
     PooledConnection pooledConnection2 = dataSource.getPooledConnection("user2", "pass2");
     ConnectionWrapper connection2 = ((ConnectionWrapper) pooledConnection2.getConnection());
     Assert.assertFalse(connection2.isClosed());
     connection2.close();
     Assert.assertTrue(connection2.isClosed());
-    Assert.assertFalse(connection2.unwrap(FlightSqlConnection.class).isClosed());
+    Assert.assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
 
     Assert.assertNotSame(pooledConnection, pooledConnection2);
     Assert.assertNotSame(connection, connection2);
-    Assert.assertNotSame(connection.unwrap(FlightSqlConnection.class),
-        connection2.unwrap(FlightSqlConnection.class));
+    Assert.assertNotSame(connection.unwrap(ArrowFlightConnection.class),
+        connection2.unwrap(ArrowFlightConnection.class));
   }
 }

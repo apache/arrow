@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.utils.FlightSqlConnectionConfigImpl;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
@@ -53,8 +53,8 @@ public class UserPasswordAuthentication implements Authentication {
   @Override
   public void populateProperties(Properties properties) {
     validCredentials.forEach((key, value) -> {
-      properties.put(FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
-      properties.put(FlightSqlConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(), value);
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(), value);
     });
   }
 

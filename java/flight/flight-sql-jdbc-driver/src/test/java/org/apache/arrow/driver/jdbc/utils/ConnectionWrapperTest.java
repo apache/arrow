@@ -36,7 +36,7 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.apache.arrow.driver.jdbc.FlightSqlConnection;
+import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.junit.After;
@@ -94,7 +94,7 @@ public final class ConnectionWrapperTest {
         collector.checkSucceeds(() -> connectionWrapper.unwrap(AvaticaConnection.class)),
         is(sameInstance(underlyingConnection)));
     ThrowableAssertionUtils.simpleAssertThrowableClass(ClassCastException.class,
-        () -> connectionWrapper.unwrap(FlightSqlConnection.class));
+        () -> connectionWrapper.unwrap(ArrowFlightConnection.class));
     ThrowableAssertionUtils.simpleAssertThrowableClass(ClassCastException.class,
         () -> connectionWrapper.unwrap(ConnectionWrapper.class));
   }

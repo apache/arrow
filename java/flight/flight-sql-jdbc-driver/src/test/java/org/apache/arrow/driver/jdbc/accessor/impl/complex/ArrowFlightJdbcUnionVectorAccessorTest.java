@@ -48,13 +48,13 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
 
   private UnionVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcUnionVectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcUnionVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowJdbcUnionVectorAccessor((UnionVector) vector,
+          (vector, getCurrentRow) -> new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector,
               getCurrentRow, (boolean wasNull) -> {
           });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowJdbcUnionVectorAccessor>
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcUnionVectorAccessor>
       accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
@@ -112,7 +112,7 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
     vector.setValueCount(5);
 
     accessorIterator.assertAccessorGetter(vector,
-        AbstractArrowJdbcUnionVectorAccessor::getObject,
+        AbstractArrowFlightJdbcUnionVectorAccessor::getObject,
         equalTo(null));
   }
 }

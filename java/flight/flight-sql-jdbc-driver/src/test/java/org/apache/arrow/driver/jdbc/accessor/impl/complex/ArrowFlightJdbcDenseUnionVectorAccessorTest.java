@@ -49,14 +49,14 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   private DenseUnionVector vector;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowJdbcDenseUnionVectorAccessor>
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDenseUnionVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowJdbcDenseUnionVectorAccessor(
+          (vector, getCurrentRow) -> new ArrowFlightJdbcDenseUnionVectorAccessor(
               (DenseUnionVector) vector, getCurrentRow, (boolean wasNull) -> {
             //No Operation
           });
 
-  private final AccessorTestUtils.AccessorIterator<ArrowJdbcDenseUnionVectorAccessor>
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor>
       accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
@@ -121,6 +121,6 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
     accessorIterator.assertAccessorGetter(vector,
-        AbstractArrowJdbcUnionVectorAccessor::getObject, equalTo(null));
+        AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
   }
 }
