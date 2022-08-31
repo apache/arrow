@@ -965,6 +965,13 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     with pytest.raises(ValueError, match="Ambiguous to specify both "):
         list_array_type.from_arrays(offsets, arr.values, mask=arr.is_null())
 
+    # Not supported to reconstruct from a slice.
+    arr_slice = arr[1:]
+    msg = "Null bitmap with offsets slice not supported."
+    with pytest.raises(NotImplementedError, match=msg):
+        list_array_type.from_arrays(
+            arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
+
 
 def test_map_labelled():
     #  ARROW-13735

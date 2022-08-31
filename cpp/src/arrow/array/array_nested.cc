@@ -122,6 +122,10 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
         "Ambiguous to specify both validity map and offsets with nulls");
   }
 
+  if (null_bitmap != nullptr && offsets.offset() != 0) {
+    return Status::NotImplemented("Null bitmap with offsets slice not supported.");
+  }
+
   std::shared_ptr<Buffer> offset_buf, validity_buf;
   RETURN_NOT_OK(CleanListOffsets<TYPE>(offsets, pool, &offset_buf, &validity_buf));
   int64_t null_count_ = null_bitmap ? null_count : offsets.null_count();
