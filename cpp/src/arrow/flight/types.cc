@@ -162,6 +162,33 @@ Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   return GetSchema(dictionary_memo).Value(out);
 }
 
+arrow::Result<std::string> SchemaResult::SerializeToString() const {
+  pb::SchemaResult pb_schema_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_schema_result));
+
+  std::string out;
+  if (!pb_schema_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized schema-result exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<SchemaResult> SchemaResult::Deserialize(
+    arrow::util::string_view serialized) {
+  pb::SchemaResult pb_schema_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized SchemaResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_schema_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid schema-result");
+  }
+  SchemaResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_schema_result, &out));
+  return out;
+}
+
 arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
   pb::FlightDescriptor pb_descriptor;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_descriptor));
@@ -370,8 +397,87 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
   return ticket == other.ticket && locations == other.locations;
 }
 
+arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
+  pb::FlightEndpoint pb_flight_endpoint;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_flight_endpoint));
+
+  std::string out;
+  if (!pb_flight_endpoint.SerializeToString(&out)) {
+    return Status::IOError("Serialized flight-endpoint exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(
+    arrow::util::string_view serialized) {
+  pb::FlightEndpoint pb_flight_endpoint;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized FlightEndpoint size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_flight_endpoint.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid flight-endpoint");
+  }
+  FlightEndpoint out;
+  RETURN_NOT_OK(internal::FromProto(pb_flight_endpoint, &out));
+  return out;
+}
+
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
+}
+
+arrow::Result<std::string> ActionType::SerializeToString() const {
+  pb::ActionType pb_action_type;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_action_type));
+
+  std::string out;
+  if (!pb_action_type.SerializeToString(&out)) {
+    return Status::IOError("Serialized action-type exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<ActionType> ActionType::Deserialize(arrow::util::string_view serialized) {
+  pb::ActionType pb_action_type;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized ActionType size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_action_type.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid action-type");
+  }
+  ActionType out;
+  RETURN_NOT_OK(internal::FromProto(pb_action_type, &out));
+  return out;
+}
+
+arrow::Result<std::string> Criteria::SerializeToString() const {
+  pb::Criteria pb_criteria;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_criteria));
+
+  std::string out;
+  if (!pb_criteria.SerializeToString(&out)) {
+    return Status::IOError("Serialized criteria exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<Criteria> Criteria::Deserialize(arrow::util::string_view serialized) {
+  pb::Criteria pb_criteria;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized Criteria size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_criteria.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid criteria");
+  }
+  Criteria out;
+  RETURN_NOT_OK(internal::FromProto(pb_criteria, &out));
+  return out;
 }
 
 arrow::Result<std::string> Action::SerializeToString() const {
@@ -397,6 +503,32 @@ arrow::Result<Action> Action::Deserialize(arrow::util::string_view serialized) {
   }
   Action out;
   RETURN_NOT_OK(internal::FromProto(pb_action, &out));
+  return out;
+}
+
+arrow::Result<std::string> Result::SerializeToString() const {
+  pb::Result pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized result exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<Result> Result::Deserialize(arrow::util::string_view serialized) {
+  pb::Result pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized Result size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid result");
+  }
+  Result out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
   return out;
 }
 

@@ -148,12 +148,24 @@ struct ARROW_FLIGHT_EXPORT ActionType {
   friend bool operator!=(const ActionType& left, const ActionType& right) {
     return !(left == right);
   }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<ActionType> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
 struct ARROW_FLIGHT_EXPORT Criteria {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<Criteria> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief An action to perform with the DoAction RPC
@@ -164,22 +176,22 @@ struct ARROW_FLIGHT_EXPORT Action {
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
 
-  /// \brief Get the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
+  /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
-  /// \brief Parse the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
+  /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<Action> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief Opaque result returned after executing an action
 struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<Result> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief message for simple auth
@@ -389,6 +401,12 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   friend bool operator!=(const FlightEndpoint& left, const FlightEndpoint& right) {
     return !(left == right);
   }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<FlightEndpoint> Deserialize(arrow::util::string_view serialized);
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -423,6 +441,12 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
                    std::shared_ptr<Schema>* out) const;
 
   const std::string& serialized_schema() const { return raw_schema_; }
+
+    /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SchemaResult> Deserialize(arrow::util::string_view serialized);
 
  private:
   std::string raw_schema_;
