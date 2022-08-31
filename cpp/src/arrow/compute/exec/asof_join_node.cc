@@ -819,7 +819,7 @@ class AsofJoinNode : public ExecNode {
                std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
                bool nullable_by_key);
 
-  Status Init() {
+  Status Init() override {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
