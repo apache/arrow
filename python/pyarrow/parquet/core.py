@@ -1803,9 +1803,6 @@ Examples
             raise NotImplementedError("split_row_groups not yet implemented")
 
         if filters is not None:
-            import pyarrow.dataset as ds
-            if isinstance(filters, ds.Expression):
-                raise TypeError("Expression not supported in legacy dataset.")
             filters = _check_filters(filters)
             self._filter(filters)
 

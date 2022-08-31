@@ -586,9 +586,9 @@ def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
     kwargs = dict(filesystem=fs, filters=filters,
                   use_legacy_dataset=use_legacy_dataset)
 
+    # Using Expression in legacy dataset not supported
     if use_legacy_dataset and isinstance(filters, pc.Expression):
-        msg = 'Expression not supported in legacy dataset'
-        with pytest.raises(TypeError, match=msg):
+        with pytest.raises(TypeError):
             read(base_path, **kwargs)
     else:
         table = read(base_path, **kwargs)
