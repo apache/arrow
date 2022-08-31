@@ -19,6 +19,10 @@
 # This module defines
 #  jemalloc::jemalloc, target to use jemalloc
 
+if(jemalloc_FOUND)
+  return()
+endif()
+
 if(ARROW_JEMALLOC_USE_SHARED)
   set(jemalloc_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)

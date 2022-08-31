@@ -127,6 +127,7 @@ cmake \
   -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-OFF} \
   -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-OFF} \
   -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY:-OFF} \
+  -DARROW_WITH_MUSL=${ARROW_WITH_MUSL:-OFF} \
   -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
   -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
   -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
@@ -172,7 +173,7 @@ time cmake --build . --target install
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then
-  ldconfig
+  ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then

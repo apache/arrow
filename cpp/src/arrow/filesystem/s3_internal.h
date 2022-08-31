@@ -39,19 +39,6 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
-#define ARROW_AWS_ASSIGN_OR_RAISE_IMPL(outcome_name, lhs, rexpr) \
-  auto outcome_name = (rexpr);                                   \
-  if (!outcome_name.IsSuccess()) {                               \
-    return ErrorToStatus(outcome_name.GetError());               \
-  }                                                              \
-  lhs = std::move(outcome_name).GetResultWithOwnership();
-
-#define ARROW_AWS_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
-
-#define ARROW_AWS_ASSIGN_OR_RAISE(lhs, rexpr) \
-  ARROW_AWS_ASSIGN_OR_RAISE_IMPL(             \
-      ARROW_AWS_ASSIGN_OR_RAISE_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
-
 // XXX Should we expose this at some point?
 enum class S3Backend { Amazon, Minio, Other };
 
@@ -104,60 +91,63 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
 // TODO qualify error messages with a prefix indicating context
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
-Status ErrorToStatus(const std::string& prefix,
+Status ErrorToStatus(const std::string& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   return Status::IOError(prefix, "AWS Error [code ",
-                         static_cast<int>(error.GetErrorType()),
-                         "]: ", error.GetMessage());
+                         static_cast<int>(error.GetErrorType()), "] during ", operation,
+                         " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
-Status ErrorToStatus(const std::tuple<Args&...>& prefix,
+Status ErrorToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                      const Aws::Client::AWSError<ErrorType>& error) {
   std::stringstream ss;
   ::arrow::internal::PrintTuple(&ss, prefix);
-  return ErrorToStatus(ss.str(), error);
+  return ErrorToStatus(ss.str(), operation, error);
 }
 
 template <typename ErrorType>
-Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
-  return ErrorToStatus(std::string(), error);
+Status ErrorToStatus(const std::string& operation,
+                     const Aws::Client::AWSError<ErrorType>& error) {
+  return ErrorToStatus(std::string(), operation, error);
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const std::string& prefix,
+Status OutcomeToStatus(const std::string& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
-    return ErrorToStatus(prefix, outcome.GetError());
+    return ErrorToStatus(prefix, operation, outcome.GetError());
   }
 }
 
 template <typename AwsResult, typename Error, typename... Args>
-Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
+Status OutcomeToStatus(const std::tuple<Args&...>& prefix, const std::string& operation,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
-    return ErrorToStatus(prefix, outcome.GetError());
+    return ErrorToStatus(prefix, operation, outcome.GetError());
   }
 }
 
 template <typename AwsResult, typename Error>
-Status OutcomeToStatus(const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
-  return OutcomeToStatus(std::string(), outcome);
+Status OutcomeToStatus(const std::string& operation,
+                       const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
+  return OutcomeToStatus(std::string(), operation, outcome);
 }
 
 template <typename AwsResult, typename Error>
-Result<AwsResult> OutcomeToResult(Aws::Utils::Outcome<AwsResult, Error> outcome) {
+Result<AwsResult> OutcomeToResult(const std::string& operation,
+                                  Aws::Utils::Outcome<AwsResult, Error> outcome) {
   if (outcome.IsSuccess()) {
     return std::move(outcome).GetResultWithOwnership();
   } else {
-    return ErrorToStatus(outcome.GetError());
+    return ErrorToStatus(operation, outcome.GetError());
   }
 }
 

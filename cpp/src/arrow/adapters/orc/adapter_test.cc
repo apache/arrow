@@ -173,7 +173,7 @@ void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
     return static_cast<U>(res);
   });
   (*out)[n - 1] += remaining_sum;
-  std::random_shuffle(out->begin(), out->end());
+  std::shuffle(out->begin(), out->end(), gen);
 }
 
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(

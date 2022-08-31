@@ -18,7 +18,8 @@
 import os
 
 from .tester import Tester
-from .util import run_cmd, ARROW_ROOT_DEFAULT, log
+from .util import run_cmd, log
+from ..utils.source import ARROW_ROOT_DEFAULT
 
 
 _EXE_PATH = os.path.join(

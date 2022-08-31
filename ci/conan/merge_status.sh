@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-UPSTREAM_REVISION=232a32d832f9754b81dde348e8fd8ded37ad404b
+UPSTREAM_REVISION=d659daa941be8ea8d2b22e8802c61f15688c67d5

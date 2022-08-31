@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(c-aresAlt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(c-aresAlt_FIND_VERSION)
   list(APPEND find_package_args ${c-aresAlt_FIND_VERSION})

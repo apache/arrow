@@ -683,6 +683,10 @@ type UnionBuilder interface {
 	// Mode returns what kind of Union is being built, either arrow.SparseMode
 	// or arrow.DenseMode
 	Mode() arrow.UnionMode
+	// Child returns the builder for the requested child index.
+	// If an invalid index is requested (e.g. <0 or >len(children))
+	// then this will panic.
+	Child(idx int) Builder
 }
 
 type unionBuilder struct {
@@ -732,6 +736,13 @@ func newUnionBuilder(mem memory.Allocator, children []Builder, typ arrow.UnionTy
 	}
 
 	return b
+}
+
+func (b *unionBuilder) Child(idx int) Builder {
+	if idx < 0 || idx > len(b.children) {
+		panic("arrow/array: invalid child index for union builder")
+	}
+	return b.children[idx]
 }
 
 func (b *unionBuilder) Mode() arrow.UnionMode { return b.mode }

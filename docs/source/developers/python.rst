@@ -131,6 +131,30 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+Testing PyArrow C++
+-------------------
+
+Most of the tests for PyArrow are part of the ``pytest``-based test suite mentioned above,
+but a few low-level tests are written directly in C++ for historical reasons.
+Those tests can be run using ``ctest``, but you first will need to build Arrow C++
+with ``-DARROW_BUILD_TESTS=ON``.
+
+.. note::
+
+   Currently, building the PyArrow C++ unit tests does not work with the
+   googletest package from conda-forge. If you are in this situation, please
+   add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
+   when building Arrow C++.
+
+After Arrow C++ and PyArrow are built, you can navigate to the ``python/build/dist``
+folder and run ``ctest``:
+
+.. code-block::
+
+   $ pushd arrow/python/build/dist
+   $ ctest
+   $ popd
+
 Benchmarking
 ------------
 
@@ -390,6 +414,13 @@ variable to 1.
 
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
+
+.. note::
+
+   If you used a different directory name for building Arrow C++ (by default it is
+   named "build"), then you should also set the environment variable
+   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
+   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
