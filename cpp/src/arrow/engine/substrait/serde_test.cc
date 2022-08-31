@@ -58,13 +58,24 @@ using internal::checked_cast;
 using internal::hash_combine;
 namespace engine {
 
-Status WriteParquetData(const std::string& path,
-                        const std::shared_ptr<fs::FileSystem> file_system,
-                        const std::shared_ptr<Table> input) {
-  EXPECT_OK_AND_ASSIGN(auto buffer_writer, file_system->OpenOutputStream(path));
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*input, arrow::default_memory_pool(),
-                                                  buffer_writer, /*chunk_size*/ 1));
-  return buffer_writer->Close();
+Status WriteIpcData(const std::string& path,
+                    const std::shared_ptr<fs::FileSystem> file_system,
+                    const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  ARROW_ASSIGN_OR_RAISE(
+      auto file_writer,
+      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  TableBatchReader reader(input);
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    RETURN_NOT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    RETURN_NOT_OK(file_writer->WriteRecordBatch(*batch));
+  }
+  RETURN_NOT_OK(file_writer->Close());
+  return Status::OK();
 }
 
 Result<std::shared_ptr<Table>> GetTableFromPlan(
@@ -1880,15 +1891,16 @@ TEST(Substrait, BasicPlanRoundTripping) {
       [1, 3, 12]
     ])"});
 
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
-  const std::string file_name = "serde_test.parquet";
+  const std::string file_name = "serde_test.arrow";
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait_tempdir"));
+  std::cout << "file_path_str " << tempdir->path().ToString() << std::endl;
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
-
+  std::cout << "file_path_str " << file_path_str << std::endl;
   // Note: there is an additional forward slash introduced by the tempdir
   // it must be replaced to properly load into reading files
   // TODO: (Review: Jira needs to be reported to handle this properly)
@@ -1896,7 +1908,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   size_t pos = file_path_str.find(toReplace);
   file_path_str.replace(pos, toReplace.length(), "/T/");
 
-  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
   std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {file_path_str};
@@ -1999,9 +2011,9 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
       [1, 3, 3]
     ])"});
 
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
-  const std::string file_name = "serde_test.parquet";
+  const std::string file_name = "serde_test.arrow";
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait_tempdir"));
@@ -2015,7 +2027,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   size_t pos = file_path_str.find(toReplace);
   file_path_str.replace(pos, toReplace.length(), "/T/");
 
-  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
+  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
   std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {file_path_str};

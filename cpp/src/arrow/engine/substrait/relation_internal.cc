@@ -477,7 +477,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
       auto parquet_fmt =
           make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions>();
       read_rel_lfs_ffs->set_allocated_parquet(parquet_fmt.release());
-    } else if (format_type_name == "arrow") {
+    } else if (format_type_name == "ipc") {
       auto arrow_fmt =
           make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions>();
       read_rel_lfs_ffs->set_allocated_arrow(arrow_fmt.release());
