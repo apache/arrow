@@ -52,6 +52,8 @@ Goals
   support where sufficient), with little initial investment.
 * Allow zero-copy sharing of Arrow data between independent runtimes
   and components running in the same process.
+* Allow zero-copy sharing of Arrow data between independent processes
+  that can access the same memory address space.
 * Match the Arrow array concepts closely to avoid the development of
   yet another marshalling layer.
 * Avoid the need for one-to-one adaptation layers such as the limited
@@ -68,7 +70,10 @@ Non-goals
 
 * Expose a C API mimicking operations available in higher-level runtimes
   (such as C++, Java...).
-* Data sharing between distinct processes or storage persistence.
+* Data sharing between distinct processes that cannot access the same
+  memory address space.
+* Reading or writing Arrow data in persistent storage.
+* Exchanging Arrow data across a network.
 
 
 Comparison with the Arrow IPC format
