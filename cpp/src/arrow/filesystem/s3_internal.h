@@ -123,7 +123,15 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
     S3_ERROR_CASE(UNKNOWN)
     S3_ERROR_CASE(BUCKET_ALREADY_EXISTS)
     S3_ERROR_CASE(BUCKET_ALREADY_OWNED_BY_YOU)
-    S3_ERROR_CASE(INVALID_OBJECT_STATE)
+    // The following is the most recent addition to S3Errors
+    // and is not supported yet for some versions of the SDK
+    // that Apache Arrow is using. This is not a big deal
+    // since this error will happen only in very specialized
+    // settings and we will print the correct numerical error
+    // code as per the "default" case down below. We should
+    // put it back once the SDK has been upgraded in all
+    // Apache Arrow build configurations.
+    // S3_ERROR_CASE(INVALID_OBJECT_STATE)
     S3_ERROR_CASE(NO_SUCH_BUCKET)
     S3_ERROR_CASE(NO_SUCH_KEY)
     S3_ERROR_CASE(NO_SUCH_UPLOAD)
