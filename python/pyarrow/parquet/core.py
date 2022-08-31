@@ -89,7 +89,9 @@ def _check_filters(filters, check_null_strings=True):
     Check if filters are well-formed.
     """
     if filters is not None:
-        if len(filters) == 0 or any(len(f) == 0 for f in filters):
+        if not hasattr(filters, '__len__') \
+                or len(filters) == 0 \
+                or any(len(f) == 0 for f in filters):
             raise ValueError("Malformed filters")
         if isinstance(filters[0][0], str):
             # We have encountered the situation where we have one nesting level
