@@ -26,7 +26,7 @@ The Arrow C stream interface
 The C stream interface builds on the structures defined in the
 :ref:`C data interface <c-data-interface>` and combines them into a higher-level
 specification so as to ease the communication of streaming data within a single
-process.
+process or a single memory address space.
 
 Semantics
 =========
