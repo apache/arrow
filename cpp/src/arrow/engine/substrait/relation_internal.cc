@@ -63,6 +63,30 @@ Result<std::vector<compute::Expression>> GetEmitInfo(
 }
 
 template <typename RelMessage>
+Result<DeclarationInfo> ProcessEmit(const RelMessage& rel,
+                                    const DeclarationInfo& no_emit_declr,
+                                    const std::shared_ptr<Schema>& schema) {
+  if (rel.has_common()) {
+    switch (rel.common().emit_kind_case()) {
+      case substrait::RelCommon::EmitKindCase::kDirect:
+        return no_emit_declr;
+      case substrait::RelCommon::EmitKindCase::kEmit: {
+        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(rel, schema));
+        return DeclarationInfo{
+            compute::Declaration::Sequence(
+                {no_emit_declr.declaration,
+                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
+            std::move(schema)};
+      }
+      default:
+        return Status::Invalid("Invalid emit case");
+    }
+  } else {
+    return no_emit_declr;
+  }
+}
+
+template <typename RelMessage>
 Status CheckRelCommon(const RelMessage& rel) {
   if (rel.has_common()) {
     if (rel.common().has_hint()) {
@@ -235,20 +259,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      if (HasEmit(read)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(read, base_schema));
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {{"scan",
-                  dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(base_schema)};
-      } else {
-        return DeclarationInfo{
-            compute::Declaration{
-                "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
-            std::move(base_schema)};
-      }
+      DeclarationInfo no_emit_declaration = {
+          compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
+          base_schema};
+
+      return ProcessEmit(std::move(read), std::move(no_emit_declaration),
+                         std::move(base_schema));
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -266,24 +282,15 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
+      DeclarationInfo no_emit_declaration{
+          compute::Declaration::Sequence({
+              std::move(input.declaration),
+              {"filter", compute::FilterNodeOptions{std::move(condition)}},
+          }),
+          input.output_schema};
 
-      if (HasEmit(filter)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitInfo(filter, input.output_schema));
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::move(input.declaration),
-                 {"filter", compute::FilterNodeOptions{std::move(condition)}},
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            input.output_schema};
-      } else {
-        return DeclarationInfo{
-            compute::Declaration::Sequence({
-                std::move(input.declaration),
-                {"filter", compute::FilterNodeOptions{std::move(condition)}},
-            }),
-            input.output_schema};
-      }
+      return ProcessEmit(std::move(filter), std::move(no_emit_declaration),
+                         input.output_schema);
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
@@ -331,25 +338,15 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         expressions.emplace_back(des_expr);
       }
 
-      if (HasEmit(project)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitInfo(project, project_schema));
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::move(input.declaration),
-                 {"project", compute::ProjectNodeOptions{std::move(expressions)},
-                  "project"},
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)},
-                  "emit"}}),
-            project_schema};
-      } else {
-        return DeclarationInfo{
-            compute::Declaration::Sequence({
-                std::move(input.declaration),
-                {"project", compute::ProjectNodeOptions{std::move(expressions)}},
-            }),
-            project_schema};
-      }
+      DeclarationInfo no_emit_declaration{
+          compute::Declaration::Sequence({
+              std::move(input.declaration),
+              {"project", compute::ProjectNodeOptions{std::move(expressions)}},
+          }),
+          project_schema};
+
+      return ProcessEmit(std::move(project), std::move(no_emit_declaration),
+                         std::move(project_schema));
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {
@@ -446,16 +443,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
 
-      if (HasEmit(join)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions, GetEmitInfo(join, join_schema));
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::move(join_dec),
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(join_schema)};
-      } else {
-        return DeclarationInfo{std::move(join_dec), std::move(join_schema)};
-      }
+      DeclarationInfo no_emit_declaration{std::move(join_dec), join_schema};
+
+      return ProcessEmit(std::move(join), std::move(no_emit_declaration),
+                         std::move(join_schema));
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
@@ -542,22 +533,15 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
-      if (HasEmit(aggregate)) {
-        ARROW_ASSIGN_OR_RAISE(auto emit_expressions,
-                              GetEmitInfo(aggregate, aggregate_schema));
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::move(input.declaration),
-                 {"aggregate", compute::AggregateNodeOptions{aggregates, keys}},
-                 {"project", compute::ProjectNodeOptions{std::move(emit_expressions)}}}),
-            std::move(aggregate_schema)};
-      } else {
-        return DeclarationInfo{
-            compute::Declaration::Sequence(
-                {std::move(input.declaration),
-                 {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
-            std::move(aggregate_schema)};
-      }
+
+      DeclarationInfo no_emit_declaration{
+          compute::Declaration::Sequence(
+              {std::move(input.declaration),
+               {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
+          aggregate_schema};
+
+      return ProcessEmit(std::move(aggregate), std::move(no_emit_declaration),
+                         std::move(aggregate_schema));
     }
 
     default:
