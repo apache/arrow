@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 )
@@ -132,8 +133,28 @@ func (cf *castFunction) DispatchExact(vals ...arrow.DataType) (exec.Kernel, erro
 	return candidates[0], nil
 }
 
+func CastFromExtension(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	opts := ctx.State.(kernels.CastState)
+
+	arr := batch.Values[0].Array.MakeArray().(array.ExtensionArray)
+	defer arr.Release()
+
+	castOpts := CastOptions(opts)
+	result, err := CastArray(ctx.Ctx, arr.Storage(), &castOpts)
+	if err != nil {
+		return err
+	}
+	defer result.Release()
+
+	out.TakeOwnership(result.Data())
+	return nil
+}
+
 func addCastFuncs(fn []*castFunction) {
 	for _, f := range fn {
+		f.AddNewTypeCast(arrow.EXTENSION, []exec.InputType{exec.NewIDInput(arrow.EXTENSION)},
+			f.kernels[0].Signature.OutType, CastFromExtension,
+			exec.NullComputedNoPrealloc, exec.MemNoPrealloc)
 		castTable[f.out] = f
 	}
 }
