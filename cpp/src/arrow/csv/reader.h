@@ -102,6 +102,10 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
       const ConvertOptions&);
+
+  /// Create a StreamingReader instance with a RandomAccessFile instead of an InputStream.
+  /// This will support parallel input reading, greatly speeding up the StreamingReader
+  /// from networked FS.
   static Future<std::shared_ptr<StreamingReader>> MakeAsync(
       io::IOContext io_context, std::shared_ptr<io::RandomAccessFile> input,
       arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
