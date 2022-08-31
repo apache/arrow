@@ -59,6 +59,32 @@ test_that("ExecPlanReader evaluates head() lazily", {
   expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
 })
 
+test_that("ExecPlanReader evaluates head() lazily", {
+  skip_if_not(CanRunWithCapturedR())
+
+  max_batches <- 100L
+  reader <- as_record_batch_reader(function() {
+    # Make sure the failure mode is more informative an infinite loop
+    max_batches <<- max_batches - 1L
+    if (max_batches < 0) {
+      stop("head() on arrow_dplyr_query was not lazy", call. = FALSE)
+    }
+
+    record_batch(
+      line = c(
+        "this is the RecordBatchReader that never ends",
+        "yes it goes on and on my friends",
+        "some ExecPlan started pulling from it",
+        "not knowing what it was, and hopefully won't",
+        "continue pulling on forever just because"
+      )
+    )
+  }, schema = schema(line = string()))
+
+  query <- head(as_adq(reader), 100)
+  expect_identical(as_arrow_table(query)$num_rows, 100L)
+})
+
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
   skip_if_not_available("substrait")
 
