@@ -88,81 +88,51 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
           error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
-std::string S3ErrorToString(int error_type) {
-  switch (static_cast<Aws::S3::S3Errors>(error_type)) {
-    case Aws::S3::S3Errors::INCOMPLETE_SIGNATURE:
-      return "INCOMPLETE_SIGNATURE";
-    case Aws::S3::S3Errors::INTERNAL_FAILURE:
-      return "INTERNAL_FAILURE";
-    case Aws::S3::S3Errors::INVALID_ACTION:
-      return "INVALID_ACTION";
-    case Aws::S3::S3Errors::INVALID_CLIENT_TOKEN_ID:
-      return "INVALID_CLIENT_TOKEN_ID";
-    case Aws::S3::S3Errors::INVALID_PARAMETER_COMBINATION:
-      return "INVALID_PARAMETER_COMBINATION";
-    case Aws::S3::S3Errors::INVALID_QUERY_PARAMETER:
-      return "INVALID_QUERY_PARAMETER";
-    case Aws::S3::S3Errors::INVALID_PARAMETER_VALUE:
-      return "INVALID_PARAMETER_VALUE";
-    case Aws::S3::S3Errors::MISSING_ACTION:
-      return "MISSING_ACTION";
-    case Aws::S3::S3Errors::MISSING_AUTHENTICATION_TOKEN:
-      return "MISSING_AUTHENTICATION_TOKEN";
-    case Aws::S3::S3Errors::MISSING_PARAMETER:
-      return "MISSING_PARAMETER";
-    case Aws::S3::S3Errors::OPT_IN_REQUIRED:
-      return "OPT_IN_REQUIRED";
-    case Aws::S3::S3Errors::REQUEST_EXPIRED:
-      return "REQUEST_EXPIRED";
-    case Aws::S3::S3Errors::SERVICE_UNAVAILABLE:
-      return "SERVICE_UNAVAILABLE";
-    case Aws::S3::S3Errors::THROTTLING:
-      return "THROTTLING";
-    case Aws::S3::S3Errors::VALIDATION:
-      return "VALIDATION";
-    case Aws::S3::S3Errors::ACCESS_DENIED:
-      return "ACCESS_DENIED";
-    case Aws::S3::S3Errors::RESOURCE_NOT_FOUND:
-      return "RESOURCE_NOT_FOUND";
-    case Aws::S3::S3Errors::UNRECOGNIZED_CLIENT:
-      return "UNRECOGNIZED_CLIENT";
-    case Aws::S3::S3Errors::MALFORMED_QUERY_STRING:
-      return "MALFORMED_QUERY_STRING";
-    case Aws::S3::S3Errors::SLOW_DOWN:
-      return "SLOW_DOWN";
-    case Aws::S3::S3Errors::REQUEST_TIME_TOO_SKEWED:
-      return "REQUEST_TIME_TOO_SKEWED";
-    case Aws::S3::S3Errors::INVALID_SIGNATURE:
-      return "INVALID_SIGNATURE";
-    case Aws::S3::S3Errors::SIGNATURE_DOES_NOT_MATCH:
-      return "SIGNATURE_DOES_NOT_MATCH";
-    case Aws::S3::S3Errors::INVALID_ACCESS_KEY_ID:
-      return "INVALID_ACCESS_KEY_ID";
-    case Aws::S3::S3Errors::REQUEST_TIMEOUT:
-      return "REQUEST_TIMEOUT";
-    case Aws::S3::S3Errors::NETWORK_CONNECTION:
-      return "NETWORK_CONNECTION";
-    case Aws::S3::S3Errors::UNKNOWN:
-      return "UNKNOWN";
-    case Aws::S3::S3Errors::BUCKET_ALREADY_EXISTS:
-      return "BUCKET_ALREADY_EXISTS";
-    case Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU:
-      return "BUCKET_ALREADY_OWNED_BY_YOU";
-    case Aws::S3::S3Errors::INVALID_OBJECT_STATE:
-      return "INVALID_OBJECT_STATE";
-    case Aws::S3::S3Errors::NO_SUCH_BUCKET:
-      return "NO_SUCH_BUCKET";
-    case Aws::S3::S3Errors::NO_SUCH_KEY:
-      return "NO_SUCH_KEY";
-    case Aws::S3::S3Errors::NO_SUCH_UPLOAD:
-      return "NO_SUCH_UPLOAD";
-    case Aws::S3::S3Errors::OBJECT_ALREADY_IN_ACTIVE_TIER:
-      return "OBJECT_ALREADY_IN_ACTIVE_TIER";
-    case Aws::S3::S3Errors::OBJECT_NOT_IN_ACTIVE_TIER:
-      return "OBJECT_NOT_IN_ACTIVE_TIER";
+std::string_view S3ErrorToString(Aws::S3::S3Errors error_type) {
+  switch (error_type) {
+#define S3_ERROR_CASE(NAME) \
+    case Aws::S3::S3Errors::NAME: \
+      return # NAME;
+
+    S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
+    S3_ERROR_CASE(INTERNAL_FAILURE)
+    S3_ERROR_CASE(INVALID_ACTION)
+    S3_ERROR_CASE(INVALID_CLIENT_TOKEN_ID)
+    S3_ERROR_CASE(INVALID_PARAMETER_COMBINATION)
+    S3_ERROR_CASE(INVALID_QUERY_PARAMETER)
+    S3_ERROR_CASE(INVALID_PARAMETER_VALUE)
+    S3_ERROR_CASE(MISSING_ACTION)
+    S3_ERROR_CASE(MISSING_AUTHENTICATION_TOKEN)
+    S3_ERROR_CASE(MISSING_PARAMETER)
+    S3_ERROR_CASE(OPT_IN_REQUIRED)
+    S3_ERROR_CASE(REQUEST_EXPIRED)
+    S3_ERROR_CASE(SERVICE_UNAVAILABLE)
+    S3_ERROR_CASE(THROTTLING)
+    S3_ERROR_CASE(VALIDATION)
+    S3_ERROR_CASE(ACCESS_DENIED)
+    S3_ERROR_CASE(RESOURCE_NOT_FOUND)
+    S3_ERROR_CASE(UNRECOGNIZED_CLIENT)
+    S3_ERROR_CASE(MALFORMED_QUERY_STRING)
+    S3_ERROR_CASE(SLOW_DOWN)
+    S3_ERROR_CASE(REQUEST_TIME_TOO_SKEWED)
+    S3_ERROR_CASE(INVALID_SIGNATURE)
+    S3_ERROR_CASE(SIGNATURE_DOES_NOT_MATCH)
+    S3_ERROR_CASE(INVALID_ACCESS_KEY_ID)
+    S3_ERROR_CASE(REQUEST_TIMEOUT)
+    S3_ERROR_CASE(NETWORK_CONNECTION)
+    S3_ERROR_CASE(UNKNOWN)
+    S3_ERROR_CASE(BUCKET_ALREADY_EXISTS)
+    S3_ERROR_CASE(BUCKET_ALREADY_OWNED_BY_YOU)
+    S3_ERROR_CASE(INVALID_OBJECT_STATE)
+    S3_ERROR_CASE(NO_SUCH_BUCKET)
+    S3_ERROR_CASE(NO_SUCH_KEY)
+    S3_ERROR_CASE(NO_SUCH_UPLOAD)
+    S3_ERROR_CASE(OBJECT_ALREADY_IN_ACTIVE_TIER)
+    S3_ERROR_CASE(OBJECT_NOT_IN_ACTIVE_TIER)
+
+#undef S3_ERROR_CASE
     default:
-      DCHECK(false);
-      return "[code " + std::to_string(error_type) + "]";
+      return "[code " + std::to_string(static_cast<int>(error_type)) + "]";
   }
 }
 
@@ -175,7 +145,7 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   return Status::IOError(prefix, "AWS Error ",
-			 S3ErrorToString(static_cast<int>(error.GetErrorType())),
+			 S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())),
                          " during ", operation, " operation: ", error.GetMessage());
 }
 
