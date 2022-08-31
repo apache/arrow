@@ -173,10 +173,5 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
 }
 
 across_glue_mask <- function(.col, .fn, .caller_env) {
-  glue_mask <- env(.caller_env, .col = .col, .fn = .fn)
-  env_bind_active(
-    glue_mask,
-    col = function() glue_mask$.col, fn = function() glue_mask$.fn
-  )
-  glue_mask
+  env(.caller_env, .col = .col, .fn = .fn, col = .col, fn = .fn)
 }
