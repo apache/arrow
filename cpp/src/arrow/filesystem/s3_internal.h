@@ -90,9 +90,9 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
 
 std::string_view S3ErrorToString(Aws::S3::S3Errors error_type) {
   switch (error_type) {
-#define S3_ERROR_CASE(NAME) \
-    case Aws::S3::S3Errors::NAME: \
-      return # NAME;
+#define S3_ERROR_CASE(NAME)     \
+  case Aws::S3::S3Errors::NAME: \
+    return # NAME;
 
     S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
     S3_ERROR_CASE(INTERNAL_FAILURE)
@@ -144,9 +144,10 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError(prefix, "AWS Error ",
-                         S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())),
-                         " during ", operation, " operation: ", error.GetMessage());
+  return Status::IOError(
+      prefix, "AWS Error ",
+      S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())), " during ",
+      operation, " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
