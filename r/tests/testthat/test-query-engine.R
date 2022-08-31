@@ -82,8 +82,9 @@ test_that("ExecPlanReader evaluates head() lazily", {
   query <- head(as_adq(reader), 10)
   expect_identical(as_arrow_table(query)$num_rows, 10L)
 
-  # make sure there are some rows left
-  expect_true(reader$read_table()$num_rows > 0)
+  # Depending on exactly how quickly background threads respond to the
+  # request to cancel, reader$read_table()$num_rows > 0 may or may not
+  # evaluate to TRUE (i.e., the reader may or may not be completely drained).
 })
 
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
