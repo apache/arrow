@@ -123,7 +123,7 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 // It implements the handling to iterate the offsets and values calling
 // the provided function on each byte slice. The zero value of the OutT
 // will be used as the output for elements of the input that are null.
-func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte) (OutT, error)) exec.ArrayKernelExec {
+func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte, *error) OutT) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0        = &in.Values[0].Array
@@ -139,7 +139,7 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 		bitutils.VisitBitBlocks(bitmap, arg0.Offset, arg0.Len,
 			func(pos int64) {
 				v := arg0Data[arg0Offsets[pos]:arg0Offsets[pos+1]]
-				outData[outPos], err = op(ctx, v)
+				outData[outPos] = op(ctx, v, &err)
 				outPos++
 			}, func() {
 				outData[outPos] = def
