@@ -156,6 +156,19 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     fns <- map(fns, as_function)
   }
 
+  # ensure .names argument has resulted in
+  if (length(names) != (length(vars) * length(fns))) {
+    abort(
+      c(
+        "`.names` specification must produce (number of columns * number of functions) names.",
+        x = paste0(
+          length(vars) * length(fns), " names required (", length(vars), " columns * ", length(fns), " functions)\n  ",
+          length(names), " name(s) produced: ", paste(names, collapse = ",")
+        )
+      )
+    )
+  }
+
   list(vars = vars, fns = fns, names = names)
 }
 
