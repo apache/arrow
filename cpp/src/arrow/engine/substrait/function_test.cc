@@ -198,6 +198,12 @@ TEST(FunctionMapping, ValidCases) {
        {int8(), int8()},
        "1",
        boolean()},
+      {{kSubstraitComparisonFunctionsUri, "is_null"}, {"abc"}, {utf8()}, "0", boolean()},
+      {{kSubstraitComparisonFunctionsUri, "is_not_null"},
+       {"57"},
+       {int8()},
+       "1",
+       boolean()},
       {{kSubstraitComparisonFunctionsUri, "not_equal"},
        {"57", "57"},
        {int8(), int8()},
@@ -487,7 +493,13 @@ TEST(FunctionMapping, AggregateCases) {
        float64(),
        "[2]",
        "[1.5, 3]",
-       float64()}};
+       float64()},
+      {{kSubstraitAggregateGenericFunctionsUri, "count"},
+       {"[1, 2, 30]"},
+       {int8()},
+       "[3]",
+       "[2, 1]",
+       int64()}};
   CheckAggregateCases(test_cases);
 }
 

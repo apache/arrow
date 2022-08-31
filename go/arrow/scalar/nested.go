@@ -362,6 +362,8 @@ func NewDictScalar(index Scalar, dict arrow.Array) *Dictionary {
 	return ret
 }
 
+func (s *Dictionary) Data() []byte { return s.Value.Index.(PrimitiveScalar).Data() }
+
 func (s *Dictionary) Retain() {
 	if r, ok := s.Value.Index.(Releasable); ok {
 		r.Retain()

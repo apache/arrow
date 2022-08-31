@@ -98,10 +98,6 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.doc-base
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib1000.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight-dev.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight1000.install
-dev/tasks/linux-packages/apache-arrow/debian/libarrow-python1000.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow1000.install
 dev/tasks/linux-packages/apache-arrow/debian/libgandiva-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libgandiva-glib-dev.install
@@ -133,6 +129,7 @@ dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
+go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/internal/flight/Flight.pb.go
@@ -141,8 +138,9 @@ go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
 go/arrow/unionmode_string.go
+go/arrow/compute/go.sum
 go/arrow/compute/datumkind_string.go
-go/arrow/compute/valueshape_string.go
+go/arrow/compute/funckind_string.go
 go/*.tmpldata
 go/*.s
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go

@@ -149,6 +149,7 @@ def cmake_linter(src, fix=False):
         include_patterns=[
             'ci/**/*.cmake',
             'cpp/CMakeLists.txt',
+            'cpp/src/**/*.cmake.in',
             'cpp/src/**/CMakeLists.txt',
             'cpp/examples/**/CMakeLists.txt',
             'cpp/cmake_modules/*.cmake',

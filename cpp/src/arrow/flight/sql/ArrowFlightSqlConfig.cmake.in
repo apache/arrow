@@ -21,16 +21,16 @@
 #
 # This config sets the following targets in your project::
 #
-#   arrow_flight_sql_shared - for linked as shared library if shared library is built
-#   arrow_flight_sql_static - for linked as static library if static library is built
+#   ArrowFlightSql::arrow_flight_sql_shared - for linked as shared library if shared library is built
+#   ArrowFlightSql::arrow_flight_sql_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
 find_dependency(ArrowFlight)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET arrow_flight_sql_shared OR TARGET arrow_flight_sql_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightSqlTargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightSqlTargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowFlightSql arrow_flight_sql)
+
+check_required_components(ArrowFlightSql)

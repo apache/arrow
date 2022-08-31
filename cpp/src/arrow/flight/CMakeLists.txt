@@ -228,9 +228,13 @@ add_arrow_lib(arrow_flight
               SHARED_LINK_LIBS
               arrow_shared
               ${ARROW_FLIGHT_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_shared
               STATIC_LINK_LIBS
               arrow_static
-              ${ARROW_FLIGHT_LINK_LIBS})
+              ${ARROW_FLIGHT_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_static)
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
@@ -239,21 +243,41 @@ endforeach()
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
   if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
-    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
-    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_static)
   elseif(ARROW_BUILD_SHARED)
-    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
-    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_shared)
   else()
-    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_static arrow_flight_static)
-    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+        ArrowFlight::arrow_flight_static)
   endif()
   if(ARROW_TEST_LINKAGE STREQUAL "shared")
     list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
     list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_shared)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_shared)
   else()
     list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_static)
     list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_static)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_static)
   endif()
   list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
@@ -273,8 +297,12 @@ if(ARROW_TESTING)
                 arrow_dependencies
                 SHARED_LINK_LIBS
                 ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
+                SHARED_INSTALL_INTERFACE_LIBS
+                ${ARROW_FLIGHT_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 ${ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS}
+                STATIC_INSTALL_INTERFACE_LIBS
+                ${ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS}
                 PRIVATE_INCLUDES
                 "${Protobuf_INCLUDE_DIRS}")
 

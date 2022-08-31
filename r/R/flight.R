@@ -56,9 +56,11 @@ flight_disconnect <- function(client) {
 #' @param overwrite logical: if `path` exists on `client` already, should we
 #' replace it with the contents of `data`? Default is `TRUE`; if `FALSE` and
 #' `path` exists, the function will error.
+#' @param max_chunksize integer: Maximum size for RecordBatch chunks when a `data.frame` is sent.
+#' Individual chunks may be smaller depending on the chunk layout of individual columns.
 #' @return `client`, invisibly.
 #' @export
-flight_put <- function(client, data, path, overwrite = TRUE) {
+flight_put <- function(client, data, path, overwrite = TRUE, max_chunksize = NULL) {
   assert_is(data, c("data.frame", "Table", "RecordBatch"))
 
   if (!overwrite && flight_path_exists(client, path)) {
@@ -70,8 +72,13 @@ flight_put <- function(client, data, path, overwrite = TRUE) {
 
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
-  if (inherits(data, "RecordBatch")) {
+  if (inherits(data, "RecordBatch") && !is.null(max_chunksize)) {
+    warning("`max_chunksize` is not supported for flight_put with RecordBatch")
     writer$write_batch(py_data)
+  } else if (inherits(data, "RecordBatch")) {
+    writer$write_batch(py_data)
+  } else if (!is.null(max_chunksize)) {
+    writer$write_table(py_data, max_chunksize)
   } else {
     writer$write_table(py_data)
   }
