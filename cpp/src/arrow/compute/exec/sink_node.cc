@@ -526,11 +526,11 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   static Status ValidateFetchOptions(const FetchSinkNodeOptions& options) {
-    if (options.count < 0) {
+    if (options.count < 1) {
       return Status::Invalid("count must be > 0");
     }
     if (options.offset < 0) {
-      return Status::Invalid("offset must be > 0");
+      return Status::Invalid("offset must be >= 0");
     }
     return ValidateCommonOrderOptions(options);
   }

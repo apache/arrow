@@ -1482,30 +1482,41 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SortAndFetch) {
-  std::vector<ExecBatch> expected = {
+  std::vector<ExecBatch> expected_zero_offset = {
       ExecBatchFromJSON({int32(), boolean()}, "[[4, false], [5, null]]")};
+  std::vector<ExecBatch> expected_non_zero_offset = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false]]")};
+  std::vector<std::vector<ExecBatch>> expected_batchs{expected_zero_offset,
+                                                      expected_non_zero_offset};
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");
 
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
-      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      int offset_count_pair_id = 0;
+      for (std::pair<int, int> offset_count :
+           {std::make_pair(0, 2), std::make_pair(1, 2)}) {
+        auto expected = expected_batchs[offset_count_pair_id];
+        ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+        AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-      auto basic_data = MakeBasicBatches();
-      SortOptions sort_options{{SortKey("i32", SortOrder::Ascending)}};
-      ASSERT_OK(
-          Declaration::Sequence(
-              {
-                  {"source",
-                   SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)}},
-                  {"fetch_sink", FetchSinkNodeOptions{0, 2, &sink_gen, sort_options}},
-              })
-              .AddToPlan(plan.get()));
+        auto basic_data = MakeBasicBatches();
+        SortOptions sort_options{{SortKey("i32", SortOrder::Ascending)}};
+        ASSERT_OK(Declaration::Sequence(
+                      {
+                          {"source", SourceNodeOptions{basic_data.schema,
+                                                       basic_data.gen(parallel, slow)}},
+                          {"fetch_sink",
+                           FetchSinkNodeOptions{offset_count.first, offset_count.second,
+                                                &sink_gen, sort_options}},
+                      })
+                      .AddToPlan(plan.get()));
 
-      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  Finishes(ResultWith(ElementsAreArray(expected))));
+        ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                    Finishes(ResultWith(ElementsAreArray(expected))));
+        offset_count_pair_id++;
+      }
     }
   }
 }

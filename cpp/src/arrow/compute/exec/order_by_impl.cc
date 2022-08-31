@@ -102,9 +102,8 @@ class FetchBasicImpl : public SortBasicImpl {
     if (sort_options_.sort_keys.size() > 0) {
       ARROW_ASSIGN_OR_RAISE(auto indices,
                             SortIndices(table, std::move(sort_options_), ctx_));
-      ARROW_ASSIGN_OR_RAISE(auto sorted_table,
-                            Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_));
-      return sorted_table.table()->Slice(offset_, count_);
+      auto fetch_indices = indices->Slice(offset_, count_);
+      return Take(table, std::move(fetch_indices), TakeOptions::NoBoundsCheck(), ctx_);
     } else {
       return table->Slice(offset_, count_);
     }
