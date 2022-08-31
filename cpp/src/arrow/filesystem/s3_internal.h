@@ -88,7 +88,7 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
           error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
-std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
+inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
   switch (error_type) {
 #define S3_ERROR_CASE(NAME)     \
   case Aws::S3::S3Errors::NAME: \
