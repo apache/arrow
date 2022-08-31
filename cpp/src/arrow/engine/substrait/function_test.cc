@@ -132,8 +132,8 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
     ASSERT_FINISHES_OK(plan->finished());
 
     // Could also modify the Substrait plan with an emit to drop the leading columns
-    ASSERT_OK_AND_ASSIGN(output_table,
-                         output_table->SelectColumns({output_table->num_columns() - 1}));
+    int result_column = output_table->num_columns() - 1;  // last column holds result
+    ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns({result_column}));
 
     ASSERT_OK_AND_ASSIGN(
         std::shared_ptr<Table> expected_output,
