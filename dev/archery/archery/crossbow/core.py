@@ -133,7 +133,7 @@ def _render_jinja_template(searchpath, template, params):
 
 # configurations for setting up branch skipping
 # - appveyor has a feature to skip builds without an appveyor.yml
-# - travis reads from the master branch and applies the rules
+# - travis reads from the default branch and applies the rules
 # - circle requires the configuration to be present on all branch, even ones
 #   that are configured to be skipped
 # - azure skips branches without azure-pipelines.yml by default
