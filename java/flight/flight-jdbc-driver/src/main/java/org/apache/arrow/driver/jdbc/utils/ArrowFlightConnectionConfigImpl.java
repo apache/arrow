@@ -17,8 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
-import static java.lang.String.format;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -206,7 +204,9 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
         value = properties.get(camelName.toLowerCase());
       }
       if (required) {
-        Preconditions.checkNotNull(value, format("Required property not provided: <%s>.", this));
+        if (value == null) {
+          throw new IllegalStateException(String.format("Required property not provided: <%s>.", this));
+        }
         return value;
       } else {
         return value != null ? value : defaultValue;
