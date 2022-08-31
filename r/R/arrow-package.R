@@ -83,14 +83,6 @@
   invisible()
 }
 
-.onUnload <- function(...) {
-  # When running valgrind we need to wait for the thread pools to finish
-  # running background tasks or else spurious memory leaks may be reported.
-  if (on_linux_dev()) {
-    WaitForIdleThreadPool()
-  }
-}
-
 configure_tzdb <- function() {
   # This is needed on Windows to support timezone-aware calculations
   if (requireNamespace("tzdb", quietly = TRUE)) {
