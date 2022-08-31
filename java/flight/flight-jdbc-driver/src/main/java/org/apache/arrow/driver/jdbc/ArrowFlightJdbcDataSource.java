@@ -71,7 +71,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     if (password != null) {
       newProperties.replace(ArrowFlightConnectionProperty.PASSWORD.camelName(), password);
     }
-    return newProperties;
+    return ArrowFlightJdbcDriver.lowerCasePropertyKeys(newProperties);
   }
 
   /**

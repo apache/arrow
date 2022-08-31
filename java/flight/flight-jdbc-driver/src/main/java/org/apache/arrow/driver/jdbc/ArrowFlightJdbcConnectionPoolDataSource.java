@@ -96,7 +96,9 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   public void connectionClosed(ConnectionEvent connectionEvent) {
     final ArrowFlightJdbcPooledConnection pooledConnection =
         (ArrowFlightJdbcPooledConnection) connectionEvent.getSource();
-    pool.get(pooledConnection.getProperties()).add(pooledConnection);
+    Queue<ArrowFlightJdbcPooledConnection> connectionQueue =
+        pool.get(pooledConnection.getProperties());
+    connectionQueue.add(pooledConnection);
   }
 
   @Override

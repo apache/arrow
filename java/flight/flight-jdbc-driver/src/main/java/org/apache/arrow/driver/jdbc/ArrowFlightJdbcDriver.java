@@ -259,7 +259,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     return resultMap;
   }
 
-  private Properties lowerCasePropertyKeys(final Properties properties) {
+  static Properties lowerCasePropertyKeys(final Properties properties) {
     final Properties resultProperty = new Properties();
     properties.forEach((k, v) -> resultProperty.put(k.toString().toLowerCase(), v));
     return resultProperty;
