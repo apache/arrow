@@ -136,6 +136,9 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
 }
 
+// this is async re-entrant and can be used with a Readahead Generator
+// perhaps you should only use it with a Readahead Generator, otherwise there
+// is no point in using this, just use MakeInputStreamIterator instead.
 Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
     std::shared_ptr<RandomAccessFile> file, int64_t block_size) {
   struct State {
