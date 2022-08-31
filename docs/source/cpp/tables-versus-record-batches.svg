@@ -37,14 +37,15 @@ under the License.
       <rect width="70" height="155" x="10" y="0" fill="orange" />
       <rect width="70" height="155" x="90" y="0" fill="orange" />
       <rect width="70" height="155" x="170" y="0" fill="orange" />
-      <text class="label" x="15" y="20">Chunked Array</text>
-      <g transform="translate(0, 30)">
+      <text class="label" x="15" y="15"><tspan>Chunked</tspan>
+      <tspan x="15" dy="15">Array</tspan></text>
+      <g transform="translate(0, 35)">
         <rect width="60" height="80" x="15" y="0" fill="#555" />
-        <rect width="60" height="35" x="15" y="85" fill="#555" />
-        <rect width="60" height="120" x="95" y="0" fill="#555" />
+        <rect width="60" height="30" x="15" y="85" fill="#555" />
+        <rect width="60" height="115" x="95" y="0" fill="#555" />
         <rect width="60" height="35" x="175" y="0" fill="#555" />
         <rect width="60" height="35" x="175" y="40" fill="#555" />
-        <rect width="60" height="40" x="175" y="80" fill="#555" />
+        <rect width="60" height="35" x="175" y="80" fill="#555" />
         <text class="label light" x="20" y="20">Array</text>
       </g>
     </g>
@@ -73,9 +74,7 @@ under the License.
   </g>
 
   <text class="caption" x="20" y="370">
-    <tspan>A <tspan style="font-weight: bold">Record Batch</tspan> is a common Arrow data structure which can be passed
-      zero-copy between</tspan>
-    <tspan x="20" dy="15"> implementations via the C data interface.</tspan>
+    <tspan>A <tspan style="font-weight: bold">Record Batch</tspan> is a common Arrow data structure which is recognized by all implementations.</tspan>
   </text>
   <style>
     text {

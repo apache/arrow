@@ -81,10 +81,11 @@ and computation functions, possibly incremental.
    :alt: A graphical representation of an Arrow Table and a Record Batch, with
          structure as described in text above.
 
-Because record batches can be represented as a struct array, they can be 
-exported through the C data interface between implementations. Tables and 
-chunked arrays, on the other hand, are concepts in the C++ implementation, not 
-in the Arrow format itself, so they aren't directly portable.
+Record batches can be sent between implementations, such as via 
+:ref:`IPC <format-ipc>` or
+via the :doc:`C Data Interface <../format/CDataInterface>`. Tables and 
+chunked arrays, on the other hand, are concepts in the C++ implementation (and
+its bindings), not in the Arrow format itself, so they aren't directly portable.
 
 However, a table can be converted to and built from a sequence of record 
 batches easily without needing to copy the underlying array buffers.

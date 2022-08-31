@@ -197,6 +197,10 @@ Glossary
 
        Not part of the columnar format; this term is specific to
        certain language implementations of Arrow (primarily C++ and
-       its bindings).
+       its bindings and Go).
+
+       .. image:: ../cpp/tables-versus-record-batches.svg
+          :alt: A graphical representation of an Arrow Table and a 
+                Record Batch, with structure as described in text above.
 
        .. seealso:: :term:`chunked array`, :term:`record batch`
