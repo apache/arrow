@@ -96,7 +96,7 @@ def check_config(obj, config_path):
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -225,7 +225,7 @@ def verify_release_candidate(obj, base_branch, create_pr,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
