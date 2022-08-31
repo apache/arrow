@@ -88,7 +88,7 @@ import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 import com.google.protobuf.ProtocolMessageEnum;
 
 /**
- * Arrow Flight SQL JDBC's implementation of {@link DatabaseMetaData}.
+ * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
