@@ -108,7 +108,8 @@ macro(arrow_keep_backward_compatibility namespace target_base_name)
   string(TOUPPER ${target_base_name} target_base_name_upper)
 
   if(NOT CMAKE_VERSION VERSION_LESS 3.18)
-    if(TARGET ${namespace}::${target_base_name} AND NOT TARGET ${target_base_name}_shared)
+    if(TARGET ${namespace}::${target_base_name}_shared AND NOT TARGET
+                                                           ${target_base_name}_shared)
       add_library(${target_base_name}_shared ALIAS
                   ${namespace}::${target_base_name}_shared)
     endif()
