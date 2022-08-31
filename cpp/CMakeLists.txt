@@ -794,9 +794,10 @@ if(ARROW_S3)
          aws-cpp-sdk-cognito-identity
          aws-cpp-sdk-s3
          aws-cpp-sdk-core)
-  endif()
-  if(UNIX)
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+    if(UNIX)
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+    endif()
   endif()
 endif()
 

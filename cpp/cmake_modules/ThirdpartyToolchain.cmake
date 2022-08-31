@@ -40,12 +40,6 @@ set(ARROW_RE2_LINKAGE
     "static"
     CACHE STRING "How to link the re2 library. static|shared (default static)")
 
-if(ARROW_PROTOBUF_USE_SHARED)
-  set(Protobuf_USE_STATIC_LIBS OFF)
-else()
-  set(Protobuf_USE_STATIC_LIBS ON)
-endif()
-
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
@@ -1640,6 +1634,8 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
   resolve_dependency(Protobuf
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
