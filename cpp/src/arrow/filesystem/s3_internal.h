@@ -92,7 +92,7 @@ inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
   switch (error_type) {
 #define S3_ERROR_CASE(NAME)     \
   case Aws::S3::S3Errors::NAME: \
-    return # NAME;
+    return #NAME;
 
     S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
     S3_ERROR_CASE(INTERNAL_FAILURE)
