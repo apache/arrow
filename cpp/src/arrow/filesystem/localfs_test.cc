@@ -157,17 +157,16 @@ class TestLocalFSGenericMMap : public TestLocalFSGeneric<CommonPathFormatter> {
 
 class TestLocalFSGenericDirectIO : public TestLocalFSGeneric<CommonPathFormatter> {
  protected:
+  bool allow_append_to_file() const override { return false; }
   LocalFileSystemOptions options() override {
     auto options = LocalFileSystemOptions::Defaults();
-    options.use_directio = true;
+    options.use_direct_io = true;
     return options;
   }
 };
 
 GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
-#if defined(__linux__)
-GENERIC_FS_TEST_FUNCTIONS_WITHOUT_APPEND(TestLocalFSGenericDirectIO);
-#endif
+GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericDirectIO);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests

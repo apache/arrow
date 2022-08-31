@@ -386,9 +386,8 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
  public:
-  Status Open(const std::string& path, bool append) {
-    const bool truncate = !append;
-    return OpenWritable(path, truncate, append, true /* write_only */, true);
+  Status Open(const std::string& path) {
+    return OpenWritable(path, true, false, true /* write_only */, true);
   }
   Status Open(int fd) { return OpenWritable(fd); }
 };
@@ -406,16 +405,24 @@ DirectFileOutputStream::DirectFileOutputStream() {
 DirectFileOutputStream::~DirectFileOutputStream() { internal::CloseFromDestructor(this); }
 
 Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
-    const std::string& path, bool append) {
+    const std::string& path) {
+#if defined(__linux__)
   auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
-  RETURN_NOT_OK(stream->impl_->Open(path, append));
+  RETURN_NOT_OK(stream->impl_->Open(path));
   return stream;
+#else
+  return Status::NotImplemented("Direct IO only works on Linux.");
+#endif
 }
 
 Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int fd) {
   auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
+#if defined(__linux__)
   RETURN_NOT_OK(stream->impl_->Open(fd));
   return stream;
+#else
+  return Status::NotImplemented("Direct IO only works on Linux.");
+#endif
 }
 
 Status DirectFileOutputStream::Close() {
@@ -428,7 +435,8 @@ Status DirectFileOutputStream::Close() {
       std::memset(aligned_cached_data_ + cached_length_, 0, 4096 - cached_length_);
       RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
     }
-    auto new_length = impl_->Tell().ValueOrDie() - 4096 + cached_length_;
+    ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
+    auto new_length = file_pos - 4096 + cached_length_;
     fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
   }

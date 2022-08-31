@@ -674,29 +674,20 @@ namespace {
 
 Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::string& path,
                                                                   bool truncate,
-                                                                  bool append) {
+                                                                  bool append,
+                                                                  bool direct) {
   RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   const bool write_only = true;
-  ARROW_ASSIGN_OR_RAISE(
-      auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
+  ARROW_ASSIGN_OR_RAISE(auto fd, ::arrow::internal::FileOpenWritable(
+                                     fn, write_only, truncate, append, direct));
   int raw_fd = fd.Detach();
-  auto maybe_stream = io::FileOutputStream::Open(raw_fd);
-  if (!maybe_stream.ok()) {
-    ARROW_UNUSED(::arrow::internal::FileClose(raw_fd));
+  Result<std::shared_ptr<io::OutputStream>> maybe_stream;
+  if (direct) {
+    maybe_stream = io::DirectFileOutputStream::Open(raw_fd);
+  } else {
+    maybe_stream = io::FileOutputStream::Open(raw_fd);
   }
-  return maybe_stream;
-}
-
-Result<std::shared_ptr<io::OutputStream>> OpenDirectIOOutputStreamGeneric(
-    const std::string& path) {
-  RETURN_NOT_OK(ValidatePath(path));
-  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  const bool write_only = true;
-  ARROW_ASSIGN_OR_RAISE(
-      auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, true, false, true));
-  int raw_fd = fd.Detach();
-  auto maybe_stream = io::DirectFileOutputStream::Open(raw_fd);
   if (!maybe_stream.ok()) {
     ARROW_UNUSED(::arrow::internal::FileClose(raw_fd));
   }
@@ -709,22 +700,18 @@ Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   bool truncate = true;
   bool append = false;
-  if (options_.use_directio) {
-    return OpenDirectIOOutputStreamGeneric(path);
-  } else {
-    return OpenOutputStreamGeneric(path, truncate, append);
-  }
+  return OpenOutputStreamGeneric(path, truncate, append, options_.use_direct_io);
 }
 
 Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  if (options_.use_directio) {
+  if (options_.use_direct_io) {
     return Status::NotImplemented("DirectIO append stream not implemented yet.");
   }
 
   bool truncate = false;
   bool append = true;
-  return OpenOutputStreamGeneric(path, truncate, append);
+  return OpenOutputStreamGeneric(path, truncate, append, false);
 }
 
 }  // namespace fs

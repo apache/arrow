@@ -973,10 +973,12 @@ cdef class LocalFileSystem(FileSystem):
     use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
-    use_directio : bool, default False
+    use_direct_io : bool, default False
         Whether open_output_stream will return an output stream with direct io.
         Does not support open_append_stream.
         Will only work on Linux. Slightly different write semantics. 
+        Will buffer bytes to write until they hit 4096 blocks, then write 4096
+        bytes at a time.
         stream.write will only write 4096-byte aligned sectors. 
 
     Examples
@@ -1080,14 +1082,14 @@ cdef class LocalFileSystem(FileSystem):
     >>> local.delete_file('/tmp/local_fs.dat')
     """
 
-    def __init__(self, *, use_mmap=False, use_directio=False):
+    def __init__(self, *, use_mmap=False, use_direct_io=False):
         cdef:
             CLocalFileSystemOptions opts
             shared_ptr[CLocalFileSystem] fs
 
         opts = CLocalFileSystemOptions.Defaults()
         opts.use_mmap = use_mmap
-        opts.use_directio = use_directio
+        opts.use_direct_io = use_direct_io
 
         fs = make_shared[CLocalFileSystem](opts)
         self.init(<shared_ptr[CFileSystem]> fs)
@@ -1105,7 +1107,7 @@ cdef class LocalFileSystem(FileSystem):
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
         return LocalFileSystem._reconstruct, (dict(
-            use_mmap=opts.use_mmap, use_directio=opts.use_directio),)
+            use_mmap=opts.use_mmap, use_direct_io=opts.use_direct_io),)
 
 
 cdef class SubTreeFileSystem(FileSystem):

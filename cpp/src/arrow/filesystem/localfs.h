@@ -40,7 +40,10 @@ struct ARROW_EXPORT LocalFileSystemOptions {
   /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
   /// or a regular one.
   bool use_mmap = false;
-  bool use_directio = false;
+  /// Whether OpenOutputStream opens the file with O_DIRECT,
+  /// if the operating system supports it.
+  /// This flag can have non-trivial performance implications.
+  bool use_direct_io = false;
 
   /// Options related to `GetFileInfoGenerator` interface.
 

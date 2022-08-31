@@ -1132,9 +1132,9 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
 
   if (direct) {
 #if defined(__linux__)
-    oflag |= O_DIRECT;  // will cause issues on Apple on Windows
+    oflag |= O_DIRECT;  // will cause issues on Apple and Windows
 #else
-    return Status::IOError("Direct IO is only supported on Linux.");
+    return Status::NotImplemented("Direct IO is only supported on Linux.");
 #endif
   }
 

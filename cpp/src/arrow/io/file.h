@@ -80,6 +80,8 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   std::unique_ptr<FileOutputStreamImpl> impl_;
 };
 
+/// \brief An operating system file open in write-only and O_DIRECT mode, only works on
+/// Linux.
 class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
  public:
   ~DirectFileOutputStream() override;
@@ -91,8 +93,7 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   ///
   /// When opening a new file, any existing file with the indicated path is
   /// truncated to 0 bytes, deleting any existing data
-  static Result<std::shared_ptr<DirectFileOutputStream>> Open(const std::string& path,
-                                                              bool append = false);
+  static Result<std::shared_ptr<DirectFileOutputStream>> Open(const std::string& path);
 
   /// \brief Open a file descriptor for writing.  The underlying file isn't
   /// truncated.

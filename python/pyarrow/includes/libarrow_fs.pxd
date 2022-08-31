@@ -100,7 +100,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
         c_bool use_mmap
-        c_bool use_directio
+        c_bool use_direct_io
 
         @staticmethod
         CLocalFileSystemOptions Defaults()

@@ -194,7 +194,7 @@ def localfs_with_mmap(request, tempdir):
 @pytest.fixture
 def localfs_with_directio(request, tempdir):
     return dict(
-        fs=LocalFileSystem(use_directio=True),
+        fs=LocalFileSystem(use_direct_io=True),
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_move_dir=True,
         allow_append_to_file=False,
@@ -379,7 +379,7 @@ def py_fsspec_s3fs(request, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('localfs_with_directio'),
-        id='LocalFileSystem(use_directio=True)',
+        id='LocalFileSystem(use_direct_io=True)',
         marks=[pytest.mark.skipif(
             sys.platform != 'linux',
             reason="DirectIO only works on Linux currently.")]
@@ -1023,7 +1023,7 @@ def test_open_output_stream_metadata(fs, pathfn):
 
 def test_localfs_options():
     # LocalFileSystem instantiation
-    LocalFileSystem(use_mmap=False, use_directio=False)
+    LocalFileSystem(use_mmap=False, use_direct_io=False)
 
     with pytest.raises(TypeError):
         LocalFileSystem(xxx=False)

@@ -883,8 +883,6 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("CD/ghi"));
   ASSERT_OK(stream->Write("some "));
   ASSERT_OK(stream->Write(Buffer::FromString("data")));
-  // this following line will cause Direct IO file system to fail
-  // since they will buffer up the nine bytes and not write them!
   ASSERT_OK_AND_EQ(9, stream->Tell());
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {"CD"});
