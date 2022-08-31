@@ -560,7 +560,9 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 @pytest.mark.parametrize("filters",
                          ([('integers', '<', 3)],
                           [[('integers', '<', 3)]],
-                          pc.field('integers') < 3))
+                          pc.field('integers') < 3,
+                          pc.field('nested', 'a') < 3,
+                          pc.field('nested', 'b').cast(pa.int64()) < 3))
 @pytest.mark.parametrize("read", (pq.read_table, pq.read_pandas))
 def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
     # test that filters keyword is passed through in read_table
@@ -571,11 +573,13 @@ def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
     partition_spec = [
         ['integers', integer_keys],
     ]
+    N = len(integer_keys)
 
     df = pd.DataFrame({
-        'index': np.arange(len(integer_keys)),
+        'index': np.arange(N),
         'integers': np.array(integer_keys, dtype='i4'),
-    }, columns=['index', 'integers'])
+        'nested': np.array([{'a': i, 'b': str(i)} for i in range(N)])
+    })
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
