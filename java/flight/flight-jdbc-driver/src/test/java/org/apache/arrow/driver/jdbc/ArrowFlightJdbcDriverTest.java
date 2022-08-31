@@ -116,7 +116,38 @@ public class ArrowFlightJdbcDriverTest {
                      dataSource.getConfig().getHost() + ":" +
                      dataSource.getConfig().getPort() + "?" +
                      "useEncryption=false",
-        dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
+                 dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
+      assert connection.isValid(300);
+    }
+  }
+
+  @Test
+  public void testConnectWithInsensitiveCasePropertyKeys() throws Exception {
+    // Get the Arrow Flight JDBC driver by providing a URL with insensitive case property keys.
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight://" +
+                     dataSource.getConfig().getHost() + ":" +
+                     dataSource.getConfig().getPort() + "?" +
+                     "UseEncryptiOn=false",
+                 dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
+      assert connection.isValid(300);
+    }
+  }
+
+  @Test
+  public void testConnectWithInsensitiveCasePropertyKeys2() throws Exception {
+    // Get the Arrow Flight JDBC driver by providing a property object with insensitive case keys.
+    final Driver driver = new ArrowFlightJdbcDriver();
+    Properties properties =
+        dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword());
+    properties.put("UseEncryptiOn", "false");
+
+    try (Connection connection =
+             driver.connect("jdbc:arrow-flight://" +
+                 dataSource.getConfig().getHost() + ":" +
+                 dataSource.getConfig().getPort(), properties)) {
       assert connection.isValid(300);
     }
   }

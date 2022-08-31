@@ -81,7 +81,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
           this,
           factory,
           url,
-          properties,
+          lowerCasePropertyKeys(properties),
           new RootAllocator(Long.MAX_VALUE));
     } catch (final FlightRuntimeException e) {
       throw new SQLException("Failed to connect.", e);
@@ -257,5 +257,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     }
 
     return resultMap;
+  }
+
+  private Properties lowerCasePropertyKeys(final Properties properties) {
+    final Properties resultProperty = new Properties();
+    properties.forEach((k, v) -> resultProperty.put(k.toString().toLowerCase(), v));
+    return resultProperty;
   }
 }

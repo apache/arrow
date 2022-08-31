@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Map;
 
@@ -36,5 +37,14 @@ class UrlParserTest {
     final Map<String, String> parsed = UrlParser.parse("foo=bar%26&%26123=456", "&");
     assertEquals(parsed.get("foo"), "bar&");
     assertEquals(parsed.get("&123"), "456");
+  }
+
+  @Test
+  void parseEmpty() {
+    final Map<String, String> parsed = UrlParser.parse("a=&b&foo=bar&123=456", "&");
+    assertEquals(parsed.get("a"), "");
+    assertNull(parsed.get("b"));
+    assertEquals(parsed.get("foo"), "bar");
+    assertEquals(parsed.get("123"), "456");
   }
 }
