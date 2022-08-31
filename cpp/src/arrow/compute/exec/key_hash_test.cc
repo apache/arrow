@@ -36,8 +36,9 @@ namespace compute {
 class TestVectorHash {
  private:
   template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
-  static Result<std::shared_ptr<ArrayType>> GenerateUniqueRandomBinary(
-      random::pcg32_fast* random, int num, int min_length, int max_length) {
+  static enable_if_base_binary<Type, Result<std::shared_ptr<ArrayType>>>
+  GenerateUniqueRandomBinary(random::pcg32_fast* random, int num, int min_length,
+                             int max_length) {
     using BuilderType = typename TypeTraits<Type>::BuilderType;
     BuilderType builder;
     std::unordered_set<std::string> unique_key_strings;
