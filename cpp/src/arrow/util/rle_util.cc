@@ -9,7 +9,7 @@ int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset) {
   auto it = std::upper_bound(run_ends, run_ends + num_run_ends, logical_offset);
   int64_t result = std::distance(run_ends, it);
-  ARROW_DCHECK_LT(result, num_run_ends);
+  ARROW_DCHECK_LE(result, num_run_ends);
   return result;
 }
 

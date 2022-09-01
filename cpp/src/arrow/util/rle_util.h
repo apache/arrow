@@ -29,7 +29,8 @@ namespace arrow {
 namespace rle_util {
 
 /// \brief Get the physical offset from a logical offset given run end values using binary
-/// search
+/// search. Returns num_run_ends if the physical offset is not within the first
+/// num_run_ends elements.
 int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset);
 
