@@ -383,21 +383,20 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the number of batches to read ahead within a fragment.
   ///
-  /// \param[in] batch_readahead How many batches to read ahead within a fragment,
-  ///  might not work for all formats.
-  /// \returns An error if this number is less than 0.
+  /// \param[in] batch_readahead How many batches to read ahead within a fragment
+  /// \returns an error if this number is less than 0.
   ///
-  /// This option provides a control on RAM vs I/O tradeoff.
-  /// It might not be support by all file formats, in which case it will
+  /// This option provides a control on the RAM vs I/O tradeoff.
+  /// It might not be supported by all file formats, in which case it will
   /// simply be ignored.
   Status BatchReadahead(int32_t batch_readahead);
 
   /// \brief Set the number of fragments to read ahead
   ///
   /// \param[in] fragment_readahead How many fragments to read ahead
-  /// \returns An error if this number is less than 0.
+  /// \returns an error if this number is less than 0.
   ///
-  /// This option provides a control on RAM vs IO tradeoff.
+  /// This option provides a control on the RAM vs I/O tradeoff.
   Status FragmentReadahead(int32_t fragment_readahead);
 
   /// \brief Set the pool from which materialized and scanned arrays will be allocated.
