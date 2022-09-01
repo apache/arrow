@@ -115,18 +115,15 @@ to step 3:
    username and ``ghrepo`` is the GitHub repository name (typically
    ``crossbow``):
 
-   -  TravisCI: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
-      -  Confirm the `auto cancellation`_ feature is turned off
-         for branch builds. This should be the default setting.
-   -  Appveyor:
+   - TravisCI: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
+     - Confirm the `auto cancellation`_ feature is turned off for branch
+     builds. This should be the default setting.
+   - Appveyor:
       ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
-      -  Check the ``skip branches without appveyor.yml`` checkbox
-         on the web UI under crossbow repository’s settings.
-   -  CircleCI:
+     - Check the ``skip branches without appveyor.yml`` checkbox on the web UI 
+     under crossbow repository’s settings.
+   - CircleCI:
       ``https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars``
-
-   On Appveyor check the ``skip branches without appveyor.yml`` checkbox
-   on the web UI under crossbow repository’s settings.
 
 7. Install Python (minimum supported version is 3.7):
 
