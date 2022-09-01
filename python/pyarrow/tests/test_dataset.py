@@ -427,7 +427,7 @@ def test_dataset(dataset, dataset_reader):
 def test_scanner_options(dataset):
     scanner = dataset.to_batches(fragment_readahead=16, batch_readahead=8)
     batch = next(scanner)
-    assert batch.num_columns == 1
+    assert batch.num_columns == 7
 
 
 @pytest.mark.parquet
