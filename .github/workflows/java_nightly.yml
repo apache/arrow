@@ -32,6 +32,7 @@ on:
     - cron: '0 14 * * *'
 jobs:
   upload:
+    if: github.repository == 'apache/arrow'
     env:
       PREFIX: ${{ github.event.inputs.prefix || ''}}
       CROSSBOW_GITHUB_TOKEN: ${{ github.token }}
