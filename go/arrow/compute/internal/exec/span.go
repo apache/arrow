@@ -300,6 +300,12 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 		a.Buffers[2].Buf = dataBuffer
 	case typeID == arrow.FIXED_SIZE_BINARY:
 		sc := val.(scalar.BinaryScalar)
+		if !sc.IsValid() {
+			a.Buffers[1].Buf = make([]byte, sc.DataType().(*arrow.FixedSizeBinaryType).ByteWidth)
+			a.Buffers[1].Owner = nil
+			a.Buffers[1].SelfAlloc = false
+			break
+		}
 		a.Buffers[1].Buf = sc.Data()
 		a.Buffers[1].Owner = sc.Buffer()
 		a.Buffers[1].SelfAlloc = false

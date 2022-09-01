@@ -67,7 +67,7 @@ func validateUtf8[OffsetT int32 | int64](input *exec.ArraySpan) error {
 
 func CastFsbToFsb(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	inputWidth := batch.Values[0].Array.Type.(*arrow.FixedSizeBinaryType).ByteWidth
-	outputWidth := out.Type.(*arrow.FixedSizeBinaryType).ByteWidth
+	outputWidth := ctx.State.(CastState).ToType.(*arrow.FixedSizeBinaryType).ByteWidth
 
 	if inputWidth != outputWidth {
 		return fmt.Errorf("%w: failed casting from %s to %s: widths must match",
@@ -108,7 +108,7 @@ func CastBinaryToBinary[InOffsetsT, OutOffsetsT int32 | int64](ctx *exec.KernelC
 				arrow.ErrInvalid, input.Type, out.Type)
 		}
 
-		buf := ctx.Allocate(out.Type.(arrow.OffsetTraits).BytesRequired(int(out.Len + out.Offset + 1)))
+		buf := ctx.Allocate(out.Type.(arrow.OffsetsDataType).OffsetTypeTraits().BytesRequired(int(out.Len + out.Offset + 1)))
 		out.Buffers[1].WrapBuffer(buf)
 
 		outOffsets := exec.GetSpanOffsets[OutOffsetsT](out, 1)
@@ -118,7 +118,7 @@ func CastBinaryToBinary[InOffsetsT, OutOffsetsT int32 | int64](ctx *exec.KernelC
 		return nil
 	default:
 		// upcast from int32 -> int64
-		buf := ctx.Allocate(out.Type.(arrow.OffsetTraits).BytesRequired(int(out.Len + out.Offset + 1)))
+		buf := ctx.Allocate(out.Type.(arrow.OffsetsDataType).OffsetTypeTraits().BytesRequired(int(out.Len + out.Offset + 1)))
 		out.Buffers[1].WrapBuffer(buf)
 
 		inputOffsets := exec.GetSpanOffsets[InOffsetsT](input, 1)
