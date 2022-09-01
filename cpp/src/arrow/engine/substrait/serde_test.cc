@@ -204,18 +204,9 @@ struct TempDataGenerator {
   Status operator()() {
     auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
     auto filesystem = std::make_shared<fs::LocalFileSystem>();
-
     const std::string file_name = file_prefix + ".parquet";
-
     ARROW_ASSIGN_OR_RAISE(auto file_path, tempdir->path().Join(file_name));
     data_file_path = file_path.ToString();
-
-    std::string toReplace("/T//");
-    size_t pos = data_file_path.find(toReplace);
-    if (pos >= 0) {
-      data_file_path.replace(pos, toReplace.length(), "/T/");
-    }
-
     ARROW_EXPECT_OK(WriteParquetData(data_file_path, filesystem, input_table));
     return Status::OK();
   }
