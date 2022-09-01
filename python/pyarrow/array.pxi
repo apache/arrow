@@ -2022,6 +2022,7 @@ cdef class LargeListArray(BaseListArray):
             used.
         pool : MemoryPool, optional
         mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
