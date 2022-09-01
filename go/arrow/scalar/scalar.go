@@ -640,6 +640,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return ScalarNull, nil
 	case *array.String:
 		return NewStringScalar(arr.Value(idx)), nil
+	case *array.LargeString:
+		return NewLargeStringScalar(arr.Value(idx)), nil
 	case *array.Struct:
 		children := make(Vector, arr.NumField())
 		for i := range children {

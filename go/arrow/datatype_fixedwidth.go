@@ -105,9 +105,9 @@ func (d Date64) FormattedString() string {
 
 // TimestampFromStringInLocation is like TimestampFromString, but treats the time instant
 // as if it were in the passed timezone before converting to UTC for internal representation.
-func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, error) {
+func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, bool, error) {
 	if len(val) < 10 {
-		return 0, fmt.Errorf("invalid timestamp string")
+		return 0, false, fmt.Errorf("%w: invalid timestamp string", ErrInvalid)
 	}
 
 	var (
@@ -147,17 +147,17 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 	// more than nanosecond precision is provided
 	switch {
 	case unit == Second && lenWithoutZone > 19:
-		return 0, xerrors.New("provided more than second precision for timestamp[s]")
+		return 0, zoneFmt != "", xerrors.New("provided more than second precision for timestamp[s]")
 	case unit == Millisecond && lenWithoutZone > 23:
-		return 0, xerrors.New("provided more than millisecond precision for timestamp[ms]")
+		return 0, zoneFmt != "", xerrors.New("provided more than millisecond precision for timestamp[ms]")
 	case unit == Microsecond && lenWithoutZone > 26:
-		return 0, xerrors.New("provided more than microsecond precision for timestamp[us]")
+		return 0, zoneFmt != "", xerrors.New("provided more than microsecond precision for timestamp[us]")
 	}
 
 	format += zoneFmt
 	out, err := time.Parse(format, val)
 	if err != nil {
-		return 0, err
+		return 0, zoneFmt != "", fmt.Errorf("%w: %s", ErrInvalid, err)
 	}
 	if loc != time.UTC {
 		// convert to UTC by putting the same time instant in the desired location
@@ -167,15 +167,15 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 
 	switch unit {
 	case Second:
-		return Timestamp(out.Unix()), nil
+		return Timestamp(out.Unix()), zoneFmt != "", nil
 	case Millisecond:
-		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), nil
+		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), zoneFmt != "", nil
 	case Microsecond:
-		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), nil
+		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), zoneFmt != "", nil
 	case Nanosecond:
-		return Timestamp(out.UnixNano()), nil
+		return Timestamp(out.UnixNano()), zoneFmt != "", nil
 	}
-	return 0, fmt.Errorf("unexpected timestamp unit: %s", unit)
+	return 0, zoneFmt != "", fmt.Errorf("%w: unexpected timestamp unit: %s", ErrInvalid, unit)
 }
 
 // TimestampFromString parses a string and returns a timestamp for the given unit
@@ -193,7 +193,8 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 // You can also optionally have an ending Z to indicate UTC or indicate a specific
 // timezone using ±HH, ±HHMM or ±HH:MM at the end of the string.
 func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
-	return TimestampFromStringInLocation(val, unit, time.UTC)
+	tm, _, err := TimestampFromStringInLocation(val, unit, time.UTC)
+	return tm, err
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
@@ -634,49 +635,54 @@ func (MonthDayNanoIntervalType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthDayNanoIntervalSizeBytes)}}
 }
 
-type op int8
+type TimestampConvertOp int8
 
 const (
-	convDIVIDE = iota
-	convMULTIPLY
+	ConvDIVIDE = iota
+	ConvMULTIPLY
 )
 
 var timestampConversion = [...][4]struct {
-	op     op
+	op     TimestampConvertOp
 	factor int64
 }{
 	Nanosecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Nanosecond)},
-		Microsecond: {convDIVIDE, int64(time.Microsecond)},
-		Millisecond: {convDIVIDE, int64(time.Millisecond)},
-		Second:      {convDIVIDE, int64(time.Second)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Nanosecond)},
+		Microsecond: {ConvDIVIDE, int64(time.Microsecond)},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond)},
+		Second:      {ConvDIVIDE, int64(time.Second)},
 	},
 	Microsecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Microsecond)},
-		Microsecond: {convMULTIPLY, 1},
-		Millisecond: {convDIVIDE, int64(time.Millisecond / time.Microsecond)},
-		Second:      {convDIVIDE, int64(time.Second / time.Microsecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Microsecond)},
+		Microsecond: {ConvMULTIPLY, 1},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond / time.Microsecond)},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Microsecond)},
 	},
 	Millisecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Millisecond)},
-		Microsecond: {convMULTIPLY, int64(time.Millisecond / time.Microsecond)},
-		Millisecond: {convMULTIPLY, 1},
-		Second:      {convDIVIDE, int64(time.Second / time.Millisecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Millisecond)},
+		Microsecond: {ConvMULTIPLY, int64(time.Millisecond / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, 1},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Millisecond)},
 	},
 	Second: {
-		Nanosecond:  {convMULTIPLY, int64(time.Second)},
-		Microsecond: {convMULTIPLY, int64(time.Second / time.Microsecond)},
-		Millisecond: {convMULTIPLY, int64(time.Second / time.Millisecond)},
-		Second:      {convMULTIPLY, 1},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Second)},
+		Microsecond: {ConvMULTIPLY, int64(time.Second / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, int64(time.Second / time.Millisecond)},
+		Second:      {ConvMULTIPLY, 1},
 	},
+}
+
+func GetTimestampConvert(in, out TimeUnit) (op TimestampConvertOp, factor int64) {
+	conv := timestampConversion[int(in)][int(out)]
+	return conv.op, conv.factor
 }
 
 func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
 	conv := timestampConversion[int(in)][int(out)]
 	switch conv.op {
-	case convMULTIPLY:
+	case ConvMULTIPLY:
 		return value * conv.factor
-	case convDIVIDE:
+	case ConvDIVIDE:
 		return value / conv.factor
 	}
 
