@@ -70,6 +70,11 @@ Streaming Execution Operators
    :members:
    :undoc-members:
 
+.. doxygengroup:: execnode-components
+   :content-only:
+   :members:
+   :undoc-members:
+
 Execution Plan Expressions
 --------------------------
 

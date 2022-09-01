@@ -101,7 +101,7 @@ func (n Num) Negate() Num {
 	return n
 }
 
-func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
+func scalePositiveFloat64(v float64, prec, scale int32) (float64, error) {
 	var pscale float64
 	if scale >= -38 && scale <= 38 {
 		pscale = float64PowersOfTen[scale+38]
@@ -113,11 +113,44 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 	v = math.RoundToEven(v)
 	maxabs := float64PowersOfTen[prec+38]
 	if v <= -maxabs || v >= maxabs {
-		return Num{}, fmt.Errorf("cannot convert %f to decimal128(precision=%d, scale=%d): overflow", v, prec, scale)
+		return 0, fmt.Errorf("cannot convert %f to decimal128(precision=%d, scale=%d): overflow", v, prec, scale)
+	}
+	return v, nil
+}
+
+func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
+	v, err := scalePositiveFloat64(v, prec, scale)
+	if err != nil {
+		return Num{}, err
 	}
 
-	hi := math.Floor(math.Ldexp(float64(v), -64))
+	hi := math.Floor(math.Ldexp(v, -64))
 	low := v - math.Ldexp(hi, 64)
+	return Num{hi: int64(hi), lo: uint64(low)}, nil
+}
+
+// this has to exist despite sharing some code with fromPositiveFloat64
+// because if we don't do the casts back to float32 in between each
+// step, we end up with a significantly different answer!
+// Aren't floating point values so much fun?
+//
+// example value to use:
+//    v := float32(1.8446746e+15)
+//
+// You'll end up with a different values if you do:
+// 	  FromFloat64(float64(v), 20, 4)
+// vs
+//    FromFloat32(v, 20, 4)
+//
+// because float64(v) == 1844674629206016 rather than 1844674600000000
+func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
+	val, err := scalePositiveFloat64(float64(v), prec, scale)
+	if err != nil {
+		return Num{}, err
+	}
+
+	hi := float32(math.Floor(math.Ldexp(float64(float32(val)), -64)))
+	low := float32(val) - float32(math.Ldexp(float64(hi), 64))
 	return Num{hi: int64(hi), lo: uint64(low)}, nil
 }
 
@@ -125,7 +158,14 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 // value using the provided precision and scale. Will return an error if the
 // value cannot be accurately represented with the desired precision and scale.
 func FromFloat32(v float32, prec, scale int32) (Num, error) {
-	return FromFloat64(float64(v), prec, scale)
+	if v < 0 {
+		dec, err := fromPositiveFloat32(-v, prec, scale)
+		if err != nil {
+			return dec, err
+		}
+		return dec.Negate(), nil
+	}
+	return fromPositiveFloat32(v, prec, scale)
 }
 
 // FromFloat64 returns a new decimal128.Num constructed from the given float64
@@ -199,6 +239,10 @@ func (n Num) BigInt() *big.Int {
 		return b.Neg(b)
 	}
 	return toBigIntPositive(n)
+}
+
+func (n Num) GreaterEqual(other Num) bool {
+	return n == other || !n.Less(other)
 }
 
 // Less returns true if the value represented by n is < other

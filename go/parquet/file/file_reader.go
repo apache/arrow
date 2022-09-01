@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
+	"sync"
 
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/parquet"
@@ -47,6 +49,8 @@ type Reader struct {
 	metadata      *metadata.FileMetaData
 	footerOffset  int64
 	fileDecryptor encryption.FileDecryptor
+
+	bufferPool sync.Pool
 }
 
 type ReadOption func(*Reader)
@@ -113,11 +117,29 @@ func NewParquetReader(r parquet.ReaderAtSeeker, opts ...ReadOption) (*Reader, er
 		f.props = parquet.NewReaderProperties(memory.NewGoAllocator())
 	}
 
+	f.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(f.props.Allocator())
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
+
 	if f.metadata == nil {
 		return f, f.parseMetaData()
 	}
 
 	return f, nil
+}
+
+// BufferPool returns the internal buffer pool being utilized by this reader.
+// This is primarily for use by the pqarrow.FileReader or anything that builds
+// on top of the Reader and constructs their own ColumnReaders (like the
+// RecordReader)
+func (f *Reader) BufferPool() *sync.Pool {
+	return &f.bufferPool
 }
 
 // Close will close the current reader, and if the underlying reader being used
@@ -290,5 +312,6 @@ func (f *Reader) RowGroup(i int) *RowGroupReader {
 		r:             f.r,
 		sourceSz:      f.footerOffset,
 		fileDecryptor: f.fileDecryptor,
+		bufferPool:    &f.bufferPool,
 	}
 }

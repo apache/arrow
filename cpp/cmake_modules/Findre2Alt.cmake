@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(re2Alt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(re2Alt_FIND_VERSION)
   list(APPEND find_package_args ${re2Alt_FIND_VERSION})

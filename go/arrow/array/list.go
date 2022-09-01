@@ -321,12 +321,31 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	}
 }
 
+// NewListBuilderWithField takes a field to use for the child rather than just
+// a datatype to allow for more customization.
+func NewListBuilderWithField(mem memory.Allocator, field arrow.Field) *ListBuilder {
+	offsetBldr := NewInt32Builder(mem)
+	return &ListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.ListOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+		},
+	}
+}
+
 func (b *baseListBuilder) Type() arrow.DataType {
-	switch b.dt.ID() {
-	case arrow.LIST:
-		return arrow.ListOf(b.values.Type())
-	case arrow.LARGE_LIST:
-		return arrow.LargeListOf(b.values.Type())
+	switch dt := b.dt.(type) {
+	case *arrow.ListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.ListOfField(f)
+	case *arrow.LargeListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.LargeListOfField(f)
 	}
 	return nil
 }
@@ -346,6 +365,21 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 	}
 }
 
+// NewLargeListBuilderWithField takes a field rather than just an element type
+// to allow for more customization of the final type of the LargeList Array
+func NewLargeListBuilderWithField(mem memory.Allocator, field arrow.Field) *LargeListBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	return &LargeListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.LargeListOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+		},
+	}
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *baseListBuilder) Release() {
@@ -356,15 +390,14 @@ func (b *baseListBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
+		b.values.Release()
+		b.offsets.Release()
 	}
 
-	b.values.Release()
-	b.offsets.Release()
 }
 
 func (b *baseListBuilder) appendNextOffset() {
 	b.appendOffsetVal(b.values.Len())
-	// b.offsets.Append(int32(b.values.Len()))
 }
 
 func (b *baseListBuilder) Append(v bool) {
@@ -454,9 +487,6 @@ func (b *LargeListBuilder) NewArray() arrow.Array {
 // NewListArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
 func (b *ListBuilder) NewListArray() (a *List) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewListData(data)
 	data.Release()
@@ -466,9 +496,6 @@ func (b *ListBuilder) NewListArray() (a *List) {
 // NewLargeListArray creates a List array from the memory buffers used by the builder and resets the LargeListBuilder
 // so it can be used to build a new array.
 func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewLargeListData(data)
 	data.Release()
@@ -476,6 +503,9 @@ func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
 }
 
 func (b *baseListBuilder) newData() (data *Data) {
+	if b.offsets.Len() != b.length+1 {
+		b.appendNextOffset()
+	}
 	values := b.values.NewArray()
 	defer values.Release()
 
