@@ -67,6 +67,10 @@ class RowGroupReader;
 /// `FileReader::RowGroup(i)->Column(j)->Read` and receive an `arrow::Column`
 /// instance.
 ///
+/// Finally, one can also get a stream of record batches using
+/// `FileReader::GetRecordBatchReader()`. This can internally decode columns
+/// in parallel if use_threads was enabled in the ArrowReaderProperties.
+///
 /// The parquet format supports an optional integer field_id which can be assigned
 /// to a field.  Arrow will convert these field IDs to a metadata key named
 /// PARQUET:field_id on the appropriate field.

@@ -41,8 +41,11 @@ namespace arrow {
 
 /// \brief Iterative FileWriter class
 ///
-/// Start a new RowGroup or Chunk with NewRowGroup.
-/// Write column-by-column the whole column chunk.
+/// For basic usage, can write a Table at a time, creating one or more row
+/// groups per write call.
+///
+/// For advanced usage, can write column-by-column: Start a new RowGroup or
+/// Chunk with NewRowGroup, then write column-by-column the whole column chunk.
 ///
 /// If PARQUET:field_id is present as a metadata key on a field, and the corresponding
 /// value is a nonnegative integer, then it will be used as the field_id in the parquet
@@ -79,6 +82,7 @@ class PARQUET_EXPORT FileWriter {
                               std::shared_ptr<ArrowWriterProperties> arrow_properties,
                               std::unique_ptr<FileWriter>* writer);
 
+  /// Return the Arrow schema to be written to.
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
   /// \brief Write a Table to Parquet.
@@ -87,7 +91,14 @@ class PARQUET_EXPORT FileWriter {
   /// \param chunk_size maximum size of row groups to write.
   virtual ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size) = 0;
 
+  /// \brief Start a new row group.
+  ///
+  /// Returns an error if not all columns have been written.
+  ///
+  /// \param chunk_size the number of rows in the next row group.
   virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
+
+  /// \brief Write ColumnChunk in row group using an array.
   virtual ::arrow::Status WriteColumnChunk(const ::arrow::Array& data) = 0;
 
   /// \brief Write ColumnChunk in row group using slice of a ChunkedArray
@@ -95,12 +106,16 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<::arrow::ChunkedArray>& data, int64_t offset,
       int64_t size) = 0;
 
+  /// \brief Write ColumnChunk in a row group using a ChunkedArray
   virtual ::arrow::Status WriteColumnChunk(
       const std::shared_ptr<::arrow::ChunkedArray>& data) = 0;
+
+  /// \brief Write the footer and close the file.
   virtual ::arrow::Status Close() = 0;
   virtual ~FileWriter();
 
   virtual MemoryPool* memory_pool() const = 0;
+  /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
 };
 

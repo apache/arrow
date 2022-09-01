@@ -732,27 +732,39 @@ class PARQUET_EXPORT ArrowWriterProperties {
           engine_version_(V2) {}
     virtual ~Builder() = default;
 
+    /// \brief Disable writing legacy int96 timestamps (default disabled).
     Builder* disable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = false;
       return this;
     }
 
+    /// \brief Enable writing legacy int96 timestamps (default disabled).
+    ///
+    /// May be turned on to write timestamps compatible with older Parquet writers.
+    /// This takes precedent over coerce_timestamps.
     Builder* enable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = true;
       return this;
     }
 
+    /// \brief Coerce all timestamps to the specified time unit.
+    /// \param unit time unit to truncate to.
+    /// For Parquet versions 1.0 and 2.4, nanoseconds are casted to microseconds.
     Builder* coerce_timestamps(::arrow::TimeUnit::type unit) {
       coerce_timestamps_enabled_ = true;
       coerce_timestamps_unit_ = unit;
       return this;
     }
 
+    /// \brief Allow loss of data when truncating timestamps.
+    ///
+    /// This is disallowed by default and an error will be returned.
     Builder* allow_truncated_timestamps() {
       truncated_timestamps_allowed_ = true;
       return this;
     }
 
+    /// \brief Disallow loss of data when truncating timestamps (default).
     Builder* disallow_truncated_timestamps() {
       truncated_timestamps_allowed_ = false;
       return this;
@@ -766,21 +778,31 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief When enabled, will not preserve Arrow field names for list types.
+    ///
+    /// Instead of using the field names Arrow uses for the values array of
+    /// list types (default "item"), will use "entries", as is specified in
+    /// the Parquet spec.
+    ///
+    /// This is disabled by default, but will be enabled by default in future.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
+    /// Preserve Arrow list field name (default behavior).
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;
     }
 
+    /// Set the version of the Parquet writer engine.
     Builder* set_engine_version(EngineVersion version) {
       engine_version_ = version;
       return this;
     }
 
+    /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
