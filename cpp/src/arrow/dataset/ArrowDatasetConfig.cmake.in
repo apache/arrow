@@ -21,8 +21,8 @@
 #
 # This config sets the following targets in your project::
 #
-#   arrow_dataset_shared - for linked as shared library if shared library is built
-#   arrow_dataset_static - for linked as static library if static library is built
+#   ArrowDataset::arrow_dataset_shared - for linked as shared library if shared library is built
+#   ArrowDataset::arrow_dataset_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
@@ -30,8 +30,8 @@ include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
 find_dependency(Parquet)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET arrow_dataset_shared OR TARGET arrow_dataset_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowDataset arrow_dataset)
+
+check_required_components(ArrowDataset)

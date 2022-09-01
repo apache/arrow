@@ -63,7 +63,7 @@ function configure_release() {
               -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -lparquet -larrow -larrow_bundled_dependencies \
             -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
@@ -80,7 +80,7 @@ function configure_release() {
 
 # Returns 1 if CMAKE options is set "ON", otherwise 0
 function cmake_option() {
-  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/arrow/ArrowOptions.cmake"
+  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/Arrow/ArrowOptions.cmake"
   grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE
 }
 

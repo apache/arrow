@@ -170,6 +170,13 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "go/arrow/doc.go",
+        hunks: [
+          ["-const PkgVersion = \"#{@snapshot_version}\"",
+           "+const PkgVersion = \"#{@release_version}\""],
+        ],
+      },
+      {
         path: "go/parquet/writer_properties.go",
         hunks: [
           ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
@@ -188,6 +195,13 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
            "+set(MLARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "python/pyarrow/src/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_PYTHON_VERSION \"#{@release_version}\")"],
         ],
       },
       {

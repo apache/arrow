@@ -243,8 +243,10 @@ test_that("n_distinct() with many batches", {
   write_parquet(dplyr::starwars, tf, chunk_size = 20)
 
   ds <- open_dataset(tf)
-  expect_equal(ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect(),
-               ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE)))
+  expect_equal(
+    ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect(),
+    ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE))
+  )
 })
 
 test_that("n_distinct() on dataset", {
@@ -1087,5 +1089,40 @@ test_that("summarise() supports namespacing", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("We don't add unnecessary ProjectNodes when aggregating", {
+  tab <- Table$create(tbl)
+
+  # Wrapper to simplify the tests
+  expect_project_nodes <- function(query, n) {
+    plan <- capture.output(query %>% show_query())
+    expect_length(grep("ProjectNode", plan), n)
+  }
+
+  # 1 Projection: select int as `mean(int)` before aggregation
+  expect_project_nodes(
+    tab %>% summarize(mean(int)),
+    1
+  )
+
+  # 0 Projections only if
+  # (a) input only contains the col you're aggregating, and
+  # (b) the output col name is the same as the input name, and
+  # (c) no grouping
+  expect_project_nodes(
+    tab[, "int"] %>% summarize(int = mean(int, na.rm = TRUE)),
+    0
+  )
+
+  # 2 projections: one before, and one after in order to put grouping cols first
+  expect_project_nodes(
+    tab %>% group_by(lgl) %>% summarize(mean(int)),
+    2
+  )
+  expect_project_nodes(
+    tab %>% count(lgl),
+    2
   )
 })

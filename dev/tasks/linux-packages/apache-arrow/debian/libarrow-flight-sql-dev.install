@@ -1,6 +1,4 @@
-usr/lib/*/cmake/arrow/ArrowFlightSqlConfig*.cmake
-usr/lib/*/cmake/arrow/ArrowFlightSqlTargets*.cmake
-usr/lib/*/cmake/arrow/FindArrowFlightSql.cmake
+usr/lib/*/cmake/ArrowFlightSql/
 usr/lib/*/libarrow_flight_sql.a
 usr/lib/*/libarrow_flight_sql.so
 usr/lib/*/pkgconfig/arrow-flight-sql.pc

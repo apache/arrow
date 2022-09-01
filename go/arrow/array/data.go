@@ -159,6 +159,8 @@ func (d *Data) Release() {
 // DataType returns the DataType of the data.
 func (d *Data) DataType() arrow.DataType { return d.dtype }
 
+func (d *Data) SetNullN(n int) { d.nulls = n }
+
 // NullN returns the number of nulls.
 func (d *Data) NullN() int { return d.nulls }
 
