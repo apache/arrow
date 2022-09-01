@@ -84,8 +84,8 @@ and computation functions, possibly incremental.
 Record batches can be sent between implementations, such as via 
 :ref:`IPC <format-ipc>` or
 via the :doc:`C Data Interface <../format/CDataInterface>`. Tables and 
-chunked arrays, on the other hand, are concepts in the C++ implementation (and
-its bindings), not in the Arrow format itself, so they aren't directly portable.
+chunked arrays, on the other hand, are concepts in the C++ implementation,
+not in the Arrow format itself, so they aren't directly portable.
 
 However, a table can be converted to and built from a sequence of record 
 batches easily without needing to copy the underlying array buffers.
