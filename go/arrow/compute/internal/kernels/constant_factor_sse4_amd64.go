@@ -52,26 +52,26 @@ func multiplyConstantInt64Int64SSE4(in []int64, out []int64, factor int64) {
 func _divide_constant_int32_int32_sse4(src, dest unsafe.Pointer, len int, factor int64)
 
 func divideConstantInt32Int32SSE4(in []int32, out []int32, factor int64) {
-	_divide_constant_int32_int32_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
+	_divide_constant_int32_int32_sse4(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
 }
 
 //go:noescape
 func _divide_constant_int32_int64_sse4(src, dest unsafe.Pointer, len int, factor int64)
 
 func divideConstantInt32Int64SSE4(in []int32, out []int64, factor int64) {
-	_divide_constant_int32_int64_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
+	_divide_constant_int32_int64_sse4(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
 }
 
 //go:noescape
 func _divide_constant_int64_int32_sse4(src, dest unsafe.Pointer, len int, factor int64)
 
 func divideConstantInt64Int32SSE4(in []int64, out []int32, factor int64) {
-	_divide_constant_int64_int32_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
+	_divide_constant_int64_int32_sse4(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
 }
 
 //go:noescape
 func _divide_constant_int64_int64_sse4(src, dest unsafe.Pointer, len int, factor int64)
 
 func divideConstantInt64Int64SSE4(in []int64, out []int64, factor int64) {
-	_divide_constant_int32_int32_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
+	_divide_constant_int64_int64_sse4(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
 }

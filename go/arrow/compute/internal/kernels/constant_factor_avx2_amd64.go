@@ -73,5 +73,5 @@ func divideConstantInt64Int32Avx2(in []int64, out []int32, factor int64) {
 func _divide_constant_int64_int64_avx2(src, dest unsafe.Pointer, len int, factor int64)
 
 func divideConstantInt64Int64Avx2(in []int64, out []int64, factor int64) {
-	_divide_constant_int32_int32_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
+	_divide_constant_int64_int64_avx2(unsafe.Pointer(&in[0]), unsafe.Pointer(&out[0]), len(out), factor)
 }
