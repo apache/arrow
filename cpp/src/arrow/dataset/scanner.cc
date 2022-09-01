@@ -826,20 +826,29 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
-Status ScannerBuilder::FragmentReadahead(int fragment_readahead) {
-  if (fragment_readahead <= 0) {
-    return Status::Invalid("FragmentReadahead must be greater than 0, got ",
-                           fragment_readahead);
-  }
-  scan_options_->fragment_readahead = fragment_readahead;
-  return Status::OK();
-}
-
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
   }
   scan_options_->batch_size = batch_size;
+  return Status::OK();
+}
+
+Status ScannerBuilder::BatchReadahead(int32_t batch_readahead) {
+  if (batch_readahead < 0) {
+    return Status::Invalid("BatchReadahead must be greater than or equal 0, got ",
+                           batch_readahead);
+  }
+  scan_options_->batch_readahead = batch_readahead;
+  return Status::OK();
+}
+
+Status ScannerBuilder::FragmentReadahead(int32_t fragment_readahead) {
+  if (fragment_readahead < 0) {
+    return Status::Invalid("FragmentReadahead must be greater than or equal 0, got ",
+                           fragment_readahead);
+  }
+  scan_options_->fragment_readahead = fragment_readahead;
   return Status::OK();
 }
 

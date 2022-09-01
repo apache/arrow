@@ -2175,11 +2175,14 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
 
 
 _DEFAULT_BATCH_SIZE = 2**17
-
+_DEFAULT_BATCH_READAHEAD = 16
+_DEFAULT_FRAGMENT_READAHEAD = 4
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
+                            int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                            int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                             bint use_threads=True, MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
@@ -2214,6 +2217,8 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
             )
 
     check_status(builder.BatchSize(batch_size))
+    check_status(builder.BatchReadahead(batch_readahead))
+    check_status(builder.FragmentReadahead(fragment_readahead))
     check_status(builder.UseThreads(use_threads))
     if memory_pool:
         check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
@@ -2261,6 +2266,12 @@ cdef class Scanner(_Weakrefable):
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
+    batch_readahead : int, default 16
+        The number of batches to read ahead in a file. Increasing this number 
+        will increase RAM usage but could also improve IO utilization.
+    fragment_readahead : int, default 4
+        The number of files to read ahead. Increasing this number will increase
+        RAM usage but could also improve IO utilization.
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
@@ -2298,6 +2309,8 @@ cdef class Scanner(_Weakrefable):
                      MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
+                     int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                     int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Dataset,
@@ -2335,6 +2348,13 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2361,7 +2381,8 @@ cdef class Scanner(_Weakrefable):
 
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=batch_readahead,
+                          fragment_readahead=fragment_readahead, use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -2374,6 +2395,7 @@ cdef class Scanner(_Weakrefable):
                       MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
+                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                       FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Fragment,
@@ -2413,6 +2435,10 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2442,7 +2468,9 @@ cdef class Scanner(_Weakrefable):
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=batch_readahead,
+                          fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                          use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -2515,7 +2543,8 @@ cdef class Scanner(_Weakrefable):
                           FutureWarning)
 
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                          fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD, use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
