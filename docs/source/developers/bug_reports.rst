@@ -18,82 +18,64 @@
 .. _bug-reports:
 
 ********************************
-Report bugs and propose features
+Bug reports and feature requests
 ********************************
 
-Using the software and sharing your experience is a very helpful contribution
-itself. Those who actively develop Arrow need feedback from users on what
-works and what doesn't. Alerting us to unexpected behavior and missing features,
-even if you can't solve the problems yourself, help us understand and prioritize
-work to improve the libraries.
+Arrow relies upon user feedback to identify defects and improvement
+opportunities. All users are encouraged to participate by creating bug reports
+and feature requests or commenting on existing issues. Even if you cannot
+contribute solutions to the issues yourself, your feedback helps us understand
+problems and prioritize work to improve the libraries.
 
-We use `JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_
-to manage our development "todo" list and to maintain changelogs for releases.
-In addition, the project's `Confluence site <https://cwiki.apache.org/confluence/display/ARROW>`_
-has some useful higher-level views of the JIRA issues.
+.. _apache-arrow-jira:
 
-To create a JIRA issue, you'll need to have an account on the ASF JIRA, which
-you can `sign yourself up for <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
-The JIRA server hosts bugs and issues for multiple Apache projects. The JIRA
-project name for Arrow is "ARROW".
+Apache Arrow Jira
+=================
 
-You don't need any special permissions on JIRA to be able to create issues.
-Once you are more involved in the project and want to do more on JIRA, such as
-assign yourself an issue, you will need "Contributor" permissions on the
-Apache Arrow JIRA. To get this role, ask on the mailing list for a project
-maintainer's help.
+The Arrow project uses `Jira <https://issues.apache.org/jira/projects/ARROW/issues>`_
+to track issues - both bug reports and feature requests. No account or
+permissions are required to view or search Jira issues. The Jira server
+hosts issue tracking for multiple Apache projects. The Jira project name for
+Arrow is "ARROW".
 
+.. _required-permissions:
 
-.. _jira-tips:
+Required permissions
+++++++++++++++++++++
 
-Tips for using JIRA
-===================
+Any registered Apache Software Foundation (ASF) Jira account may create or
+assign Jira issues in the Apache Arrow project without additional permissions.
+Individuals may
+`create an ASF Jira account here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
+
+.. _creating-issues:
+
+Creating issues
+===============
+
+Apache Arrow relies upon community contributions to address reported bugs and
+feature requests. As with most software projects, contributor time and
+resources are finite. The following guidelines aim to produce high-quality
+bug reports and feature requests, enabling community contributors to respond
+to more issues, faster:
+
+.. _check-existing-issues:
+
+Check existing issues
++++++++++++++++++++++
 
 Before you create a new issue, we recommend you first
 `search <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20resolution%20%3D%20Unresolved>`_
-among existing Arrow issues.
+for unresolved existing issues identifying the same problem or feature request.
 
-When reporting a new issue, follow these conventions to help make sure the
-right people see it:
+.. _describe-issue:
 
-* Use the **Component** field to indicate the area of the project that your
-  issue pertains to (for example "Python" or "C++").
-* Also prefix the issue title with the component name in brackets, for example
-  ``[Python] issue name`` ; this helps when navigating lists of open issues,
-  and it also makes our changelogs more readable. Most prefixes are exactly the 
-  same as the **Component** name, with the following exceptions:
+Issue description
++++++++++++++++++
 
-  * **Component:** Continuous Integration — **Summary prefix:** [CI]
-  * **Component:** Developer Tools — **Summary prefix:** [Dev]
-  * **Component:** Documentation — **Summary prefix:** [Docs]
-
-* If you're reporting something that used to work in a previous version
-  but doesn't work in the current release, you can add the "Affects version"
-  field. For feature requests and other proposals, "Affects version" isn't
-  appropriate.
-
-Project maintainers may later tweak formatting and labels to help improve their
-visibility. They may add a "Fix version" to indicate that they're considering
-it for inclusion in the next release, though adding that tag is not a
-commitment that it will be done in the next release.
-
-.. _bug-report-tips:
-
-Tips for successful bug reports
-================================
-
-No one likes having bugs in their software, and in an ideal world, all bugs
-would get fixed as soon as they were reported. However, time and attention are
-finite, especially in an open-source project where most contributors are
-participating in their spare time. All contributors in Apache projects are
-volunteers and act as individuals, even if they are contributing to the project
-as part of their job responsibilities.
-
-In order for your bug to get prompt
-attention, there are things you can do to make it easier for contributors to
-reproduce and fix it.
-**When you're reporting a bug, please help us understand the issue by providing,
-to the best of your ability,**
+A clear description of the problem or requested feature is the most important
+element of any issue.  An effective description helps developers understand
+and efficiently engage on reported issues, and may include the following:
 
 * **Clear, minimal steps to reproduce the issue, with as few non-Arrow
   dependencies as possible.** If there's a problem on reading a file, try to
@@ -103,13 +85,15 @@ to the best of your ability,**
 * Any relevant operating system, language, and library version information
 * If it isn't obvious, clearly state the expected behavior and what actually
   happened.
+* Avoid overloading a single issue with multiple problems or feature requests.
+  Each issue should deal with a single bug or feature.
 
 If a developer can't get a failing unit test, they won't be able to know that
 the issue has been identified, and they won't know when it has been fixed.
 Try to anticipate the questions you might be asked by someone working to
 understand the issue and provide those supporting details up front.
 
-Good reproducible examples or minimal bug reports can be found in next tabs:
+Examples of good bug reports are found below:
 
 .. tab-set::
 
@@ -186,10 +170,104 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
          #> 1 rows x 1 columns
          #> $x <timestamp[ns]>
 
-
-Other resources:
+Other resources for producing useful bug reports:
 
 * `Python: Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
 * `R: Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 * `R: Tidyverse's Reprex do's and don'ts <https://reprex.tidyverse.org/articles/reprex-dos-and-donts.html>`_
 * `Mozilla's bug-reporting guidelines <https://developer.mozilla.org/en-US/docs/Mozilla/QA/Bug_writing_guidelines>`_
+
+.. _identify-component:
+
+Identify Arrow component
+++++++++++++++++++++++++
+
+Arrow is an expansive project supporting many languages and organized into a
+number of components. Identifying the affected component(s) helps new issues
+get attention from appropriate contributors.
+
+* Use the **Component** field to indicate the area of the project that your
+  issue pertains to (for example "Python" or "C++").
+* Also prefix the issue title with the component name in brackets, for example
+  ``[Python] issue summary`` ; this helps when navigating lists of open issues,
+  and it also makes our changelogs more readable. Most prefixes are exactly the
+  same as the **Component** name, with the following exceptions:
+
+  * **Component:** Continuous Integration — **Summary prefix:** [CI]
+  * **Component:** Developer Tools — **Summary prefix:** [Dev]
+  * **Component:** Documentation — **Summary prefix:** [Docs]
+
+.. _affected-version:
+
+Identify affected version
++++++++++++++++++++++++++
+
+If you're reporting something that used to work in a previous version
+but doesn't work in the current release, you can add the **Affects version**
+field to identify the earliest known version where the bug is observed.
+For feature requests and other proposals, leave **Affects version** empty as
+it is not applicable.
+
+.. _issue-lifecycle:
+
+Issue lifecycle
+===============
+
+Both bug reports and feature requests follow a defined lifecycle. The issue
+**Status** field is used to document the current state of the issue, while the
+**Resolution** field indicates the outcome of issues that have reached
+terminal status. 
+
+
+.. _issue-status:
+
+Issue Status
+++++++++++++
+
+The Arrow project uses the following statuses in Jira to indicate what has -
+and will be - done on an issue:
+
+* **Open** - This is the initial issue state, prior to a contributor assigning
+  the issue and starting progress. Issues in this state should be unassigned.
+* **In progress** - At the time a contributor self-assigns an issue, the status
+  should be set to In progress by clicking the **Start progress** button. All
+  issues in this status should have an assignee - unassigned issues will be
+  set back to a status of Open. Issues remain "in progress" until resolved or
+  closed, including during review of pull requests.
+* **Resolved** - This is a terminal status indicating action has been taken
+  on the issue, which is now considered completed. Issues in a resolved status
+  should have a resolution code set to **Fixed**.
+* **Closed** - Another terminal status, Closed indicates the issue is complete,
+  but *without* action being taken. The following resolution codes apply to
+  issues in Closed status:
+
+  * Won't Fix
+  * Duplicate
+  * Invalid
+  * Incomplete
+  * Cannot Reproduce
+  * Not a Problem
+  * Not a Bug
+  * Workaround
+  * Information Provided
+  * Works for Me
+  * Won't Do
+  * Abandoned
+
+* **Reopened** - When an issue has been closed or resolved, but additional
+  attention is needed, it may be reopened.
+
+
+.. _issue-assignment:
+
+Issue assignment
+++++++++++++++++
+
+Assignment signals commitment to work on an issue, and contributors should
+self-assign issues when that work starts. At the same time the issue is
+assigned, the status field should be updated to **In Progress**.
+
+The Arrow project relies upon community contributors to resolve issues. We
+recognize that priorities and plans may change, resulting in an issue assigned
+to an individual who cannot attend to it. Assigned issues without updates in
+the past 90 days will be unassigned and set to **Open** status.

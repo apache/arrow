@@ -266,6 +266,7 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 	}
 
 	var out *big.Float
+	var tmp big.Int
 
 	switch v := t.(type) {
 	case float64:
@@ -275,12 +276,12 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		// what got me the closest equivalent values with the values
 		// that I tested with, and there isn't a good way to push
 		// an option all the way down here to control it.
-		out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
 	case json.Number:
-		out, _, err = big.ParseFloat(v.String(), 10, 128, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v.String(), 10, 127, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
@@ -295,7 +296,7 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 	}
 
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(nil)
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(&tmp)
 	b.Append(decimal128.FromBigInt(val))
 	return nil
 }

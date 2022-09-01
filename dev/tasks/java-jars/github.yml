@@ -28,7 +28,11 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ Libs
-        run: archery docker run java-jni-manylinux-2014
+        run: |
+          archery docker run \
+            -e ARROW_JAVA_BUILD=OFF \
+            -e ARROW_JAVA_TEST=OFF \
+            java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
@@ -61,6 +65,9 @@ jobs:
           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
           brew uninstall aws-sdk-cpp
+      - name: Setup ccache
+        run: |
+          arrow/ci/scripts/ccache_setup.sh
       - name: Build C++ Libs
         run: |
           set -e
@@ -100,11 +107,13 @@ jobs:
           test -f arrow/java-dist/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.dylib
+          test -f arrow/java-dist/libplasma_java.dylib
           test -f arrow/java-dist/libarrow_orc_jni.dylib
           test -f arrow/java-dist/libarrow_cdata_jni.so
           test -f arrow/java-dist/libarrow_dataset_jni.so
           test -f arrow/java-dist/libarrow_orc_jni.so
           test -f arrow/java-dist/libgandiva_jni.so
+          test -f arrow/java-dist/libplasma_java.so
       - name: Build Bundled Jar
         run: |
           set -e

@@ -21,16 +21,16 @@
 #
 # This config sets the following targets in your project::
 #
-#   arrow_cuda_shared - for linked as shared library if shared library is built
-#   arrow_cuda_static - for linked as static library if static library is built
+#   ArrowCUDA::arrow_cuda_shared - for linked as shared library if shared library is built
+#   ArrowCUDA::arrow_cuda_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET arrow_cuda_shared OR TARGET arrow_cuda_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowCUDATargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowCUDATargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowCUDA arrow_cuda)
+
+check_required_components(ArrowCUDA)
