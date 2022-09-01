@@ -80,6 +80,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   std::unique_ptr<FileOutputStreamImpl> impl_;
 };
 
+#if defined(__linux__)
 /// \brief An operating system file open in write-only and O_DIRECT mode, only works on
 /// Linux.
 class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
@@ -88,8 +89,6 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
 
   /// \brief Open a local file for writing, truncating any existing file
   /// \param[in] path with UTF8 encoding
-  /// \param[in] append append to existing file, otherwise truncate to 0 bytes
-  /// \return an open FileOutputStream
   ///
   /// When opening a new file, any existing file with the indicated path is
   /// truncated to 0 bytes, deleting any existing data
@@ -98,11 +97,12 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   /// \brief Open a file descriptor for writing.  The underlying file isn't
   /// truncated.
   /// \param[in] fd file descriptor
+  /// \param[in] sector_size the physical disk sector size hosting this fd
   /// \return an open FileOutputStream
   ///
   /// The file descriptor becomes owned by the OutputStream, and will be closed
   /// on Close() or destruction.
-  static Result<std::shared_ptr<DirectFileOutputStream>> Open(int fd);
+  static Result<std::shared_ptr<DirectFileOutputStream>> Open(int fd, int sector_size);
 
   // OutputStream interface
   Status Close() override;
@@ -118,14 +118,16 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   int file_descriptor() const;
 
  private:
-  DirectFileOutputStream();
+  DirectFileOutputStream(int sector_size);
 
   class ARROW_NO_EXPORT DirectFileOutputStreamImpl;
   std::unique_ptr<DirectFileOutputStreamImpl> impl_;
+  int sector_size_ = 0;
   std::vector<uint8_t> cached_data_;
   uint8_t* aligned_cached_data_;
   int64_t cached_length_ = 0;
 };
+#endif
 
 /// \brief An operating system file open in read-only mode.
 ///

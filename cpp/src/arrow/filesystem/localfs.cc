@@ -20,6 +20,9 @@
 #include <memory>
 #include <sstream>
 #include <utility>
+#if defined(__linux__)
+#include <unistd.h>
+#endif
 
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
@@ -684,7 +687,12 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   int raw_fd = fd.Detach();
   Result<std::shared_ptr<io::OutputStream>> maybe_stream;
   if (direct) {
-    maybe_stream = io::DirectFileOutputStream::Open(raw_fd);
+#if defined(__linux__)
+    int sector_size = pathconf(path.c_str(), _PC_REC_XFER_ALIGN);
+    maybe_stream = io::DirectFileOutputStream::Open(raw_fd, sector_size);
+#else
+    return Status::NotImplemented("Direct IO only works on Linux");
+#endif
   } else {
     maybe_stream = io::FileOutputStream::Open(raw_fd);
   }

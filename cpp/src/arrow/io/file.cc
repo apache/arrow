@@ -380,10 +380,11 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // DirectFileOutputStream, change the Open, Write and Close methods from FileOutputStream
-// Uses DirectIO for writes. Will only write out things in 4096 byte blocks. Buffers
-// leftover bytes in an internal data structure, which will be padded to 4096 bytes and
-// flushed upon call to close.
+// Uses DirectIO for writes. Will only write out things in disk-sector-size byte blocks.
+// Buffers leftover bytes in an internal data structure, which will be padded to
+// disk-sector-size bytes and written upon call to close.
 
+#if defined(__linux__)
 class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
  public:
   Status Open(const std::string& path) {
@@ -392,12 +393,12 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
   Status Open(int fd) { return OpenWritable(fd); }
 };
 
-DirectFileOutputStream::DirectFileOutputStream() {
-  uintptr_t mask = (uintptr_t)(4095);
-
-  cached_data_.reserve(4096 + 4095);
+DirectFileOutputStream::DirectFileOutputStream(int sector_size) {
+  sector_size_ = sector_size;
+  uintptr_t mask = (uintptr_t)(sector_size - 1);
+  cached_data_.reserve(sector_size * 2 - 1);
   aligned_cached_data_ = reinterpret_cast<uint8_t*>(
-      reinterpret_cast<uintptr_t>(&cached_data_[0] + 4095) & ~(mask));
+      reinterpret_cast<uintptr_t>(&cached_data_[0] + sector_size - 1) & ~(mask));
 
   impl_.reset(new DirectFileOutputStreamImpl());
 }
@@ -406,41 +407,35 @@ DirectFileOutputStream::~DirectFileOutputStream() { internal::CloseFromDestructo
 
 Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
     const std::string& path) {
-#if defined(__linux__)
-  auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
+  auto stream = std::shared_ptr<DirectFileOutputStream>(
+      new DirectFileOutputStream(pathconf(path.c_str(), _PC_REC_XFER_ALIGN)));
   RETURN_NOT_OK(stream->impl_->Open(path));
   return stream;
-#else
-  return Status::NotImplemented("Direct IO only works on Linux.");
-#endif
 }
 
-Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int fd) {
-  auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
-#if defined(__linux__)
+Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
+    int fd, int sector_size) {
+  auto stream =
+      std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream(sector_size));
   RETURN_NOT_OK(stream->impl_->Open(fd));
   return stream;
-#else
-  return Status::NotImplemented("Direct IO only works on Linux.");
-#endif
 }
 
 Status DirectFileOutputStream::Close() {
   // some operations will call Close() on a file that is not open. In which case don't do
   // all this.
-#if defined(__linux__)
   if (!closed()) {
     // have to flush out the temprorary data, but then trim the file
     if (cached_length_ > 0) {
-      std::memset(aligned_cached_data_ + cached_length_, 0, 4096 - cached_length_);
-      RETURN_NOT_OK(impl_->Write(aligned_cached_data_, 4096));
+      std::memset(aligned_cached_data_ + cached_length_, 0,
+                  sector_size_ - cached_length_);
+      RETURN_NOT_OK(impl_->Write(aligned_cached_data_, sector_size_));
     }
     ARROW_ASSIGN_OR_RAISE(auto file_pos, impl_->Tell());
-    auto new_length = file_pos - 4096 + cached_length_;
-    fsync(impl_->fd());
+    auto new_length = file_pos - sector_size_ + cached_length_;
+    // fsync(impl_->fd());
     ftruncate(impl_->fd(), new_length);
   }
-#endif
   cached_length_ = 0;
   return impl_->Close();
 }
@@ -455,19 +450,19 @@ Result<int64_t> DirectFileOutputStream::Tell() const {
 Status DirectFileOutputStream::Write(const void* data, int64_t length) {
   RETURN_NOT_OK(impl_->CheckClosed());
 
-  if (cached_length_ + length < 4096) {
+  if (cached_length_ + length < sector_size_) {
     std::memcpy(aligned_cached_data_ + cached_length_, data, length);
     cached_length_ += length;
     return Status::OK();
   }
 
-  auto bytes_to_write = (cached_length_ + length) / 4096 * 4096;
+  auto bytes_to_write = (cached_length_ + length) / sector_size_ * sector_size_;
   auto bytes_leftover = cached_length_ + length - bytes_to_write;
-  uintptr_t mask = (uintptr_t)(4095);
+  uintptr_t mask = (uintptr_t)(sector_size_ - 1);
   std::vector<uint8_t> mem;
-  mem.reserve(bytes_to_write + 4095);
-  uint8_t* new_ptr =
-      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(&mem[0] + 4095) & ~(mask));
+  mem.reserve(bytes_to_write + sector_size_ - 1);
+  uint8_t* new_ptr = reinterpret_cast<uint8_t*>(
+      reinterpret_cast<uintptr_t>(&mem[0] + sector_size_ - 1) & ~(mask));
   std::memcpy(new_ptr, aligned_cached_data_, cached_length_);
   std::memcpy(new_ptr + cached_length_, data, bytes_to_write - cached_length_);
   std::memset(aligned_cached_data_, 0, cached_length_);  // this is not required.
@@ -480,6 +475,8 @@ Status DirectFileOutputStream::Write(const void* data, int64_t length) {
 }
 
 int DirectFileOutputStream::file_descriptor() const { return impl_->fd(); }
+
+#endif
 
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile
