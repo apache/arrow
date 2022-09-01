@@ -28,6 +28,10 @@
 #  thrift::thrift, a library target to use Thrift
 #  thrift::compiler, a executable target to use Thrift compiler
 
+if(Thrift_FOUND)
+  return()
+endif()
+
 function(EXTRACT_THRIFT_VERSION)
   if(THRIFT_INCLUDE_DIR)
     file(READ "${THRIFT_INCLUDE_DIR}/thrift/config.h" THRIFT_CONFIG_H_CONTENT)

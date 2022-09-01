@@ -50,10 +50,6 @@
 #include "arrow/json/api.h"  // IWYU pragma: keep
 #endif
 
-#ifdef ARROW_PYTHON
-#include "arrow/python/api.h"  // IWYU pragma: keep
-#endif
-
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."
 #endif

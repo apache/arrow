@@ -16,44 +16,60 @@
 # under the License.
 
 {% import 'macros.jinja' as macros with context %}
+{% set is_fork = macros.is_fork %}
 
 {{ macros.github_header() }}
 
 jobs:
   autobrew:
-    name: "Autobrew"
-    runs-on: macOS-10.15
+    name: "Autobrew {{ "${{ matrix.platform }}" }}"
+    runs-on: {{ "${{ matrix.platform }}" }}
+    strategy:
+      fail-fast: false
+      matrix:
+          platform:
+            - macos-11
+            - macos-10.13 # self-hosted
+          r-version:
+            - {{ macros.r_release }}
+            - {{ macros.r_oldrel }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-
       - name: Configure autobrew script
         run: |
+          # minio is pre-installed on the self-hosted 10.13 runer
+          if [ {{ '${{ matrix.platform }}' }} != macos-10.13  ]; then
+            # install minio for tests
+            brew install minio
+          fi
           cd arrow/r
-          # Put the formula inside r/ so that it's included in the package build
-          cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-          # Pin the current commit in the formula to test so that we're not always pulling from master
-          sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", :revision => "{{ arrow.head }}"@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
-          # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
-          sed -i.bak -E -e 's@.git.git@.git@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
-          # Get minio for S3 testing
-          brew install minio
-      - uses: r-lib/actions/setup-r@v1
-      - name: Install dependencies
+          {{ macros.pin_brew_formulae(is_fork)|indent }}
+      - uses: r-lib/actions/setup-r@v2
+        if: matrix.platform != 'macos-10.13'
+        with:
+          r-version: {{ '${{ matrix.r-version }}' }}
+          use-public-rspm: true
+      - name: Setup R
+        if: matrix.platform == 'macos-10.13'
         run: |
-          install.packages("remotes")
-          remotes::install_deps("arrow/r", dependencies = TRUE)
-          remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
-        shell: Rscript {0}
-      - name: Session info
-        run: |
-          options(width = 100)
-          pkgs <- installed.packages()[, "Package"]
-          sessioninfo::session_info(pkgs, include_base = TRUE)
-        shell: Rscript {0}
+          # rig is a system utility that allows for switching
+          # between pre-installed R version on the self-hosted runners
+          rig default {{ '${{ matrix.r-version }}' }}
+          rig system setup-user-lib
+          rig system add-pak 
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: 'arrow/r'
+          extra-packages: |
+            any::rcmdcheck
+            any::sys
+            any::readr
       - name: Check
         env:
           _R_CHECK_CRAN_INCOMING_: false
+          NOT_CRAN: true
           ARROW_USE_PKG_CONFIG: false
+          ARROW_R_DEV: true
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

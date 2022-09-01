@@ -186,7 +186,7 @@ jobs:
         run: ci/scripts/go_test.sh $(pwd)
 
   macos:
-    name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
+    name: AMD64 macOS 11 Go ${{ matrix.go }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
@@ -221,7 +221,7 @@ jobs:
         run: ci/scripts/go_test.sh $(pwd)
 
   macos-cgo:
-    name: AMD64 MacOS 10.15 Go ${{ matrix.go }} - CGO
+    name: AMD64 macOS 11 Go ${{ matrix.go }} - CGO
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

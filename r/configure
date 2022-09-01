@@ -229,7 +229,7 @@ echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   # Check for features
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
-  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
+  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/Arrow/ArrowOptions.cmake"
 
   arrow_built_with() {
     # Function to check cmake options for features

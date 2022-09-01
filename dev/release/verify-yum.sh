@@ -250,12 +250,6 @@ if [ "${have_flight}" = "yes" ]; then
   echo "::endgroup::"
 fi
 
-if [ "${have_python}" = "yes" ]; then
-  echo "::group::Test libarrow-python"
-  ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
-  echo "::endgroup::"
-fi
-
 echo "::group::Test Plasma"
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
