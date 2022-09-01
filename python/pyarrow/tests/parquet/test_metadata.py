@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import io
 import datetime
 import decimal
 from collections import OrderedDict
@@ -433,7 +434,7 @@ def test_write_metadata(tempdir):
     assert parquet_meta_mult.num_row_groups == 2
 
     # append metadata with different schema raises an error
-    with pytest.raises(RuntimeError, match="requires equal schemas"):
+    with pytest.raises(RuntimeError, match="These two columns differ:"):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
             path, metadata_collector=[parquet_meta, parquet_meta]
@@ -580,3 +581,30 @@ def test_metadata_equals():
     match = "Argument 'other' has incorrect type"
     with pytest.raises(TypeError, match=match):
         original_metadata.equals(None)
+
+
+@pytest.mark.parametrize("t1,t2,expected", (
+    ({'col1': range(10)}, {'col1': range(10)}, None),
+    ({'col1': range(10)}, {'col2': range(10)}, "These two columns differ:"),
+    ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
+     "This schema has 2 columns, other has 1")
+))
+def test_metadata_append_row_groups_diff(t1, t2, expected):
+    table1 = pa.table(t1)
+    table2 = pa.table(t2)
+
+    buf1 = io.BytesIO()
+    buf2 = io.BytesIO()
+    pq.write_table(table1, buf1)
+    pq.write_table(table2, buf2)
+    buf1.seek(0)
+    buf2.seek(0)
+
+    meta1 = pq.ParquetFile(buf1).metadata
+    meta2 = pq.ParquetFile(buf2).metadata
+
+    if expected:
+        with pytest.raises(RuntimeError, match=expected):
+            meta1.append_row_groups(meta2)
+    else:
+        meta1.append_row_groups(meta2)
