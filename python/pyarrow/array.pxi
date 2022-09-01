@@ -2479,6 +2479,53 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
+    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
+                     int64_t null_count=-1, int64_t offset=0):
+        """
+        Construct a DictionaryArray from buffers.
+
+        Parameters
+        ----------
+        type : pyarrow.DataType
+        length : int
+            The number of values in the array.
+        buffers : List[Buffer]
+            The buffers backing the indices array.
+        dictionary : pyarrow.Array, ndarray or pandas.Series
+            The array of values referenced by the indices.
+        null_count : int, default -1
+            The number of null entries in the indices array. Negative value means that
+            the null count is not known.
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer.
+
+        Returns
+        -------
+        dict_array : DictionaryArray
+        """
+        cdef:
+            vector[shared_ptr[CBuffer]] c_buffers
+            shared_ptr[CDataType] c_type
+            shared_ptr[CArrayData] c_data
+            shared_ptr[CArray] c_result
+
+        for buf in buffers:
+            c_buffers.push_back(pyarrow_unwrap_buffer(buf))
+
+        c_type = pyarrow_unwrap_data_type(type)
+
+        with nogil:
+            c_data = CArrayData.Make(
+                c_type, length, c_buffers, null_count, offset)
+            c_data.get().dictionary = dictionary.sp_array.get().data()
+            c_result.reset(new CDictionaryArray(c_data))
+
+        cdef Array result = pyarrow_wrap_array(c_result)
+        result.validate()
+        return result
+
+    @staticmethod
     def from_arrays(indices, dictionary, mask=None, bint ordered=False,
                     bint from_pandas=False, bint safe=True,
                     MemoryPool memory_pool=None):

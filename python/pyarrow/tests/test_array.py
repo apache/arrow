@@ -725,6 +725,15 @@ def test_struct_array_from_chunked():
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
+@pytest.mark.parametrize("offset", (0, 1))
+def test_dictionary_from_buffers(offset):
+    a = pa.array(["one", "two", "three", "two", "one"]).dictionary_encode()
+    b = pa.DictionaryArray.from_buffers(a.type, len(a)-offset,
+                                        a.indices.buffers(), a.dictionary,
+                                        offset=offset)
+    assert a[offset:] == b
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
