@@ -212,7 +212,9 @@ struct TempDataGenerator {
 
     std::string toReplace("/T//");
     size_t pos = data_file_path.find(toReplace);
-    data_file_path.replace(pos, toReplace.length(), "/T/");
+    if (pos >= 0) {
+      data_file_path.replace(pos, toReplace.length(), "/T/");
+    }
 
     ARROW_EXPECT_OK(WriteParquetData(data_file_path, filesystem, input_table));
     return Status::OK();
