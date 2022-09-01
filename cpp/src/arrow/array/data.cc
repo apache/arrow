@@ -317,8 +317,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     } else if (type_id == Type::LARGE_LIST) {
       SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
                                    value_length);
-    } else if (type_id == Type::RUN_LENGTH_ENCODED) {
-      assert(false);  // TODO: implement for RLE
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
