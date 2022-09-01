@@ -300,26 +300,29 @@ Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_w
                           bool allocate_validity, ArrayData* out) {
   // Preallocate memory
   out->buffers.resize(1);
-  out->child_data.resize(1);
+  out->child_data.resize(2);
 
-  auto child = std::make_shared<ArrayData>(
+  auto values_array = std::make_shared<ArrayData>(
       checked_cast<RunLengthEncodedType&>(*out->type).encoded_type(), physical_length);
-  child->buffers.resize(2);
-  // child.length = physical_length;
-
-  ARROW_ASSIGN_OR_RAISE(out->buffers[0],
-                        ctx->Allocate(physical_length * sizeof(int64_t)));
+  values_array->buffers.resize(2);
+  auto run_ends_array =
+      std::make_shared<ArrayData>(int32(), physical_length, /*null_count=*/0);
+  run_ends_array->buffers.resize(2);
 
   if (allocate_validity) {
-    ARROW_ASSIGN_OR_RAISE(child->buffers[0], ctx->AllocateBitmap(physical_length));
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[0], ctx->AllocateBitmap(physical_length));
   }
   if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(child->buffers[1], ctx->AllocateBitmap(physical_length));
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[1], ctx->AllocateBitmap(physical_length));
   } else {
-    ARROW_ASSIGN_OR_RAISE(child->buffers[1],
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[1],
                           ctx->Allocate(physical_length * bit_width / 8));
   }
-  out->child_data[0] = std::move(child);
+  ARROW_ASSIGN_OR_RAISE(run_ends_array->buffers[1],
+                        ctx->Allocate(physical_length * sizeof(int32_t)));
+
+  out->child_data[0] = std::move(run_ends_array);
+  out->child_data[1] = std::move(values_array);
   return Status::OK();
 }
 
@@ -922,27 +925,27 @@ class RLEPrimitiveFilterImpl {
                          FilterOptions::NullSelectionBehavior null_selection,
                          ArrayData* out_arr)
       : values_{values},
-        values_is_valid_(values.child_data[0].buffers[0].data),
-        values_data_(reinterpret_cast<const T*>(values.child_data[0].buffers[1].data)),
+        values_is_valid_(rle_util::ValuesArray(filter).buffers[0].data),
+        values_data_(rle_util::ValuesArray(filter).GetValues<T>(1, 0)),
         filter_{filter},
-        filter_is_valid_(filter.child_data[0].buffers[0].data),
-        filter_data_(filter.child_data[0].buffers[1].data),
+        filter_is_valid_(rle_util::ValuesArray(filter).buffers[0].data),
+        filter_data_(rle_util::ValuesArray(filter).buffers[1].data),
         null_selection_(null_selection),
         out_logical_length_(out_arr->length) {
-    if (out_arr->child_data[0]->buffers[0] != nullptr) {
+    if (out_arr->child_data[1]->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
-      out_is_valid_ = out_arr->child_data[0]->buffers[0]->mutable_data();
+      out_is_valid_ = out_arr->child_data[1]->buffers[0]->mutable_data();
     }
     assert(out_arr->offset == 0);
     out_position_ = 0;
-    out_run_length_ = out_arr->GetMutableValues<int64_t>(0, 0);
-    out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
+    out_run_ends_ = out_arr->child_data[0]->GetMutableValues<int32_t>(1);
+    out_data_ = reinterpret_cast<T*>(out_arr->child_data[1]->buffers[1]->mutable_data());
   }
 
   void Exec() {
     auto WriteNotNull = [&](int64_t in_position, int64_t run_length) {
       bit_util::SetBit(out_is_valid_, out_position_);
-      out_run_length_[out_position_] = run_length;
+      out_run_ends_[out_position_] = run_length;
       // Increments out_position_
       WriteValue(in_position, run_length);
     };
@@ -950,7 +953,7 @@ class RLEPrimitiveFilterImpl {
     auto WriteMaybeNull = [&](int64_t in_position, int64_t run_length) {
       bit_util::SetBitTo(out_is_valid_, out_position_,
                          bit_util::GetBit(values_is_valid_, in_position));
-      out_run_length_[out_position_] = run_length;
+      out_run_ends_[out_position_] = run_length;
       // Increments out_position_
       WriteValue(in_position, run_length);
     };
@@ -1037,14 +1040,14 @@ class RLEPrimitiveFilterImpl {
 
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
-  void WriteValue(int64_t in_position, int64_t run_length) {
-    out_run_length_[out_position_] = run_length;
+  void WriteValue(int64_t in_position, int64_t run_end) {
+    out_run_ends_[out_position_] = run_end;
     out_data_[out_position_++] = values_data_[in_position];
   }
 
   void WriteNull(int64_t run_length) {
     // Zero the memory
-    out_run_length_[out_position_] = run_length;
+    out_run_ends_[out_position_] = run_length;
     out_data_[out_position_++] = T{};
   }
 
@@ -1057,7 +1060,7 @@ class RLEPrimitiveFilterImpl {
   const uint8_t* filter_data_;
   FilterOptions::NullSelectionBehavior null_selection_;
   uint8_t* out_is_valid_;
-  int64_t* out_run_length_;
+  int32_t* out_run_ends_;
   T* out_data_;
   int64_t& out_logical_length_;
   int64_t out_position_;
@@ -1065,15 +1068,15 @@ class RLEPrimitiveFilterImpl {
 
 template <>
 inline void RLEPrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position,
-                                                            int64_t run_length) {
-  out_run_length_[out_position_] = run_length;
+                                                            int64_t run_end) {
+  out_run_ends_[out_position_] = run_end;
   bit_util::SetBitTo(out_data_, out_position_++,
                      bit_util::GetBit(values_data_, in_position));
 }
 
 template <>
-inline void RLEPrimitiveFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
-  out_run_length_[out_position_] = run_length;
+inline void RLEPrimitiveFilterImpl<BooleanType>::WriteNull(int64_t run_end) {
+  out_run_ends_[out_position_] = run_end;
   // Zero the bit
   bit_util::ClearBit(out_data_, out_position_++);
 }

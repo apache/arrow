@@ -228,11 +228,21 @@ class TestFilterKernel : public ::testing::Test {
 
     ARROW_SCOPED_TRACE("for run-length encoded values and filter");
     // Check RLE
+    // TODO: handle RLE filter kernel for non-primitive types
+    if (!is_primitive(values->type_id())) {
+      return;
+    }
+
     ASSERT_OK_AND_ASSIGN(auto values_rle, RunLengthEncode(values));
     ASSERT_OK_AND_ASSIGN(auto filter_rle, RunLengthEncode(filter));
     ASSERT_OK_AND_ASSIGN(auto expected_rle, RunLengthEncode(expected));
-    ASSERT_OK_AND_ASSIGN(auto values_sliced_and_rle, RunLengthEncode(values));
-    ASSERT_OK_AND_ASSIGN(auto filter_sliced_and_rle, RunLengthEncode(filter));
+
+    DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                   expected_rle.make_array());
+
+    // ASSERT_OK_AND_ASSIGN(auto values_filler_rle_nomerge,
+    // RunLengthEncode(values_filler)); ASSERT_OK_AND_ASSIGN(auto
+    // values_filler_rle_nomerge, RunLengthEncode(filter_filler));
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
