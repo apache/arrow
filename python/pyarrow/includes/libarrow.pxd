@@ -250,6 +250,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CDictionaryArray(const shared_ptr[CDataType]& type,
                          const shared_ptr[CArray]& indices,
                          const shared_ptr[CArray]& dictionary)
+        CDictionaryArray(const shared_ptr[CArrayData]& data)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
