@@ -119,7 +119,7 @@ to step 3:
 
    - **TravisCI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
-     - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
+     - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default.
 
    - **Appveyor**: ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
 
