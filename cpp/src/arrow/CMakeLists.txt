@@ -140,6 +140,7 @@ set(ARROW_SRCS
     array/array_binary.cc
     array/array_decimal.cc
     array/array_dict.cc
+    array/array_encoded.cc
     array/array_nested.cc
     array/array_primitive.cc
     array/builder_adaptive.cc
@@ -396,7 +397,6 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join.cc
        compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
-       compute/exec/ir_consumer.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/order_by_impl.cc
@@ -702,6 +702,7 @@ add_arrow_test(array_test
                array/array_test.cc
                array/array_binary_test.cc
                array/array_dict_test.cc
+               array/array_encoded_test.cc
                array/array_list_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc

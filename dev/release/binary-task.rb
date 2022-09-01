@@ -803,6 +803,7 @@ class BinaryTask
     define_docs_tasks
     define_nuget_tasks
     define_python_tasks
+    define_r_tasks
     define_summary_tasks
   end
 
@@ -1899,6 +1900,67 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "{python-sdist,wheel-*}/**/*")
   end
 
+  def define_r_rc_tasks(label, id, rc_dir)
+    directory rc_dir
+
+    namespace id do
+      namespace :rc do
+        desc "Prepare #{label} packages"
+        task :prepare => rc_dir do
+          progress_label = "Preparing #{label}"
+          progress_reporter = ProgressReporter.new(progress_label)
+
+          pattern = "r-binary-packages/r-lib*.{zip,tgz}"
+          Pathname(artifacts_dir).glob(pattern) do |path|
+            destination_path = [
+              rc_dir,
+              # r-lib__libarrow__bin__centos-7__arrow-8.0.0.zip
+              # --> libarrow/bin/centos-7/arrow-8.0.0.zip
+              path.basename.to_s.gsub(/\Ar-lib__/, "").gsub(/__/, "/"),
+            ].join("/")
+            copy_artifact(path, destination_path, progress_reporter)
+          end
+
+          progress_reporter.finish
+        end
+
+        desc "Sign #{label} packages"
+        task :sign => rc_dir do
+          sign_dir(label, rc_dir)
+        end
+
+        desc "Upload #{label} packages"
+        task :upload do
+          uploader =
+            ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                    destination_prefix: full_version,
+                                    distribution: id.to_s,
+                                    rc: rc,
+                                    source: rc_dir,
+                                    staging: staging?)
+          uploader.upload
+        end
+      end
+
+      desc "Release RC #{label} packages"
+      rc_tasks = [
+        "#{id}:rc:prepare",
+        "#{id}:rc:sign",
+        "#{id}:rc:upload",
+      ]
+      task :rc => rc_tasks
+    end
+  end
+
+  def define_r_tasks
+    label = "R"
+    id = :r
+    r_rc_dir = "#{rc_dir}/r/#{full_version}"
+    r_release_dir = "#{release_dir}/r/#{full_version}"
+    define_r_rc_tasks(label, id, r_rc_dir)
+    define_generic_data_release_tasks(label, id, r_release_dir)
+  end
+
   def define_summary_tasks
     namespace :summary do
       desc "Show RC summary"
@@ -1914,6 +1976,7 @@ Success! The release candidate binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/r#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
         SUMMARY
       end
@@ -1931,6 +1994,7 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
+  https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
         SUMMARY
       end

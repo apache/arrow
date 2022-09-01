@@ -52,10 +52,11 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
-Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
-                                                 const ExtensionSet& ext_set) {
+Result<compute::Declaration> DeserializeRelation(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
-  ARROW_ASSIGN_OR_RAISE(auto decl_info, FromProto(rel, ext_set));
+  ARROW_ASSIGN_OR_RAISE(auto decl_info, FromProto(rel, ext_set, conversion_options));
   return std::move(decl_info.declaration);
 }
 
@@ -70,12 +71,12 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
     std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
-    if (consumer == NULLPTR) {
+    if (consumer == nullptr) {
       return Status::Invalid("consumer factory is exhausted");
     }
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::ConsumingSinkNodeOptions>(
-            compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)});
+            compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
     return compute::Declaration::Sequence(
         {std::move(input), {"consuming_sink", options}});
   };
@@ -103,7 +104,7 @@ DeclarationFactory MakeWriteDeclarationFactory(
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
     std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
-    if (options == NULLPTR) {
+    if (options == nullptr) {
       return Status::Invalid("write options factory is exhausted");
     }
     compute::Declaration projected = ProjectByNamesDeclaration(input, names);
@@ -114,7 +115,8 @@ DeclarationFactory MakeWriteDeclarationFactory(
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
-    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
@@ -123,8 +125,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
     ARROW_ASSIGN_OR_RAISE(
         auto decl_info,
-        FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(),
-                  ext_set));
+        FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(), ext_set,
+                  conversion_options));
     std::vector<std::string> names;
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
@@ -147,52 +149,61 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
-    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
   return DeserializePlans(buf, MakeConsumingSinkDeclarationFactory(consumer_factory),
-                          registry, ext_set_out);
+                          registry, ext_set_out, conversion_options);
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
   return DeserializePlans(buf, MakeWriteDeclarationFactory(write_options_factory),
-                          registry, ext_set_out);
+                          registry, ext_set_out, conversion_options);
 }
 
 namespace {
 
-Result<compute::ExecPlan> MakeSingleDeclarationPlan(
+Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
     std::vector<compute::Declaration> declarations) {
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
-    std::ignore = declarations[0].AddToPlan(plan.get());
-    return *std::move(plan);
+    ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
+    return std::move(plan);
   }
 }
 
 }  // namespace
 
-Result<compute::ExecPlan> DeserializePlan(
+Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
-    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
-  bool factory_done = false;
-  auto single_consumer = [&factory_done, &consumer] {
-    if (factory_done) {
-      return std::shared_ptr<compute::SinkNodeConsumer>{};
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
+  struct SingleConsumer {
+    std::shared_ptr<compute::SinkNodeConsumer> operator()() {
+      if (factory_done) {
+        Status::Invalid("SingleConsumer invoked more than once").Warn();
+        return std::shared_ptr<compute::SinkNodeConsumer>{};
+      }
+      factory_done = true;
+      return consumer;
     }
-    factory_done = true;
-    return consumer;
+    bool factory_done;
+    std::shared_ptr<compute::SinkNodeConsumer> consumer;
   };
   ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, single_consumer, registry, ext_set_out));
+                        DeserializePlans(buf, SingleConsumer{false, consumer}, registry,
+                                         ext_set_out, conversion_options));
   return MakeSingleDeclarationPlan(declarations);
 }
 
-Result<compute::ExecPlan> DeserializePlan(
+Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
-    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
+    const ConversionOptions& conversion_options) {
   bool factory_done = false;
   auto single_write_options = [&factory_done, &write_options] {
     if (factory_done) {
@@ -201,47 +212,55 @@ Result<compute::ExecPlan> DeserializePlan(
     factory_done = true;
     return write_options;
   };
-  ARROW_ASSIGN_OR_RAISE(auto declarations, DeserializePlans(buf, single_write_options,
-                                                            registry, ext_set_out));
+  ARROW_ASSIGN_OR_RAISE(auto declarations,
+                        DeserializePlans(buf, single_write_options, registry, ext_set_out,
+                                         conversion_options));
   return MakeSingleDeclarationPlan(declarations);
 }
 
-Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,
-                                                  const ExtensionSet& ext_set) {
+Result<std::shared_ptr<Schema>> DeserializeSchema(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<substrait::NamedStruct>(buf));
-  return FromProto(named_struct, ext_set);
+  return FromProto(named_struct, ext_set, conversion_options);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
-                                                ExtensionSet* ext_set) {
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(schema, ext_set));
+Result<std::shared_ptr<Buffer>> SerializeSchema(
+    const Schema& schema, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(schema, ext_set, conversion_options));
   std::string serialized = named_struct->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf,
-                                                  const ExtensionSet& ext_set) {
+Result<std::shared_ptr<DataType>> DeserializeType(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<substrait::Type>(buf));
-  ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type, ext_set));
+  ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type, ext_set, conversion_options));
   return std::move(type_nullable.first);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
-                                              ExtensionSet* ext_set) {
-  ARROW_ASSIGN_OR_RAISE(auto st_type, ToProto(type, /*nullable=*/true, ext_set));
+Result<std::shared_ptr<Buffer>> SerializeType(
+    const DataType& type, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(auto st_type,
+                        ToProto(type, /*nullable=*/true, ext_set, conversion_options));
   std::string serialized = st_type->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 
-Result<compute::Expression> DeserializeExpression(const Buffer& buf,
-                                                  const ExtensionSet& ext_set) {
+Result<compute::Expression> DeserializeExpression(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto expr, ParseFromBuffer<substrait::Expression>(buf));
-  return FromProto(expr, ext_set);
+  return FromProto(expr, ext_set, conversion_options);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr,
-                                                    ExtensionSet* ext_set) {
-  ARROW_ASSIGN_OR_RAISE(auto st_expr, ToProto(expr, ext_set));
+Result<std::shared_ptr<Buffer>> SerializeExpression(
+    const compute::Expression& expr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(auto st_expr, ToProto(expr, ext_set, conversion_options));
   std::string serialized = st_expr->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
@@ -320,9 +339,11 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
 
   std::string out;
   google::protobuf::io::StringOutputStream out_stream{&out};
-
+  google::protobuf::util::JsonParseOptions json_opts;
+  json_opts.ignore_unknown_fields = true;
   auto status = google::protobuf::util::JsonToBinaryStream(
-      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream);
+      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream,
+      std::move(json_opts));
 
   if (!status.ok()) {
     return Status::Invalid("JsonToBinaryStream returned ", status);

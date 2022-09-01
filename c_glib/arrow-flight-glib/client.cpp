@@ -108,10 +108,71 @@ gaflight_call_options_new(void)
     g_object_new(GAFLIGHT_TYPE_CALL_OPTIONS, NULL));
 }
 
+/**
+ * gaflight_call_options_add_header:
+ * @options: A #GAFlightCallOptions.
+ * @name: A header name.
+ * @value: A header value.
+ *
+ * Add a header.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_add_header(GAFlightCallOptions *options,
+                                 const gchar *name,
+                                 const gchar *value)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  flight_options->headers.emplace_back(name, value);
+}
+
+/**
+ * gaflight_call_options_clear_headers:
+ * @options: A #GAFlightCallOptions.
+ *
+ * Clear all headers.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_clear_headers(GAFlightCallOptions *options)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  flight_options->headers.clear();
+}
+
+/**
+ * gaflight_call_options_foreach_header:
+ * @options: A #GAFlightCallOptions.
+ * @func: (scope call): The user's callback function.
+ * @user_data: (closure): Data for @func.
+ *
+ * Iterates over all header in the options.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_foreach_header(GAFlightCallOptions *options,
+                                     GAFlightHeaderFunc func,
+                                     gpointer user_data)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  for (const auto &header : flight_options->headers) {
+    auto &key = header.first;
+    auto &value = header.second;
+    func(key.c_str(), value.c_str(), user_data);
+  }
+}
+
 
 typedef struct GAFlightClientOptionsPrivate_ {
   arrow::flight::FlightClientOptions options;
 } GAFlightClientOptionsPrivate;
+
+enum {
+  PROP_DISABLE_SERVER_VERIFICATION = 1,
+};
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClientOptions,
                            gaflight_client_options,
@@ -133,6 +194,42 @@ gaflight_client_options_finalize(GObject *object)
 }
 
 static void
+gaflight_client_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DISABLE_SERVER_VERIFICATION:
+    priv->options.disable_server_verification = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_client_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DISABLE_SERVER_VERIFICATION:
+    g_value_set_boolean(value, priv->options.disable_server_verification);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
 gaflight_client_options_init(GAFlightClientOptions *object)
 {
   auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
@@ -146,6 +243,27 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = gaflight_client_options_finalize;
+  gobject_class->set_property = gaflight_client_options_set_property;
+  gobject_class->get_property = gaflight_client_options_get_property;
+
+  auto options = arrow::flight::FlightClientOptions::Defaults();
+  GParamSpec *spec;
+  /**
+   * GAFlightClientOptions:disable-server-verification:
+   *
+   * Whether use TLS without validating the server certificate. Use
+   * with caution.
+   *
+   * Since: 9.0.0
+   */
+  spec = g_param_spec_boolean("disable-server-verification",
+                              NULL,
+                              NULL,
+                              options.disable_server_verification,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DISABLE_SERVER_VERIFICATION,
+                                  spec);
 }
 
 /**
@@ -340,6 +458,40 @@ gaflight_client_list_flights(GAFlightClient *client,
     listing = g_list_prepend(listing, info);
   }
   return g_list_reverse(listing);
+}
+
+/**
+ * gaflight_client_get_flight_info:
+ * @client: A #GAFlightClient.
+ * @descriptor: A #GAFlightDescriptor to be processed.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The returned #GAFlightInfo on
+ *   success, %NULL on error.
+ *
+ * Since: 9.0.0
+ */
+GAFlightInfo *
+gaflight_client_get_flight_info(GAFlightClient *client,
+                                GAFlightDescriptor *descriptor,
+                                GAFlightCallOptions *options,
+                                GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  auto result = flight_client->GetFlightInfo(*flight_options,
+                                             *flight_descriptor);
+  if (!garrow::check(error, result, "[flight-client][get-flight-info]")) {
+    return NULL;
+  }
+  auto flight_info = std::move(*result);
+  return gaflight_info_new_raw(flight_info.release());
 }
 
 /**

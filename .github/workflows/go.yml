@@ -50,9 +50,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
     env:
       GO: ${{ matrix.go }}
+      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -80,9 +86,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
     env:
       GO: ${{ matrix.go }}
+      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -111,9 +123,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
     env:
       GO: ${{ matrix.go }}
+      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -140,19 +158,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
-    steps:
-      - name: Install go
-        uses: actions/setup-go@v1
-        with:
-          go-version: ${{ matrix.go }}
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
+    steps:      
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum          
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
+        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -168,19 +193,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
-    steps:
-      - name: Install go
-        uses: actions/setup-go@v1
-        with:
-          go-version: ${{ matrix.go }}
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
+    steps:      
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
+        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -196,24 +228,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
+        include:
+          - go: 1.16
+            staticcheck: v0.2.2
+          - go: 1.18
+            staticcheck: latest
     env:
       ARROW_GO_TESTCGO: "1"
-    steps:
-      - name: Install go
-        uses: actions/setup-go@v1
-        with:
-          go-version: ${{ matrix.go }}
+    steps:      
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Brew Install Arrow
         shell: bash
         run: brew install apache-arrow
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
+        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -264,11 +303,13 @@ jobs:
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Install go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: '1.17'
+          go-version: '1.18'
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)

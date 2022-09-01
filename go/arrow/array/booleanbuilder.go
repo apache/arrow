@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -40,6 +40,8 @@ type BooleanBuilder struct {
 func NewBooleanBuilder(mem memory.Allocator) *BooleanBuilder {
 	return &BooleanBuilder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *BooleanBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.Boolean }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -73,6 +75,11 @@ func (b *BooleanBuilder) AppendByte(v byte) {
 func (b *BooleanBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *BooleanBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.UnsafeAppend(false)
 }
 
 func (b *BooleanBuilder) UnsafeAppend(v bool) {

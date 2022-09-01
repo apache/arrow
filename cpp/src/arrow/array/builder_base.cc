@@ -279,7 +279,7 @@ struct AppendScalarImpl {
     return Status::NotImplemented("AppendScalar for type ", type);
   }
 
-  Status Convert() { return VisitTypeInline(*(*scalars_begin_)->type, this); }
+  Status Convert() { return VisitScalarTypeInline(*(*scalars_begin_)->type, this); }
 
   const std::shared_ptr<Scalar>* scalars_begin_;
   const std::shared_ptr<Scalar>* scalars_end_;

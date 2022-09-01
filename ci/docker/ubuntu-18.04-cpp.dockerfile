@@ -98,7 +98,10 @@ RUN apt-get update -y -q && \
 # - thrift is too old
 # - utf8proc is too old(v2.1.0)
 # - s3 tests would require boost-asio that is included since Boost 1.66.0
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \

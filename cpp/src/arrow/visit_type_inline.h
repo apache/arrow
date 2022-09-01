@@ -55,6 +55,36 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   return Status::NotImplemented("Type not implemented");
 }
 
+/// \brief Calls `visitor` with the corresponding concrete type class. This function does
+/// the same as VisitTypeInline, except that it excludes types that can't exist as a
+/// Scalar.
+///
+/// \tparam VISITOR Visitor type that implements Visit() for Arrow types that can exist
+/// as a Scalar.
+/// \return Status
+///
+/// A visitor is a type that implements specialized logic for each Arrow type.
+/// Example usage:
+///
+/// ```
+/// class ExampleVisitor {
+///   arrow::Status Visit(const arrow::Int32Type& type) { ... }
+///   arrow::Status Visit(const arrow::Int64Type& type) { ... }
+///   ...
+/// }
+/// ExampleVisitor visitor;
+/// VisitTypeInline(some_type, &visitor);
+/// ```
+template <typename VISITOR>
+inline Status VisitScalarTypeInline(const DataType& type, VISITOR* visitor) {
+  switch (type.id()) {
+    ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(TYPE_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Type not implemented");
+}
+
 #undef TYPE_VISIT_INLINE
 
 #define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \

@@ -34,10 +34,15 @@
 /// @{
 /// @}
 
+/// \defgroup encoded-arrays Concrete classes for encoded arrays
+/// @{
+/// @}
+
 #include "arrow/array/array_base.h"       // IWYU pragma: keep
 #include "arrow/array/array_binary.h"     // IWYU pragma: keep
 #include "arrow/array/array_decimal.h"    // IWYU pragma: keep
 #include "arrow/array/array_dict.h"       // IWYU pragma: keep
+#include "arrow/array/array_encoded.h"    // IWYU pragma: keep
 #include "arrow/array/array_nested.h"     // IWYU pragma: keep
 #include "arrow/array/array_primitive.h"  // IWYU pragma: keep
 #include "arrow/array/data.h"             // IWYU pragma: keep

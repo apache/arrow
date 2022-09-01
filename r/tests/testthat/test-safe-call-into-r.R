@@ -32,7 +32,7 @@ test_that("SafeCallIntoR works from the main R thread", {
 })
 
 test_that("SafeCallIntoR works within RunWithCapturedR", {
-  skip_on_r_older_than("3.5")
+  skip_if_not(CanRunWithCapturedR())
   skip_on_cran()
 
   expect_identical(
@@ -47,16 +47,16 @@ test_that("SafeCallIntoR works within RunWithCapturedR", {
 })
 
 test_that("SafeCallIntoR errors from the non-R thread", {
-  skip_on_r_older_than("3.5")
+  skip_if_not(CanRunWithCapturedR())
   skip_on_cran()
 
   expect_error(
     TestSafeCallIntoR(function() "string one!", opt = "async_without_executor"),
-    "Call to R from a non-R thread"
+    "Call to R \\(unspecified\\) from a non-R thread"
   )
 
   expect_error(
     TestSafeCallIntoR(function() stop("an error!"), opt = "async_without_executor"),
-    "Call to R from a non-R thread"
+    "Call to R \\(unspecified\\) from a non-R thread"
   )
 })

@@ -92,6 +92,32 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			}
 		}
 		return true
+	case UnionType:
+		r := right.(UnionType)
+		if l.Mode() != r.Mode() {
+			return false
+		}
+
+		if !reflect.DeepEqual(l.ChildIDs(), r.ChildIDs()) {
+			return false
+		}
+
+		for i := range l.Fields() {
+			leftField, rightField := l.Fields()[i], r.Fields()[i]
+			switch {
+			case leftField.Name != rightField.Name:
+				return false
+			case leftField.Nullable != rightField.Nullable:
+				return false
+			case !TypeEqual(leftField.Type, rightField.Type, opts...):
+				return false
+			case cfg.metadata && !leftField.Metadata.Equal(rightField.Metadata):
+				return false
+			case l.TypeCodes()[i] != r.TypeCodes()[i]:
+				return false
+			}
+		}
+		return true
 	default:
 		return reflect.DeepEqual(left, right)
 	}

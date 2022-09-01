@@ -103,7 +103,7 @@ struct _GAFlightSQLServerClass
   GAFlightDataStream *(*do_get_statement)(
     GAFlightSQLServer *server,
     GAFlightServerCallContext *context,
-    GAFlightSQLStatementQueryTicket *command,
+    GAFlightSQLStatementQueryTicket *ticket,
     GError **error);
 };
 
@@ -120,7 +120,7 @@ GAFlightDataStream *
 gaflightsql_server_do_get_statement(
   GAFlightSQLServer *server,
   GAFlightServerCallContext *context,
-  GAFlightSQLStatementQueryTicket *command,
+  GAFlightSQLStatementQueryTicket *ticket,
   GError **error);
 
 G_END_DECLS

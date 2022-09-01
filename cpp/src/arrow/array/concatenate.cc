@@ -436,6 +436,10 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("concatenation of ", type);
+  }
+
   Status Visit(const ExtensionType& e) {
     // XXX can we just concatenate their storage?
     return Status::NotImplemented("concatenation of ", e);

@@ -624,21 +624,29 @@ TEST(TimestampConversion, UserDefinedParsers) {
                                            {{86400000}, {172800000}}, options);
 }
 
-#ifndef _WIN32
 TEST(TimestampConversion, UserDefinedParsersWithZone) {
   auto options = ConvertOptions::Defaults();
   auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
 
   // Test a single parser
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
-  AssertConversion<TimestampType, int64_t>(type, {"01/02/1970 +0000,01/03/1970 +0000\n"},
-                                           {{86400}, {172800}}, options);
+  if (internal::kStrptimeSupportsZone) {
+    AssertConversion<TimestampType, int64_t>(
+        type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {{86400}, {172800}}, options);
+  } else {
+    AssertConversionError(type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {0, 1}, options);
+  }
 
   // Test multiple parsers
   options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
-  AssertConversion<TimestampType, int64_t>(
-      type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {{86400}, {172800}},
-      options);
+  if (internal::kStrptimeSupportsZone) {
+    AssertConversion<TimestampType, int64_t>(
+        type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {{86400}, {172800}},
+        options);
+  } else {
+    AssertConversionError(type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {0},
+                          options);
+  }
 
   // Test errors
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y")};
@@ -646,25 +654,6 @@ TEST(TimestampConversion, UserDefinedParsersWithZone) {
   options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
   AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
 }
-#else
-// Windows uses the vendored musl strptime which doesn't support %z.
-TEST(TimestampConversion, UserDefinedParsersWithZone) {
-  auto options = ConvertOptions::Defaults();
-  auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
-
-  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
-  AssertConversionError(type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {0, 1}, options);
-
-  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
-  AssertConversionError(type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {0},
-                        options);
-
-  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y")};
-  AssertConversionError(type, {"01/02/1970,01/03/1970\n"}, {0, 1}, options);
-  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
-  AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
-}
-#endif
 
 Decimal128 Dec128(util::string_view value) {
   Decimal128 dec;

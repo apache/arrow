@@ -134,7 +134,6 @@ class IntegrationRunner(object):
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
-                skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
@@ -148,7 +147,6 @@ class IntegrationRunner(object):
 
             if prefix == '4.0.0-shareddict':
                 skip.add("C#")
-                skip.add("Go")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
@@ -432,12 +430,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip={"Rust", "Go"}
+            skip={"Rust"}
         ),
     ]
 

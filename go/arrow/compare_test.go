@@ -45,6 +45,15 @@ func TestTypeEqual(t *testing.T) {
 			&BinaryType{}, &StringType{}, false, false,
 		},
 		{
+			&LargeBinaryType{}, &LargeStringType{}, false, false,
+		},
+		{
+			BinaryTypes.LargeBinary, &LargeBinaryType{}, true, false,
+		},
+		{
+			BinaryTypes.LargeString, &LargeStringType{}, true, false,
+		},
+		{
 			&Time32Type{Unit: Second}, &Time32Type{Unit: Second}, true, false,
 		},
 		{

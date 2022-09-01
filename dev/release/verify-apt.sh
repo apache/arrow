@@ -158,6 +158,8 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow GLib"
+export G_DEBUG=fatal-warnings
+
 ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 

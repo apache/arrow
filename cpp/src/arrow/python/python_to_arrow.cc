@@ -1114,13 +1114,17 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     RETURN_IF_PYERROR();
     for (i = 0; i < n; i++) {
       PyObject* item = PyIter_Next(iter);
-      if (!item) break;
+      if (!item) {
+        // either an error occurred or the iterator ended
+        RETURN_IF_PYERROR();
+        break;
+      }
       PyList_SET_ITEM(lst, i, item);
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
       Py_DECREF(lst);
-      return Status::UnknownError("failed to resize list");
+      RETURN_IF_PYERROR();
     }
     *seq = lst;
     *size = std::min<int64_t>(i, *size);

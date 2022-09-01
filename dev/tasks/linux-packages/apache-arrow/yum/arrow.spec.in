@@ -105,7 +105,6 @@ BuildRequires:	git
 %if %{use_glog}
 BuildRequires:	glog-devel
 %endif
-BuildRequires:	jemalloc-devel
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
@@ -194,7 +193,6 @@ cd cpp
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
-  -Djemalloc_SOURCE=SYSTEM \
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
@@ -243,7 +241,6 @@ Requires:	gflags
 %if %{use_glog}
 Requires:	glog
 %endif
-Requires:	jemalloc
 %if %{have_zstd}
 Requires:	libzstd
 %endif
@@ -275,7 +272,6 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
-Requires:	jemalloc-devel
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -323,7 +319,6 @@ Libraries and header files for Apache Arrow C++.
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
-%{_libdir}/cmake/arrow/Findjemalloc.cmake
 %{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
@@ -1019,6 +1014,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Fri Jul 29 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 9.0.0-1
+- New upstream release.
+
 * Tue May 03 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 8.0.0-1
 - New upstream release.
 

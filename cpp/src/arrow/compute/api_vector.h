@@ -211,13 +211,6 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
-class ARROW_EXPORT RunLengthEncodeOptions : public FunctionOptions {
- public:
-  explicit RunLengthEncodeOptions();
-  static constexpr char const kTypeName[] = "RunLengthEncodeOptions";
-  static RunLengthEncodeOptions Defaults() { return RunLengthEncodeOptions(); }
-};
-
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:

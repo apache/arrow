@@ -22,7 +22,7 @@ build_features <- c(
 )
 
 force_tests <- function() {
-  identical(tolower(Sys.getenv("ARROW_R_force_tests()")), "true")
+  identical(tolower(Sys.getenv("ARROW_R_FORCE_TESTS")), "true")
 }
 
 skip_if_not_available <- function(feature) {

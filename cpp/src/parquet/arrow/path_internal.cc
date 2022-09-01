@@ -802,6 +802,10 @@ class PathBuilder {
     return Status::OK();
   }
 
+  Status Visit(const ::arrow::RunLengthEncodedArray& array) {
+    return Status::NotImplemented("arrow rle array in Parquet");
+  }
+
   Status Visit(const ::arrow::FixedSizeListArray& array) {
     MaybeAddNullable(array);
     int32_t list_size = array.list_type()->list_size();

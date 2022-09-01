@@ -322,7 +322,7 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
 class S3RegionResolutionTest : public AwsTestMixin {};
 
 TEST_F(S3RegionResolutionTest, PublicBucket) {
-  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("ursa-labs-taxi-data"));
+  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("voltrondata-labs-datasets"));
 
   // Taken from a registry of open S3-hosted datasets
   // at https://github.com/awslabs/open-data-registry

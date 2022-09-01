@@ -561,38 +561,35 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status BuildHashTable_exec_task(size_t thread_index, int64_t /*task_id*/) {
     AccumulationQueue batches = std::move(build_batches_);
-    if (batches.empty()) {
-      hash_table_empty_ = true;
-    } else {
-      dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_);
-      bool has_payload = (schema_[1]->num_cols(HashJoinProjection::PAYLOAD) > 0);
-      if (has_payload) {
-        InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_);
-      }
-      hash_table_empty_ = true;
-      for (size_t ibatch = 0; ibatch < batches.batch_count(); ++ibatch) {
-        if (cancelled_) {
-          return Status::Cancelled("Hash join cancelled");
-        }
-        const ExecBatch& batch = batches[ibatch];
-        if (batch.length == 0) {
-          continue;
-        } else if (hash_table_empty_) {
-          hash_table_empty_ = false;
+    dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_);
+    bool has_payload = (schema_[1]->num_cols(HashJoinProjection::PAYLOAD) > 0);
+    if (has_payload) {
+      InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_);
+    }
+    hash_table_empty_ = true;
 
-          RETURN_NOT_OK(dict_build_.Init(*schema_[1], &batch, ctx_));
-        }
-        int32_t num_rows_before = hash_table_keys_.num_rows();
-        RETURN_NOT_OK(dict_build_.EncodeBatch(thread_index, *schema_[1], batch,
-                                              &hash_table_keys_, ctx_));
-        if (has_payload) {
-          RETURN_NOT_OK(
-              EncodeBatch(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_, batch));
-        }
-        int32_t num_rows_after = hash_table_keys_.num_rows();
-        for (int32_t irow = num_rows_before; irow < num_rows_after; ++irow) {
-          hash_table_.insert(std::make_pair(hash_table_keys_.encoded_row(irow), irow));
-        }
+    for (size_t ibatch = 0; ibatch < batches.batch_count(); ++ibatch) {
+      if (cancelled_) {
+        return Status::Cancelled("Hash join cancelled");
+      }
+      const ExecBatch& batch = batches[ibatch];
+      if (batch.length == 0) {
+        continue;
+      } else if (hash_table_empty_) {
+        hash_table_empty_ = false;
+
+        RETURN_NOT_OK(dict_build_.Init(*schema_[1], &batch, ctx_));
+      }
+      int32_t num_rows_before = hash_table_keys_.num_rows();
+      RETURN_NOT_OK(dict_build_.EncodeBatch(thread_index, *schema_[1], batch,
+                                            &hash_table_keys_, ctx_));
+      if (has_payload) {
+        RETURN_NOT_OK(
+            EncodeBatch(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_, batch));
+      }
+      int32_t num_rows_after = hash_table_keys_.num_rows();
+      for (int32_t irow = num_rows_before; irow < num_rows_after; ++irow) {
+        hash_table_.insert(std::make_pair(hash_table_keys_.encoded_row(irow), irow));
       }
     }
 

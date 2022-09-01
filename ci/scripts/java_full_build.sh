@@ -28,10 +28,13 @@ pushd ${arrow_dir}/java
 
 # Ensure that there is no old jar
 # inside the maven repository
-find ~/.m2/repository/org/apache/arrow \
-     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
-     -exec echo {} ";" \
-     -exec rm -rf {} ";"
+maven_repo=~/.m2/repository/org/apache/arrow
+if [ -d $maven_repo ]; then
+    find $maven_repo \
+      "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
+      -exec echo {} ";" \
+      -exec rm -rf {} ";"
+fi
 
 # generate dummy GPG key for -Papache-release.
 # -Papache-release generates signs (*.asc) of artifacts.

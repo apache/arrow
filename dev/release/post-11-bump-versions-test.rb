@@ -116,6 +116,21 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "docs/source/_static/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"10.0 (dev)\",",
+            "+        \"name\": \"11.0 (dev)\",",
+            "-        \"name\": \"9.0 (stable)\",",
+            "+        \"name\": \"10.0 (stable)\",",
+            "+    {",
+            "+        \"name\": \"9.0\",",
+            "+        \"version\": \"9.0/\"",
+            "+    },",
+          ],
+        ],
+      },
+      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -150,6 +165,21 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+# arrow #{@release_version}.9000",
            "+",
            "+# arrow #{@release_version}",],
+        ],
+      },
+      {
+        path: "r/pkgdown/assets/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"9.0.0.9000 (dev)\",",
+            "+        \"name\": \"10.0.0.9000 (dev)\",",
+            "-        \"name\": \"9.0.0 (release)\",",
+            "+        \"name\": \"10.0.0 (release)\",",
+            "+    {",
+            "+        \"name\": \"9.0.0\",",
+            "+        \"version\": \"9.0/\"",
+            "+    },",
+          ],
         ],
       },
     ]

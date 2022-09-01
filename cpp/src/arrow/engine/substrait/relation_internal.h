@@ -21,6 +21,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
@@ -40,7 +41,8 @@ struct DeclarationInfo {
 };
 
 ARROW_ENGINE_EXPORT
-Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&);
+Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
+                                  const ConversionOptions&);
 
 }  // namespace engine
 }  // namespace arrow

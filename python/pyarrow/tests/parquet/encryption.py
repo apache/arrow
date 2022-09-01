@@ -20,7 +20,8 @@ import pyarrow.parquet.encryption as pe
 
 
 class InMemoryKmsClient(pe.KmsClient):
-    """This is a mock class implementation of KmsClient, built for testing only.
+    """This is a mock class implementation of KmsClient, built for testing
+    only.
     """
 
     def __init__(self, config):

@@ -456,17 +456,31 @@ Result<Expression> Expression::Bind(const Schema& in_schema,
   return BindImpl(*this, in_schema, exec_context);
 }
 
-Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial) {
+Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
+                                Expression guarantee) {
   ExecBatch out;
 
   if (partial.kind() == Datum::RECORD_BATCH) {
     const auto& partial_batch = *partial.record_batch();
+    out.guarantee = std::move(guarantee);
     out.length = partial_batch.num_rows();
 
-    for (const auto& field : full_schema.fields()) {
-      ARROW_ASSIGN_OR_RAISE(auto column,
-                            FieldRef(field->name()).GetOneOrNone(partial_batch));
+    ARROW_ASSIGN_OR_RAISE(auto known_field_values,
+                          ExtractKnownFieldValues(out.guarantee));
 
+    for (const auto& field : full_schema.fields()) {
+      auto field_ref = FieldRef(field->name());
+
+      // If we know what the value must be from the guarantee, prefer to use that value
+      // than the data from the record batch (if it exists at all -- probably it doesn't),
+      // because this way it will be a scalar.
+      auto known_field_value = known_field_values.map.find(field_ref);
+      if (known_field_value != known_field_values.map.end()) {
+        out.values.emplace_back(known_field_value->second);
+        continue;
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto column, field_ref.GetOneOrNone(partial_batch));
       if (column) {
         if (!column->type()->Equals(field->type())) {
           // Referenced field was present but didn't have the expected type.
@@ -490,13 +504,14 @@ Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial)
       ARROW_ASSIGN_OR_RAISE(auto partial_batch,
                             RecordBatch::FromStructArray(partial.make_array()));
 
-      return MakeExecBatch(full_schema, partial_batch);
+      return MakeExecBatch(full_schema, partial_batch, std::move(guarantee));
     }
 
     if (partial.is_scalar()) {
       ARROW_ASSIGN_OR_RAISE(auto partial_array,
                             MakeArrayFromScalar(*partial.scalar(), 1));
-      ARROW_ASSIGN_OR_RAISE(auto out, MakeExecBatch(full_schema, partial_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto out, MakeExecBatch(full_schema, partial_array, std::move(guarantee)));
 
       for (Datum& value : out.values) {
         if (value.is_scalar()) continue;

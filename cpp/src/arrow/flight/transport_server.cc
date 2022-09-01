@@ -293,7 +293,7 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
     if (!success) return Status::OK();
   }
   RETURN_NOT_OK(stream->WritesDone());
-  return Status::OK();
+  return data_stream->Close();
 }
 
 Status ServerTransport::DoPut(const ServerCallContext& context,

@@ -26,14 +26,15 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/endian"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -294,9 +295,29 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 		return MakeNullScalar(to), nil
 	}
 
+	dt := s.Type.(*arrow.Decimal128Type)
+
 	switch to.ID() {
 	case arrow.DECIMAL128:
-		return NewDecimal128Scalar(s.Value, to), nil
+		to := to.(*arrow.Decimal128Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal128 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal128Scalar(newVal, to), nil
+	case arrow.DECIMAL256:
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := decimal256.FromDecimal128(s.Value).Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
 		dt := s.Type.(*arrow.Decimal128Type)
 		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
@@ -309,6 +330,59 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 
 func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
 	return &Decimal128{scalar{typ, true}, val}
+}
+
+type Decimal256 struct {
+	scalar
+	Value decimal256.Num
+}
+
+func (s *Decimal256) value() interface{} { return s.Value }
+
+func (s *Decimal256) String() string {
+	if !s.Valid {
+		return "null"
+	}
+	val, err := s.CastTo(arrow.BinaryTypes.String)
+	if err != nil {
+		return "..."
+	}
+	return string(val.(*String).Value.Bytes())
+}
+
+func (s *Decimal256) equals(rhs Scalar) bool {
+	return s.Value == rhs.(*Decimal256).Value
+}
+
+func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	dt := s.Type.(*arrow.Decimal256Type)
+
+	switch to.ID() {
+	case arrow.DECIMAL256:
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal256Scalar(newVal, to), nil
+	case arrow.STRING:
+		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
+		val := (&big.Float{}).SetInt(s.Value.BigInt())
+		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
+	}
+
+	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+}
+
+func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {
+	return &Decimal256{scalar{typ, true}, val}
 }
 
 type Extension struct {
@@ -392,10 +466,6 @@ func MakeNullScalar(dt arrow.DataType) Scalar {
 	return makeNullFn[byte(dt.ID()&0x3f)](dt)
 }
 
-func unsupportedScalarType(dt arrow.DataType) Scalar {
-	panic("unsupported scalar data type: " + dt.ID().String())
-}
-
 func invalidScalarType(dt arrow.DataType) Scalar {
 	panic("invalid scalar type: " + dt.ID().String())
 }
@@ -442,17 +512,33 @@ func init() {
 		arrow.DECIMAL128:              func(dt arrow.DataType) Scalar { return &Decimal128{scalar: scalar{dt, false}} },
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
 		arrow.STRUCT:                  func(dt arrow.DataType) Scalar { return &Struct{scalar: scalar{dt, false}} },
-		arrow.SPARSE_UNION:            unsupportedScalarType,
-		arrow.DENSE_UNION:             unsupportedScalarType,
-		arrow.DICTIONARY:              unsupportedScalarType,
-		arrow.LARGE_STRING:            unsupportedScalarType,
-		arrow.LARGE_BINARY:            unsupportedScalarType,
-		arrow.LARGE_LIST:              unsupportedScalarType,
-		arrow.DECIMAL256:              unsupportedScalarType,
-		arrow.MAP:                     func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
-		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
-		arrow.FIXED_SIZE_LIST:         func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DURATION:                func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
+		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.SparseUnionType)
+			if len(typ.Fields()) == 0 {
+				panic("cannot make scalar of empty union type")
+			}
+			values := make([]Scalar, len(typ.Fields()))
+			for i, f := range typ.Fields() {
+				values[i] = MakeNullScalar(f.Type)
+			}
+			return NewSparseUnionScalar(values, typ.TypeCodes()[0], typ)
+		},
+		arrow.DENSE_UNION: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.DenseUnionType)
+			if len(typ.Fields()) == 0 {
+				panic("cannot make scalar of empty union type")
+			}
+			return NewDenseUnionScalar(MakeNullScalar(typ.Fields()[0].Type), typ.TypeCodes()[0], typ)
+		},
+		arrow.DICTIONARY:      func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
+		arrow.LARGE_STRING:    func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
+		arrow.LARGE_BINARY:    func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.LARGE_LIST:      func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DECIMAL256:      func(dt arrow.DataType) Scalar { return &Decimal256{scalar: scalar{dt, false}} },
+		arrow.MAP:             func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
+		arrow.EXTENSION:       func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
+		arrow.FIXED_SIZE_LIST: func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
+		arrow.DURATION:        func(dt arrow.DataType) Scalar { return &Duration{scalar: scalar{dt, false}} },
 		// invalid data types to fill out array size 2^6 - 1
 		63: invalidScalarType,
 	}
@@ -485,6 +571,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewDayTimeIntervalScalar(arr.Value(idx)), nil
 	case *array.Decimal128:
 		return NewDecimal128Scalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Decimal256:
+		return NewDecimal256Scalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Duration:
 		return NewDurationScalar(arr.Value(idx), arr.DataType()), nil
 	case array.ExtensionArray:
@@ -558,6 +646,51 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTime64Scalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Timestamp:
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Dictionary:
+		ty := arr.DataType().(*arrow.DictionaryType)
+		index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
+		if err != nil {
+			return nil, err
+		}
+
+		scalar := &Dictionary{scalar: scalar{ty, arr.IsValid(idx)}}
+		scalar.Value.Index = index
+		scalar.Value.Dict = arr.Dictionary()
+		scalar.Value.Dict.Retain()
+		return scalar, nil
+	case *array.SparseUnion:
+		var err error
+		typeCode := arr.TypeCode(idx)
+		children := make([]Scalar, arr.NumFields())
+		defer func() {
+			if err != nil {
+				for _, c := range children {
+					if c == nil {
+						break
+					}
+
+					if v, ok := c.(Releasable); ok {
+						v.Release()
+					}
+				}
+			}
+		}()
+
+		for i := range arr.UnionType().Fields() {
+			if children[i], err = GetScalar(arr.Field(i), idx); err != nil {
+				return nil, err
+			}
+		}
+		return NewSparseUnionScalar(children, typeCode, arr.UnionType().(*arrow.SparseUnionType)), nil
+	case *array.DenseUnion:
+		typeCode := arr.TypeCode(idx)
+		child := arr.Field(arr.ChildID(idx))
+		offset := arr.ValueOffset(idx)
+		value, err := GetScalar(child, int(offset))
+		if err != nil {
+			return nil, err
+		}
+		return NewDenseUnionScalar(value, typeCode, arr.UnionType().(*arrow.DenseUnionType)), nil
 	}
 
 	return nil, fmt.Errorf("cannot create scalar from array of type %s", arr.DataType())
@@ -791,6 +924,15 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			binary.Write(&h, endian.Native, v.LowBits())
 			hash()
 			binary.Write(&h, endian.Native, uint64(v.HighBits()))
+		case decimal256.Num:
+			arr := v.Array()
+			binary.Write(&h, endian.Native, arr[3])
+			hash()
+			binary.Write(&h, endian.Native, arr[2])
+			hash()
+			binary.Write(&h, endian.Native, arr[1])
+			hash()
+			binary.Write(&h, endian.Native, arr[0])
 		}
 		hash()
 		return out
@@ -805,6 +947,12 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 		return valueHash(s.Value.Days) & valueHash(s.Value.Milliseconds)
 	case *MonthDayNanoInterval:
 		return valueHash(s.Value.Months) & valueHash(s.Value.Days) & valueHash(s.Value.Nanoseconds)
+	case *SparseUnion:
+		// typecode is ignored when comparing for equality, so don't hash it either
+		out ^= Hash(seed, s.Value[s.ChildID])
+	case *DenseUnion:
+		// typecode is ignored when comparing equality, so don't hash it either
+		out ^= Hash(seed, s.Value)
 	case PrimitiveScalar:
 		h.Write(s.Data())
 		hash()
@@ -818,6 +966,10 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			if c.IsValid() {
 				out ^= Hash(seed, c)
 			}
+		}
+	case *Dictionary:
+		if s.Value.Index.IsValid() {
+			out ^= Hash(seed, s.Value.Index)
 		}
 	}
 

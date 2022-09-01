@@ -38,7 +38,6 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -442,12 +441,8 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   @Override
-  public void close() throws SQLException {
-    try {
-      AutoCloseables.close(client);
-    } catch (final Exception e) {
-      throw new SQLException(e);
-    }
+  public void close() throws Exception {
+    AutoCloseables.close(client);
   }
 
   /**
@@ -557,7 +552,7 @@ public class FlightSqlClient implements AutoCloseable {
      * @param options RPC-layer hints for this call.
      * @return a FlightInfo object representing the stream(s) to fetch.
      */
-    public FlightInfo execute(final CallOption... options) throws SQLException {
+    public FlightInfo execute(final CallOption... options) {
       checkOpen();
 
       final FlightDescriptor descriptor = FlightDescriptor

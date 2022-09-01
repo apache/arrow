@@ -5,9 +5,9 @@
 \alias{read_ipc_file}
 \title{Read a Feather file (an Arrow IPC file)}
 \usage{
-read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
+read_feather(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 
-read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, ...)
+read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 }
 \arguments{
 \item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
@@ -24,7 +24,7 @@ of columns, as used in \code{dplyr::select()}.}
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
 
-\item{...}{additional parameters, passed to \code{\link[=make_readable_file]{make_readable_file()}}.}
+\item{mmap}{Logical: whether to memory-map the file (default \code{TRUE})}
 }
 \value{
 A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an

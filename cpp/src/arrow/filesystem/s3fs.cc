@@ -210,6 +210,54 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 }
 
 // -----------------------------------------------------------------------
+// AwsRetryStrategy implementation
+
+class AwsRetryStrategy : public S3RetryStrategy {
+ public:
+  explicit AwsRetryStrategy(std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy)
+      : retry_strategy_(std::move(retry_strategy)) {}
+
+  bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) override {
+    Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
+    return retry_strategy_->ShouldRetry(
+        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
+  }
+
+  int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
+                                        int64_t attempted_retries) override {
+    Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
+    return retry_strategy_->CalculateDelayBeforeNextRetry(
+        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
+  }
+
+ private:
+  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
+  static Aws::Client::AWSError<Aws::Client::CoreErrors> DetailToError(
+      const S3RetryStrategy::AWSErrorDetail& detail) {
+    auto exception_name = ToAwsString(detail.exception_name);
+    auto message = ToAwsString(detail.message);
+    auto errors = Aws::Client::AWSError<Aws::Client::CoreErrors>(
+        static_cast<Aws::Client::CoreErrors>(detail.error_type), exception_name, message,
+        detail.should_retry);
+    return errors;
+  }
+};
+
+std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsDefaultRetryStrategy(
+    int64_t max_attempts) {
+  return std::make_shared<AwsRetryStrategy>(
+      std::make_shared<Aws::Client::DefaultRetryStrategy>(
+          static_cast<long>(max_attempts)));  // NOLINT: runtime/int
+}
+
+std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsStandardRetryStrategy(
+    int64_t max_attempts) {
+  return std::make_shared<AwsRetryStrategy>(
+      std::make_shared<Aws::Client::StandardRetryStrategy>(
+          static_cast<long>(max_attempts)));  // NOLINT: runtime/int
+}
+
+// -----------------------------------------------------------------------
 // S3Options implementation
 
 S3Options::S3Options() {
@@ -386,10 +434,11 @@ bool S3Options::Equals(const S3Options& other) const {
       default_metadata_size
           ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
           : (!other.default_metadata || other.default_metadata->size() == 0);
-  return (region == other.region && endpoint_override == other.endpoint_override &&
-          scheme == other.scheme && role_arn == other.role_arn &&
-          session_name == other.session_name && external_id == other.external_id &&
-          load_frequency == other.load_frequency &&
+  return (region == other.region && connect_timeout == other.connect_timeout &&
+          request_timeout == other.request_timeout &&
+          endpoint_override == other.endpoint_override && scheme == other.scheme &&
+          role_arn == other.role_arn && session_name == other.session_name &&
+          external_id == other.external_id && load_frequency == other.load_frequency &&
           proxy_options.Equals(other.proxy_options) &&
           credentials_kind == other.credentials_kind &&
           background_writes == other.background_writes &&
@@ -718,6 +767,16 @@ class ClientBuilder {
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
     }
+    if (options_.request_timeout > 0) {
+      // Use ceil() to avoid setting it to 0 as that probably means no timeout.
+      client_config_.requestTimeoutMs =
+          static_cast<long>(ceil(options_.request_timeout * 1000));  // NOLINT runtime/int
+    }
+    if (options_.connect_timeout > 0) {
+      client_config_.connectTimeoutMs =
+          static_cast<long>(ceil(options_.connect_timeout * 1000));  // NOLINT runtime/int
+    }
+
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;

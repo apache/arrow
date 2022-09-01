@@ -38,3 +38,4 @@ package arrow
 
 // stringer
 //go:generate stringer -type=Type
+//go:generate stringer -type=UnionMode -linecomment

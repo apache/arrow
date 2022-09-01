@@ -57,10 +57,10 @@ Status AsyncTaskGroup::AddTask(std::function<Result<Future<>>()> task) {
   return AddTaskUnlocked(*maybe_task_fut, std::move(guard));
 }
 
-Status AsyncTaskGroup::AddTaskIfNotEnded(std::function<Result<Future<>>()> task) {
+Result<bool> AsyncTaskGroup::AddTaskIfNotEnded(std::function<Result<Future<>>()> task) {
   auto guard = mutex_.Lock();
   if (finished_adding_) {
-    return Status::OK();
+    return false;
   }
   if (!err_.ok()) {
     return err_;
@@ -70,7 +70,8 @@ Status AsyncTaskGroup::AddTaskIfNotEnded(std::function<Result<Future<>>()> task)
     err_ = maybe_task_fut.status();
     return err_;
   }
-  return AddTaskUnlocked(*maybe_task_fut, std::move(guard));
+  ARROW_RETURN_NOT_OK(AddTaskUnlocked(*maybe_task_fut, std::move(guard)));
+  return true;
 }
 
 Status AsyncTaskGroup::AddTaskUnlocked(const Future<>& task_fut,
@@ -105,15 +106,16 @@ Status AsyncTaskGroup::AddTask(const Future<>& task_fut) {
   return AddTaskUnlocked(task_fut, std::move(guard));
 }
 
-Status AsyncTaskGroup::AddTaskIfNotEnded(const Future<>& task_fut) {
+Result<bool> AsyncTaskGroup::AddTaskIfNotEnded(const Future<>& task_fut) {
   auto guard = mutex_.Lock();
   if (finished_adding_) {
-    return Status::OK();
+    return false;
   }
   if (!err_.ok()) {
     return err_;
   }
-  return AddTaskUnlocked(task_fut, std::move(guard));
+  ARROW_RETURN_NOT_OK(AddTaskUnlocked(task_fut, std::move(guard)));
+  return true;
 }
 
 Future<> AsyncTaskGroup::End() {

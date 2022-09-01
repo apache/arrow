@@ -44,7 +44,9 @@ directory.
 If your arrow build has S3 support, you can sync the data locally with:
 
 ```{r, eval = FALSE}
-arrow::copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
+arrow::copy_files("s3://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
+# Alternatively, with GCS:
+arrow::copy_files("gs://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
 ```
 
 If your arrow build doesn't have S3 support, you can download the files
@@ -53,7 +55,7 @@ you may need to increase R's download timeout from the default of 60 seconds, e.
 `options(timeout = 300)`.
 
 ```{r, eval = FALSE}
-bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
+bucket <- "https://voltrondata-labs-datasets.s3.us-east-2.amazonaws.com"
 for (year in 2009:2019) {
   if (year == 2019) {
     # We only have through June 2019 there
@@ -64,8 +66,8 @@ for (year in 2009:2019) {
   for (month in sprintf("%02d", months)) {
     dir.create(file.path("nyc-taxi", year, month), recursive = TRUE)
     try(download.file(
-      paste(bucket, year, month, "data.parquet", sep = "/"),
-      file.path("nyc-taxi", year, month, "data.parquet"),
+      paste(bucket, "nyc-taxi", paste0("year=", year), paste0("month=", month), "data.parquet", sep = "/"),
+      file.path("nyc-taxi", paste0("year=", year), paste0("month=", month), "data.parquet"),
       mode = "wb"
     ), silent = TRUE)
   }
@@ -99,7 +101,7 @@ library(dplyr, warn.conflicts = FALSE)
 The first step is to create a Dataset object, pointing at the directory of data.
 
 ```{r, eval = file.exists("nyc-taxi")}
-ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
+ds <- open_dataset("nyc-taxi")
 ```
 
 The file format for `open_dataset()` is controlled by the `format` parameter, 
@@ -122,9 +124,18 @@ For text files, you can pass the following parsing options to `open_dataset()`:
 
 For more information on the usage of these parameters, see `?read_delim_arrow()`.
 
-The `partitioning` argument lets you specify how the file paths provide information
-about how the dataset is chunked into different files. The files in this example
-have file paths like
+`open_dataset()` was able to automatically infer column values for `year` and `month`
+--which are not present in the data files--based on the directory structure. The 
+Hive-style partitioning structure is self-describing, with file paths like
+
+```
+year=2009/month=1/data.parquet
+year=2009/month=2/data.parquet
+...
+```
+
+But sometimes the directory partitioning isn't self describing; that is, it doesn't
+contain field names. For example, if instead we had file paths like
 
 ```
 2009/01/data.parquet
@@ -132,12 +143,13 @@ have file paths like
 ...
 ```
 
-By providing `c("year", "month")` to the `partitioning` argument, you're saying that the first
-path segment gives the value for `year`, and the second segment is `month`.
-Every row in `2009/01/data.parquet` has a value of 2009 for `year`
+then `open_dataset()` would need some hints as to how to use the file paths. In this
+case, you could provide `c("year", "month")` to the `partitioning` argument, 
+saying that the first path segment gives the value for `year`, and the second 
+segment is `month`. Every row in `2009/01/data.parquet` has a value of 2009 for `year`
 and 1 for `month`, even though those columns may not be present in the file.
 
-Indeed, when you look at the dataset, you can see that in addition to the columns present
+In either case, when you look at the dataset, you can see that in addition to the columns present
 in every file, there are also columns `year` and `month` even though they are not present in the files themselves.
 
 ```{r, eval = file.exists("nyc-taxi")}
@@ -145,29 +157,31 @@ ds
 ```
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
-FileSystemDataset with 125 Parquet files
-vendor_id: string
-pickup_at: timestamp[us]
-dropoff_at: timestamp[us]
-passenger_count: int8
-trip_distance: float
-pickup_longitude: float
-pickup_latitude: float
-rate_code_id: null
-store_and_fwd_flag: string
-dropoff_longitude: float
-dropoff_latitude: float
+FileSystemDataset with 158 Parquet files
+vendor_name: string
+pickup_datetime: timestamp[ms]
+dropoff_datetime: timestamp[ms]
+passenger_count: int64
+trip_distance: double
+pickup_longitude: double
+pickup_latitude: double
+rate_code: string
+store_and_fwd: string
+dropoff_longitude: double
+dropoff_latitude: double
 payment_type: string
-fare_amount: float
-extra: float
-mta_tax: float
-tip_amount: float
-tolls_amount: float
-total_amount: float
+fare_amount: double
+extra: double
+mta_tax: double
+tip_amount: double
+tolls_amount: double
+total_amount: double
+improvement_surcharge: double
+congestion_surcharge: double
+pickup_location_id: int64
+dropoff_location_id: int64
 year: int32
 month: int32
-
-See $metadata for additional Schema metadata
 ")
 ```
 
@@ -271,7 +285,7 @@ ds %>%
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
 FileSystemDataset (query)
-passenger_count: int8
+passenger_count: int64
 median_tip_pct: double
 n: int32
 
@@ -312,19 +326,20 @@ percentage of rows from each batch:
 sampled_data <- ds %>%
   filter(year == 2015) %>%
   select(tip_amount, total_amount, passenger_count) %>%
-  map_batches(~ sample_frac(as.data.frame(.), 1e-4)) %>%
-  mutate(tip_pct = tip_amount / total_amount)
+  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) %>%
+  mutate(tip_pct = tip_amount / total_amount) %>%
+  collect()
 
 str(sampled_data)
 ```
 
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
-'data.frame':	15603 obs. of  4 variables:
- $ tip_amount     : num  0 0 1.55 1.45 5.2 ...
- $ total_amount   : num  5.8 16.3 7.85 8.75 26 ...
- $ passenger_count: int  1 1 1 1 1 6 5 1 2 1 ...
- $ tip_pct        : num  0 0 0.197 0.166 0.2 ...
+tibble [10,918 × 4] (S3: tbl_df/tbl/data.frame)
+ $ tip_amount     : num [1:10918] 3 0 4 1 1 6 0 1.35 0 5.9 ...
+ $ total_amount   : num [1:10918] 18.8 13.3 20.3 15.8 13.3 ...
+ $ passenger_count: int [1:10918] 3 2 1 1 1 1 1 1 1 3 ...
+ $ tip_pct        : num [1:10918] 0.1596 0 0.197 0.0633 0.0752 ...
 ")
 ```
 
@@ -345,7 +360,8 @@ ds %>%
       as.data.frame() %>%
       mutate(pred_tip_pct = predict(model, newdata = .)) %>%
       filter(!is.nan(tip_pct)) %>%
-      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n())
+      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) %>%
+      as_record_batch()
   }) %>%
   summarize(mse = sum(sse_partial) / sum(n_partial)) %>%
   pull(mse)

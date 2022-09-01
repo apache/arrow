@@ -43,6 +43,7 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PYTHON:=OFF}
+: ${ARROW_S3:=ON}
 : ${ARROW_BUILD_TESTS:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
@@ -55,8 +56,8 @@ export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-mkdir -p "${build_dir}"
-pushd "${build_dir}"
+mkdir -p "${build_dir}/cpp"
+pushd "${build_dir}/cpp"
 
 cmake \
   -DARROW_BOOST_USE_SHARED=OFF \
@@ -83,13 +84,14 @@ cmake \
   -DARROW_PROTOBUF_USE_SHARED=OFF \
   -DARROW_PYTHON=${ARROW_PYTHON} \
   -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
+  -DARROW_S3=${ARROW_S3} \
   -DARROW_SNAPPY_USE_SHARED=OFF \
   -DARROW_THRIFT_USE_SHARED=OFF \
   -DARROW_UTF8PROC_USE_SHARED=OFF \
   -DARROW_ZSTD_USE_SHARED=OFF \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir} \
+  -DCMAKE_INSTALL_PREFIX=${build_dir}/cpp \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DORC_SOURCE=BUNDLED \
   -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
@@ -105,20 +107,30 @@ cmake \
 ninja install
 
 if [ $ARROW_BUILD_TESTS = "ON" ]; then
-    ctest \
-        --label-regex unittest \
-        --output-on-failure \
-        --parallel $(nproc) \
-        --timeout 300
+  ctest \
+    --label-regex unittest \
+    --output-on-failure \
+    --parallel $(nproc) \
+    --timeout 300
 fi
 
 popd
 
+
+JAVA_JNI_CMAKE_ARGS=""
+JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_MANIFEST_MODE=OFF"
+JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+export JAVA_JNI_CMAKE_ARGS
+${arrow_dir}/ci/scripts/java_jni_build.sh \
+  ${arrow_dir} \
+  ${build_dir} \
+  ${dist_dir}
+
+
 echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${build_dir}/lib/libgandiva_jni.so ${dist_dir}
-cp -L ${build_dir}/lib/libarrow_dataset_jni.so ${dist_dir}
-cp -L ${build_dir}/lib/libarrow_orc_jni.so ${dist_dir}
+cp -L ${build_dir}/cpp/lib/libgandiva_jni.so ${dist_dir}
+cp -L ${build_dir}/cpp/lib/libarrow_dataset_jni.so ${dist_dir}
+cp -L ${build_dir}/cpp/lib/libarrow_orc_jni.so ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
 
@@ -134,7 +146,8 @@ archery linking check-dependencies \
   --allow libstdc++ \
   --allow libz \
   --allow linux-vdso \
-  libgandiva_jni.so \
+  libarrow_cdata_jni.so \
   libarrow_dataset_jni.so \
-  libarrow_orc_jni.so
+  libarrow_orc_jni.so \
+  libgandiva_jni.so
 popd

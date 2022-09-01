@@ -542,7 +542,7 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
-    def github_pr(self, title, head, base="master", body=None,
+    def github_pr(self, title, head=None, base="master", body=None,
                   github_token=None, create=False):
         github_token = github_token or self.github_token
         repo = self.as_github_repo(github_token=github_token)

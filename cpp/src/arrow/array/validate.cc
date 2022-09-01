@@ -413,6 +413,10 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("validating RLE");
+  }
+
   Status Visit(const ExtensionType& type) {
     // Visit storage
     return ValidateWithType(*type.storage_type());
