@@ -424,13 +424,10 @@ def test_dataset(dataset, dataset_reader):
 
 
 @pytest.mark.parquet
-def test_scanner_options(dataset, dataset_reader):
-    scanner = dataset_reader.scanner(
-        dataset, memory_pool=pa.default_memory_pool())
-    assert isinstance(scanner, ds.Scanner)
-    for batch in scanner.to_batches(fragment_readahead=16, batch_readahead=8):
-        assert batch.num_columns == 1
-        assert batch.schema == scanner.projected_schema
+def test_scanner_options(dataset):
+    scanner = dataset.to_batches(fragment_readahead=16, batch_readahead=8)
+    batch = next(scanner)
+    assert batch.num_columns == 1
 
 
 @pytest.mark.parquet
