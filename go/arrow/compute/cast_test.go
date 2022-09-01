@@ -1222,6 +1222,56 @@ func (c *CastSuite) TestIdentityCasts() {
 	c.checkCastZeroCopy(arrow.FixedWidthTypes.Boolean, `[false, true, null, false]`)
 }
 
+func (c *CastSuite) smallIntArrayFromJSON(data string) arrow.Array {
+	arr, _, _ := array.FromJSON(c.mem, types.NewSmallintType(), strings.NewReader(data))
+	return arr
+}
+
+func (c *CastSuite) TestExtensionTypeToIntDowncast() {
+	smallint := types.NewSmallintType()
+	arrow.RegisterExtensionType(smallint)
+	defer arrow.UnregisterExtensionType("smallint")
+
+	c.Run("smallint(int16) to int16", func() {
+		arr := c.smallIntArrayFromJSON(`[0, 100, 200, 1, 2]`)
+		defer arr.Release()
+
+		checkCastZeroCopy(c.T(), arr, arrow.PrimitiveTypes.Int16, compute.DefaultCastOptions(true))
+
+		c.checkCast(smallint, arrow.PrimitiveTypes.Uint8,
+			`[0, 100, 200, 1, 2]`, `[0, 100, 200, 1, 2]`)
+	})
+
+	c.Run("smallint(int16) to uint8 with overflow", func() {
+		opts := compute.SafeCastOptions(arrow.PrimitiveTypes.Uint8)
+		c.checkCastFails(smallint, `[0, null, 256, 1, 3]`, opts)
+
+		opts.AllowIntOverflow = true
+		c.checkCastOpts(smallint, arrow.PrimitiveTypes.Uint8,
+			`[0, null, 256, 1, 3]`, `[0, null, 0, 1, 3]`, *opts)
+	})
+
+	c.Run("smallint(int16) to uint8 with underflow", func() {
+		opts := compute.SafeCastOptions(arrow.PrimitiveTypes.Uint8)
+		c.checkCastFails(smallint, `[0, null, -1, 1, 3]`, opts)
+
+		opts.AllowIntOverflow = true
+		c.checkCastOpts(smallint, arrow.PrimitiveTypes.Uint8,
+			`[0, null, -1, 1, 3]`, `[0, null, 255, 1, 3]`, *opts)
+	})
+}
+
+func (c *CastSuite) TestNoOutBitmapIfIsAllValid() {
+	a, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[1]`))
+	defer a.Release()
+
+	opts := compute.SafeCastOptions(arrow.PrimitiveTypes.Int32)
+	result, err := compute.CastArray(context.Background(), a, opts)
+	c.NoError(err)
+	c.NotNil(a.Data().Buffers()[0])
+	c.Nil(result.Data().Buffers()[0])
+}
+
 func TestCasts(t *testing.T) {
 	suite.Run(t, new(CastSuite))
 }

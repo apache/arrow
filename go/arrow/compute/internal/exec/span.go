@@ -392,6 +392,66 @@ func (a *ArraySpan) FillFromScalar(val scalar.Scalar) {
 	}
 }
 
+// TakeOwnership is like SetMembers only this takes ownership of
+// the buffers by calling Retain on them so that the passed in
+// ArrayData can be released without negatively affecting this
+// ArraySpan
+func (a *ArraySpan) TakeOwnership(data arrow.ArrayData) {
+	a.Type = data.DataType()
+	a.Len = int64(data.Len())
+	if a.Type.ID() == arrow.NULL {
+		a.Nulls = a.Len
+	} else {
+		a.Nulls = int64(data.NullN())
+	}
+	a.Offset = int64(data.Offset())
+
+	for i, b := range data.Buffers() {
+		if b != nil {
+			a.Buffers[i].WrapBuffer(b)
+			b.Retain()
+		} else {
+			a.Buffers[i].Buf = nil
+			a.Buffers[i].Owner = nil
+			a.Buffers[i].SelfAlloc = false
+		}
+	}
+
+	typeID := a.Type.ID()
+	if a.Buffers[0].Buf == nil {
+		switch typeID {
+		case arrow.NULL, arrow.SPARSE_UNION, arrow.DENSE_UNION:
+		default:
+			// should already be zero, but we make sure
+			a.Nulls = 0
+		}
+	}
+
+	for i := len(data.Buffers()); i < 3; i++ {
+		a.Buffers[i].Buf = nil
+		a.Buffers[i].Owner = nil
+		a.Buffers[i].SelfAlloc = false
+	}
+
+	if typeID == arrow.DICTIONARY {
+		if cap(a.Children) >= 1 {
+			a.Children = a.Children[:1]
+		} else {
+			a.Children = make([]ArraySpan, 1)
+		}
+		a.Children[0].TakeOwnership(data.Dictionary())
+	} else {
+		if cap(a.Children) >= len(data.Children()) {
+			a.Children = a.Children[:len(data.Children())]
+		} else {
+			a.Children = make([]ArraySpan, len(data.Children()))
+		}
+		for i, c := range data.Children() {
+			a.Children[i].TakeOwnership(c)
+		}
+	}
+}
+
 // SetMembers populates this ArraySpan from the given ArrayData object.
 // As this is a non-owning reference, the ArrayData object must not
 // be fully released while this ArraySpan is in use, otherwise any buffers
