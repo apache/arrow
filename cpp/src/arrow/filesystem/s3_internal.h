@@ -88,6 +88,62 @@ inline bool IsAlreadyExists(const Aws::Client::AWSError<Aws::S3::S3Errors>& erro
           error_type == Aws::S3::S3Errors::BUCKET_ALREADY_OWNED_BY_YOU);
 }
 
+inline std::string S3ErrorToString(Aws::S3::S3Errors error_type) {
+  switch (error_type) {
+#define S3_ERROR_CASE(NAME)     \
+  case Aws::S3::S3Errors::NAME: \
+    return #NAME;
+
+    S3_ERROR_CASE(INCOMPLETE_SIGNATURE)
+    S3_ERROR_CASE(INTERNAL_FAILURE)
+    S3_ERROR_CASE(INVALID_ACTION)
+    S3_ERROR_CASE(INVALID_CLIENT_TOKEN_ID)
+    S3_ERROR_CASE(INVALID_PARAMETER_COMBINATION)
+    S3_ERROR_CASE(INVALID_QUERY_PARAMETER)
+    S3_ERROR_CASE(INVALID_PARAMETER_VALUE)
+    S3_ERROR_CASE(MISSING_ACTION)
+    S3_ERROR_CASE(MISSING_AUTHENTICATION_TOKEN)
+    S3_ERROR_CASE(MISSING_PARAMETER)
+    S3_ERROR_CASE(OPT_IN_REQUIRED)
+    S3_ERROR_CASE(REQUEST_EXPIRED)
+    S3_ERROR_CASE(SERVICE_UNAVAILABLE)
+    S3_ERROR_CASE(THROTTLING)
+    S3_ERROR_CASE(VALIDATION)
+    S3_ERROR_CASE(ACCESS_DENIED)
+    S3_ERROR_CASE(RESOURCE_NOT_FOUND)
+    S3_ERROR_CASE(UNRECOGNIZED_CLIENT)
+    S3_ERROR_CASE(MALFORMED_QUERY_STRING)
+    S3_ERROR_CASE(SLOW_DOWN)
+    S3_ERROR_CASE(REQUEST_TIME_TOO_SKEWED)
+    S3_ERROR_CASE(INVALID_SIGNATURE)
+    S3_ERROR_CASE(SIGNATURE_DOES_NOT_MATCH)
+    S3_ERROR_CASE(INVALID_ACCESS_KEY_ID)
+    S3_ERROR_CASE(REQUEST_TIMEOUT)
+    S3_ERROR_CASE(NETWORK_CONNECTION)
+    S3_ERROR_CASE(UNKNOWN)
+    S3_ERROR_CASE(BUCKET_ALREADY_EXISTS)
+    S3_ERROR_CASE(BUCKET_ALREADY_OWNED_BY_YOU)
+    // The following is the most recent addition to S3Errors
+    // and is not supported yet for some versions of the SDK
+    // that Apache Arrow is using. This is not a big deal
+    // since this error will happen only in very specialized
+    // settings and we will print the correct numerical error
+    // code as per the "default" case down below. We should
+    // put it back once the SDK has been upgraded in all
+    // Apache Arrow build configurations.
+    // S3_ERROR_CASE(INVALID_OBJECT_STATE)
+    S3_ERROR_CASE(NO_SUCH_BUCKET)
+    S3_ERROR_CASE(NO_SUCH_KEY)
+    S3_ERROR_CASE(NO_SUCH_UPLOAD)
+    S3_ERROR_CASE(OBJECT_ALREADY_IN_ACTIVE_TIER)
+    S3_ERROR_CASE(OBJECT_NOT_IN_ACTIVE_TIER)
+
+#undef S3_ERROR_CASE
+    default:
+      return "[code " + std::to_string(static_cast<int>(error_type)) + "]";
+  }
+}
+
 // TODO qualify error messages with a prefix indicating context
 // (e.g. "When completing multipart upload to bucket 'xxx', key 'xxx': ...")
 template <typename ErrorType>
@@ -96,9 +152,10 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError(prefix, "AWS Error [code ",
-                         static_cast<int>(error.GetErrorType()), "] during ", operation,
-                         " operation: ", error.GetMessage());
+  return Status::IOError(
+      prefix, "AWS Error ",
+      S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())), " during ",
+      operation, " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>
