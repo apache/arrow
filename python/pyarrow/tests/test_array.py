@@ -703,14 +703,14 @@ def test_struct_from_arrays():
     assert arr.to_pylist() == [None] + expected_list[1:]
 
     # Bad masks
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(arrays, fields, mask=[True, False, False])
 
     with pytest.raises(ValueError, match='not contain nulls'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.array([True, False, None]))
 
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.chunked_array([mask]))
 
@@ -926,6 +926,60 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     typ = list_type_factory(pa.binary())
     with pytest.raises(TypeError):
         list_array_type.from_arrays(offsets, values, type=typ)
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+@pytest.mark.parametrize("arr", (
+    [None, [0]],
+    [None, [0, None], [0]],
+    [[0], [1]],
+))
+def test_list_array_types_from_arrays(
+    list_array_type, list_type_factory, arr
+):
+    arr = pa.array(arr, list_type_factory(pa.int8()))
+    reconstructed_arr = list_array_type.from_arrays(
+        arr.offsets, arr.values, mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
+    # Fail when manual offsets include nulls and mask passed
+    # ListArray.offsets doesn't report nulls.
+
+    # This test case arr.offsets == [0, 1, 1, 3, 4]
+    arr = pa.array([[0], None, [0, None], [0]], list_type_factory(pa.int8()))
+    offsets = pa.array([0, None, 1, 3, 4])
+
+    # Using array's offset has no nulls; gives empty lists on top level
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
+    assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
+
+    # Manually specifiying offsets (with nulls) is same as mask at top level
+    reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
+    assert arr == reconstructed_arr
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets,
+                                                    arr.values,
+                                                    mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+    # But using both is ambiguous, in this case `offsets` has nulls
+    with pytest.raises(ValueError, match="Ambiguous to specify both "):
+        list_array_type.from_arrays(offsets, arr.values, mask=arr.is_null())
+
+    # Not supported to reconstruct from a slice.
+    arr_slice = arr[1:]
+    msg = "Null bitmap with offsets slice not supported."
+    with pytest.raises(NotImplementedError, match=msg):
+        list_array_type.from_arrays(
+            arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
 def test_map_labelled():
