@@ -4028,7 +4028,7 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
   auto props = default_writer_properties();
   std::unique_ptr<arrow::FileWriter> writer;
-  ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));
+  ASSERT_OK_AND_ASSIGN(writer, arrow::FileWriter::Open(*writer_schm, pool, outs, props));
   std::shared_ptr<::arrow::Array> col;
   ::arrow::Int64Builder builder;
   ASSERT_OK(builder.Append(1));
@@ -4085,9 +4085,9 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
             ->data_pagesize(2)
             ->build();
     std::unique_ptr<FileWriter> writer;
-    ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
-                               writer_properties, default_arrow_writer_properties(),
-                               &writer));
+    ASSERT_OK_AND_ASSIGN(
+        writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                                 writer_properties, default_arrow_writer_properties()));
     ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
     ASSERT_OK(writer->Close());
     ASSERT_OK(out_stream->Close());

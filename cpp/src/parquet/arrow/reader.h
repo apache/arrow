@@ -308,9 +308,9 @@ class PARQUET_EXPORT FileReaderBuilder {
 
   /// Create FileReaderBuilder from Arrow file and optional properties / metadata
   ::arrow::Status OpenFile(const std::string& path, bool memory_map = false,
-      const ReaderProperties& props = default_reader_properties(),
-      std::shared_ptr<FileMetaData> metadata = NULLPTR);
-  
+                           const ReaderProperties& props = default_reader_properties(),
+                           std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
   /// Set Arrow MemoryPool for memory allocation

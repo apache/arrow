@@ -54,11 +54,25 @@ class PARQUET_EXPORT FileWriter {
                               std::shared_ptr<ArrowWriterProperties> arrow_properties,
                               std::unique_ptr<FileWriter>* out);
 
+  /// \brief Create a new FileWriter.
+  /// \param schema schema of data that will be passed.
+  /// \param pool memory pool to use.
+  /// \param sink output stream to write Parquet data.
+  /// \param properties general Parquet writer properties.
+  /// \param arrow_properties Arrow-specific writer properties.
+  static ::arrow::Result<std::unique_ptr<FileWriter>> Open(
+      const ::arrow::Schema& schema, MemoryPool* pool,
+      std::shared_ptr<::arrow::io::OutputStream> sink,
+      std::shared_ptr<WriterProperties> properties = default_writer_properties(),
+      std::shared_ptr<ArrowWriterProperties> arrow_properties =
+          default_arrow_writer_properties());
+
+  ARROW_DEPRECATED("Deprecated in 10.0.0. Result variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
                               std::unique_ptr<FileWriter>* writer);
-
+  ARROW_DEPRECATED("Deprecated in 10.0.0. Result variants instead.")
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
                               std::shared_ptr<::arrow::io::OutputStream> sink,
                               std::shared_ptr<WriterProperties> properties,
@@ -68,6 +82,9 @@ class PARQUET_EXPORT FileWriter {
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
   /// \brief Write a Table to Parquet.
+  ///
+  /// \param table Arrow table to write.
+  /// \param chunk_size maximum size of row groups to write.
   virtual ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size) = 0;
 
   virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
@@ -98,6 +115,16 @@ PARQUET_EXPORT
                                   ::arrow::io::OutputStream* sink);
 
 /// \brief Write a Table to Parquet.
+///
+/// This writes one table in a single shot. To write a Parquet file with
+/// multiple tables iteratively, see parquet::arrow::FileWriter.
+///
+/// \param table Table to write.
+/// \param pool memory pool to use.
+/// \param sink output stream to write Parquet data.
+/// \param chunk_size maximum size of row groups to write.
+/// \param properties general Parquet writer properties.
+/// \param arrow_properties Arrow-specific writer properties.
 ::arrow::Status PARQUET_EXPORT
 WriteTable(const ::arrow::Table& table, MemoryPool* pool,
            std::shared_ptr<::arrow::io::OutputStream> sink, int64_t chunk_size,

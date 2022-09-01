@@ -208,6 +208,102 @@ The :func:`arrow::WriteTable` function writes an entire
          parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
    }
 
+.. warning::
+
+   Column compression is off by default in C++. See below for how to choose a
+   compression codec.
+
+To write out data batch-by-batch, use :class:`arrow::FileWriter`.
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+
+   // Data is in RBR
+   std::shared_ptr<arrow::RecordBatchReader> batch_stream;
+   batch_stream = ...
+
+   // Create a writer
+   std::shared_ptr<arrow::io::FileOutputStream> outfile;
+   std::unique_ptr<FileWriter> writer;
+   ARROW_ASSIGN_OR_RAISE(writer, parquet::arrow::FileWriter::Open(batch_stream->schema(), arrow::default_memory_pool(), outfile));
+
+   // Write each batch as a row_group
+   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
+     ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+     ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batch->schema(), {batch}));
+     writer->WriteTable(table, batch->num_rows());
+   }
+
+   // Write file footer and close
+   ARROW_RETURN_NOT_OK(writer->Close());
+
+.. seealso::
+
+   For reading multi-file datasets or pushing down filters to prune row groups,
+   see :ref:`Tabular Datasets<cpp-dataset>`.
+
+To set settings, use the :class:`WriterProperties::Builder`:
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+   #include "arrow/util/type_fwd.h"
+
+   using parquet::WriterProperties;
+   using parquet::ParquetVersion;
+   using parquet::ParquetDataPageVersion;
+   using arrow::Compression;
+
+   WriterProperties arrow_props = WriterProperties::Builder()
+      .max_row_group_length(64 * 1024)
+      .created_by("My Application")
+      .version(ParquetVersion::PARQUET_2_6)
+      .data_page_version(ParquetDataPageVersion::V2)
+      .compression(Compression::Snappy)
+      .build();
+
+The ``max_row_group_length`` sets an upper bound that takes precedent over the
+``chunk_size`` passed in the write methods.
+
+You can set the version of Parquet to write with ``version``, which determines
+which logical types are available. In addition, you can set the data page version
+with ``data_page_version``. It's V1 by default; setting to V2 will allow more
+optimal compression (skipping compressing pages where there isn't a space 
+benefit), but not all readers support this data page version.
+
+Compression is off by default, but to get the most out of Parquet, you should 
+also choose a compression codec. You can choose one for the whole file or 
+choose one for individual columns. If you choose a mix, the file-level option
+will apply to columns that don't have a specific compression codec. See 
+:class:`::arrow::Compression` for options.
+
+Statistics are enabled by default for all columns. You can disable statistics for
+all columns or specific columns using ``disable_statistics`` on the builder.
+There is a ``max_statistics_size`` which limits the maximum number of bytes that
+may be used for min and max values, useful for types like strings or binary blobs.
+
+There are also Arrow-specific settings that can be configured with
+:class:`parquet::ArrowWriterProperties`:
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+
+   using parquet::ArrowWriterProperties;
+
+   auto arrow_props = ArrowWriterProperties::Builder()
+      .enable_deprecated_int96_timestamps() // default False
+      .store_schema() // default False
+      .enable_compliant_nested_types() // default False
+      .build();
+
+These options mostly dictate how Arrow types are converted to Parquet types.
+Turning on ``store_schema`` will cause the writer to place the serialized Arrow
+schema within the file metadata. This allows the Arrow reader to automatically
+determine which columns should be read back as dictionary-encoded columns,
+potentially saving memory.
+
 StreamWriter
 ------------
 

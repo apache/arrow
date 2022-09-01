@@ -112,8 +112,9 @@ class ParquetFormatHelper {
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
           default_arrow_writer_properties()) {
     std::unique_ptr<parquet::arrow::FileWriter> writer;
-    RETURN_NOT_OK(parquet::arrow::FileWriter::Open(
-        *reader->schema(), pool, sink, properties, arrow_properties, &writer));
+    EXPECT_OK_AND_ASSIGN(writer,
+                         parquet::arrow::FileWriter::Open(*reader->schema(), pool, sink,
+                                                          properties, arrow_properties));
     RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
     return writer->Close();
   }
