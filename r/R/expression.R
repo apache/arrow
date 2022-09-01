@@ -75,10 +75,8 @@
   "lubridate::mday" = "day",
   "lubridate::yday" = "day_of_year",
   "lubridate::year" = "year",
-  "lubridate::leap_year" = "is_leap_year",
+  "lubridate::leap_year" = "is_leap_year"
 
-  # type conversion functions
-  "base::as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
