@@ -133,19 +133,19 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, PythonTableProvider& table_provider,
-    const std::vector<std::string>& provider_names, const ExtensionIdRegistry* registry,
-    compute::FunctionRegistry* func_registry) {
+    const ExtensionIdRegistry* registry, compute::FunctionRegistry* func_registry) {
   // TODO(ARROW-15732)
   // retrieve input table from table provider
-  std::shared_ptr<Table> input_table = table_provider(provider_names);
 
   NamedTableProvider named_table_provider =
-      [input_table](const std::vector<std::string>&) {
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(input_table);
-        return compute::Declaration("table_source", {}, options,
-                                    "substrait_table_provider_source");
-      };
+      [table_provider](
+          const std::vector<std::string>& names) -> Result<compute::Declaration> {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> input_table, table_provider(names));
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options,
+                                "substrait_table_provider_source");
+  };
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(named_table_provider);

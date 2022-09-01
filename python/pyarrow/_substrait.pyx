@@ -17,6 +17,7 @@
 
 # cython: language_level = 3
 from cython.operator cimport dereference as deref
+from libcpp.vector cimport vector as std_vector
 
 from pyarrow import Buffer
 from pyarrow.lib import frombytes
@@ -102,3 +103,40 @@ def get_supported_functions():
     for c_id in c_ids:
         functions_list.append(frombytes(c_id))
     return functions_list
+
+
+cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c_string]& names):
+    cdef c_string c_name
+    py_names = []
+    for i in range(names.size()):
+        c_name = names[i]
+        py_names.append(frombytes(c_name))
+    return pyarrow_unwrap_table(named_args["provider"](py_names))
+
+
+def run_query_with_provider(plan, table_provider):
+    cdef:
+        CResult[shared_ptr[CRecordBatchReader]] c_res_reader
+        shared_ptr[CRecordBatchReader] c_reader
+        RecordBatchReader reader
+        c_string c_str_plan
+        shared_ptr[CBuffer] c_buf_plan
+        function[named_table_provider] c_table_provider
+
+    if table_provider is not None:
+        named_table_args = {
+            "provider": table_provider
+        }
+        c_table_provider = BindFunction[named_table_provider](
+            &_process_named_table, named_table_args)
+
+    c_buf_plan = pyarrow_unwrap_buffer(plan)
+    with nogil:
+        c_res_reader = ExecuteSerializedPlan(
+            deref(c_buf_plan), c_table_provider)
+
+    c_reader = GetResultValue(c_res_reader)
+
+    reader = RecordBatchReader.__new__(RecordBatchReader)
+    reader.reader = c_reader
+    return reader

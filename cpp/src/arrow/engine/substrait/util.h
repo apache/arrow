@@ -29,7 +29,7 @@ namespace arrow {
 namespace engine {
 
 using PythonTableProvider =
-    std::function<std::shared_ptr<Table>(const std::vector<std::string>&)>;
+    std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)>;
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
@@ -40,7 +40,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerialized
 /// Allows to use NamedT
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, PythonTableProvider& table_provider,
-    const std::vector<std::string>& provider_names,
     const ExtensionIdRegistry* registry = NULLPTR,
     compute::FunctionRegistry* func_registry = NULLPTR);
 
