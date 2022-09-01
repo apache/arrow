@@ -39,6 +39,12 @@ RUN pip install \
     -r arrow/python/requirements-build.txt \
     -r arrow/python/requirements-test.txt
 
+ARG numba
+COPY ci/scripts/install_numba.sh /arrow/ci/scripts/
+RUN if [ "${numba}" != "" ]; then \
+        /arrow/ci/scripts/install_numba.sh ${numba} \
+    ; fi
+
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \

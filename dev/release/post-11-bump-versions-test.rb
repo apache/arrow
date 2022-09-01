@@ -145,6 +145,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "python/pyarrow/src/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_PYTHON_VERSION \"#{@next_snapshot_version}\")"],
+        ],
+      },
+      {
         path: "python/setup.py",
         hunks: [
           ["-default_version = '#{@snapshot_version}'",
@@ -185,6 +192,31 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     ]
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+      if path == "go/arrow/doc.go"
+        expected_changes << {
+          path: path,
+          hunks: [
+          [
+            "-const PkgVersion = \"#{@snapshot_version}\"",
+            "+const PkgVersion = \"#{@next_snapshot_version}\"",
+          ],
+        ]}
+        next
+      elsif path == "go/arrow/compute/go.mod"
+        expected_changes << {
+          path: path,
+          hunks: [
+          [
+            "-module github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/compute",
+            "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",
+            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} => ../../",
+            "+replace github.com/apache/arrow/go/v#{@next_major_version} => ../../",
+            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@snapshot_major_version}.0.0-00010101000000-000000000000",
+            "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_major_version}.0.0-00010101000000-000000000000",
+          ],
+        ]}
+        next
+      end
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)

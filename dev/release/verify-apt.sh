@@ -198,13 +198,6 @@ ruby -r gi -e "p GI.load('ArrowFlightSQL')"
 echo "::endgroup::"
 
 
-if [ "${have_python}" = "yes" ]; then
-  echo "::group::Test libarrow-python"
-  ${APT_INSTALL} libarrow-python-dev=${package_version}
-  echo "::endgroup::"
-fi
-
-
 if [ "${have_plasma}" = "yes" ]; then
   echo "::group::Test Plasma"
   ${APT_INSTALL} libplasma-glib-dev=${package_version}

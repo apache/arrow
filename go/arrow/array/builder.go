@@ -304,7 +304,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		}
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
-		return NewListBuilder(mem, typ.Elem())
+		return NewListBuilderWithField(mem, typ.ElemField())
 	case arrow.STRUCT:
 		typ := dtype.(*arrow.StructType)
 		return NewStructBuilder(mem, typ)
@@ -319,7 +319,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewDictionaryBuilder(mem, typ)
 	case arrow.LARGE_LIST:
 		typ := dtype.(*arrow.LargeListType)
-		return NewLargeListBuilder(mem, typ.Elem())
+		return NewLargeListBuilderWithField(mem, typ.ElemField())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

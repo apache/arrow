@@ -197,6 +197,42 @@ class TestListArray : public ::testing::Test {
     EXPECT_FALSE(left->Slice(offset)->Equals(right->Slice(offset)));
   }
 
+  void TestFromArraysWithNullBitMap() {
+    std::shared_ptr<Array> offsets_w_nulls, offsets_wo_nulls, values;
+
+    std::vector<offset_type> offsets = {0, 1, 1, 3, 4};
+    std::vector<bool> offsets_w_nulls_is_valid = {true, false, true, true, true};
+
+    ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_is_valid, offsets,
+                                             &offsets_w_nulls);
+    ArrayFromVector<OffsetType, offset_type>(offsets, &offsets_wo_nulls);
+
+    auto type = std::make_shared<T>(int32());
+    auto expected = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[0], null, [0, null], [0]]"));
+    values = expected->values();
+
+    // Offsets with nulls will match.
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         ArrayType::FromArrays(*offsets_w_nulls, *values, pool_));
+    AssertArraysEqual(*result, *expected);
+
+    // Offets without nulls, will replace null with empty list
+    ASSERT_OK_AND_ASSIGN(result,
+                         ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_));
+    AssertArraysEqual(*result, *std::dynamic_pointer_cast<ArrayType>(
+                                   ArrayFromJSON(type, "[[0], [], [0, null], [0]]")));
+
+    // Specify non-null offsets with null_bitmap
+    ASSERT_OK_AND_ASSIGN(result, ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_,
+                                                       expected->null_bitmap()));
+    AssertArraysEqual(*result, *expected);
+
+    // Cannot specify both null offsets with null_bitmap
+    ASSERT_RAISES(Invalid, ArrayType::FromArrays(*offsets_w_nulls, *values, pool_,
+                                                 expected->null_bitmap()));
+  }
+
   void TestFromArrays() {
     std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, values;
 
@@ -538,6 +574,10 @@ TYPED_TEST(TestListArray, Equality) { this->TestEquality(); }
 TYPED_TEST(TestListArray, ValuesEquality) { this->TestValuesEquality(); }
 
 TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
+
+TYPED_TEST(TestListArray, FromArraysWithNullBitMap) {
+  this->TestFromArraysWithNullBitMap();
+}
 
 TYPED_TEST(TestListArray, AppendNull) { this->TestAppendNull(); }
 
