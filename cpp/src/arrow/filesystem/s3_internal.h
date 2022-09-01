@@ -155,7 +155,7 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   return Status::IOError(
       prefix, "AWS Error ",
       S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())),
-      " (http status code: ", static_cast<int>(error.GetResponseCode()), ")",
+      " (http status ", static_cast<int>(error.GetResponseCode()), ")",
       " during ", operation, " operation: ", error.GetMessage());
 }
 
