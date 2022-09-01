@@ -165,3 +165,44 @@ def test_get_supported_functions():
                         'functions_arithmetic.yaml', 'add')
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'sum')
+    
+def test_named_table():
+    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+    test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
+    
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table_1
+        elif names[1] == "t2":
+            return test_table_2
+        else:
+            raise Exception("Unrecognized table name")
+        
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": ["TABLE_NAME_PLACEHOLDER"]
+            }
+            }
+        }}
+        ]
+    }
+    """
+    table_name = ""
+    query = tobytes(substrait_query.replace("TABLE_NAME_PLACEHOLDER", path))
+    pa.substrait.run_query(query, table_provider=table_provider)

@@ -34,3 +34,5 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
         std_vector[c_string] GetSupportedSubstraitFunctions()
 
     ExtensionIdRegistry* default_extension_id_registry()
+
+ctypedef shared_ptr[CTable] named_table_provider(const std_vector[c_string]&)
