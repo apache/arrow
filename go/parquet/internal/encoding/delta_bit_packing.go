@@ -50,7 +50,8 @@ type deltaBitPackDecoder struct {
 	deltaBitWidths *memory.Buffer
 	deltaBitWidth  byte
 
-	lastVal int64
+	totalValues uint64
+	lastVal     int64
 }
 
 // returns the number of bytes read so far
@@ -85,13 +86,8 @@ func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) error {
 		return xerrors.New("parquet: eof exception")
 	}
 
-	var totalValues uint64
-	if totalValues, ok = d.bitdecoder.GetVlqInt(); !ok {
+	if d.totalValues, ok = d.bitdecoder.GetVlqInt(); !ok {
 		return xerrors.New("parquet: eof exception")
-	}
-
-	if int(totalValues) != d.nvals {
-		return xerrors.New("parquet: mismatch between number of values and count in data header")
 	}
 
 	if d.lastVal, ok = d.bitdecoder.GetZigZagVlqInt(); !ok {

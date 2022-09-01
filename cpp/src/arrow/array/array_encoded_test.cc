@@ -113,6 +113,11 @@ TEST(RunLengthEncodedArray, OffsetLength) {
       std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(0, 150));
   ASSERT_EQ(slice4->GetPhysicalLength(), 2);
   ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
+
+  auto zero_length_at_end =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(500, 0));
+  ASSERT_EQ(zero_length_at_end->GetPhysicalLength(), 0);
+  ASSERT_EQ(zero_length_at_end->GetPhysicalOffset(), 5);
 }
 
 }  // anonymous namespace

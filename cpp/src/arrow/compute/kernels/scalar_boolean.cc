@@ -451,11 +451,11 @@ const FunctionDoc and_kleene_doc{
 const FunctionDoc and_not_kleene_doc{
     "Logical 'and not' boolean values (Kleene logic)",
     ("This function behaves as follows with nulls:\n\n"
-     "- true and null = null\n"
-     "- null and false = null\n"
-     "- false and null = false\n"
-     "- null and true = false\n"
-     "- null and null = null\n"
+     "- true and not null = null\n"
+     "- null and not false = null\n"
+     "- false and not null = false\n"
+     "- null and not true = false\n"
+     "- null and not null = null\n"
      "\n"
      "In other words, in this context a null value really means \"unknown\",\n"
      "and an unknown value 'and not' true is always false, as is false\n"
@@ -467,14 +467,14 @@ const FunctionDoc or_kleene_doc{
     "Logical 'or' boolean values (Kleene logic)",
     ("This function behaves as follows with nulls:\n\n"
      "- true or null = true\n"
-     "- null and true = true\n"
-     "- false and null = null\n"
-     "- null and false = null\n"
-     "- null and null = null\n"
+     "- null or true = true\n"
+     "- false or null = null\n"
+     "- null or false = null\n"
+     "- null or null = null\n"
      "\n"
      "In other words, in this context a null value really means \"unknown\",\n"
      "and an unknown value 'or' true is always true.\n"
-     "For a different null behavior, see function \"and\"."),
+     "For a different null behavior, see function \"or\"."),
     {"x", "y"}};
 
 }  // namespace

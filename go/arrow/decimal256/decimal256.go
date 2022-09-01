@@ -85,7 +85,20 @@ func (n Num) Negate() Num {
 }
 
 func FromFloat32(v float32, prec, scale int32) (Num, error) {
-	return FromFloat64(float64(v), prec, scale)
+	debug.Assert(prec > 0 && prec <= 76, "invalid precision for converting to decimal256")
+
+	if math.IsInf(float64(v), 0) {
+		return Num{}, fmt.Errorf("cannot convert %f to decimal256", v)
+	}
+
+	if v < 0 {
+		dec, err := fromPositiveFloat32(-v, prec, scale)
+		if err != nil {
+			return dec, err
+		}
+		return dec.Negate(), nil
+	}
+	return fromPositiveFloat32(v, prec, scale)
 }
 
 func FromFloat64(v float64, prec, scale int32) (Num, error) {
@@ -105,7 +118,48 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 	return fromPositiveFloat64(v, prec, scale)
 }
 
-func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
+// this has to exist despite sharing some code with fromPositiveFloat64
+// because if we don't do the casts back to float32 in between each
+// step, we end up with a significantly different answer!
+// Aren't floating point values so much fun?
+//
+// example value to use:
+//    v := float32(1.8446746e+15)
+//
+// You'll end up with a different values if you do:
+// 	  FromFloat64(float64(v), 20, 4)
+// vs
+//    FromFloat32(v, 20, 4)
+//
+// because float64(v) == 1844674629206016 rather than 1844674600000000
+func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
+	val, err := scalePositiveFloat64(float64(v), prec, scale)
+	if err != nil {
+		return Num{}, err
+	}
+
+	v = float32(val)
+	var arr [4]float32
+	arr[3] = float32(math.Floor(math.Ldexp(float64(v), -192)))
+	v -= float32(math.Ldexp(float64(arr[3]), 192))
+	arr[2] = float32(math.Floor(math.Ldexp(float64(v), -128)))
+	v -= float32(math.Ldexp(float64(arr[2]), 128))
+	arr[1] = float32(math.Floor(math.Ldexp(float64(v), -64)))
+	v -= float32(math.Ldexp(float64(arr[1]), 64))
+	arr[0] = v
+
+	debug.Assert(arr[3] >= 0, "bad conversion float64 to decimal256")
+	debug.Assert(arr[3] < 1.8446744073709552e+19, "bad conversion float64 to decimal256") // 2**64
+	debug.Assert(arr[2] >= 0, "bad conversion float64 to decimal256")
+	debug.Assert(arr[2] < 1.8446744073709552e+19, "bad conversion float64 to decimal256") // 2**64
+	debug.Assert(arr[1] >= 0, "bad conversion float64 to decimal256")
+	debug.Assert(arr[1] < 1.8446744073709552e+19, "bad conversion float64 to decimal256") // 2**64
+	debug.Assert(arr[0] >= 0, "bad conversion float64 to decimal256")
+	debug.Assert(arr[0] < 1.8446744073709552e+19, "bad conversion float64 to decimal256") // 2**64
+	return Num{[4]uint64{uint64(arr[0]), uint64(arr[1]), uint64(arr[2]), uint64(arr[3])}}, nil
+}
+
+func scalePositiveFloat64(v float64, prec, scale int32) (float64, error) {
 	var pscale float64
 	if scale >= -76 && scale <= 76 {
 		pscale = float64PowersOfTen[scale+76]
@@ -117,18 +171,26 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 	v = math.RoundToEven(v)
 	maxabs := float64PowersOfTen[prec+76]
 	if v <= -maxabs || v >= maxabs {
-		return Num{}, fmt.Errorf("cannot convert %f to decimal256(precision=%d, scale=%d): overflow",
+		return 0, fmt.Errorf("cannot convert %f to decimal256(precision=%d, scale=%d): overflow",
 			v, prec, scale)
+	}
+	return v, nil
+}
+
+func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
+	val, err := scalePositiveFloat64(v, prec, scale)
+	if err != nil {
+		return Num{}, err
 	}
 
 	var arr [4]float64
-	arr[3] = math.Floor(math.Ldexp(v, -192))
-	v -= math.Ldexp(arr[3], 192)
-	arr[2] = math.Floor(math.Ldexp(v, -128))
-	v -= math.Ldexp(arr[2], 128)
-	arr[1] = math.Floor(math.Ldexp(v, -64))
-	v -= math.Ldexp(arr[1], 64)
-	arr[0] = v
+	arr[3] = math.Floor(math.Ldexp(val, -192))
+	val -= math.Ldexp(arr[3], 192)
+	arr[2] = math.Floor(math.Ldexp(val, -128))
+	val -= math.Ldexp(arr[2], 128)
+	arr[1] = math.Floor(math.Ldexp(val, -64))
+	val -= math.Ldexp(arr[1], 64)
+	arr[0] = val
 
 	debug.Assert(arr[3] >= 0, "bad conversion float64 to decimal256")
 	debug.Assert(arr[3] < 1.8446744073709552e+19, "bad conversion float64 to decimal256") // 2**64
@@ -206,10 +268,17 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+func (n Num) GreaterEqual(other Num) bool {
+	return (n.arr[0] == other.arr[0] &&
+		n.arr[1] == other.arr[1] &&
+		n.arr[2] == other.arr[2] &&
+		n.arr[3] == other.arr[3]) || !n.Less(other)
+}
+
 func (n Num) Less(other Num) bool {
 	switch {
 	case n.arr[3] != other.arr[3]:
-		return n.arr[3] < other.arr[3]
+		return int64(n.arr[3]) < int64(other.arr[3])
 	case n.arr[2] != other.arr[2]:
 		return n.arr[2] < other.arr[2]
 	case n.arr[1] != other.arr[1]:

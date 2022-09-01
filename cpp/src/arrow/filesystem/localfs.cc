@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <sstream>
 #include <utility>
 
@@ -29,12 +30,15 @@
 #include <sys/stat.h>
 #endif
 
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/file.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -243,7 +247,8 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
 }
 
 bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
-  return use_mmap == other.use_mmap;
+  return use_mmap == other.use_mmap && directory_readahead == other.directory_readahead &&
+         file_info_batch_size == other.file_info_batch_size;
 }
 
 Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
@@ -307,6 +312,241 @@ Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& s
   std::vector<FileInfo> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
   return results;
+}
+
+namespace {
+
+/// Workhorse for streaming async implementation of `GetFileInfo`
+/// (`GetFileInfoGenerator`).
+///
+/// There are two variants of async discovery functions suported:
+/// 1. `DiscoverDirectoryFiles`, which parallelizes traversal of individual directories
+///    so that each directory results are yielded as a separate `FileInfoGenerator` via
+///    an underlying `DiscoveryImplIterator`, which delivers items in chunks (default size
+///    is 1K items).
+/// 2. `DiscoverDirectoriesFlattened`, which forwards execution to the
+///    `DiscoverDirectoryFiles`, with the difference that the results from individual
+///    sub-directory iterators are merged into the single FileInfoGenerator stream.
+///
+/// The implementation makes use of additional attributes in `LocalFileSystemOptions`,
+/// such as `directory_readahead`, which can be used to tune algorithm
+/// behavior and adjust how many directories can be processed in parallel.
+/// This option is disabled by default, so that individual directories are processed
+/// in serial manner via `MakeConcatenatedGenerator` under the hood.
+class AsyncStatSelector {
+ public:
+  using FileInfoGeneratorProducer = PushGenerator<FileInfoGenerator>::Producer;
+
+  /// Discovery state, which is shared among all `DiscoveryImplGenerator`:s,
+  /// spawned by a single discovery operation (`DiscoverDirectoryFiles()`).
+  ///
+  /// The sole purpose of this struct is to handle automatic closing the
+  /// producer side of the resulting `FileInfoGenerator`. I.e. the producer
+  /// is kept alive until all discovery iterators are exhausted, in which case
+  /// `producer.Close()` is called automatically when ref-count for the state
+  /// reaches zero (which is equivalent to finishing the file discovery
+  /// process).
+  struct DiscoveryState {
+    FileInfoGeneratorProducer producer;
+
+    explicit DiscoveryState(FileInfoGeneratorProducer p) : producer(std::move(p)) {}
+    ~DiscoveryState() { producer.Close(); }
+  };
+
+  /// The main procedure to start async streaming discovery using a given `FileSelector`.
+  ///
+  /// The result is a two-level generator, i.e. "generator of FileInfoGenerator:s",
+  /// where each individual generator represents an FileInfo item stream from coming an
+  /// individual sub-directory under the selector's `base_dir`.
+  static Result<AsyncGenerator<FileInfoGenerator>> DiscoverDirectoryFiles(
+      FileSelector selector, LocalFileSystemOptions fs_opts,
+      const io::IOContext& io_context) {
+    PushGenerator<FileInfoGenerator> file_gen;
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto base_dir, arrow::internal::PlatformFilename::FromString(selector.base_dir));
+    ARROW_RETURN_NOT_OK(DoDiscovery(std::move(base_dir), 0, std::move(selector),
+                                    std::make_shared<DiscoveryState>(file_gen.producer()),
+                                    io_context, fs_opts.file_info_batch_size));
+
+    return file_gen;
+  }
+
+  /// Version of `DiscoverDirectoryFiles` which flattens the stream of generators
+  /// into a single FileInfoGenerator stream.
+  /// Makes use of `LocalFileSystemOptions::directory_readahead` to determine how much
+  /// readahead should happen.
+  static arrow::Result<FileInfoGenerator> DiscoverDirectoriesFlattened(
+      FileSelector selector, LocalFileSystemOptions fs_opts,
+      const io::IOContext& io_context) {
+    int32_t dir_readahead = fs_opts.directory_readahead;
+    ARROW_ASSIGN_OR_RAISE(
+        auto part_gen,
+        DiscoverDirectoryFiles(std::move(selector), std::move(fs_opts), io_context));
+    return dir_readahead > 1
+               ? MakeSequencedMergedGenerator(std::move(part_gen), dir_readahead)
+               : MakeConcatenatedGenerator(std::move(part_gen));
+  }
+
+ private:
+  /// The class, which implements iterator interface to traverse a given
+  /// directory at the fixed nesting depth, and possibly recurses into
+  /// sub-directories (if specified by the selector), spawning more
+  /// `DiscoveryImplIterators`, which feed their data into a single producer.
+  class DiscoveryImplIterator {
+    const PlatformFilename dir_fn_;
+    const int32_t nesting_depth_;
+    const FileSelector selector_;
+    const uint32_t file_info_batch_size_;
+
+    const io::IOContext& io_context_;
+    std::shared_ptr<DiscoveryState> discovery_state_;
+    FileInfoVector current_chunk_;
+    std::vector<PlatformFilename> child_fns_;
+    size_t idx_ = 0;
+    bool initialized_ = false;
+
+   public:
+    DiscoveryImplIterator(PlatformFilename dir_fn, int32_t nesting_depth,
+                          FileSelector selector,
+                          std::shared_ptr<DiscoveryState> discovery_state,
+                          const io::IOContext& io_context, uint32_t file_info_batch_size)
+        : dir_fn_(std::move(dir_fn)),
+          nesting_depth_(nesting_depth),
+          selector_(std::move(selector)),
+          file_info_batch_size_(file_info_batch_size),
+          io_context_(io_context),
+          discovery_state_(std::move(discovery_state)) {}
+
+    /// Pre-initialize the iterator by listing directory contents and caching
+    /// in the current instance.
+    Status Initialize() {
+      auto result = arrow::internal::ListDir(dir_fn_);
+      if (!result.ok()) {
+        auto status = result.status();
+        if (selector_.allow_not_found && status.IsIOError()) {
+          ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn_));
+          if (!exists) {
+            return Status::OK();
+          }
+        }
+        return status;
+      }
+      child_fns_ = result.MoveValueUnsafe();
+
+      const size_t dirent_count = child_fns_.size();
+      current_chunk_.reserve(dirent_count >= file_info_batch_size_ ? file_info_batch_size_
+                                                                   : dirent_count);
+
+      initialized_ = true;
+      return Status::OK();
+    }
+
+    Result<FileInfoVector> Next() {
+      if (!initialized_) {
+        auto init = Initialize();
+        if (!init.ok()) {
+          return Finish(init);
+        }
+      }
+      while (idx_ < child_fns_.size()) {
+        auto full_fn = dir_fn_.Join(child_fns_[idx_++]);
+        auto res = StatFile(full_fn.ToNative());
+        if (!res.ok()) {
+          return Finish(res.status());
+        }
+
+        auto info = res.MoveValueUnsafe();
+
+        // Try to recurse into subdirectories, if needed.
+        if (info.type() == FileType::Directory &&
+            nesting_depth_ < selector_.max_recursion && selector_.recursive) {
+          auto status = DoDiscovery(std::move(full_fn), nesting_depth_ + 1, selector_,
+                                    discovery_state_, io_context_, file_info_batch_size_);
+          if (!status.ok()) {
+            return Finish(status);
+          }
+        }
+        // Everything is ok. Add the item to the current chunk of data.
+        current_chunk_.emplace_back(std::move(info));
+        // Keep `current_chunk_` as large, as `batch_size_`.
+        // Otherwise, yield the complete chunk to the caller.
+        if (current_chunk_.size() == file_info_batch_size_) {
+          FileInfoVector yield_vec = std::move(current_chunk_);
+          const size_t items_left = child_fns_.size() - idx_;
+          current_chunk_.reserve(
+              items_left >= file_info_batch_size_ ? file_info_batch_size_ : items_left);
+          return yield_vec;
+        }
+      }  // while (idx_ < child_fns_.size())
+
+      // Flush out remaining items
+      if (!current_chunk_.empty()) {
+        return std::move(current_chunk_);
+      }
+      return Finish();
+    }
+
+   private:
+    /// Release reference to shared discovery state and return iteration end
+    /// marker to indicate that this iterator is exhausted.
+    Result<FileInfoVector> Finish(Status status = Status::OK()) {
+      discovery_state_.reset();
+      ARROW_RETURN_NOT_OK(status);
+      return IterationEnd<FileInfoVector>();
+    }
+  };
+
+  /// Create an instance of  `DiscoveryImplIterator` under the hood for the
+  /// specified directory, wrap it in the `BackgroundGenerator`  and feed
+  /// the results to the main producer queue.
+  ///
+  /// Each `DiscoveryImplIterator` maintains a reference to `DiscoveryState`,
+  /// which simply wraps the producer to keep it alive for the lifetime
+  /// of this iterator. When all references to `DiscoveryState` are invalidated,
+  /// the producer is closed automatically.
+  static Status DoDiscovery(const PlatformFilename& dir_fn, int32_t nesting_depth,
+                            FileSelector selector,
+                            std::shared_ptr<DiscoveryState> discovery_state,
+                            const io::IOContext& io_context,
+                            int32_t file_info_batch_size) {
+    ARROW_RETURN_IF(discovery_state->producer.is_closed(),
+                    arrow::Status::Cancelled("Discovery cancelled"));
+
+    // Note, that here we use `MakeTransferredGenerator()` with the same
+    // target executor (io executor) as the current iterator is running on.
+    //
+    // This is done on purpose, since typically the user of
+    // `GetFileInfoGenerator()` would want to perform some more IO on the
+    // produced results (e.g. read the files, examine metadata etc.).
+    // So, it is preferable to execute the attached continuations on the same
+    // executor, which belongs to the IO thread pool.
+    ARROW_ASSIGN_OR_RAISE(
+        auto gen,
+        MakeBackgroundGenerator(Iterator<FileInfoVector>(DiscoveryImplIterator(
+                                    std::move(dir_fn), nesting_depth, std::move(selector),
+                                    discovery_state, io_context, file_info_batch_size)),
+                                io_context.executor()));
+    gen = MakeTransferredGenerator(std::move(gen), io_context.executor());
+    ARROW_RETURN_IF(!discovery_state->producer.Push(std::move(gen)),
+                    arrow::Status::Cancelled("Discovery cancelled"));
+    return arrow::Status::OK();
+  }
+};
+
+}  // anonymous namespace
+
+FileInfoGenerator LocalFileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto path_status = ValidatePath(select.base_dir);
+  if (!path_status.ok()) {
+    return MakeFailingGenerator<FileInfoVector>(path_status);
+  }
+  auto fileinfo_gen =
+      AsyncStatSelector::DiscoverDirectoriesFlattened(select, options(), io_context_);
+  if (!fileinfo_gen.ok()) {
+    return MakeFailingGenerator<FileInfoVector>(fileinfo_gen.status());
+  }
+  return fileinfo_gen.MoveValueUnsafe();
 }
 
 Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
