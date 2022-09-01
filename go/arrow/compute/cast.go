@@ -163,6 +163,7 @@ func initCastTable() {
 	castTable = make(map[arrow.Type]*castFunction)
 	addCastFuncs(getBooleanCasts())
 	addCastFuncs(getNumericCasts())
+	addCastFuncs(getTemporalCasts())
 }
 
 func getCastFunction(to arrow.DataType) (*castFunction, error) {
@@ -187,6 +188,28 @@ func getBooleanCasts() []*castFunction {
 	}
 
 	return []*castFunction{fn}
+}
+
+func getTemporalCasts() []*castFunction {
+	output := make([]*castFunction, 0)
+	addFn := func(name string, id arrow.Type, kernels []exec.ScalarKernel) {
+		fn := newCastFunction(name, id)
+		for _, k := range kernels {
+			if err := fn.AddTypeCast(k.Signature.InputTypes[0].MatchID(), k); err != nil {
+				panic(err)
+			}
+		}
+		output = append(output, fn)
+	}
+
+	addFn("cast_timestamp", arrow.TIMESTAMP, kernels.GetTimestampCastKernels())
+	addFn("cast_date32", arrow.DATE32, kernels.GetDate32CastKernels())
+	addFn("cast_date64", arrow.DATE64, kernels.GetDate64CastKernels())
+	addFn("cast_time32", arrow.TIME32, kernels.GetTime32CastKernels())
+	addFn("cast_time64", arrow.TIME64, kernels.GetTime64CastKernels())
+	addFn("cast_duration", arrow.DURATION, kernels.GetDurationCastKernels())
+	addFn("cast_month_day_nano_interval", arrow.INTERVAL_MONTH_DAY_NANO, kernels.GetIntervalCastKernels())
+	return output
 }
 
 func getNumericCasts() []*castFunction {
