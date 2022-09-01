@@ -74,7 +74,7 @@ Install
 The following guide depends on GitHub, but theoretically any git
 server can be used.
 
-If you are not using the `ursacomputing_crossbow`_
+If you are not using the `ursacomputing/crossbow`_
 repository, you will need to complete the first two steps, otherwise procede
 to step 3:
 
@@ -83,7 +83,7 @@ to step 3:
 2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
    integrations on for the newly created queue repository.
 
-3. Clone either `ursacomputing_crossbow`_ if you are using that, or the newly
+3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
 
    By default the scripts looks for ``crossbow`` next to arrow repository, but
@@ -258,4 +258,4 @@ see its help page:
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
 .. _Create a Personal Access Token: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 .. _setuptools_scm: https://pypi.python.org/pypi/setuptools_scm
-.. _ursacomputing_crossbow: https://github.com/ursacomputing/crossbow
+.. _ursacomputing/crossbow: https://github.com/ursacomputing/crossbow
