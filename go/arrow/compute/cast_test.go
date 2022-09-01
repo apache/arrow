@@ -299,7 +299,7 @@ func (c *CastSuite) TestCanCast() {
 
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.Null, numericTypes)
-	cannotCast(arrow.Null, baseBinaryTypes)
+	canCast(arrow.Null, baseBinaryTypes)
 	canCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
 	})
@@ -307,7 +307,7 @@ func (c *CastSuite) TestCanCast() {
 
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.FixedWidthTypes.Boolean, numericTypes)
-	// canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.FixedWidthTypes.Boolean}, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 
 	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
@@ -318,16 +318,16 @@ func (c *CastSuite) TestCanCast() {
 	for _, from := range numericTypes {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
-		// canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+		canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
 
 	for _, from := range baseBinaryTypes {
-		// canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		// canCast(from, numericTypes)
-		// canCast(from, baseBinaryTypes)
+		canCast(from, baseBinaryTypes)
 		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
 
 		// any cast which is valid for the dictionary is valid for the dictionary array
@@ -342,9 +342,9 @@ func (c *CastSuite) TestCanCast() {
 	// no formatting supported
 	cannotCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
 
-	// canCast(&arrow.FixedSizeBinaryType{ByteWidth: 3}, []arrow.DataType{
-	// 	arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString,
-	// 	&arrow.FixedSizeBinaryType{ByteWidth: 3}})
+	canCast(&arrow.FixedSizeBinaryType{ByteWidth: 3}, []arrow.DataType{
+		arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString,
+		&arrow.FixedSizeBinaryType{ByteWidth: 3}})
 
 	arrow.RegisterExtensionType(types.NewSmallintType())
 	defer arrow.UnregisterExtensionType("smallint")
@@ -352,12 +352,12 @@ func (c *CastSuite) TestCanCast() {
 	// canCast(types.NewSmallintType(), numericTypes) // any cast which is valid for storage is supported
 	// canCast(arrow.Null, []arrow.DataType{types.NewSmallintType()})
 
-	// canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Timestamp_ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Time32ms, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Time64ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Timestamp_ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Time32ms, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Time64ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
@@ -1217,6 +1217,22 @@ func (c *CastSuite) TestDecimalToFloating() {
 				})
 			}
 		})
+	}
+}
+
+func (c *CastSuite) TestDateToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(arrow.FixedWidthTypes.Date32, stype,
+			`[0, null]`, `["1970-01-01", null]`)
+		c.checkCast(arrow.FixedWidthTypes.Date64, stype,
+			`[86400000, null]`, `["1970-01-02", null]`)
+	}
+}
+
+func (c *CastSuite) TestTimeToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(arrow.FixedWidthTypes.Time32s, stype, `[1, 62]`, `["00:00:01", "00:01:02"]`)
+		c.checkCast(arrow.FixedWidthTypes.Time64ns, stype, `[0, 1]`, `["00:00:00.000000000", "00:00:00.000000001"]`)
 	}
 }
 
