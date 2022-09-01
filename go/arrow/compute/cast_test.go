@@ -198,16 +198,19 @@ func checkCastZeroCopy(t *testing.T, input arrow.Array, toType arrow.DataType, o
 }
 
 var (
-	integerTypes = []arrow.DataType{
-		arrow.PrimitiveTypes.Uint8,
+	signedIntTypes = []arrow.DataType{
 		arrow.PrimitiveTypes.Int8,
-		arrow.PrimitiveTypes.Uint16,
 		arrow.PrimitiveTypes.Int16,
-		arrow.PrimitiveTypes.Uint32,
 		arrow.PrimitiveTypes.Int32,
-		arrow.PrimitiveTypes.Uint64,
 		arrow.PrimitiveTypes.Int64,
 	}
+	unsignedIntTypes = []arrow.DataType{
+		arrow.PrimitiveTypes.Uint8,
+		arrow.PrimitiveTypes.Uint16,
+		arrow.PrimitiveTypes.Uint32,
+		arrow.PrimitiveTypes.Uint64,
+	}
+	integerTypes = append(signedIntTypes, unsignedIntTypes...)
 	numericTypes = append(integerTypes,
 		arrow.PrimitiveTypes.Float32,
 		arrow.PrimitiveTypes.Float64)
@@ -1215,6 +1218,94 @@ func (c *CastSuite) TestDecimalToFloating() {
 			}
 		})
 	}
+}
+
+func (c *CastSuite) TestStringToInt() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		for _, dt := range signedIntTypes {
+			c.checkCast(stype, dt,
+				`["0", null, "127", "-1", "0", "0x0", "0x7F"]`,
+				`[0, null, 127, -1, 0, 0, 127]`)
+		}
+
+		c.checkCast(stype, arrow.PrimitiveTypes.Int32,
+			`["2147483647", null, "-2147483648", "0", "0X0", "0x7FFFFFFF", "-0X1", "-0x10000000"]`,
+			`[2147483647, null, -2147483648, 0, 0, 2147483647, -1, -268435456]`)
+
+		c.checkCast(stype, arrow.PrimitiveTypes.Int64,
+			`["9223372036854775807", null, "-9223372036854775808", "0", "0x0", "0x7FFFFFFFFFFFFFFf", "-0x0FFFFFFFFFFFFFFF"]`,
+			`[9223372036854775807, null, -9223372036854775808, 0, 0, 9223372036854775807, -1152921504606846975]`)
+
+		for _, dt := range unsignedIntTypes {
+			c.checkCast(stype, dt, `["0", null, "127", "255", "0", "0x0", "0xff", "0X7f"]`,
+				`[0, null, 127, 255, 0, 0, 255, 127]`)
+		}
+
+		c.checkCast(stype, arrow.PrimitiveTypes.Uint32,
+			`["2147483647", null, "4294967295", "0", "0x0", "0x7FFFFFFf", "0xFFFFFFFF"]`,
+			`[2147483647, null, 4294967295, 0, 0, 2147483647, 4294967295]`)
+
+		c.checkCast(stype, arrow.PrimitiveTypes.Uint64,
+			`["9223372036854775807", null, "18446744073709551615", "0", "0x0", "0x7FFFFFFFFFFFFFFf", "0xfFFFFFFFFFFFFFFf"]`,
+			`[9223372036854775807, null, 18446744073709551615, 0, 0, 9223372036854775807, 18446744073709551615]`)
+
+		for _, notInt8 := range []string{"z", "12 z", "128", "-129", "0.5", "0x", "0xfff", "-0xf0"} {
+			c.checkCastFails(stype, `["`+notInt8+`"]`, compute.SafeCastOptions(arrow.PrimitiveTypes.Int8))
+		}
+
+		for _, notUint8 := range []string{"256", "-1", "0.5", "0x", "0x3wa", "0x123"} {
+			c.checkCastFails(stype, `["`+notUint8+`"]`, compute.SafeCastOptions(arrow.PrimitiveTypes.Uint8))
+		}
+	}
+}
+
+func (c *CastSuite) TestStringToFloating() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		for _, dt := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Float64} {
+			c.checkCast(stype, dt, `["0.1", null, "127.3", "1e3", "200.4", "0.5"]`,
+				`[0.1, null, 127.3, 1000, 200.4, 0.5]`)
+
+			for _, notFloat := range []string{"z"} {
+				c.checkCastFails(stype, `["`+notFloat+`"]`, compute.SafeCastOptions(dt))
+			}
+		}
+	}
+}
+
+func (c *CastSuite) TestUnsupportedInputType() {
+	// casting to a supported target type, but with an unsupported
+	// input for that target type.
+	arr, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[1, 2, 3]`))
+	defer arr.Release()
+
+	toType := arrow.ListOf(arrow.BinaryTypes.String)
+	_, err := compute.CastToType(context.Background(), arr, toType)
+	c.ErrorIs(err, arrow.ErrNotImplemented)
+	c.ErrorContains(err, "unsupported cast to list<item: utf8, nullable> from int32")
+
+	// test calling through the generic kernel API
+	datum := compute.NewDatum(arr)
+	defer datum.Release()
+	_, err = compute.CallFunction(context.Background(), "cast", compute.SafeCastOptions(toType), datum)
+	c.ErrorIs(err, arrow.ErrNotImplemented)
+	c.ErrorContains(err, "unsupported cast to list<item: utf8, nullable> from int32")
+}
+
+func (c *CastSuite) TestUnsupportedTargetType() {
+	arr, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[1, 2, 3]`))
+	defer arr.Release()
+
+	toType := arrow.DenseUnionOf([]arrow.Field{{Name: "a", Type: arrow.PrimitiveTypes.Int32}}, []arrow.UnionTypeCode{0})
+	_, err := compute.CastToType(context.Background(), arr, toType)
+	c.ErrorIs(err, arrow.ErrNotImplemented)
+	c.ErrorContains(err, "unsupported cast to dense_union<a: type=int32=0> from int32")
+
+	// test calling through the generic kernel API
+	datum := compute.NewDatum(arr)
+	defer datum.Release()
+	_, err = compute.CallFunction(context.Background(), "cast", compute.SafeCastOptions(toType), datum)
+	c.ErrorIs(err, arrow.ErrNotImplemented)
+	c.ErrorContains(err, "unsupported cast to dense_union<a: type=int32=0> from int32")
 }
 
 func (c *CastSuite) checkCastSelfZeroCopy(dt arrow.DataType, json string) {

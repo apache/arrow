@@ -296,6 +296,12 @@ func CastArray(ctx context.Context, val arrow.Array, opts *CastOptions) (arrow.A
 	return out.(*ArrayDatum).MakeArray(), nil
 }
 
+// CastToType is a convenience function equivalent to calling
+// CastArray(ctx, val, compute.SafeCastOptions(toType))
+func CastToType(ctx context.Context, val arrow.Array, toType arrow.DataType) (arrow.Array, error) {
+	return CastArray(ctx, val, SafeCastOptions(toType))
+}
+
 // CanCast returns true if there is an implementation for casting an array
 // or scalar value from the specified DataType to the other data type.
 func CanCast(from, to arrow.DataType) bool {
