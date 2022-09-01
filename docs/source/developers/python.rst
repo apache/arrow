@@ -484,12 +484,11 @@ debugging a C++ program, for example:
 Building on Windows
 ===================
 
-Building on Windows requires one of the following compilers to be installed:
+Building on Windows requires the Build Tools for Visual Studio 2019, or later,
+to be installed.
 
-- `Build Tools for Visual Studio 2017 <https://download.visualstudio.microsoft.com/download/pr/3e542575-929e-4297-b6c6-bef34d0ee648/639c868e1219c651793aff537a1d3b77/vs_buildtools.exe>`_
-- Visual Studio 2017
-
-During the setup of Build Tools, ensure at least one Windows SDK is selected.
+During the setup of the Visual Studio Build Tools, ensure at least one Windows
+SDK is selected.
 
 We bootstrap a conda environment similar to above, but skipping some of the
 Linux/macOS-only packages:
@@ -516,13 +515,14 @@ We set a number of environment variables:
 - the path of the installation directory of the Arrow C++ libraries as
   ``ARROW_HOME``
 - add the path of installed DLL libraries to ``PATH``
-- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
+- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``,
+  according to the installed Visual Studio Build Tools version
 
 .. code-block::
 
    $ set ARROW_HOME=%cd%\arrow-dist
    $ set PATH=%ARROW_HOME%\bin;%PATH%
-   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 16 2019 Win64
 
 Let's configure, build and install the Arrow C++ libraries:
 

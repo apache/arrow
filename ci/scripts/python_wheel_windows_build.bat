@@ -51,7 +51,7 @@ set ARROW_WITH_ZSTD=ON
 @rem Use (old) bundled AWS SDK C++ instead of (newer) AWS SDK C++.
 set AWSSDK_SOURCE=BUNDLED
 set CMAKE_UNITY_BUILD=ON
-set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set CMAKE_GENERATOR=Visual Studio 16 2019 Win64
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
