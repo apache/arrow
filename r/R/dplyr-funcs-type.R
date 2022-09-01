@@ -24,21 +24,10 @@ register_bindings_type <- function() {
 }
 
 register_bindings_type_cast <- function() {
-  register_binding("cast", function(x, target_type, safe = TRUE, ...) {
+  register_binding("arrow::cast", function(x, target_type, safe = TRUE, ...) {
     opts <- cast_options(safe, ...)
     opts$to_type <- as_type(target_type)
     Expression$create("cast", x, options = opts)
-  })
-
-  register_binding("dictionary_encode", function(x,
-                                                 null_encoding_behavior = c("mask", "encode")) {
-    behavior <- toupper(match.arg(null_encoding_behavior))
-    null_encoding_behavior <- NullEncodingBehavior[[behavior]]
-    Expression$create(
-      "dictionary_encode",
-      x,
-      options = list(null_encoding_behavior = null_encoding_behavior)
-    )
   })
 
   # as.* type casting functions

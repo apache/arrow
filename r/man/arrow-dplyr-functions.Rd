@@ -4,7 +4,7 @@
 \alias{arrow-dplyr-functions}
 \title{Functions available in Arrow dplyr queries}
 \description{
-The \code{arrow} package contains mappings of 196 R functions to the corresponding
+The \code{arrow} package contains mappings of 195 R functions to the corresponding
 functions in the Arrow compute library. This allows you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -27,202 +27,253 @@ mapping has that make Acero behave like R. These functions are listed in the
 \href{https://arrow.apache.org/docs/cpp/compute.html}{C++ documentation}, and
 in the function registry in R, they are named with an \code{arrow_} prefix, such
 as \code{arrow_ascii_is_decimal}.
+\subsection{arrow}{
 \itemize{
-\item \code{\link[=-]{-()}}
-\item \code{\link[=!]{!()}}
-\item \code{\link[=!=]{!=()}}
-\item \code{\link[=*]{*()}}
-\item \code{\link[=/]{/()}}
-\item \code{\link[=&]{&()}}
-\item \code{\link[=\%/\%]{\%/\%()}}
-\item \code{\link[=\%\%]{\%\%()}}
-\item \code{\link[=\%in\%]{\%in\%()}}
-\item \code{\link[=^]{^()}}
-\item \code{\link[=+]{+()}}
-\item \code{\link[=<]{<()}}
-\item \code{\link[=<=]{<=()}}
-\item \code{\link[===]{==()}}
-\item \code{\link[=>]{>()}}
-\item \code{\link[=>=]{>=()}}
-\item \code{\link[=|]{|()}}
-\item \code{\link[=add_filename]{add_filename()}}
-\item \code{\link[base:MathFun]{base::abs()}}
-\item \code{\link[base:Trig]{base::acos()}}
-\item \code{\link[base:all]{base::all()}}
-\item \code{\link[base:any]{base::any()}}
-\item \code{\link[base:character]{base::as.character()}}
-\item \code{\link[base:as.Date]{base::as.Date()}}
-\item \code{\link[base:difftime]{base::as.difftime()}}
-\item \code{\link[base:double]{base::as.double()}}
-\item \code{\link[base:factor]{base::as.factor()}}
-\item \code{\link[base:integer]{base::as.integer()}}
-\item \code{\link[base:logical]{base::as.logical()}}
-\item \code{\link[base:numeric]{base::as.numeric()}}
-\item \code{\link[base:Trig]{base::asin()}}
-\item \code{\link[base:Round]{base::ceiling()}}
-\item \code{\link[base:Trig]{base::cos()}}
-\item \code{\link[base:data.frame]{base::data.frame()}}
-\item \code{\link[base:difftime]{base::difftime()}}
-\item \code{\link[base:startsWith]{base::endsWith()}}
-\item \code{\link[base:Log]{base::exp()}}
-\item \code{\link[base:Round]{base::floor()}}
-\item \code{\link[base:format]{base::format()}}
-\item \code{\link[base:grep]{base::grepl()}}
-\item \code{\link[base:grep]{base::gsub()}}
-\item \code{\link[base:ifelse]{base::ifelse()}}
-\item \code{\link[base:character]{base::is.character()}}
-\item \code{\link[base:double]{base::is.double()}}
-\item \code{\link[base:factor]{base::is.factor()}}
-\item \code{\link[base:is.finite]{base::is.finite()}}
-\item \code{\link[base:is.finite]{base::is.infinite()}}
-\item \code{\link[base:integer]{base::is.integer()}}
-\item \code{\link[base:list]{base::is.list()}}
-\item \code{\link[base:logical]{base::is.logical()}}
-\item \code{\link[base:NA]{base::is.na()}}
-\item \code{\link[base:is.finite]{base::is.nan()}}
-\item \code{\link[base:numeric]{base::is.numeric()}}
-\item \code{\link[base:ISOdatetime]{base::ISOdate()}}
-\item \code{\link[base:ISOdatetime]{base::ISOdatetime()}}
-\item \code{\link[base:Log]{base::log()}}
-\item \code{\link[base:Log]{base::log10()}}
-\item \code{\link[base:Log]{base::log1p()}}
-\item \code{\link[base:Log]{base::log2()}}
-\item \code{\link[base:Log]{base::logb()}}
-\item \code{\link[base:Extremes]{base::max()}}
-\item \code{\link[base:mean]{base::mean()}}
-\item \code{\link[base:Extremes]{base::min()}}
-\item \code{\link[base:nchar]{base::nchar()}}
-\item \code{\link[base:paste]{base::paste()}}: the \code{collapse} argument is not yet supported
-\item \code{\link[base:paste]{base::paste0()}}: the \code{collapse} argument is not yet supported
-\item \code{\link[base:Extremes]{base::pmax()}}
-\item \code{\link[base:Extremes]{base::pmin()}}
-\item \code{\link[base:Round]{base::round()}}
-\item \code{\link[base:sign]{base::sign()}}
-\item \code{\link[base:Trig]{base::sin()}}
-\item \code{\link[base:MathFun]{base::sqrt()}}
-\item \code{\link[base:startsWith]{base::startsWith()}}
-\item \code{\link[base:strptime]{base::strftime()}}
-\item \code{\link[base:strptime]{base::strptime()}}
-\item \code{\link[base:strrep]{base::strrep()}}
-\item \code{\link[base:strsplit]{base::strsplit()}}
-\item \code{\link[base:grep]{base::sub()}}
-\item \code{\link[base:substr]{base::substr()}}
-\item \code{\link[base:substr]{base::substring()}}
-\item \code{\link[base:sum]{base::sum()}}
-\item \code{\link[base:Trig]{base::tan()}}
-\item \code{\link[base:chartr]{base::tolower()}}
-\item \code{\link[base:chartr]{base::toupper()}}
-\item \code{\link[base:Round]{base::trunc()}}
-\item \code{\link[bit64:as.integer64.character]{bit64::as.integer64()}}
-\item \code{\link[bit64:bit64-package]{bit64::is.integer64()}}
-\item \code{\link[=cast]{cast()}}
-\item \code{\link[=dictionary_encode]{dictionary_encode()}}
-\item \code{\link[dplyr:between]{dplyr::between()}}
-\item \code{\link[dplyr:case_when]{dplyr::case_when()}}
-\item \code{\link[dplyr:coalesce]{dplyr::coalesce()}}
-\item \code{\link[dplyr:if_else]{dplyr::if_else()}}
-\item \code{\link[dplyr:context]{dplyr::n()}}
-\item \code{\link[dplyr:n_distinct]{dplyr::n_distinct()}}
-\item \code{\link[lubridate:am]{lubridate::am()}}
-\item \code{\link[lubridate:as_date]{lubridate::as_date()}}
-\item \code{\link[lubridate:as_date]{lubridate::as_datetime()}}
-\item \code{\link[lubridate:round_date]{lubridate::ceiling_date()}}
-\item \code{\link[lubridate:date]{lubridate::date()}}
-\item \code{\link[lubridate:date_decimal]{lubridate::date_decimal()}}
-\item \code{\link[lubridate:day]{lubridate::day()}}
-\item \code{\link[lubridate:duration]{lubridate::ddays()}}
-\item \code{\link[lubridate:decimal_date]{lubridate::decimal_date()}}
-\item \code{\link[lubridate:duration]{lubridate::dhours()}}
-\item \code{\link[lubridate:duration]{lubridate::dmicroseconds()}}
-\item \code{\link[lubridate:duration]{lubridate::dmilliseconds()}}
-\item \code{\link[lubridate:duration]{lubridate::dminutes()}}
-\item \code{\link[lubridate:duration]{lubridate::dmonths()}}
-\item \code{\link[lubridate:ymd]{lubridate::dmy()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::dmy_h()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::dmy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::dmy_hms()}}
-\item \code{\link[lubridate:duration]{lubridate::dnanoseconds()}}
-\item \code{\link[lubridate:duration]{lubridate::dpicoseconds()}}
-\item \code{\link[lubridate:duration]{lubridate::dseconds()}}
-\item \code{\link[lubridate:dst]{lubridate::dst()}}
-\item \code{\link[lubridate:duration]{lubridate::dweeks()}}
-\item \code{\link[lubridate:duration]{lubridate::dyears()}}
-\item \code{\link[lubridate:ymd]{lubridate::dym()}}
-\item \code{\link[lubridate:week]{lubridate::epiweek()}}
-\item \code{\link[lubridate:year]{lubridate::epiyear()}}
-\item \code{\link[lubridate:parse_date_time]{lubridate::fast_strptime()}}
-\item \code{\link[lubridate:round_date]{lubridate::floor_date()}}
-\item \code{\link[lubridate:format_ISO8601]{lubridate::format_ISO8601()}}
-\item \code{\link[lubridate:hour]{lubridate::hour()}}
-\item \code{\link[lubridate:date_utils]{lubridate::is.Date()}}
-\item \code{\link[lubridate:is.instant]{lubridate::is.instant()}}
-\item \code{\link[lubridate:posix_utils]{lubridate::is.POSIXct()}}
-\item \code{\link[lubridate:is.instant]{lubridate::is.timepoint()}}
-\item \code{\link[lubridate:week]{lubridate::isoweek()}}
-\item \code{\link[lubridate:year]{lubridate::isoyear()}}
-\item \code{\link[lubridate:leap_year]{lubridate::leap_year()}}
-\item \code{\link[lubridate:make_datetime]{lubridate::make_date()}}
-\item \code{\link[lubridate:make_datetime]{lubridate::make_datetime()}}
-\item \code{\link[lubridate:make_difftime]{lubridate::make_difftime()}}
-\item \code{\link[lubridate:day]{lubridate::mday()}}
-\item \code{\link[lubridate:ymd]{lubridate::mdy()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::mdy_h()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::mdy_hm()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::mdy_hms()}}
-\item \code{\link[lubridate:minute]{lubridate::minute()}}
-\item \code{\link[lubridate:month]{lubridate::month()}}
-\item \code{\link[lubridate:ymd]{lubridate::my()}}
-\item \code{\link[lubridate:ymd]{lubridate::myd()}}
-\item \code{\link[lubridate:parse_date_time]{lubridate::parse_date_time()}}
-\item \code{\link[lubridate:am]{lubridate::pm()}}
-\item \code{\link[lubridate:day]{lubridate::qday()}}
-\item \code{\link[lubridate:quarter]{lubridate::quarter()}}
-\item \code{\link[lubridate:round_date]{lubridate::round_date()}}
-\item \code{\link[lubridate:second]{lubridate::second()}}
-\item \code{\link[lubridate:quarter]{lubridate::semester()}}
-\item \code{\link[lubridate:tz]{lubridate::tz()}}
-\item \code{\link[lubridate:day]{lubridate::wday()}}
-\item \code{\link[lubridate:week]{lubridate::week()}}
-\item \code{\link[lubridate:day]{lubridate::yday()}}
-\item \code{\link[lubridate:ymd]{lubridate::ydm()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ydm_h()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ydm_hm()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ydm_hms()}}
-\item \code{\link[lubridate:year]{lubridate::year()}}
-\item \code{\link[lubridate:ymd]{lubridate::ym()}}
-\item \code{\link[lubridate:ymd]{lubridate::ymd()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ymd_h()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ymd_hm()}}
-\item \code{\link[lubridate:ymd_hms]{lubridate::ymd_hms()}}
-\item \code{\link[lubridate:ymd]{lubridate::yq()}}
-\item \code{\link[methods:is]{methods::is()}}
-\item \code{\link[rlang:type-predicates]{rlang::is_character()}}
-\item \code{\link[rlang:type-predicates]{rlang::is_double()}}
-\item \code{\link[rlang:type-predicates]{rlang::is_integer()}}
-\item \code{\link[rlang:type-predicates]{rlang::is_list()}}
-\item \code{\link[rlang:type-predicates]{rlang::is_logical()}}
-\item \code{\link[stats:median]{stats::median()}}
-\item \code{\link[stats:quantile]{stats::quantile()}}
-\item \code{\link[stats:sd]{stats::sd()}}
-\item \code{\link[stats:cor]{stats::var()}}
-\item \code{\link[stringi:stri_reverse]{stringi::stri_reverse()}}
-\item \code{\link[stringr:str_c]{stringr::str_c()}}: the \code{collapse} argument is not yet supported
-\item \code{\link[stringr:str_count]{stringr::str_count()}}
-\item \code{\link[stringr:str_detect]{stringr::str_detect()}}
-\item \code{\link[stringr:str_dup]{stringr::str_dup()}}
-\item \code{\link[stringr:str_starts]{stringr::str_ends()}}
-\item \code{\link[stringr:str_length]{stringr::str_length()}}
-\item \code{\link[stringr:str_like]{stringr::str_like()}}
-\item \code{\link[stringr:str_pad]{stringr::str_pad()}}
-\item \code{\link[stringr:str_replace]{stringr::str_replace()}}
-\item \code{\link[stringr:str_replace]{stringr::str_replace_all()}}
-\item \code{\link[stringr:str_split]{stringr::str_split()}}
-\item \code{\link[stringr:str_starts]{stringr::str_starts()}}
-\item \code{\link[stringr:str_sub]{stringr::str_sub()}}
-\item \code{\link[stringr:case]{stringr::str_to_lower()}}
-\item \code{\link[stringr:case]{stringr::str_to_title()}}
-\item \code{\link[stringr:case]{stringr::str_to_upper()}}
-\item \code{\link[stringr:str_trim]{stringr::str_trim()}}
-\item \code{\link[tibble:tibble]{tibble::tibble()}}
+\item \link[=add_filename]{add_filename}
+\item \link[=cast]{cast}
+}
+}
+
+\subsection{base}{
+\itemize{
+\item \link[=-]{-}
+\item \link[=!]{!}
+\item \link[=!=]{!=}
+\item \link[=*]{*}
+\item \link[=/]{/}
+\item \link[=&]{&}
+\item \link[=\%/\%]{\%/\%}
+\item \link[=\%\%]{\%\%}
+\item \link[=\%in\%]{\%in\%}
+\item \link[=^]{^}
+\item \link[=+]{+}
+\item \link[=<]{<}
+\item \link[=<=]{<=}
+\item \link[===]{==}
+\item \link[=>]{>}
+\item \link[=>=]{>=}
+\item \link[=|]{|}
+\item \link[base:MathFun]{abs}
+\item \link[base:Trig]{acos}
+\item \link[base:all]{all}
+\item \link[base:any]{any}
+\item \link[base:character]{as.character}
+\item \link[base:as.Date]{as.Date}
+\item \link[base:difftime]{as.difftime}
+\item \link[base:double]{as.double}
+\item \link[base:factor]{as.factor}
+\item \link[base:integer]{as.integer}
+\item \link[base:logical]{as.logical}
+\item \link[base:numeric]{as.numeric}
+\item \link[base:Trig]{asin}
+\item \link[base:Round]{ceiling}
+\item \link[base:Trig]{cos}
+\item \link[base:data.frame]{data.frame}
+\item \link[base:difftime]{difftime}
+\item \link[base:startsWith]{endsWith}
+\item \link[base:Log]{exp}
+\item \link[base:Round]{floor}
+\item \link[base:format]{format}
+\item \link[base:grep]{grepl}
+\item \link[base:grep]{gsub}
+\item \link[base:ifelse]{ifelse}
+\item \link[base:character]{is.character}
+\item \link[base:double]{is.double}
+\item \link[base:factor]{is.factor}
+\item \link[base:is.finite]{is.finite}
+\item \link[base:is.finite]{is.infinite}
+\item \link[base:integer]{is.integer}
+\item \link[base:list]{is.list}
+\item \link[base:logical]{is.logical}
+\item \link[base:NA]{is.na}
+\item \link[base:is.finite]{is.nan}
+\item \link[base:numeric]{is.numeric}
+\item \link[base:ISOdatetime]{ISOdate}
+\item \link[base:ISOdatetime]{ISOdatetime}
+\item \link[base:Log]{log}
+\item \link[base:Log]{log10}
+\item \link[base:Log]{log1p}
+\item \link[base:Log]{log2}
+\item \link[base:Log]{logb}
+\item \link[base:Extremes]{max}
+\item \link[base:mean]{mean}
+\item \link[base:Extremes]{min}
+\item \link[base:nchar]{nchar}
+\item \link[base:paste]{paste}: the \code{collapse} argument is not yet supported
+\item \link[base:paste]{paste0}: the \code{collapse} argument is not yet supported
+\item \link[base:Extremes]{pmax}
+\item \link[base:Extremes]{pmin}
+\item \link[base:Round]{round}
+\item \link[base:sign]{sign}
+\item \link[base:Trig]{sin}
+\item \link[base:MathFun]{sqrt}
+\item \link[base:startsWith]{startsWith}
+\item \link[base:strptime]{strftime}
+\item \link[base:strptime]{strptime}
+\item \link[base:strrep]{strrep}
+\item \link[base:strsplit]{strsplit}
+\item \link[base:grep]{sub}
+\item \link[base:substr]{substr}
+\item \link[base:substr]{substring}
+\item \link[base:sum]{sum}
+\item \link[base:Trig]{tan}
+\item \link[base:chartr]{tolower}
+\item \link[base:chartr]{toupper}
+\item \link[base:Round]{trunc}
+}
+}
+
+\subsection{bit64}{
+\itemize{
+\item \link[bit64:as.integer64.character]{as.integer64}
+\item \link[bit64:bit64-package]{is.integer64}
+}
+}
+
+\subsection{dplyr}{
+\itemize{
+\item \link[dplyr:between]{between}
+\item \link[dplyr:case_when]{case_when}
+\item \link[dplyr:coalesce]{coalesce}
+\item \link[dplyr:if_else]{if_else}
+\item \link[dplyr:context]{n}
+\item \link[dplyr:n_distinct]{n_distinct}
+}
+}
+
+\subsection{lubridate}{
+\itemize{
+\item \link[lubridate:am]{am}
+\item \link[lubridate:as_date]{as_date}
+\item \link[lubridate:as_date]{as_datetime}
+\item \link[lubridate:round_date]{ceiling_date}
+\item \link[lubridate:date]{date}
+\item \link[lubridate:date_decimal]{date_decimal}
+\item \link[lubridate:day]{day}
+\item \link[lubridate:duration]{ddays}
+\item \link[lubridate:decimal_date]{decimal_date}
+\item \link[lubridate:duration]{dhours}
+\item \link[lubridate:duration]{dmicroseconds}
+\item \link[lubridate:duration]{dmilliseconds}
+\item \link[lubridate:duration]{dminutes}
+\item \link[lubridate:duration]{dmonths}
+\item \link[lubridate:ymd]{dmy}
+\item \link[lubridate:ymd_hms]{dmy_h}
+\item \link[lubridate:ymd_hms]{dmy_hm}
+\item \link[lubridate:ymd_hms]{dmy_hms}
+\item \link[lubridate:duration]{dnanoseconds}
+\item \link[lubridate:duration]{dpicoseconds}
+\item \link[lubridate:duration]{dseconds}
+\item \link[lubridate:dst]{dst}
+\item \link[lubridate:duration]{dweeks}
+\item \link[lubridate:duration]{dyears}
+\item \link[lubridate:ymd]{dym}
+\item \link[lubridate:week]{epiweek}
+\item \link[lubridate:year]{epiyear}
+\item \link[lubridate:parse_date_time]{fast_strptime}
+\item \link[lubridate:round_date]{floor_date}
+\item \link[lubridate:format_ISO8601]{format_ISO8601}
+\item \link[lubridate:hour]{hour}
+\item \link[lubridate:date_utils]{is.Date}
+\item \link[lubridate:is.instant]{is.instant}
+\item \link[lubridate:posix_utils]{is.POSIXct}
+\item \link[lubridate:is.instant]{is.timepoint}
+\item \link[lubridate:week]{isoweek}
+\item \link[lubridate:year]{isoyear}
+\item \link[lubridate:leap_year]{leap_year}
+\item \link[lubridate:make_datetime]{make_date}
+\item \link[lubridate:make_datetime]{make_datetime}
+\item \link[lubridate:make_difftime]{make_difftime}
+\item \link[lubridate:day]{mday}
+\item \link[lubridate:ymd]{mdy}
+\item \link[lubridate:ymd_hms]{mdy_h}
+\item \link[lubridate:ymd_hms]{mdy_hm}
+\item \link[lubridate:ymd_hms]{mdy_hms}
+\item \link[lubridate:minute]{minute}
+\item \link[lubridate:month]{month}
+\item \link[lubridate:ymd]{my}
+\item \link[lubridate:ymd]{myd}
+\item \link[lubridate:parse_date_time]{parse_date_time}
+\item \link[lubridate:am]{pm}
+\item \link[lubridate:day]{qday}
+\item \link[lubridate:quarter]{quarter}
+\item \link[lubridate:round_date]{round_date}
+\item \link[lubridate:second]{second}
+\item \link[lubridate:quarter]{semester}
+\item \link[lubridate:tz]{tz}
+\item \link[lubridate:day]{wday}
+\item \link[lubridate:week]{week}
+\item \link[lubridate:day]{yday}
+\item \link[lubridate:ymd]{ydm}
+\item \link[lubridate:ymd_hms]{ydm_h}
+\item \link[lubridate:ymd_hms]{ydm_hm}
+\item \link[lubridate:ymd_hms]{ydm_hms}
+\item \link[lubridate:year]{year}
+\item \link[lubridate:ymd]{ym}
+\item \link[lubridate:ymd]{ymd}
+\item \link[lubridate:ymd_hms]{ymd_h}
+\item \link[lubridate:ymd_hms]{ymd_hm}
+\item \link[lubridate:ymd_hms]{ymd_hms}
+\item \link[lubridate:ymd]{yq}
+}
+}
+
+\subsection{methods}{
+\itemize{
+\item \link[methods:is]{is}
+}
+}
+
+\subsection{rlang}{
+\itemize{
+\item \link[rlang:type-predicates]{is_character}
+\item \link[rlang:type-predicates]{is_double}
+\item \link[rlang:type-predicates]{is_integer}
+\item \link[rlang:type-predicates]{is_list}
+\item \link[rlang:type-predicates]{is_logical}
+}
+}
+
+\subsection{stats}{
+\itemize{
+\item \link[stats:median]{median}
+\item \link[stats:quantile]{quantile}
+\item \link[stats:sd]{sd}
+\item \link[stats:cor]{var}
+}
+}
+
+\subsection{stringi}{
+\itemize{
+\item \link[stringi:stri_reverse]{stri_reverse}
+}
+}
+
+\subsection{stringr}{
+\itemize{
+\item \link[stringr:str_c]{str_c}: the \code{collapse} argument is not yet supported
+\item \link[stringr:str_count]{str_count}
+\item \link[stringr:str_detect]{str_detect}
+\item \link[stringr:str_dup]{str_dup}
+\item \link[stringr:str_starts]{str_ends}
+\item \link[stringr:str_length]{str_length}
+\item \link[stringr:str_like]{str_like}
+\item \link[stringr:str_pad]{str_pad}
+\item \link[stringr:str_replace]{str_replace}
+\item \link[stringr:str_replace]{str_replace_all}
+\item \link[stringr:str_split]{str_split}
+\item \link[stringr:str_starts]{str_starts}
+\item \link[stringr:str_sub]{str_sub}
+\item \link[stringr:case]{str_to_lower}
+\item \link[stringr:case]{str_to_title}
+\item \link[stringr:case]{str_to_upper}
+\item \link[stringr:str_trim]{str_trim}
+}
+}
+
+\subsection{tibble}{
+\itemize{
+\item \link[tibble:tibble]{tibble}
+}
 }
 }

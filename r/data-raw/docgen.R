@@ -65,27 +65,59 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 %s
 #'
 #' @name arrow-dplyr-functions
-NULL
-"
+NULL"
+
+library(dplyr)
+library(purrr)
 
 docs <- arrow:::.cache$docs
-docs <- docs[order(names(docs))]
-# TODO: group by package name, create subheadings
 
-doclets <- purrr::imap_chr(docs, function(x, n) {
-  out <- paste0("#' * [", n, "()]")
-  if (length(x)) {
-    out <- paste0(out, ": ", paste(x, collapse = " "))
-  }
+docs_df <- tibble::tibble(
+  pkg_fun = names(docs),
+  notes = docs
+) %>%
+  mutate(
+    has_pkg = grepl("::", pkg_fun),
+    fun = sub("^.*?:{+}", "", pkg_fun),
+    pkg = sub(":{+}.*$", "", pkg_fun),
+    # We will list operators under "base" (everything else must be pkg::fun)
+    pkg = if_else(has_pkg, pkg, "base"),
+    # Flatten notes to a single string
+    notes = map_chr(notes, ~ paste(., collapse = " "))
+  ) %>%
+  arrange(pkg, fun)
+
+# Vectorized function to make entries for each function
+render_fun <- function(fun, pkg_fun, notes) {
+  out <- paste0("* [", fun, "][", pkg_fun, "()]")
+  has_notes <- nzchar(notes)
+  out[has_notes] <- paste0(out[has_notes], ": ", notes[has_notes])
   out
-})
+}
+
+# This renders a bulleted list under a package heading
+render_pkg <- function(df, pkg) {
+  bullets <- df %>%
+    transmute(render_fun(fun, pkg_fun, notes)) %>%
+    pull()
+  # Add header
+  bullets <- c(
+    paste("##", pkg),
+    "",
+    bullets
+  )
+  paste("#'", bullets, collapse = "\n")
+}
+
+# Group by package name and render the lists
+doclets <- imap_chr(split(docs_df, docs_df$pkg), render_pkg)
 
 writeLines(
   sprintf(
     file_template,
     length(docs),
     length(arrow::list_compute_functions()),
-    paste(doclets, collapse = "\n")
+    paste(doclets, collapse = "\n#'\n")
   ),
   "R/dplyr-funcs-doc.R"
 )

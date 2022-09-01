@@ -16,7 +16,7 @@
 # under the License.
 
 register_bindings_augmented <- function() {
-  register_binding("add_filename", function() {
+  register_binding("arrow::add_filename", function() {
     Expression$field_ref("__filename")
   })
 }
