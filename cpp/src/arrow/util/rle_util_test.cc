@@ -40,6 +40,11 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
                                                  1015, 1020, 1025, 1050},
                                15, 1000),
             10);
+
+  // out-of-range logical offset should return num_run_ends
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3, 6), 3);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3, 10000), 3);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 0, 5), 0);
 }
 
 TEST(TestRleUtil, ArtificalOffset) {
