@@ -122,6 +122,10 @@ type releasable interface {
 }
 
 func (d *ScalarDatum) Release() {
+	if !d.Value.IsValid() {
+		return
+	}
+
 	if v, ok := d.Value.(releasable); ok {
 		v.Release()
 	}
