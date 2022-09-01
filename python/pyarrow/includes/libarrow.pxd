@@ -606,12 +606,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const CArray& offsets, const CArray& values, CMemoryPool* pool)
+            const CArray& offsets,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
-            CMemoryPool* pool)
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
 
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
@@ -623,12 +631,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const CArray& offsets, const CArray& values, CMemoryPool* pool)
+            const CArray& offsets,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap
+        )
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
-            CMemoryPool* pool)
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap
+        )
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
