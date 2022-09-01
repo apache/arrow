@@ -396,7 +396,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \param[in] fragment_readahead How many fragments to read ahead
   /// \returns an error if this number is less than 0.
   ///
-  /// This option provides a control on the RAM vs IO tradeoff.
+  /// This option provides a control on the RAM vs I/O tradeoff.
   Status FragmentReadahead(int32_t fragment_readahead);
 
   /// \brief Set the pool from which materialized and scanned arrays will be allocated.
