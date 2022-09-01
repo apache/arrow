@@ -103,6 +103,8 @@ class build_ext(_build_ext):
 
     description = "Build the C-extensions for arrow"
     user_options = ([('cmake-generator=', None, 'CMake generator'),
+                     ('cmake-generator-platform=', None,
+                      'CMake generator platform'),
                      ('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None,
                       'build type (debug or release), default release'),
@@ -144,7 +146,9 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
-            self.cmake_generator = 'Visual Studio 16 2019 Win64'
+            self.cmake_generator = 'Visual Studio 16 2019'
+        self.cmake_generator_platform = os.environ.get(
+            'PYARROW_CMAKE_GENERATOR_PLATFORM')
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
@@ -275,6 +279,8 @@ class build_ext(_build_ext):
             # Windows
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+            if self.cmake_generator_platform:
+                cmake_options += ['-A', self.cmake_generator_platform]
 
             # build args
             build_tool_args = []
@@ -347,6 +353,8 @@ class build_ext(_build_ext):
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+            if self.cmake_generator_platform:
+                cmake_options += ['-A', self.cmake_generator_platform]
 
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
             append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
