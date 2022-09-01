@@ -318,6 +318,20 @@ TEST(TestAsyncUtil, Collect) {
   ASSERT_EQ(expected, collected_val);
 }
 
+TEST(TestAsyncUtil, ApplyThreadCheck) {
+  std::vector<TestInt> input = {1, 2, 3};
+  auto generator = util::AsyncVectorIt(input);
+  auto main_id = std::this_thread::get_id();
+  std::function<TestStr(const TestInt&)> mapper = [main_id](const TestInt& in) {
+    assert(std::this_thread::get_id() != main_id);
+    return std::to_string(in.value);
+  };
+  auto mapped =
+      MakeApplyGenerator(std::move(generator), mapper, internal::GetCpuThreadPool());
+  std::vector<TestStr> expected{"1", "2", "3"};
+  AssertAsyncGeneratorMatch(expected, mapped);
+}
+
 TEST(TestAsyncUtil, Map) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = util::AsyncVectorIt(input);
