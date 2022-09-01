@@ -40,13 +40,5 @@ int64_t GetPhysicalLength(const ArraySpan& span) {
   }
 }
 
-void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
-  auto& child = array->child_data[0];
-  auto builder = MakeBuilder(child->type).ValueOrDie();
-  ARROW_CHECK_OK(builder->AppendNulls(offset));
-  ARROW_CHECK_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
-  array->child_data[0] = builder->Finish().ValueOrDie()->Slice(offset)->data();
-}
-
 }  // namespace rle_util
 }  // namespace arrow
