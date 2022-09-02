@@ -135,7 +135,6 @@ read_compressed_error <- function(e) {
 }
 
 handle_parquet_io_error <- function(msg, call, format) {
-
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
@@ -206,7 +205,6 @@ repeat_value_as_array <- function(object, n) {
 }
 
 handle_csv_read_error <- function(msg, call, schema) {
-
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
@@ -221,7 +219,6 @@ handle_csv_read_error <- function(msg, call, schema) {
 }
 
 handle_augmented_field_misuse <- function(msg, call) {
-
   if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
     msg <- c(
       msg,
@@ -240,7 +237,7 @@ is_compressed <- function(compression) {
 }
 
 # handler function which checks for a number of different read errors
-augment_io_error_msg <- function(e, call, ...){
+augment_io_error_msg <- function(e, call, ...) {
   dots <- list2(...)
   msg <- conditionMessage(e)
 
