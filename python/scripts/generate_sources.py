@@ -2,7 +2,11 @@ import pyarrow as pa
 from pyarrow import _rstutils as arrowdoc
 from pyarrow.vendored import docscrape
 import textwrap
+import re 
 
+# compile this regex, which we use to strip out single newlines in the reSt
+# sources. Such newlines are no-ops and will be stripped out during rendering.
+strip_noop_newlines = re.compile(r' ?(?<!\n)\n(?!(\n|\s*-))')
 
 from pyarrow._compute import (  # noqa
     Function,
@@ -134,12 +138,12 @@ def generate_compute_function_doc(exposed_name, func, options_class,
                    .format(func.name, arg_str))
 
     docstring += f"{summary}.\n\n"
-
     # 2.a. Multi-line description
     if 'description' in custom_overrides and custom_overrides['description']:
-        docstring += custom_overrides['description'] + "\n\n"
+        docstring += strip_noop_newlines.sub(' ', custom_overrides['description'])
     elif cpp_doc.description:
-        docstring += cpp_doc.description + "\n\n"
+        docstring += strip_noop_newlines.sub(' ', cpp_doc.description)
+    docstring += "\n\n"
 
     # 2.b. If "details" are provided in the override, add them to
     # the description block
@@ -150,8 +154,6 @@ def generate_compute_function_doc(exposed_name, func, options_class,
     # 2.c. Note about the C++ function
     docstring += f"This wraps the \"{func.name}\" compute function in "\
         "the Arrow C++ library.\n\n"
-
-
 
     # 3. Parameter description
     docstring += "Parameters\n----------\n"
@@ -333,7 +335,7 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
         line, 
         width = 77, 
         initial_indent = " "*4, 
-        subsequent_indent = " "*8,
+        subsequent_indent = " "*4,
         replace_whitespace = False, 
         break_long_words = False, 
         drop_whitespace = True, 
