@@ -206,9 +206,9 @@ Also see `best gRPC practices`_ and available `gRPC keys`_.
 Re-use clients whenever possible
 --------------------------------
 
-Closing clients causes gRPC to close and clean up connections which can take
-several seconds per connection. This will stall server and client threads if
-done too frequently. Client reuse will avoid this issue.
+Creating and closing clients requires setup and teardown on the client and
+server side which can take away from actually handling RPCs. Reuse clients
+whenever possible to avoid this. Note that clients are thread-safe.
 
 Don’t round-robin load balance
 ------------------------------
@@ -250,7 +250,7 @@ allocated by gRPC or by the application that the system allocator was holding
 on to. This can be adjusted in platform-specific ways; see an investigation
 in JIRA for an example of how this works on Linux/glibc.
 
-malloc can be explicitly told to dump caches. See ARROW-16697_ as an example.
+glibc malloc can be explicitly told to dump caches. See ARROW-16697_ as an example.
 
 Excessive traffic
 -----------------
@@ -291,8 +291,8 @@ Limiting DoPut Batch Size
 
 You may wish to limit the maximum size a client can submit to a server through
 DoPut, to prevent a request from taking up too much memory on the server. On
-the client-side, set ``write_size_limit_bytes`` on ``FlightClientOptions``. On the
-server-side, set the gRPC option ``GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH``.
+the client-side, set :member:`arrow::flight::FlightClientOptions::write_size_limit_bytes`.
+On the server-side, set the gRPC option ``GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH``.
 The client-side option will return an error that can be retried with smaller batches,
 while the server-side limit will close out the connection. Setting both can be wise, since
 the former provides a better user experience but the latter may be necessary to defend
