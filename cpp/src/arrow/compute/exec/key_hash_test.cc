@@ -220,7 +220,7 @@ class TestVectorHash {
 };
 
 template <typename Type>
-void TestVectorHash() {
+void RunTestVectorHash() {
   random::pcg32_fast gen(/*seed=*/0);
 
   int numtest = 40;
