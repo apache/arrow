@@ -26,5 +26,8 @@ Getting Started
    build_system
    conventions
    tutorials/basic_arrow.rst
+   tutorials/io_tutorial.rst
+   tutorials/compute_tutorial.rst
+   tutorials/datasets_tutorial.rst
    
    
