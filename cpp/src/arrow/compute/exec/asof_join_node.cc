@@ -94,6 +94,11 @@ class ConcurrentQueue {
     cond_.notify_one();
   }
 
+  void Clear() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    queue_ = {};
+  }
+
   util::optional<T> TryPop() {
     // Try to pop the oldest value from the queue (or return nullopt if none)
     std::unique_lock<std::mutex> lock(mutex_);
@@ -801,7 +806,6 @@ class AsofJoinNode : public ExecNode {
         ExecBatch out_b(*out_rb);
         outputs_[0]->InputReceived(this, std::move(out_b));
       } else {
-        StopProducing();
         ErrorIfNotOk(result.status());
         return;
       }
@@ -813,8 +817,8 @@ class AsofJoinNode : public ExecNode {
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
     if (state_.at(0)->Finished()) {
-      StopProducing();
       outputs_[0]->InputFinished(this, batches_produced_);
+      finished_.MarkFinished();
     }
   }
 
@@ -1083,7 +1087,6 @@ class AsofJoinNode : public ExecNode {
   }
   void ErrorReceived(ExecNode* input, Status error) override {
     outputs_[0]->ErrorReceived(this, std::move(error));
-    StopProducing();
   }
   void InputFinished(ExecNode* input, int total_batches) override {
     {
@@ -1109,10 +1112,8 @@ class AsofJoinNode : public ExecNode {
     StopProducing();
   }
   void StopProducing() override {
-    // avoid finishing twice, to prevent "Plan was destroyed before finishing" error
-    if (finished_.state() == FutureState::PENDING) {
-      finished_.MarkFinished();
-    }
+    process_.Clear();
+    process_.Push(false);
   }
   arrow::Future<> finished() override { return finished_; }
 

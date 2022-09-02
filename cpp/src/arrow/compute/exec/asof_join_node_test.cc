@@ -585,7 +585,6 @@ struct BasicTest {
       auto end_time = std::chrono::system_clock::now();
       std::chrono::duration<double> diff = end_time - start_time;
       if (diff.count() > 2) {
-        std::cerr << "AsofJoin test reached time limit at iteration " << i << std::endl;
         // this normally happens on slow CI systems, but is fine
         break;
       }
