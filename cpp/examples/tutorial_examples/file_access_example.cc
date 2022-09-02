@@ -93,8 +93,8 @@ arrow::Status RunMain() {
   // it to multiple files throughout the example.
   std::shared_ptr<arrow::io::ReadableFile> infile;
   // Get "test_in.arrow" into our file pointer
-  ARROW_ASSIGN_OR_RAISE(
-      infile, arrow::io::ReadableFile::Open("test_in.arrow", arrow::default_memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open(
+                                    "test_in.arrow", arrow::default_memory_pool()));
   // Open up the file with the IPC features of the library, gives us a reader object.
   ARROW_ASSIGN_OR_RAISE(auto ipc_reader, arrow::ipc::RecordBatchFileReader::Open(infile));
   // Using the reader, we can read Record Batches. Note that this is specific to IPC;
