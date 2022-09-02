@@ -197,17 +197,15 @@ def test_named_table():
                         ]
             },
             "namedTable": {
-                    "names": ["TABLE_NAME_PLACEHOLDER"]
+                    "names": ["t1"]
             }
             }
         }}
         ]
     }
     """
-    table_name = "t1"
-    query = tobytes(substrait_query.replace(
-        "TABLE_NAME_PLACEHOLDER", table_name))
-    buf = pa._substrait._parse_json_plan(tobytes(query))
+
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
     reader = pa.substrait.run_query(buf, table_provider)
     res_tb = reader.read_all()
     assert res_tb == test_table_1
@@ -240,18 +238,15 @@ def test_named_table_invalid_table_name():
                         ]
             },
             "namedTable": {
-                    "names": ["TABLE_NAME_PLACEHOLDER"]
+                    "names": ["t3"]
             }
             }
         }}
         ]
     }
     """
-    table_name = "t3"
-    query = tobytes(substrait_query.replace(
-        "TABLE_NAME_PLACEHOLDER", table_name))
-    buf = pa._substrait._parse_json_plan(tobytes(query))
 
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
     exec_message = "TableSourceNode requires table which is not null"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider)
@@ -295,42 +290,4 @@ def test_named_table_empty_names():
     buf = pa._substrait._parse_json_plan(tobytes(query))
     exec_message = "names for NamedTable not provided"
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(buf, table_provider)
-
-
-def test_named_table_no_named_table():
-    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
-
-    def table_provider(names):
-        if not names:
-            raise Exception("No names provided")
-        elif names[0] == "t1":
-            return test_table_1
-        else:
-            raise Exception("Unrecognized table name")
-
-    substrait_query = """
-    {
-        "relations": [
-        {"rel": {
-            "read": {
-            "base_schema": {
-                "struct": {
-                "types": [
-                            {"i64": {}}
-                        ]
-                },
-                "names": [
-                        "x"
-                        ]
-            }
-            }
-        }}
-        ]
-    }
-    """
-    query = tobytes(substrait_query)
-    buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "substrait::ReadRel with read_type other than LocalFiles"
-    with pytest.raises(pa.lib.ArrowNotImplementedError, match=exec_message):
         substrait.run_query(buf, table_provider)

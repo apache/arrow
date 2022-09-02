@@ -32,7 +32,6 @@ using PythonTableProvider =
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)>;
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
-/// Allows to use NamedTableProvider in Substrait plan execution.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const PythonTableProvider& table_provider,
     const ExtensionIdRegistry* registry = NULLPTR,

@@ -29,7 +29,6 @@ from pyarrow.includes.libarrow_substrait cimport *
 cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c_string]& names):
     cdef:
         c_string c_name
-        shared_ptr[CTable] empty_table
     py_names = []
 
     # provider function could raise an exception
@@ -38,8 +37,9 @@ cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c
             c_name = names[i]
             py_names.append(frombytes(c_name))
         return pyarrow_unwrap_table(named_args["provider"](py_names))
-    except Exception:
-        return empty_table
+    except Exception as ex:
+        raise ValueError(
+            f"Error occurred in extracting NamedTable : {str(ex)}")
 
 
 def run_query(plan, table_provider=None):
@@ -51,7 +51,9 @@ def run_query(plan, table_provider=None):
     plan : Buffer
         The serialized Substrait plan to execute.
     table_provider : object (optional)
-        The function determining input table based on names
+        A function to resolve any NamedTable relation to a table.
+        The function will receive a single argument which will be a list
+        of strings representing the table name and should return a pyarrow.Table.
 
     Returns
     -------
@@ -91,17 +93,14 @@ def run_query(plan, table_provider=None):
     ...                             ]
     ...                 },
     ...                 "namedTable": {
-    ...                         "names": ["TABLE_NAME_PLACEHOLDER"]
+    ...                         "names": ["t1"]
     ...                 }
     ...                 }
     ...             }}
     ...             ]
     ...         }
     ... '''
-    >>> table_name = "t1"
-    >>> query = tobytes(substrait_query.replace(
-    ...             "TABLE_NAME_PLACEHOLDER", table_name))
-    >>> buf = pa._substrait._parse_json_plan(tobytes(query))
+    >>> buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
     >>> pa.substrait.run_query_with_provider(buf, table_provider)
     <pyarrow.lib.RecordBatchReader object at 0x100dcaf10>
     """

@@ -126,9 +126,6 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     NamedTableProvider named_table_provider =
         [table_provider](
             const std::vector<std::string>& names) -> Result<compute::Declaration> {
-      if (names.empty()) {
-        return Status::Invalid("names for NamedTable not provided");
-      }
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> input_table, table_provider(names));
       std::shared_ptr<compute::ExecNodeOptions> options =
           std::make_shared<compute::TableSourceNodeOptions>(input_table);

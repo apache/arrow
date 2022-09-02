@@ -135,6 +135,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
+        if (table_names.empty()) {
+          return Status::Invalid("names for NamedTable not provided");
+        }
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
         return ProcessEmit(std::move(read),
