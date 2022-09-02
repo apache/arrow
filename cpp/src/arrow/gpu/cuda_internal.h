@@ -33,6 +33,7 @@ namespace internal {
 
 std::string CudaErrorDescription(CUresult err);
 
+ARROW_EXPORT
 Status StatusFromCuda(CUresult res, const char* function_name = nullptr);
 
 #define CU_RETURN_NOT_OK(FUNC_NAME, STMT)                               \

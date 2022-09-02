@@ -176,6 +176,9 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
+  if (is.null(x) && is.null(type)) {
+    type <- null()
+  }
   if (inherits(x, "Scalar")) {
     out <- x$as_array()
     if (!is.null(type)) {

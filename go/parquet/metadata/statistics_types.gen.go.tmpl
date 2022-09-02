@@ -91,7 +91,9 @@ func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
 
 func (s *{{.Name}}Statistics) plainEncode(src {{.name}}) []byte {
 {{- if eq .Name "ByteArray"}}
-  return src
+  out := make([]byte, len(src))
+  copy(out, src)
+  return out
 {{- else}}
   s.encoder.(encoding.{{.Name}}Encoder).Put([]{{.name}}{src})
   buf, err := s.encoder.FlushValues()

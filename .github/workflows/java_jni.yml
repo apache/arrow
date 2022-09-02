@@ -47,7 +47,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 9 Java JNI (Gandiva, Plasma, ORC, Dataset)
+    name: AMD64 manylinux2014 Java JNI
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
@@ -61,8 +61,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: maven-${{ hashFiles('java/**') }}
-          restore-keys: maven-
+          key: java-jni-manylinux-2014-${{ hashFiles('cpp/**', 'java/**') }}
+          restore-keys: java-jni-manylinux-2014-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -70,14 +70,14 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run debian-java-jni
+        run: archery docker run java-jni-manylinux-2014
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push debian-java-jni
+        run: archery docker push java-jni-manylinux-2014
 
   docker_integration_python:
-    name: AMD64 Debian 9 Java C Data Interface Integration
+    name: AMD64 Conda Java C Data Interface Integration
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
