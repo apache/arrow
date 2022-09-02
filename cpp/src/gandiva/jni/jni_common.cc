@@ -83,6 +83,7 @@ static jfieldID vector_expander_ret_capacity_;
 static jclass secondary_cache_class_;
 static jmethodID cache_get_method_;
 static jmethodID cache_set_method_;
+static jmethodID cache_release_mem_method_;
 static jclass cache_buf_ret_class_;
 static jfieldID cache_buf_ret_address_;
 static jfieldID cache_buf_ret_size_;
@@ -132,11 +133,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   secondary_cache_class_ = (jclass)env->NewGlobalRef(local_cache_class);
   env->DeleteLocalRef(local_expander_ret_class);
 
-  cache_get_method_ = env->GetMethodID(secondary_cache_class_, "getSecondaryCache",
+  cache_get_method_ = env->GetMethodID(secondary_cache_class_, "get",
                                        "(JJ)Lorg/apache/arrow/gandiva/evaluator/"
                                        "JavaSecondaryCacheInterface$BufferResult;");
-  cache_set_method_ =
-      env->GetMethodID(secondary_cache_class_, "setSecondaryCache", "(JJJJ)V");
+  cache_set_method_ = env->GetMethodID(secondary_cache_class_, "set", "(JJJJ)V");
+  cache_release_mem_method_ =
+      env->GetMethodID(secondary_cache_class_, "releaseBufferResult", "(J)V");
 
   jclass local_cache_ret_class = env->FindClass(
       "org/apache/arrow/gandiva/evaluator/JavaSecondaryCacheInterface$BufferResult");
@@ -660,10 +662,18 @@ std::shared_ptr<arrow::Buffer> JavaSecondaryCache::Get(
   jlong ret_address = env_->GetLongField(ret, cache_buf_ret_address_);
   jlong ret_size = env_->GetLongField(ret, cache_buf_ret_size_);
 
-  auto data = std::shared_ptr<arrow::Buffer>(
-      new arrow::Buffer(reinterpret_cast<uint8_t*>(ret_address), ret_size));
+  arrow::Buffer data(reinterpret_cast<uint8_t*>(ret_address), ret_size);
 
-  return data;
+  // copy the buffer and release the original memory
+  auto result = arrow::Buffer::CopyNonOwned(data, arrow::default_cpu_memory_manager());
+  env_->CallObjectMethod(jcache_, cache_release_mem_method_, data.address());
+
+  if (result.ok()) {
+    auto buffer = std::move(result.ValueOrDie());
+    return buffer;
+  } else {
+    return nullptr;
+  }
 }
 
 void JavaSecondaryCache::Set(std::shared_ptr<arrow::Buffer> key,
