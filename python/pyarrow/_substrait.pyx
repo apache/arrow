@@ -26,7 +26,16 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
-def run_query(plan):
+cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c_string]& names):
+    cdef c_string c_name
+    py_names = []
+    for i in range(names.size()):
+        c_name = names[i]
+        py_names.append(frombytes(c_name))
+    return pyarrow_unwrap_table(named_args["provider"](py_names))
+
+
+def run_query(plan, table_provider=None):
     """
     Execute a Substrait plan and read the results as a RecordBatchReader.
 
@@ -34,6 +43,60 @@ def run_query(plan):
     ----------
     plan : Buffer
         The serialized Substrait plan to execute.
+    table_provider : object (optional)
+        The function determining input table based on names
+
+    Returns
+    -------
+    RecordBatchReader
+        A reader containing the result of the executed query
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> from pyarrow.lib import tobytes
+    >>> import pyarrow.substrait as substrait
+    >>> test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+    >>> test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
+    >>> def table_provider(names):
+    ...     if not names:
+    ...        raise Exception("No names provided")
+    ...     elif names[0] == "t1":
+    ...        return test_table_1
+    ...     elif names[1] == "t2":
+    ...        return test_table_2
+    ...     else:
+    ...        raise Exception("Unrecognized table name")
+    ... 
+    >>> substrait_query = '''
+    ...         {
+    ...             "relations": [
+    ...             {"rel": {
+    ...                 "read": {
+    ...                 "base_schema": {
+    ...                     "struct": {
+    ...                     "types": [
+    ...                                 {"i64": {}}
+    ...                             ]
+    ...                     },
+    ...                     "names": [
+    ...                             "x"
+    ...                             ]
+    ...                 },
+    ...                 "namedTable": {
+    ...                         "names": ["TABLE_NAME_PLACEHOLDER"]
+    ...                 }
+    ...                 }
+    ...             }}
+    ...             ]
+    ...         }
+    ... '''
+    >>> table_name = "t1"
+    >>> query = tobytes(substrait_query.replace(
+    ...             "TABLE_NAME_PLACEHOLDER", table_name))
+    >>> buf = pa._substrait._parse_json_plan(tobytes(query))
+    >>> pa.substrait.run_query_with_provider(buf, table_provider)
+    <pyarrow.lib.RecordBatchReader object at 0x100dcaf10>
     """
 
     cdef:
@@ -42,10 +105,22 @@ def run_query(plan):
         RecordBatchReader reader
         c_string c_str_plan
         shared_ptr[CBuffer] c_buf_plan
+        function[named_table_provider] c_table_provider
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
-    with nogil:
-        c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
+
+    if table_provider is not None:
+        named_table_args = {
+            "provider": table_provider
+        }
+        c_table_provider = BindFunction[named_table_provider](
+            &_process_named_table, named_table_args)
+        with nogil:
+            c_res_reader = ExecuteSerializedPlan(
+                deref(c_buf_plan), c_table_provider)
+    else:
+        with nogil:
+            c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
 
     c_reader = GetResultValue(c_res_reader)
 
@@ -103,40 +178,3 @@ def get_supported_functions():
     for c_id in c_ids:
         functions_list.append(frombytes(c_id))
     return functions_list
-
-
-cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c_string]& names):
-    cdef c_string c_name
-    py_names = []
-    for i in range(names.size()):
-        c_name = names[i]
-        py_names.append(frombytes(c_name))
-    return pyarrow_unwrap_table(named_args["provider"](py_names))
-
-
-def run_query_with_provider(plan, table_provider):
-    cdef:
-        CResult[shared_ptr[CRecordBatchReader]] c_res_reader
-        shared_ptr[CRecordBatchReader] c_reader
-        RecordBatchReader reader
-        c_string c_str_plan
-        shared_ptr[CBuffer] c_buf_plan
-        function[named_table_provider] c_table_provider
-
-    if table_provider is not None:
-        named_table_args = {
-            "provider": table_provider
-        }
-        c_table_provider = BindFunction[named_table_provider](
-            &_process_named_table, named_table_args)
-
-    c_buf_plan = pyarrow_unwrap_buffer(plan)
-    with nogil:
-        c_res_reader = ExecuteSerializedPlan(
-            deref(c_buf_plan), c_table_provider)
-
-    c_reader = GetResultValue(c_res_reader)
-
-    reader = RecordBatchReader.__new__(RecordBatchReader)
-    reader.reader = c_reader
-    return reader

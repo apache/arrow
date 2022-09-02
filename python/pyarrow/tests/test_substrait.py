@@ -208,6 +208,6 @@ def test_named_table():
     query = tobytes(substrait_query.replace(
         "TABLE_NAME_PLACEHOLDER", table_name))
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    reader = pa.substrait.run_query_with_provider(buf, table_provider)
+    reader = pa.substrait.run_query(buf, table_provider)
     res_tb = reader.read_all()
     print(res_tb)
