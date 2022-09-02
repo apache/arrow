@@ -19,6 +19,7 @@ package compute_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -257,18 +258,45 @@ func (c *CastSuite) maskArrayWithNullsAt(input arrow.Array, toMask []int) arrow.
 }
 
 func (c *CastSuite) invalidUtf8Arr(dt arrow.DataType) arrow.Array {
-	arr, _, err := array.FromJSON(c.mem, dt, strings.NewReader(`["Hi", "olá mundo", "你好世界", "", "`+"\xa0\xa1"+`"]`))
-	c.Require().NoError(err)
-	return arr
+	bldr := array.NewBinaryBuilder(c.mem, dt.(arrow.BinaryDataType))
+	defer bldr.Release()
+
+	bldr.AppendValues([][]byte{
+		[]byte("Hi"),
+		[]byte("olá mundo"),
+		[]byte("你好世界"),
+		[]byte(""),
+		[]byte("\xa0\xa1"), // invalid utf8!
+	}, nil)
+
+	return bldr.NewArray()
+}
+
+type binaryBuilderAppend interface {
+	array.Builder
+	AppendValues([][]byte, []bool)
 }
 
 func (c *CastSuite) fixedSizeInvalidUtf8(dt arrow.DataType) arrow.Array {
+	var bldr binaryBuilderAppend
 	if dt.ID() == arrow.FIXED_SIZE_BINARY {
 		c.Require().Equal(3, dt.(*arrow.FixedSizeBinaryType).ByteWidth)
+		bldr = array.NewFixedSizeBinaryBuilder(c.mem, dt.(*arrow.FixedSizeBinaryType))
+	} else {
+		bldr = array.NewBinaryBuilder(c.mem, dt.(arrow.BinaryDataType))
 	}
-	arr, _, err := array.FromJSON(c.mem, dt, strings.NewReader(`["Hi!", "lá", "你", "   ", "`+"\xa0\xa1\xa2"+`"]`))
-	c.Require().NoError(err)
-	return arr
+
+	defer bldr.Release()
+
+	bldr.AppendValues([][]byte{
+		[]byte("Hi!"),
+		[]byte("lá"),
+		[]byte("你"),
+		[]byte("   "),
+		[]byte("\xa0\xa1\xa2"), // invalid utf8!
+	}, nil)
+
+	return bldr.NewArray()
 }
 
 func (c *CastSuite) SetupTest() {
@@ -299,7 +327,7 @@ func (c *CastSuite) TestCanCast() {
 
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.Null, numericTypes)
-	cannotCast(arrow.Null, baseBinaryTypes)
+	canCast(arrow.Null, baseBinaryTypes)
 	canCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
 	})
@@ -307,7 +335,7 @@ func (c *CastSuite) TestCanCast() {
 
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.FixedWidthTypes.Boolean, numericTypes)
-	// canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.FixedWidthTypes.Boolean}, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 
 	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
@@ -318,16 +346,16 @@ func (c *CastSuite) TestCanCast() {
 	for _, from := range numericTypes {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
-		// canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+		canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
 
 	for _, from := range baseBinaryTypes {
-		// canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		// canCast(from, numericTypes)
-		// canCast(from, baseBinaryTypes)
+		canCast(from, baseBinaryTypes)
 		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
 
 		// any cast which is valid for the dictionary is valid for the dictionary array
@@ -342,9 +370,9 @@ func (c *CastSuite) TestCanCast() {
 	// no formatting supported
 	cannotCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
 
-	// canCast(&arrow.FixedSizeBinaryType{ByteWidth: 3}, []arrow.DataType{
-	// 	arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString,
-	// 	&arrow.FixedSizeBinaryType{ByteWidth: 3}})
+	canCast(&arrow.FixedSizeBinaryType{ByteWidth: 3}, []arrow.DataType{
+		arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary, arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString,
+		&arrow.FixedSizeBinaryType{ByteWidth: 3}})
 
 	arrow.RegisterExtensionType(types.NewSmallintType())
 	defer arrow.UnregisterExtensionType("smallint")
@@ -352,12 +380,12 @@ func (c *CastSuite) TestCanCast() {
 	// canCast(types.NewSmallintType(), numericTypes) // any cast which is valid for storage is supported
 	// canCast(arrow.Null, []arrow.DataType{types.NewSmallintType()})
 
-	// canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Timestamp_ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Time32ms, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(arrow.FixedWidthTypes.Time64ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Timestamp_ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Time32ms, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
+	canCast(arrow.FixedWidthTypes.Time64ns, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 }
 
 func (c *CastSuite) checkCastFails(dt arrow.DataType, input string, opts *compute.CastOptions) {
@@ -1220,6 +1248,259 @@ func (c *CastSuite) TestDecimalToFloating() {
 	}
 }
 
+func (c *CastSuite) TestDateToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(arrow.FixedWidthTypes.Date32, stype,
+			`[0, null]`, `["1970-01-01", null]`)
+		c.checkCast(arrow.FixedWidthTypes.Date64, stype,
+			`[86400000, null]`, `["1970-01-02", null]`)
+	}
+}
+
+func (c *CastSuite) TestTimeToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(arrow.FixedWidthTypes.Time32s, stype, `[1, 62]`, `["00:00:01", "00:01:02"]`)
+		c.checkCast(arrow.FixedWidthTypes.Time64ns, stype, `[0, 1]`, `["00:00:00.000000000", "00:00:00.000000001"]`)
+	}
+}
+
+func (c *CastSuite) TestTimestampToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Second}, stype,
+			`[-30610224000, -5364662400]`, `["1000-01-01 00:00:00", "1800-01-01 00:00:00"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Millisecond}, stype,
+			`[-30610224000000, -5364662400000]`, `["1000-01-01 00:00:00.000", "1800-01-01 00:00:00.000"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Microsecond}, stype,
+			`[-30610224000000000, -5364662400000000]`, `["1000-01-01 00:00:00.000000", "1800-01-01 00:00:00.000000"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Nanosecond}, stype,
+			`[-596933876543210988, 349837323456789012]`, `["1951-02-01 01:02:03.456789012", "1981-02-01 01:02:03.456789012"]`)
+	}
+}
+
+func (c *CastSuite) TestTimestampWithZoneToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.checkCast(arrow.FixedWidthTypes.Timestamp_s, stype,
+			`[-30610224000, -5364662400]`, `["1000-01-01 00:00:00Z", "1800-01-01 00:00:00Z"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Second, TimeZone: "America/Phoenix"}, stype,
+			`[-34226955, 1456767743]`, `["1968-11-30 13:30:45-0700", "2016-02-29 10:42:23-0700"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "America/Phoenix"}, stype,
+			`[-34226955877, 1456767743456]`, `["1968-11-30 13:30:44.123-0700", "2016-02-29 10:42:23.456-0700"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: "America/Phoenix"}, stype,
+			`[-34226955877000, 1456767743456789]`, `["1968-11-30 13:30:44.123000-0700", "2016-02-29 10:42:23.456789-0700"]`)
+
+		c.checkCast(&arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: "America/Phoenix"}, stype,
+			`[-34226955876543211, 1456767743456789246]`, `["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"]`)
+	}
+}
+
+func (c *CastSuite) assertBinaryZeroCopy(lhs, rhs arrow.Array) {
+	// null bitmap and data buffers are always zero-copied
+	assertBufferSame(c.T(), lhs, rhs, 0)
+	assertBufferSame(c.T(), lhs, rhs, 2)
+
+	lOffsetByteWidth := lhs.DataType().Layout().Buffers[1].ByteWidth
+	rOffsetByteWidth := rhs.DataType().Layout().Buffers[1].ByteWidth
+	if lOffsetByteWidth == rOffsetByteWidth {
+		assertBufferSame(c.T(), lhs, rhs, 1)
+		return
+	}
+
+	offsets := make([]arrow.Array, 0, 2)
+	for _, arr := range []arrow.Array{lhs, rhs} {
+		length := arr.Len()
+		buffer := arr.Data().Buffers()[1]
+
+		byteWidth := arr.DataType().Layout().Buffers[1].ByteWidth
+		switch byteWidth {
+		case 4:
+			data := array.NewData(arrow.PrimitiveTypes.Int32, length, []*memory.Buffer{nil, buffer}, nil, 0, 0)
+			defer data.Release()
+			i32 := array.NewInt32Data(data)
+			i64, err := compute.CastArray(context.Background(), i32, compute.SafeCastOptions(arrow.PrimitiveTypes.Int64))
+			c.Require().NoError(err)
+			i32.Release()
+			defer i64.Release()
+			offsets = append(offsets, i64)
+		default:
+			data := array.NewData(arrow.PrimitiveTypes.Int64, length, []*memory.Buffer{nil, buffer}, nil, 0, 0)
+			defer data.Release()
+			i64 := array.NewInt64Data(data)
+			defer i64.Release()
+			offsets = append(offsets, i64)
+		}
+	}
+	c.Truef(array.Equal(offsets[0], offsets[1]), "lhs: %s\nrhs: %s", offsets[0], offsets[1])
+}
+
+func (c *CastSuite) TestBinaryToString() {
+	for _, btype := range []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary} {
+		c.Run(btype.String(), func() {
+			for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+				c.Run(stype.String(), func() {
+					// empty -> empty always works
+					c.checkCast(btype, stype, `[]`, `[]`)
+
+					invalidUtf8 := c.invalidUtf8Arr(btype)
+					defer invalidUtf8.Release()
+
+					invalidutf8Str := c.invalidUtf8Arr(stype)
+					defer invalidutf8Str.Release()
+
+					// invalid utf8 masked by a null bit is not an error
+					masked := c.maskArrayWithNullsAt(invalidUtf8, []int{4})
+					expMasked := c.maskArrayWithNullsAt(invalidutf8Str, []int{4})
+					defer masked.Release()
+					defer expMasked.Release()
+
+					checkCast(c.T(), masked, expMasked, *compute.SafeCastOptions(stype))
+
+					opts := compute.SafeCastOptions(stype)
+					checkCastFails(c.T(), invalidUtf8, *opts)
+
+					// override utf8 check
+					opts.AllowInvalidUtf8 = true
+					strs, err := compute.CastArray(context.Background(), invalidUtf8, opts)
+					c.NoError(err)
+					defer strs.Release()
+					c.assertBinaryZeroCopy(invalidUtf8, strs)
+				})
+			}
+		})
+	}
+
+	c.Run("fixed size binary", func() {
+		fromType := &arrow.FixedSizeBinaryType{ByteWidth: 3}
+		invalidUtf8Arr := c.fixedSizeInvalidUtf8(fromType)
+		defer invalidUtf8Arr.Release()
+		for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+			c.Run(stype.String(), func() {
+				c.checkCast(fromType, stype, `[]`, `[]`)
+
+				// invalid utf-8 masked by a null bit is not an error
+				strInvalidUtf8 := c.fixedSizeInvalidUtf8(stype)
+				defer strInvalidUtf8.Release()
+
+				masked := c.maskArrayWithNullsAt(invalidUtf8Arr, []int{4})
+				expMasked := c.maskArrayWithNullsAt(strInvalidUtf8, []int{4})
+				defer masked.Release()
+				defer expMasked.Release()
+
+				checkCast(c.T(), masked, expMasked, *compute.SafeCastOptions(stype))
+
+				opts := compute.SafeCastOptions(stype)
+				checkCastFails(c.T(), invalidUtf8Arr, *opts)
+
+				// override utf8 check
+				opts.AllowInvalidUtf8 = true
+				strs, err := compute.CastArray(context.Background(), invalidUtf8Arr, opts)
+				c.NoError(err)
+				defer strs.Release()
+
+				// null buffer is not always the same if input is sliced
+				assertBufferSame(c.T(), invalidUtf8Arr, strs, 0)
+
+				c.Same(invalidUtf8Arr.Data().Buffers()[1], strs.Data().Buffers()[2])
+			})
+		}
+	})
+}
+
+func (c *CastSuite) TestBinaryOrStringToBinary() {
+	for _, fromType := range baseBinaryTypes {
+		c.Run(fromType.String(), func() {
+			for _, toType := range []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary} {
+				c.Run(toType.String(), func() {
+					// empty -> empty always works
+					c.checkCast(fromType, toType, `[]`, `[]`)
+
+					invalidUtf8 := c.invalidUtf8Arr(fromType)
+					defer invalidUtf8.Release()
+
+					// invalid utf-8 is not an error for binary
+					out, err := compute.CastToType(context.Background(), invalidUtf8, toType)
+					c.NoError(err)
+					defer out.Release()
+					c.assertBinaryZeroCopy(invalidUtf8, out)
+
+					// invalid utf-8 masked by a null is also not an erro
+					invalidutf8Bin := c.invalidUtf8Arr(toType)
+					defer invalidutf8Bin.Release()
+
+					// invalid utf8 masked by a null bit is not an error
+					masked := c.maskArrayWithNullsAt(invalidUtf8, []int{4})
+					expMasked := c.maskArrayWithNullsAt(invalidutf8Bin, []int{4})
+					defer masked.Release()
+					defer expMasked.Release()
+
+					checkCast(c.T(), masked, expMasked, *compute.SafeCastOptions(toType))
+				})
+			}
+		})
+	}
+
+	c.Run("fixed size binary", func() {
+		fromType := &arrow.FixedSizeBinaryType{ByteWidth: 3}
+		invalidUtf8Arr := c.fixedSizeInvalidUtf8(fromType)
+		defer invalidUtf8Arr.Release()
+
+		checkCast(c.T(), invalidUtf8Arr, invalidUtf8Arr, *compute.DefaultCastOptions(true))
+		checkCastFails(c.T(), invalidUtf8Arr, *compute.SafeCastOptions(&arrow.FixedSizeBinaryType{ByteWidth: 5}))
+		for _, toType := range []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary} {
+			c.Run(toType.String(), func() {
+				c.checkCast(fromType, toType, `[]`, `[]`)
+
+				out, err := compute.CastToType(context.Background(), invalidUtf8Arr, toType)
+				c.NoError(err)
+				defer out.Release()
+				assertBufferSame(c.T(), invalidUtf8Arr, out, 0)
+
+				c.Same(invalidUtf8Arr.Data().Buffers()[1], out.Data().Buffers()[2])
+			})
+		}
+	})
+}
+
+func (c *CastSuite) TestStringToString() {
+	for _, fromType := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.Run("from "+fromType.String(), func() {
+			for _, toType := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+				c.Run("to "+toType.String(), func() {
+					c.checkCast(fromType, toType, `[]`, `[]`)
+
+					invalidUtf8 := c.invalidUtf8Arr(fromType)
+					defer invalidUtf8.Release()
+
+					invalidutf8Str := c.invalidUtf8Arr(toType)
+					defer invalidutf8Str.Release()
+
+					// invalid utf8 masked by a null bit is not an error
+					masked := c.maskArrayWithNullsAt(invalidUtf8, []int{4})
+					expMasked := c.maskArrayWithNullsAt(invalidutf8Str, []int{4})
+					defer masked.Release()
+					defer expMasked.Release()
+
+					checkCast(c.T(), masked, expMasked, *compute.SafeCastOptions(toType))
+
+					opts := compute.SafeCastOptions(toType)
+					// override utf8 check
+					opts.AllowInvalidUtf8 = true
+					// utf-8 is not checked by cast when the origin (utf-8) guarantees utf-8
+					strs, err := compute.CastArray(context.Background(), invalidUtf8, opts)
+					c.NoError(err)
+					defer strs.Release()
+					c.assertBinaryZeroCopy(invalidUtf8, strs)
+				})
+			}
+		})
+	}
+}
+
 func (c *CastSuite) TestStringToInt() {
 	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
 		for _, dt := range signedIntTypes {
@@ -1873,8 +2154,92 @@ func (c *CastSuite) TestStringToTimestamp() {
 	}
 }
 
+func (c *CastSuite) TestIntToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.Run(stype.String(), func() {
+			c.checkCast(arrow.PrimitiveTypes.Int8, stype,
+				`[0, 1, 127, -128, null]`, `["0", "1", "127", "-128", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Uint8, stype,
+				`[0, 1, 255, null]`, `["0", "1", "255", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Int16, stype,
+				`[0, 1, 32767, -32768, null]`, `["0", "1", "32767", "-32768", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Uint16, stype,
+				`[0, 1, 65535, null]`, `["0", "1", "65535", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Int32, stype,
+				`[0, 1, 2147483647, -2147483648, null]`,
+				`["0", "1", "2147483647", "-2147483648", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Uint32, stype,
+				`[0, 1, 4294967295, null]`, `["0", "1", "4294967295", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Int64, stype,
+				`[0, 1, 9223372036854775807, -9223372036854775808, null]`,
+				`["0", "1", "9223372036854775807", "-9223372036854775808", null]`)
+
+			c.checkCast(arrow.PrimitiveTypes.Uint64, stype,
+				`[0, 1, 18446744073709551615, null]`, `["0", "1", "18446744073709551615", null]`)
+		})
+	}
+}
+
+func (c *CastSuite) TestFloatingToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.Run(stype.String(), func() {
+			bldr := array.NewFloat32Builder(c.mem)
+			defer bldr.Release()
+			bldr.AppendValues([]float32{
+				0, float32(math.Copysign(0, -1)), 1.5, float32(math.Inf(-1)),
+				float32(math.Inf(0)), float32(math.NaN())}, nil)
+			bldr.AppendNull()
+			arr := bldr.NewArray()
+			defer arr.Release()
+
+			bldr64 := array.NewFloat64Builder(c.mem)
+			defer bldr64.Release()
+			bldr64.AppendValues([]float64{
+				0, math.Copysign(0, -1), 1.5, math.Inf(-1), math.Inf(0), math.NaN()}, nil)
+			bldr64.AppendNull()
+			arr64 := bldr64.NewArray()
+			defer arr64.Release()
+
+			c.checkCastArr(arr, stype, `["0", "-0", "1.5", "-Inf", "+Inf", "NaN", null]`, *compute.DefaultCastOptions(true))
+
+			c.checkCastArr(arr64, stype, `["0", "-0", "1.5", "-Inf", "+Inf", "NaN", null]`, *compute.DefaultCastOptions(true))
+		})
+	}
+}
+
+func (c *CastSuite) TestBooleanToString() {
+	for _, stype := range []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString} {
+		c.Run(stype.String(), func() {
+			c.checkCast(arrow.FixedWidthTypes.Boolean, stype,
+				`[true, true, false, null]`, `["true", "true", "false", null]`)
+		})
+	}
+}
+
 func (c *CastSuite) TestIdentityCasts() {
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Boolean, `[false, true, null, false]`)
+
+	c.checkCastSelfZeroCopy(arrow.Null, `[null, null, null]`)
+	for _, typ := range numericTypes {
+		c.checkCastSelfZeroCopy(typ, `[1, 2, null, 4]`)
+	}
+
+	// ["foo", "bar"] base64 encoded for binary
+	c.checkCastSelfZeroCopy(arrow.BinaryTypes.Binary, `["Zm9v", "YmFy"]`)
+	c.checkCastSelfZeroCopy(arrow.BinaryTypes.String, `["foo", "bar"]`)
+	c.checkCastSelfZeroCopy(&arrow.FixedSizeBinaryType{ByteWidth: 3}, `["Zm9v", "YmFy"]`)
+
+	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Time32ms, `[1, 2, 3, 4]`)
+	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Time64us, `[1, 2, 3, 4]`)
+	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date32, `[1, 2, 3, 4]`)
+	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date64, `[86400000, 0]`)
+	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Timestamp_s, `[1, 2, 3, 4]`)
 }
 
 func (c *CastSuite) smallIntArrayFromJSON(data string) arrow.Array {

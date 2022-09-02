@@ -571,6 +571,10 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		buf := memory.NewBufferBytes(arr.Value(idx))
 		defer buf.Release()
 		return NewBinaryScalar(buf, arr.DataType()), nil
+	case *array.LargeBinary:
+		buf := memory.NewBufferBytes(arr.Value(idx))
+		defer buf.Release()
+		return NewLargeBinaryScalar(buf), nil
 	case *array.Boolean:
 		return NewBooleanScalar(arr.Value(idx)), nil
 	case *array.Date32:
