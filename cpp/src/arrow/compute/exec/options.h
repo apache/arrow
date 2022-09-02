@@ -397,29 +397,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, const FieldRef& by_key, int64_t tolerance,
-                      bool nullable_by_key = false)
-      : on_key(std::move(on_key)),
-        by_key(),
-        tolerance(tolerance),
-        nullable_by_key(nullable_by_key) {
-    this->by_key.push_back(std::move(by_key));
-  }
-
-  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance,
-                      bool nullable_by_key = false)
-      : on_key(std::move(on_key)),
-        by_key(by_key),
-        tolerance(tolerance),
-        nullable_by_key(nullable_by_key) {}
-
-  // resolves ambiguity between previous constructors when initializer list is given
-  AsofJoinNodeOptions(FieldRef on_key, std::initializer_list<FieldRef> by_key,
-                      int64_t tolerance, bool nullable_by_key = false)
-      : on_key(std::move(on_key)),
-        by_key(by_key),
-        tolerance(tolerance),
-        nullable_by_key(nullable_by_key) {}
+  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
 
   /// \brief "on" key for the join.
   ///
@@ -438,10 +417,6 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   ///
   /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
-  /// \brief Whether the "by" key is nullable.
-  ///
-  /// Set to true if the "by" key is expected to take null values.
-  bool nullable_by_key;
 };
 
 /// \brief Make a node which select top_k/bottom_k rows passed through it

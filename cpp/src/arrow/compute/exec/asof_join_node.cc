@@ -232,7 +232,7 @@ class InputState {
   // turned into output record batches.
 
  public:
-  InputState(bool must_hash, bool nullable_by_key, KeyHasher* key_hasher,
+  InputState(bool must_hash, bool may_rehash, KeyHasher* key_hasher,
              const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
@@ -244,7 +244,7 @@ class InputState {
         key_type_id_(key_col_index.size()),
         key_hasher_(key_hasher),
         must_hash_(must_hash),
-        nullable_by_key_(nullable_by_key) {
+        may_rehash_(may_rehash) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -284,20 +284,23 @@ class InputState {
     return queue_.UnsyncFront();
   }
 
-#define LATEST_VAL_CASE(id, val)                            \
-  case Type::id: {                                          \
-    using T = typename TypeIdTraits<Type::id>::Type;        \
-    using CType = typename TypeTraits<T>::CType;            \
-    return val(data->GetValues<CType>(1)[latest_ref_row_]); \
+#define LATEST_VAL_CASE(id, val)                     \
+  case Type::id: {                                   \
+    using T = typename TypeIdTraits<Type::id>::Type; \
+    using CType = typename TypeTraits<T>::CType;     \
+    return val(data->GetValues<CType>(1)[row]);      \
   }
 
-  ByType GetLatestKey() const {
+  inline ByType GetLatestKey() const {
+    return GetLatestKey(queue_.UnsyncFront().get(), latest_ref_row_);
+  }
+
+  inline ByType GetLatestKey(const RecordBatch* batch, row_index_t row) const {
+    if (must_hash_) {
+      return key_hasher_->HashesFor(batch)[row];
+    }
     if (key_col_index_.size() == 0) {
       return 0;
-    }
-    const RecordBatch* batch = queue_.UnsyncFront().get();
-    if (must_hash_) {
-      return key_hasher_->HashesFor(batch)[latest_ref_row_];
     }
     auto data = batch->column_data(key_col_index_[0]);
     switch (key_type_id_[0]) {
@@ -320,8 +323,12 @@ class InputState {
     }
   }
 
-  OnType GetLatestTime() const {
-    auto data = queue_.UnsyncFront()->column_data(time_col_index_);
+  inline OnType GetLatestTime() const {
+    return GetLatestTime(queue_.UnsyncFront().get(), latest_ref_row_);
+  }
+
+  inline ByType GetLatestTime(const RecordBatch* batch, row_index_t row) const {
+    auto data = batch->column_data(time_col_index_);
     switch (time_type_id_) {
       LATEST_VAL_CASE(INT8, time_value)
       LATEST_VAL_CASE(INT16, time_value)
@@ -393,18 +400,29 @@ class InputState {
       if (latest_time > ts) {
         break;  // hit a future timestamp -- done updating for now
       }
-      memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
+      auto rb = GetLatestBatch();
+      if (may_rehash_ && rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
+        must_hash_ = true;
+        may_rehash_ = false;
+        Rehash();
+      }
+      memo_.Store(rb, latest_ref_row_, latest_time, GetLatestKey());
       updated = true;
       ARROW_ASSIGN_OR_RAISE(advanced, Advance());
     } while (advanced);
     return updated;
   }
 
-  Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
-    if (!nullable_by_key_ && key_col_index_.size() == 1 &&
-        rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
-      return Status::Invalid("AsofJoin does not allow unexpected null by-key values");
+  void Rehash() {
+    MemoStore new_memo;
+    for (const auto& entry : memo_.entries_) {
+      const auto& e = entry.second;
+      new_memo.Store(e.batch, e.row, e.time, GetLatestKey(e.batch.get(), e.row));
     }
+    memo_ = new_memo;
+  }
+
+  Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
       queue_.Push(rb);
     } else {
@@ -459,8 +477,8 @@ class InputState {
   mutable KeyHasher* key_hasher_;
   // True if hashing is mandatory
   bool must_hash_;
-  // True if null by-key values are expected
-  bool nullable_by_key_;
+  // True if by-key values may be rehashed
+  bool may_rehash_;
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
   // Must be < queue_.front()->num_rows() if queue_ is non-empty
   row_index_t latest_ref_row_ = 0;
@@ -817,14 +835,14 @@ class AsofJoinNode : public ExecNode {
                const std::vector<std::vector<col_index_t>>& indices_of_by_key,
                OnType tolerance, std::shared_ptr<Schema> output_schema,
                std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
-               bool nullable_by_key);
+               bool may_rehash);
 
   Status Init() override {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
       state_.push_back(::arrow::internal::make_unique<InputState>(
-          must_hash_, nullable_by_key_, key_hashers_[i].get(), inputs[i]->output_schema(),
+          must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
 
@@ -1036,14 +1054,15 @@ class AsofJoinNode : public ExecNode {
           ::arrow::internal::make_unique<KeyHasher>(indices_of_by_key[i]));
     }
     bool must_hash =
-        n_by != 1 ||
-        !is_primitive(
-            inputs[0]->output_schema()->field(indices_of_by_key[0][0])->type()->id());
-    bool nullable_by_key = join_options.nullable_by_key;
+        n_by > 1 ||
+        (n_by == 1 &&
+         !is_primitive(
+             inputs[0]->output_schema()->field(indices_of_by_key[0][0])->type()->id()));
+    bool may_rehash = n_by == 1 && !must_hash;
     return plan->EmplaceNode<AsofJoinNode>(
         plan, inputs, std::move(input_labels), std::move(indices_of_on_key),
         std::move(indices_of_by_key), time_value(join_options.tolerance),
-        std::move(output_schema), std::move(key_hashers), must_hash, nullable_by_key);
+        std::move(output_schema), std::move(key_hashers), must_hash, may_rehash);
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -1103,7 +1122,7 @@ class AsofJoinNode : public ExecNode {
   std::vector<std::vector<col_index_t>> indices_of_by_key_;
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
   bool must_hash_;
-  bool nullable_by_key_;
+  bool may_rehash_;
   // InputStates
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
@@ -1126,7 +1145,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            const std::vector<std::vector<col_index_t>>& indices_of_by_key,
                            OnType tolerance, std::shared_ptr<Schema> output_schema,
                            std::vector<std::unique_ptr<KeyHasher>> key_hashers,
-                           bool must_hash, bool nullable_by_key)
+                           bool must_hash, bool may_rehash)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
@@ -1134,7 +1153,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       indices_of_by_key_(std::move(indices_of_by_key)),
       key_hashers_(std::move(key_hashers)),
       must_hash_(must_hash),
-      nullable_by_key_(nullable_by_key),
+      may_rehash_(may_rehash),
       tolerance_(tolerance),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {

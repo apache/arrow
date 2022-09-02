@@ -329,17 +329,13 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
-  bool IsNull(int64_t i) const {
-    return ((this->buffers[0].data != NULLPTR)
-                ? !bit_util::GetBit(this->buffers[0].data, i + this->offset)
-                : this->null_count == this->length);
-  }
-
-  bool IsValid(int64_t i) const {
+  inline bool IsValid(int64_t i) const {
     return ((this->buffers[0].data != NULLPTR)
                 ? bit_util::GetBit(this->buffers[0].data, i + this->offset)
                 : this->null_count != this->length);
   }
+
+  inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
   std::shared_ptr<ArrayData> ToArrayData() const;
 
