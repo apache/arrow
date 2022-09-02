@@ -4,8 +4,6 @@ count_distinct
 Examples
 --------
 
-.. code-block:: python
-
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> arr = pa.array([True, True, None, False, True, None])

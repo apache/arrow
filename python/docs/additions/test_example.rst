@@ -52,8 +52,6 @@ Description override for this function.
 
 And here is what a separate paragraph would look like.
 
-.. code-block:: python
-
     print("just to mix up the description block even more")
 
 Okay. Fin.
@@ -61,8 +59,6 @@ Okay. Fin.
 Examples
 ~~~~~~~~
 
-.. code-block:: python
-    
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> arr = pa.array([True, True, None, False, True])

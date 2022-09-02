@@ -3,7 +3,6 @@ mode
 
 Examples
 --------
-.. code-block:: python
 
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc

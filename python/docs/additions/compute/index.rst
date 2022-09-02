@@ -8,8 +8,6 @@ The `end` parameter is an exclusive value, so if the matching index is the index
 Examples
 --------
 
-.. code-block:: python
-
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> arr = pa.array([30, 50, None, 12, 30, 50, 60, 39])

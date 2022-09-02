@@ -3,7 +3,6 @@ filter
 
 Examples
 --------
-.. code-block:: python
 
     >>> import pyarrow as pa
     >>> arr = pa.array(["a", "b", "c", None, "e"])

@@ -13,7 +13,6 @@ Note that `indices_nonzero` does not work with string arrays.
 
 Examples
 --------
-.. code-block:: python
 
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
