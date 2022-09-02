@@ -163,6 +163,7 @@ func initCastTable() {
 	castTable = make(map[arrow.Type]*castFunction)
 	addCastFuncs(getBooleanCasts())
 	addCastFuncs(getNumericCasts())
+	addCastFuncs(getBinaryLikeCasts())
 	addCastFuncs(getTemporalCasts())
 }
 
@@ -270,6 +271,27 @@ func getNumericCasts() []*castFunction {
 	out = append(out, getFn("cast_decimal", arrow.DECIMAL128, kernels.GetCastToDecimal128()))
 	// cast to decimal256
 	out = append(out, getFn("cast_decimal256", arrow.DECIMAL256, kernels.GetCastToDecimal256()))
+	return out
+}
+
+func getBinaryLikeCasts() []*castFunction {
+	out := make([]*castFunction, 0)
+
+	addFn := func(name string, ty arrow.Type, kns []exec.ScalarKernel) {
+		fn := newCastFunction(name, ty)
+		for _, k := range kns {
+			if err := fn.AddTypeCast(k.Signature.InputTypes[0].MatchID(), k); err != nil {
+				panic(err)
+			}
+		}
+		out = append(out, fn)
+	}
+
+	addFn("cast_binary", arrow.BINARY, kernels.GetToBinaryKernels(arrow.BinaryTypes.Binary))
+	addFn("cast_large_binary", arrow.LARGE_BINARY, kernels.GetToBinaryKernels(arrow.BinaryTypes.LargeBinary))
+	addFn("cast_string", arrow.STRING, kernels.GetToBinaryKernels(arrow.BinaryTypes.String))
+	addFn("cast_large_string", arrow.LARGE_STRING, kernels.GetToBinaryKernels(arrow.BinaryTypes.LargeString))
+	addFn("cast_fixed_sized_binary", arrow.FIXED_SIZE_BINARY, kernels.GetFsbCastKernels())
 	return out
 }
 
