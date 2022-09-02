@@ -86,7 +86,7 @@ arrow::Status RunMain() {
   // filesystem starting at a given path. For the sake of simplicity, that'll be
   // the current directory.
   std::shared_ptr<arrow::fs::FileSystem> fs;
-  // Get the CWD, use it to make the FileSystem object. 
+  // Get the CWD, use it to make the FileSystem object.
   char init_path[256];
   getcwd(init_path, 256);
   ARROW_ASSIGN_OR_RAISE(fs, arrow::fs::FileSystemFromUriOrPath(init_path));
