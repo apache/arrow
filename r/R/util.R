@@ -134,10 +134,6 @@ read_compressed_error <- function(e) {
   stop(e)
 }
 
-# This function was refactored in ARROW-15260 to only raise an error if
-# the appropriate string was found and so errors must be raised manually after
-# calling this if matching error not found
-# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
 handle_parquet_io_error <- function(msg, call, format) {
 
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
@@ -209,10 +205,6 @@ repeat_value_as_array <- function(object, n) {
   return(Scalar$create(object)$as_array(n))
 }
 
-# This function was refactored in ARROW-15260 to only raise an error if
-# the appropriate string was found and so errors must be raised manually after
-# calling this if matching error not found
-# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
 handle_csv_read_error <- function(msg, call, schema) {
 
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
@@ -228,10 +220,6 @@ handle_csv_read_error <- function(msg, call, schema) {
   }
 }
 
-# This function only raises an error if
-# the appropriate string was found and so errors must be raised manually after
-# calling this if matching error not found
-# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
 handle_augmented_field_misuse <- function(msg, call) {
 
   if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
