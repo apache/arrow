@@ -27,12 +27,19 @@ from pyarrow.includes.libarrow_substrait cimport *
 
 
 cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c_string]& names):
-    cdef c_string c_name
+    cdef:
+        c_string c_name
+        shared_ptr[CTable] empty_table
     py_names = []
-    for i in range(names.size()):
-        c_name = names[i]
-        py_names.append(frombytes(c_name))
-    return pyarrow_unwrap_table(named_args["provider"](py_names))
+
+    # provider function could raise an exception
+    try:
+        for i in range(names.size()):
+            c_name = names[i]
+            py_names.append(frombytes(c_name))
+        return pyarrow_unwrap_table(named_args["provider"](py_names))
+    except Exception:
+        return empty_table
 
 
 def run_query(plan, table_provider=None):
@@ -115,12 +122,10 @@ def run_query(plan, table_provider=None):
         }
         c_table_provider = BindFunction[named_table_provider](
             &_process_named_table, named_table_args)
-        with nogil:
-            c_res_reader = ExecuteSerializedPlan(
-                deref(c_buf_plan), c_table_provider)
-    else:
-        with nogil:
-            c_res_reader = ExecuteSerializedPlan(deref(c_buf_plan))
+
+    with nogil:
+        c_res_reader = ExecuteSerializedPlan(
+            deref(c_buf_plan), c_table_provider)
 
     c_reader = GetResultValue(c_res_reader)
 

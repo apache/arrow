@@ -25,8 +25,7 @@ from pyarrow.includes.libarrow cimport *
 ctypedef CResult[shared_ptr[CTable]] named_table_provider(const std_vector[c_string]&)
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer, function[named_table_provider] table_provider)
+    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer, const function[named_table_provider] table_provider)
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
