@@ -1057,7 +1057,11 @@ cdef class FileFragment(Fragment):
         """
         Returns a new FileFragment object that will only read 
         a slice of the old FileFragment defined by start (start byte)
-        and end (end byte).
+        and end (end byte). Slicing is currently only supported on
+        CSV file format, and the start and end bytes must be aligned
+        on linebreaks. If the start byte is not aligned generating
+        the first batch will fail. If the end byte is not aligned it
+        will fail on the last batch.
 
         Parameters
         ----------
