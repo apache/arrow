@@ -344,7 +344,7 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
   // Example rows: {}, {[10, 10]}, {[20, 20, 20]}
   std::vector<int32_t> values = {10, 10, 20, 20, 20};
-  std::vector<int16_t> def_levels{0, 1, 1, 1, 1, 1};
+  std::vector<int16_t> def_levels = {0, 1, 1, 1, 1, 1};
   std::vector<int16_t> rep_levels = {0, 0, 1, 0, 1, 1};
   std::shared_ptr<DataPageV1> page =
       MakeDataPage<Int32Type>(&descr, values, /*num_values=*/def_levels.size(),
@@ -357,23 +357,24 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   InitReader(&descr);
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 
-  std::vector<int32_t> vresult(4, -1);
-  std::vector<int16_t> dresult(4, -1);
-  std::vector<int16_t> rresult(4, -1);
+  // Vecotrs to hold read values, definition levels, and repetition levels.
+  std::vector<int32_t> read_vals(4, -1);
+  std::vector<int16_t> read_defs(4, -1);
+  std::vector<int16_t> read_reps(4, -1);
 
   // Skip two levels.
   int64_t levels_skipped = reader->Skip(2);
   ASSERT_EQ(2, levels_skipped);
 
-  int64_t values_read = 0;
+  int64_t num_read_values = 0;
   // Read the next set of values
-  reader->ReadBatch(10, dresult.data(), rresult.data(), vresult.data(),
-                    &values_read);
-  ASSERT_EQ(values_read, 4);
+  reader->ReadBatch(10, read_defs.data(), read_reps.data(), read_vals.data(),
+                    &num_read_values);
+  ASSERT_EQ(num_read_values, 4);
   // Note that we end up in the record with {[10, 10]}
-  ASSERT_TRUE(vector_equal({10, 20, 20, 20}, vresult));
-  ASSERT_TRUE(vector_equal({1, 1, 1, 1}, dresult));
-  ASSERT_TRUE(vector_equal({1, 0, 1, 1}, rresult));
+  ASSERT_TRUE(vector_equal({10, 20, 20, 20}, read_vals));
+  ASSERT_TRUE(vector_equal({1, 1, 1, 1}, read_defs));
+  ASSERT_TRUE(vector_equal({1, 0, 1, 1}, read_reps));
 }
 
 // Page claims to have two values but only 1 is present.
