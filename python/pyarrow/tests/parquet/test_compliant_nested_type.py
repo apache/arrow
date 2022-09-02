@@ -18,7 +18,6 @@
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
@@ -58,17 +57,14 @@ parametrize_test_data = pytest.mark.parametrize(
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_enable(tempdir,
-                                            use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_enable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
     # verify that we can read/write pandas df with new flag
     _roundtrip_pandas_dataframe(df,
                                 write_kwargs={
-                                    'use_compliant_nested_type': True},
-                                use_legacy_dataset=use_legacy_dataset)
+                                    'use_compliant_nested_type': True})
 
     # Write to a parquet file with compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -86,20 +82,16 @@ def test_write_compliant_nested_type_enable(tempdir,
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset,
                      use_compliant_nested_type=True)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_disable(tempdir,
-                                             use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_disable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
     # verify that we can read/write with new flag disabled (default behaviour)
-    _roundtrip_pandas_dataframe(df, write_kwargs={},
-                                use_legacy_dataset=use_legacy_dataset)
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
 
     # Write to a parquet file while disabling compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -115,5 +107,4 @@ def test_write_compliant_nested_type_disable(tempdir,
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset,
                      use_compliant_nested_type=False)

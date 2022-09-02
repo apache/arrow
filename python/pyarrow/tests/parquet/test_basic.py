@@ -26,7 +26,6 @@ from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          parametrize_legacy_dataset,
                                           _test_dataframe)
 
 try:
@@ -61,21 +60,18 @@ def test_parquet_invalid_version(tempdir):
                      data_page_version="2.2")
 
 
-@parametrize_legacy_dataset
-def test_set_data_page_size(use_legacy_dataset):
+def test_set_data_page_size():
     arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
 
     # 128K, 512K
     page_sizes = [2 << 16, 2 << 18]
     for target_page_size in page_sizes:
-        _check_roundtrip(t, data_page_size=target_page_size,
-                         use_legacy_dataset=use_legacy_dataset)
+        _check_roundtrip(t, data_page_size=target_page_size)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_set_write_batch_size(use_legacy_dataset):
+def test_set_write_batch_size():
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
 
@@ -85,8 +81,7 @@ def test_set_write_batch_size(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_set_dictionary_pagesize_limit(use_legacy_dataset):
+def test_set_dictionary_pagesize_limit():
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
 
@@ -99,8 +94,7 @@ def test_set_dictionary_pagesize_limit(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_chunked_table_write(use_legacy_dataset):
+def test_chunked_table_write():
     # ARROW-232
     tables = []
     batch = pa.RecordBatch.from_pandas(alltypes_sample(size=10))
@@ -114,66 +108,56 @@ def test_chunked_table_write(use_legacy_dataset):
             for table in tables:
                 _check_roundtrip(
                     table, version='2.6',
-                    use_legacy_dataset=use_legacy_dataset,
                     data_page_version=data_page_version,
                     use_dictionary=use_dictionary)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_memory_map(tempdir, use_legacy_dataset):
+def test_memory_map(tempdir):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
-                     version='2.6', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6')
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.6')
-    table_read = pq.read_pandas(filename, memory_map=True,
-                                use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(filename, memory_map=True)
     assert table_read.equals(table)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_enable_buffered_stream(tempdir, use_legacy_dataset):
+def test_enable_buffered_stream(tempdir):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
-                     version='2.6', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6')
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.6')
-    table_read = pq.read_pandas(filename, buffer_size=4096,
-                                use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(filename, buffer_size=4096)
     assert table_read.equals(table)
 
 
-@parametrize_legacy_dataset
-def test_special_chars_filename(tempdir, use_legacy_dataset):
+def test_special_chars_filename(tempdir):
     table = pa.Table.from_arrays([pa.array([42])], ["ints"])
     filename = "foo # bar"
     path = tempdir / filename
     assert not path.exists()
     _write_table(table, str(path))
     assert path.exists()
-    table_read = _read_table(str(path), use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(str(path))
     assert table_read.equals(table)
 
 
-@parametrize_legacy_dataset
-def test_invalid_source(use_legacy_dataset):
+def test_invalid_source():
     # Test that we provide an helpful error message pointing out
     # that None wasn't expected when trying to open a Parquet None file.
-    #
-    # Depending on use_legacy_dataset the message changes slightly
-    # but in both cases it should point out that None wasn't expected.
     with pytest.raises(TypeError, match="None"):
-        pq.read_table(None, use_legacy_dataset=use_legacy_dataset)
+        pq.read_table(None)
 
     with pytest.raises(TypeError, match="None"):
         pq.ParquetFile(None)
@@ -191,8 +175,7 @@ def test_file_with_over_int16_max_row_groups():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_empty_table_roundtrip(use_legacy_dataset):
+def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
 
     # Create a non-empty table to infer the types correctly, then slice to 0
@@ -204,19 +187,17 @@ def test_empty_table_roundtrip(use_legacy_dataset):
     assert table.schema.field('null').type == pa.null()
     assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(
-        table, version='2.6', use_legacy_dataset=use_legacy_dataset)
+        table, version='2.6')
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_empty_table_no_columns(use_legacy_dataset):
+def test_empty_table_no_columns():
     df = pd.DataFrame()
     empty = pa.Table.from_pandas(df, preserve_index=False)
-    _check_roundtrip(empty, use_legacy_dataset=use_legacy_dataset)
+    _check_roundtrip(empty)
 
 
-@parametrize_legacy_dataset
-def test_write_nested_zero_length_array_chunk_failure(use_legacy_dataset):
+def test_write_nested_zero_length_array_chunk_failure():
     # Bug report in ARROW-3792
     cols = OrderedDict(
         int32=pa.int32(),
@@ -241,17 +222,16 @@ def test_write_nested_zero_length_array_chunk_failure(use_legacy_dataset):
     my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
-    _check_roundtrip(tbl, use_legacy_dataset=use_legacy_dataset)
+    _check_roundtrip(tbl)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_multiple_path_types(tempdir, use_legacy_dataset):
+def test_multiple_path_types(tempdir):
     # Test compatibility with PEP 519 path-like objects
     path = tempdir / 'zzz.parquet'
     df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
     _write_table(df, path)
-    table_read = _read_table(path, use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(path)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
@@ -259,13 +239,12 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     path = str(tempdir) + 'zzz.parquet'
     df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
     _write_table(df, path)
-    table_read = _read_table(path, use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(path)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
-@parametrize_legacy_dataset
-def test_fspath(tempdir, use_legacy_dataset):
+def test_fspath(tempdir):
     # ARROW-12472 support __fspath__ objects without using str()
     path = tempdir / "test.parquet"
     table = pa.table({"a": [1, 2, 3]})
@@ -274,7 +253,7 @@ def test_fspath(tempdir, use_legacy_dataset):
     fs_protocol_obj = util.FSProtocolClass(path)
 
     result = _read_table(
-        fs_protocol_obj, use_legacy_dataset=use_legacy_dataset
+        fs_protocol_obj
     )
     assert result.equals(table)
 
@@ -284,19 +263,17 @@ def test_fspath(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.dataset
-@parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
-def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
+def test_relative_paths(tempdir, filesystem):
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
 
     # reading
     pq.write_table(table, str(tempdir / "data.parquet"))
     with util.change_cwd(tempdir):
-        result = pq.read_table("data.parquet", filesystem=filesystem,
-                               use_legacy_dataset=use_legacy_dataset)
+        result = pq.read_table("data.parquet", filesystem=filesystem)
     assert result.equals(table)
 
     # writing
@@ -325,24 +302,21 @@ def test_file_error_python_exception():
         pq.read_table(BogusFile(b""))
 
 
-@parametrize_legacy_dataset
-def test_parquet_read_from_buffer(tempdir, use_legacy_dataset):
+def test_parquet_read_from_buffer(tempdir):
     # reading from a buffer from python's open()
     table = pa.table({"a": [1, 2, 3]})
     pq.write_table(table, str(tempdir / "data.parquet"))
 
     with open(str(tempdir / "data.parquet"), "rb") as f:
-        result = pq.read_table(f, use_legacy_dataset=use_legacy_dataset)
+        result = pq.read_table(f)
     assert result.equals(table)
 
     with open(str(tempdir / "data.parquet"), "rb") as f:
-        result = pq.read_table(pa.PythonFile(f),
-                               use_legacy_dataset=use_legacy_dataset)
+        result = pq.read_table(pa.PythonFile(f))
     assert result.equals(table)
 
 
-@parametrize_legacy_dataset
-def test_byte_stream_split(use_legacy_dataset):
+def test_byte_stream_split():
     # This is only a smoke test.
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
@@ -376,12 +350,10 @@ def test_byte_stream_split(use_legacy_dataset):
     table = pa.Table.from_arrays([arr_int], names=['tmp'])
     with pytest.raises(IOError):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
-                         use_dictionary=False,
-                         use_legacy_dataset=use_legacy_dataset)
+                         use_dictionary=False)
 
 
-@parametrize_legacy_dataset
-def test_column_encoding(use_legacy_dataset):
+def test_column_encoding():
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
     mixed_table = pa.Table.from_arrays([arr_float, arr_int],
@@ -390,14 +362,12 @@ def test_column_encoding(use_legacy_dataset):
     # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
     # column 'b'.
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
-                     column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
-                     use_legacy_dataset=use_legacy_dataset)
+                     column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"})
 
     # Check "PLAIN" for all columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
                      use_dictionary=False,
-                     column_encoding="PLAIN",
-                     use_legacy_dataset=use_legacy_dataset)
+                     column_encoding="PLAIN")
 
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
     # This should throw an error as it is only supports FLOAT and DOUBLE.
@@ -406,8 +376,7 @@ def test_column_encoding(use_legacy_dataset):
                              " DOUBLE"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'b': "BYTE_STREAM_SPLIT"},
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding={'b': "BYTE_STREAM_SPLIT"})
 
     # Try to pass "DELTA_BINARY_PACKED".
     # This should throw an error as it is only supported for reading.
@@ -416,8 +385,7 @@ def test_column_encoding(use_legacy_dataset):
                              " not supported."):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'b': "DELTA_BINARY_PACKED"},
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding={'b': "DELTA_BINARY_PACKED"})
 
     # Try to pass "RLE_DICTIONARY".
     # This should throw an error as dictionary encoding is already used by
@@ -425,30 +393,26 @@ def test_column_encoding(use_legacy_dataset):
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding="RLE_DICTIONARY",
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding="RLE_DICTIONARY")
 
     # Try to pass unsupported encoding.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'a': "MADE_UP_ENCODING"},
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding={'a': "MADE_UP_ENCODING"})
 
     # Try to pass column_encoding and use_dictionary.
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=['b'],
-                         column_encoding={'b': "PLAIN"},
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding={'b': "PLAIN"})
 
     # Try to pass column_encoding and use_dictionary=True (default value).
     # This should throw an error.
     with pytest.raises(ValueError):
         _check_roundtrip(mixed_table, expected=mixed_table,
-                         column_encoding={'b': "PLAIN"},
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding={'b': "PLAIN"})
 
     # Try to pass column_encoding and use_byte_stream_split on same column.
     # This should throw an error.
@@ -457,8 +421,7 @@ def test_column_encoding(use_legacy_dataset):
                          use_dictionary=False,
                          use_byte_stream_split=['a'],
                          column_encoding={'a': "RLE",
-                                          'b': "BYTE_STREAM_SPLIT"},
-                         use_legacy_dataset=use_legacy_dataset)
+                                          'b': "BYTE_STREAM_SPLIT"})
 
     # Try to pass column_encoding and use_byte_stream_split=True.
     # This should throw an error.
@@ -467,54 +430,45 @@ def test_column_encoding(use_legacy_dataset):
                          use_dictionary=False,
                          use_byte_stream_split=True,
                          column_encoding={'a': "RLE",
-                                          'b': "BYTE_STREAM_SPLIT"},
-                         use_legacy_dataset=use_legacy_dataset)
+                                          'b': "BYTE_STREAM_SPLIT"})
 
     # Try to pass column_encoding=True.
     # This should throw an error.
     with pytest.raises(TypeError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding=True,
-                         use_legacy_dataset=use_legacy_dataset)
+                         column_encoding=True)
 
 
-@parametrize_legacy_dataset
-def test_compression_level(use_legacy_dataset):
+def test_compression_level():
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
     table = pa.Table.from_arrays(data, names=['a', 'b'])
 
     # Check one compression level.
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=1,
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression_level=1)
 
     # Check another one to make sure that compression_level=1 does not
     # coincide with the default one in Arrow.
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=5,
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression_level=5)
 
     # Check that the user can provide a compression per column
     _check_roundtrip(table, expected=table,
-                     compression={'a': "gzip", 'b': "snappy"},
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression={'a': "gzip", 'b': "snappy"})
 
     # Check that the user can provide a compression level per column
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level={'a': 2, 'b': 3},
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression_level={'a': 2, 'b': 3})
 
     # Check if both LZ4 compressors are working
     # (level < 3 -> fast, level >= 3 -> HC)
     _check_roundtrip(table, expected=table, compression="lz4",
-                     compression_level=1,
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression_level=1)
 
     _check_roundtrip(table, expected=table, compression="lz4",
-                     compression_level=9,
-                     use_legacy_dataset=use_legacy_dataset)
+                     compression_level=9)
 
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
@@ -543,8 +497,7 @@ def test_sanitized_spark_field_names():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_multithreaded_read(use_legacy_dataset):
+def test_multithreaded_read():
     df = alltypes_sample(size=10000)
 
     table = pa.Table.from_pandas(df)
@@ -554,18 +507,17 @@ def test_multithreaded_read(use_legacy_dataset):
 
     buf.seek(0)
     table1 = _read_table(
-        buf, use_threads=True, use_legacy_dataset=use_legacy_dataset)
+        buf, use_threads=True)
 
     buf.seek(0)
     table2 = _read_table(
-        buf, use_threads=False, use_legacy_dataset=use_legacy_dataset)
+        buf, use_threads=False)
 
     assert table1.equals(table2)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_min_chunksize(use_legacy_dataset):
+def test_min_chunksize():
     data = pd.DataFrame([np.arange(4)], columns=['A', 'B', 'C', 'D'])
     table = pa.Table.from_pandas(data.reset_index())
 
@@ -573,7 +525,7 @@ def test_min_chunksize(use_legacy_dataset):
     _write_table(table, buf, chunk_size=-1)
 
     buf.seek(0)
-    result = _read_table(buf, use_legacy_dataset=use_legacy_dataset)
+    result = _read_table(buf)
 
     assert result.equals(table)
 
@@ -606,56 +558,47 @@ def test_write_error_deletes_incomplete_file(tempdir):
     assert not filename.exists()
 
 
-@parametrize_legacy_dataset
-def test_read_non_existent_file(tempdir, use_legacy_dataset):
+def test_read_non_existent_file(tempdir):
     path = 'non-existent-file.parquet'
     try:
-        pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
+        pq.read_table(path)
     except Exception as e:
         assert path in e.args[0]
 
 
-@parametrize_legacy_dataset
-def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
+def test_read_table_doesnt_warn(datadir):
     with pytest.warns(None) as record:
-        pq.read_table(datadir / 'v0.7.1.parquet',
-                      use_legacy_dataset=use_legacy_dataset)
+        pq.read_table(datadir / 'v0.7.1.parquet')
 
-    if use_legacy_dataset:
-        # FutureWarning: 'use_legacy_dataset=True'
-        assert len(record) == 1
-    else:
-        assert len(record) == 0
+    assert len(record) == 0
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_zlib_compression_bug(use_legacy_dataset):
+def test_zlib_compression_bug():
     # ARROW-3514: "zlib deflate failed, output buffer too small"
     table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
     f = io.BytesIO()
     pq.write_table(table, f, compression='gzip')
 
     f.seek(0)
-    roundtrip = pq.read_table(f, use_legacy_dataset=use_legacy_dataset)
+    roundtrip = pq.read_table(f)
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
-@parametrize_legacy_dataset
-def test_parquet_file_too_small(tempdir, use_legacy_dataset):
+def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
     # TODO(dataset) with datasets API it raises OSError instead
     with pytest.raises((pa.ArrowInvalid, OSError),
                        match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
-        pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
+        pq.read_table(path)
 
     with pytest.raises((pa.ArrowInvalid, OSError),
                        match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
-        pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
+        pq.read_table(path)
 
 
 @pytest.mark.pandas
@@ -698,7 +641,6 @@ def test_fastparquet_cross_compatibility(tempdir):
     tm.assert_frame_equal(table_fp.to_pandas(), df)
 
 
-@parametrize_legacy_dataset
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),
@@ -708,7 +650,7 @@ def test_fastparquet_cross_compatibility(tempdir):
 @pytest.mark.parametrize('use_dictionary', [False, True])
 @pytest.mark.parametrize('read_dictionary', [False, True])
 def test_buffer_contents(
-        array_factory, use_dictionary, read_dictionary, use_legacy_dataset
+        array_factory, use_dictionary, read_dictionary
 ):
     # Test that null values are deterministically initialized to zero
     # after a roundtrip through Parquet.
@@ -719,8 +661,7 @@ def test_buffer_contents(
     bio.seek(0)
     read_dictionary = ['col'] if read_dictionary else None
     table = pq.read_table(bio, use_threads=False,
-                          read_dictionary=read_dictionary,
-                          use_legacy_dataset=use_legacy_dataset)
+                          read_dictionary=read_dictionary)
 
     for col in table.columns:
         [chunk] = col.chunks

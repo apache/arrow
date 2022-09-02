@@ -20,7 +20,6 @@ import pytest
 import pyarrow as pa
 from pyarrow import fs
 from pyarrow.filesystem import FileSystem, LocalFileSystem
-from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
@@ -43,8 +42,7 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
+def test_parquet_incremental_file_build(tempdir):
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -64,8 +62,7 @@ def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
     writer.close()
 
     buf = out.getvalue()
-    result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+    result = _read_table(pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
@@ -94,8 +91,7 @@ def test_validate_schema_write_table(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
+def test_parquet_writer_context_obj(tempdir):
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -113,17 +109,15 @@ def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
             frames.append(df.copy())
 
     buf = out.getvalue()
-    result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+    result = _read_table(pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 def test_parquet_writer_context_obj_with_exception(
-    tempdir, use_legacy_dataset
+    tempdir
 ):
     df = _test_dataframe(100)
     df['unique_id'] = 0
@@ -150,7 +144,7 @@ def test_parquet_writer_context_obj_with_exception(
 
     buf = out.getvalue()
     result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+        pa.BufferReader(buf))
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
@@ -286,8 +280,7 @@ def test_parquet_writer_filesystem_buffer_raises():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
+def test_parquet_writer_with_caller_provided_filesystem():
     out = pa.BufferOutputStream()
 
     class CustomFS(FileSystem):
@@ -314,8 +307,7 @@ def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
     assert out.closed
 
     buf = out.getvalue()
-    table_read = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(pa.BufferReader(buf))
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df_read, df)
 

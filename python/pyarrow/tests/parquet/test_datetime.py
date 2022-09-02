@@ -22,8 +22,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip, parametrize_legacy_dataset)
+from pyarrow.tests.parquet.common import _check_roundtrip
 
 try:
     import pyarrow.parquet as pq
@@ -47,8 +46,7 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_datetime_tz(use_legacy_dataset):
+def test_pandas_parquet_datetime_tz():
     s = pd.Series([datetime.datetime(2017, 9, 6)])
     s = s.dt.tz_localize('utc')
 
@@ -66,21 +64,20 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
     _write_table(arrow_table, f, coerce_timestamps='ms')
     f.seek(0)
 
-    table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(f)
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_datetime_timezone_tzinfo(use_legacy_dataset):
+def test_datetime_timezone_tzinfo():
     value = datetime.datetime(2018, 1, 1, 1, 23, 45,
                               tzinfo=datetime.timezone.utc)
     df = pd.DataFrame({'foo': [value]})
 
     _roundtrip_pandas_dataframe(
-        df, write_kwargs={}, use_legacy_dataset=use_legacy_dataset)
+        df, write_kwargs={})
 
 
 @pytest.mark.pandas
