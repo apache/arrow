@@ -118,7 +118,7 @@ class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
   int file_descriptor() const;
 
  private:
-  DirectFileOutputStream(int sector_size);
+  explicit DirectFileOutputStream(int sector_size);
 
   class ARROW_NO_EXPORT DirectFileOutputStreamImpl;
   std::unique_ptr<DirectFileOutputStreamImpl> impl_;
