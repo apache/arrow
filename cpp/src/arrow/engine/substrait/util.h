@@ -37,7 +37,7 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerialized
     compute::FunctionRegistry* func_registry = NULLPTR);
 
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
-/// Allows to use NamedT
+/// Allows to use NamedTableProvider in Substrait plan execution.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, PythonTableProvider& table_provider,
     const ExtensionIdRegistry* registry = NULLPTR,
