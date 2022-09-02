@@ -112,7 +112,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "11" ]; then \
+      if [ "${gcc_version}" -gt "12" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
