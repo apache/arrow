@@ -16,15 +16,12 @@
 # under the License.
 
 '''
-pyarrow._rstutils
-
 This module processes the reStructured text additions located in
 `docs/additions` so that they can be incorporated into the python function
 definitions. The possible xml generated from rst files is nondeterministic, and
 only a small and highly structured syntax is supported. See the files in
 `docs/additions` to review what is allowed and make updates to this module to
 process those expectations.
-
 '''
 
 import docutils

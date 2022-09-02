@@ -1,6 +1,10 @@
 import pyarrow as pa
-from pyarrow import _rstutils as arrowdoc
 from pyarrow.vendored import docscrape
+import sys
+import os 
+sys.path.append(os.path.dirname(__file__) + "/lib")
+import arrowdoc
+
 import textwrap
 import re 
 
@@ -402,7 +406,7 @@ def write_compute_file(output_path):
     reg = function_registry()
 
     doc_overrides = arrowdoc.parse_directory(
-        os.path.dirname(arrowdoc.__file__) + "/../docs/additions/compute"
+        os.path.dirname(__file__) + "/../docs/additions/compute"
     )
 
     function_defs = []
