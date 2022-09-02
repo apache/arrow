@@ -17,128 +17,188 @@
 
 #pragma once
 
-#include <queue>
-
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/future.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/mutex.h"
 
 namespace arrow {
+
+using internal::FnOnce;
+
 namespace util {
 
-/// Custom deleter for AsyncDestroyable objects
-template <typename T>
-struct DestroyingDeleter {
-  void operator()(T* p) {
-    if (p) {
-      p->Destroy();
-    }
-  }
-};
-
-/// An object which should be asynchronously closed before it is destroyed
+/// A utility which keeps tracks of, and schedules, asynchronous tasks
 ///
-/// Classes can extend this to ensure that the close method is called and completed
-/// before the instance is deleted.  This provides smart_ptr / delete semantics for
-/// objects with an asynchronous destructor.
+/// An asynchronous task has a synchronous component and an asynchronous component.
+/// The synchronous component typically schedules some kind of work on an external
+/// resource (e.g. the I/O thread pool or some kind of kernel-based asynchronous
+/// resource like io_uring).  The asynchronous part represents the work
+/// done on that external resource.  Executing the synchronous part will be referred
+/// to as "submitting the task" since this usually includes submitting the asynchronous
+/// portion to the external thread pool.
 ///
-/// Classes which extend this must be constructed using MakeSharedAsync or MakeUniqueAsync
-class ARROW_EXPORT AsyncDestroyable {
- public:
-  AsyncDestroyable();
-  virtual ~AsyncDestroyable();
-
-  /// A future which will complete when the AsyncDestroyable has finished and is ready
-  /// to be deleted.
-  ///
-  /// This can be used to ensure all work done by this object has been completed before
-  /// proceeding.
-  Future<> on_closed() { return on_closed_; }
-
- protected:
-  /// Subclasses should override this and perform any cleanup.  Once the future returned
-  /// by this method finishes then this object is eligible for destruction and any
-  /// reference to `this` will be invalid
-  virtual Future<> DoDestroy() = 0;
-
- private:
-  void Destroy();
-
-  Future<> on_closed_;
-#ifndef NDEBUG
-  bool constructed_correctly_ = false;
-#endif
-
-  template <typename T>
-  friend struct DestroyingDeleter;
-  template <typename T, typename... Args>
-  friend std::shared_ptr<T> MakeSharedAsync(Args&&... args);
-  template <typename T, typename... Args>
-  friend std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args);
-};
-
-template <typename T, typename... Args>
-std::shared_ptr<T> MakeSharedAsync(Args&&... args) {
-  static_assert(std::is_base_of<AsyncDestroyable, T>::value,
-                "Nursery::MakeSharedCloseable only works with AsyncDestroyable types");
-  std::shared_ptr<T> ptr(new T(std::forward<Args&&>(args)...), DestroyingDeleter<T>());
-#ifndef NDEBUG
-  ptr->constructed_correctly_ = true;
-#endif
-  return ptr;
-}
-
-template <typename T, typename... Args>
-std::unique_ptr<T, DestroyingDeleter<T>> MakeUniqueAsync(Args&&... args) {
-  static_assert(std::is_base_of<AsyncDestroyable, T>::value,
-                "Nursery::MakeUniqueCloseable only works with AsyncDestroyable types");
-  std::unique_ptr<T, DestroyingDeleter<T>> ptr(new T(std::forward<Args>(args)...),
-                                               DestroyingDeleter<T>());
-#ifndef NDEBUG
-  ptr->constructed_correctly_ = true;
-#endif
-  return ptr;
-}
-
-/// A utility which keeps track of a collection of asynchronous tasks
+/// By default the scheduler will submit the task (execute the synchronous part) as
+/// soon as it is added, assuming the underlying thread pool hasn't terminated or the
+/// scheduler hasn't aborted.  In this mode the scheduler is simply acting as
+/// a task group, keeping track of the ongoing work.
 ///
 /// This can be used to provide structured concurrency for asynchronous development.
 /// A task group created at a high level can be distributed amongst low level components
 /// which register work to be completed.  The high level job can then wait for all work
 /// to be completed before cleaning up.
-class ARROW_EXPORT AsyncTaskGroup {
+///
+/// A task scheduler must eventually be ended when all tasks have been added.  Once the
+/// scheduler has been ended it is an error to add further tasks.  Note, it is not an
+/// error to add additional tasks after a scheduler has aborted (though these tasks
+/// will be ignored and never submitted).  The scheduler has a futuer which will complete
+/// once the scheduler has been ended AND all remaining tasks have finished executing.
+/// Ending a scheduler will NOT cause the scheduler to flush existing tasks.
+///
+/// Task failure (either the synchronous portion or the asynchronous portion) will cause
+/// the scheduler to enter an aborted state.  The first such failure will be reported in
+/// the final task future.
+///
+/// The scheduler can also be manually aborted.  A cancellation status will be reported as
+/// the final task future.
+///
+/// It is also possible to limit the number of concurrent tasks the scheduler will
+/// execute. This is done by setting a task limit.  The task limit initially assumes all
+/// tasks are equal but a custom cost can be supplied when scheduling a task (e.g. based
+/// on the total I/O cost of the task, or the expected RAM utilization of the task)
+///
+/// When the total number of running tasks is limited then scheduler priority may also
+/// become a consideration.  By default the scheduler runs with a FIFO queue but a custom
+/// task queue can be provided.  One could, for example, use a priority queue to control
+/// the order in which tasks are executed.
+///
+/// It is common to have multiple stages of execution.  For example, when scanning, we
+/// first inspect each fragment (the inspect stage) to figure out the row groups and then
+/// we scan row groups (the scan stage) to read in the data.  This sort of multi-stage
+/// execution should be represented as two seperate task groups.  The first task group can
+/// then have a custom finish callback which ends the second task group.
+class ARROW_EXPORT AsyncTaskScheduler {
  public:
-  /// Add a task to be tracked by this task group
+  /// Destructor for AsyncTaskScheduler
   ///
-  /// If a previous task has failed then adding a task will fail
+  /// If a scheduler is not in the ended state when it is destroyed then it
+  /// will enter an aborted state.
   ///
-  /// If WaitForTasksToFinish has been called and the returned future has been marked
-  /// completed then adding a task will fail.
-  Status AddTask(std::function<Result<Future<>>()> task);
-  /// Same as AddTask but doesn't add the task if End() has been called.
+  /// The destructor will block until all submitted tasks have finished.
+  virtual ~AsyncTaskScheduler() = default;
+  /// An interface for a task
   ///
-  /// \return true if the task was started, false if the group had already ended
-  Result<bool> AddTaskIfNotEnded(std::function<Result<Future<>>()> task);
-  /// Add a task that has already been started
-  Status AddTask(const Future<>& task);
-  /// \brief Attempt to add a task that has already been started to this group's tracking
+  /// Users may want to override this, for example, to add priority
+  /// information for use by a queue.
+  class Task {
+   public:
+    virtual ~Task() = default;
+    /// Submit the task
+    ///
+    /// This will be called by the scheduler at most once when there
+    /// is space to run the task.  This is expected to be a fairly quick
+    /// function that simply submits the actual task work to an external
+    /// resource (e.g. I/O thread pool).
+    ///
+    /// If this call fails then the scheduler will enter an aborted state.
+    virtual Result<Future<>> operator()(AsyncTaskScheduler* scheduler) = 0;
+    /// The cost of the task
+    ///
+    /// The scheduler limits the total number of concurrent tasks based
+    /// on cost.  A custom cost may be used, for example, if you would like
+    /// to limit the number of tasks based on the total expected RAM usage of
+    /// the tasks (this is done in the scanner)
+    virtual int cost() const { return 1; }
+  };
+
+  /// An interface for a task queue
   ///
-  /// The return value must be paid attention to.  If the return value is false then the
-  /// task could not be added because the group had already ended and so the caller must
-  /// track the external task some other way.
-  Result<bool> AddTaskIfNotEnded(const Future<>& task);
-  /// Signal that top level tasks are done being added
+  /// A queue's methods will not be called concurrently
+  class Queue {
+   public:
+    virtual ~Queue() = default;
+    /// Push a task to the queue
+    virtual void Push(std::unique_ptr<Task> task) = 0;
+    /// Pop the next task from the queue
+    virtual std::unique_ptr<Task> Pop() = 0;
+    /// Peek the next task in the queue
+    virtual const Task& Peek() = 0;
+    /// Check if the queue is empty
+    virtual bool Empty() = 0;
+    /// Purge the queue of all items
+    virtual void Purge() = 0;
+  };
+
+  class Throttle {
+   public:
+    virtual ~Throttle() = default;
+    /// Acquire amt permits
+    ///
+    /// If nullopt is returned then the permits were immediately
+    /// acquired and the caller can proceed.  If a future is returned then the caller
+    /// should wait for the future to complete first.  When the returned future completes
+    /// the permits have NOT been acquired and the caller must call Acquire again
+    virtual util::optional<Future<>> TryAcquire(int amt) = 0;
+    /// Release amt permits
+    ///
+    /// This will possibly complete waiting futures and should probably not be
+    /// called while holding locks.
+    virtual void Release(int amt) = 0;
+  };
+  /// Create a throttle
   ///
-  /// It is allowed for tasks to be added after this call provided the future has not yet
-  /// completed.  This should be safe as long as the tasks being added are added as part
-  /// of a task that is tracked.  As soon as the count of running tasks reaches 0 this
-  /// future will be marked complete.
+  /// This throttle is used to limit how many tasks can run at once.  The
+  /// user should keep the throttle alive for the lifetime of the scheduler.
+  /// The same throttle can be used in multiple schedulers.
+  static std::unique_ptr<Throttle> MakeThrottle(int max_concurrent_cost);
+
+  /// Add a task to the scheduler
   ///
-  /// Any attempt to add a task after the returned future has completed will fail.
+  /// If the scheduler is in an aborted state this call will return false and the task
+  /// will never be run.  This is harmless and does not need to be guarded against.
   ///
-  /// The returned future that will finish when all running tasks have finished.
-  Future<> End();
+  /// If the scheduler is in an ended state then this call will cause an abort.  This
+  /// represents a logic error in the program and should be avoidable.
+  ///
+  /// If there are no limits on the number of concurrent tasks then the submit function
+  /// will be run immediately.
+  ///
+  /// Otherwise, if there is a limit to the number of concurrent tasks, then this task
+  /// will be inserted into the scheduler's queue and submitted when there is space.
+  ///
+  /// The return value for this call can usually be ignored.  There is little harm in
+  /// attempting to add tasks to an aborted scheduler.  It is only included for callers
+  /// that want to avoid future task generation.
+  ///
+  /// \return true if the task was submitted or queued, false if the task was ignored
+  virtual bool AddTask(std::unique_ptr<Task> task) = 0;
+
+  template <typename Callable>
+  struct SimpleTask : public Task {
+    explicit SimpleTask(Callable callable) : callable(std::move(callable)) {}
+    Result<Future<>> operator()(AsyncTaskScheduler* scheduler) override {
+      return callable();
+    }
+    Callable callable;
+  };
+
+  template <typename Callable>
+  bool AddSimpleTask(Callable callable) {
+    return AddTask(
+        ::arrow::internal::make_unique<SimpleTask<Callable>>(std::move(callable)));
+  }
+  /// Signal that tasks are done being added
+  ///
+  /// If the scheduler is in an aborted state then this call will have no effect.
+  ///
+  /// Otherwise, this will transition the scheduler into the ended state.  Once all
+  /// remaining tasks have finished the OnFinished future will be marked completed.
+  ///
+  /// Once the scheduler is in an ended state then adding tasks is invalid and any
+  /// attempt to do so will cause an abort.
+  virtual void End() = 0;
   /// A future that will be finished after End is called and all tasks have completed
   ///
   /// This is the same future that is returned by End() but calling this method does
@@ -147,70 +207,42 @@ class ARROW_EXPORT AsyncTaskGroup {
   ///
   /// This is a utility method for workflows where the finish future needs to be
   /// referenced before all top level tasks have been queued.
-  Future<> OnFinished() const;
+  virtual Future<> OnFinished() const = 0;
 
- private:
-  Status AddTaskUnlocked(const Future<>& task, util::Mutex::Guard guard);
-
-  bool finished_adding_ = false;
-  int running_tasks_ = 0;
-  Status err_;
-  Future<> all_tasks_done_ = Future<>::Make();
-  util::Mutex mutex_;
-};
-
-/// A task group which serializes asynchronous tasks in a push-based workflow
-///
-/// Tasks will be executed in the order they are added
-///
-/// This will buffer results in an unlimited fashion so it should be combined
-/// with some kind of backpressure
-class ARROW_EXPORT SerializedAsyncTaskGroup {
- public:
-  SerializedAsyncTaskGroup();
-  /// Push an item into the serializer and (eventually) into the consumer
+  /// Create a sub-scheduler for tracking a subset of tasks
   ///
-  /// The item will not be delivered to the consumer until all previous items have been
-  /// consumed.
+  /// The parent scheduler will manage the lifetime of the sub-scheduler.  It will
+  /// be destroyed once it is finished.
   ///
-  /// If the consumer returns an error then this serializer will go into an error state
-  /// and all subsequent pushes will fail with that error.  Pushes that have been queued
-  /// but not delivered will be silently dropped.
+  /// Often some state needs to be associated with a subset of tasks.
+  /// For example, when scanning a dataset we need to keep a file reader
+  /// alive for all of the read tasks for each file. A sub-scheduler can be used to do
+  /// this.
   ///
-  /// \return True if the item was pushed immediately to the consumer, false if it was
-  /// queued
-  Status AddTask(std::function<Result<Future<>>()> task);
+  /// The parent scheduler may be ended before all of its sub-schedulers
+  /// are ended.
+  ///
+  /// If either the parent scheduler or the sub-scheduler encounter an error
+  /// then they will both enter an aborted state (this is a shared state).
+  /// Finish callbacks will not be run when the scheduler is aborted.
+  ///
+  /// The parent scheduler will not complete until the sub-scheduler's
+  /// tasks (and finish callback) have all executed.
+  ///
+  /// A sub-scheduler can share the same throttle as its parent but it
+  /// can also have its own unique throttle.
+  virtual AsyncTaskScheduler* MakeSubScheduler(
+      FnOnce<Status()> finish_callback, Throttle* throttle = NULLPTR,
+      std::unique_ptr<Queue> queue = NULLPTR) = 0;
 
-  /// Signal that all top level tasks have been added
+  /// Construct a scheduler
   ///
-  /// The returned future that will finish when all tasks have been consumed.
-  Future<> End();
-
-  /// Abort a task group
-  ///
-  /// Tasks that have not been started will be discarded
-  ///
-  /// The returned future will finish when all running tasks have finished.
-  Future<> Abort(Status err);
-
-  /// A future that finishes when all queued items have been delivered.
-  ///
-  /// This will return the same future returned by End but will not signal
-  /// that all tasks have been finished.  End must be called at some point in order for
-  /// this future to finish.
-  Future<> OnFinished() const { return on_finished_; }
-
- private:
-  void ConsumeAsMuchAsPossibleUnlocked(util::Mutex::Guard&& guard);
-  Future<> EndUnlocked(util::Mutex::Guard&& guard);
-  bool TryDrainUnlocked();
-
-  Future<> on_finished_;
-  std::queue<std::function<Result<Future<>>()>> tasks_;
-  util::Mutex mutex_;
-  bool ended_ = false;
-  Status err_;
-  Future<> processing_;
+  /// \param throttle A throttle to control how many tasks will be submitted at one time.
+  ///        The default (nullptr) will always submit tasks when they are added.
+  /// \param queue A queue to control task order.  Only used if throttle != nullptr.
+  ///        The default (nullptr) will use a FIFO queue if there is a throttle.
+  static std::unique_ptr<AsyncTaskScheduler> Make(Throttle* throttle = NULLPTR,
+                                                  std::unique_ptr<Queue> queue = NULLPTR);
 };
 
 }  // namespace util
