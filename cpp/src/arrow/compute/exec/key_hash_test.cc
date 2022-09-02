@@ -238,13 +238,13 @@ void RunTestVectorHash() {
   }
 }
 
-TEST(VectorHash, BasicBinary) { TestVectorHash<BinaryType>(); }
+TEST(VectorHash, BasicBinary) { RunTestVectorHash<BinaryType>(); }
 
-TEST(VectorHash, BasicLargeBinary) { TestVectorHash<LargeBinaryType>(); }
+TEST(VectorHash, BasicLargeBinary) { RunTestVectorHash<LargeBinaryType>(); }
 
-TEST(VectorHash, BasicString) { TestVectorHash<StringType>(); }
+TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
-TEST(VectorHash, BasicLargeString) { TestVectorHash<LargeStringType>(); }
+TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
 }  // namespace compute
 }  // namespace arrow
