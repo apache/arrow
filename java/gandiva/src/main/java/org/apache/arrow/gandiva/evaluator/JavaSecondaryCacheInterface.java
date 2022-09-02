@@ -36,9 +36,27 @@ public interface JavaSecondaryCacheInterface {
 
   }
 
-  BufferResult getSecondaryCache(long addr, long size);
+  /**
+   * Get from the secondary cache using the key buffer.
+   * @param keyBufAddr address of the key buffer
+   * @param keyBufSize size of the key buffer
+   * @return
+   */
+  BufferResult get(long keyBufAddr, long keyBufSize);
 
-  void setSecondaryCache(long addrExpr, long sizeExpr, long addr, long size);
+  /**
+   * Set the secondary cache with the value in the buffer.
+   * @param keyBufAddr address of the key buffer
+   * @param keyBufSize size of the key buffer
+   * @param valueBufAddr address of the value buffer
+   * @param valueBufSize size of the value buffer
+   */
+  void set(long keyBufAddr, long keyBufSize, long valueBufAddr, long valueBufSize);
+
+  /**
+   * release the buffer associated with the given address.
+   */
+  void releaseBufferResult(long address);
 
 }
 

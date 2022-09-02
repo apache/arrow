@@ -2606,14 +2606,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
       setToCache = false;
     }
 
-    public BufferResult getSecondaryCache(long addrKey, long sizeKey) {
+    public BufferResult get(long addrKey, long sizeKey) {
       gotFromCache = true;
       return null;
     }
 
-    public void setSecondaryCache(long addrKey, long sizeKey, long addrValue, long sizeValue) {
+    public void set(long addrKey, long sizeKey, long addrValue, long sizeValue) {
       setToCache = true;
     }
+
+    public void releaseBufferResult(long address) {}
 
     public boolean gotFromCache;
     public boolean setToCache;
