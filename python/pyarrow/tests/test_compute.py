@@ -372,7 +372,8 @@ def test_mode_chunked_array():
 
 
 def test_empty_chunked_array():
-    msg = "When passing an empty collection of arrays you must also pass the data type"
+    msg = "When passing an empty collection of arrays you must also pass \
+        the data type"
     with pytest.raises(ValueError, match=msg):
         pa.chunked_array([])
 
