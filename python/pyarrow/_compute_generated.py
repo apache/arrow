@@ -53,9 +53,8 @@ def _handle_options(name, options_class, options, args, **kwargs):
 def abs(x, *, memory_pool=None):
     """Calculate the absolute value of the argument element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "abs_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function "abs_checked"
+    if you want overflow to return an error.
 
     This wraps the "abs" compute function in the Arrow C++ library.
 
@@ -83,8 +82,8 @@ def abs(x, *, memory_pool=None):
 def abs_checked(x, *, memory_pool=None):
     """Calculate the absolute value of the argument element-wise.
 
-    This function returns an error on overflow.  For a variant that
-    doesn't fail on overflow, use function "abs".
+    This function returns an error on overflow.  For a variant that doesn't
+    fail on overflow, use function "abs".
 
     This wraps the "abs_checked" compute function in the Arrow C++ library.
 
@@ -112,8 +111,8 @@ def abs_checked(x, *, memory_pool=None):
 def acos(x, *, memory_pool=None):
     """Compute the inverse cosine.
 
-    NaN is returned for invalid input values;
-    to raise an error instead, see "acos_checked".
+    NaN is returned for invalid input values; to raise an error instead, see
+    "acos_checked".
 
     This wraps the "acos" compute function in the Arrow C++ library.
 
@@ -141,8 +140,7 @@ def acos(x, *, memory_pool=None):
 def acos_checked(x, *, memory_pool=None):
     """Compute the inverse cosine.
 
-    Invalid input values raise an error;
-    to return NaN instead, see "acos".
+    Invalid input values raise an error; to return NaN instead, see "acos".
 
     This wraps the "acos_checked" compute function in the Arrow C++ library.
 
@@ -170,9 +168,8 @@ def acos_checked(x, *, memory_pool=None):
 def add(x, y, *, memory_pool=None):
     """Add the arguments element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "add_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function "add_checked"
+    if you want overflow to return an error.
 
     This wraps the "add" compute function in the Arrow C++ library.
 
@@ -202,8 +199,8 @@ def add(x, y, *, memory_pool=None):
 def add_checked(x, y, *, memory_pool=None):
     """Add the arguments element-wise.
 
-    This function returns an error on overflow.  For a variant that
-    doesn't fail on overflow, use function "add".
+    This function returns an error on overflow.  For a variant that doesn't
+    fail on overflow, use function "add".
 
     This wraps the "add_checked" compute function in the Arrow C++ library.
 
@@ -234,9 +231,9 @@ def all(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Test whether all elements in a boolean array evaluate to true.
 
-    Null values are ignored by default.
-    If the `skip_nulls` option is set to false, then Kleene logic is used.
-    See "kleene_and" for more details on Kleene logic.
+    Null values are ignored by default. If the `skip_nulls` option is set to
+    false, then Kleene logic is used. See "kleene_and" for more details on
+    Kleene logic.
 
     This wraps the "all" compute function in the Arrow C++ library.
 
@@ -302,8 +299,8 @@ def all(array, *, skip_nulls=True, min_count=1, options=None,
 def and_(x, y, *, memory_pool=None):
     """Logical 'and' boolean values.
 
-    When a null is encountered in either input, a null is output.
-    For a different null behavior, see function "and_kleene".
+    When a null is encountered in either input, a null is output. For a
+    different null behavior, see function "and_kleene".
 
     This wraps the "and" compute function in the Arrow C++ library.
 
@@ -341,9 +338,9 @@ def and_kleene(x, y, *, memory_pool=None):
     - null and false = false
     - null and null = null
 
-    In other words, in this context a null value really means "unknown",
-    and an unknown value 'and' false is always false.
-    For a different null behavior, see function "and".
+    In other words, in this context a null value really means "unknown", and
+    an unknown value 'and' false is always false. For a different null
+    behavior, see function "and".
 
     This wraps the "and_kleene" compute function in the Arrow C++ library.
 
@@ -373,8 +370,8 @@ def and_kleene(x, y, *, memory_pool=None):
 def and_not(x, y, *, memory_pool=None):
     """Logical 'and not' boolean values.
 
-    When a null is encountered in either input, a null is output.
-    For a different null behavior, see function "and_not_kleene".
+    When a null is encountered in either input, a null is output. For a
+    different null behavior, see function "and_not_kleene".
 
     This wraps the "and_not" compute function in the Arrow C++ library.
 
@@ -412,13 +409,12 @@ def and_not_kleene(x, y, *, memory_pool=None):
     - null and true = false
     - null and null = null
 
-    In other words, in this context a null value really means "unknown",
-    and an unknown value 'and not' true is always false, as is false
-    'and not' an unknown value.
-    For a different null behavior, see function "and_not".
+    In other words, in this context a null value really means "unknown", and
+    an unknown value 'and not' true is always false, as is false 'and not' an
+    unknown value. For a different null behavior, see function "and_not".
 
     This wraps the "and_not_kleene" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -447,9 +443,9 @@ def any(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Test whether any element in a boolean array evaluates to true.
 
-    Null values are ignored by default.
-    If the `skip_nulls` option is set to false, then Kleene logic is used.
-    See "kleene_or" for more details on Kleene logic.
+    Null values are ignored by default. If the `skip_nulls` option is set to
+    false, then Kleene logic is used. See "kleene_or" for more details on
+    Kleene logic.
 
     This wraps the "any" compute function in the Arrow C++ library.
 
@@ -522,11 +518,11 @@ def approximate_median(array, *, skip_nulls=True, min_count=1, options=None,
                        memory_pool=None):
     """Approximate median of a numeric array with T-Digest algorithm.
 
-    Nulls and NaNs are ignored.
-    A null scalar is returned if there is no valid data point.
+    Nulls and NaNs are ignored. A null scalar is returned if there is no
+    valid data point.
 
     This wraps the "approximate_median" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -616,16 +612,16 @@ def array_sort_indices(array, order='ascending', *, null_placement='at_end',
                        options=None, memory_pool=None):
     """Return the indices that would sort an array.
 
-    This function computes an array of indices that define a stable sort
-    of the input array.  By default, Null values are considered greater
-    than any other value and are therefore sorted at the end of the array.
-    For floating-point types, NaNs are considered greater than any
-    other non-null value, but smaller than null values.
+    This function computes an array of indices that define a stable sort of
+    the input array.  By default, Null values are considered greater than any
+    other value and are therefore sorted at the end of the array. For
+    floating-point types, NaNs are considered greater than any other non-null
+    value, but smaller than null values.
 
     The handling of nulls and NaNs can be changed in ArraySortOptions.
 
     This wraps the "array_sort_indices" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -720,7 +716,7 @@ def ascii_capitalize(strings, *, memory_pool=None):
     non-ASCII characters, use "utf8_capitalize" instead.
 
     This wraps the "ascii_capitalize" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -748,9 +744,7 @@ def ascii_center(strings, width=None, padding=' ', *, options=None,
     """Center strings by padding with a given character.
 
     For each string in `strings`, emit a centered string by padding both
-        sides
-    with the given ASCII character.
-    Null values emit null.
+    sides with the given ASCII character. Null values emit null.
 
     This wraps the "ascii_center" compute function in the Arrow C++ library.
 
@@ -793,12 +787,11 @@ def ascii_center(strings, width=None, padding=' ', *, options=None,
 def ascii_is_alnum(strings, *, memory_pool=None):
     """Classify strings as ASCII alphanumeric.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of alphanumeric ASCII characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of alphanumeric ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_alnum" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -824,12 +817,11 @@ def ascii_is_alnum(strings, *, memory_pool=None):
 def ascii_is_alpha(strings, *, memory_pool=None):
     """Classify strings as ASCII alphabetic.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of alphabetic ASCII characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of alphabetic ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_alpha" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -855,11 +847,11 @@ def ascii_is_alpha(strings, *, memory_pool=None):
 def ascii_is_decimal(strings, *, memory_pool=None):
     """Classify strings as ASCII decimal.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of decimal ASCII characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of decimal ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_decimal" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -885,11 +877,11 @@ def ascii_is_decimal(strings, *, memory_pool=None):
 def ascii_is_lower(strings, *, memory_pool=None):
     """Classify strings as ASCII lowercase.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of lowercase ASCII characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of lowercase ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_lower" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -915,11 +907,11 @@ def ascii_is_lower(strings, *, memory_pool=None):
 def ascii_is_printable(strings, *, memory_pool=None):
     """Classify strings as ASCII printable.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of printable ASCII characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of printable ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_printable" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -945,12 +937,11 @@ def ascii_is_printable(strings, *, memory_pool=None):
 def ascii_is_space(strings, *, memory_pool=None):
     """Classify strings as ASCII whitespace.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of whitespace ASCII characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of whitespace ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_space" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -978,11 +969,11 @@ def ascii_is_title(strings, *, memory_pool=None):
 
     For each string in `strings`, emit true iff the string is title-cased,
     i.e. it has at least one cased character, each uppercase character
-    follows an uncased character, and each lowercase character follows
-    an uppercase character.
+    follows an uncased character, and each lowercase character follows an
+    uppercase character.
 
     This wraps the "ascii_is_title" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1008,11 +999,11 @@ def ascii_is_title(strings, *, memory_pool=None):
 def ascii_is_upper(strings, *, memory_pool=None):
     """Classify strings as ASCII uppercase.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of uppercase ASCII characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of uppercase ASCII characters.  Null strings emit null.
 
     This wraps the "ascii_is_upper" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1071,8 +1062,7 @@ def ascii_lpad(strings, width=None, padding=' ', *, options=None,
     """Right-align strings by padding with a given character.
 
     For each string in `strings`, emit a right-aligned string by prepending
-    the given ASCII character.
-    Null values emit null.
+    the given ASCII character. Null values emit null.
 
     This wraps the "ascii_lpad" compute function in the Arrow C++ library.
 
@@ -1115,11 +1105,10 @@ def ascii_lpad(strings, width=None, padding=' ', *, options=None,
 def ascii_ltrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading characters.
 
-    For each string in `strings`, remove any leading characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
-    Both the `strings` and the `characters` are interpreted as
-    ASCII; to trim non-ASCII characters, use `utf8_ltrim`.
+    For each string in `strings`, remove any leading characters from the
+    `characters` option (as given in TrimOptions). Null values emit null.
+    Both the `strings` and the `characters` are interpreted as ASCII; to trim
+    non-ASCII characters, use `utf8_ltrim`.
 
     This wraps the "ascii_ltrim" compute function in the Arrow C++ library.
 
@@ -1164,7 +1153,7 @@ def ascii_ltrim_whitespace(strings, *, memory_pool=None):
     whitespace characters. Null values emit null.
 
     This wraps the "ascii_ltrim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1222,9 +1211,8 @@ def ascii_rpad(strings, width=None, padding=' ', *, options=None,
                memory_pool=None):
     """Left-align strings by padding with a given character.
 
-    For each string in `strings`, emit a left-aligned string by appending
-    the given ASCII character.
-    Null values emit null.
+    For each string in `strings`, emit a left-aligned string by appending the
+    given ASCII character. Null values emit null.
 
     This wraps the "ascii_rpad" compute function in the Arrow C++ library.
 
@@ -1267,11 +1255,10 @@ def ascii_rpad(strings, width=None, padding=' ', *, options=None,
 def ascii_rtrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim trailing characters.
 
-    For each string in `strings`, remove any trailing characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
-    Both the `strings` and the `characters` are interpreted as
-    ASCII; to trim non-ASCII characters, use `utf8_rtrim`.
+    For each string in `strings`, remove any trailing characters from the
+    `characters` option (as given in TrimOptions). Null values emit null.
+    Both the `strings` and the `characters` are interpreted as ASCII; to trim
+    non-ASCII characters, use `utf8_rtrim`.
 
     This wraps the "ascii_rtrim" compute function in the Arrow C++ library.
 
@@ -1312,12 +1299,11 @@ def ascii_rtrim_whitespace(strings, *, memory_pool=None):
     """Trim trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with trailing ASCII
-        whitespace
-    characters removed. Use `utf8_rtrim_whitespace` to trim trailing Unicode
-    whitespace characters. Null values emit null.
+    whitespace characters removed. Use `utf8_rtrim_whitespace` to trim
+    trailing Unicode whitespace characters. Null values emit null.
 
     This wraps the "ascii_rtrim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1346,14 +1332,14 @@ def ascii_split_whitespace(strings, *, max_splits=None, reverse=False,
     """Split string according to any ASCII whitespace.
 
     Split each string according any non-zero length sequence of ASCII
-    whitespace characters.  The output for each string input is a list
-    of strings.
+    whitespace characters.  The output for each string input is a list of
+    strings.
 
-    The maximum number of splits and direction of splitting
-    (forward, reverse) can optionally be defined in SplitOptions.
+    The maximum number of splits and direction of splitting (forward,
+    reverse) can optionally be defined in SplitOptions.
 
     This wraps the "ascii_split_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1401,7 +1387,7 @@ def ascii_swapcase(strings, *, memory_pool=None):
     non-ASCII characters, use "utf8_swapcase" instead.
 
     This wraps the "ascii_swapcase" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1427,9 +1413,9 @@ def ascii_swapcase(strings, *, memory_pool=None):
 def ascii_title(strings, *, memory_pool=None):
     """Titlecase each word of ASCII input.
 
-    For each string in `strings`, return a titlecased version.
-    Each word in the output will start with an uppercase character and its
-    remaining characters will be lowercase.
+    For each string in `strings`, return a titlecased version. Each word in
+    the output will start with an uppercase character and its remaining
+    characters will be lowercase.
 
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_title" instead.
@@ -1461,10 +1447,9 @@ def ascii_trim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
-    Both the `strings` and the `characters` are interpreted as
-    ASCII; to trim non-ASCII characters, use `utf8_trim`.
+    from the `characters` option (as given in TrimOptions). Null values emit
+    null. Both the `strings` and the `characters` are interpreted as ASCII;
+    to trim non-ASCII characters, use `utf8_trim`.
 
     This wraps the "ascii_trim" compute function in the Arrow C++ library.
 
@@ -1505,12 +1490,11 @@ def ascii_trim_whitespace(strings, *, memory_pool=None):
     """Trim leading and trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing
-        ASCII
-    whitespace characters removed. Use `utf8_trim_whitespace` to trim Unicode
-    whitespace characters. Null values emit null.
+    ASCII whitespace characters removed. Use `utf8_trim_whitespace` to trim
+    Unicode whitespace characters. Null values emit null.
 
     This wraps the "ascii_trim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1567,8 +1551,8 @@ def ascii_upper(strings, *, memory_pool=None):
 def asin(x, *, memory_pool=None):
     """Compute the inverse sine.
 
-    NaN is returned for invalid input values;
-    to raise an error instead, see "asin_checked".
+    NaN is returned for invalid input values; to raise an error instead, see
+    "asin_checked".
 
     This wraps the "asin" compute function in the Arrow C++ library.
 
@@ -1596,8 +1580,7 @@ def asin(x, *, memory_pool=None):
 def asin_checked(x, *, memory_pool=None):
     """Compute the inverse sine.
 
-    Invalid input values raise an error;
-    to return NaN instead, see "asin".
+    Invalid input values raise an error; to return NaN instead, see "asin".
 
     This wraps the "asin_checked" compute function in the Arrow C++ library.
 
@@ -1628,16 +1611,15 @@ def assume_timezone(timestamps, timezone=None, *, ambiguous='raise',
     """Convert naive timestamp to timezone-aware timestamp.
 
     Input timestamps are assumed to be relative to the timezone given in the
-    `timezone` option. They are converted to UTC-relative timestamps and
-    the output type has its timezone set to the value of the `timezone`
-    option. Null values emit null.
-    This function is meant to be used when an external system produces
-    "timezone-naive" timestamps which need to be converted to
+    `timezone` option. They are converted to UTC-relative timestamps and the
+    output type has its timezone set to the value of the `timezone` option.
+    Null values emit null. This function is meant to be used when an external
+    system produces "timezone-naive" timestamps which need to be converted to
     "timezone-aware" timestamps. An error is returned if the timestamps
     already have a defined timezone.
 
     This wraps the "assume_timezone" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1683,8 +1665,8 @@ def assume_timezone(timestamps, timezone=None, *, ambiguous='raise',
 def atan(x, *, memory_pool=None):
     """Compute the inverse tangent of x.
 
-    The return value is in the range [-pi/2, pi/2];
-    for a full return range [-pi, pi], see "atan2".
+    The return value is in the range [-pi/2, pi/2]; for a full return range
+    [-pi, pi], see "atan2".
 
     This wraps the "atan" compute function in the Arrow C++ library.
 
@@ -1742,9 +1724,9 @@ def atan2(y, x, *, memory_pool=None):
 def binary_join(strings, separator, *, memory_pool=None):
     """Join a list of strings together with a separator.
 
-    Concatenate the strings in `list`. The `separator` is inserted
-    between each given string.
-    Any null input and any null `list` element emits a null output.
+    Concatenate the strings in `list`. The `separator` is inserted between
+    each given string. Any null input and any null `list` element emits a
+    null output.
 
     This wraps the "binary_join" compute function in the Arrow C++ library.
 
@@ -1777,13 +1759,13 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
                              memory_pool=None):
     """Join string arguments together, with the last argument as separator.
 
-    Concatenate the `strings` except for the last one. The last argument
-    in `strings` is inserted between each given string.
-    Any null separator element emits a null output. Null elements either
-    emit a null (the default), are skipped, or replaced with a given string.
+    Concatenate the `strings` except for the last one. The last argument in
+    `strings` is inserted between each given string. Any null separator
+    element emits a null output. Null elements either emit a null (the
+    default), are skipped, or replaced with a given string.
 
     This wraps the "binary_join_element_wise" compute function in the Arrow
-        C++ library.
+    C++ library.
 
     Parameters
     ----------
@@ -1818,8 +1800,8 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
 def binary_length(strings, *, memory_pool=None):
     """Compute string lengths.
 
-    For each string in `strings`, emit its length of bytes.
-    Null values emit null.
+    For each string in `strings`, emit its length of bytes. Null values emit
+    null.
 
     This wraps the "binary_length" compute function in the Arrow C++ library.
 
@@ -1880,13 +1862,12 @@ def binary_replace_slice(strings, start=None, stop=None, replacement=None, *,
     """Replace a slice of a binary string.
 
     For each string in `strings`, replace a slice of the string defined by
-        `start`
-    and `stop` indices with the given `replacement`. `start` is inclusive
-    and `stop` is exclusive, and both are measured in bytes.
-    Null values emit null.
+    `start` and `stop` indices with the given `replacement`. `start` is
+    inclusive and `stop` is exclusive, and both are measured in bytes. Null
+    values emit null.
 
     This wraps the "binary_replace_slice" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -1935,7 +1916,7 @@ def binary_reverse(strings, *, memory_pool=None):
     This function reverses the binary data at a byte-level.
 
     This wraps the "binary_reverse" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2079,18 +2060,18 @@ def bit_wise_xor(x, y, *, memory_pool=None):
 def case_when(cond, *cases, memory_pool=None):
     """Choose values based on multiple conditions.
 
-    `cond` must be a struct of Boolean values. `cases` can be a mix
-    of scalar and array arguments (of any type, but all must be the
-    same type or castable to a common type), with either exactly one
-    datum per child of `cond`, or one more `cases` than children of
-    `cond` (in which case we have an "else" value).
+    `cond` must be a struct of Boolean values. `cases` can be a mix of scalar
+    and array arguments (of any type, but all must be the same type or
+    castable to a common type), with either exactly one datum per child of
+    `cond`, or one more `cases` than children of `cond` (in which case we
+    have an "else" value).
 
-    Each row of the output will be the corresponding value of the
-    first datum in `cases` for which the corresponding child of `cond`
-    is true, or otherwise the "else" value (if given), or null.
+    Each row of the output will be the corresponding value of the first datum
+    in `cases` for which the corresponding child of `cond` is true, or
+    otherwise the "else" value (if given), or null.
 
     Essentially, this implements a switch-case or if-else, if-else...
-        statement.
+    statement.
 
     This wraps the "case_when" compute function in the Arrow C++ library.
 
@@ -2116,8 +2097,8 @@ def cast(input, target_type=None, *, allow_int_overflow=None,
          allow_invalid_utf8=None, options=None, memory_pool=None):
     """Cast values to another data type.
 
-    Behavior when values wouldn't fit in the target type
-    can be controlled through CastOptions.
+    Behavior when values wouldn't fit in the target type can be controlled
+    through CastOptions.
 
     This wraps the "cast" compute function in the Arrow C++ library.
 
@@ -2207,9 +2188,8 @@ def ceil_temporal(timestamps, multiple=1, unit='day', *,
                   memory_pool=None):
     """Round temporal values up to nearest multiple of specified time unit.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "ceil_temporal" compute function in the Arrow C++ library.
 
@@ -2228,14 +2208,14 @@ def ceil_temporal(timestamps, multiple=1, unit='day', *,
         If True, weeks start on Monday; if False, on Sunday.
     ceil_is_strictly_greater : bool, default False
         If True, ceil returns a rounded value that is strictly greater than
-        the
+    the
         input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
         yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
         if set to False.
         This applies to the ceil_temporal function only.
     calendar_based_origin : bool, default False
         By default, the origin is 1970-01-01T00:00:00. By setting this to
-        True,
+    True,
         rounding origin will be beginning of one less precise calendar unit.
         E.g.: rounding to hours will use beginning of day as origin.
 
@@ -2317,10 +2297,8 @@ def coalesce(*values, memory_pool=None):
     """Select the first non-null value.
 
     Each row of the output will be the value from the first corresponding
-        input
-    for which the value is not null. If all inputs are null in a row, the
-        output
-    will be null.
+    input for which the value is not null. If all inputs are null in a row,
+    the output will be null.
 
     This wraps the "coalesce" compute function in the Arrow C++ library.
 
@@ -2341,8 +2319,8 @@ def coalesce(*values, memory_pool=None):
 def cos(x, *, memory_pool=None):
     """Compute the cosine.
 
-    NaN is returned for invalid input values;
-    to raise an error instead, see "cos_checked".
+    NaN is returned for invalid input values; to raise an error instead, see
+    "cos_checked".
 
     This wraps the "cos" compute function in the Arrow C++ library.
 
@@ -2370,8 +2348,7 @@ def cos(x, *, memory_pool=None):
 def cos_checked(x, *, memory_pool=None):
     """Compute the cosine.
 
-    Infinite values raise an error;
-    to return NaN instead, see "cos".
+    Infinite values raise an error; to return NaN instead, see "cos".
 
     This wraps the "cos_checked" compute function in the Arrow C++ library.
 
@@ -2399,8 +2376,8 @@ def cos_checked(x, *, memory_pool=None):
 def count(array, mode='only_valid', *, options=None, memory_pool=None):
     """Count the number of null / non-null values.
 
-    By default, only non-null values are counted.
-    This can be changed through CountOptions.
+    By default, only non-null values are counted. This can be changed through
+    CountOptions.
 
     This wraps the "count" compute function in the Arrow C++ library.
 
@@ -2470,11 +2447,11 @@ def count_distinct(array, mode='only_valid', *, options=None,
                    memory_pool=None):
     """Count the number of unique values.
 
-    By default, only non-null values are counted.
-    This can be changed through CountOptions.
+    By default, only non-null values are counted. This can be changed through
+    CountOptions.
 
     This wraps the "count_distinct" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2543,12 +2520,11 @@ def count_substring(strings, pattern=None, *, ignore_case=False, options=None,
     """Count occurrences of substring.
 
     For each string in `strings`, emit the number of occurrences of the given
-    literal pattern.
-    Null inputs emit null. The pattern must be given in
-        MatchSubstringOptions.
+    literal pattern. Null inputs emit null. The pattern must be given in
+    MatchSubstringOptions.
 
     This wraps the "count_substring" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2592,12 +2568,11 @@ def count_substring_regex(strings, pattern=None, *, ignore_case=False,
     """Count occurrences of substring.
 
     For each string in `strings`, emit the number of occurrences of the given
-    regular expression pattern.
-    Null inputs emit null. The pattern must be given in
-        MatchSubstringOptions.
+    regular expression pattern. Null inputs emit null. The pattern must be
+    given in MatchSubstringOptions.
 
     This wraps the "count_substring_regex" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2645,7 +2620,7 @@ def cumulative_sum(values, start=0.0, *, skip_nulls=False, options=None,
     overflow to return an error.
 
     This wraps the "cumulative_sum" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2689,12 +2664,12 @@ def cumulative_sum_checked(values, start=0.0, *, skip_nulls=False,
     """Compute the cumulative sum over a numeric input.
 
     `values` must be numeric. Return an array/chunked array which is the
-    cumulative sum computed over `values`. This function returns an error
-    on overflow. For a variant that doesn't fail on overflow, use
-    function "cumulative_sum".
+    cumulative sum computed over `values`. This function returns an error on
+    overflow. For a variant that doesn't fail on overflow, use function
+    "cumulative_sum".
 
     This wraps the "cumulative_sum_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2735,9 +2710,8 @@ def cumulative_sum_checked(values, start=0.0, *, skip_nulls=False,
 def day(values, *, memory_pool=None):
     """Extract day number.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "day" compute function in the Arrow C++ library.
 
@@ -2767,16 +2741,12 @@ def day_of_week(values, *, count_from_zero=True, week_start=1, options=None,
     """Extract day of the week number.
 
     By default, the week starts on Monday represented by 0 and ends on Sunday
-    represented by 6.
-    `DayOfWeekOptions.week_start` can be used to set another starting day
-        using
-    the ISO numbering convention (1=start week on Monday, 7=start week on
-        Sunday).
-    Day numbers can start at 0 or 1 based on
-        `DayOfWeekOptions.count_from_zero`.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    represented by 6. `DayOfWeekOptions.week_start` can be used to set
+    another starting day using the ISO numbering convention (1=start week on
+    Monday, 7=start week on Sunday). Day numbers can start at 0 or 1 based on
+    `DayOfWeekOptions.count_from_zero`. Null values emit null. An error is
+    returned if the values have a defined timezone but it cannot be found in
+    the timezone database.
 
     This wraps the "day_of_week" compute function in the Arrow C++ library.
 
@@ -2820,10 +2790,9 @@ def day_of_week(values, *, count_from_zero=True, week_start=1, options=None,
 def day_of_year(values, *, memory_pool=None):
     """Extract day of year number.
 
-    January 1st maps to day number 1, February 1st to 32, etc.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    January 1st maps to day number 1, February 1st to 32, etc. Null values
+    emit null. An error is returned if the values have a defined timezone but
+    it cannot be found in the timezone database.
 
     This wraps the "day_of_year" compute function in the Arrow C++ library.
 
@@ -2851,16 +2820,14 @@ def day_of_year(values, *, memory_pool=None):
 def day_time_interval_between(start, end, *, memory_pool=None):
     """Compute the number of days and milliseconds between two timestamps.
 
-    Returns the number of days and milliseconds from `start` to `end`.
-    That is, first the difference in days is computed as if both
-    timestamps were truncated to the day, then the difference between time
-        times
-    of the two timestamps is computed as if both times were truncated to the
-    millisecond.
-    Null values return null.
+    Returns the number of days and milliseconds from `start` to `end`. That
+    is, first the difference in days is computed as if both timestamps were
+    truncated to the day, then the difference between time times of the two
+    timestamps is computed as if both times were truncated to the
+    millisecond. Null values return null.
 
     This wraps the "day_time_interval_between" compute function in the Arrow
-        C++ library.
+    C++ library.
 
     Parameters
     ----------
@@ -2888,10 +2855,9 @@ def day_time_interval_between(start, end, *, memory_pool=None):
 def days_between(start, end, *, memory_pool=None):
     """Compute the number of days between two timestamps.
 
-    Returns the number of day boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the day.
-    Null values emit null.
+    Returns the number of day boundaries crossed from `start` to `end`. That
+    is, the difference is calculated as if the timestamps were truncated to
+    the day. Null values emit null.
 
     This wraps the "days_between" compute function in the Arrow C++ library.
 
@@ -2925,7 +2891,7 @@ def dictionary_encode(array, null_encoding='mask', *, options=None,
     Return a dictionary-encoded version of the input array.
 
     This wraps the "dictionary_encode" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -2968,8 +2934,8 @@ def divide(dividend, divisor, *, memory_pool=None):
 
     Integer division by zero returns an error. However, integer overflow
     wraps around, and floating-point division by zero returns an infinite.
-    Use function "divide_checked" if you want to get an error
-    in all the aforementioned cases.
+    Use function "divide_checked" if you want to get an error in all the
+    aforementioned cases.
 
     This wraps the "divide" compute function in the Arrow C++ library.
 
@@ -2999,11 +2965,11 @@ def divide(dividend, divisor, *, memory_pool=None):
 def divide_checked(dividend, divisor, *, memory_pool=None):
     """Divide the arguments element-wise.
 
-    An error is returned when trying to divide by zero, or when
-    integer overflow is encountered.
+    An error is returned when trying to divide by zero, or when integer
+    overflow is encountered.
 
     This wraps the "divide_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3032,9 +2998,8 @@ def drop_null(input, *, memory_pool=None):
     """Drop nulls from the input.
 
     The output is populated with values from the input (Array, ChunkedArray,
-    RecordBatch, or Table) without the null values.
-    For the RecordBatch and Table cases, `drop_null` drops the full row if
-    there is any null.
+    RecordBatch, or Table) without the null values. For the RecordBatch and
+    Table cases, `drop_null` drops the full row if there is any null.
 
     This wraps the "drop_null" compute function in the Arrow C++ library.
 
@@ -3064,8 +3029,8 @@ def ends_with(strings, pattern=None, *, ignore_case=False, options=None,
     """Check if strings end with a literal pattern.
 
     For each string in `strings`, emit true iff it ends with a given pattern.
-    The pattern must be given in MatchSubstringOptions.
-    If ignore_case is set, only simple case folding is performed.
+    The pattern must be given in MatchSubstringOptions. If ignore_case is
+    set, only simple case folding is performed.
 
     Null inputs emit null.
 
@@ -3186,11 +3151,10 @@ def fill_null_backward(values, *, memory_pool=None):
     """Carry non-null values backward to fill null slots.
 
     Given an array, propagate next valid observation backward to previous
-        valid
-    or nothing if all next values are null.
+    valid or nothing if all next values are null.
 
     This wraps the "fill_null_backward" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3216,11 +3180,11 @@ def fill_null_backward(values, *, memory_pool=None):
 def fill_null_forward(values, *, memory_pool=None):
     """Carry non-null values forward to fill null slots.
 
-    Given an array, propagate last valid observation forward to next valid
-    or nothing if all previous values are null.
+    Given an array, propagate last valid observation forward to next valid or
+    nothing if all previous values are null.
 
     This wraps the "fill_null_forward" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3247,9 +3211,9 @@ def filter(input, selection_filter, null_selection_behavior='drop', *,
            options=None, memory_pool=None):
     """Filter with a boolean selection filter.
 
-    The output is populated with values from the input at positions
-    where the selection filter is non-zero.  Nulls in the selection filter
-    are handled based on FilterOptions.
+    The output is populated with values from the input at positions where the
+    selection filter is non-zero.  Nulls in the selection filter are handled
+    based on FilterOptions.
 
     This wraps the "filter" compute function in the Arrow C++ library.
 
@@ -3313,13 +3277,11 @@ def find_substring(strings, pattern=None, *, ignore_case=False, options=None,
     """Find first occurrence of substring.
 
     For each string in `strings`, emit the index in bytes of the first
-        occurrence
-    of the given literal pattern, or -1 if not found.
-    Null inputs emit null. The pattern must be given in
-        MatchSubstringOptions.
+    occurrence of the given literal pattern, or -1 if not found. Null inputs
+    emit null. The pattern must be given in MatchSubstringOptions.
 
     This wraps the "find_substring" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3363,13 +3325,11 @@ def find_substring_regex(strings, pattern=None, *, ignore_case=False,
     """Find location of first match of regex pattern.
 
     For each string in `strings`, emit the index in bytes of the first
-        occurrence
-    of the given literal pattern, or -1 if not found.
-    Null inputs emit null. The pattern must be given in
-        MatchSubstringOptions.
+    occurrence of the given literal pattern, or -1 if not found. Null inputs
+    emit null. The pattern must be given in MatchSubstringOptions.
 
     This wraps the "find_substring_regex" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3442,12 +3402,11 @@ def floor_temporal(timestamps, multiple=1, unit='day', *,
                    memory_pool=None):
     """Round temporal values down to nearest multiple of specified time unit.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "floor_temporal" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3464,14 +3423,14 @@ def floor_temporal(timestamps, multiple=1, unit='day', *,
         If True, weeks start on Monday; if False, on Sunday.
     ceil_is_strictly_greater : bool, default False
         If True, ceil returns a rounded value that is strictly greater than
-        the
+    the
         input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
         yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
         if set to False.
         This applies to the ceil_temporal function only.
     calendar_based_origin : bool, default False
         By default, the origin is 1970-01-01T00:00:00. By setting this to
-        True,
+    True,
         rounding origin will be beginning of one less precise calendar unit.
         E.g.: rounding to hours will use beginning of day as origin.
 
@@ -3584,9 +3543,8 @@ def greater_equal(x, y, *, memory_pool=None):
 def hour(values, *, memory_pool=None):
     """Extract hour value.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "hour" compute function in the Arrow C++ library.
 
@@ -3614,10 +3572,9 @@ def hour(values, *, memory_pool=None):
 def hours_between(start, end, *, memory_pool=None):
     """Compute the number of hours between two timestamps.
 
-    Returns the number of hour boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the hour.
-    Null values emit null.
+    Returns the number of hour boundaries crossed from `start` to `end`. That
+    is, the difference is calculated as if the timestamps were truncated to
+    the hour. Null values emit null.
 
     This wraps the "hours_between" compute function in the Arrow C++ library.
 
@@ -3647,9 +3604,9 @@ def hours_between(start, end, *, memory_pool=None):
 def if_else(cond, left, right, *, memory_pool=None):
     """Choose values based on a condition.
 
-    `cond` must be a Boolean scalar/ array.
-    `left` or `right` must be of the same type scalar/ array.
-    `null` values in `cond` will be promoted to the output.
+    `cond` must be a Boolean scalar/ array. `left` or `right` must be of the
+    same type scalar/ array. `null` values in `cond` will be promoted to the
+    output.
 
     This wraps the "if_else" compute function in the Arrow C++ library.
 
@@ -3681,8 +3638,8 @@ def if_else(cond, left, right, *, memory_pool=None):
 def index(array, value=None, *, options=None, memory_pool=None):
     """Find the index of the first occurrence of a given value.
 
-    -1 is returned if the value is not found in the array.
-    The search value is specified in IndexOptions.
+    -1 is returned if the value is not found in the array. The search value
+    is specified in IndexOptions.
 
     This wraps the "index" compute function in the Arrow C++ library.
 
@@ -3743,11 +3700,10 @@ def index_in(values, value_set=None, *, skip_nulls=False, options=None,
              memory_pool=None):
     """Return index of each element in a set of values.
 
-    For each element in `values`, return its index in a given set of
-    values, or null if it is not found there.
-    The set of values to look for must be given in SetLookupOptions.
-    By default, nulls are matched against the value set, this can be
-    changed in SetLookupOptions.
+    For each element in `values`, return its index in a given set of values,
+    or null if it is not found there. The set of values to look for must be
+    given in SetLookupOptions. By default, nulls are matched against the
+    value set, this can be changed in SetLookupOptions.
 
     This wraps the "index_in" compute function in the Arrow C++ library.
 
@@ -3792,11 +3748,11 @@ def index_in(values, value_set=None, *, skip_nulls=False, options=None,
 def index_in_meta_binary(values, value_set, *, memory_pool=None):
     """Return index of each element in a set of values.
 
-    For each element in `values`, return its index in the `value_set`,
-    or null if it is not found there.
+    For each element in `values`, return its index in the `value_set`, or
+    null if it is not found there.
 
     This wraps the "index_in_meta_binary" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3830,7 +3786,7 @@ def indices_nonzero(values, *, memory_pool=None):
     Note that indices_nonzero does not work with string arrays.
 
     This wraps the "indices_nonzero" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -3872,6 +3828,8 @@ def indices_nonzero(values, *, memory_pool=None):
 def invert(values, *, memory_pool=None):
     """Invert boolean values.
 
+
+
     This wraps the "invert" compute function in the Arrow C++ library.
 
     Parameters
@@ -3899,9 +3857,8 @@ def is_dst(values, *, memory_pool=None):
     """Extracts if currently observing daylight savings.
 
     IsDaylightSavings returns true if a timestamp has a daylight saving
-    offset in the given timezone.
-    Null values emit null.
-    An error is returned if the values do not have a defined timezone.
+    offset in the given timezone. Null values emit null. An error is returned
+    if the values do not have a defined timezone.
 
     This wraps the "is_dst" compute function in the Arrow C++ library.
 
@@ -3929,8 +3886,8 @@ def is_dst(values, *, memory_pool=None):
 def is_finite(values, *, memory_pool=None):
     """Return true if value is finite.
 
-    For each input value, emit true iff the value is finite
-    (i.e. neither NaN, inf, nor -inf).
+    For each input value, emit true iff the value is finite (i.e. neither
+    NaN, inf, nor -inf).
 
     This wraps the "is_finite" compute function in the Arrow C++ library.
 
@@ -3959,11 +3916,10 @@ def is_in(values, value_set=None, *, skip_nulls=False, options=None,
           memory_pool=None):
     """Find each element in a set of values.
 
-    For each element in `values`, return true if it is found in a given
-    set of values, false otherwise.
-    The set of values to look for must be given in SetLookupOptions.
-    By default, nulls are matched against the value set, this can be
-    changed in SetLookupOptions.
+    For each element in `values`, return true if it is found in a given set
+    of values, false otherwise. The set of values to look for must be given
+    in SetLookupOptions. By default, nulls are matched against the value set,
+    this can be changed in SetLookupOptions.
 
     This wraps the "is_in" compute function in the Arrow C++ library.
 
@@ -4012,7 +3968,7 @@ def is_in_meta_binary(values, value_set, *, memory_pool=None):
     false otherwise.
 
     This wraps the "is_in_meta_binary" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -4068,9 +4024,8 @@ def is_inf(values, *, memory_pool=None):
 def is_leap_year(values, *, memory_pool=None):
     """Extract if year is a leap year.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "is_leap_year" compute function in the Arrow C++ library.
 
@@ -4126,9 +4081,8 @@ def is_nan(values, *, memory_pool=None):
 def is_null(values, *, nan_is_null=False, options=None, memory_pool=None):
     """Return true if null (and optionally NaN).
 
-    For each input value, emit true iff the value is null.
-    True may also be emitted for NaN values by setting the `nan_is_null`
-        flag.
+    For each input value, emit true iff the value is null. True may also be
+    emitted for NaN values by setting the `nan_is_null` flag.
 
     This wraps the "is_null" compute function in the Arrow C++ library.
 
@@ -4197,9 +4151,8 @@ def iso_calendar(values, *, memory_pool=None):
     """Extract (ISO year, ISO week, ISO day of week) struct.
 
     ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "iso_calendar" compute function in the Arrow C++ library.
 
@@ -4227,12 +4180,10 @@ def iso_calendar(values, *, memory_pool=None):
 def iso_week(values, *, memory_pool=None):
     """Extract ISO week of year number.
 
-    First ISO week has the majority (4 or more) of its days in January.
-    ISO week starts on Monday. The week number starts with 1 and can run
-    up to 53.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    First ISO week has the majority (4 or more) of its days in January. ISO
+    week starts on Monday. The week number starts with 1 and can run up to
+    53. Null values emit null. An error is returned if the values have a
+    defined timezone but it cannot be found in the timezone database.
 
     This wraps the "iso_week" compute function in the Arrow C++ library.
 
@@ -4261,10 +4212,8 @@ def iso_year(values, *, memory_pool=None):
     """Extract ISO year number.
 
     First week of an ISO year has the majority (4 or more) of its days in
-        January.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    January. Null values emit null. An error is returned if the values have a
+    defined timezone but it cannot be found in the timezone database.
 
     This wraps the "iso_year" compute function in the Arrow C++ library.
 
@@ -4352,9 +4301,9 @@ def less_equal(x, y, *, memory_pool=None):
 def list_element(lists, index, *, memory_pool=None):
     """Compute elements using of nested list values using an index.
 
-    `lists` must have a list-like type.
-    For each value in each list of `lists`, the element at `index`
-    is emitted. Null values emit a null in the output.
+    `lists` must have a list-like type. For each value in each list of
+    `lists`, the element at `index` is emitted. Null values emit a null in
+    the output.
 
     This wraps the "list_element" compute function in the Arrow C++ library.
 
@@ -4384,9 +4333,9 @@ def list_element(lists, index, *, memory_pool=None):
 def list_flatten(lists, *, memory_pool=None):
     """Flatten list values.
 
-    `lists` must have a list-like type.
-    Return an array with the top list level flattened.
-    Top-level null values in `lists` do not emit anything in the input.
+    `lists` must have a list-like type. Return an array with the top list
+    level flattened. Top-level null values in `lists` do not emit anything in
+    the input.
 
     This wraps the "list_flatten" compute function in the Arrow C++ library.
 
@@ -4414,12 +4363,11 @@ def list_flatten(lists, *, memory_pool=None):
 def list_parent_indices(lists, *, memory_pool=None):
     """Compute parent indices of nested list values.
 
-    `lists` must have a list-like type.
-    For each value in each list of `lists`, the top-level list index
-    is emitted.
+    `lists` must have a list-like type. For each value in each list of
+    `lists`, the top-level list index is emitted.
 
     This wraps the "list_parent_indices" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -4445,12 +4393,11 @@ def list_parent_indices(lists, *, memory_pool=None):
 def list_value_length(lists, *, memory_pool=None):
     """Compute list lengths.
 
-    `lists` must have a list-like type.
-    For each non-null value in `lists`, its length is emitted.
-    Null values emit a null in the output.
+    `lists` must have a list-like type. For each non-null value in `lists`,
+    its length is emitted. Null values emit a null in the output.
 
     This wraps the "list_value_length" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -4476,9 +4423,8 @@ def list_value_length(lists, *, memory_pool=None):
 def ln(x, *, memory_pool=None):
     """Compute natural logarithm.
 
-    Non-positive values return -inf or NaN. Null values return null.
-    Use function "ln_checked" if you want non-positive values to raise an
-        error.
+    Non-positive values return -inf or NaN. Null values return null. Use
+    function "ln_checked" if you want non-positive values to raise an error.
 
     This wraps the "ln" compute function in the Arrow C++ library.
 
@@ -4506,8 +4452,8 @@ def ln(x, *, memory_pool=None):
 def ln_checked(x, *, memory_pool=None):
     """Compute natural logarithm.
 
-    Non-positive values raise an error. Null values return null.
-    Use function "ln" if you want non-positive values to return -inf or NaN.
+    Non-positive values raise an error. Null values return null. Use function
+    "ln" if you want non-positive values to return -inf or NaN.
 
     This wraps the "ln_checked" compute function in the Arrow C++ library.
 
@@ -4535,9 +4481,9 @@ def ln_checked(x, *, memory_pool=None):
 def log10(x, *, memory_pool=None):
     """Compute base 10 logarithm.
 
-    Non-positive values return -inf or NaN. Null values return null.
-    Use function "log10_checked" if you want non-positive values
-    to raise an error.
+    Non-positive values return -inf or NaN. Null values return null. Use
+    function "log10_checked" if you want non-positive values to raise an
+    error.
 
     This wraps the "log10" compute function in the Arrow C++ library.
 
@@ -4565,9 +4511,8 @@ def log10(x, *, memory_pool=None):
 def log10_checked(x, *, memory_pool=None):
     """Compute base 10 logarithm.
 
-    Non-positive values raise an error. Null values return null.
-    Use function "log10" if you want non-positive values
-    to return -inf or NaN.
+    Non-positive values raise an error. Null values return null. Use function
+    "log10" if you want non-positive values to return -inf or NaN.
 
     This wraps the "log10_checked" compute function in the Arrow C++ library.
 
@@ -4595,10 +4540,9 @@ def log10_checked(x, *, memory_pool=None):
 def log1p(x, *, memory_pool=None):
     """Compute natural log of (1+x).
 
-    Values <= -1 return -inf or NaN. Null values return null.
-    This function may be more precise than log(1 + x) for x close to zero.
-    Use function "log1p_checked" if you want invalid values to raise an
-        error.
+    Values <= -1 return -inf or NaN. Null values return null. This function
+    may be more precise than log(1 + x) for x close to zero. Use function
+    "log1p_checked" if you want invalid values to raise an error.
 
     This wraps the "log1p" compute function in the Arrow C++ library.
 
@@ -4626,9 +4570,9 @@ def log1p(x, *, memory_pool=None):
 def log1p_checked(x, *, memory_pool=None):
     """Compute natural log of (1+x).
 
-    Values <= -1 return -inf or NaN. Null values return null.
-    This function may be more precise than log(1 + x) for x close to zero.
-    Use function "log1p" if you want invalid values to return -inf or NaN.
+    Values <= -1 return -inf or NaN. Null values return null. This function
+    may be more precise than log(1 + x) for x close to zero. Use function
+    "log1p" if you want invalid values to return -inf or NaN.
 
     This wraps the "log1p_checked" compute function in the Arrow C++ library.
 
@@ -4656,9 +4600,9 @@ def log1p_checked(x, *, memory_pool=None):
 def log2(x, *, memory_pool=None):
     """Compute base 2 logarithm.
 
-    Non-positive values return -inf or NaN. Null values return null.
-    Use function "log2_checked" if you want non-positive values
-    to raise an error.
+    Non-positive values return -inf or NaN. Null values return null. Use
+    function "log2_checked" if you want non-positive values to raise an
+    error.
 
     This wraps the "log2" compute function in the Arrow C++ library.
 
@@ -4686,9 +4630,8 @@ def log2(x, *, memory_pool=None):
 def log2_checked(x, *, memory_pool=None):
     """Compute base 2 logarithm.
 
-    Non-positive values raise an error. Null values return null.
-    Use function "log2" if you want non-positive values
-    to return -inf or NaN.
+    Non-positive values raise an error. Null values return null. Use function
+    "log2" if you want non-positive values to return -inf or NaN.
 
     This wraps the "log2_checked" compute function in the Arrow C++ library.
 
@@ -4716,9 +4659,8 @@ def log2_checked(x, *, memory_pool=None):
 def logb(x, b, *, memory_pool=None):
     """Compute base `b` logarithm.
 
-    Values <= 0 return -inf or NaN. Null values return null.
-    Use function "logb_checked" if you want non-positive values to raise an
-        error.
+    Values <= 0 return -inf or NaN. Null values return null. Use function
+    "logb_checked" if you want non-positive values to raise an error.
 
     This wraps the "logb" compute function in the Arrow C++ library.
 
@@ -4748,9 +4690,8 @@ def logb(x, b, *, memory_pool=None):
 def logb_checked(x, b, *, memory_pool=None):
     """Compute base `b` logarithm.
 
-    Values <= 0 return -inf or NaN. Null values return null.
-    Use function "logb" if you want non-positive values to return -inf or
-        NaN.
+    Values <= 0 return -inf or NaN. Null values return null. Use function
+    "logb" if you want non-positive values to return -inf or NaN.
 
     This wraps the "logb_checked" compute function in the Arrow C++ library.
 
@@ -4782,8 +4723,8 @@ def make_struct(*args, field_names=(), field_nullability=None,
                 memory_pool=None):
     """Wrap Arrays into a StructArray.
 
-    Names of the StructArray's fields are
-    specified through MakeStructOptions.
+    Names of the StructArray's fields are specified through
+    MakeStructOptions.
 
     This wraps the "make_struct" compute function in the Arrow C++ library.
 
@@ -4823,9 +4764,8 @@ def map_lookup(container, query_key=None, occurrence=None, *, options=None,
                memory_pool=None):
     """Find the items corresponding to a given key in a Map.
 
-    For a given query key (passed via MapLookupOptions), extract
-    either the FIRST, LAST or ALL items from a Map that have
-    matching keys.
+    For a given query key (passed via MapLookupOptions), extract either the
+    FIRST, LAST or ALL items from a Map that have matching keys.
 
     This wraps the "map_lookup" compute function in the Arrow C++ library.
 
@@ -4870,13 +4810,11 @@ def match_like(strings, pattern=None, *, ignore_case=False, options=None,
                memory_pool=None):
     """Match strings against SQL-style LIKE pattern.
 
-    For each string in `strings`, emit true iff it matches a given pattern
-    at any position. '%' will match any number of characters, '_' will
-    match exactly one character, and any other character matches itself.
-    To match a literal '%', '_', or '\', precede the character with a
-        backslash.
-    Null inputs emit null.  The pattern must be given in
-        MatchSubstringOptions.
+    For each string in `strings`, emit true iff it matches a given pattern at
+    any position. '%' will match any number of characters, '_' will match
+    exactly one character, and any other character matches itself. To match a
+    literal '%', '_', or '\', precede the character with a backslash. Null
+    inputs emit null.  The pattern must be given in MatchSubstringOptions.
 
     This wraps the "match_like" compute function in the Arrow C++ library.
 
@@ -4921,12 +4859,12 @@ def match_substring(strings, pattern=None, *, ignore_case=False, options=None,
     """Match strings against literal pattern.
 
     For each string in `strings`, emit true iff it contains a given pattern.
-    Null inputs emit null.
-    The pattern must be given in MatchSubstringOptions.
-    If ignore_case is set, only simple case folding is performed.
+    Null inputs emit null. The pattern must be given in
+    MatchSubstringOptions. If ignore_case is set, only simple case folding is
+    performed.
 
     This wraps the "match_substring" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -4969,14 +4907,14 @@ def match_substring_regex(strings, pattern=None, *, ignore_case=False,
                           memory_pool=None):
     """Match strings against regex pattern.
 
-    For each string in `strings`, emit true iff it matches a given pattern
-    at any position. The pattern must be given in MatchSubstringOptions.
-    If ignore_case is set, only simple case folding is performed.
+    For each string in `strings`, emit true iff it matches a given pattern at
+    any position. The pattern must be given in MatchSubstringOptions. If
+    ignore_case is set, only simple case folding is performed.
 
     Null inputs emit null.
 
     This wraps the "match_substring_regex" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5018,8 +4956,8 @@ def max(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the minimum or maximum values of a numeric array.
 
-    Null values are ignored by default.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. This can be changed through
+    ScalarAggregateOptions.
 
     This wraps the "max" compute function in the Arrow C++ library.
 
@@ -5064,11 +5002,11 @@ def max(array, *, skip_nulls=True, min_count=1, options=None,
 def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     """Find the element-wise maximum value.
 
-    Nulls are ignored (by default) or propagated.
-    NaN is preferred over null, but not over any valid value.
+    Nulls are ignored (by default) or propagated. NaN is preferred over null,
+    but not over any valid value.
 
     This wraps the "max_element_wise" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5100,14 +5038,13 @@ def mean(array, *, skip_nulls=True, min_count=1, options=None,
          memory_pool=None):
     """Compute the mean of a numeric array.
 
-    Null values are ignored by default. Minimum count of non-null
-    values can be set and null is returned if too few are present.
-    This can be changed through ScalarAggregateOptions.
-    The result is a double for integer and floating point arguments,
-    and a decimal with the same bit-width/precision/scale for decimal
-        arguments.
-    For integers and floats, NaN is returned if min_count = 0 and
-    there are no values. For decimals, null is returned instead.
+    Null values are ignored by default. Minimum count of non-null values can
+    be set and null is returned if too few are present. This can be changed
+    through ScalarAggregateOptions. The result is a double for integer and
+    floating point arguments, and a decimal with the same
+    bit-width/precision/scale for decimal arguments. For integers and floats,
+    NaN is returned if min_count = 0 and there are no values. For decimals,
+    null is returned instead.
 
     This wraps the "mean" compute function in the Arrow C++ library.
 
@@ -5153,10 +5090,8 @@ def microsecond(values, *, memory_pool=None):
     """Extract microsecond values.
 
     Millisecond returns number of microseconds since the last full
-        millisecond.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    millisecond. Null values emit null. An error is returned if the values
+    have a defined timezone but it cannot be found in the timezone database.
 
     This wraps the "microsecond" compute function in the Arrow C++ library.
 
@@ -5185,13 +5120,11 @@ def microseconds_between(start, end, *, memory_pool=None):
     """Compute the number of microseconds between two timestamps.
 
     Returns the number of microsecond boundaries crossed from `start` to
-        `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the microsecond.
-    Null values emit null.
+    `end`. That is, the difference is calculated as if the timestamps were
+    truncated to the microsecond. Null values emit null.
 
     This wraps the "microseconds_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5220,9 +5153,8 @@ def millisecond(values, *, memory_pool=None):
     """Extract millisecond values.
 
     Millisecond returns number of milliseconds since the last full second.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "millisecond" compute function in the Arrow C++ library.
 
@@ -5251,13 +5183,11 @@ def milliseconds_between(start, end, *, memory_pool=None):
     """Compute the number of millisecond boundaries between two timestamps.
 
     Returns the number of millisecond boundaries crossed from `start` to
-        `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the millisecond.
-    Null values emit null.
+    `end`. That is, the difference is calculated as if the timestamps were
+    truncated to the millisecond. Null values emit null.
 
     This wraps the "milliseconds_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5286,8 +5216,8 @@ def min(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the minimum or maximum values of a numeric array.
 
-    Null values are ignored by default.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. This can be changed through
+    ScalarAggregateOptions.
 
     This wraps the "min" compute function in the Arrow C++ library.
 
@@ -5332,11 +5262,11 @@ def min(array, *, skip_nulls=True, min_count=1, options=None,
 def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     """Find the element-wise minimum value.
 
-    Nulls are ignored (by default) or propagated.
-    NaN is preferred over null, but not over any valid value.
+    Nulls are ignored (by default) or propagated. NaN is preferred over null,
+    but not over any valid value.
 
     This wraps the "min_element_wise" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5368,8 +5298,8 @@ def min_max(array, *, skip_nulls=True, min_count=1, options=None,
             memory_pool=None):
     """Compute the minimum and maximum values of a numeric array.
 
-    Null values are ignored by default.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. This can be changed through
+    ScalarAggregateOptions.
 
     This wraps the "min_max" compute function in the Arrow C++ library.
 
@@ -5414,9 +5344,8 @@ def min_max(array, *, skip_nulls=True, min_count=1, options=None,
 def minute(values, *, memory_pool=None):
     """Extract minute values.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "minute" compute function in the Arrow C++ library.
 
@@ -5445,12 +5374,11 @@ def minutes_between(start, end, *, memory_pool=None):
     """Compute the number of minute boundaries between two timestamps.
 
     Returns the number of minute boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the minute.
-    Null values emit null.
+    That is, the difference is calculated as if the timestamps were truncated
+    to the minute. Null values emit null.
 
     This wraps the "minutes_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5480,12 +5408,10 @@ def mode(array, n=1, *, skip_nulls=True, min_count=0, options=None,
     """Compute the modal (most common) values of a numeric array.
 
     Compute the n most common values and their respective occurrence counts.
-    The output has type `struct<mode: T, count: int64>`, where T is the
-    input type.
-    The results are ordered by descending `count` first, and ascending `mode`
-    when breaking ties.
-    Nulls are ignored.  If there are no non-null values in the array,
-    an empty array is returned.
+    The output has type `struct<mode: T, count: int64>`, where T is the input
+    type. The results are ordered by descending `count` first, and ascending
+    `mode` when breaking ties. Nulls are ignored.  If there are no non-null
+    values in the array, an empty array is returned.
 
     This wraps the "mode" compute function in the Arrow C++ library.
 
@@ -5546,10 +5472,9 @@ def mode(array, n=1, *, skip_nulls=True, min_count=0, options=None,
 def month(values, *, memory_pool=None):
     """Extract month number.
 
-    Month is encoded as January=1, December=12.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Month is encoded as January=1, December=12. Null values emit null. An
+    error is returned if the values have a defined timezone but it cannot be
+    found in the timezone database.
 
     This wraps the "month" compute function in the Arrow C++ library.
 
@@ -5576,18 +5501,17 @@ def month(values, *, memory_pool=None):
 
 def month_day_nano_interval_between(start, end, *, memory_pool=None):
     """Compute the number of months, days and nanoseconds between two
-        timestamps.
+    timestamps.
 
     Returns the number of months, days, and nanoseconds from `start` to
-        `end`.
-    That is, first the difference in months is computed as if both timestamps
-    were truncated to the months, then the difference between the days
-    is computed, and finally the difference between the times of the two
+    `end`. That is, first the difference in months is computed as if both
+    timestamps were truncated to the months, then the difference between the
+    days is computed, and finally the difference between the times of the two
     timestamps is computed as if both times were truncated to the nanosecond.
     Null values return null.
 
     This wraps the "month_day_nano_interval_between" compute function in the
-        Arrow C++ library.
+    Arrow C++ library.
 
     Parameters
     ----------
@@ -5616,12 +5540,11 @@ def month_interval_between(start, end, *, memory_pool=None):
     """Compute the number of months between two timestamps.
 
     Returns the number of month boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the month.
-    Null values emit null.
+    That is, the difference is calculated as if the timestamps were truncated
+    to the month. Null values emit null.
 
     This wraps the "month_interval_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5649,9 +5572,8 @@ def month_interval_between(start, end, *, memory_pool=None):
 def multiply(x, y, *, memory_pool=None):
     """Multiply the arguments element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "multiply_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function
+    "multiply_checked" if you want overflow to return an error.
 
     This wraps the "multiply" compute function in the Arrow C++ library.
 
@@ -5681,11 +5603,11 @@ def multiply(x, y, *, memory_pool=None):
 def multiply_checked(x, y, *, memory_pool=None):
     """Multiply the arguments element-wise.
 
-    This function returns an error on overflow.  For a variant that
-    doesn't fail on overflow, use function "multiply".
+    This function returns an error on overflow.  For a variant that doesn't
+    fail on overflow, use function "multiply".
 
     This wraps the "multiply_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5714,9 +5636,8 @@ def nanosecond(values, *, memory_pool=None):
     """Extract nanosecond values.
 
     Nanosecond returns number of nanoseconds since the last full microsecond.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "nanosecond" compute function in the Arrow C++ library.
 
@@ -5745,13 +5666,11 @@ def nanoseconds_between(start, end, *, memory_pool=None):
     """Compute the number of nanoseconds between two timestamps.
 
     Returns the number of nanosecond boundaries crossed from `start` to
-        `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the nanosecond.
-    Null values emit null.
+    `end`. That is, the difference is calculated as if the timestamps were
+    truncated to the nanosecond. Null values emit null.
 
     This wraps the "nanoseconds_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5779,9 +5698,8 @@ def nanoseconds_between(start, end, *, memory_pool=None):
 def negate(x, *, memory_pool=None):
     """Negate the argument element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "negate_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function
+    "negate_checked" if you want overflow to return an error.
 
     This wraps the "negate" compute function in the Arrow C++ library.
 
@@ -5809,11 +5727,11 @@ def negate(x, *, memory_pool=None):
 def negate_checked(x, *, memory_pool=None):
     """Negate the arguments element-wise.
 
-    This function returns an error on overflow.  For a variant that
-    doesn't fail on overflow, use function "negate".
+    This function returns an error on overflow.  For a variant that doesn't
+    fail on overflow, use function "negate".
 
     This wraps the "negate_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -5869,8 +5787,8 @@ def not_equal(x, y, *, memory_pool=None):
 def or_(x, y, *, memory_pool=None):
     """Logical 'or' boolean values.
 
-    When a null is encountered in either input, a null is output.
-    For a different null behavior, see function "or_kleene".
+    When a null is encountered in either input, a null is output. For a
+    different null behavior, see function "or_kleene".
 
     This wraps the "or" compute function in the Arrow C++ library.
 
@@ -5908,9 +5826,9 @@ def or_kleene(x, y, *, memory_pool=None):
     - null and false = null
     - null and null = null
 
-    In other words, in this context a null value really means "unknown",
-    and an unknown value 'or' true is always true.
-    For a different null behavior, see function "and".
+    In other words, in this context a null value really means "unknown", and
+    an unknown value 'or' true is always true. For a different null behavior,
+    see function "and".
 
     This wraps the "or_kleene" compute function in the Arrow C++ library.
 
@@ -5945,22 +5863,20 @@ def partition_nth_indices(array, pivot=None, *, null_placement='at_end',
     This functions computes an array of indices that define a non-stable
     partial sort of the input array.
 
-    The output is such that the `N`'th index points to the `N`'th element
-    of the input in sorted order, and all indices before the `N`'th point
-    to elements in the input less or equal to elements at or after the
-        `N`'th.
+    The output is such that the `N`'th index points to the `N`'th element of
+    the input in sorted order, and all indices before the `N`'th point to
+    elements in the input less or equal to elements at or after the `N`'th.
 
-    By default, null values are considered greater than any other value
-    and are therefore partitioned towards the end of the array.
-    For floating-point types, NaNs are considered greater than any
-    other non-null value, but smaller than null values.
+    By default, null values are considered greater than any other value and
+    are therefore partitioned towards the end of the array. For
+    floating-point types, NaNs are considered greater than any other non-null
+    value, but smaller than null values.
 
-    The pivot index `N` must be given in PartitionNthOptions.
-    The handling of nulls and NaNs can also be changed in
-        PartitionNthOptions.
+    The pivot index `N` must be given in PartitionNthOptions. The handling of
+    nulls and NaNs can also be changed in PartitionNthOptions.
 
     This wraps the "partition_nth_indices" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6003,8 +5919,8 @@ def power(base, exponent, *, memory_pool=None):
     """Raise arguments to power element-wise.
 
     Integer to negative integer power returns an error. However, integer
-        overflow
-    wraps around. If either base or exponent is null the result will be null.
+    overflow wraps around. If either base or exponent is null the result will
+    be null.
 
     This wraps the "power" compute function in the Arrow C++ library.
 
@@ -6035,8 +5951,7 @@ def power_checked(base, exponent, *, memory_pool=None):
     """Raise arguments to power element-wise.
 
     An error is returned when integer to negative integer power is
-        encountered,
-    or integer overflow is encountered.
+    encountered, or integer overflow is encountered.
 
     This wraps the "power_checked" compute function in the Arrow C++ library.
 
@@ -6067,9 +5982,9 @@ def product(array, *, skip_nulls=True, min_count=1, options=None,
             memory_pool=None):
     """Compute the product of values in a numeric array.
 
-    Null values are ignored by default. Minimum count of non-null
-    values can be set and null is returned if too few are present.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. Minimum count of non-null values can
+    be set and null is returned if too few are present. This can be changed
+    through ScalarAggregateOptions.
 
     This wraps the "product" compute function in the Arrow C++ library.
 
@@ -6115,11 +6030,10 @@ def quantile(array, q=0.5, *, interpolation='linear', skip_nulls=True,
              min_count=0, options=None, memory_pool=None):
     """Compute an array of quantiles of a numeric array or chunked array.
 
-    By default, 0.5 quantile (median) is returned.
-    If quantile lies between two data points, an interpolated value is
-    returned based on selected interpolation method.
-    Nulls and NaNs are ignored.
-    An array of nulls is returned if there is no valid data point.
+    By default, 0.5 quantile (median) is returned. If quantile lies between
+    two data points, an interpolated value is returned based on selected
+    interpolation method. Nulls and NaNs are ignored. An array of nulls is
+    returned if there is no valid data point.
 
     This wraps the "quantile" compute function in the Arrow C++ library.
 
@@ -6177,9 +6091,8 @@ def quantile(array, q=0.5, *, interpolation='linear', skip_nulls=True,
 def quarter(values, *, memory_pool=None):
     """Extract quarter of year number.
 
-    First quarter maps to 1 and forth quarter maps to 4.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
+    First quarter maps to 1 and forth quarter maps to 4. Null values emit
+    null. An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
     This wraps the "quarter" compute function in the Arrow C++ library.
@@ -6209,13 +6122,11 @@ def quarters_between(start, end, *, memory_pool=None):
     """Compute the number of quarters between two timestamps.
 
     Returns the number of quarter start boundaries crossed from `start` to
-        `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the quarter.
-    Null values emit null.
+    `end`. That is, the difference is calculated as if the timestamps were
+    truncated to the quarter. Null values emit null.
 
     This wraps the "quarters_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6244,8 +6155,7 @@ def random(*, initializer='system', options=None, memory_pool=None):
     """Generate numbers in the range [0, 1).
 
     Generated values are uniformly-distributed, double-precision in range [0,
-        1).
-    Algorithm and seed can be changed via RandomOptions.
+    1). Algorithm and seed can be changed via RandomOptions.
 
     This wraps the "random" compute function in the Arrow C++ library.
 
@@ -6280,15 +6190,15 @@ def rank(input, sort_keys='ascending', *, null_placement='at_end',
          tiebreaker='first', options=None, memory_pool=None):
     """Compute numerical ranks of an array (1-based).
 
-    This function computes a rank of the input array.
-    By default, null values are considered greater than any other value and
-    are therefore sorted at the end of the input. For floating-point types,
-    NaNs are considered greater than any other non-null value, but smaller
-    than null values. The default tiebreaker is to assign ranks in order of
-    when ties appear in the input.
+    This function computes a rank of the input array. By default, null values
+    are considered greater than any other value and are therefore sorted at
+    the end of the input. For floating-point types, NaNs are considered
+    greater than any other non-null value, but smaller than null values. The
+    default tiebreaker is to assign ranks in order of when ties appear in the
+    input.
 
     The handling of nulls, NaNs and tiebreakers can be changed in
-        RankOptions.
+    RankOptions.
 
     This wraps the "rank" compute function in the Arrow C++ library.
 
@@ -6301,7 +6211,7 @@ def rank(input, sort_keys='ascending', *, null_placement='at_end',
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
         Alternatively, one can simply pass "ascending" or "descending" as a
-        string
+    string
         if the input is array-like.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted.
@@ -6352,14 +6262,13 @@ def replace_substring(strings, pattern=None, replacement=None, *,
     """Replace matching non-overlapping substrings with replacement.
 
     For each string in `strings`, replace non-overlapping substrings that
-        match
-    the given literal `pattern` with the given `replacement`.
-    If `max_replacements` is given and not equal to -1, it limits the
-    maximum amount replacements per input, counted from the left.
-    Null values emit null.
+    match the given literal `pattern` with the given `replacement`. If
+    `max_replacements` is given and not equal to -1, it limits the maximum
+    amount replacements per input, counted from the left. Null values emit
+    null.
 
     This wraps the "replace_substring" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6408,14 +6317,13 @@ def replace_substring_regex(strings, pattern=None, replacement=None, *,
     """Replace matching non-overlapping substrings with replacement.
 
     For each string in `strings`, replace non-overlapping substrings that
-        match
-    the given regular expression `pattern` with the given `replacement`.
-    If `max_replacements` is given and not equal to -1, it limits the
-    maximum amount replacements per input, counted from the left.
+    match the given regular expression `pattern` with the given
+    `replacement`. If `max_replacements` is given and not equal to -1, it
+    limits the maximum amount replacements per input, counted from the left.
     Null values emit null.
 
     This wraps the "replace_substring_regex" compute function in the Arrow
-        C++ library.
+    C++ library.
 
     Parameters
     ----------
@@ -6461,14 +6369,14 @@ def replace_with_mask(values, mask, replacements, *, memory_pool=None):
     """Replace items selected with a mask.
 
     Given an array and a boolean mask (either scalar or of equal length),
-    along with replacement values (either scalar or array),
-    each element of the array for which the corresponding mask element is
-    true will be replaced by the next value from the replacements,
-    or with null if the mask is null.
-    Hence, for replacement arrays, len(replacements) == sum(mask == true).
+    along with replacement values (either scalar or array), each element of
+    the array for which the corresponding mask element is true will be
+    replaced by the next value from the replacements, or with null if the
+    mask is null. Hence, for replacement arrays, len(replacements) ==
+    sum(mask == true).
 
     This wraps the "replace_with_mask" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6500,8 +6408,8 @@ def round(x, ndigits=0, round_mode='half_to_even', *, options=None,
     """Round to a given precision.
 
     Options are used to control the number of digits and rounding mode.
-    Default behavior is to round to the nearest integer and
-    use half-to-even rule to break ties.
+    Default behavior is to round to the nearest integer and use half-to-even
+    rule to break ties.
 
     This wraps the "round" compute function in the Arrow C++ library.
 
@@ -6551,12 +6459,11 @@ def round_temporal(timestamps, multiple=1, unit='day', *,
                    memory_pool=None):
     """Round temporal values to the nearest multiple of specified time unit.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "round_temporal" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6573,14 +6480,14 @@ def round_temporal(timestamps, multiple=1, unit='day', *,
         If True, weeks start on Monday; if False, on Sunday.
     ceil_is_strictly_greater : bool, default False
         If True, ceil returns a rounded value that is strictly greater than
-        the
+    the
         input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
         yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
         if set to False.
         This applies to the ceil_temporal function only.
     calendar_based_origin : bool, default False
         By default, the origin is 1970-01-01T00:00:00. By setting this to
-        True,
+    True,
         rounding origin will be beginning of one less precise calendar unit.
         E.g.: rounding to hours will use beginning of day as origin.
 
@@ -6635,11 +6542,11 @@ def round_to_multiple(x, multiple=1.0, round_mode='half_to_even', *,
     """Round to a given multiple.
 
     Options are used to control the rounding multiple and rounding mode.
-    Default behavior is to round to the nearest integer and
-    use half-to-even rule to break ties.
+    Default behavior is to round to the nearest integer and use half-to-even
+    rule to break ties.
 
     This wraps the "round_to_multiple" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6684,9 +6591,8 @@ def round_to_multiple(x, multiple=1.0, round_mode='half_to_even', *,
 def second(values, *, memory_pool=None):
     """Extract second values.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "second" compute function in the Arrow C++ library.
 
@@ -6715,12 +6621,11 @@ def seconds_between(start, end, *, memory_pool=None):
     """Compute the number of seconds between two timestamps.
 
     Returns the number of second boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the second.
-    Null values emit null.
+    That is, the difference is calculated as if the timestamps were truncated
+    to the second. Null values emit null.
 
     This wraps the "seconds_between" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6750,17 +6655,14 @@ def select_k_unstable(input, k=None, sort_keys=None, *, options=None,
     """Select the indices of the first `k` ordered elements from the input.
 
     This function selects an array of indices of the first `k` ordered
-        elements
-    from the `input` array, record batch or table specified in the column
-        keys
-    (`options.sort_keys`). Output is not guaranteed to be stable.
-    Null values are considered greater than any other value and are
-    therefore ordered at the end. For floating-point types, NaNs are
-        considered
-    greater than any other non-null value, but smaller than null values.
+    elements from the `input` array, record batch or table specified in the
+    column keys (`options.sort_keys`). Output is not guaranteed to be stable.
+    Null values are considered greater than any other value and are therefore
+    ordered at the end. For floating-point types, NaNs are considered greater
+    than any other non-null value, but smaller than null values.
 
     This wraps the "select_k_unstable" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6806,14 +6708,11 @@ def shift_left(x, y, *, memory_pool=None):
     """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the
-        number.
-    In other words, this is equivalent to multiplying `x` by 2 to the power
-        `y`,
-    even if overflow occurs.
-    `x` is returned if `y` (the amount to shift by) is (1) negative or
-    (2) greater than or equal to the precision of `x`.
-    Use function "shift_left_checked" if you want an invalid shift amount
-    to return an error.
+    number. In other words, this is equivalent to multiplying `x` by 2 to the
+    power `y`, even if overflow occurs. `x` is returned if `y` (the amount to
+    shift by) is (1) negative or (2) greater than or equal to the precision
+    of `x`. Use function "shift_left_checked" if you want an invalid shift
+    amount to return an error.
 
     This wraps the "shift_left" compute function in the Arrow C++ library.
 
@@ -6844,17 +6743,14 @@ def shift_left_checked(x, y, *, memory_pool=None):
     """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the
-        number.
-    In other words, this is equivalent to multiplying `x` by 2 to the power
-        `y`,
-    even if overflow occurs.
-    An error is raised if `y` (the amount to shift by) is (1) negative or
-    (2) greater than or equal to the precision of `x`.
-    See "shift_left" for a variant that doesn't fail for an invalid shift
-        amount.
+    number. In other words, this is equivalent to multiplying `x` by 2 to the
+    power `y`, even if overflow occurs. An error is raised if `y` (the amount
+    to shift by) is (1) negative or (2) greater than or equal to the
+    precision of `x`. See "shift_left" for a variant that doesn't fail for an
+    invalid shift amount.
 
     This wraps the "shift_left_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6882,11 +6778,10 @@ def shift_left_checked(x, y, *, memory_pool=None):
 def shift_right(x, y, *, memory_pool=None):
     """Right shift `x` by `y`.
 
-    This is equivalent to dividing `x` by 2 to the power `y`.
-    `x` is returned if `y` (the amount to shift by) is: (1) negative or
-    (2) greater than or equal to the precision of `x`.
-    Use function "shift_right_checked" if you want an invalid shift amount
-    to return an error.
+    This is equivalent to dividing `x` by 2 to the power `y`. `x` is returned
+    if `y` (the amount to shift by) is: (1) negative or (2) greater than or
+    equal to the precision of `x`. Use function "shift_right_checked" if you
+    want an invalid shift amount to return an error.
 
     This wraps the "shift_right" compute function in the Arrow C++ library.
 
@@ -6916,14 +6811,13 @@ def shift_right(x, y, *, memory_pool=None):
 def shift_right_checked(x, y, *, memory_pool=None):
     """Right shift `x` by `y`.
 
-    This is equivalent to dividing `x` by 2 to the power `y`.
-    An error is raised if `y` (the amount to shift by) is (1) negative or
-    (2) greater than or equal to the precision of `x`.
-    See "shift_right" for a variant that doesn't fail for an invalid shift
-        amount
+    This is equivalent to dividing `x` by 2 to the power `y`. An error is
+    raised if `y` (the amount to shift by) is (1) negative or (2) greater
+    than or equal to the precision of `x`. See "shift_right" for a variant
+    that doesn't fail for an invalid shift amount
 
     This wraps the "shift_right_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -6951,8 +6845,8 @@ def shift_right_checked(x, y, *, memory_pool=None):
 def sign(x, *, memory_pool=None):
     """Get the signedness of the arguments element-wise.
 
-    Output is any of (-1,1) for nonzero inputs and 0 for zero input.
-    NaN values return NaN.  Integral values return signedness as Int8 and
+    Output is any of (-1,1) for nonzero inputs and 0 for zero input. NaN
+    values return NaN.  Integral values return signedness as Int8 and
     floating-point values return it with the same type as the input values.
 
     This wraps the "sign" compute function in the Arrow C++ library.
@@ -6981,8 +6875,8 @@ def sign(x, *, memory_pool=None):
 def sin(x, *, memory_pool=None):
     """Compute the sine.
 
-    NaN is returned for invalid input values;
-    to raise an error instead, see "sin_checked".
+    NaN is returned for invalid input values; to raise an error instead, see
+    "sin_checked".
 
     This wraps the "sin" compute function in the Arrow C++ library.
 
@@ -7010,8 +6904,7 @@ def sin(x, *, memory_pool=None):
 def sin_checked(x, *, memory_pool=None):
     """Compute the sine.
 
-    Invalid input values raise an error;
-    to return NaN instead, see "sin".
+    Invalid input values raise an error; to return NaN instead, see "sin".
 
     This wraps the "sin_checked" compute function in the Arrow C++ library.
 
@@ -7040,8 +6933,8 @@ def sort_indices(input, sort_keys=(), *, null_placement='at_end', options=None,
                  memory_pool=None):
     """Return the indices that would sort an array, record batch or table.
 
-    This function computes an array of indices that define a stable sort
-    of the input array, record batch or table.  By default, nNull values are
+    This function computes an array of indices that define a stable sort of
+    the input array, record batch or table.  By default, nNull values are
     considered greater than any other value and are therefore sorted at the
     end of the input. For floating-point types, NaNs are considered greater
     than any other non-null value, but smaller than null values.
@@ -7095,11 +6988,11 @@ def split_pattern(strings, pattern=None, *, max_splits=None, reverse=False,
     """Split string according to separator.
 
     Split each string according to the exact `pattern` defined in
-    SplitPatternOptions.  The output for each string input is a list
-    of strings.
+    SplitPatternOptions.  The output for each string input is a list of
+    strings.
 
-    The maximum number of splits and direction of splitting
-    (forward, reverse) can optionally be defined in SplitPatternOptions.
+    The maximum number of splits and direction of splitting (forward,
+    reverse) can optionally be defined in SplitPatternOptions.
 
     This wraps the "split_pattern" compute function in the Arrow C++ library.
 
@@ -7149,14 +7042,14 @@ def split_pattern_regex(strings, pattern=None, *, max_splits=None,
     """Split string according to regex pattern.
 
     Split each string according to the regex `pattern` defined in
-    SplitPatternOptions.  The output for each string input is a list
-    of strings.
+    SplitPatternOptions.  The output for each string input is a list of
+    strings.
 
-    The maximum number of splits and direction of splitting
-    (forward, reverse) can optionally be defined in SplitPatternOptions.
+    The maximum number of splits and direction of splitting (forward,
+    reverse) can optionally be defined in SplitPatternOptions.
 
     This wraps the "split_pattern_regex" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -7201,8 +7094,8 @@ def split_pattern_regex(strings, pattern=None, *, max_splits=None,
 def sqrt(x, *, memory_pool=None):
     """Takes the square root of arguments element-wise.
 
-    A negative argument returns a NaN.  For a variant that returns an
-    error, use function "sqrt_checked".
+    A negative argument returns a NaN.  For a variant that returns an error,
+    use function "sqrt_checked".
 
     This wraps the "sqrt" compute function in the Arrow C++ library.
 
@@ -7230,8 +7123,8 @@ def sqrt(x, *, memory_pool=None):
 def sqrt_checked(x, *, memory_pool=None):
     """Takes the square root of arguments element-wise.
 
-    A negative argument returns an error.  For a variant that returns a
-    NaN, use function "sqrt".
+    A negative argument returns an error.  For a variant that returns a NaN,
+    use function "sqrt".
 
     This wraps the "sqrt_checked" compute function in the Arrow C++ library.
 
@@ -7261,9 +7154,8 @@ def starts_with(strings, pattern=None, *, ignore_case=False, options=None,
     """Check if strings start with a literal pattern.
 
     For each string in `strings`, emit true iff it starts with a given
-        pattern.
-    The pattern must be given in MatchSubstringOptions.
-    If ignore_case is set, only simple case folding is performed.
+    pattern. The pattern must be given in MatchSubstringOptions. If
+    ignore_case is set, only simple case folding is performed.
 
     Null inputs emit null.
 
@@ -7361,15 +7253,13 @@ def strftime(timestamps, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
              options=None, memory_pool=None):
     """Format temporal values according to a format string.
 
-    For each input value, emit a formatted string.
-    The time format string and locale can be set using StrftimeOptions.
-    The output precision of the "%S" (seconds) format code depends on
-    the input time precision: it is an integer for timestamps with
-    second precision, a real number with the required number of fractional
-    digits for higher precisions.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database, or if the specified locale
+    For each input value, emit a formatted string. The time format string and
+    locale can be set using StrftimeOptions. The output precision of the "%S"
+    (seconds) format code depends on the input time precision: it is an
+    integer for timestamps with second precision, a real number with the
+    required number of fractional digits for higher precisions. Null values
+    emit null. An error is returned if the values have a defined timezone but
+    it cannot be found in the timezone database, or if the specified locale
     does not exist on this system.
 
     This wraps the "strftime" compute function in the Arrow C++ library.
@@ -7413,11 +7303,11 @@ def strftime(timestamps, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
 def string_is_ascii(strings, *, memory_pool=None):
     """Classify strings as ASCII.
 
-    For each string in `strings`, emit true iff the string consists only
-    of ASCII characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string consists only of
+    ASCII characters.  Null strings emit null.
 
     This wraps the "string_is_ascii" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -7444,10 +7334,10 @@ def strptime(strings, format=None, unit=None, error_is_null=False, *,
              options=None, memory_pool=None):
     """Parse timestamps.
 
-    For each string in `strings`, parse it as a timestamp.
-    The timestamp unit and the expected string pattern must be given
-    in StrptimeOptions. Null inputs emit null. If a non-null string
-    fails parsing, an error is returned by default.
+    For each string in `strings`, parse it as a timestamp. The timestamp unit
+    and the expected string pattern must be given in StrptimeOptions. Null
+    inputs emit null. If a non-null string fails parsing, an error is
+    returned by default.
 
     This wraps the "strptime" compute function in the Arrow C++ library.
 
@@ -7494,13 +7384,13 @@ def strptime(strings, format=None, unit=None, error_is_null=False, *,
 def struct_field(values, indices=None, *, options=None, memory_pool=None):
     """Extract children of a struct or union by index.
 
-    Given a list of indices (passed via StructFieldOptions), extract
-    the child array or scalar with the given child index, recursively.
+    Given a list of indices (passed via StructFieldOptions), extract the
+    child array or scalar with the given child index, recursively.
 
-    For union inputs, nulls are emitted for union values that reference
-    a different child than specified. Also, the indices are always
-    in physical order, not logical type codes - for example, the first
-    child is always index 0.
+    For union inputs, nulls are emitted for union values that reference a
+    different child than specified. Also, the indices are always in physical
+    order, not logical type codes - for example, the first child is always
+    index 0.
 
     An empty list of indices returns the argument unchanged.
 
@@ -7544,9 +7434,8 @@ def subsecond(values, *, memory_pool=None):
     """Extract subsecond values.
 
     Subsecond returns the fraction of a second since the last full second.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "subsecond" compute function in the Arrow C++ library.
 
@@ -7574,9 +7463,8 @@ def subsecond(values, *, memory_pool=None):
 def subtract(x, y, *, memory_pool=None):
     """Subtract the arguments element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "subtract_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function
+    "subtract_checked" if you want overflow to return an error.
 
     This wraps the "subtract" compute function in the Arrow C++ library.
 
@@ -7606,11 +7494,11 @@ def subtract(x, y, *, memory_pool=None):
 def subtract_checked(x, y, *, memory_pool=None):
     """Subtract the arguments element-wise.
 
-    This function returns an error on overflow.  For a variant that
-    doesn't fail on overflow, use function "subtract".
+    This function returns an error on overflow.  For a variant that doesn't
+    fail on overflow, use function "subtract".
 
     This wraps the "subtract_checked" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -7639,9 +7527,9 @@ def sum(array, *, skip_nulls=True, min_count=1, options=None,
         memory_pool=None):
     """Compute the sum of a numeric array.
 
-    Null values are ignored by default. Minimum count of non-null
-    values can be set and null is returned if too few are present.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. Minimum count of non-null values can
+    be set and null is returned if too few are present. This can be changed
+    through ScalarAggregateOptions.
 
     This wraps the "sum" compute function in the Arrow C++ library.
 
@@ -7686,8 +7574,8 @@ def sum(array, *, skip_nulls=True, min_count=1, options=None,
 def take(input, indices, *, boundscheck=True, options=None, memory_pool=None):
     """Select values from an input based on indices from another array.
 
-    The output is populated with values from the input at positions
-    given by `indices`.  Nulls in `indices` emit null in the output.
+    The output is populated with values from the input at positions given by
+    `indices`.  Nulls in `indices` emit null in the output.
 
     This wraps the "take" compute function in the Arrow C++ library.
 
@@ -7731,8 +7619,8 @@ def take(input, indices, *, boundscheck=True, options=None, memory_pool=None):
 def tan(x, *, memory_pool=None):
     """Compute the tangent.
 
-    NaN is returned for invalid input values;
-    to raise an error instead, see "tan_checked".
+    NaN is returned for invalid input values; to raise an error instead, see
+    "tan_checked".
 
     This wraps the "tan" compute function in the Arrow C++ library.
 
@@ -7760,8 +7648,7 @@ def tan(x, *, memory_pool=None):
 def tan_checked(x, *, memory_pool=None):
     """Compute the tangent.
 
-    Infinite values raise an error;
-    to return NaN instead, see "tan".
+    Infinite values raise an error; to return NaN instead, see "tan".
 
     This wraps the "tan_checked" compute function in the Arrow C++ library.
 
@@ -7790,9 +7677,8 @@ def tdigest(array, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
             min_count=0, options=None, memory_pool=None):
     """Approximate quantiles of a numeric array with T-Digest algorithm.
 
-    By default, 0.5 quantile (median) is returned.
-    Nulls and NaNs are ignored.
-    An array of nulls is returned if there is no valid data point.
+    By default, 0.5 quantile (median) is returned. Nulls and NaNs are
+    ignored. An array of nulls is returned if there is no valid data point.
 
     This wraps the "tdigest" compute function in the Arrow C++ library.
 
@@ -7846,11 +7732,11 @@ def tdigest(array, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
 def true_unless_null(values, *, memory_pool=None):
     """Return true if non-null, else return null.
 
-    For each input value, emit true iff the value
-    is valid (non-null), otherwise emit null.
+    For each input value, emit true iff the value is valid (non-null),
+    otherwise emit null.
 
     This wraps the "true_unless_null" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -7932,12 +7818,10 @@ def unique(array, *, memory_pool=None):
 def us_week(values, *, memory_pool=None):
     """Extract US week of year number.
 
-    First US week has the majority (4 or more) of its days in January.
-    US week starts on Monday. The week number starts with 1 and can run
-    up to 53.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    First US week has the majority (4 or more) of its days in January. US
+    week starts on Monday. The week number starts with 1 and can run up to
+    53. Null values emit null. An error is returned if the values have a
+    defined timezone but it cannot be found in the timezone database.
 
     This wraps the "us_week" compute function in the Arrow C++ library.
 
@@ -7966,11 +7850,10 @@ def us_year(values, *, memory_pool=None):
     """Extract US epidemiological year number.
 
     First week of US epidemiological year has the majority (4 or more) of
-    it's days in January. Last week of US epidemiological year has the
-    year's last Wednesday in it. US epidemiological week starts on Sunday.
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    it's days in January. Last week of US epidemiological year has the year's
+    last Wednesday in it. US epidemiological week starts on Sunday. Null
+    values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "us_year" compute function in the Arrow C++ library.
 
@@ -7998,11 +7881,11 @@ def us_year(values, *, memory_pool=None):
 def utf8_capitalize(strings, *, memory_pool=None):
     """Capitalize the first character of input.
 
-    For each string in `strings`, return a capitalized version,
-    with the first character uppercased and the others lowercased.
+    For each string in `strings`, return a capitalized version, with the
+    first character uppercased and the others lowercased.
 
     This wraps the "utf8_capitalize" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8030,9 +7913,7 @@ def utf8_center(strings, width=None, padding=' ', *, options=None,
     """Center strings by padding with a given character.
 
     For each string in `strings`, emit a centered string by padding both
-        sides
-    with the given UTF8 codeunit.
-    Null values emit null.
+    sides with the given UTF8 codeunit. Null values emit null.
 
     This wraps the "utf8_center" compute function in the Arrow C++ library.
 
@@ -8075,9 +7956,9 @@ def utf8_center(strings, width=None, padding=' ', *, options=None,
 def utf8_is_alnum(strings, *, memory_pool=None):
     """Classify strings as alphanumeric.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of alphanumeric Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of alphanumeric Unicode characters.  Null strings emit
+    null.
 
     This wraps the "utf8_is_alnum" compute function in the Arrow C++ library.
 
@@ -8105,9 +7986,8 @@ def utf8_is_alnum(strings, *, memory_pool=None):
 def utf8_is_alpha(strings, *, memory_pool=None):
     """Classify strings as alphabetic.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of alphabetic Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of alphabetic Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_alpha" compute function in the Arrow C++ library.
 
@@ -8135,11 +8015,11 @@ def utf8_is_alpha(strings, *, memory_pool=None):
 def utf8_is_decimal(strings, *, memory_pool=None):
     """Classify strings as decimal.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of decimal Unicode characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of decimal Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_decimal" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8165,8 +8045,8 @@ def utf8_is_decimal(strings, *, memory_pool=None):
 def utf8_is_digit(strings, *, memory_pool=None):
     """Classify strings as digits.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of Unicode digits.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of Unicode digits.  Null strings emit null.
 
     This wraps the "utf8_is_digit" compute function in the Arrow C++ library.
 
@@ -8194,9 +8074,8 @@ def utf8_is_digit(strings, *, memory_pool=None):
 def utf8_is_lower(strings, *, memory_pool=None):
     """Classify strings as lowercase.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of lowercase Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of lowercase Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_lower" compute function in the Arrow C++ library.
 
@@ -8224,11 +8103,11 @@ def utf8_is_lower(strings, *, memory_pool=None):
 def utf8_is_numeric(strings, *, memory_pool=None):
     """Classify strings as numeric.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of numeric Unicode characters.  Null strings emit null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of numeric Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_numeric" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8254,12 +8133,11 @@ def utf8_is_numeric(strings, *, memory_pool=None):
 def utf8_is_printable(strings, *, memory_pool=None):
     """Classify strings as printable.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of printable Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of printable Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_printable" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8285,9 +8163,8 @@ def utf8_is_printable(strings, *, memory_pool=None):
 def utf8_is_space(strings, *, memory_pool=None):
     """Classify strings as whitespace.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of whitespace Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of whitespace Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_space" compute function in the Arrow C++ library.
 
@@ -8317,8 +8194,8 @@ def utf8_is_title(strings, *, memory_pool=None):
 
     For each string in `strings`, emit true iff the string is title-cased,
     i.e. it has at least one cased character, each uppercase character
-    follows an uncased character, and each lowercase character follows
-    an uppercase character.
+    follows an uncased character, and each lowercase character follows an
+    uppercase character.
 
     This wraps the "utf8_is_title" compute function in the Arrow C++ library.
 
@@ -8346,9 +8223,8 @@ def utf8_is_title(strings, *, memory_pool=None):
 def utf8_is_upper(strings, *, memory_pool=None):
     """Classify strings as uppercase.
 
-    For each string in `strings`, emit true iff the string is non-empty
-    and consists only of uppercase Unicode characters.  Null strings emit
-        null.
+    For each string in `strings`, emit true iff the string is non-empty and
+    consists only of uppercase Unicode characters.  Null strings emit null.
 
     This wraps the "utf8_is_upper" compute function in the Arrow C++ library.
 
@@ -8376,8 +8252,8 @@ def utf8_is_upper(strings, *, memory_pool=None):
 def utf8_length(strings, *, memory_pool=None):
     """Compute UTF8 string lengths.
 
-    For each string in `strings`, emit its length in UTF8 characters.
-    Null values emit null.
+    For each string in `strings`, emit its length in UTF8 characters. Null
+    values emit null.
 
     This wraps the "utf8_length" compute function in the Arrow C++ library.
 
@@ -8435,8 +8311,7 @@ def utf8_lpad(strings, width=None, padding=' ', *, options=None,
     """Right-align strings by padding with a given character.
 
     For each string in `strings`, emit a right-aligned string by prepending
-    the given UTF8 codeunit.
-    Null values emit null.
+    the given UTF8 codeunit. Null values emit null.
 
     This wraps the "utf8_lpad" compute function in the Arrow C++ library.
 
@@ -8479,9 +8354,8 @@ def utf8_lpad(strings, width=None, padding=' ', *, options=None,
 def utf8_ltrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading characters.
 
-    For each string in `strings`, remove any leading characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
+    For each string in `strings`, remove any leading characters from the
+    `characters` option (as given in TrimOptions). Null values emit null.
 
     This wraps the "utf8_ltrim" compute function in the Arrow C++ library.
 
@@ -8523,11 +8397,10 @@ def utf8_ltrim_whitespace(strings, *, memory_pool=None):
 
     For each string in `strings`, emit a string with leading whitespace
     characters removed, where whitespace characters are defined by the
-        Unicode
-    standard.  Null values emit null.
+    Unicode standard.  Null values emit null.
 
     This wraps the "utf8_ltrim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8555,11 +8428,11 @@ def utf8_normalize(strings, form=None, *, options=None, memory_pool=None):
 
     For each string in `strings`, return the normal form.
 
-    The normalization form must be given in the options.
-    Null inputs emit null.
+    The normalization form must be given in the options. Null inputs emit
+    null.
 
     This wraps the "utf8_normalize" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8600,13 +8473,12 @@ def utf8_replace_slice(strings, start=None, stop=None, replacement=None, *,
     """Replace a slice of a string.
 
     For each string in `strings`, replace a slice of the string defined by
-        `start`
-    and `stop` indices with the given `replacement`. `start` is inclusive
-    and `stop` is exclusive, and both are measured in UTF8 characters.
-    Null values emit null.
+    `start` and `stop` indices with the given `replacement`. `start` is
+    inclusive and `stop` is exclusive, and both are measured in UTF8
+    characters. Null values emit null.
 
     This wraps the "utf8_replace_slice" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8652,9 +8524,9 @@ def utf8_reverse(strings, *, memory_pool=None):
 
     For each string in `strings`, return a reversed version.
 
-    This function operates on Unicode codepoints, not grapheme
-    clusters. Hence, it will not correctly reverse grapheme clusters
-    composed of multiple codepoints.
+    This function operates on Unicode codepoints, not grapheme clusters.
+    Hence, it will not correctly reverse grapheme clusters composed of
+    multiple codepoints.
 
     This wraps the "utf8_reverse" compute function in the Arrow C++ library.
 
@@ -8683,9 +8555,8 @@ def utf8_rpad(strings, width=None, padding=' ', *, options=None,
               memory_pool=None):
     """Left-align strings by padding with a given character.
 
-    For each string in `strings`, emit a left-aligned string by appending
-    the given UTF8 codeunit.
-    Null values emit null.
+    For each string in `strings`, emit a left-aligned string by appending the
+    given UTF8 codeunit. Null values emit null.
 
     This wraps the "utf8_rpad" compute function in the Arrow C++ library.
 
@@ -8728,9 +8599,8 @@ def utf8_rpad(strings, width=None, padding=' ', *, options=None,
 def utf8_rtrim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim trailing characters.
 
-    For each string in `strings`, remove any trailing characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
+    For each string in `strings`, remove any trailing characters from the
+    `characters` option (as given in TrimOptions). Null values emit null.
 
     This wraps the "utf8_rtrim" compute function in the Arrow C++ library.
 
@@ -8772,11 +8642,10 @@ def utf8_rtrim_whitespace(strings, *, memory_pool=None):
 
     For each string in `strings`, emit a string with trailing whitespace
     characters removed, where whitespace characters are defined by the
-        Unicode
-    standard.  Null values emit null.
+    Unicode standard.  Null values emit null.
 
     This wraps the "utf8_rtrim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8804,16 +8673,14 @@ def utf8_slice_codeunits(strings, start=None, stop=None, step=1, *,
                          memory_pool=None):
     """Slice string.
 
-    For each string in `strings`, emit the substring defined by
-    (`start`, `stop`, `step`) as given by `SliceOptions` where `start` is
-    inclusive and `stop` is exclusive. All three values are measured in
-    UTF8 codeunits.
-    If `step` is negative, the string will be advanced in reversed order.
-    An error is raised if `step` is zero.
-    Null inputs emit null.
+    For each string in `strings`, emit the substring defined by (`start`,
+    `stop`, `step`) as given by `SliceOptions` where `start` is inclusive and
+    `stop` is exclusive. All three values are measured in UTF8 codeunits. If
+    `step` is negative, the string will be advanced in reversed order. An
+    error is raised if `step` is zero. Null inputs emit null.
 
     This wraps the "utf8_slice_codeunits" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8861,14 +8728,14 @@ def utf8_split_whitespace(strings, *, max_splits=None, reverse=False,
     """Split string according to any Unicode whitespace.
 
     Split each string according any non-zero length sequence of Unicode
-    whitespace characters.  The output for each string input is a list
-    of strings.
+    whitespace characters.  The output for each string input is a list of
+    strings.
 
-    The maximum number of splits and direction of splitting
-    (forward, reverse) can optionally be defined in SplitOptions.
+    The maximum number of splits and direction of splitting (forward,
+    reverse) can optionally be defined in SplitOptions.
 
     This wraps the "utf8_split_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -8909,7 +8776,7 @@ def utf8_split_whitespace(strings, *, max_splits=None, reverse=False,
 
 def utf8_swapcase(strings, *, memory_pool=None):
     """Transform input lowercase characters to uppercase and uppercase
-        characters to lowercase.
+    characters to lowercase.
 
     For each string in `strings`, return an opposite case version.
 
@@ -8939,9 +8806,9 @@ def utf8_swapcase(strings, *, memory_pool=None):
 def utf8_title(strings, *, memory_pool=None):
     """Titlecase each word of input.
 
-    For each string in `strings`, return a titlecased version.
-    Each word in the output will start with an uppercase character and its
-    remaining characters will be lowercase.
+    For each string in `strings`, return a titlecased version. Each word in
+    the output will start with an uppercase character and its remaining
+    characters will be lowercase.
 
     This wraps the "utf8_title" compute function in the Arrow C++ library.
 
@@ -8970,8 +8837,8 @@ def utf8_trim(strings, characters=None, *, options=None, memory_pool=None):
     """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
-    from the `characters` option (as given in TrimOptions).
-    Null values emit null.
+    from the `characters` option (as given in TrimOptions). Null values emit
+    null.
 
     This wraps the "utf8_trim" compute function in the Arrow C++ library.
 
@@ -9012,11 +8879,11 @@ def utf8_trim_whitespace(strings, *, memory_pool=None):
     """Trim leading and trailing whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing
-    whitespace characters removed, where whitespace characters are defined
-    by the Unicode standard.  Null values emit null.
+    whitespace characters removed, where whitespace characters are defined by
+    the Unicode standard.  Null values emit null.
 
     This wraps the "utf8_trim_whitespace" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -9071,8 +8938,7 @@ def value_counts(array, *, memory_pool=None):
     """Compute counts of unique elements.
 
     For each distinct value, compute the number of times it occurs in the
-        array.
-    The result is returned as an array of `struct<input type, int64>`.
+    array. The result is returned as an array of `struct<input type, int64>`.
     Nulls in the input are ignored.
 
     This wraps the "value_counts" compute function in the Arrow C++ library.
@@ -9103,9 +8969,9 @@ def variance(array, *, ddof=0, skip_nulls=True, min_count=0, options=None,
     """Calculate the variance of a numeric array.
 
     The number of degrees of freedom can be controlled using VarianceOptions.
-    By default (`ddof` = 0), the population variance is calculated.
-    Nulls are ignored.  If there are not enough non-null values in the array
-    to satisfy `ddof`, null is returned.
+    By default (`ddof` = 0), the population variance is calculated. Nulls are
+    ignored.  If there are not enough non-null values in the array to satisfy
+    `ddof`, null is returned.
 
     This wraps the "variance" compute function in the Arrow C++ library.
 
@@ -9155,11 +9021,10 @@ def week(values, *, week_starts_monday=True, count_from_zero=False,
          memory_pool=None):
     """Extract week of year number.
 
-    First week has the majority (4 or more) of its days in January.
-    Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using
-    DayOfWeekOptions.count_from_zero.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    First week has the majority (4 or more) of its days in January. Year can
+    have 52 or 53 weeks. Week numbering can start with 0 or 1 using
+    DayOfWeekOptions.count_from_zero. An error is returned if the values have
+    a defined timezone but it cannot be found in the timezone database.
 
     This wraps the "week" compute function in the Arrow C++ library.
 
@@ -9211,10 +9076,9 @@ def weeks_between(start, end, *, count_from_zero=True, week_start=1,
                   options=None, memory_pool=None):
     """Compute the number of weeks between two timestamps.
 
-    Returns the number of week boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the week.
-    Null values emit null.
+    Returns the number of week boundaries crossed from `start` to `end`. That
+    is, the difference is calculated as if the timestamps were truncated to
+    the week. Null values emit null.
 
     This wraps the "weeks_between" compute function in the Arrow C++ library.
 
@@ -9290,9 +9154,8 @@ def xor(x, y, *, memory_pool=None):
 def year(values, *, memory_pool=None):
     """Extract year number.
 
-    Null values emit null.
-    An error is returned if the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned if the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "year" compute function in the Arrow C++ library.
 
@@ -9320,12 +9183,11 @@ def year(values, *, memory_pool=None):
 def year_month_day(values, *, memory_pool=None):
     """Extract (year, month, day) struct.
 
-    Null values emit null.
-    An error is returned in the values have a defined timezone but it
-    cannot be found in the timezone database.
+    Null values emit null. An error is returned in the values have a defined
+    timezone but it cannot be found in the timezone database.
 
     This wraps the "year_month_day" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -9351,10 +9213,9 @@ def year_month_day(values, *, memory_pool=None):
 def years_between(start, end, *, memory_pool=None):
     """Compute the number of years between two timestamps.
 
-    Returns the number of year boundaries crossed from `start` to `end`.
-    That is, the difference is calculated as if the timestamps were
-    truncated to the year.
-    Null values emit null.
+    Returns the number of year boundaries crossed from `start` to `end`. That
+    is, the difference is calculated as if the timestamps were truncated to
+    the year. Null values emit null.
 
     This wraps the "years_between" compute function in the Arrow C++ library.
 
