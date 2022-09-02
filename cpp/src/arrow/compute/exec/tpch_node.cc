@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/tpch_node.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -3374,13 +3375,18 @@ class TpchNode : public ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    return generator_->StartProducing(
+    num_running_++;
+    ARROW_RETURN_NOT_OK(generator_->StartProducing(
         plan_->max_concurrency(),
         [this](ExecBatch batch) { this->OutputBatchCallback(std::move(batch)); },
         [this](int64_t num_batches) { this->FinishedCallback(num_batches); },
         [this](std::function<Status(size_t)> func) -> Status {
           return this->ScheduleTaskCallback(std::move(func));
-        });
+        }));
+    if (--num_running_ == 0) {
+      finished_.MarkFinished(Status::OK());
+    }
+    return Status::OK();
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
@@ -3408,16 +3414,20 @@ class TpchNode : public ExecNode {
 
   void FinishedCallback(int64_t total_num_batches) {
     outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-    finished_.MarkFinished();
+    finished_generating_.store(true);
   }
 
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-    if (finished_.is_finished()) return Status::OK();
+    if (finished_generating_.load()) return Status::OK();
+    num_running_++;
     return plan_->ScheduleTask([this, func](size_t thread_index) {
       Status status = func(thread_index);
       if (!status.ok()) {
         StopProducing();
         ErrorIfNotOk(status);
+      }
+      if (--num_running_ == 0) {
+        finished_.MarkFinished(Status::OK());
       }
       return status;
     });
@@ -3425,6 +3435,8 @@ class TpchNode : public ExecNode {
 
   const char* name_;
   std::unique_ptr<TpchTableGenerator> generator_;
+  std::atomic<bool> finished_generating_{false};
+  std::atomic<int> num_running_{0};
 };
 
 class TpchGenImpl : public TpchGen {
