@@ -138,8 +138,8 @@ read_compressed_error <- function(e) {
 # the appropriate string was found and so errors must be raised manually after
 # calling this if matching error not found
 # TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
-handle_parquet_io_error <- function(e, format, call) {
-  msg <- conditionMessage(e)
+handle_parquet_io_error <- function(msg, call, format) {
+
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
@@ -213,8 +213,7 @@ repeat_value_as_array <- function(object, n) {
 # the appropriate string was found and so errors must be raised manually after
 # calling this if matching error not found
 # TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
-handle_csv_read_error <- function(e, schema, call) {
-  msg <- conditionMessage(e)
+handle_csv_read_error <- function(msg, call, schema) {
 
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
@@ -233,8 +232,8 @@ handle_csv_read_error <- function(e, schema, call) {
 # the appropriate string was found and so errors must be raised manually after
 # calling this if matching error not found
 # TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
-handle_augmented_field_misuse <- function(e, call) {
-  msg <- conditionMessage(e)
+handle_augmented_field_misuse <- function(msg, call) {
+
   if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
     msg <- c(
       msg,
@@ -250,4 +249,20 @@ handle_augmented_field_misuse <- function(e, call) {
 
 is_compressed <- function(compression) {
   !identical(compression, "uncompressed")
+}
+
+# handler function which checks for a number of different read errors
+augment_io_error_msg <- function(e, call, ...){
+  dots <- list2(...)
+  msg <- conditionMessage(e)
+
+  if (!is.null(dots[["schema"]])) {
+    handle_csv_read_error(msg, call, dots[["schema"]])
+  }
+  if (!is.null(dots[["format"]])) {
+    handle_parquet_io_error(msg, call, dots[["format"]])
+  }
+
+  handle_augmented_field_misuse(msg, call)
+  abort(msg, call = call)
 }
