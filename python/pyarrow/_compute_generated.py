@@ -403,11 +403,11 @@ def and_not_kleene(x, y, *, memory_pool=None):
 
     This function behaves as follows with nulls:
 
-    - true and null = null
-    - null and false = null
-    - false and null = false
-    - null and true = false
-    - null and null = null
+    - true and not null = null
+    - null and not false = null
+    - false and not null = false
+    - null and not true = false
+    - null and not null = null
 
     In other words, in this context a null value really means "unknown", and
     an unknown value 'and not' true is always false, as is false 'and not' an
@@ -5821,14 +5821,14 @@ def or_kleene(x, y, *, memory_pool=None):
     This function behaves as follows with nulls:
 
     - true or null = true
-    - null and true = true
-    - false and null = null
-    - null and false = null
-    - null and null = null
+    - null or true = true
+    - false or null = null
+    - null or false = null
+    - null or null = null
 
     In other words, in this context a null value really means "unknown", and
     an unknown value 'or' true is always true. For a different null behavior,
-    see function "and".
+    see function "or".
 
     This wraps the "or_kleene" compute function in the Arrow C++ library.
 

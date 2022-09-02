@@ -372,8 +372,8 @@ def test_mode_chunked_array():
 
 
 def test_empty_chunked_array():
-    msg = "cannot construct ChunkedArray from empty vector and omitted type"
-    with pytest.raises(pa.ArrowInvalid, match=msg):
+    msg = "When passing an empty collection of arrays you must also pass the data type"
+    with pytest.raises(ValueError, match=msg):
         pa.chunked_array([])
 
     pa.chunked_array([], type=pa.int8())
@@ -670,8 +670,8 @@ def test_generated_docstrings():
     assert pc.min_max.__doc__.strip() == textwrap.dedent(
         """Compute the minimum and maximum values of a numeric array.
 
-    Null values are ignored by default.
-    This can be changed through ScalarAggregateOptions.
+    Null values are ignored by default. This can be changed through
+    ScalarAggregateOptions.
 
     This wraps the "min_max" compute function in the Arrow C++ library.
 
@@ -694,9 +694,8 @@ def test_generated_docstrings():
     assert pc.add.__doc__.strip() == textwrap.dedent(
         """Add the arguments element-wise.
 
-    Results will wrap around on integer overflow.
-    Use function "add_checked" if you want overflow
-    to return an error.
+    Results will wrap around on integer overflow. Use function "add_checked"
+    if you want overflow to return an error.
 
     This wraps the "add" compute function in the Arrow C++ library.
 
@@ -713,11 +712,11 @@ def test_generated_docstrings():
     assert pc.min_element_wise.__doc__.strip() == textwrap.dedent(
         """Find the element-wise minimum value.
 
-    Nulls are ignored (by default) or propagated.
-    NaN is preferred over null, but not over any valid value.
+    Nulls are ignored (by default) or propagated. NaN is preferred over null,
+    but not over any valid value.
 
     This wraps the "min_element_wise" compute function in the Arrow C++
-        library.
+    library.
 
     Parameters
     ----------
@@ -757,9 +756,9 @@ def test_generated_docstrings():
     assert pc.filter.__doc__.strip() == textwrap.dedent(
         """Filter with a boolean selection filter.
 
-    The output is populated with values from the input at positions
-    where the selection filter is non-zero.  Nulls in the selection filter
-    are handled based on FilterOptions.
+    The output is populated with values from the input at positions where the
+    selection filter is non-zero.  Nulls in the selection filter are handled
+    based on FilterOptions.
 
     This wraps the "filter" compute function in the Arrow C++ library.
 
