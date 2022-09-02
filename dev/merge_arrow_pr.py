@@ -73,7 +73,8 @@ JIRA_API_BASE = "https://issues.apache.org/jira"
 
 
 def get_json(url, headers=None):
-    response = requests.get(url, headers=headers)
+    # OpenRefactory Warning: The 'requests.get' method does not use any 'timeout' threshold which may cause program to hang indefinitely.
+    response = requests.get(url, headers=headers, timeout=100)
     return response.json()
 
 
