@@ -96,7 +96,7 @@ class ConcurrentQueue {
 
   void Clear() {
     std::unique_lock<std::mutex> lock(mutex_);
-    queue_ = {};
+    queue_ = std::queue<T>();
   }
 
   util::optional<T> TryPop() {
