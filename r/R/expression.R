@@ -187,7 +187,10 @@ Expression$field_ref <- function(name) {
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  expr <- compute___expr__scalar(Scalar$create(x))
+  if (!inherits(x, "Scalar")) {
+    x <- Scalar$create(x)
+  }
+  expr <- compute___expr__scalar(x)
   expr$schema <- schema()
   expr
 }
@@ -310,8 +313,8 @@ common_type <- function(exprs) {
 }
 
 cast_or_parse <- function(x, type) {
-  type_id <- type$id
-  if (type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
+  to_type_id <- type$id
+  if (to_type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
     # TODO: determine the minimum size of decimal (or integer) required to
     # accommodate x
     # We would like to keep calculations on decimal if that's what the data has
@@ -326,14 +329,14 @@ cast_or_parse <- function(x, type) {
 
   # For most types, just cast.
   # But for string -> date/time, we need to call a parsing function
-  if (x$type == string()) {
-    if (type_id %in% c(Type[["DATE32"]], Type[["DATE64"]])) {
+  if (x$type_id() %in% c(Type[["STRING"]], Type[["LARGE_STRING"]])) {
+    if (to_type_id %in% c(Type[["DATE32"]], Type[["DATE64"]])) {
       x <- call_function(
         "strptime",
         x,
         options = list(format = "%Y-%m-%d", unit = 0L)
       )
-    } else if (type_id == Type[["TIMESTAMP"]]) {
+    } else if (to_type_id == Type[["TIMESTAMP"]]) {
       x <- call_function(
         "strptime",
         x,
