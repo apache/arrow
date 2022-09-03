@@ -703,4 +703,18 @@ test_that("Scalars in expressions match the type of the field, if possible", {
       collect(),
     tbl_with_datetime
   )
+
+  tab_with_decimal <- tab %>%
+    mutate(dec = cast(dbl, decimal(15, 2))) %>%
+    compute()
+
+  # This reproduces the issue on ARROW-17601, found in the TPC-H query 1
+  # In ARROW-17462, we chose not to auto-cast to decimal to avoid that issue
+  result <- tab_with_decimal %>%
+    summarize(
+      tpc_h_1 = sum(dec * (1 - dec) * (1 + dec), na.rm = TRUE),
+      as_dbl = sum(dbl * (1 - dbl) * (1 + dbl), na.rm = TRUE)
+    ) %>%
+    collect()
+  expect_equal(result$tpc_h_1, result$as_dbl)
 })

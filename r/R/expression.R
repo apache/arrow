@@ -310,16 +310,30 @@ common_type <- function(exprs) {
 }
 
 cast_or_parse <- function(x, type) {
+  type_id <- type$id
+  if (type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
+    # TODO: determine the minimum size of decimal (or integer) required to
+    # accommodate x
+    # We would like to keep calculations on decimal if that's what the data has
+    # so that we don't lose precision. However, there are some limitations
+    # today, so it makes sense to keep x as double (which is probably is from R)
+    # and let Acero cast the decimal to double to compute.
+    # You can specify in your query that x should be decimal or integer if you
+    # know it to be safe.
+    # * ARROW-17601: multiply(decimal, decimal) can fail to make output type
+    return(x)
+  }
+
   # For most types, just cast.
   # But for string -> date/time, we need to call a parsing function
   if (x$type == string()) {
-    if (type == date32()) {
+    if (type_id %in% c(Type[["DATE32"]], Type[["DATE64"]])) {
       x <- call_function(
         "strptime",
         x,
         options = list(format = "%Y-%m-%d", unit = 0L)
       )
-    } else if (type$id == Type[["TIMESTAMP"]]) {
+    } else if (type_id == Type[["TIMESTAMP"]]) {
       x <- call_function(
         "strptime",
         x,
