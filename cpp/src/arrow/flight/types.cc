@@ -182,7 +182,7 @@ arrow::Result<SchemaResult> SchemaResult::Deserialize(
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_schema_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid schema-result");
+    return Status::Invalid("Not a valid SchemaResult");
   }
   SchemaResult out;
   RETURN_NOT_OK(internal::FromProto(pb_schema_result, &out));
@@ -195,7 +195,7 @@ arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
 
   std::string out;
   if (!pb_descriptor.SerializeToString(&out)) {
-    return Status::IOError("Serialized descriptor exceeded 2 GiB limit");
+    return Status::IOError("Serialized FlightDescriptor exceeded 2 GiB limit");
   }
   return out;
 }
@@ -213,7 +213,7 @@ arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_descriptor.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid descriptor");
+    return Status::Invalid("Not a valid FlightDescriptor");
   }
   FlightDescriptor out;
   RETURN_NOT_OK(internal::FromProto(pb_descriptor, &out));
@@ -233,7 +233,7 @@ arrow::Result<std::string> Ticket::SerializeToString() const {
 
   std::string out;
   if (!pb_ticket.SerializeToString(&out)) {
-    return Status::IOError("Serialized ticket exceeded 2 GiB limit");
+    return Status::IOError("Serialized Ticket exceeded 2 GiB limit");
   }
   return out;
 }
@@ -250,7 +250,7 @@ arrow::Result<Ticket> Ticket::Deserialize(arrow::util::string_view serialized) {
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_ticket.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid ticket");
+    return Status::Invalid("Not a valid Ticket");
   }
   Ticket out;
   RETURN_NOT_OK(internal::FromProto(pb_ticket, &out));
@@ -403,7 +403,7 @@ arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
 
   std::string out;
   if (!pb_flight_endpoint.SerializeToString(&out)) {
-    return Status::IOError("Serialized flight-endpoint exceeded 2 GiB limit");
+    return Status::IOError("Serialized FlightEndpoint exceeded 2 GiB limit");
   }
   return out;
 }
@@ -417,7 +417,7 @@ arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_flight_endpoint.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid flight-endpoint");
+    return Status::Invalid("Not a valid FlightEndpoint");
   }
   FlightEndpoint out;
   RETURN_NOT_OK(internal::FromProto(pb_flight_endpoint, &out));
@@ -434,7 +434,7 @@ arrow::Result<std::string> ActionType::SerializeToString() const {
 
   std::string out;
   if (!pb_action_type.SerializeToString(&out)) {
-    return Status::IOError("Serialized action-type exceeded 2 GiB limit");
+    return Status::IOError("Serialized ActionType exceeded 2 GiB limit");
   }
   return out;
 }
@@ -447,7 +447,7 @@ arrow::Result<ActionType> ActionType::Deserialize(arrow::util::string_view seria
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_action_type.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid action-type");
+    return Status::Invalid("Not a valid ActionType");
   }
   ActionType out;
   RETURN_NOT_OK(internal::FromProto(pb_action_type, &out));
@@ -460,7 +460,7 @@ arrow::Result<std::string> Criteria::SerializeToString() const {
 
   std::string out;
   if (!pb_criteria.SerializeToString(&out)) {
-    return Status::IOError("Serialized criteria exceeded 2 GiB limit");
+    return Status::IOError("Serialized Criteria exceeded 2 GiB limit");
   }
   return out;
 }
@@ -473,7 +473,7 @@ arrow::Result<Criteria> Criteria::Deserialize(arrow::util::string_view serialize
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_criteria.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid criteria");
+    return Status::Invalid("Not a valid Criteria");
   }
   Criteria out;
   RETURN_NOT_OK(internal::FromProto(pb_criteria, &out));
@@ -486,7 +486,7 @@ arrow::Result<std::string> Action::SerializeToString() const {
 
   std::string out;
   if (!pb_action.SerializeToString(&out)) {
-    return Status::IOError("Serialized action exceeded 2 GiB limit");
+    return Status::IOError("Serialized Action exceeded 2 GiB limit");
   }
   return out;
 }
@@ -499,7 +499,7 @@ arrow::Result<Action> Action::Deserialize(arrow::util::string_view serialized) {
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_action.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid action");
+    return Status::Invalid("Not a valid Action");
   }
   Action out;
   RETURN_NOT_OK(internal::FromProto(pb_action, &out));
@@ -512,7 +512,7 @@ arrow::Result<std::string> Result::SerializeToString() const {
 
   std::string out;
   if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized result exceeded 2 GiB limit");
+    return Status::IOError("Serialized Result exceeded 2 GiB limit");
   }
   return out;
 }
@@ -525,7 +525,7 @@ arrow::Result<Result> Result::Deserialize(arrow::util::string_view serialized) {
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid result");
+    return Status::Invalid("Not a valid Result");
   }
   Result out;
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));
