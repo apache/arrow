@@ -83,12 +83,35 @@ TEST(FlightTypes, LocationUnknownScheme) {
 }
 
 TEST(FlightTypes, RoundTripTypes) {
+  ActionType action_type{"action-type1", "action-type1-description"};
+  ASSERT_OK_AND_ASSIGN(std::string action_type_serialized,
+                       action_type.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(ActionType action_type_deserialized,
+                       ActionType::Deserialize(action_type_serialized));
+  ASSERT_TRUE(action_type.Equals(action_type_deserialized));
+
+  Criteria criteria{"criteria1"};
+  ASSERT_OK_AND_ASSIGN(std::string criteria_serialized, criteria.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Criteria criteria_deserialized,
+                       Criteria::Deserialize(criteria_serialized));
+  ASSERT_EQ(criteria.expression, criteria_deserialized.expression);
+
   Action action{"action1", Buffer::FromString("action1-content")};
   ASSERT_OK_AND_ASSIGN(std::string action_serialized, action.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Action action_deserialized,
                        Action::Deserialize(action_serialized));
   ASSERT_EQ(action.type, action_deserialized.type);
-  ASSERT_TRUE(action.body->Equals(*action_deserialized.body));
+  ASSERT_TRUE((action.body == action_deserialized.body) ||
+              (action.body != nullptr && action_deserialized.body != nullptr &&
+               action.body->Equals(*action_deserialized.body)));
+
+  Result result{Buffer::FromString("result1-content")};
+  ASSERT_OK_AND_ASSIGN(std::string result_serialized, result.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Result result_deserialized,
+                       Result::Deserialize(result_serialized));
+  ASSERT_TRUE((result.body == result_deserialized.body) ||
+              (result.body != nullptr && result_deserialized.body != nullptr &&
+               result.body->Equals(*result_deserialized.body)));
 
   Ticket ticket{"foo"};
   ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());

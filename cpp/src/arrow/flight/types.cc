@@ -184,9 +184,7 @@ arrow::Result<SchemaResult> SchemaResult::Deserialize(
   if (!pb_schema_result.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid SchemaResult");
   }
-  SchemaResult out;
-  RETURN_NOT_OK(internal::FromProto(pb_schema_result, &out));
-  return out;
+  return SchemaResult{pb_schema_result.schema()};
 }
 
 arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
