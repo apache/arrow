@@ -113,6 +113,14 @@ TEST(FlightTypes, RoundTripTypes) {
               (result.body != nullptr && result_deserialized.body != nullptr &&
                result.body->Equals(*result_deserialized.body)));
 
+  SchemaResult schema_result{"schema_result1"};
+  ASSERT_OK_AND_ASSIGN(std::string schema_result_serialized,
+                       schema_result.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(SchemaResult schema_result_deserialized,
+                       SchemaResult::Deserialize(schema_result_serialized));
+  ASSERT_EQ(schema_result.serialized_schema(),
+            schema_result_deserialized.serialized_schema());
+
   Ticket ticket{"foo"};
   ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
@@ -148,6 +156,13 @@ TEST(FlightTypes, RoundTripTypes) {
   ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
   ASSERT_EQ(info->total_records(), info_deserialized->total_records());
   ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
+
+  FlightEndpoint flight_endpoint{ticket, {location1, location2}};
+  ASSERT_OK_AND_ASSIGN(std::string flight_endpoint_serialized,
+                       flight_endpoint.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(FlightEndpoint flight_endpoint_deserialized,
+                       FlightEndpoint::Deserialize(flight_endpoint_serialized));
+  ASSERT_TRUE(flight_endpoint.Equals(flight_endpoint_deserialized));
 }
 
 TEST(FlightTypes, RoundtripStatus) {
