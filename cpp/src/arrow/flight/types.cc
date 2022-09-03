@@ -168,7 +168,7 @@ arrow::Result<std::string> SchemaResult::SerializeToString() const {
 
   std::string out;
   if (!pb_schema_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized schema-result exceeded 2 GiB limit");
+    return Status::IOError("Serialized SchemaResult exceeded 2 GiB limit");
   }
   return out;
 }
