@@ -372,18 +372,18 @@ def test_mode_chunked_array():
 
 
 def test_empty_chunked_array():
-    
+
     msg = "cannot construct ChunkedArray from empty vector and omitted type"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pa.chunked_array([])
 
-    # Note: the above line has been throwing the following error for me 
+    # Note: the above line has been throwing the following error for me
     # (python 3.10.4, arrow 9.0.0), but it doesn't appear in the CI (yet).
     # Leaving the code in here in case it is needed in the future
-    #    
-    #msg = "When passing an empty collection of arrays you must also pass \
+    #
+    # msg = "When passing an empty collection of arrays you must also pass \
     #    the data type"
-    #with pytest.raises(ValueError, match=msg):
+    # with pytest.raises(ValueError, match=msg):
     #    pa.chunked_array([])
 
     pa.chunked_array([], type=pa.int8())
