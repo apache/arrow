@@ -189,7 +189,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "one" || func_name == "hash_one") {
-    // (TODO) FunctionOption for `hash_one` has not been implemented yet, so ScalarAggregateOptions is used tentatively here. 
+    // (TODO) FunctionOption for `hash_one` has not been implemented yet, so
+    // ScalarAggregateOptions is used tentatively here.
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
 
