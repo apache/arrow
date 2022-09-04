@@ -28,15 +28,27 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
         c_string description
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CActionType] Deserialize(const c_string& serialized)
 
     cdef cppclass CAction" arrow::flight::Action":
         c_string type
         shared_ptr[CBuffer] body
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CAction] Deserialize(const c_string& serialized)
 
     cdef cppclass CFlightResult" arrow::flight::Result":
         CFlightResult()
         CFlightResult(CFlightResult)
         shared_ptr[CBuffer] body
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CFlightResult] Deserialize(const c_string& serialized)
 
     cdef cppclass CBasicAuth" arrow::flight::BasicAuth":
         CBasicAuth()
@@ -86,6 +98,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CCriteria" arrow::flight::Criteria":
         CCriteria()
         c_string expression
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CCriteria] Deserialize(const c_string& serialized)
 
     cdef cppclass CLocation" arrow::flight::Location":
         CLocation()
@@ -111,6 +127,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         vector[CLocation] locations
 
         bint operator==(CFlightEndpoint)
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CFlightEndpoint] Deserialize(const c_string& serialized)
 
     cdef cppclass CFlightInfo" arrow::flight::FlightInfo":
         CFlightInfo(CFlightInfo info)
@@ -128,6 +148,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
         CSchemaResult(CSchemaResult result)
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CSchemaResult] Deserialize(const c_string& serialized)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
         CResult[unique_ptr[CFlightInfo]] Next()
