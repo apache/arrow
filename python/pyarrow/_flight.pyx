@@ -328,28 +328,6 @@ class ActionType(_ActionType):
         """
         return Action(self.type, buf)
 
-    def serialize(self):
-        """Get the wire-format representation of this type.
-
-        Useful when interoperating with non-Flight systems (e.g. REST
-        services) that may want to return Flight types.
-
-        """
-        return GetResultValue(self.action.SerializeToString())
-
-    @classmethod
-    def deserialize(cls, serialized):
-        """Parse the wire-format representation of this type.
-
-        Useful when interoperating with non-Flight systems (e.g. REST
-        services) that may want to return Flight types.
-
-        """
-        cdef ActionType action_type = ActionType.__new__(ActionType)
-        action_type.type,action_type.description = move(GetResultValue(
-            CActionType.Deserialize(tobytes(serialized))))
-        return action_type
-
 
 cdef class Result(_Weakrefable):
     """A result from executing an Action."""
@@ -388,9 +366,9 @@ cdef class Result(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef Result result = Result.__new__(Result)
-        result.result = move(GetResultValue(
-            CFlightResult.Deserialize(tobytes(serialized))))
+        result = Result()
+        check_flight_status(
+            CFlightResult.Deserialize(serialized).Value(result.result.get()))
         return result
 
 
@@ -826,9 +804,9 @@ cdef class SchemaResult(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
-        result.result = move(GetResultValue(
-            CSchemaResult.Deserialize(tobytes(serialized))))
+        result = SchemaResult()
+        check_flight_status(
+            CSchemaResult.Deserialize(serialized).Value(result.result.get()))
         return result
 
 
