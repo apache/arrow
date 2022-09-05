@@ -77,6 +77,31 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t max_batch_size;
 };
 
+/// \brief An extended Source node which accepts a schema
+///
+/// ItMaker is a maker of an iterator of tabular data.
+template <typename ItMaker>
+class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
+ public:
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker)
+      : schema(schema), it_maker(it_maker) {}
+
+  // the schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+
+  // maker of an iterator which acts as the data source
+  ItMaker it_maker;
+};
+
+using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+using ExecBatchSourceNodeOptions = SchemaSourceNodeOptions<ExecBatchIteratorMaker>;
+
+using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+using RecordBatchSourceNodeOptions = SchemaSourceNodeOptions<RecordBatchIteratorMaker>;
+
+using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
+using ArrayVectorSourceNodeOptions = SchemaSourceNodeOptions<ArrayVectorIteratorMaker>;
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
