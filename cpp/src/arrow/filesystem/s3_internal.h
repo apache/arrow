@@ -152,12 +152,12 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  auto error = S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType()));
+  auto status = S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType()));
   if (error.GetErrorType() == Aws::S3::S3Errors::UNKNOWN) {
-    error += " (http status " + std::to_string(error.GetResponseCode()) + ")";
+    status += " (http status " + std::to_string(error.GetResponseCode()) + ")";
   }
   return Status::IOError(
-      prefix, "AWS Error ", error,
+      prefix, "AWS Error ", status,
       " during ", operation, " operation: ", error.GetMessage());
 }
 
