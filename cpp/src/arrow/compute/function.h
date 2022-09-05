@@ -159,6 +159,14 @@ struct ARROW_EXPORT FunctionDoc {
   static const FunctionDoc& Empty();
 };
 
+/// \brief An executor of a function with a preconfigured kernel
+struct FunctionExecutor {
+  virtual ~FunctionExecutor() {}
+  /// \brief Execute the preconfigured kernel with arguments that must fit it
+  virtual Result<Datum> Execute(const std::vector<Datum>& args,
+                                int64_t passed_length = -1) = 0;
+};
+
 /// \brief Base class for compute functions. Function implementations contain a
 /// collection of "kernels" which are implementations of the function for
 /// specific argument types. Selecting a viable kernel for executing a function
@@ -224,6 +232,15 @@ class ARROW_EXPORT Function {
   /// value descriptors; callers are responsible for casting inputs to the type
   /// required by the kernel.
   virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
+
+  /// \brief Get a function executor with a best-matching kernel
+  virtual Result<std::shared_ptr<FunctionExecutor>> BestExecutor(
+      const std::vector<Datum>& args, const FunctionOptions* options,
+      ExecContext* ctx) const;
+
+  /// \brief Get a function executor with a best-matching kernel
+  virtual Result<std::shared_ptr<FunctionExecutor>> BestExecutor(
+      const ExecBatch& batch, const FunctionOptions* options, ExecContext* ctx) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken

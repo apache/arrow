@@ -1295,5 +1295,31 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
   return CallFunction(func_name, batch, /*options=*/nullptr, ctx);
 }
 
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
+                        ctx->func_registry()->GetFunction(func_name));
+  return func->BestExecutor(args, options, ctx);
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args, ExecContext* ctx) {
+  return GetFunctionExecutor(func_name, args, /*options=*/nullptr, ctx);
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const ExecBatch& batch, const FunctionOptions* options,
+    ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
+                        ctx->func_registry()->GetFunction(func_name));
+  return func->BestExecutor(batch, options, ctx);
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const ExecBatch& batch, ExecContext* ctx) {
+  return GetFunctionExecutor(func_name, batch, /*options=*/nullptr, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow
