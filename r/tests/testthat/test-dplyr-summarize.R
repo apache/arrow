@@ -1128,7 +1128,6 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
 })
 
 test_that("Can use across() within summarise()", {
-
   compare_dplyr_binding(
     .input %>%
       group_by(lgl) %>%
@@ -1147,6 +1146,4 @@ test_that("Can use across() within summarise()", {
       collect(),
     regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
-
 })
-
