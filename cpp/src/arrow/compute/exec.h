@@ -47,7 +47,7 @@ class CpuInfo;
 
 namespace compute {
 
-class FunctionExecutor;
+struct FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;
 

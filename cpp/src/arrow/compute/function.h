@@ -160,7 +160,7 @@ struct ARROW_EXPORT FunctionDoc {
 };
 
 /// \brief An executor of a function with a preconfigured kernel
-struct FunctionExecutor {
+struct ARROW_EXPORT FunctionExecutor {
   virtual ~FunctionExecutor() {}
   /// \brief Execute the preconfigured kernel with arguments that must fit it
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
