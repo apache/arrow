@@ -51,7 +51,7 @@ file into an executable linked with the Arrow C++ shared library:
    find_package(Arrow REQUIRED)
 
    add_executable(my_example my_example.cc)
-   target_link_libraries(my_example PRIVATE arrow_shared)
+   target_link_libraries(my_example PRIVATE Arrow::arrow_shared)
 
 Available variables and targets
 -------------------------------
@@ -67,8 +67,8 @@ CMake variables:
 In addition, it will have created some targets that you can link against
 (note these are plain strings, not variables):
 
-* ``arrow_shared`` links to the Arrow shared libraries
-* ``arrow_static`` links to the Arrow static libraries
+* ``Arrow::arrow_shared`` links to the Arrow shared libraries
+* ``Arrow::arrow_static`` links to the Arrow static libraries
 
 In most cases, it is recommended to use the Arrow shared libraries.
 

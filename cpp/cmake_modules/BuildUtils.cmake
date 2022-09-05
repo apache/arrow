@@ -155,7 +155,8 @@ function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
   set(CONFIG_CMAKE "${PACKAGE_NAME}Config.cmake")
   set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
   configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
-                                INSTALL_DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+                                INSTALL_DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
+                                NO_CHECK_REQUIRED_COMPONENTS_MACRO)
   set(CONFIG_VERSION_CMAKE "${PACKAGE_NAME}ConfigVersion.cmake")
   set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
   write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
