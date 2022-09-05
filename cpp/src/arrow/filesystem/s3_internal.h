@@ -153,12 +153,12 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
   auto error_type = static_cast<Aws::S3::S3Errors>(error.GetErrorType());
-  auto status = S3ErrorToString(error_type);
+  std::stringstream ss;
+  ss << S3ErrorToString(error_type);
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
-    status += " (http status " +
-              std::to_string(static_cast<int>(error.GetResponseCode())) + ")";
+    ss << " (http status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
-  return Status::IOError(prefix, "AWS Error ", status, " during ", operation,
+  return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
                          " operation: ", error.GetMessage());
 }
 
