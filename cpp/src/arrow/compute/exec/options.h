@@ -94,11 +94,14 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
 };
 
 using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+/// \brief An extended Source node which accepts a schema and exec-batches
 using ExecBatchSourceNodeOptions = SchemaSourceNodeOptions<ExecBatchIteratorMaker>;
 
 using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+/// \brief An extended Source node which accepts a schema and record-batches
 using RecordBatchSourceNodeOptions = SchemaSourceNodeOptions<RecordBatchIteratorMaker>;
 
+/// \brief An extended Source node which accepts a schema and array-vectors
 using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
 using ArrayVectorSourceNodeOptions = SchemaSourceNodeOptions<ArrayVectorIteratorMaker>;
 
