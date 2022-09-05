@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/memory_pool_internal.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 
 // We can't put the jemalloc memory pool implementation into
@@ -151,26 +152,28 @@ Status jemalloc_set_decay_ms(int ms) {
   return Status::OK();
 }
 
+#undef RETURN_IF_JEMALLOC_ERROR
+
+Status jemalloc_get_stat(const char* name, size_t* out) {
+  size_t sz = sizeof(size_t);
+  int err = mallctl(name, out, &sz, NULL, 0);
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
+             : Status::OK();
+};
+
+#ifdef ARROW_JEMALLOC
 Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp, void* newp,
                         size_t newlen) {
-#ifdef ARROW_JEMALLOC
-  int res = mallctl(name, oldp, oldlenp, newp, newlen);
-  return res ? Status::UnknownError(res) : Status::OK();
-#else
-  return Status::NotImplemented("This Arrow build does not enable jemalloc");
-#endif
+  int err = mallctl(name, oldp, oldlenp, newp, newlen);
+  return err ? arrow::internal::IOErrorFromErrno(err, "Memory allocation error.")
+             : Status::OK();
 }
 
 Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
                             const char* opts) {
-#ifdef ARROW_JEMALLOC
   malloc_stats_print(write_cb, cbopaque, opts);
   return Status::OK();
-#else
-  return Status::NotImplemented("This Arrow build does not enable jemalloc");
-#endif
 }
-
-#undef RETURN_IF_JEMALLOC_ERROR
+#endif
 
 }  // namespace arrow

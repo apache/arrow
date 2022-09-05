@@ -172,4 +172,33 @@ TEST(Jemalloc, SetDirtyPageDecayMillis) {
 #endif
 }
 
+TEST(Jemalloc, GetAllocationStats) {
+  size_t allocated, active, metadata, resident, mapped = 0;
+#ifdef ARROW_JEMALLOC
+  auto pool = MemoryPool::CreateDefault();
+  uint8_t* data;
+
+  ASSERT_OK(pool->Allocate(42, &data));
+  ASSERT_OK(jemalloc_get_stat("stats.allocated", &allocated));
+  ASSERT_OK(jemalloc_get_stat("stats.active", &active));
+  ASSERT_OK(jemalloc_get_stat("stats.metadata", &metadata));
+  ASSERT_OK(jemalloc_get_stat("stats.resident", &resident));
+  ASSERT_OK(jemalloc_get_stat("stats.mapped", &mapped));
+
+  // TODO
+  ASSERT_EQ(71424, allocated);
+  ASSERT_EQ(131072, active);
+  ASSERT_EQ(2814368, metadata);
+  ASSERT_EQ(2899968, resident);
+  ASSERT_EQ(6422528, mapped);
+
+#else
+  ASSERT_RAISES(IOError, jemalloc_get_stat("stats.allocated", allocated));
+  ASSERT_RAISES(IOError, jemalloc_get_stat("stats.active", active));
+  ASSERT_RAISES(IOError, jemalloc_get_stat("stats.metadata", metadata));
+  ASSERT_RAISES(IOError, jemalloc_get_stat("stats.resident", resident));
+  ASSERT_RAISES(IOError, jemalloc_get_stat("stats.mapped", mapped));
+#endif
+}
+
 }  // namespace arrow

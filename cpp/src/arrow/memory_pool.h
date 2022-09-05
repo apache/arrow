@@ -175,16 +175,52 @@ ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 ARROW_EXPORT
 Status jemalloc_set_decay_ms(int ms);
 
+/// \brief Get basic allocation statistics from jemalloc
+Status jemalloc_get_stat(const char* name, size_t* out);
+
+/// \brief The mallctl() function provides a general interface for introspecting the
+/// memory allocator, as well as setting modifiable parameters and triggering actions.
+/// The period-separated name argument specifies a location in a tree-structured
+/// namespace; see the MALLCTL NAMESPACE section in jemalloc project documentation for
+/// more information on the tree contents. To read a value, pass a pointer via oldp to
+/// adequate space to contain the value, and a pointer to its length via oldlenp;
+/// otherwise pass NULL and NULL. Similarly, to write a value, pass a pointer to the
+/// value via newp, and its length via newlen; otherwise pass NULL and 0.
+///
+ARROW_EXPORT Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp,
+                                     void* newp, size_t newlen);
+
+/// \brief The malloc_stats_print() function writes summary statistics via the write_cb
+/// callback function pointer and cbopaque data passed to write_cb, or malloc_message()
+/// if write_cb is NULL. The statistics are presented in human-readable form unless “J”
+/// is specified as a character within the opts string, in which case the statistics are
+/// presented in JSON format. This function can be called repeatedly. General information
+/// that never changes during execution can be omitted by specifying “g” as a character
+/// within the opts string. Note that malloc_stats_print() uses the mallctl*() functions
+/// internally, so inconsistent statistics can be reported if multiple threads use these
+/// functions simultaneously. If --enable-stats is specified during configuration, “m”,
+/// “d”, and “a” can be specified to omit merged arena, destroyed merged arena, and per
+/// arena statistics, respectively; “b” and “l” can be specified to omit per size class
+/// statistics for bins and large objects, respectively; “x” can be specified to omit all
+/// mutex statistics; “e” can be used to omit extent statistics. Unrecognized characters
+/// are silently ignored. Note that thread caching may prevent some statistics from being
+/// completely up to date, since extra locking would be required to merge counters that
+/// track thread cache operations.
+///
+/// The malloc_usable_size() function returns the usable size of the allocation pointed to
+/// by ptr. The return value may be larger than the size that was requested during
+/// allocation. The malloc_usable_size() function is not a mechanism for in-place
+/// realloc(); rather it is provided solely as a tool for introspection purposes.
+/// Any discrepancy between the requested allocation size and the size reported by
+/// malloc_usable_size() should not be depended on, since such behavior is entirely
+/// implementation-dependent.
+ARROW_EXPORT Status jemalloc_stats_print(void (*write_cb)(void*, const char*),
+                                         void* cbopaque, const char* opts);
+
 /// \brief Return a process-wide memory pool based on mimalloc.
 ///
 /// May return NotImplemented if mimalloc is not available.
 ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
-
-ARROW_EXPORT Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp,
-                                     void* newp, size_t newlen);
-
-ARROW_EXPORT Status jemalloc_stats_print(void (*write_cb)(void*, const char*),
-                                         void* cbopaque, const char* opts);
 
 /// \brief Return the names of the backends supported by this Arrow build.
 ARROW_EXPORT std::vector<std::string> SupportedMemoryBackendNames();
