@@ -84,7 +84,7 @@ template <typename ItMaker>
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
   SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker)
-      : schema(schema), it_maker(it_maker) {}
+      : schema(schema), it_maker(std::move(it_maker)) {}
 
   // the schema of the record batches from the iterator
   std::shared_ptr<Schema> schema;

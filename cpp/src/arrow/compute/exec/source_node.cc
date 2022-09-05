@@ -309,7 +309,7 @@ struct SchemaSourceNode : public SourceNode {
 
     RETURN_NOT_OK(ValidateSchemaSourceNodeInput(io_executor, schema, This::kKindName));
     ARROW_ASSIGN_OR_RAISE(auto generator, This::MakeGenerator(it, io_executor, schema));
-    return plan->EmplaceNode<This>(plan, schema, MakeOrderedGenerator(generator));
+    return plan->EmplaceNode<This>(plan, schema, generator);
   }
 
   static arrow::Status ValidateSchemaSourceNodeInput(
@@ -326,16 +326,33 @@ struct SchemaSourceNode : public SourceNode {
   }
 
   template <typename Item>
-  static arrow::AsyncGenerator<util::optional<Item>> MakeOrderedGenerator(
-      arrow::AsyncGenerator<util::optional<Item>>& unordered_gen) {
-    using Enum = Enumerated<util::optional<Item>>;
-    auto enum_gen = MakeEnumeratedGenerator(unordered_gen);
-    auto seq_gen = MakeSequencingGenerator(
-        enum_gen,
+  static Iterator<Enumerated<Item>> MakeEnumeratedIterator(Iterator<Item> it) {
+    struct {
+      int64_t index = 0;
+      Enumerated<Item> operator()(const Item& item) {
+        return Enumerated<Item>{item, index++, false};
+      }
+    } enumerator;
+    return MakeMapIterator(std::move(enumerator), std::move(it));
+  }
+
+  template <typename Item>
+  static arrow::AsyncGenerator<Item> MakeUnenumeratedGenerator(
+      const arrow::AsyncGenerator<Enumerated<Item>>& enum_gen) {
+    using Enum = Enumerated<Item>;
+    return MakeMappedGenerator(enum_gen, [](const Enum& e) { return e.value; });
+  }
+
+  template <typename Item>
+  static arrow::AsyncGenerator<Item> MakeOrderedGenerator(
+      const arrow::AsyncGenerator<Enumerated<Item>>& unordered_gen) {
+    using Enum = Enumerated<Item>;
+    auto enum_gen = MakeSequencingGenerator(
+        unordered_gen,
         /*compare=*/[](const Enum& a, const Enum& b) { return a.index > b.index; },
         /*is_next=*/[](const Enum& a, const Enum& b) { return a.index + 1 == b.index; },
-        /*initial_value=*/Enum{{}, 0, false});
-    return MakeMappedGenerator(enum_gen, [](const Enum& e) { return e.value; });
+        /*initial_value=*/Enum{{}, 0});
+    return MakeUnenumeratedGenerator(enum_gen);
   }
 };
 
@@ -344,8 +361,12 @@ struct RecordBatchSourceNode
   using RecordBatchSchemaSourceNode =
       SchemaSourceNode<RecordBatchSourceNode, RecordBatchSourceNodeOptions>;
 
-  using RecordBatchSchemaSourceNode::Make;
   using RecordBatchSchemaSourceNode::RecordBatchSchemaSourceNode;
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    return RecordBatchSchemaSourceNode::Make(plan, inputs, options);
+  }
 
   const char* kind_name() const override { return kKindName; }
 
@@ -360,7 +381,10 @@ struct RecordBatchSourceNode
       return util::optional<ExecBatch>(ExecBatch(*batch));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
-    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
+    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
+                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
+    return MakeUnenumeratedGenerator(std::move(enum_gen));
   }
 
   static const char kKindName[];
@@ -374,7 +398,11 @@ struct ExecBatchSourceNode
       SchemaSourceNode<ExecBatchSourceNode, ExecBatchSourceNodeOptions>;
 
   using ExecBatchSchemaSourceNode::ExecBatchSchemaSourceNode;
-  using ExecBatchSchemaSourceNode::Make;
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    return ExecBatchSchemaSourceNode::Make(plan, inputs, options);
+  }
 
   const char* kind_name() const override { return kKindName; }
 
@@ -382,11 +410,14 @@ struct ExecBatchSourceNode
       Iterator<std::shared_ptr<ExecBatch>>& batch_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [&schema](const std::shared_ptr<ExecBatch>& batch) -> util::optional<ExecBatch> {
+        [](const std::shared_ptr<ExecBatch>& batch) -> util::optional<ExecBatch> {
       return batch == NULLPTR ? util::nullopt : util::optional<ExecBatch>(*batch);
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
-    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
+    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
+                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
+    return MakeUnenumeratedGenerator(std::move(enum_gen));
   }
 
   static const char kKindName[];
@@ -400,7 +431,11 @@ struct ArrayVectorSourceNode
       SchemaSourceNode<ArrayVectorSourceNode, ArrayVectorSourceNodeOptions>;
 
   using ArrayVectorSchemaSourceNode::ArrayVectorSchemaSourceNode;
-  using ArrayVectorSchemaSourceNode::Make;
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    return ArrayVectorSchemaSourceNode::Make(plan, inputs, options);
+  }
 
   const char* kind_name() const override { return kKindName; }
 
@@ -408,8 +443,7 @@ struct ArrayVectorSourceNode
       Iterator<std::shared_ptr<ArrayVector>>& arrayvec_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [&schema](
-            const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
+        [](const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
       if (arrayvec == NULLPTR || arrayvec->size() == 0) {
         return util::nullopt;
       }
@@ -421,7 +455,10 @@ struct ArrayVectorSourceNode
           ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
-    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
+    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
+                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
+    return MakeUnenumeratedGenerator(std::move(enum_gen));
   }
 
   static const char kKindName[];
