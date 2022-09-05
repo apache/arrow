@@ -19,7 +19,7 @@
 
 # Apache Arrow Ruby
 
-There are the official Ruby bindings for Apache Arrow.
+These are the official Ruby bindings for Apache Arrow.
 
 [Red Arrow](https://github.com/apache/arrow/tree/master/ruby/red-arrow) is the base Apache Arrow bindings.
 
