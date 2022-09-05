@@ -291,6 +291,144 @@ struct TableSourceNode : public SourceNode {
   }
 };
 
+template <typename This, typename Options>
+struct SchemaSourceNode : public SourceNode {
+  SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                   arrow::AsyncGenerator<util::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, This::kKindName));
+    const auto& cast_options = checked_cast<const Options&>(options);
+    auto& it_maker = cast_options.it_maker;
+    auto& schema = cast_options.schema;
+
+    auto io_executor = plan->exec_context()->executor();
+    auto it = it_maker();
+
+    RETURN_NOT_OK(ValidateSchemaSourceNodeInput(io_executor, schema, This::kKindName));
+    ARROW_ASSIGN_OR_RAISE(auto generator, This::MakeGenerator(it, io_executor, schema));
+    return plan->EmplaceNode<This>(plan, schema, MakeOrderedGenerator(generator));
+  }
+
+  static arrow::Status ValidateSchemaSourceNodeInput(
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema,
+      const char* kKindName) {
+    if (schema == NULLPTR) {
+      return Status::Invalid(kKindName, " requires schema which is not null");
+    }
+    if (io_executor == NULLPTR) {
+      return Status::Invalid(kKindName, " requires IO-executor which is not null");
+    }
+
+    return Status::OK();
+  }
+
+  template <typename Item>
+  static arrow::AsyncGenerator<util::optional<Item>> MakeOrderedGenerator(
+      arrow::AsyncGenerator<util::optional<Item>>& unordered_gen) {
+    using Enum = Enumerated<util::optional<Item>>;
+    auto enum_gen = MakeEnumeratedGenerator(unordered_gen);
+    auto seq_gen = MakeSequencingGenerator(
+        enum_gen,
+        /*compare=*/[](const Enum& a, const Enum& b) { return a.index > b.index; },
+        /*is_next=*/[](const Enum& a, const Enum& b) { return a.index + 1 == b.index; },
+        /*initial_value=*/Enum{{}, 0, false});
+    return MakeMappedGenerator(enum_gen, [](const Enum& e) { return e.value; });
+  }
+};
+
+struct RecordBatchSourceNode
+    : public SchemaSourceNode<RecordBatchSourceNode, RecordBatchSourceNodeOptions> {
+  using RecordBatchSchemaSourceNode =
+      SchemaSourceNode<RecordBatchSourceNode, RecordBatchSourceNodeOptions>;
+
+  using RecordBatchSchemaSourceNode::Make;
+  using RecordBatchSchemaSourceNode::RecordBatchSchemaSourceNode;
+
+  const char* kind_name() const override { return kKindName; }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+      Iterator<std::shared_ptr<RecordBatch>>& batch_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [schema](const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
+      if (batch == NULLPTR || *batch->schema() != *schema) {
+        return util::nullopt;
+      }
+      return util::optional<ExecBatch>(ExecBatch(*batch));
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char RecordBatchSourceNode::kKindName[] = "RecordBatchSourceNode";
+
+struct ExecBatchSourceNode
+    : public SchemaSourceNode<ExecBatchSourceNode, ExecBatchSourceNodeOptions> {
+  using ExecBatchSchemaSourceNode =
+      SchemaSourceNode<ExecBatchSourceNode, ExecBatchSourceNodeOptions>;
+
+  using ExecBatchSchemaSourceNode::ExecBatchSchemaSourceNode;
+  using ExecBatchSchemaSourceNode::Make;
+
+  const char* kind_name() const override { return kKindName; }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+      Iterator<std::shared_ptr<ExecBatch>>& batch_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [&schema](const std::shared_ptr<ExecBatch>& batch) -> util::optional<ExecBatch> {
+      return batch == NULLPTR ? util::nullopt : util::optional<ExecBatch>(*batch);
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char ExecBatchSourceNode::kKindName[] = "ExecBatchSourceNode";
+
+struct ArrayVectorSourceNode
+    : public SchemaSourceNode<ArrayVectorSourceNode, ArrayVectorSourceNodeOptions> {
+  using ArrayVectorSchemaSourceNode =
+      SchemaSourceNode<ArrayVectorSourceNode, ArrayVectorSourceNodeOptions>;
+
+  using ArrayVectorSchemaSourceNode::ArrayVectorSchemaSourceNode;
+  using ArrayVectorSchemaSourceNode::Make;
+
+  const char* kind_name() const override { return kKindName; }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+      Iterator<std::shared_ptr<ArrayVector>>& arrayvec_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [&schema](
+            const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
+      if (arrayvec == NULLPTR || arrayvec->size() == 0) {
+        return util::nullopt;
+      }
+      std::vector<Datum> datumvec;
+      for (const auto& array : *arrayvec) {
+        datumvec.push_back(Datum(array));
+      }
+      return util::optional<ExecBatch>(
+          ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+  static const char kKindName[];
+};
+
+const char ArrayVectorSourceNode::kKindName[] = "ArrayVectorSourceNode";
+
 }  // namespace
 
 namespace internal {
@@ -298,6 +436,9 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("record_source", RecordBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("exec_source", ExecBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("array_source", ArrayVectorSourceNode::Make));
 }
 
 }  // namespace internal
