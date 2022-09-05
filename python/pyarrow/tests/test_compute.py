@@ -2889,3 +2889,10 @@ def test_expression_call_function():
 
     with pytest.raises(TypeError):
         pc.add(1, field)
+
+
+def test_cast_table_raises():
+    table = pa.table({'a': [1, 2]})
+
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pc.cast(table, pa.int64())
