@@ -2235,10 +2235,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-<<<<<<< HEAD
-  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
-  AddDecimalUnaryKernels<Negate>(negate.get());
-=======
   auto floor_divide =
       MakeArithmeticFunctionNotNull<FloorDivide>("floor_divide", &floor_div_doc);
   DCHECK_OK(registry->AddFunction(std::move(floor_divide)));
@@ -2259,7 +2255,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
->>>>>>> 853bfca88 (add floor_divide and remainder compute functions)
+  AddDecimalUnaryKernels<Negate>(negate.get());
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
