@@ -3403,7 +3403,8 @@ cdef class Table(_PandasConvertible):
 
         for name in field_names:
             if self.schema.field(name).nullable and not target_schema.field(name).nullable:
-                raise RuntimeError("Casting a nullable field {!r} to non-nullable".format(name))
+                raise RuntimeError(
+                    "Casting a nullable field {!r} to non-nullable".format(name))
         for column, field in zip(self.itercolumns(), target_schema):
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
