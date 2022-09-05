@@ -1499,7 +1499,7 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
 template <typename T>
 struct Enumerated {
   T value;
-  int index;
+  int64_t index;
   bool last;
 };
 
