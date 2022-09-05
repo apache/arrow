@@ -190,10 +190,10 @@ const Kernel* DispatchExactImpl(const Function* func,
 }
 
 struct FunctionExecutorImpl : public FunctionExecutor {
-  FunctionExecutorImpl(std::vector<TypeHolder> inputs, const Kernel* kernel,
+  FunctionExecutorImpl(std::vector<TypeHolder> in_types, const Kernel* kernel,
                        ExecContext* ctx, std::unique_ptr<detail::KernelExecutor> executor,
                        Function::Kind func_kind, const std::string& func_name)
-      : inputs(std::move(inputs)),
+      : in_types(std::move(in_types)),
         kernel(kernel),
         kernel_ctx(ctx, kernel),
         executor(std::move(executor)),
@@ -205,11 +205,12 @@ struct FunctionExecutorImpl : public FunctionExecutor {
 
   Status Init(const FunctionOptions* options) {
     if (kernel->init) {
-      ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
+      ARROW_ASSIGN_OR_RAISE(state,
+                            kernel->init(&kernel_ctx, {kernel, in_types, options}));
       kernel_ctx.SetState(state.get());
     }
 
-    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
+    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
     this->options = options;
     return Status::OK();
   }
@@ -226,7 +227,7 @@ struct FunctionExecutorImpl : public FunctionExecutor {
     // Cast arguments if necessary
     std::vector<Datum> args_with_cast;
     for (size_t i = 0; i != args.size(); ++i) {
-      std::shared_ptr<DataType> in_type = inputs[i].GetSharedPtr();
+      const auto& in_type = in_types[i];
       auto arg = args[i];
       if (in_type != args[i].type()) {
         ARROW_ASSIGN_OR_RAISE(arg, Cast(args[i], CastOptions::Safe(in_type), ctx));
@@ -266,7 +267,7 @@ struct FunctionExecutorImpl : public FunctionExecutor {
     return out;
   }
 
-  std::vector<TypeHolder> inputs;
+  std::vector<TypeHolder> in_types;
   const Kernel* kernel;
   KernelContext kernel_ctx;
   std::unique_ptr<detail::KernelExecutor> executor;
