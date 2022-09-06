@@ -592,7 +592,8 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
 /// \param[in] divisor the divisor
 /// \param[in] options arithmetic options (enable/disable overflow checking), optional
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise quotient and remainder
+/// \return the elementwise quotient and remainder as an array of
+/// struct<quotient: T, remainder: T>
 ARROW_EXPORT
 Result<Datum> Divmod(const Datum& dividend, const Datum& divisor,
                      ArithmeticOptions options = ArithmeticOptions(),
