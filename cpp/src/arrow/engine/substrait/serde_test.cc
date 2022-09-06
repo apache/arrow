@@ -1904,9 +1904,9 @@ TEST(Substrait, BasicPlanRoundTripping) {
   // Note: there is an additional forward slash introduced by the tempdir
   // it must be replaced to properly load into reading files
   // TODO: (Review: Jira needs to be reported to handle this properly)
-  std::string toReplace("/T//");
-  size_t pos = file_path_str.find(toReplace);
-  file_path_str.replace(pos, toReplace.length(), "/T/");
+  // std::string toReplace("/T//");
+  // size_t pos = file_path_str.find(toReplace);
+  // file_path_str.replace(pos, toReplace.length(), "/T/");
 
   ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
@@ -2023,9 +2023,9 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   // Note: there is an additional forward slash introduced by the tempdir
   // it must be replaced to properly load into reading files
   // TODO: (Review: Jira needs to be reported to handle this properly)
-  std::string toReplace("/T//");
-  size_t pos = file_path_str.find(toReplace);
-  file_path_str.replace(pos, toReplace.length(), "/T/");
+  // std::string toReplace("/T//");
+  // size_t pos = file_path_str.find(toReplace);
+  // file_path_str.replace(pos, toReplace.length(), "/T/");
 
   ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
