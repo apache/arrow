@@ -162,8 +162,7 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun,
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (!CanRunWithCapturedR()) {
-    return arrow::Status::NotImplemented(
-        "RunWithCapturedR() without UnwindProtect");
+    return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
   }
 
   if (GetMainRThread().Executor() != nullptr) {
