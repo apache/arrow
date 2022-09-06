@@ -40,7 +40,7 @@ jobs:
         with:
           name: ubuntu-shared-lib
           path: arrow-shared-libs-linux.tar.gz
-    {% if arrow.branch == 'master' %}
+    {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker image
         shell: bash
