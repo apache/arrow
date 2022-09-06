@@ -1006,6 +1006,8 @@ struct Trunc {
 struct Divmod {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+
     T quotient = std::floor(dividend / divisor);
     T remainder = dividend - quotient * divisor;
 

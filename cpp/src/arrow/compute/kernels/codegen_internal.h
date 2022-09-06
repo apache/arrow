@@ -641,7 +641,7 @@ struct ScalarUnary {
   }
 };
 
-// An alternative to ScalarUnary that Applies a scalar operation with state on
+// An alternative to ScalarUnary that applies a scalar operation with state on
 // only the not-null values of a single array
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNullStateful {

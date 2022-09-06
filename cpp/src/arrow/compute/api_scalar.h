@@ -571,7 +571,8 @@ Result<Datum> Multiply(const Datum& left, const Datum& right,
                        ExecContext* ctx = NULLPTR);
 
 /// \brief Divide two values. Array values must be the same length. If either
-/// argument is null the result will be null. If divisor is zero, an error will be raised.
+/// argument is null the result will be null. For integer types, if there is
+/// a zero divisor, an error will be raised.
 ///
 /// \param[in] left the dividend
 /// \param[in] right the divisor
