@@ -327,8 +327,11 @@ struct SchemaSourceNode : public SourceNode {
 
   template <typename Item>
   static Iterator<Enumerated<Item>> MakeEnumeratedIterator(Iterator<Item> it) {
+    // TODO: Should Enumerated<>.index be changed to int64_t? Currently, this change
+    // causes dataset unit-test failures
+    using index_t = decltype(Enumerated<Item>{}.index);
     struct {
-      int64_t index = 0;
+      index_t index = 0;
       Enumerated<Item> operator()(const Item& item) {
         return Enumerated<Item>{item, index++, false};
       }
