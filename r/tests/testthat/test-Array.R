@@ -1118,7 +1118,7 @@ test_that("as_arrow_array() works for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    as_arrow_array(nested, type = extension_array$type),
+    as_arrow_array(nested_plain, type = extension_array$type),
     extension_array
   )
 })
@@ -1147,7 +1147,7 @@ test_that("Array$create() calls as_arrow_array() for nested extension types", {
   nested_plain <- tibble::tibble(x = 1:5)
   extension_array <- vctrs_extension_array(nested_plain)
   expect_equal(
-    Array$create(nested, type = extension_array$type),
+    Array$create(nested_plain, type = extension_array$type),
     extension_array
   )
 })
