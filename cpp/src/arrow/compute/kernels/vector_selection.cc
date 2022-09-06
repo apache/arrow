@@ -1092,23 +1092,17 @@ Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* 
   int64_t output_length = GetFilterOutputSizeRLE(values, filter, null_selection);
 
   ArrayData* out_arr = result->array_data().get();
+  // RLE parent arrays always have a null count of 0
+  out_arr->null_count = 0;
 
   bool allocate_validity = rle_util::ValuesArray(values).MayHaveNulls() ||
                            (null_selection == FilterOptions::EMIT_NULL &&
                             rle_util::ValuesArray(filter).MayHaveNulls());
-  // The output precomputed null count is unknown except in the narrow
-  // condition that all the values are non-null and the filter will not cause
-  // any new nulls to be created.
-  if (allocate_validity) {
-    out_arr->null_count = kUnknownNullCount;
-  } else {
-    out_arr->null_count = 0;
-  }
 
   const int bit_width =
       checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
   RETURN_NOT_OK(PreallocateDataRLE(ctx, output_length, bit_width,
-                                   out_arr->null_count != 0, out_arr));
+                                   allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
