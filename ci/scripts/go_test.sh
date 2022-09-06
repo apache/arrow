@@ -32,7 +32,7 @@ ver=`go env GOVERSION`
 source_dir=${1}/go
 
 testargs="-race"
-if [ verlte 1.18 "${ver#go}" ] && [ "$(go env GOOS)" != "darwin" ]; then
+if verlte "1.18" "${ver#go}" && [ "$(go env GOOS)" != "darwin" ]; then
     # asan not supported on darwin/amd64
     testargs="-asan"
 fi
@@ -74,7 +74,7 @@ fi
 go test $testargs -tags $TAGS ./...
 
 # only test compute when Go is >= 1.18
-if [ verlte 1.18 "${ver#go}" ]; then
+if verlte "1.18" "${ver#go}"; then
     go test $testargs -tags $TAGS ./compute/...
 fi
 
