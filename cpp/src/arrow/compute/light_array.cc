@@ -114,8 +114,7 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType* type) {
 
   // For ExtensionType, use the backing physical type (storage_type() is a shared ptr)
   if (ARROW_PREDICT_FALSE(type->id() == Type::EXTENSION)) {
-    const ExtensionType* ext_type =
-        arrow::internal::checked_pointer_cast<ExtensionType>(type);
+    const ExtensionType* ext_type = static_cast<const ExtensionType*>(type);
     ptype = ext_type->storage_type().get();
   }
 
