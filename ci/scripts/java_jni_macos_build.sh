@@ -30,7 +30,7 @@ rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
-: ${ARROW_BUILD_TESTS:=OFF}
+: ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -39,7 +39,6 @@ install_dir=${build_dir}/cpp-install
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PLASMA:=ON}
-: ${ARROW_PYTHON:=OFF}
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
@@ -58,33 +57,23 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
-  -DARROW_BOOST_USE_SHARED=OFF \
-  -DARROW_BROTLI_USE_SHARED=OFF \
+  -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_BUILD_UTILITIES=OFF \
-  -DARROW_BZ2_USE_SHARED=OFF \
+  -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-  -DARROW_GFLAGS_USE_SHARED=OFF \
-  -DARROW_GRPC_USE_SHARED=OFF \
   -DARROW_JNI=ON \
-  -DARROW_LZ4_USE_SHARED=OFF \
-  -DARROW_OPENSSL_USE_SHARED=OFF \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
   -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
-  -DARROW_PROTOBUF_USE_SHARED=OFF \
-  -DARROW_PYTHON=${ARROW_PYTHON} \
   -DARROW_S3=${ARROW_S3} \
-  -DARROW_SNAPPY_USE_SHARED=OFF \
-  -DARROW_THRIFT_USE_SHARED=OFF \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
-  -DARROW_UTF8PROC_USE_SHARED=OFF \
-  -DARROW_ZSTD_USE_SHARED=OFF \
   -DAWSSDK_SOURCE=BUNDLED \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
@@ -99,7 +88,16 @@ cmake \
 cmake --build . --target install
 
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
-  ctest
+  # MinIO is required
+  exclude_tests="arrow-s3fs-test"
+  # unstable
+  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  ctest \
+    --exclude-regex "${exclude_tests}" \
+    --label-regex unittest \
+    --output-on-failure \
+    --parallel $(sysctl -n hw.ncpu) \
+    --timeout 300
 fi
 
 popd
@@ -107,6 +105,7 @@ popd
 
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
+  ${install_dir} \
   ${build_dir} \
   ${dist_dir}
 
@@ -117,7 +116,6 @@ fi
 
 echo "=== Copying libraries to the distribution folder ==="
 mkdir -p "${dist_dir}"
-cp -L ${install_dir}/lib/libarrow_dataset_jni.dylib ${dist_dir}
 cp -L ${install_dir}/lib/libarrow_orc_jni.dylib ${dist_dir}
 cp -L ${install_dir}/lib/libgandiva_jni.dylib ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.dylib ${dist_dir}

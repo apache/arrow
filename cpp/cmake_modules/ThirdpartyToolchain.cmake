@@ -40,12 +40,6 @@ set(ARROW_RE2_LINKAGE
     "static"
     CACHE STRING "How to link the re2 library. static|shared (default static)")
 
-if(ARROW_PROTOBUF_USE_SHARED)
-  set(Protobuf_USE_STATIC_LIBS OFF)
-else()
-  set(Protobuf_USE_STATIC_LIBS ON)
-endif()
-
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
@@ -1640,6 +1634,8 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
   resolve_dependency(Protobuf
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
@@ -4746,49 +4742,7 @@ macro(build_awssdk)
 endmacro()
 
 if(ARROW_S3)
-  # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
-
-  # Workaround to force AWS CMake configuration to look for shared libraries
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(DEFINED BUILD_SHARED_LIBS)
-      set(BUILD_SHARED_LIBS_WAS_SET TRUE)
-      set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
-    else()
-      set(BUILD_SHARED_LIBS_WAS_SET FALSE)
-    endif()
-    set(BUILD_SHARED_LIBS "ON")
-  endif()
-
-  # Need to customize the find_package() call, so cannot call resolve_dependency()
-  if(AWSSDK_SOURCE STREQUAL "AUTO")
-    find_package(AWSSDK
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-    if(NOT AWSSDK_FOUND)
-      build_awssdk()
-    endif()
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    build_awssdk()
-  elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    find_package(AWSSDK REQUIRED
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-  endif()
-
-  # Restore previous value of BUILD_SHARED_LIBS
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(BUILD_SHARED_LIBS_WAS_SET)
-      set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
-    else()
-      unset(BUILD_SHARED_LIBS)
-    endif()
-  endif()
+  resolve_dependency(AWSSDK HAVE_ALT TRUE)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
