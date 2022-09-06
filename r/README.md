@@ -67,6 +67,10 @@ more complete installation, set the environment variable
 `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
 details.
 
+Version 9.0.0 was the last version to support R 3.6 and lower on Windows. On
+R 3.6 and lower on all platforms, some features may be disabled. 
+See `arrow_info()` for a listing of available features in your build.
+
 ### Installing a development version
 
 Development versions of the package (binary and source) are built
