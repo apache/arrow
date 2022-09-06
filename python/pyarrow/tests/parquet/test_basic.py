@@ -289,6 +289,9 @@ def test_fspath(tempdir, use_legacy_dataset):
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
 def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
+    if use_legacy_dataset and isinstance(filesystem, fs.FileSystem):
+        pytest.skip("Passing new filesystem not supported for legacy reader")
+
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
 

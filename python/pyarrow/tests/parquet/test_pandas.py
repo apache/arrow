@@ -664,7 +664,7 @@ def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     )
     pq.write_metadata(table_for_metadata.schema, dirpath / '_metadata')
 
-    dataset = pq.ParquetDataset(dirpath)
+    dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=False)
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
