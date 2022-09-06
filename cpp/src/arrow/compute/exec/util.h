@@ -167,6 +167,20 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
+#define TEMP_VECTOR(type, name)                                     \
+  auto name##_buf = arrow::util::TempVectorHolder<type>(            \
+      temp_vector_stack, arrow::util::MiniBatch::kMiniBatchLength); \
+  auto name = name##_buf.mutable_data();
+
+#define BEGIN_MINI_BATCH_FOR(batch_begin, batch_length, num_rows) \
+  for (int64_t batch_begin = 0; batch_begin < num_rows;           \
+       batch_begin += arrow::util::MiniBatch::kMiniBatchLength) { \
+    int64_t batch_length =                                        \
+        std::min(static_cast<int64_t>(num_rows) - batch_begin,    \
+                 static_cast<int64_t>(arrow::util::MiniBatch::kMiniBatchLength));
+
+#define END_MINI_BATCH_FOR }
+
 class bit_util {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
@@ -365,13 +379,14 @@ struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
 /// Modify an Expression with pre-order and post-order visitation.
 /// `pre` will be invoked on each Expression. `pre` will visit Calls before their
 /// arguments, `post_call` will visit Calls (and no other Expressions) after their
-/// arguments. Visitors should return the Identical expression to indicate no change; this
-/// will prevent unnecessary construction in the common case where a modification is not
-/// possible/necessary/...
+/// arguments. Visitors should return the Identical expression to indicate no change;
+/// this will prevent unnecessary construction in the common case where a modification
+/// is not possible/necessary/...
 ///
-/// If an argument was modified, `post_call` visits a reconstructed Call with the modified
-/// arguments but also receives a pointer to the unmodified Expression as a second
-/// argument. If no arguments were modified the unmodified Expression* will be nullptr.
+/// If an argument was modified, `post_call` visits a reconstructed Call with the
+/// modified arguments but also receives a pointer to the unmodified Expression as a
+/// second argument. If no arguments were modified the unmodified Expression* will be
+/// nullptr.
 template <typename PreVisit, typename PostVisitCall>
 Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
                                     const PostVisitCall& post_call) {
