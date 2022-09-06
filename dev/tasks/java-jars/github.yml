@@ -22,12 +22,12 @@
 jobs:
 
   build-cpp-ubuntu:
-    name: Build C++ Libs Ubuntu
+    name: Build C++ libraries Ubuntu
     runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
-      - name: Build C++ Libs
+      - name: Build C++ libraries
         run: |
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
@@ -35,27 +35,27 @@ jobs:
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
-      - name: Upload Artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-shared-lib
           path: arrow-shared-libs-linux.tar.gz
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}
-      - name: Push Docker Image
+      - name: Push Docker image
         shell: bash
         run: archery docker push java-jni-manylinux-2014
     {% endif %}
 
   build-cpp-macos:
-    name: Build C++ Libs MacOS
+    name: Build C++ libraries macOS
     runs-on: macos-latest
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           brew install --overwrite git
           brew bundle --file=arrow/cpp/Brewfile
@@ -68,7 +68,7 @@ jobs:
       - name: Setup ccache
         run: |
           arrow/ci/scripts/ccache_setup.sh
-      - name: Build C++ Libs
+      - name: Build C++ libraries
         run: |
           set -e
           arrow/ci/scripts/java_jni_macos_build.sh \
@@ -77,14 +77,14 @@ jobs:
             $GITHUB_WORKSPACE/arrow/java-dist
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
-      - name: Upload Artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-shared-lib
           path: arrow-shared-libs-macos.tar.gz
 
   package-jars:
-    name: Build Jar Files
+    name: Build jar files
     runs-on: macos-latest
     needs: [build-cpp-macos, build-cpp-ubuntu]
     steps:
@@ -93,7 +93,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ubuntu-shared-lib
-      - name: Download MacOS C++ Library
+      - name: Download macOS C++ libraries
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
@@ -101,7 +101,7 @@ jobs:
         run: |
           tar -xvzf arrow-shared-libs-linux.tar.gz
           tar -xvzf arrow-shared-libs-macos.tar.gz
-      - name: Test that Shared Libraries Exist
+      - name: Test that shared libraries exist
         run: |
           set -x
           test -f arrow/java-dist/libarrow_cdata_jni.dylib
@@ -114,7 +114,7 @@ jobs:
           test -f arrow/java-dist/libarrow_orc_jni.so
           test -f arrow/java-dist/libgandiva_jni.so
           test -f arrow/java-dist/libplasma_java.so
-      - name: Build Bundled Jar
+      - name: Build bundled jar
         run: |
           set -e
           pushd arrow/java

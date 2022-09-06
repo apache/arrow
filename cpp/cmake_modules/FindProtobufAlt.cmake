@@ -15,30 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "automake"
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "c-ares"
-brew "ccache"
-brew "cmake"
-brew "flatbuffers"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm"
-brew "llvm@12"
-brew "lz4"
-brew "ninja"
-brew "numpy"
-brew "openssl@1.1"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "snappy"
-brew "thrift"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+if(ARROW_PROTOBUF_USE_SHARED)
+  set(Protobuf_USE_STATIC_LIBS OFF)
+else()
+  set(Protobuf_USE_STATIC_LIBS ON)
+endif()
+
+set(find_package_args)
+if(ProtobufAlt_FIND_VERSION)
+  list(APPEND find_package_args ${ProtobufAlt_FIND_VERSION})
+endif()
+if(ProtobufAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Protobuf ${find_package_args})
+set(ProtobufAlt_FOUND ${Protobuf_FOUND})
