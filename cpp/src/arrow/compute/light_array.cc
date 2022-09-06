@@ -108,41 +108,100 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   return sliced;
 }
 
-Result<KeyColumnMetadata> ColumnMetadataFromDataType(
-    const std::shared_ptr<DataType>& type) {
-  const bool is_extension = type->id() == Type::EXTENSION;
-  const std::shared_ptr<DataType>& typ =
-      is_extension
-          ? arrow::internal::checked_pointer_cast<ExtensionType>(type->GetSharedPtr())
-                ->storage_type()
-          : type;
+Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType *type) {
+  // "ptype" is the "physical" type
+  const DataType *ptype = type;
 
-  if (typ->id() == Type::DICTIONARY) {
+  // For ExtensionType, use the backing physical type (storage_type() is a shared ptr)
+  if (ARROW_PREDICT_FALSE(type->id() == Type::EXTENSION)) {
+    ExtensionType *ext_type = arrow::internal::checked_pointer_cast<ExtensionType>(type);
+    ptype = ext_type->storage_type().get();
+  }
+
+  if (ptype->id() == Type::DICTIONARY) {
     auto bit_width =
-        arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width();
+        arrow::internal::checked_cast<const FixedWidthType&>(*ptype).bit_width();
     ARROW_DCHECK(bit_width % 8 == 0);
     return KeyColumnMetadata(true, bit_width / 8);
   }
-  if (typ->id() == Type::BOOL) {
+  if (ptype->id() == Type::BOOL) {
     return KeyColumnMetadata(true, 0);
   }
-  if (is_fixed_width(typ->id())) {
+  if (is_fixed_width(ptype->id())) {
     return KeyColumnMetadata(
-        true, arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width() / 8);
+        true, arrow::internal::checked_cast<const FixedWidthType&>(*ptype).bit_width() / 8);
   }
-  if (is_binary_like(typ->id())) {
+  if (is_binary_like(ptype->id())) {
     return KeyColumnMetadata(false, sizeof(uint32_t));
   }
-  if (is_large_binary_like(typ->id())) {
+  if (is_large_binary_like(ptype->id())) {
     return KeyColumnMetadata(false, sizeof(uint64_t));
   }
-  if (typ->id() == Type::NA) {
+  if (ptype->id() == Type::NA) {
     return KeyColumnMetadata(true, 0, true);
   }
   // Caller attempted to create a KeyColumnArray from an invalid type
-  return Status::TypeError("Unsupported column data type ", typ->name(),
+  return Status::TypeError("Unsupported column data type ", ptype->name(),
                            " used with KeyColumnMetadata");
 }
+
+Result<KeyColumnMetadata> ColumnMetadataFromDataType(const std::shared_ptr<DataType>& type) {
+  return ColumnMetadataFromDataType(type.get());
+}
+
+Result<KeyColumnArray>
+ColumnArrayFromArraySpan(const ArraySpan &array_span, int64_t num_rows) {
+  ARROW_ASSIGN_OR_RAISE(
+    KeyColumnMetadata metadata,
+    ColumnMetadataFromDataType(array_span.type)
+  );
+
+  uint8_t *buffer_validity  = nullptr;
+  if (array_span.GetBuffer(0) != nullptr) {
+    buffer_validity = (uint8_t *) array_span.GetBuffer(0)->data();
+  }
+
+  uint8_t *buffer_varlength = nullptr;
+  if (array_span.num_buffers() > 2 && array_span.GetBuffer(2) != NULLPTR) {
+     buffer_varlength = (uint8_t *) array_span.GetBuffer(2)->data();
+  }
+
+  KeyColumnArray column_array = KeyColumnArray(
+    metadata,
+    array_span.offset + num_rows,
+    buffer_validity,
+    array_span.GetBuffer(1)->data(),
+    buffer_varlength
+  );
+
+  return column_array.Slice(array_span.offset, num_rows);
+}
+
+Result<std::vector<KeyColumnArray>>
+ColumnArraysFromArraySpan(const ArraySpan &array_span, int64_t num_rows) {
+  std::vector<KeyColumnArray> flattened_spans;
+  flattened_spans.reserve(1 + array_span.child_data.size());
+
+  // Construct a KeyColumnArray from the given ArraySpan
+  if (array_span.type->id() != Type::STRUCT) {
+    ARROW_ASSIGN_OR_RAISE(auto keycol_arr, ColumnArrayFromArraySpan(array_span, num_rows));
+    flattened_spans.push_back(keycol_arr);
+  }
+
+  // Recurse on each child of the ArraySpan in DFS-order
+  // recursion will only be deeper than 3 levels if we have a double-nested type.
+  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
+    auto child_span = array_span.child_data[child_ndx];
+    ARROW_ASSIGN_OR_RAISE(auto child_keycols,
+                          ColumnArraysFromArraySpan(child_span, num_rows));
+
+    flattened_spans.insert(flattened_spans.end(),
+                           child_keycols.begin(), child_keycols.end());
+  }
+
+  return flattened_spans;
+}
+
 
 Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {

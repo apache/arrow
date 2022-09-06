@@ -195,10 +195,17 @@ class ARROW_EXPORT KeyColumnArray {
 ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
 
-/// \brief Create KeyColumnArray from ArrayData
+ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
+    const DataType *type);
+
+/// \brief Create KeyColumnArray from ArraySpan
 ///
-/// If `type` is a dictionary type then this will return the KeyColumnArray for
-/// the indices array
+/// The caller should ensure this is only called on "key" columns.
+/// \see ColumnMetadataFromDataType for details
+ARROW_EXPORT Result<std::vector<KeyColumnArray>>
+ColumnArraysFromArraySpan(const ArraySpan &array_span, int64_t num_rows);
+
+/// \brief Create KeyColumnArray from ArrayData
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
