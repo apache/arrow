@@ -195,15 +195,14 @@ class ARROW_EXPORT KeyColumnArray {
 ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
 
-ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
-    const DataType *type);
+ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType* type);
 
 /// \brief Create KeyColumnArray from ArraySpan
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Result<std::vector<KeyColumnArray>>
-ColumnArraysFromArraySpan(const ArraySpan &array_span, int64_t num_rows);
+ARROW_EXPORT Result<std::vector<KeyColumnArray>> ColumnArraysFromArraySpan(
+    const ArraySpan& array_span, int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData
 ///
