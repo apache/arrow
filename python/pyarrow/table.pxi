@@ -3395,17 +3395,15 @@ cdef class Table(_PandasConvertible):
             Field field
             list newcols = []
 
-        field_names = self.schema.names
-        if field_names != target_schema.names:
+        if self.schema.names != target_schema.names:
             raise ValueError("Target schema's field names are not matching "
                              "the table's field names: {!r}, {!r}"
                              .format(self.schema.names, target_schema.names))
 
-        for name in field_names:
-            if self.schema.field(name).nullable and not target_schema.field(name).nullable:
-                raise RuntimeError(
-                    "Casting a nullable field {!r} to non-nullable".format(name))
         for column, field in zip(self.itercolumns(), target_schema):
+            if column.null_count > 0 and not field.nullable:
+                raise RuntimeError("Casting field {!r} with null values to non-nullable"
+                                   .format(field.name))
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 

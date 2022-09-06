@@ -2201,3 +2201,6 @@ def test_table_cast_invalid():
                             pa.field("b", "bool", nullable=False)])
     with pytest.raises(RuntimeError):
         table.cast(new_schema)
+
+    table = pa.table({'a': [None, 1], 'b': [False, True]})
+    assert table.cast(new_schema).schema == new_schema
