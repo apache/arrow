@@ -656,6 +656,9 @@ func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
 	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
 	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) {
+		if r.cur != nil {
+			r.cur.Release()
+		}
 		C.ArrowArrayStreamRelease(r.stream)
 		C.free(unsafe.Pointer(r.stream))
 	})
@@ -670,6 +673,8 @@ type nativeCRecordBatchReader struct {
 	err error
 }
 
+// No need to implement retain and release here as we used runtime.SetFinalizer when constructing
+// the reader to free up the ArrowArrayStream memory when the garbage collector cleans it up.
 func (n *nativeCRecordBatchReader) Retain()  {}
 func (n *nativeCRecordBatchReader) Release() {}
 
