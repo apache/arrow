@@ -24,7 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# https://github.com/Homebrew/homebrew-core/blob/master/Formula/apache-arrow-glib.rb
+# https://github.com/Homebrew/homebrew-core/blob/-/Formula/apache-arrow-glib.rb
 
 class ApacheArrowGlib < Formula
   desc "GLib bindings for Apache Arrow"
