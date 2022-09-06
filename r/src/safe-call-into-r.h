@@ -163,7 +163,7 @@ template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (!CanRunWithCapturedR()) {
     return arrow::Status::NotImplemented(
-        "RunWithCapturedR() without UnwindProtect or on 32-bit Windows + R <= 3.6");
+        "RunWithCapturedR() without UnwindProtect");
   }
 
   if (GetMainRThread().Executor() != nullptr) {

@@ -67,11 +67,6 @@ more complete installation, set the environment variable
 `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
 details.
 
-For Windows users of R 3.6 and earlier, note that support for AWS S3 is not
-available, and the 32-bit version does not support Arrow Datasets.
-These features are only supported by the `rtools40` toolchain on Windows
-and thus are only available in R >= 4.0.
-
 ### Installing a development version
 
 Development versions of the package (binary and source) are built
