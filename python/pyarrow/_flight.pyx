@@ -311,6 +311,11 @@ cdef class Action(_Weakrefable):
             CAction.Deserialize(tobytes(serialized)))
         return action
 
+    def __eq__(self, Action other):
+        # TODO (qhoang): question for myself, do we need to push this down
+        # to C++ for checking with body as well (similar to Ticker, e.g.)
+        return self.action.type == other.action.type
+
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
 
