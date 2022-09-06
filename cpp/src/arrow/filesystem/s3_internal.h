@@ -156,7 +156,7 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   std::stringstream ss;
   ss << S3ErrorToString(error_type);
   if (error_type == Aws::S3::S3Errors::UNKNOWN) {
-    ss << " (http status " << static_cast<int>(error.GetResponseCode()) << ")";
+    ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
   }
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
                          " operation: ", error.GetMessage());
