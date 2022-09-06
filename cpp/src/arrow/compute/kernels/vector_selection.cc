@@ -93,18 +93,18 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
                                FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
 
-  const ArraySpan& filter_data = filter.child_data[0];
+  const ArraySpan& filter_data = rle_util::ValuesArray(filter);
   const uint8_t* filter_is_valid = filter_data.buffers[0].data;
   const uint8_t* filter_selection = filter_data.buffers[1].data;
 
-  if (filter_is_valid == NULLPTR) {
+  if (!rle_util::ValuesArray(filter).MayHaveNulls()) {
     for (auto it = rle_util::MergedRunsIterator<2>(values, filter);
          it != rle_util::MergedRunsIterator<2>(); ++it) {
       if (bit_util::GetBit(filter_selection, it.physical_index(1))) {
         output_size++;
       }
     }
-  } else {  // filter has validity bitmap
+  } else {  // filter may have nulls
     if (null_selection == FilterOptions::EMIT_NULL) {
       for (auto it = rle_util::MergedRunsIterator<2>(values, filter);
            it != rle_util::MergedRunsIterator<2>(); ++it) {
@@ -299,15 +299,15 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
                           bool allocate_validity, ArrayData* out) {
   // Preallocate memory
-  out->buffers.resize(1);
-  out->child_data.resize(2);
+  out->buffers = {NULLPTR};
+  out->child_data = {NULLPTR, NULLPTR};
 
   auto values_array = std::make_shared<ArrayData>(
       checked_cast<RunLengthEncodedType&>(*out->type).encoded_type(), physical_length);
-  values_array->buffers.resize(2);
+  values_array->buffers = {NULLPTR, NULLPTR};
   auto run_ends_array =
       std::make_shared<ArrayData>(int32(), physical_length, /*null_count=*/0);
-  run_ends_array->buffers.resize(2);
+  run_ends_array->buffers = {NULLPTR, NULLPTR};
 
   if (allocate_validity) {
     ARROW_ASSIGN_OR_RAISE(values_array->buffers[0], ctx->AllocateBitmap(physical_length));
@@ -925,16 +925,20 @@ class RLEPrimitiveFilterImpl {
                          FilterOptions::NullSelectionBehavior null_selection,
                          ArrayData* out_arr)
       : values_{values},
-        values_is_valid_(rle_util::ValuesArray(filter).buffers[0].data),
-        values_data_(rle_util::ValuesArray(filter).GetValues<T>(1, 0)),
+        values_is_valid_(rle_util::ValuesArray(values).buffers[0].data),
+        values_data_(rle_util::ValuesArray(values).GetValues<T>(1, 0)),
         filter_{filter},
         filter_is_valid_(rle_util::ValuesArray(filter).buffers[0].data),
         filter_data_(rle_util::ValuesArray(filter).buffers[1].data),
         null_selection_(null_selection),
         out_logical_length_(out_arr->length) {
-    if (out_arr->child_data[1]->buffers[0] != nullptr) {
+    const std::shared_ptr<Buffer>& out_validity_buffer =
+        out_arr->child_data[1]->buffers[0];
+    if (out_validity_buffer != NULLPTR) {
       // May not be allocated if neither filter nor values contains nulls
-      out_is_valid_ = out_arr->child_data[1]->buffers[0]->mutable_data();
+      out_is_valid_ = out_validity_buffer->mutable_data();
+    } else {
+      out_is_valid_ = NULLPTR;
     }
     assert(out_arr->offset == 0);
     out_position_ = 0;
@@ -945,7 +949,6 @@ class RLEPrimitiveFilterImpl {
   void Exec() {
     auto WriteNotNull = [&](int64_t in_position, int64_t run_length) {
       bit_util::SetBit(out_is_valid_, out_position_);
-      out_run_ends_[out_position_] = run_length;
       // Increments out_position_
       WriteValue(in_position, run_length);
     };
@@ -953,7 +956,6 @@ class RLEPrimitiveFilterImpl {
     auto WriteMaybeNull = [&](int64_t in_position, int64_t run_length) {
       bit_util::SetBitTo(out_is_valid_, out_position_,
                          bit_util::GetBit(values_is_valid_, in_position));
-      out_run_ends_[out_position_] = run_length;
       // Increments out_position_
       WriteValue(in_position, run_length);
     };
@@ -964,13 +966,13 @@ class RLEPrimitiveFilterImpl {
     };
 
     int64_t accumulated_run_length = 0;
-    if (values_is_valid_ == NULLPTR) {
-      if (filter_is_valid_ == NULLPTR) {
+    if (!rle_util::ValuesArray(values_).MayHaveNulls()) {
+      if (!rle_util::ValuesArray(filter_).MayHaveNulls()) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
-          if (bit_util::GetBit(filter_data_, it.physical_index(1))) {
+          if (bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteValue(it.physical_index(0), accumulated_run_length);
+            WriteValue(it.physical_index(VALUE_INPUT), accumulated_run_length);
           }
         }
       } else if (null_selection_ == FilterOptions::DROP) {
@@ -999,8 +1001,8 @@ class RLEPrimitiveFilterImpl {
           }
         }
       }
-    } else {  // values_is_valid_ exists. Input may have nulls
-      if (filter_is_valid_ == NULLPTR) {
+    } else {  // values input may have nulls
+      if (!rle_util::ValuesArray(filter_).MayHaveNulls()) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
           if (bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
@@ -1045,9 +1047,9 @@ class RLEPrimitiveFilterImpl {
     out_data_[out_position_++] = values_data_[in_position];
   }
 
-  void WriteNull(int64_t run_length) {
+  void WriteNull(int64_t run_end) {
     // Zero the memory
-    out_run_ends_[out_position_] = run_length;
+    out_run_ends_[out_position_] = run_end;
     out_data_[out_position_++] = T{};
   }
 
@@ -1091,14 +1093,16 @@ Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* 
 
   ArrayData* out_arr = result->array_data().get();
 
+  bool allocate_validity = rle_util::ValuesArray(values).MayHaveNulls() ||
+                           (null_selection == FilterOptions::EMIT_NULL &&
+                            rle_util::ValuesArray(filter).MayHaveNulls());
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
-  if (!values.MayHaveNulls() &&
-      (null_selection == FilterOptions::DROP || !filter.MayHaveNulls())) {
-    out_arr->null_count = 0;
-  } else {
+  if (allocate_validity) {
     out_arr->null_count = kUnknownNullCount;
+  } else {
+    out_arr->null_count = 0;
   }
 
   const int bit_width =
