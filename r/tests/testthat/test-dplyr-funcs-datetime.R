@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
 # In 3.4 the lack of tzone attribute causes spurious failures
 skip_on_r_older_than("3.5")
 
