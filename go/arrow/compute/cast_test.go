@@ -93,12 +93,18 @@ func checkScalarNonRecursive(t *testing.T, funcName string, inputs []compute.Dat
 func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scalar, expected scalar.Scalar, opts compute.FunctionOptions) {
 	datums := getDatums(inputs)
 	defer func() {
+		for _, s := range inputs {
+			if r, ok := s.(scalar.Releasable); ok {
+				r.Release()
+			}
+		}
 		for _, d := range datums {
 			d.Release()
 		}
 	}()
 	out, err := compute.CallFunction(context.Background(), funcName, opts, datums...)
 	assert.NoError(t, err)
+	defer out.Release()
 	if !scalar.Equals(out.(*compute.ScalarDatum).Value, expected) {
 		var b strings.Builder
 		b.WriteString(funcName + "(")
@@ -145,6 +151,9 @@ func checkScalar(t *testing.T, funcName string, inputs []compute.Datum, expected
 	for i := 0; i < exp.Len(); i++ {
 		e, _ := scalar.GetScalar(exp, i)
 		checkScalarWithScalars(t, funcName, getScalars(inputs, i), e, opts)
+		if r, ok := e.(scalar.Releasable); ok {
+			r.Release()
+		}
 	}
 }
 
@@ -174,6 +183,9 @@ func checkCastFails(t *testing.T, input arrow.Array, opt compute.CastOptions) {
 	nfail := 0
 	for i := 0; i < input.Len(); i++ {
 		sc, _ := scalar.GetScalar(input, i)
+		if r, ok := sc.(scalar.Releasable); ok {
+			defer r.Release()
+		}
 		d := compute.NewDatum(sc)
 		defer d.Release()
 		out, err := compute.CastDatum(context.Background(), d, &opt)
@@ -323,20 +335,18 @@ func (c *CastSuite) TestCanCast() {
 		expectCanCast(from, toSet, false)
 	}
 
-	// will uncomment lines as support for those casts is added
-
 	canCast(arrow.Null, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.Null, numericTypes)
 	canCast(arrow.Null, baseBinaryTypes)
 	canCast(arrow.Null, []arrow.DataType{
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64, arrow.FixedWidthTypes.Time32ms, arrow.FixedWidthTypes.Timestamp_s,
 	})
-	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.Null}, []arrow.DataType{arrow.Null})
+	cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: arrow.Null}, []arrow.DataType{arrow.Null})
 
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 	canCast(arrow.FixedWidthTypes.Boolean, numericTypes)
 	canCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-	// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.FixedWidthTypes.Boolean}, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
+	cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.FixedWidthTypes.Boolean}, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 
 	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.Null})
 	cannotCast(arrow.FixedWidthTypes.Boolean, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
@@ -347,16 +357,16 @@ func (c *CastSuite) TestCanCast() {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
 		canCast(from, numericTypes)
 		canCast(from, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
+		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: from}, []arrow.DataType{from})
 
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
 
 	for _, from := range baseBinaryTypes {
 		canCast(from, []arrow.DataType{arrow.FixedWidthTypes.Boolean})
-		// canCast(from, numericTypes)
+		canCast(from, numericTypes)
 		canCast(from, baseBinaryTypes)
-		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
+		cannotCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: from}, []arrow.DataType{from})
 
 		// any cast which is valid for the dictionary is valid for the dictionary array
 		// canCast(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: from}, baseBinaryTypes)
@@ -365,8 +375,8 @@ func (c *CastSuite) TestCanCast() {
 		cannotCast(from, []arrow.DataType{arrow.Null})
 	}
 
-	// canCast(arrow.BinaryTypes.String, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ms})
-	// canCast(arrow.BinaryTypes.LargeString, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ns})
+	canCast(arrow.BinaryTypes.String, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ms})
+	canCast(arrow.BinaryTypes.LargeString, []arrow.DataType{arrow.FixedWidthTypes.Timestamp_ns})
 	// no formatting supported
 	cannotCast(arrow.FixedWidthTypes.Timestamp_us, []arrow.DataType{arrow.BinaryTypes.Binary, arrow.BinaryTypes.LargeBinary})
 
@@ -376,9 +386,9 @@ func (c *CastSuite) TestCanCast() {
 
 	arrow.RegisterExtensionType(types.NewSmallintType())
 	defer arrow.UnregisterExtensionType("smallint")
-	// canCast(types.NewSmallintType(), []arrow.DataType{arrow.PrimitiveTypes.Int16})
-	// canCast(types.NewSmallintType(), numericTypes) // any cast which is valid for storage is supported
-	// canCast(arrow.Null, []arrow.DataType{types.NewSmallintType()})
+	canCast(types.NewSmallintType(), []arrow.DataType{arrow.PrimitiveTypes.Int16})
+	canCast(types.NewSmallintType(), numericTypes) // any cast which is valid for storage is supported
+	canCast(arrow.Null, []arrow.DataType{types.NewSmallintType()})
 
 	canCast(arrow.FixedWidthTypes.Date32, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
 	canCast(arrow.FixedWidthTypes.Date64, []arrow.DataType{arrow.BinaryTypes.String, arrow.BinaryTypes.LargeString})
@@ -1562,14 +1572,14 @@ func (c *CastSuite) TestUnsupportedInputType() {
 	toType := arrow.ListOf(arrow.BinaryTypes.String)
 	_, err := compute.CastToType(context.Background(), arr, toType)
 	c.ErrorIs(err, arrow.ErrNotImplemented)
-	c.ErrorContains(err, "unsupported cast to list<item: utf8, nullable> from int32")
+	c.ErrorContains(err, "function 'cast_list' has no kernel matching input types (int32)")
 
 	// test calling through the generic kernel API
 	datum := compute.NewDatum(arr)
 	defer datum.Release()
 	_, err = compute.CallFunction(context.Background(), "cast", compute.SafeCastOptions(toType), datum)
 	c.ErrorIs(err, arrow.ErrNotImplemented)
-	c.ErrorContains(err, "unsupported cast to list<item: utf8, nullable> from int32")
+	c.ErrorContains(err, "function 'cast_list' has no kernel matching input types (int32)")
 }
 
 func (c *CastSuite) TestUnsupportedTargetType() {
@@ -2240,6 +2250,424 @@ func (c *CastSuite) TestIdentityCasts() {
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date32, `[1, 2, 3, 4]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Date64, `[86400000, 0]`)
 	c.checkCastSelfZeroCopy(arrow.FixedWidthTypes.Timestamp_s, `[1, 2, 3, 4]`)
+}
+
+func (c *CastSuite) TestListToPrimitive() {
+	arr, _, _ := array.FromJSON(c.mem, arrow.ListOf(arrow.PrimitiveTypes.Int8), strings.NewReader(`[[1, 2], [3, 4]]`))
+	defer arr.Release()
+
+	_, err := compute.CastToType(context.Background(), arr, arrow.PrimitiveTypes.Uint8)
+	c.ErrorIs(err, arrow.ErrNotImplemented)
+}
+
+type makeList func(arrow.DataType) arrow.DataType
+
+var listFactories = []makeList{
+	func(dt arrow.DataType) arrow.DataType { return arrow.ListOf(dt) },
+	func(dt arrow.DataType) arrow.DataType { return arrow.LargeListOf(dt) },
+}
+
+func (c *CastSuite) checkListToList(valTypes []arrow.DataType, jsonData string) {
+	for _, makeSrc := range listFactories {
+		for _, makeDest := range listFactories {
+			for _, srcValueType := range valTypes {
+				for _, dstValueType := range valTypes {
+					srcType := makeSrc(srcValueType)
+					dstType := makeDest(dstValueType)
+					c.Run(fmt.Sprintf("from %s to %s", srcType, dstType), func() {
+						c.checkCast(srcType, dstType, jsonData, jsonData)
+					})
+				}
+			}
+		}
+	}
+}
+
+func (c *CastSuite) TestListToList() {
+	c.checkListToList([]arrow.DataType{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Int64},
+		`[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]`)
+}
+
+func (c *CastSuite) TestListToListNoNulls() {
+	c.checkListToList([]arrow.DataType{arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Int64},
+		`[[0], [1], [2, 3, 4], [5, 6], [], [7], [8, 9]]`)
+}
+
+func (c *CastSuite) TestListToListOptionsPassthru() {
+	for _, makeSrc := range listFactories {
+		for _, makeDest := range listFactories {
+			opts := compute.SafeCastOptions(makeDest(arrow.PrimitiveTypes.Int16))
+			c.checkCastFails(makeSrc(arrow.PrimitiveTypes.Int32), `[[87654321]]`, opts)
+
+			opts.AllowIntOverflow = true
+			c.checkCastOpts(makeSrc(arrow.PrimitiveTypes.Int32), makeDest(arrow.PrimitiveTypes.Int16),
+				`[[87654321]]`, `[[32689]]`, *opts)
+		}
+	}
+}
+
+func (c *CastSuite) checkStructToStruct(types []arrow.DataType) {
+	for _, srcType := range types {
+		c.Run(srcType.String(), func() {
+			for _, destType := range types {
+				c.Run(destType.String(), func() {
+					fieldNames := []string{"a", "b"}
+					a1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[1, 2, 3, 4, null]`))
+					b1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[null, 7, 8, 9, 0]`))
+					a2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[1, 2, 3, 4, null]`))
+					b2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[null, 7, 8, 9, 0]`))
+					src, _ := array.NewStructArray([]arrow.Array{a1, b1}, fieldNames)
+					dest, _ := array.NewStructArray([]arrow.Array{a2, b2}, fieldNames)
+					defer func() {
+						a1.Release()
+						b1.Release()
+						a2.Release()
+						b2.Release()
+						src.Release()
+						dest.Release()
+					}()
+
+					checkCast(c.T(), src, dest, *compute.DefaultCastOptions(true))
+					c.Run("with nulls", func() {
+						nullBitmap := memory.NewBufferBytes([]byte{10})
+						srcNullData := src.Data().(*array.Data).Copy()
+						srcNullData.Buffers()[0] = nullBitmap
+						srcNullData.SetNullN(3)
+						defer srcNullData.Release()
+						destNullData := dest.Data().(*array.Data).Copy()
+						destNullData.Buffers()[0] = nullBitmap
+						destNullData.SetNullN(3)
+						defer destNullData.Release()
+
+						srcNulls := array.NewStructData(srcNullData)
+						destNulls := array.NewStructData(destNullData)
+						defer srcNulls.Release()
+						defer destNulls.Release()
+
+						checkCast(c.T(), srcNulls, destNulls, *compute.DefaultCastOptions(true))
+					})
+				})
+			}
+		})
+	}
+}
+
+func (c *CastSuite) checkStructToStructSubset(types []arrow.DataType) {
+	for _, srcType := range types {
+		c.Run(srcType.String(), func() {
+			for _, destType := range types {
+				c.Run(destType.String(), func() {
+					fieldNames := []string{"a", "b", "c", "d", "e"}
+
+					a1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[1, 2, 5]`))
+					defer a1.Release()
+					b1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[3, 4, 7]`))
+					defer b1.Release()
+					c1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[9, 11, 44]`))
+					defer c1.Release()
+					d1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[6, 51, 49]`))
+					defer d1.Release()
+					e1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[19, 17, 74]`))
+					defer e1.Release()
+
+					a2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[1, 2, 5]`))
+					defer a2.Release()
+					b2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[3, 4, 7]`))
+					defer b2.Release()
+					c2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[9, 11, 44]`))
+					defer c2.Release()
+					d2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[6, 51, 49]`))
+					defer d2.Release()
+					e2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[19, 17, 74]`))
+					defer e2.Release()
+
+					src, _ := array.NewStructArray([]arrow.Array{a1, b1, c1, d1, e1}, fieldNames)
+					defer src.Release()
+					dest1, _ := array.NewStructArray([]arrow.Array{a2}, []string{"a"})
+					defer dest1.Release()
+
+					opts := *compute.DefaultCastOptions(true)
+					checkCast(c.T(), src, dest1, opts)
+
+					dest2, _ := array.NewStructArray([]arrow.Array{b2, c2}, []string{"b", "c"})
+					defer dest2.Release()
+					checkCast(c.T(), src, dest2, opts)
+
+					dest3, _ := array.NewStructArray([]arrow.Array{c2, d2, e2}, []string{"c", "d", "e"})
+					defer dest3.Release()
+					checkCast(c.T(), src, dest3, opts)
+
+					dest4, _ := array.NewStructArray([]arrow.Array{a2, b2, c2, e2}, []string{"a", "b", "c", "e"})
+					defer dest4.Release()
+					checkCast(c.T(), src, dest4, opts)
+
+					dest5, _ := array.NewStructArray([]arrow.Array{a2, b2, c2, d2, e2}, []string{"a", "b", "c", "d", "e"})
+					defer dest5.Release()
+					checkCast(c.T(), src, dest5, opts)
+
+					// field does not exist
+					dest6 := arrow.StructOf(
+						arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+						arrow.Field{Name: "d", Type: arrow.PrimitiveTypes.Int16, Nullable: true},
+						arrow.Field{Name: "f", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+					)
+					options6 := compute.SafeCastOptions(dest6)
+					_, err := compute.CastArray(context.TODO(), src, options6)
+					c.ErrorIs(err, arrow.ErrType)
+					c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+
+					// fields in wrong order
+					dest7 := arrow.StructOf(
+						arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+						arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int16, Nullable: true},
+						arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+					)
+					options7 := compute.SafeCastOptions(dest7)
+					_, err = compute.CastArray(context.TODO(), src, options7)
+					c.ErrorIs(err, arrow.ErrType)
+					c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+				})
+			}
+		})
+	}
+}
+
+func (c *CastSuite) checkStructToStructSubsetWithNulls(types []arrow.DataType) {
+	for _, srcType := range types {
+		c.Run(srcType.String(), func() {
+			for _, destType := range types {
+				c.Run(destType.String(), func() {
+					fieldNames := []string{"a", "b", "c", "d", "e"}
+
+					a1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[1, 2, 5]`))
+					defer a1.Release()
+					b1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[3, null, 7]`))
+					defer b1.Release()
+					c1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[9, 11, 44]`))
+					defer c1.Release()
+					d1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[6, 51, null]`))
+					defer d1.Release()
+					e1, _, _ := array.FromJSON(c.mem, srcType, strings.NewReader(`[null, 17, 74]`))
+					defer e1.Release()
+
+					a2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[1, 2, 5]`))
+					defer a2.Release()
+					b2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[3, null, 7]`))
+					defer b2.Release()
+					c2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[9, 11, 44]`))
+					defer c2.Release()
+					d2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[6, 51, null]`))
+					defer d2.Release()
+					e2, _, _ := array.FromJSON(c.mem, destType, strings.NewReader(`[null, 17, 74]`))
+					defer e2.Release()
+
+					// 0, 1, 0
+					nullBitmap := memory.NewBufferBytes([]byte{2})
+					srcNull, _ := array.NewStructArrayWithNulls([]arrow.Array{a1, b1, c1, d1, e1}, fieldNames, nullBitmap, 2, 0)
+					defer srcNull.Release()
+
+					dest1Null, _ := array.NewStructArrayWithNulls([]arrow.Array{a2}, []string{"a"}, nullBitmap, -1, 0)
+					defer dest1Null.Release()
+					opts := compute.DefaultCastOptions(true)
+					checkCast(c.T(), srcNull, dest1Null, *opts)
+
+					dest2Null, _ := array.NewStructArrayWithNulls([]arrow.Array{b2, c2}, []string{"b", "c"}, nullBitmap, -1, 0)
+					defer dest2Null.Release()
+					checkCast(c.T(), srcNull, dest2Null, *opts)
+
+					dest3Null, _ := array.NewStructArrayWithNulls([]arrow.Array{a2, d2, e2}, []string{"a", "d", "e"}, nullBitmap, -1, 0)
+					defer dest3Null.Release()
+					checkCast(c.T(), srcNull, dest3Null, *opts)
+
+					dest4Null, _ := array.NewStructArrayWithNulls([]arrow.Array{a2, b2, c2, e2}, []string{"a", "b", "c", "e"}, nullBitmap, -1, 0)
+					defer dest4Null.Release()
+					checkCast(c.T(), srcNull, dest4Null, *opts)
+
+					dest5Null, _ := array.NewStructArrayWithNulls([]arrow.Array{a2, b2, c2, d2, e2}, []string{"a", "b", "c", "d", "e"}, nullBitmap, -1, 0)
+					defer dest5Null.Release()
+					checkCast(c.T(), srcNull, dest5Null, *opts)
+
+					// field does not exist
+					dest6Null := arrow.StructOf(
+						arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+						arrow.Field{Name: "d", Type: arrow.PrimitiveTypes.Int16, Nullable: true},
+						arrow.Field{Name: "f", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+					)
+					options6Null := compute.SafeCastOptions(dest6Null)
+					_, err := compute.CastArray(context.TODO(), srcNull, options6Null)
+					c.ErrorIs(err, arrow.ErrType)
+					c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+
+					// fields in wrong order
+					dest7Null := arrow.StructOf(
+						arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+						arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int16, Nullable: true},
+						arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+					)
+					options7Null := compute.SafeCastOptions(dest7Null)
+					_, err = compute.CastArray(context.TODO(), srcNull, options7Null)
+					c.ErrorIs(err, arrow.ErrType)
+					c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+				})
+			}
+		})
+	}
+}
+
+func (c *CastSuite) TestStructToSameSizedAndNamedStruct() {
+	c.checkStructToStruct(numericTypes)
+}
+
+func (c *CastSuite) TestStructToStructSubset() {
+	c.checkStructToStructSubset(numericTypes)
+}
+
+func (c *CastSuite) TestStructToStructSubsetWithNulls() {
+	c.checkStructToStructSubsetWithNulls(numericTypes)
+}
+
+func (c *CastSuite) TestStructToSameSizedButDifferentNamedStruct() {
+	fieldNames := []string{"a", "b"}
+	a, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[1, 2]`))
+	defer a.Release()
+	b, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[3, 4]`))
+	defer b.Release()
+
+	src, _ := array.NewStructArray([]arrow.Array{a, b}, fieldNames)
+	defer src.Release()
+
+	dest := arrow.StructOf(
+		arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+		arrow.Field{Name: "d", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+	)
+	opts := compute.SafeCastOptions(dest)
+	_, err := compute.CastArray(context.TODO(), src, opts)
+	c.ErrorIs(err, arrow.ErrType)
+	c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+}
+
+func (c *CastSuite) TestStructToBiggerStruct() {
+	fieldNames := []string{"a", "b"}
+	a, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[1, 2]`))
+	defer a.Release()
+	b, _, _ := array.FromJSON(c.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[3, 4]`))
+	defer b.Release()
+
+	src, _ := array.NewStructArray([]arrow.Array{a, b}, fieldNames)
+	defer src.Release()
+
+	dest := arrow.StructOf(
+		arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+		arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+	)
+	opts := compute.SafeCastOptions(dest)
+	_, err := compute.CastArray(context.TODO(), src, opts)
+	c.ErrorIs(err, arrow.ErrType)
+	c.ErrorContains(err, "struct fields don't match or are in the wrong order")
+}
+
+func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
+	c.Run("non-nullable to nullable", func() {
+		fieldsSrcNonNullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "b", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int8},
+		}
+		srcNonNull, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsSrcNonNullable...),
+			strings.NewReader(`[
+				{"a": 11, "b": 32, "c", 95},
+				{"a": 23, "b": 46, "c": 11},
+				{"a": 56, "b": 37, "c": 44}
+			]`))
+		c.Require().NoError(err)
+		defer srcNonNull.Release()
+
+		fieldsDest1Nullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+			{Name: "b", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		}
+		destNullable, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsDest1Nullable...),
+			strings.NewReader(`[
+				{"a": 11, "b": 32, "c", 95},
+				{"a": 23, "b": 46, "c": 11},
+				{"a": 56, "b": 37, "c": 44}
+			]`))
+		c.Require().NoError(err)
+		defer destNullable.Release()
+
+		checkCast(c.T(), srcNonNull, destNullable, *compute.DefaultCastOptions(true))
+
+		fieldsDest2Nullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		}
+
+		data := array.NewData(arrow.StructOf(fieldsDest2Nullable...), destNullable.Len(), destNullable.Data().Buffers(),
+			[]arrow.ArrayData{destNullable.Data().Children()[0], destNullable.Data().Children()[2]},
+			destNullable.NullN(), 0)
+		defer data.Release()
+		dest2Nullable := array.NewStructData(data)
+		defer dest2Nullable.Release()
+		checkCast(c.T(), srcNonNull, dest2Nullable, *compute.DefaultCastOptions(true))
+
+		fieldsDest3Nullable := []arrow.Field{
+			{Name: "b", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		}
+
+		data = array.NewData(arrow.StructOf(fieldsDest3Nullable...), destNullable.Len(), destNullable.Data().Buffers(),
+			[]arrow.ArrayData{destNullable.Data().Children()[1]}, destNullable.NullN(), 0)
+		defer data.Release()
+		dest3Nullable := array.NewStructData(data)
+		defer dest3Nullable.Release()
+		checkCast(c.T(), srcNonNull, dest3Nullable, *compute.DefaultCastOptions(true))
+	})
+	c.Run("non-nullable to nullable", func() {
+		fieldsSrcNullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "b", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+		}
+		srcNullable, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsSrcNullable...),
+			strings.NewReader(`[
+				{"a": 1, "b": 3, "c", 9},
+				{"a": null, "b": 4, "c": 11},
+				{"a": 5, "b": null, "c": 44}
+			]`))
+		c.Require().NoError(err)
+		defer srcNullable.Release()
+
+		fieldsDest1NonNullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+			{Name: "b", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+		}
+		dest1NonNullable := arrow.StructOf(fieldsDest1NonNullable...)
+		options1NoNullable := compute.SafeCastOptions(dest1NonNullable)
+		_, err = compute.CastArray(context.TODO(), srcNullable, options1NoNullable)
+		c.ErrorIs(err, arrow.ErrType)
+		c.ErrorContains(err, "cannot cast nullable field to non-nullable field")
+
+		fieldsDest2NonNullable := []arrow.Field{
+			{Name: "a", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+			{Name: "c", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+		}
+		dest2NonNullable := arrow.StructOf(fieldsDest2NonNullable...)
+		options2NoNullable := compute.SafeCastOptions(dest2NonNullable)
+		_, err = compute.CastArray(context.TODO(), srcNullable, options2NoNullable)
+		c.ErrorIs(err, arrow.ErrType)
+		c.ErrorContains(err, "cannot cast nullable field to non-nullable field")
+
+		fieldsDest3NonNullable := []arrow.Field{
+			{Name: "c", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+		}
+		dest3NonNullable := arrow.StructOf(fieldsDest3NonNullable...)
+		options3NoNullable := compute.SafeCastOptions(dest3NonNullable)
+		_, err = compute.CastArray(context.TODO(), srcNullable, options3NoNullable)
+		c.ErrorIs(err, arrow.ErrType)
+		c.ErrorContains(err, "cannot cast nullable field to non-nullable field")
+	})
 }
 
 func (c *CastSuite) smallIntArrayFromJSON(data string) arrow.Array {

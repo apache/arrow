@@ -199,7 +199,7 @@ func CastList[SrcOffsetT, DestOffsetT int32 | int64](ctx *exec.KernelCtx, batch 
 
 		values = array.NewSlice(values, int64(offsets[0]), int64(offsets[input.Len]))
 		defer values.Release()
-	} else if kernels.SizeOf[SrcOffsetT]() == kernels.SizeOf[DestOffsetT]() {
+	} else if kernels.SizeOf[SrcOffsetT]() != kernels.SizeOf[DestOffsetT]() {
 		out.Buffers[1].WrapBuffer(ctx.Allocate(out.Type.(arrow.OffsetsDataType).
 			OffsetTypeTraits().BytesRequired(int(input.Len) + 1)))
 
@@ -217,7 +217,13 @@ func CastList[SrcOffsetT, DestOffsetT int32 | int64](ctx *exec.KernelCtx, batch 
 	defer castedValues.Release()
 
 	out.Children = make([]exec.ArraySpan, 1)
-	out.Children[0].TakeOwnership(castedValues.Data())
+	out.Children[0].SetMembers(castedValues.Data())
+	for i, b := range out.Children[0].Buffers {
+		if b.Owner != nil && b.Owner != values.Data().Buffers()[i] {
+			b.Owner.Retain()
+			b.SelfAlloc = true
+		}
+	}
 	return nil
 }
 
@@ -284,6 +290,7 @@ func addListCast[SrcOffsetT, DestOffsetT int32 | int64](fn *castFunction, inType
 	kernel := exec.NewScalarKernel([]exec.InputType{exec.NewIDInput(inType)},
 		kernels.OutputTargetType, CastList[SrcOffsetT, DestOffsetT], nil)
 	kernel.NullHandling = exec.NullComputedNoPrealloc
+	kernel.MemAlloc = exec.MemNoPrealloc
 	return fn.AddTypeCast(inType, kernel)
 }
 
@@ -310,6 +317,11 @@ func initCastTable() {
 	addCastFuncs(getBinaryLikeCasts())
 	addCastFuncs(getTemporalCasts())
 	addCastFuncs(getNestedCasts())
+
+	nullToExt := newCastFunction("cast_extension", arrow.EXTENSION)
+	nullToExt.AddNewTypeCast(arrow.NULL, []exec.InputType{exec.NewExactInput(arrow.Null)},
+		kernels.OutputTargetType, kernels.CastFromNull, exec.NullComputedNoPrealloc, exec.MemNoPrealloc)
+	castTable[arrow.EXTENSION] = nullToExt
 }
 
 func getCastFunction(to arrow.DataType) (*castFunction, error) {
