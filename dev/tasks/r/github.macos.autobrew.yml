@@ -64,10 +64,6 @@ jobs:
             any::rcmdcheck
             any::sys
             any::readr
-      - name: Clean up self-hosted tmp 
-        if: matrix.platform == 'macos-10.13'
-        shell: bash
-        run: rm -rf /Users/voltrondata/tmp/apache-arrow--git
       - name: Check
         env:
           _R_CHECK_CRAN_INCOMING_: false
