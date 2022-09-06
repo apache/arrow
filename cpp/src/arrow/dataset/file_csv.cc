@@ -183,9 +183,15 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   auto tracer = arrow::internal::tracing::GetTracer();
   auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
 #endif
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
@@ -289,8 +295,15 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
-  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, options.get(), self->default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
+  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
