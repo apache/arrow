@@ -170,36 +170,40 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
 
         path = path.substr(7);
-        if (item.path_type_case() ==
-            substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath) {
-          ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
-          if (file.type() == fs::FileType::File) {
-            files.push_back(std::move(file));
-          } else if (file.type() == fs::FileType::Directory) {
+        switch (item.path_type_case()) {
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath: {
+            ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
+            if (file.type() == fs::FileType::File) {
+              files.push_back(std::move(file));
+            } else if (file.type() == fs::FileType::Directory) {
+              fs::FileSelector selector;
+              selector.base_dir = path;
+              selector.recursive = true;
+              ARROW_ASSIGN_OR_RAISE(auto discovered_files,
+                                    filesystem->GetFileInfo(selector));
+              std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+            }
+            break;
+          }
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile: {
+            files.emplace_back(path, fs::FileType::File);
+            break;
+          }
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder: {
             fs::FileSelector selector;
             selector.base_dir = path;
             selector.recursive = true;
             ARROW_ASSIGN_OR_RAISE(auto discovered_files,
                                   filesystem->GetFileInfo(selector));
-            std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+            std::move(discovered_files.begin(), discovered_files.end(),
+                      std::back_inserter(files));
+            break;
           }
-        }
-        if (item.path_type_case() ==
-            substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
-          files.emplace_back(path, fs::FileType::File);
-        } else if (item.path_type_case() ==
-                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
-          fs::FileSelector selector;
-          selector.base_dir = path;
-          selector.recursive = true;
-          ARROW_ASSIGN_OR_RAISE(auto discovered_files, filesystem->GetFileInfo(selector));
-          std::move(discovered_files.begin(), discovered_files.end(),
-                    std::back_inserter(files));
-        } else {
-          ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                fs::internal::GlobFiles(filesystem, path));
-          std::move(discovered_files.begin(), discovered_files.end(),
-                    std::back_inserter(files));
+          default:
+            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
+                                  fs::internal::GlobFiles(filesystem, path));
+            std::move(discovered_files.begin(), discovered_files.end(),
+                      std::back_inserter(files));
         }
       }
 

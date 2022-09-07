@@ -1867,7 +1867,16 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       [&](const NativePathString& base_dir) -> Result<std::unique_ptr<TemporaryDir>> {
     Status st;
     for (int attempt = 0; attempt < 3; ++attempt) {
-      PlatformFilename fn(base_dir + base_name + kNativeSep);
+      // Note: certain temporary directories of MacOS contains a trailing slash
+      // Handling the base_dir with trailing slash
+      PlatformFilename fn;
+      if (base_dir.back() == kNativeSep) {
+        PlatformFilename fn_base_dir(base_dir);
+        PlatformFilename fn_base_name(base_name);
+        ARROW_ASSIGN_OR_RAISE(fn, fn_base_dir.Join(base_name + kNativeSep));
+      } else {
+        fn = PlatformFilename(base_dir + kNativeSep + base_name + kNativeSep);
+      }
       auto result = CreateDir(fn);
       if (!result.ok()) {
         // Probably a permissions error or a non-existing base_dir

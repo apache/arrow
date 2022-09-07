@@ -1870,6 +1870,8 @@ TEST(Substrait, BasicPlanRoundTripping) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
   compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
 
@@ -1896,19 +1898,10 @@ TEST(Substrait, BasicPlanRoundTripping) {
   const std::string file_name = "serde_test.arrow";
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
-                       arrow::internal::TemporaryDir::Make("substrait_tempdir"));
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
   std::cout << "file_path_str " << tempdir->path().ToString() << std::endl;
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
-  std::cout << "file_path_str " << file_path_str << std::endl;
-  // Note: there is an additional forward slash introduced by the tempdir
-  // it must be replaced to properly load into reading files
-  // TODO: (Review: Jira needs to be reported to handle this properly)
-  // std::string toReplace("/T//");
-  // size_t pos = file_path_str.find(toReplace);
-  // if (pos >= 0) {
-  //   file_path_str.replace(pos, toReplace.length(), "/T/");
-  // }
 
   ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
@@ -1940,49 +1933,48 @@ TEST(Substrait, BasicPlanRoundTripping) {
        compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
        compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
 
-  for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
-    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-    ExtensionSet ext_set(ext_id_reg);
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
 
-    ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
 
-    ASSERT_OK_AND_ASSIGN(
-        auto sink_decls,
-        DeserializePlans(
-            *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-    // filter declaration
-    auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
-    const auto& filter_opts =
-        checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
-    auto roundtripped_expr = filter_opts.filter_expression;
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
 
-    if (auto* call = roundtripped_expr.call()) {
-      EXPECT_EQ(call->function_name, "equal");
-      auto args = call->arguments;
-      auto left_index = args[0].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
-      auto right_index = args[1].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
-    }
-    // scan declaration
-    auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
-    const auto& dataset_opts =
-        checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
-    const auto& roundripped_ds = dataset_opts.dataset;
-    EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
-    ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+  }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
 
-    auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
-    auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
-    EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
-    int64_t idx = 0;
-    for (auto fragment : expected_frg_vec) {
-      const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
-      const auto* r_frag =
-          checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
-      EXPECT_TRUE(l_frag->Equals(*r_frag));
-    }
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
   }
 }
 
@@ -1991,7 +1983,8 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #endif
   compute::ExecContext exec_context;
-  ExtensionSet ext_set;
+  arrow::dataset::internal::Initialize();
+
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
 
@@ -2018,18 +2011,9 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   const std::string file_name = "serde_test.arrow";
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
-                       arrow::internal::TemporaryDir::Make("substrait_tempdir"));
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
-
-  // Note: there is an additional forward slash introduced by the tempdir
-  // it must be replaced to properly load into reading files
-  // TODO: (Review: Jira needs to be reported to handle this properly)
-  // std::string toReplace("/T//");
-  // size_t pos = file_path_str.find(toReplace);
-  // if (pos >= 0) {
-  //   file_path_str.replace(pos, toReplace.length(), "/T/");
-  // }
 
   ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
 
@@ -2064,60 +2048,59 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
                                                              exec_context, dummy_schema));
 
-  for (auto sp_ext_id_reg : {MakeExtensionIdRegistry()}) {
-    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-    ExtensionSet ext_set(ext_id_reg);
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
 
-    ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
 
-    ASSERT_OK_AND_ASSIGN(
-        auto sink_decls,
-        DeserializePlans(
-            *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-    // filter declaration
-    auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
-    const auto& filter_opts =
-        checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
-    auto roundtripped_expr = filter_opts.filter_expression;
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
 
-    if (auto* call = roundtripped_expr.call()) {
-      EXPECT_EQ(call->function_name, "equal");
-      auto args = call->arguments;
-      auto left_index = args[0].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
-      auto right_index = args[1].field_ref()->field_path()->indices()[0];
-      EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
-    }
-    // scan declaration
-    auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
-    const auto& dataset_opts =
-        checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
-    const auto& roundripped_ds = dataset_opts.dataset;
-    EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
-    ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
-
-    auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
-    auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
-    EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
-    int64_t idx = 0;
-    for (auto fragment : expected_frg_vec) {
-      const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
-      const auto* r_frag =
-          checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
-      EXPECT_TRUE(l_frag->Equals(*r_frag));
-    }
-    arrow::AsyncGenerator<util::optional<compute::ExecBatch>> rnd_trp_sink_gen;
-    auto rnd_trp_sink_node_options = compute::SinkNodeOptions{&rnd_trp_sink_gen};
-    auto rnd_trp_sink_declaration =
-        compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
-    auto rnd_trp_declarations =
-        compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
-    ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                         GetTableFromPlan(rnd_trp_declarations, rnd_trp_sink_gen,
-                                          exec_context, dummy_schema));
-    EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
   }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
+  }
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> rnd_trp_sink_gen;
+  auto rnd_trp_sink_node_options = compute::SinkNodeOptions{&rnd_trp_sink_gen};
+  auto rnd_trp_sink_declaration =
+      compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
+  auto rnd_trp_declarations =
+      compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
+  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
+                       GetTableFromPlan(rnd_trp_declarations, rnd_trp_sink_gen,
+                                        exec_context, dummy_schema));
+  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
 }  // namespace engine
