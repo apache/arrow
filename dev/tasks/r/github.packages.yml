@@ -158,7 +158,8 @@ jobs:
           rig system setup-user-lib
           rig system add-pak 
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
-      - name: Install dependencies
+      - name: Prepare Dependency Installation
+
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
