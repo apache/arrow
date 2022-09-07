@@ -24,7 +24,7 @@ The total file size is around 37 gigabytes, even in the efficient Parquet file
 format. That's bigger than memory on most people's computers, so you can't just
 read it all in and stack it into a single data frame.
 
-In Windows (for R > 3.6) and macOS binary packages, S3 support is included.
+In Windows and macOS binary packages, S3 support is included.
 On Linux, when installing from source, S3 support is not enabled by default,
 and it has additional system requirements.
 See `vignette("install", package = "arrow")` for details.

@@ -28,8 +28,7 @@
 #include <thread>
 
 // Unwind protection was added in R 3.5 and some calls here use it
-// and crash R in older versions (ARROW-16201). Crashes also occur
-// on 32-bit R builds on R 3.6 and lower. Implementation provided
+// and crash R in older versions (ARROW-16201). Implementation provided
 // in safe-call-into-r-impl.cpp so that we can skip some tests
 // when this feature is not provided. This also checks that there
 // is not already an event loop registered (via MainRThread::Executor()),
@@ -163,8 +162,7 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun,
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (!CanRunWithCapturedR()) {
-    return arrow::Status::NotImplemented(
-        "RunWithCapturedR() without UnwindProtect or on 32-bit Windows + R <= 3.6");
+    return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
   }
 
   if (GetMainRThread().Executor() != nullptr) {
