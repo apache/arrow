@@ -43,7 +43,6 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
-
 // Validation functions
 
 template <typename RelMessage>
@@ -126,8 +125,7 @@ Status CheckReadRelation(const substrait::ReadRel& rel,
   }
 
   if (rel.local_files().has_advanced_extension()) {
-    return Status::NotImplemented(
-        "substrait::ReadRel::LocalFiles::advanced_extension");
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles::advanced_extension");
   }
 
   return Status::OK();
@@ -154,20 +152,17 @@ Status CheckFileItem(const substrait::ReadRel::LocalFiles::FileOrFiles& file_ite
 
 Status CheckFilePathUri(const ::arrow::internal::Uri& uri) {
   if (!uri.is_file_scheme()) {
-    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
-                                  uri.ToString(),
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", uri.ToString(),
                                   ") with non-filesystem scheme (file:///)");
   }
 
   if (uri.port() != -1) {
-    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
-                                  uri.ToString(),
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", uri.ToString(),
                                   ") should not have a port number in path");
   }
 
   if (!uri.query_string().empty()) {
-    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
-                                  uri.ToString(),
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", uri.ToString(),
                                   ") should not have a query string in path");
   }
 
@@ -176,8 +171,7 @@ Status CheckFilePathUri(const ::arrow::internal::Uri& uri) {
 
 // Other helper functions
 Status DiscoverFilesFromDir(std::shared_ptr<fs::LocalFileSystem>& local_fs,
-                            std::string dirpath,
-                            std::vector<fs::FileInfo>& rel_fpaths) {
+                            std::string dirpath, std::vector<fs::FileInfo>& rel_fpaths) {
   // Define a selector for a recursive descent
   fs::FileSelector selector;
   selector.base_dir = dirpath;
@@ -319,15 +313,13 @@ Result<DeclarationInfo> FromReadRelation(const substrait::ReadRel& rel,
   }
 
   // Create a dataset via a dataset factory
-  ARROW_ASSIGN_OR_RAISE(auto ds_factory,
-    dataset::FileSystemDatasetFactory::Make(
-      std::move(filesystem), std::move(files), std::move(format), {}
-    )
-  );
+  ARROW_ASSIGN_OR_RAISE(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                             std::move(filesystem), std::move(files),
+                                             std::move(format), {}));
 
   ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-  DeclarationInfo scan_declaration {
+  DeclarationInfo scan_declaration{
       compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
       base_schema};
 
