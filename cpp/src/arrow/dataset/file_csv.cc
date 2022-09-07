@@ -202,6 +202,11 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   auto reader_fut = DeferNotOk(input->io_context().executor()->Submit(
       [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
         ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
+        auto size = first_block.length();
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
+        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+        size = size - static_cast<uint32_t>(data_no_bom - data);
+        first_block = util::string_view(reinterpret_cast<const char*>(data_no_bom), size);
         const auto& parse_options = format.parse_options;
         ARROW_ASSIGN_OR_RAISE(
             auto convert_options,
