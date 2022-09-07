@@ -1872,8 +1872,8 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       PlatformFilename fn;
       if (base_dir.back() == kNativeSep) {
         PlatformFilename fn_base_dir(base_dir);
-        PlatformFilename fn_base_name(base_name);
-        ARROW_ASSIGN_OR_RAISE(fn, fn_base_dir.Join(base_name + kNativeSep));
+        PlatformFilename fn_base_name(base_name + kNativeSep);
+        fn = fn_base_dir.Join(fn_base_name);
       } else {
         fn = PlatformFilename(base_dir + kNativeSep + base_name + kNativeSep);
       }
