@@ -275,6 +275,9 @@ func NewDatum(value interface{}) Datum {
 		v.Retain()
 		return &TableDatum{v}
 	case scalar.Scalar:
+		if ls, ok := v.(scalar.Releasable); ok {
+			ls.Retain()
+		}
 		return &ScalarDatum{v}
 	default:
 		return &ScalarDatum{scalar.MakeScalar(value)}

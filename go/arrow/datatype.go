@@ -192,6 +192,8 @@ type FixedWidthDataType interface {
 	DataType
 	// BitWidth returns the number of bits required to store a single element of this data type in memory.
 	BitWidth() int
+	// Bytes returns the number of bytes required to store a single element of this data type in memory.
+	Bytes() int
 }
 
 type BinaryDataType interface {
