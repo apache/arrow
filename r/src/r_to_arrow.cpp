@@ -1244,7 +1244,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x) {
     return MakeSimpleArray<RAWSXP, cpp11::raws, UInt8Type>(x);
   }
 
-  cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
+  arrow::arrow_stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
 std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
@@ -1424,7 +1424,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
   StopIfNotOk(arrow::r::AddMetadataFromDots(lst, num_fields, schema));
 
   if (!infer_schema && schema->num_fields() != num_fields) {
-    cpp11::stop("incompatible. schema has %d fields, and %d columns are supplied",
+    arrow::arrow_stop("incompatible. schema has %d fields, and %d columns are supplied",
                 schema->num_fields(), num_fields);
   }
 
@@ -1435,7 +1435,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     auto check_name = [&](int j, SEXP, cpp11::r_string name) {
       std::string cpp_name(name);
       if (schema->field(j)->name() != cpp_name) {
-        cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
+        arrow::arrow_stop("field at index %d has name '%s' != '%s'", j + 1,
                     schema->field(j)->name().c_str(), cpp_name.c_str());
       }
     };

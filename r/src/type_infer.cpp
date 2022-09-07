@@ -45,7 +45,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP factor) {
 
 template <int VectorType>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector(SEXP x) {
-  cpp11::stop("Unknown vector type: ", VectorType);
+  arrow::arrow_stop("Unknown vector type: ", VectorType);
 }
 
 template <>
@@ -54,7 +54,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<ENVSXP>(SEXP x) {
     return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type();
   }
 
-  cpp11::stop("Unrecognized vector instance for type ENVSXP");
+  arrow::arrow_stop("Unrecognized vector instance for type ENVSXP");
 }
 
 template <>
@@ -146,7 +146,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       SEXP byte_width = Rf_getAttrib(x, symbols::byte_width);
       if (Rf_isNull(byte_width) || TYPEOF(byte_width) != INTSXP ||
           XLENGTH(byte_width) != 1) {
-        cpp11::stop("malformed arrow_fixed_size_binary object");
+        arrow::arrow_stop("malformed arrow_fixed_size_binary object");
       }
       return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
     }
@@ -162,7 +162,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
     if (Rf_isNull(ptype)) {
       if (XLENGTH(x) == 0) {
-        cpp11::stop(
+        arrow::arrow_stop(
             "Requires at least one element to infer the values' type of a list vector");
       }
       // Iterate through the vector until we get a non-null result
@@ -206,13 +206,13 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
       case NILSXP:
         return null();
       default:
-        cpp11::stop("Cannot infer type from vector");
+        arrow::arrow_stop("Cannot infer type from vector");
     }
   } else {
     cpp11::sexp type_result = cpp11::package("arrow")["infer_type"](
         x, cpp11::named_arg("from_array_infer_type") = true);
     if (!Rf_inherits(type_result, "DataType")) {
-      cpp11::stop("type() did not return an object of type DataType");
+      arrow::arrow_stop("type() did not return an object of type DataType");
     }
 
     return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);

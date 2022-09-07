@@ -203,10 +203,10 @@ std::shared_ptr<arrow::DataType> DayTimeInterval__initialize() {
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
-    cpp11::stop("'byte_width' cannot be NA");
+    arrow::arrow_stop("'byte_width' cannot be NA");
   }
   if (byte_width < 1) {
-    cpp11::stop("'byte_width' must be > 0");
+    arrow::arrow_stop("'byte_width' must be > 0");
   }
   return arrow::fixed_size_binary(byte_width);
 }
@@ -245,7 +245,7 @@ std::shared_ptr<arrow::DataType> list__(SEXP x) {
   }
 
   if (!Rf_inherits(x, "DataType")) {
-    cpp11::stop("incompatible");
+    arrow::arrow_stop("incompatible");
   }
 
   auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
@@ -260,7 +260,7 @@ std::shared_ptr<arrow::DataType> large_list__(SEXP x) {
   }
 
   if (!Rf_inherits(x, "DataType")) {
-    cpp11::stop("incompatible");
+    arrow::arrow_stop("incompatible");
   }
 
   auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
@@ -275,7 +275,7 @@ std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size) {
   }
 
   if (!Rf_inherits(x, "DataType")) {
-    cpp11::stop("incompatible");
+    arrow::arrow_stop("incompatible");
   }
 
   auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
@@ -292,9 +292,9 @@ std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted = f
     key_field = std::make_shared<arrow::Field>("key", key_type, /* nullable = */ false);
   } else if (Rf_inherits(key, "Field")) {
     key_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(key);
-    if (key_field->nullable()) cpp11::stop("key field cannot be nullable.");
+    if (key_field->nullable()) arrow::arrow_stop("key field cannot be nullable.");
   } else {
-    cpp11::stop("key must be a DataType or Field.");
+    arrow::arrow_stop("key must be a DataType or Field.");
   }
 
   if (Rf_inherits(item, "DataType")) {
@@ -303,7 +303,7 @@ std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted = f
   } else if (Rf_inherits(item, "Field")) {
     item_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(item);
   } else {
-    cpp11::stop("item must be a DataType or Field.");
+    arrow::arrow_stop("item must be a DataType or Field.");
   }
 
   return std::make_shared<arrow::MapType>(key_field, item_field);

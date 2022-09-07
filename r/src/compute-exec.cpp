@@ -432,7 +432,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   } else if (type == 7) {
     join_type = compute::JoinType::FULL_OUTER;
   } else {
-    cpp11::stop("todo");
+    arrow::arrow_stop("todo");
   }
 
   return MakeExecNodeOrStop(

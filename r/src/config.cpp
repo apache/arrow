@@ -38,7 +38,7 @@ std::vector<std::string> runtime_info() {
 void set_timezone_database(cpp11::strings path) {
   auto paths = cpp11::as_cpp<std::vector<std::string>>(path);
   if (path.size() != 1) {
-    cpp11::stop("Must provide a single path to the timezone database.");
+    arrow::arrow_stop("Must provide a single path to the timezone database.");
   }
 
   arrow::GlobalOptions options;

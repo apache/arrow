@@ -51,22 +51,22 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
 
 void arrow::r::validate_slice_offset(R_xlen_t offset, int64_t len) {
   if (offset == NA_INTEGER) {
-    cpp11::stop("Slice 'offset' cannot be NA");
+    arrow::arrow_stop("Slice 'offset' cannot be NA");
   }
   if (offset < 0) {
-    cpp11::stop("Slice 'offset' cannot be negative");
+    arrow::arrow_stop("Slice 'offset' cannot be negative");
   }
   if (offset > len) {
-    cpp11::stop("Slice 'offset' greater than array length");
+    arrow::arrow_stop("Slice 'offset' greater than array length");
   }
 }
 
 void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
   if (length == NA_INTEGER) {
-    cpp11::stop("Slice 'length' cannot be NA");
+    arrow::arrow_stop("Slice 'length' cannot be NA");
   }
   if (length < 0) {
-    cpp11::stop("Slice 'length' cannot be negative");
+    arrow::arrow_stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
     cpp11::warning("Slice 'length' greater than available length");
@@ -90,10 +90,10 @@ std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>&
 
 void arrow::r::validate_index(int i, int len) {
   if (i == NA_INTEGER) {
-    cpp11::stop("'i' cannot be NA");
+    arrow::arrow_stop("'i' cannot be NA");
   }
   if (i < 0 || i >= len) {
-    cpp11::stop("subscript out of bounds");
+    arrow::arrow_stop("subscript out of bounds");
   }
 }
 
@@ -162,13 +162,13 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
                         const std::shared_ptr<arrow::Array>& other, R_xlen_t start_idx,
                         R_xlen_t end_idx, R_xlen_t other_start_idx) {
   if (start_idx == NA_INTEGER) {
-    cpp11::stop("'start_idx' cannot be NA");
+    arrow::arrow_stop("'start_idx' cannot be NA");
   }
   if (end_idx == NA_INTEGER) {
-    cpp11::stop("'end_idx' cannot be NA");
+    arrow::arrow_stop("'end_idx' cannot be NA");
   }
   if (other_start_idx == NA_INTEGER) {
-    cpp11::stop("'other_start_idx' cannot be NA");
+    arrow::arrow_stop("'other_start_idx' cannot be NA");
   }
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
 }

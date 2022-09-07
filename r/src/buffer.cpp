@@ -52,7 +52,7 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
     default:
       break;
   }
-  cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
+  arrow::arrow_stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
 }
 
 // [[arrow::export]]

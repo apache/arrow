@@ -110,7 +110,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
   std::shared_ptr<arrow::DataType> type;
   if (type_inferred) {
     if (n == 0) {
-      cpp11::stop("type must be specified for empty list");
+      arrow::arrow_stop("type must be specified for empty list");
     }
     type = arrow::r::InferArrowType(VECTOR_ELT(chunks, 0));
   } else {

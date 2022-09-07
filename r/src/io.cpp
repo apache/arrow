@@ -351,20 +351,20 @@ class RConnectionRandomAccessFile : public arrow::io::RandomAccessFile,
     // save the current position to seek back to it
     auto current_pos = Tell();
     if (!current_pos.ok()) {
-      cpp11::stop("Tell() returned an error");
+      arrow::arrow_stop("Tell() returned an error");
     }
     int64_t initial_pos = current_pos.ValueUnsafe();
 
     cpp11::package("base")["seek"](connection_sexp_, 0, "end");
     current_pos = Tell();
     if (!current_pos.ok()) {
-      cpp11::stop("Tell() returned an error");
+      arrow::arrow_stop("Tell() returned an error");
     }
     size_ = current_pos.ValueUnsafe();
 
     auto status = Seek(initial_pos);
     if (!status.ok()) {
-      cpp11::stop("Seek() returned an error");
+      arrow::arrow_stop("Seek() returned an error");
     }
   }
 
@@ -416,7 +416,7 @@ class RIconvWrapper {
   RIconvWrapper(std::string to, std::string from)
       : handle_(Riconv_open(to.c_str(), from.c_str())) {
     if (handle_ == ((void*)-1)) {
-      cpp11::stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
+      arrow::arrow_stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
     }
   }
 

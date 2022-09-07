@@ -109,7 +109,7 @@ static inline void StopIfNotOk(const Status& status) {
     } else {
       // ARROW-13039: be careful not to interpret our error message as a %-format string
       std::string s = status.ToString();
-      cpp11::stop("%s", s.c_str());
+      throw RException(s.c_str());
     }
   }
 }
