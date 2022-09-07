@@ -600,7 +600,7 @@ class Converter_Dictionary : public Converter {
           break;
         default:
           arrow::arrow_stop("Cannot convert Dictionary Array of type `%s` to R",
-                      dict_type.ToString().c_str());
+                            dict_type.ToString().c_str());
       }
 
       if (chunked_array->num_chunks() > 0) {

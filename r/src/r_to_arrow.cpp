@@ -1425,7 +1425,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
 
   if (!infer_schema && schema->num_fields() != num_fields) {
     arrow::arrow_stop("incompatible. schema has %d fields, and %d columns are supplied",
-                schema->num_fields(), num_fields);
+                      schema->num_fields(), num_fields);
   }
 
   // table
@@ -1436,7 +1436,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       std::string cpp_name(name);
       if (schema->field(j)->name() != cpp_name) {
         arrow::arrow_stop("field at index %d has name '%s' != '%s'", j + 1,
-                    schema->field(j)->name().c_str(), cpp_name.c_str());
+                          schema->field(j)->name().c_str(), cpp_name.c_str());
       }
     };
     arrow::r::TraverseDots(lst, num_fields, check_name);
