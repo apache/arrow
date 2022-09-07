@@ -172,3 +172,12 @@ endmacro()
 arrow_keep_backward_compatibility(Arrow arrow)
 
 check_required_components(Arrow)
+
+if(NOT Arrow_FIND_QUIETLY)
+  message(STATUS "Arrow version: ${ARROW_VERSION} (${ARROW_FIND_APPROACH})")
+  message(STATUS "Arrow SO and ABI version: ${ARROW_SO_VERSION}")
+  message(STATUS "Arrow full SO version: ${ARROW_FULL_SO_VERSION}")
+  message(STATUS "Found the Arrow core shared library: ${ARROW_SHARED_LIB}")
+  message(STATUS "Found the Arrow core import library: ${ARROW_IMPORT_LIB}")
+  message(STATUS "Found the Arrow core static library: ${ARROW_STATIC_LIB}")
+endif()
