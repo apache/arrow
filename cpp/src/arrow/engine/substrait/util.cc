@@ -147,6 +147,21 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   return sink_reader;
 }
 
+Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
+    compute::FunctionRegistry* func_registry,
+    const ConversionOptions& conversion_options) {
+  compute::ExecContext exec_context(arrow::default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
+  RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
+  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+  // check closing here, not in destructor, to expose error to caller
+  RETURN_NOT_OK(executor.Close());
+  return sink_reader;
+}
+
 Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_json) {
   return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
