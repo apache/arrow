@@ -133,6 +133,50 @@ TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
   ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
 }
 
+TEST_P(TestRunEndEncodedArray, Compare) {
+  ASSERT_OK_AND_ASSIGN(auto ree_array,
+                       RunEndEncodedArray::Make(30, run_end_values, string_values));
+
+  auto copy = MakeArray(ree_array->data()->Copy());
+  ASSERT_ARRAYS_EQUAL(*ree_array, *copy);
+
+  ASSERT_FALSE(ree_array->Slice(0, 29)->Equals(*ree_array->Slice(1, 29)));
+
+  // Two same-length slice pairs
+  ASSERT_ARRAYS_EQUAL(*ree_array->Slice(0, 9), *ree_array->Slice(1, 9));
+  ASSERT_FALSE(ree_array->Slice(5, 9)->Equals(*ree_array->Slice(6, 9)));
+
+  // Array that is logically the same as our ree_array, but has 2
+  // small runs for the first value instead of a single larger run
+  auto equivalent_run_ends = ArrayFromJSON(run_end_type, "[5, 10, 20, 30]");
+  auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "Hello", "World", null])");
+  ASSERT_OK_AND_ASSIGN(auto equivalent_array,
+                       RunEndEncodedArray::Make(30, equivalent_run_ends, string_values));
+  ASSERT_ARRAYS_EQUAL(*ree_array, *equivalent_array);
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunEndEncodedArray::Make(0, ArrayFromJSON(run_end_type, "[]"),
+                                                ArrayFromJSON(binary(), "[]")));
+  ASSERT_ARRAYS_EQUAL(*empty_array, *MakeArray(empty_array->data()->Copy()));
+
+  // Three different slices that have the value [3, 3, 3, 4, 4, 4, 4]
+  ASSERT_OK_AND_ASSIGN(
+      auto different_offsets_a,
+      RunEndEncodedArray::Make(60, ArrayFromJSON(run_end_type, "[2, 5, 12, 58, 60]"),
+                               ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]")));
+  ASSERT_OK_AND_ASSIGN(
+      auto different_offsets_b,
+      RunEndEncodedArray::Make(100, ArrayFromJSON(run_end_type, "[81, 86, 99, 100]"),
+                               ArrayFromJSON(int64(), "[2, 3, 4, 5]")));
+  ASSERT_OK_AND_ASSIGN(auto different_offsets_c,
+                       RunEndEncodedArray::Make(7, ArrayFromJSON(run_end_type, "[3, 7]"),
+                                                ArrayFromJSON(int64(), "[3, 4]")));
+  ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7),
+                      *different_offsets_b->Slice(83, 7));
+  ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7), *different_offsets_c);
+  ASSERT_ARRAYS_EQUAL(*different_offsets_b->Slice(83, 7), *different_offsets_c);
+}
+
 }  // anonymous namespace
 
 INSTANTIATE_TEST_SUITE_P(EncodedArrayTests, TestRunEndEncodedArray,
