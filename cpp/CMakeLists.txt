@@ -122,7 +122,7 @@ endif()
 set(ARROW_GDB_DIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/gdb")
 set(ARROW_FULL_GDB_DIR "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/gdb")
 set(ARROW_GDB_AUTO_LOAD_DIR "${CMAKE_INSTALL_DATADIR}/gdb/auto-load")
-set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
@@ -147,30 +147,6 @@ string(REGEX REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
                      "${ARROW_ENV_CLANG_TOOLS_VERSION}")
 string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
                      "${ARROW_CLANG_TOOLS_VERSION}")
-
-if(APPLE)
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix
-                            "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT LLVM_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
-                    OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT CLANG_TOOLS_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-  endif()
-endif()
 
 if(WIN32 AND NOT MINGW)
   # This is used to handle builds using e.g. clang in an MSVC setting.
@@ -719,18 +695,19 @@ endif()
 # Note that arrow::hadoop is a header only target that refers
 # cpp/thirdparty/hadoop/include/. See
 # cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-set(ARROW_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_BOOST)
-  list(APPEND ARROW_LINK_LIBS Boost::headers)
+  list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
   list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
 endif()
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
-  list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
@@ -738,7 +715,7 @@ endif()
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
   set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_BROTLI_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
   if(Brotli_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
@@ -781,7 +758,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
+  list(APPEND ARROW_SHARED_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
@@ -790,7 +767,7 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_GCS)
-  list(APPEND ARROW_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
   list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
   if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
@@ -798,7 +775,7 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_USE_GLOG)
-  list(APPEND ARROW_LINK_LIBS glog::glog)
+  list(APPEND ARROW_SHARED_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
   if(GLOG_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
@@ -807,13 +784,13 @@ if(ARROW_USE_GLOG)
 endif()
 
 if(ARROW_S3)
-  list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND
-       ARROW_LINK_LIBS
+       ARROW_SHARED_LINK_LIBS
        opentelemetry-cpp::trace
        opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
@@ -836,7 +813,7 @@ if(ARROW_WITH_OPENTELEMETRY)
 endif()
 
 if(ARROW_WITH_UTF8PROC)
-  list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
+  list(APPEND ARROW_SHARED_LINK_LIBS utf8proc::utf8proc)
   list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
   if(utf8proc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
@@ -844,7 +821,7 @@ if(ARROW_WITH_UTF8PROC)
 endif()
 
 if(ARROW_WITH_RE2)
-  list(APPEND ARROW_LINK_LIBS re2::re2)
+  list(APPEND ARROW_SHARED_LINK_LIBS re2::re2)
   list(APPEND ARROW_STATIC_LINK_LIBS re2::re2)
   if(re2_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS re2::re2)
@@ -852,12 +829,12 @@ if(ARROW_WITH_RE2)
 endif()
 
 if(ARROW_WITH_RAPIDJSON)
-  list(APPEND ARROW_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_SHARED_LINK_LIBS rapidjson::rapidjson)
   list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
 endif()
 
 if(ARROW_USE_XSIMD)
-  list(APPEND ARROW_LINK_LIBS xsimd)
+  list(APPEND ARROW_SHARED_LINK_LIBS xsimd)
   list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
 endif()
 
@@ -884,8 +861,7 @@ endif()
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
-  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
@@ -901,11 +877,11 @@ if(ARROW_BUILD_BENCHMARKS)
                    toolchain-benchmarks)
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
 
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared ${ARROW_LINK_LIBS}
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
+                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
@@ -945,13 +921,13 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  list(APPEND ARROW_LINK_LIBS jemalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc)
   list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
   add_definitions(-DARROW_MIMALLOC)
-  list(APPEND ARROW_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS mimalloc::mimalloc)
   list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
 endif()
 
@@ -975,7 +951,7 @@ if(NOT WIN32 AND NOT APPLE)
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
 
-list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 

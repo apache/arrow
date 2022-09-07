@@ -35,12 +35,11 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Look for installed packages the system
-find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
 add_executable(parquet-arrow-example reader_writer.cc)
 if(PARQUET_LINK_SHARED)
-  target_link_libraries(parquet-arrow-example parquet_shared)
+  target_link_libraries(parquet-arrow-example Parquet::parquet_shared)
 else()
-  target_link_libraries(parquet-arrow-example parquet_static)
+  target_link_libraries(parquet-arrow-example Parquet::parquet_static)
 endif()

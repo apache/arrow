@@ -220,14 +220,19 @@ macro(provide_find_module PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
     message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}")
+    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
   endif()
   unset(module_)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
-  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
+  set(one_value_args
+      FORCE_ANY_NEWER_VERSION
+      HAVE_ALT
+      IS_RUNTIME_DEPENDENCY
+      REQUIRED_VERSION
+      USE_CONFIG)
   set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -247,7 +252,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
   set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
-  if(ARG_REQUIRED_VERSION)
+  if(ARG_REQUIRED_VERSION AND NOT ARG_FORCE_ANY_NEWER_VERSION)
     list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
   endif()
   if(ARG_USE_CONFIG)
@@ -258,7 +263,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
-    if(${${PACKAGE_NAME}_FOUND})
+    set(COMPATIBLE ${${PACKAGE_NAME}_FOUND})
+    if(COMPATIBLE
+       AND ARG_FORCE_ANY_NEWER_VERSION
+       AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(DEBUG "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+        set(COMPATIBLE FALSE)
+      endif()
+    endif()
+    if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -268,6 +282,11 @@ macro(resolve_dependency DEPENDENCY_NAME)
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
+    if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
+      if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
+        message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+      endif()
+    endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
     provide_find_module(${PACKAGE_NAME})
@@ -1019,12 +1038,16 @@ if(ARROW_USE_BOOST)
     # Find static boost headers and libs
     set(Boost_USE_STATIC_LIBS ON)
   endif()
+  if(ARROW_BOOST_REQUIRE_LIBRARY)
+    set(ARROW_BOOST_COMPONENTS system filesystem)
+  else()
+    set(ARROW_BOOST_COMPONENTS)
+  endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
-                     system
-                     filesystem
+                     ${ARROW_BOOST_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
@@ -1225,52 +1248,22 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
-if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
-                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if(OPENSSL11_BREW_PREFIX)
-    set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-  else()
-    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
-                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
-    endif()
-  endif()
-endif()
-
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
    OR ARROW_S3)
-  # OpenSSL is required
-  if(ARROW_OPENSSL_USE_SHARED)
-    # Find shared OpenSSL libraries.
-    set(OpenSSL_USE_STATIC_LIBS OFF)
-    # Seems that different envs capitalize this differently?
-    set(OPENSSL_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static OpenSSL headers and libs
-    set(OpenSSL_USE_STATIC_LIBS ON)
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-  endif()
+  set(OpenSSL_SOURCE "SYSTEM")
+  resolve_dependency(OpenSSL
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_OPENSSL_REQUIRED_VERSION})
   set(ARROW_USE_OPENSSL ON)
 endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-
-  list(APPEND ARROW_SYSTEM_DEPENDENCIES OpenSSL)
 else()
   message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
@@ -1509,6 +1502,7 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+  set(THRIFT_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
@@ -2249,7 +2243,11 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+  resolve_dependency(xsimd
+                     REQUIRED_VERSION
+                     "8.1.0"
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(xsimd INTERFACE IMPORTED)
@@ -4037,7 +4035,10 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  if(NOT OpenSSL_FOUND)
+    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
+                       ${ARROW_OPENSSL_REQUIRED_VERSION})
+  endif()
 
   # Build google-cloud-cpp, with only storage_client
 

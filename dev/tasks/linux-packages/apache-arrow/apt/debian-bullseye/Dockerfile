@@ -69,7 +69,6 @@ RUN \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
-    python3-numpy \
     python3-pip \
     rapidjson-dev \
     tzdata \
