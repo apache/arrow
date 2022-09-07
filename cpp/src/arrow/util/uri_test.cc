@@ -257,6 +257,7 @@ TEST(Uri, FileScheme) {
 
   auto check_no_host = [&](std::string uri_string, std::string path) -> void {
     ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_TRUE(uri.is_file_scheme());
     ASSERT_EQ(uri.scheme(), "file");
     ASSERT_EQ(uri.host(), "");
     ASSERT_EQ(uri.path(), path);
@@ -267,6 +268,7 @@ TEST(Uri, FileScheme) {
   auto check_with_host = [&](std::string uri_string, std::string host,
                              std::string path) -> void {
     ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_TRUE(uri.is_file_scheme());
     ASSERT_EQ(uri.scheme(), "file");
     ASSERT_EQ(uri.host(), host);
     ASSERT_EQ(uri.path(), path);
