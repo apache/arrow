@@ -52,6 +52,9 @@ constexpr const char* kSubstraitDatetimeFunctionsUri =
 constexpr const char* kSubstraitStringFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_string.yaml";
+constexpr const char* kSubstraitAggregateGenericFunctionsUri =
+    "https://github.com/substrait-io/substrait/blob/main/extensions/"
+    "functions_aggregate_generic.yaml";
 
 struct Id {
   util::string_view uri, name;

@@ -26,20 +26,33 @@ fi
 
 version=$1
 prefix=$2
-url="https://github.com/ccache/ccache/archive/v${version}.tar.gz"
 
-mkdir /tmp/ccache
-wget -q ${url} -O - | tar -xzf - --directory /tmp/ccache --strip-components=1
+mkdir -p /tmp/ccache
+case $(uname) in
+  MINGW64*)
+    url="https://github.com/ccache/ccache/releases/download/v${version}/ccache-${version}-windows-x86_64.zip"
+    pushd /tmp/ccache
+    curl --fail --location --remote-name ${url}
+    unzip -j ccache-${version}-windows-x86_64.zip
+    chmod +x ccache.exe
+    mv ccache.exe ${prefix}/bin/
+    popd
+    ;;
+  *)
+    url="https://github.com/ccache/ccache/archive/v${version}.tar.gz"
 
-mkdir /tmp/ccache/build
-pushd /tmp/ccache/build
-cmake \
-  -GNinja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=${prefix} \
-  -DZSTD_FROM_INTERNET=ON \
-  ..
-ninja install
-popd
+    wget -q ${url} -O - | tar -xzf - --directory /tmp/ccache --strip-components=1
 
+    mkdir /tmp/ccache/build
+    pushd /tmp/ccache/build
+    cmake \
+      -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${prefix} \
+      -DZSTD_FROM_INTERNET=ON \
+      ..
+    ninja install
+    popd
+    ;;
+esac
 rm -rf /tmp/ccache

@@ -413,28 +413,28 @@ class TestS3FS : public S3TestMixin {
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
       req.SetBucket(ToAwsString("empty-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
     {
       Aws::S3::Model::PutObjectRequest req;
       req.SetBucket(ToAwsString("bucket"));
       req.SetKey(ToAwsString("emptydir/"));
       req.SetBody(std::make_shared<std::stringstream>(""));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       // NOTE: no need to create intermediate "directories" somedir/ and
       // somedir/subdir/
       req.SetKey(ToAwsString("somedir/subdir/subfile"));
       req.SetBody(std::make_shared<std::stringstream>("sub data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("somefile"));
       req.SetBody(std::make_shared<std::stringstream>("some data"));
       req.SetContentType("x-arrow/test");
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
   }
 
@@ -1203,7 +1203,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("s3fs-test-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
 
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());

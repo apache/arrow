@@ -17,6 +17,7 @@
 
 from pathlib import Path
 import time
+import sys
 
 import click
 
@@ -273,24 +274,38 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--task-filter', '-f', 'task_filters', multiple=True,
               help='Glob pattern for filtering relevant tasks')
+@click.option('--validate/--no-validate', default=False,
+              help='Return non-zero exit code '
+                   'if there is any non-success task')
 @click.pass_obj
-def status(obj, job_name, fetch, task_filters):
+def status(obj, job_name, fetch, task_filters, validate):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
 
+    success = True
+
+    def asset_callback(task_name, task, asset):
+        nonlocal success
+        if task.status().combined_state in {'error', 'failure'}:
+            success = False
+        if asset is None:
+            success = False
+
     report = ConsoleReport(job, task_filters=task_filters)
-    report.show(output)
+    report.show(output, asset_callback=asset_callback)
+    if validate and not success:
+        sys.exit(1)
 
 
 @crossbow.command()
 @click.option('--arrow-remote', '-r', default=None,
               help='Set GitHub remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/raulcd/arrow.')
+                   'locally. Examples: "https://github.com/apache/arrow" or '
+                   '"raulcd/arrow".')
 @click.option('--crossbow', '-c', default='ursacomputing/crossbow',
               help='Crossbow repository on github to use')
 @click.option('--fetch/--no-fetch', default=True,

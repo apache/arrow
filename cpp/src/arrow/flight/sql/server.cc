@@ -344,6 +344,72 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   return Status::Invalid("The defined request is invalid.");
 }
 
+Status FlightSqlServerBase::GetSchema(const ServerCallContext& context,
+                                      const FlightDescriptor& request,
+                                      std::unique_ptr<SchemaResult>* schema) {
+  google::protobuf::Any any;
+  if (!any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()))) {
+    return Status::Invalid("Unable to parse command");
+  }
+
+  if (any.Is<pb::sql::CommandStatementQuery>()) {
+    ARROW_ASSIGN_OR_RAISE(StatementQuery internal_command,
+                          ParseCommandStatementQuery(any));
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          GetSchemaStatement(context, internal_command, request));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandPreparedStatementQuery>()) {
+    ARROW_ASSIGN_OR_RAISE(PreparedStatementQuery internal_command,
+                          ParseCommandPreparedStatementQuery(any));
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          GetSchemaPreparedStatement(context, internal_command, request));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetCatalogs>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema, SchemaResult::Make(*SqlSchema::GetCatalogsSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetCrossReference>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          SchemaResult::Make(*SqlSchema::GetCrossReferenceSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetDbSchemas>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema, SchemaResult::Make(*SqlSchema::GetDbSchemasSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetExportedKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          SchemaResult::Make(*SqlSchema::GetExportedKeysSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetImportedKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          SchemaResult::Make(*SqlSchema::GetImportedKeysSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetPrimaryKeys>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          SchemaResult::Make(*SqlSchema::GetPrimaryKeysSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema, SchemaResult::Make(*SqlSchema::GetSqlInfoSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetTables>()) {
+    ARROW_ASSIGN_OR_RAISE(GetTables command, ParseCommandGetTables(any));
+    if (command.include_schema) {
+      ARROW_ASSIGN_OR_RAISE(
+          *schema, SchemaResult::Make(*SqlSchema::GetTablesSchemaWithIncludedSchema()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(*schema, SchemaResult::Make(*SqlSchema::GetTablesSchema()));
+    }
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema, SchemaResult::Make(*SqlSchema::GetTableTypesSchema()));
+    return Status::OK();
+  } else if (any.Is<pb::sql::CommandGetXdbcTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(*schema,
+                          SchemaResult::Make(*SqlSchema::GetXdbcTypeInfoSchema()));
+    return Status::OK();
+  }
+
+  return Status::NotImplemented("Command not recognized: ", any.type_url());
+}
+
 Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket& request,
                                   std::unique_ptr<FlightDataStream>* stream) {
   google::protobuf::Any any;
@@ -531,6 +597,12 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSta
   return Status::NotImplemented("GetFlightInfoStatement not implemented");
 }
 
+arrow::Result<std::unique_ptr<SchemaResult>> FlightSqlServerBase::GetSchemaStatement(
+    const ServerCallContext& context, const StatementQuery& command,
+    const FlightDescriptor& descriptor) {
+  return Status::NotImplemented("GetSchemaStatement not implemented");
+}
+
 arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetStatement(
     const ServerCallContext& context, const StatementQueryTicket& command) {
   return Status::NotImplemented("DoGetStatement not implemented");
@@ -541,6 +613,13 @@ FlightSqlServerBase::GetFlightInfoPreparedStatement(const ServerCallContext& con
                                                     const PreparedStatementQuery& command,
                                                     const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetFlightInfoPreparedStatement not implemented");
+}
+
+arrow::Result<std::unique_ptr<SchemaResult>>
+FlightSqlServerBase::GetSchemaPreparedStatement(const ServerCallContext& context,
+                                                const PreparedStatementQuery& command,
+                                                const FlightDescriptor& descriptor) {
+  return Status::NotImplemented("GetSchemaPreparedStatement not implemented");
 }
 
 arrow::Result<std::unique_ptr<FlightDataStream>>

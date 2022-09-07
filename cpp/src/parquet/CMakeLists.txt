@@ -106,11 +106,11 @@ endfunction()
 
 if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
-  set(PARQUET_STATIC_INTERFACE_INSTALL_LIBS arrow_static)
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
                                        ${ARROW_STATIC_LINK_LIBS})
 else()
-  set(PARQUET_STATIC_INTERFACE_INSTALL_LIBS)
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
@@ -221,7 +221,9 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
   list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  list(APPEND PARQUET_STATIC_INTERFACE_INSTALL_LIBS thrift::thrift)
+  if(NOT THRIFT_VENDORED)
+    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+  endif()
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -247,11 +249,11 @@ add_arrow_lib(parquet
               SHARED_PRIVATE_LINK_LIBS
               ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
-              arrow_shared
+              Arrow::arrow_shared
               STATIC_LINK_LIBS
               ${PARQUET_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
-              ${PARQUET_STATIC_INTERFACE_INSTALL_LIBS})
+              ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
@@ -273,8 +275,6 @@ if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
   target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
 endif()
-
-add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
 add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})
