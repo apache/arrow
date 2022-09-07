@@ -55,7 +55,7 @@ namespace arrow {
 
 class RException : public std::runtime_error {
  public:
-  RException(const char* msg) : std::runtime_error(msg) {}
+  explicit RException(const char* msg) : std::runtime_error(msg) {}
 };
 
 __attribute__((noreturn)) static inline void arrow_stop(const char* fmt, ...) {
