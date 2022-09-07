@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.dataset.OrcWriteSupport;
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
 import org.apache.arrow.dataset.jni.NativeInstanceReleasedException;
@@ -59,13 +60,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
-import org.apache.orc.Writer;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -370,15 +366,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
     String basePath = TMP.getRoot().getAbsolutePath();
 
     TypeDescription orcSchema = TypeDescription.fromString("struct<ints:int>");
-    Writer writer = OrcFile.createWriter(new Path(basePath, dataName),
-            OrcFile.writerOptions(new Configuration()).setSchema(orcSchema));
-    VectorizedRowBatch batch = orcSchema.createRowBatch();
-    LongColumnVector longColumnVector = (LongColumnVector) batch.cols[0];
-    longColumnVector.vector[0] = Integer.MIN_VALUE;
-    longColumnVector.vector[1] = Integer.MAX_VALUE;
-    batch.size = 2;
-    writer.addRowBatch(batch);
-    writer.close();
+    Path path = new Path(basePath, dataName);
+    OrcWriteSupport.writeTempFile(orcSchema, path, new Integer[]{Integer.MIN_VALUE, Integer.MAX_VALUE});
 
     String orcDatasetUri = new File(basePath, dataName).toURI().toString();
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
