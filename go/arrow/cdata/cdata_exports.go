@@ -363,6 +363,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&buffers[0]))
 	}
 
+	arr.Data().Retain()
 	out.private_data = unsafe.Pointer(cgo.NewHandle(arr.Data()))
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
