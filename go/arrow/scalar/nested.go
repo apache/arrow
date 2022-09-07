@@ -40,8 +40,18 @@ type List struct {
 	Value arrow.Array
 }
 
-func (l *List) Release()             { l.Value.Release() }
-func (l *List) Retain()              { l.Value.Retain() }
+func (l *List) Release() {
+	if l.Value != nil {
+		l.Value.Release()
+	}
+}
+
+func (l *List) Retain() {
+	if l.Value != nil {
+		l.Value.Retain()
+	}
+}
+
 func (l *List) value() interface{}   { return l.Value }
 func (l *List) GetList() arrow.Array { return l.Value }
 func (l *List) equals(rhs Scalar) bool {
@@ -258,8 +268,11 @@ func (s *Struct) Validate() (err error) {
 	}
 
 	if !s.Valid {
-		if len(s.Value) != 0 {
-			err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
+		for _, v := range s.Value {
+			if v.IsValid() {
+				err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
+				return
+			}
 		}
 		return
 	}
@@ -293,8 +306,11 @@ func (s *Struct) ValidateFull() (err error) {
 	}
 
 	if !s.Valid {
-		if len(s.Value) != 0 {
-			err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
+		for _, v := range s.Value {
+			if v.IsValid() {
+				err = fmt.Errorf("%s scalar is marked null but has child values", s.Type)
+				return
+			}
 		}
 		return
 	}
@@ -550,6 +566,14 @@ func (s *SparseUnion) String() string {
 	return "union{" + dt.Fields()[dt.ChildIDs()[s.TypeCode]].String() + " = " + val.String() + "}"
 }
 
+func (s *SparseUnion) Retain() {
+	for _, v := range s.Value {
+		if v, ok := v.(Releasable); ok {
+			v.Retain()
+		}
+	}
+}
+
 func (s *SparseUnion) Release() {
 	for _, v := range s.Value {
 		if v, ok := v.(Releasable); ok {
@@ -660,6 +684,12 @@ func (s *DenseUnion) value() interface{} { return s.ChildValue() }
 func (s *DenseUnion) String() string {
 	dt := s.Type.(*arrow.DenseUnionType)
 	return "union{" + dt.Fields()[dt.ChildIDs()[s.TypeCode]].String() + " = " + s.Value.String() + "}"
+}
+
+func (s *DenseUnion) Retain() {
+	if v, ok := s.Value.(Releasable); ok {
+		v.Retain()
+	}
 }
 
 func (s *DenseUnion) Release() {

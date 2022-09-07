@@ -415,7 +415,9 @@ func castNumberToNumberUnsafe(in, out *exec.ArraySpan) {
 		return
 	}
 
-	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf, out.Buffers[1].Buf, int(in.Len))
+	inputOffset := in.Type.(arrow.FixedWidthDataType).Bytes() * int(in.Offset)
+	outputOffset := out.Type.(arrow.FixedWidthDataType).Bytes() * int(out.Offset)
+	castNumericUnsafe(in.Type.ID(), out.Type.ID(), in.Buffers[1].Buf[inputOffset:], out.Buffers[1].Buf[outputOffset:], int(in.Len))
 }
 
 func maxDecimalDigitsForInt(id arrow.Type) (int32, error) {
