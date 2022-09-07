@@ -290,7 +290,7 @@ struct RunLengthDecodeExec
     int64_t output_null_count = 0;
     for (auto it = rle_util::MergedRunsIterator<1>(this->input_array);
          it != rle_util::MergedRunsIterator<1>(); it++) {
-      this->read_offset = it.physical_index(0);
+      this->read_offset = it.index_into_buffer(0);
       Element element = this->ReadValue();
       if (element.valid) {
         for (int32_t run_element = 0; run_element < it.run_length(); run_element++) {
