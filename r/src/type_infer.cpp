@@ -203,6 +203,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
         return InferArrowTypeFromVector<STRSXP>(x);
       case VECSXP:
         return InferArrowTypeFromVector<VECSXP>(x);
+      case NILSXP:
+        return null();
       default:
         cpp11::stop("Cannot infer type from vector");
     }
