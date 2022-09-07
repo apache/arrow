@@ -28,7 +28,6 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
-#include "arrow/util/utf8.h"
 
 namespace arrow {
 namespace csv {

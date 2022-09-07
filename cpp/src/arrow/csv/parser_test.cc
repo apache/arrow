@@ -821,30 +821,5 @@ TEST(BlockParser, RowNumberAppendedToError) {
   }
 }
 
-TEST(BlockParser, WithBOM) {
-  {
-    auto csv =
-        MakeCSVData({"\xef\xbb\xbf"
-                     "\"ab\",\"cd\",\n",
-                     "ef,,gh\n", ",ij,kl\n"});
-    BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, csv);
-    AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
-    AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
-  }
-  {
-    auto csv1 =
-        MakeCSVData({"\xef\xbb\xbf"
-                     "ab,cd,\n",
-                     "ef,,gh\n"});
-    auto csv2 = MakeCSVData({",ij,kl\n"});
-    std::vector<util::string_view> csvs = {csv1, csv2};
-    BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, {{csv1}, {csv2}});
-    AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
-    AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
-  }
-}
-
 }  // namespace csv
 }  // namespace arrow
