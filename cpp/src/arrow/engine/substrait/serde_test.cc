@@ -2398,76 +2398,68 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
                        buf, {}, conversion_options);
 }
 
-// TEST(Substrait, ReadRelWithEmit) {
-// #ifdef _WIN32
-//   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-// #endif
-//   compute::ExecContext exec_context;
-//   auto dummy_schema =
-//       schema({field("A", int32()), field("B", int32()), field("C", int32())});
+TEST(Substrait, ReadRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
 
-//   // creating a dummy dataset using a dummy table
-//   auto input_table = TableFromJSON(dummy_schema, {R"([
-//       [1, 1, 10],
-//       [3, 4, 20]
-//   ])"});
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+  ])"});
 
-//   ASSERT_OK_AND_ASSIGN(auto tempdir,
-//                        arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
-//   std::string file_prefix = "serde_read_emit_test";
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "read": {
+        "common": {
+          "emit": {
+            "outputMapping": [1, 2]
+          }
+        },
+        "base_schema": {
+          "names": ["A", "B", "C"],
+            "struct": {
+            "types": [{
+              "i32": {}
+            }, {
+              "i32": {}
+            }, {
+              "i32": {}
+            }]
+          }
+        },
+        "namedTable": {
+          "names" : []
+        }
+      }
+    }
+  }],
+  })";
 
-//   TempDataGenerator datagen(input_table, file_prefix, tempdir);
-//   ASSERT_OK(datagen());
-//   std::string substrait_file_uri = "file://" + datagen.data_file_path;
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("B", int32()), field("C", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 10],
+      [4, 20]
+  ])"});
 
-//   std::string substrait_json = R"({
-//   "relations": [{
-//     "rel": {
-//       "read": {
-//         "common": {
-//           "emit": {
-//             "outputMapping": [1, 2]
-//           }
-//         },
-//         "base_schema": {
-//           "names": ["A", "B", "C"],
-//             "struct": {
-//             "types": [{
-//               "i32": {}
-//             }, {
-//               "i32": {}
-//             }, {
-//               "i32": {}
-//             }]
-//           }
-//         },
-//         namedTable: {
-//           "names" : []
-//         }
-//       }
-//     }
-//   }],
-//   })";
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
 
-//   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
-//   auto output_schema = schema({field("B", int32()), field("C", int32())});
-//   auto expected_table = TableFromJSON(output_schema, {R"([
-//       [1, 10],
-//       [4, 20]
-//   ])"});
-//   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-//     std::shared_ptr<compute::ExecNodeOptions> options =
-//         std::make_shared<compute::TableSourceNodeOptions>(input_table);
-//     return compute::Declaration("table_source", {}, options, "mock_source");
-//   };
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
 
-//   ConversionOptions conversion_options;
-//   conversion_options.named_table_provider = std::move(table_provider);
-
-//   CheckRoundTripResult(std::move(output_schema), std::move(expected_table),
-//   exec_context,
-//                        buf, {}, conversion_options);
-// }
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
 
 TEST(Substrait, FilterRelWithEmit) {
 #ifdef _WIN32

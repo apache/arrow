@@ -143,9 +143,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
-        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
+        ARROW_ASSIGN_OR_RAISE(compute::Declaration no_emit_declaration,
                               named_table_provider(table_names));
-        return DeclarationInfo{std::move(source_decl), base_schema};
+        return ProcessEmit(std::move(read),
+                           DeclarationInfo{std::move(no_emit_declaration), base_schema},
+                           std::move(base_schema));
       }
 
       if (!read.has_local_files()) {
