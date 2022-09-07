@@ -79,7 +79,9 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
-    FindMergedRun();
+    if (!isEnd()) {
+      FindMergedRun();
+    }
   }
 
   MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
@@ -96,13 +98,15 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
-    FindMergedRun();
+    if (!isEnd()) {
+      FindMergedRun();
+    }
   }
 
   MergedRunsIterator(const MergedRunsIterator& other) = default;
 
   MergedRunsIterator& operator++() {
-    logical_position += merged_run_length;
+    logical_position = merged_run_end;
 
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
       if (logical_position == run_end[input_id]) {
@@ -129,14 +133,24 @@ class MergedRunsIterator {
 
   bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
-  int64_t physical_index(int64_t input_id) const {
+  /// \brief returns a physical index into the values array buffers of a given input,
+  /// pointing to the value of the current run. The index includes the array offset, so it
+  /// can be used to access a buffer directly
+  int64_t index_into_buffer(int64_t input_id) const {
     return run_index[input_id] + ValuesArray(*inputs[input_id]).offset;
   }
-  int64_t run_length() const { return merged_run_length; }
+  /// \brief returns a physical index into the values array of a given input, pointing to
+  /// the value of the current run
+  int64_t index_into_array(int64_t input_id) const { return run_index[input_id]; }
+  /// \brief returns the logical length of the current run
+  int64_t run_length() const { return merged_run_end - logical_position; }
+  /// \brief returns the accumulated length of all runs from the beginning of the array
+  /// including the current one
+  int64_t accumulated_run_length() const { return merged_run_end; }
 
  private:
   void FindMergedRun() {
-    int64_t merged_run_end = std::numeric_limits<int64_t>::max();
+    merged_run_end = std::numeric_limits<int64_t>::max();
     for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
       // logical indices of the end of the run we are currently in each input
       run_end[input_id] =
@@ -147,19 +161,17 @@ class MergedRunsIterator {
 
       merged_run_end = std::min(merged_run_end, run_end[input_id]);
     }
-    merged_run_length = merged_run_end - logical_position;
   }
 
   bool isEnd() const { return logical_position == logical_length; }
 
   std::array<const ArraySpan*, NUM_INPUTS> inputs;
-  std::array<int64_t, NUM_INPUTS> physical_offset;
   std::array<int64_t, NUM_INPUTS> run_index;
   // logical indices of the end of the run we are currently in each input
   std::array<int64_t, NUM_INPUTS> run_end;
   int64_t logical_position = 0;
   int64_t logical_length = 0;
-  int64_t merged_run_length;
+  int64_t merged_run_end;
 };
 
 // TODO: this may fit better into some testing header
