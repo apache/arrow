@@ -251,6 +251,8 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	return carr
 }
 
+func createTestStreamObj() *CArrowArrayStream { return C.get_test_stream() }
+
 func arrayStreamTest() *CArrowArrayStream {
 	st := C.get_test_stream()
 	C.setup_array_stream_test(2, st)

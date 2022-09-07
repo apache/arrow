@@ -364,7 +364,8 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	}
 
 	arr.Data().Retain()
-	out.private_data = unsafe.Pointer(cgo.NewHandle(arr.Data()))
+	h := cgo.NewHandle(arr.Data())
+	out.private_data = unsafe.Pointer(&h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case *array.List:

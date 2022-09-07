@@ -666,8 +666,8 @@ func TestExportRecordReaderStream(t *testing.T) {
 	reclist := arrdata.Records["primitives"]
 	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
 
-	var out CArrowArrayStream
-	ExportRecordReader(rdr, &out)
+	out := createTestStreamObj()
+	ExportRecordReader(rdr, out)
 
 	assert.NotNil(t, out.get_schema)
 	assert.NotNil(t, out.get_next)
@@ -675,10 +675,10 @@ func TestExportRecordReaderStream(t *testing.T) {
 	assert.NotNil(t, out.release)
 	assert.NotNil(t, out.private_data)
 
-	h := cgo.Handle(out.private_data)
+	h := *(*cgo.Handle)(out.private_data)
 	assert.Same(t, rdr, h.Value().(cRecordReader).rdr)
 
-	importedRdr := ImportCArrayStream(&out, nil)
+	importedRdr := ImportCArrayStream(out, nil)
 	i := 0
 	for {
 		rec, err := importedRdr.Read()
