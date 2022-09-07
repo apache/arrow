@@ -79,7 +79,9 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
-    FindMergedRun();
+    if (!isEnd()) {
+      FindMergedRun();
+    }
   }
 
   MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
@@ -96,7 +98,9 @@ class MergedRunsIterator {
       run_index[input_id] = rle_util::FindPhysicalOffset(
           RunEnds(*input), RunEndsArray(*input).length, input->offset);
     }
-    FindMergedRun();
+    if (!isEnd()) {
+      FindMergedRun();
+    }
   }
 
   MergedRunsIterator(const MergedRunsIterator& other) = default;
@@ -153,7 +157,6 @@ class MergedRunsIterator {
   bool isEnd() const { return logical_position == logical_length; }
 
   std::array<const ArraySpan*, NUM_INPUTS> inputs;
-  std::array<int64_t, NUM_INPUTS> physical_offset;
   std::array<int64_t, NUM_INPUTS> run_index;
   // logical indices of the end of the run we are currently in each input
   std::array<int64_t, NUM_INPUTS> run_end;
