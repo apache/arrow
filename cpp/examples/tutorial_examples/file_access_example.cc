@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// (Doc section: File I/O)
+
+// (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/csv/api.h>
 #include <arrow/io/api.h>
@@ -23,7 +26,9 @@
 #include <parquet/arrow/writer.h>
 
 #include <iostream>
+// (Doc section: Includes)
 
+// (Doc section: GenInitialFile)
 arrow::Status GenInitialFile() {
   // Make a couple 8-bit integer arrays and a 16-bit integer array -- just like
   // basic Arrow example.
@@ -80,53 +85,81 @@ arrow::Status GenInitialFile() {
 
   return arrow::Status::OK();
 }
+// (Doc section: GenInitialFile)
 
+// (Doc section: RunMain)
 arrow::Status RunMain() {
+  // (Doc section: RunMain)
+  // (Doc section: Gen Files)
   // Generate initial files for each format with a helper function -- don't worry,
   // we'll also write a table in this example.
   ARROW_RETURN_NOT_OK(GenInitialFile());
+  // (Doc section: Gen Files)
 
-  // Reading and writing from files
-
+  // (Doc section: ReadableFile Definition)
   // First, we have to set up a ReadableFile object, which just lets us point our
   // readers to the right data on disk. We'll be reusing this object, and rebinding
   // it to multiple files throughout the example.
   std::shared_ptr<arrow::io::ReadableFile> infile;
+  // (Doc section: ReadableFile Definition)
+  // (Doc section: Arrow ReadableFile Open)
   // Get "test_in.arrow" into our file pointer
   ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open(
                                     "test_in.arrow", arrow::default_memory_pool()));
+  // (Doc section: Arrow ReadableFile Open)
+  // (Doc section: Arrow Read Open)
   // Open up the file with the IPC features of the library, gives us a reader object.
   ARROW_ASSIGN_OR_RAISE(auto ipc_reader, arrow::ipc::RecordBatchFileReader::Open(infile));
+  // (Doc section: Arrow Read Open)
+  // (Doc section: Arrow Read)
   // Using the reader, we can read Record Batches. Note that this is specific to IPC;
   // for other formats, we focus on Tables, but here, RecordBatches are used.
   std::shared_ptr<arrow::RecordBatch> rbatch;
   ARROW_ASSIGN_OR_RAISE(rbatch, ipc_reader->ReadRecordBatch(0));
+  // (Doc section: Arrow Read)
 
+  // (Doc section: Arrow Write Open)
   // Just like with input, we get an object for the output file.
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
   // Bind it to "test_out.arrow"
   ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_out.arrow"));
+  // (Doc section: Arrow Write Open)
+  // (Doc section: Arrow Writer)
   // Set up a writer with the output file -- and the schema! We're defining everything
   // here, loading to fire.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc_writer,
                         arrow::ipc::MakeFileWriter(outfile, rbatch->schema()));
+  // (Doc section: Arrow Writer)
+  // (Doc section: Arrow Write)
   // Write the record batch.
   ARROW_RETURN_NOT_OK(ipc_writer->WriteRecordBatch(*rbatch));
+  // (Doc section: Arrow Write)
+  // (Doc section: Arrow Close)
   // Specifically for IPC, the writer needs to be explicitly closed.
   ARROW_RETURN_NOT_OK(ipc_writer->Close());
+  // (Doc section: Arrow Close)
 
+  // (Doc section: CSV Read Open)
   // Bind our input file to "test_in.csv"
   ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open("test_in.csv"));
+  // (Doc section: CSV Read Open)
+  // (Doc section: CSV Table Declare)
   std::shared_ptr<arrow::Table> csv_table;
+  // (Doc section: CSV Table Declare)
+  // (Doc section: CSV Reader Make)
   // The CSV reader has several objects for various options. For now, we'll use defaults.
   ARROW_ASSIGN_OR_RAISE(
       auto csv_reader,
       arrow::csv::TableReader::Make(
           arrow::io::default_io_context(), infile, arrow::csv::ReadOptions::Defaults(),
           arrow::csv::ParseOptions::Defaults(), arrow::csv::ConvertOptions::Defaults()));
+  // (Doc section: CSV Reader Make)
+  // (Doc section: CSV Read)
   // Read the table.
   ARROW_ASSIGN_OR_RAISE(csv_table, csv_reader->Read())
+  // (Doc section: CSV Read)
 
+  // (Doc section: CSV Write)
   // Bind our output file to "test_out.csv"
   ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_out.csv"));
   // The CSV writer has simpler defaults, review API documentation for more complex usage.
@@ -135,27 +168,42 @@ arrow::Status RunMain() {
   ARROW_RETURN_NOT_OK(csv_writer->WriteTable(*csv_table));
   // Not necessary, but a safe practice.
   ARROW_RETURN_NOT_OK(csv_writer->Close());
+  // (Doc section: CSV Write)
 
+  // (Doc section: Parquet Read Open)
   // Bind our input file to "test_in.parquet"
   ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open("test_in.parquet"));
+  // (Doc section: Parquet Read Open)
+  // (Doc section: Parquet FileReader)
   std::unique_ptr<parquet::arrow::FileReader> reader;
+  // (Doc section: Parquet FileReader)
+  // (Doc section: Parquet OpenFile)
   // Note that Parquet's OpenFile() takes the reader by reference, rather than returning
   // a reader.
   PARQUET_THROW_NOT_OK(
       parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+  // (Doc section: Parquet OpenFile)
+
+  // (Doc section: Parquet Read)
   std::shared_ptr<arrow::Table> parquet_table;
   // Read the table.
   PARQUET_THROW_NOT_OK(reader->ReadTable(&parquet_table));
+  // (Doc section: Parquet Read)
 
+  // (Doc section: Parquet Write)
   // Parquet writing does not need a declared writer object. Just get the output
   // file bound, then pass in the table, memory pool, output, and chunk size for
   // breaking up the Table on-disk.
   ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open("test_out.parquet"));
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(
       *parquet_table, arrow::default_memory_pool(), outfile, 5));
+  // (Doc section: Parquet Write)
+  // (Doc section: Return)
   return arrow::Status::OK();
 }
+// (Doc section: Return)
 
+// (Doc section: Main)
 int main() {
   arrow::Status st = RunMain();
   if (!st.ok()) {
@@ -164,3 +212,5 @@ int main() {
   }
   return 0;
 }
+// (Doc section: Main)
+// (Doc section: File I/O)

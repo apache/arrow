@@ -47,6 +47,12 @@ Before continuing, make sure you have:
 Setup
 -----
 
+Before trying out Arrow, we need to fill in a couple gaps:
+
+1. We need to include necessary headers.
+   
+2. ``A main()`` is needed to glue things together.
+
 Includes
 ^^^^^^^^
 
