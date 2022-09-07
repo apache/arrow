@@ -161,6 +161,15 @@ struct ARROW_FLIGHT_EXPORT Criteria {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
 
+  bool Equals(const Criteria& other) const;
+
+  friend bool operator==(const Criteria& left, const Criteria& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Criteria& left, const Criteria& right) {
+    return !(left == right);
+  }
+
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -176,6 +185,15 @@ struct ARROW_FLIGHT_EXPORT Action {
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
 
+  bool Equals(const Action& other) const;
+
+  friend bool operator==(const Action& left, const Action& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Action& left, const Action& right) {
+    return !(left == right);
+  }
+
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -186,6 +204,15 @@ struct ARROW_FLIGHT_EXPORT Action {
 /// \brief Opaque result returned after executing an action
 struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
+
+  bool Equals(const Result& other) const;
+
+  friend bool operator==(const Result& left, const Result& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Result& left, const Result& right) {
+    return !(left == right);
+  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -198,6 +225,15 @@ struct ARROW_FLIGHT_EXPORT Result {
 struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;
   std::string password;
+
+  bool Equals(const BasicAuth& other) const;
+
+  friend bool operator==(const BasicAuth& left, const BasicAuth& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const BasicAuth& left, const BasicAuth& right) {
+    return !(left == right);
+  }
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<BasicAuth> Deserialize(arrow::util::string_view serialized);
@@ -442,7 +478,16 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
 
   const std::string& serialized_schema() const { return raw_schema_; }
 
-    /// \brief Serialize this message to its wire-format representation.
+  bool Equals(const SchemaResult& other) const;
+
+  friend bool operator==(const SchemaResult& left, const SchemaResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SchemaResult& left, const SchemaResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.

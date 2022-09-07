@@ -88,51 +88,55 @@ TEST(FlightTypes, RoundTripTypes) {
                        action_type.SerializeToString());
   ASSERT_OK_AND_ASSIGN(ActionType action_type_deserialized,
                        ActionType::Deserialize(action_type_serialized));
-  ASSERT_TRUE(action_type.Equals(action_type_deserialized));
+  ASSERT_EQ(action_type, action_type_deserialized);
 
   Criteria criteria{"criteria1"};
   ASSERT_OK_AND_ASSIGN(std::string criteria_serialized, criteria.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Criteria criteria_deserialized,
                        Criteria::Deserialize(criteria_serialized));
-  ASSERT_EQ(criteria.expression, criteria_deserialized.expression);
+  ASSERT_EQ(criteria, criteria_deserialized);
 
   Action action{"action1", Buffer::FromString("action1-content")};
   ASSERT_OK_AND_ASSIGN(std::string action_serialized, action.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Action action_deserialized,
                        Action::Deserialize(action_serialized));
-  ASSERT_EQ(action.type, action_deserialized.type);
-  ASSERT_TRUE(action.body->Equals(*action_deserialized.body));
+  ASSERT_EQ(action, action_deserialized);
 
   Result result{Buffer::FromString("result1-content")};
   ASSERT_OK_AND_ASSIGN(std::string result_serialized, result.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Result result_deserialized,
                        Result::Deserialize(result_serialized));
-  ASSERT_TRUE(result.body->Equals(*result_deserialized.body));
+  ASSERT_EQ(result, result_deserialized);
+
+  BasicAuth basic_auth{"username1", "password1"};
+  ASSERT_OK_AND_ASSIGN(std::string basic_auth_serialized, basic_auth.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(BasicAuth basic_auth_deserialized,
+                       BasicAuth::Deserialize(basic_auth_serialized));
+  ASSERT_EQ(basic_auth, basic_auth_deserialized);
 
   SchemaResult schema_result{"schema_result1"};
   ASSERT_OK_AND_ASSIGN(std::string schema_result_serialized,
                        schema_result.SerializeToString());
   ASSERT_OK_AND_ASSIGN(SchemaResult schema_result_deserialized,
                        SchemaResult::Deserialize(schema_result_serialized));
-  ASSERT_EQ(schema_result.serialized_schema(),
-            schema_result_deserialized.serialized_schema());
+  ASSERT_EQ(schema_result, schema_result_deserialized);
 
   Ticket ticket{"foo"};
   ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
                        Ticket::Deserialize(ticket_serialized));
-  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+  ASSERT_EQ(ticket, ticket_deserialized);
 
   FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
   ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
   ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
                        FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+  ASSERT_EQ(desc, desc_deserialized);
 
   desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
   ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
   ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+  ASSERT_EQ(desc, desc_deserialized);
 
   FlightInfo::Data data;
   std::shared_ptr<Schema> schema =
@@ -148,7 +152,7 @@ TEST(FlightTypes, RoundTripTypes) {
   ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
                        FlightInfo::Deserialize(info_serialized));
-  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
+  ASSERT_EQ(info->descriptor(), info_deserialized->descriptor());
   ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
   ASSERT_EQ(info->total_records(), info_deserialized->total_records());
   ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
@@ -158,7 +162,7 @@ TEST(FlightTypes, RoundTripTypes) {
                        flight_endpoint.SerializeToString());
   ASSERT_OK_AND_ASSIGN(FlightEndpoint flight_endpoint_deserialized,
                        FlightEndpoint::Deserialize(flight_endpoint_serialized));
-  ASSERT_TRUE(flight_endpoint.Equals(flight_endpoint_deserialized));
+  ASSERT_EQ(flight_endpoint, flight_endpoint_deserialized);
 }
 
 TEST(FlightTypes, RoundtripStatus) {

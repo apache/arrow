@@ -1563,10 +1563,20 @@ def test_roundtrip_types():
     action = flight.Action("action1", b"action1-body")
     assert action == flight.Action.deserialize(action.serialize())
 
-    #TODO (qhoang): this is still a draft
-
     ticket = flight.Ticket("foo")
     assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    result = flight.Result(b"result1")
+    result2 = flight.Result.deserialize(result.serialize())
+    assert result.body == result2.body
+
+    basic_auth = flight.BasicAuth("username1", "password1")
+    basic_auth2 = flight.BasicAuth.deserialize(basic_auth.serialize())
+    assert basic_auth.username == basic_auth2.username
+    assert basic_auth.password == basic_auth2.password
+
+    schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
+    # schema_result2 = flight.SchemaResult.deserialize(schema_result.serialize())
 
     desc = flight.FlightDescriptor.for_command("test")
     assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
@@ -1597,6 +1607,7 @@ def test_roundtrip_types():
     endpoint = flight.FlightEndpoint(
         ticket, ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)])
     assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
+
 
 def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""

@@ -162,6 +162,10 @@ Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   return GetSchema(dictionary_memo).Value(out);
 }
 
+bool SchemaResult::Equals(const SchemaResult& other) const {
+  return raw_schema_ == other.raw_schema_;
+}
+
 arrow::Result<std::string> SchemaResult::SerializeToString() const {
   pb::SchemaResult pb_schema_result;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_schema_result));
@@ -452,6 +456,10 @@ arrow::Result<ActionType> ActionType::Deserialize(arrow::util::string_view seria
   return out;
 }
 
+bool Criteria::Equals(const Criteria& other) const {
+  return expression == other.expression;
+}
+
 arrow::Result<std::string> Criteria::SerializeToString() const {
   pb::Criteria pb_criteria;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_criteria));
@@ -478,6 +486,11 @@ arrow::Result<Criteria> Criteria::Deserialize(arrow::util::string_view serialize
   return out;
 }
 
+bool Action::Equals(const Action& other) const {
+  return (type == other.type) &&
+         ((body == other.body) || (body && other.body && body->Equals(*other.body)));
+}
+
 arrow::Result<std::string> Action::SerializeToString() const {
   pb::Action pb_action;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_action));
@@ -502,6 +515,10 @@ arrow::Result<Action> Action::Deserialize(arrow::util::string_view serialized) {
   Action out;
   RETURN_NOT_OK(internal::FromProto(pb_action, &out));
   return out;
+}
+
+bool Result::Equals(const Result& other) const {
+  return (body == other.body) || (body && other.body && body->Equals(*other.body));
 }
 
 arrow::Result<std::string> Result::SerializeToString() const {
@@ -622,6 +639,10 @@ arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
     return nullptr;
   }
   return std::unique_ptr<Result>(new Result(std::move(results_[position_++])));
+}
+
+bool BasicAuth::Equals(const BasicAuth& other) const {
+  return (username == other.username) && (password == other.password);
 }
 
 arrow::Result<BasicAuth> BasicAuth::Deserialize(arrow::util::string_view serialized) {

@@ -312,9 +312,7 @@ cdef class Action(_Weakrefable):
         return action
 
     def __eq__(self, Action other):
-        # TODO (qhoang): question for myself, do we need to push this down
-        # to C++ for checking with body as well (similar to Ticker, e.g.)
-        return self.action.type == other.action.type
+        return self.action == other.action
 
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
@@ -371,10 +369,13 @@ cdef class Result(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        result = Result()
-        check_flight_status(
-            CFlightResult.Deserialize(serialized).Value(result.result.get()))
+        cdef Result result = Result.__new__(Result)
+        result.result.reset(new CFlightResult(GetResultValue(
+            CFlightResult.Deserialize(tobytes(serialized)))))
         return result
+
+    def __eq__(self, Result other):
+        return self.result.get() == other.result.get()
 
 
 cdef class BasicAuth(_Weakrefable):
@@ -409,12 +410,15 @@ cdef class BasicAuth(_Weakrefable):
     @staticmethod
     def deserialize(serialized):
         auth = BasicAuth()
-        check_flight_status(
-            CBasicAuth.Deserialize(serialized).Value(auth.basic_auth.get()))
+        auth.basic_auth.reset(new CBasicAuth(GetResultValue(
+            CBasicAuth.Deserialize(tobytes(serialized)))))
         return auth
 
     def serialize(self):
         return GetResultValue(self.basic_auth.get().SerializeToString())
+
+    def __eq__(self, BasicAuth other):
+        return self.basic_auth.get() == other.basic_auth.get()
 
 
 class DescriptorType(enum.Enum):
@@ -809,10 +813,10 @@ cdef class SchemaResult(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        result = SchemaResult()
-        check_flight_status(
-            CSchemaResult.Deserialize(serialized).Value(result.result.get()))
-        return result
+        # cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
+        # result.result.reset(new CSchemaResult(GetResultValue(
+        #     CSchemaResult.Deserialize(tobytes(serialized)))))
+        # return result
 
 
 cdef class FlightInfo(_Weakrefable):
