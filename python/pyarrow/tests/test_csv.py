@@ -656,10 +656,7 @@ class BaseTestCSV(abc.ABC):
 
         # Test ser/de
         parse_opts.invalid_row_handler = InvalidRowHandler('skip')
-        state = parse_opts.__getstate__()
-
-        parse_opts = ParseOptions()
-        parse_opts.__setstate__(state)
+        parse_opts = pickle.loads(pickle.dumps(parse_opts))
 
         table = self.read_bytes(rows, parse_options=parse_opts)
         assert table.to_pydict() == {
