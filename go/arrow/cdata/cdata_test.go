@@ -646,7 +646,6 @@ func TestRecordReaderStream(t *testing.T) {
 			}
 			assert.NoError(t, err)
 		}
-		defer rec.Release()
 
 		assert.EqualValues(t, 2, rec.NumCols())
 		assert.Equal(t, "a", rec.ColumnName(0))
