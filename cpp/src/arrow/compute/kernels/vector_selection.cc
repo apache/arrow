@@ -100,7 +100,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   if (!rle_util::ValuesArray(filter).MayHaveNulls()) {
     for (auto it = rle_util::MergedRunsIterator<2>(values, filter);
          it != rle_util::MergedRunsIterator<2>(); ++it) {
-      if (bit_util::GetBit(filter_selection, it.physical_index(1))) {
+      if (bit_util::GetBit(filter_selection, it.index_into_buffer(1))) {
         output_size++;
       }
     }
@@ -108,16 +108,16 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
     if (null_selection == FilterOptions::EMIT_NULL) {
       for (auto it = rle_util::MergedRunsIterator<2>(values, filter);
            it != rle_util::MergedRunsIterator<2>(); ++it) {
-        if (!bit_util::GetBit(filter_is_valid, it.physical_index(1)) ||
-            bit_util::GetBit(filter_selection, it.physical_index(1))) {
+        if (!bit_util::GetBit(filter_is_valid, it.index_into_buffer(1)) ||
+            bit_util::GetBit(filter_selection, it.index_into_buffer(1))) {
           output_size++;
         }
       }
     } else {
       for (auto it = rle_util::MergedRunsIterator<2>(values, filter);
            it != rle_util::MergedRunsIterator<2>(); ++it) {
-        if (bit_util::GetBit(filter_is_valid, it.physical_index(1)) &&
-            bit_util::GetBit(filter_selection, it.physical_index(1))) {
+        if (bit_util::GetBit(filter_is_valid, it.index_into_buffer(1)) &&
+            bit_util::GetBit(filter_selection, it.index_into_buffer(1))) {
           output_size++;
         }
       }
@@ -970,29 +970,29 @@ class RLEPrimitiveFilterImpl {
       if (!rle_util::ValuesArray(filter_).MayHaveNulls()) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
-          if (bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+          if (bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteValue(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteValue(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
         }
       } else if (null_selection_ == FilterOptions::DROP) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
-          if (bit_util::GetBit(filter_is_valid_, it.physical_index(FILTER_INPUT)) &&
-              bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+          if (bit_util::GetBit(filter_is_valid_, it.index_into_buffer(FILTER_INPUT)) &&
+              bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteValue(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteValue(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
         }
       } else {  // null_selection == FilterOptions::EMIT_NULL
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
           const bool is_valid =
-              bit_util::GetBit(filter_is_valid_, it.physical_index(FILTER_INPUT));
+              bit_util::GetBit(filter_is_valid_, it.index_into_buffer(FILTER_INPUT));
           if (is_valid &&
-              bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+              bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteNotNull(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteNotNull(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
           if (!is_valid) {
             accumulated_run_length += it.run_length();
@@ -1005,29 +1005,29 @@ class RLEPrimitiveFilterImpl {
       if (!rle_util::ValuesArray(filter_).MayHaveNulls()) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
-          if (bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+          if (bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteMaybeNull(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteMaybeNull(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
         }
       } else if (null_selection_ == FilterOptions::DROP) {
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
-          if (bit_util::GetBit(filter_is_valid_, it.physical_index(FILTER_INPUT)) &&
-              bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+          if (bit_util::GetBit(filter_is_valid_, it.index_into_buffer(FILTER_INPUT)) &&
+              bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteMaybeNull(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteMaybeNull(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
         }
       } else {  // null_selection == FilterOptions::EMIT_NULL
         for (auto it = rle_util::MergedRunsIterator<2>(values_, filter_);
              it != rle_util::MergedRunsIterator<2>(); ++it) {
           const bool is_valid =
-              bit_util::GetBit(filter_is_valid_, it.physical_index(FILTER_INPUT));
+              bit_util::GetBit(filter_is_valid_, it.index_into_buffer(FILTER_INPUT));
           if (is_valid &&
-              bit_util::GetBit(filter_data_, it.physical_index(FILTER_INPUT))) {
+              bit_util::GetBit(filter_data_, it.index_into_buffer(FILTER_INPUT))) {
             accumulated_run_length += it.run_length();
-            WriteMaybeNull(it.physical_index(VALUE_INPUT), accumulated_run_length);
+            WriteMaybeNull(it.index_into_buffer(VALUE_INPUT), accumulated_run_length);
           }
           if (!is_valid) {
             accumulated_run_length += it.run_length();
@@ -1101,8 +1101,8 @@ Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* 
 
   const int bit_width =
       checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
-  RETURN_NOT_OK(PreallocateDataRLE(ctx, output_length, bit_width,
-                                   allocate_validity, out_arr));
+  RETURN_NOT_OK(
+      PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
