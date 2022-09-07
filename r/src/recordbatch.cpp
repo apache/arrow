@@ -48,7 +48,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__RenameColumns(
     const std::vector<std::string>& names) {
   int n = batch->num_columns();
   if (names.size() != static_cast<size_t>(n)) {
-    arrow::arrow_stop("RecordBatch has %d columns but %d names were provided", n, names.size());
+    arrow::arrow_stop("RecordBatch has %d columns but %d names were provided", n,
+                      names.size());
   }
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (int i = 0; i < n; i++) {
@@ -240,7 +241,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
 
   if (schema->num_fields() != num_fields) {
     arrow::arrow_stop("incompatible. schema has %d fields, and %d arrays are supplied",
-                schema->num_fields(), num_fields);
+                      schema->num_fields(), num_fields);
   }
 
   // convert lst to a vector of arrow::Array
@@ -249,7 +250,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   auto fill_array = [&arrays, &schema](int j, SEXP x, std::string name) {
     if (schema->field(j)->name() != name) {
       arrow::arrow_stop("field at index %d has name '%s' != '%s'", j + 1,
-                  schema->field(j)->name().c_str(), name.c_str());
+                        schema->field(j)->name().c_str(), name.c_str());
     }
     arrays[j] = arrow::r::vec_to_arrow_Array(x, schema->field(j)->type(), false);
   };

@@ -416,7 +416,8 @@ class RIconvWrapper {
   RIconvWrapper(std::string to, std::string from)
       : handle_(Riconv_open(to.c_str(), from.c_str())) {
     if (handle_ == ((void*)-1)) {
-      arrow::arrow_stop("Can't convert encoding from '%s' to '%s'", from.c_str(), to.c_str());
+      arrow::arrow_stop("Can't convert encoding from '%s' to '%s'", from.c_str(),
+                        to.c_str());
     }
   }
 
