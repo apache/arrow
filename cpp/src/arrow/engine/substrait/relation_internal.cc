@@ -43,6 +43,9 @@ using internal::UriFromAbsolutePath;
 
 namespace engine {
 
+
+// Validation functions
+
 template <typename RelMessage>
 Result<std::vector<compute::Expression>> GetEmitInfo(
     const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
@@ -96,6 +99,242 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
+Status CheckReadRelation(const substrait::ReadRel& rel,
+                         const ConversionOptions& conversion_options) {
+  // NOTE: scan_options->projection is not used by the scanner and thus can't be used
+  if (rel.has_projection()) {
+    return Status::NotImplemented("substrait::ReadRel::projection");
+  }
+
+  if (rel.has_named_table()) {
+    if (!conversion_options.named_table_provider) {
+      return Status::Invalid(
+          "plan contained a named table but a NamedTableProvider has not been "
+          "configured");
+    }
+
+    if (rel.named_table().names().empty()) {
+      return Status::Invalid("names for NamedTable not provided");
+    }
+
+    return Status::OK();
+  }
+
+  if (!rel.has_local_files()) {
+    return Status::NotImplemented(
+        "substrait::ReadRel with read_type other than LocalFiles");
+  }
+
+  if (rel.local_files().has_advanced_extension()) {
+    return Status::NotImplemented(
+        "substrait::ReadRel::LocalFiles::advanced_extension");
+  }
+
+  return Status::OK();
+}
+
+Status CheckFileItem(const substrait::ReadRel::LocalFiles::FileOrFiles& file_item) {
+  if (file_item.partition_index() != 0) {
+    return Status::NotImplemented(
+        "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
+  }
+
+  if (file_item.start() != 0) {
+    return Status::NotImplemented(
+        "non-default substrait::ReadRel::LocalFiles::FileOrFiles::start offset");
+  }
+
+  if (file_item.length() != 0) {
+    return Status::NotImplemented(
+        "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
+  }
+
+  return Status::OK();
+}
+
+Status CheckFilePathUri(const ::arrow::internal::Uri& uri) {
+  if (!uri.is_file_scheme()) {
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                  uri.ToString(),
+                                  ") with non-filesystem scheme (file:///)");
+  }
+
+  if (uri.port() != -1) {
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                  uri.ToString(),
+                                  ") should not have a port number in path");
+  }
+
+  if (!uri.query_string().empty()) {
+    return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
+                                  uri.ToString(),
+                                  ") should not have a query string in path");
+  }
+
+  return Status::OK();
+}
+
+// Other helper functions
+Status DiscoverFilesFromDir(std::shared_ptr<fs::LocalFileSystem>& local_fs,
+                            std::string dirpath,
+                            std::vector<fs::FileInfo>& rel_fpaths) {
+  // Define a selector for a recursive descent
+  fs::FileSelector selector;
+  selector.base_dir = dirpath;
+  selector.recursive = true;
+
+  ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
+  std::move(file_infos.begin(), file_infos.end(), std::back_inserter(rel_fpaths));
+
+  return Status::OK();
+}
+
+// Function that implements "FromProto" for a substrait::ReadRel (read relation)
+Result<DeclarationInfo> FromReadRelation(const substrait::ReadRel& rel,
+                                         const ExtensionSet& ext_set,
+                                         const ConversionOptions& conversion_options) {
+  // Validate the defined read relation
+  RETURN_NOT_OK(CheckReadRelation(rel, conversion_options));
+
+  // Get the base schema for the read relation
+  ARROW_ASSIGN_OR_RAISE(auto base_schema,
+                        FromProto(rel.base_schema(), ext_set, conversion_options));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->use_threads = true;
+
+  if (rel.has_filter()) {
+    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
+                          FromProto(rel.filter(), ext_set, conversion_options));
+  }
+
+  if (rel.has_named_table()) {
+    const NamedTableProvider& named_provider = conversion_options.named_table_provider;
+    const substrait::ReadRel::NamedTable& named_table = rel.named_table();
+    std::vector<std::string> table_names(named_table.names().begin(),
+                                         named_table.names().end());
+
+    ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl, named_provider(table_names));
+    if (!source_decl.IsValid()) {
+      return Status::Invalid("Invalid NamedTable Source");
+    }
+
+    return ProcessEmit(std::move(rel),
+                       DeclarationInfo{std::move(source_decl), base_schema},
+                       std::move(base_schema));
+  }
+
+  // Determine format based on the first FileOrFiles item
+  std::shared_ptr<dataset::FileFormat> format;
+  if (rel.local_files().items().size() > 0) {
+    const auto& first_file = rel.local_files().items(0);
+
+    switch (first_file.file_format_case()) {
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
+        format = std::make_shared<dataset::ParquetFileFormat>();
+        break;
+
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
+        format = std::make_shared<dataset::IpcFileFormat>();
+        break;
+
+      default:
+        // TODO: maybe check for ".feather" or ".arrows"?
+        return Status::NotImplemented(
+            "unknown file format ",
+            "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
+    }
+  }
+
+  // Use a filesystem instance to gather each file
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  std::vector<fs::FileInfo> files;
+  for (const auto& item : rel.local_files().items()) {
+    // Validate properties of the `FileOrFiles` item
+    RETURN_NOT_OK(CheckFileItem(item));
+
+    // Extract and parse the read relation's source URI
+    ::arrow::internal::Uri item_uri;
+    switch (item.path_type_case()) {
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath:
+        RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
+        break;
+
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile:
+        RETURN_NOT_OK(item_uri.Parse(item.uri_file()));
+        break;
+
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder:
+        RETURN_NOT_OK(item_uri.Parse(item.uri_folder()));
+        break;
+
+      default:
+        RETURN_NOT_OK(item_uri.Parse(item.uri_path_glob()));
+        break;
+    }
+
+    // Validate the URI before processing
+    RETURN_NOT_OK(CheckFilePathUri(item_uri));
+
+    // Handle the URI as appropriate
+    switch (item.path_type_case()) {
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile: {
+        files.emplace_back(item_uri.path(), fs::FileType::File);
+        break;
+      }
+
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder: {
+        RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
+        break;
+      }
+
+      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath: {
+        // Let the filesystem API decide for us if the URI is a file or a directory
+        ARROW_ASSIGN_OR_RAISE(auto file_info, filesystem->GetFileInfo(item_uri.path()));
+
+        // push the FileInfo if it's for a file
+        if (file_info.type() == fs::FileType::File) {
+          files.push_back(std::move(file_info));
+        }
+
+        // recurse into the directory to discover FileInfo for each file
+        else if (file_info.type() == fs::FileType::Directory) {
+          RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
+        }
+
+        break;
+      }
+
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
+        ARROW_ASSIGN_OR_RAISE(auto globbed_files,
+                              fs::internal::GlobFiles(filesystem, item_uri.path()));
+        std::move(globbed_files.begin(), globbed_files.end(), std::back_inserter(files));
+        break;
+      }
+
+      default: {
+        return Status::Invalid("Unrecognized file type in LocalFiles");
+      }
+    }
+  }
+
+  // Create a dataset via a dataset factory
+  ARROW_ASSIGN_OR_RAISE(auto ds_factory,
+    dataset::FileSystemDatasetFactory::Make(
+      std::move(filesystem), std::move(files), std::move(format), {}
+    )
+  );
+
+  ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
+
+  DeclarationInfo scan_declaration {
+      compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
+      base_schema};
+
+  return ProcessEmit(std::move(rel), std::move(scan_declaration),
+                     std::move(base_schema));
+}
+
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
                                   const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
@@ -106,167 +345,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
   switch (rel.rel_type_case()) {
     case substrait::Rel::RelTypeCase::kRead: {
-      const auto& read = rel.read();
-      RETURN_NOT_OK(CheckRelCommon(read));
+      const auto& read_rel = rel.read();
+      RETURN_NOT_OK(CheckRelCommon(read_rel));
 
-      ARROW_ASSIGN_OR_RAISE(auto base_schema,
-                            FromProto(read.base_schema(), ext_set, conversion_options));
-
-      auto scan_options = std::make_shared<dataset::ScanOptions>();
-      scan_options->use_threads = true;
-
-      if (read.has_filter()) {
-        ARROW_ASSIGN_OR_RAISE(scan_options->filter,
-                              FromProto(read.filter(), ext_set, conversion_options));
-      }
-
-      if (read.has_projection()) {
-        // NOTE: scan_options->projection is not used by the scanner and thus can't be
-        // used for this
-        return Status::NotImplemented("substrait::ReadRel::projection");
-      }
-
-      if (read.has_named_table()) {
-        if (!conversion_options.named_table_provider) {
-          return Status::Invalid(
-              "plan contained a named table but a NamedTableProvider has not been "
-              "configured");
-        }
-        const NamedTableProvider& named_table_provider =
-            conversion_options.named_table_provider;
-        const substrait::ReadRel::NamedTable& named_table = read.named_table();
-        std::vector<std::string> table_names(named_table.names().begin(),
-                                             named_table.names().end());
-        if (table_names.empty()) {
-          return Status::Invalid("names for NamedTable not provided");
-        }
-        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
-                              named_table_provider(table_names));
-        if (!source_decl.IsValid()) {
-          return Status::Invalid("Invalid NamedTable Source");
-        }
-        return ProcessEmit(std::move(read),
-                           DeclarationInfo{std::move(source_decl), base_schema},
-                           std::move(base_schema));
-      }
-
-      if (!read.has_local_files()) {
-        return Status::NotImplemented(
-            "substrait::ReadRel with read_type other than LocalFiles");
-      }
-
-      if (read.local_files().has_advanced_extension()) {
-        return Status::NotImplemented(
-            "substrait::ReadRel::LocalFiles::advanced_extension");
-      }
-
-      std::shared_ptr<dataset::FileFormat> format;
-      auto filesystem = std::make_shared<fs::LocalFileSystem>();
-      std::vector<fs::FileInfo> files;
-
-      for (const auto& item : read.local_files().items()) {
-        std::string path;
-        if (item.path_type_case() ==
-            substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath) {
-          path = item.uri_path();
-        } else if (item.path_type_case() ==
-                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile) {
-          path = item.uri_file();
-        } else if (item.path_type_case() ==
-                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder) {
-          path = item.uri_folder();
-        } else {
-          path = item.uri_path_glob();
-        }
-
-        switch (item.file_format_case()) {
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
-            format = std::make_shared<dataset::ParquetFileFormat>();
-            break;
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
-            format = std::make_shared<dataset::IpcFileFormat>();
-            break;
-          default:
-            return Status::NotImplemented(
-                "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
-        }
-
-        if (!StartsWith(path, "file:///")) {
-          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
-                                        ") with other than local filesystem "
-                                        "(file:///)");
-        }
-
-        if (item.partition_index() != 0) {
-          return Status::NotImplemented(
-              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
-        }
-
-        if (item.start() != 0) {
-          return Status::NotImplemented(
-              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::start offset");
-        }
-
-        if (item.length() != 0) {
-          return Status::NotImplemented(
-              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
-        }
-
-        path = path.substr(7);
-        switch (item.path_type_case()) {
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
-            ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
-            if (file.type() == fs::FileType::File) {
-              files.push_back(std::move(file));
-            } else if (file.type() == fs::FileType::Directory) {
-              fs::FileSelector selector;
-              selector.base_dir = path;
-              selector.recursive = true;
-              ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                    filesystem->GetFileInfo(selector));
-              std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
-            }
-            break;
-          }
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
-            files.emplace_back(path, fs::FileType::File);
-            break;
-          }
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
-            fs::FileSelector selector;
-            selector.base_dir = path;
-            selector.recursive = true;
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  filesystem->GetFileInfo(selector));
-            std::move(discovered_files.begin(), discovered_files.end(),
-                      std::back_inserter(files));
-            break;
-          }
-          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
-            ARROW_ASSIGN_OR_RAISE(auto discovered_files,
-                                  fs::internal::GlobFiles(filesystem, path));
-            std::move(discovered_files.begin(), discovered_files.end(),
-                      std::back_inserter(files));
-            break;
-          }
-          default: {
-            return Status::Invalid("Unrecognized file type in LocalFiles");
-          }
-        }
-      }
-
-      ARROW_ASSIGN_OR_RAISE(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
-                                                 std::move(filesystem), std::move(files),
-                                                 std::move(format), {}));
-
-      ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
-
-      DeclarationInfo scan_declaration = {
-          compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
-          base_schema};
-
-      return ProcessEmit(std::move(read), std::move(scan_declaration),
-                         std::move(base_schema));
+      return FromReadRelation(read_rel, ext_set, conversion_options);
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
