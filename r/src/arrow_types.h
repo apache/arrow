@@ -92,10 +92,21 @@ class UnwindProtectDetail : public StatusDetail {
   virtual std::string ToString() const { return "R code execution error"; }
 };
 
-static inline Status StatusUnwindProtect(SEXP token) {
-  return Status::Invalid("R code execution error")
+static inline Status StatusUnwindProtect(SEXP token, std::string message) {
+  return Status::Invalid("R code execution error (", message, ")")
       .WithDetail(std::make_shared<UnwindProtectDetail>(token));
 }
+
+class MoreUsefulUnwindException : public cpp11::unwind_exception {
+ public:
+  MoreUsefulUnwindException(SEXP token, std::string message = "")
+      : cpp11::unwind_exception(token) {}
+
+  const char* what() const noexcept { return message_.c_str(); }
+
+ private:
+  std::string message_;
+};
 
 static inline void StopIfNotOk(const Status& status) {
   if (!status.ok()) {
@@ -103,7 +114,7 @@ static inline void StopIfNotOk(const Status& status) {
     const UnwindProtectDetail* unwind_detail =
         dynamic_cast<const UnwindProtectDetail*>(detail.get());
     if (unwind_detail) {
-      throw cpp11::unwind_exception(unwind_detail->token);
+      throw MoreUsefulUnwindException(unwind_detail->token);
     } else {
       // ARROW-13039: be careful not to interpret our error message as a %-format string
       std::string s = status.ToString();

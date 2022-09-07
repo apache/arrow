@@ -123,7 +123,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
         return fun();
       } catch (cpp11::unwind_exception& e) {
         // Here we save the token and set the main R thread to an error state
-        GetMainRThread().SetError(arrow::StatusUnwindProtect(e.token));
+        GetMainRThread().SetError(arrow::StatusUnwindProtect(e.token, reason));
 
         // We also return an error although this should not surface because
         // main_r_thread.ClearError() will get called before this value can be
