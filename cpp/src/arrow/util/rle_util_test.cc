@@ -88,14 +88,14 @@ TEST(TestRleUtil, MergedRunsInterator) {
 
   size_t position = 0;
   size_t logical_position = 0;
-  for (auto it = MergedRunsIterator<2>(left_span,
-                                       right_span);
+  for (auto it = MergedRunsIterator<2>(left_span, right_span);
        it != MergedRunsIterator<2>(); ++it) {
     ASSERT_EQ(it.run_length(), expected_run_lengths[position]);
     ASSERT_EQ(it.index_into_buffer(0), expected_left_visits[position]);
     ASSERT_EQ(it.index_into_buffer(1), expected_right_visits[position]);
     ASSERT_EQ(it.index_into_array(0), expected_left_visits[position] - left_child_offset);
-    ASSERT_EQ(it.index_into_array(1), expected_right_visits[position] - right_child_offset);
+    ASSERT_EQ(it.index_into_array(1),
+              expected_right_visits[position] - right_child_offset);
     position++;
     logical_position += it.run_length();
     ASSERT_EQ(it.accumulated_run_length(), logical_position);
@@ -107,8 +107,7 @@ TEST(TestRleUtil, MergedRunsInterator) {
 
   position = 0;
   logical_position = 0;
-  for (auto it = MergedRunsIterator<2>(left_span,
-                                       left_span);
+  for (auto it = MergedRunsIterator<2>(left_span, left_span);
        it != MergedRunsIterator<2>(); ++it) {
     ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
     ASSERT_EQ(it.index_into_buffer(0), 110 + position);
@@ -123,8 +122,7 @@ TEST(TestRleUtil, MergedRunsInterator) {
 
   position = 0;
   logical_position = 0;
-  for (auto it = MergedRunsIterator<1>(left_span);
-       it != MergedRunsIterator<1>(); ++it) {
+  for (auto it = MergedRunsIterator<1>(left_span); it != MergedRunsIterator<1>(); ++it) {
     ASSERT_EQ(it.run_length(), left_only_run_lengths[position]);
     ASSERT_EQ(it.index_into_buffer(0), 110 + position);
     ASSERT_EQ(it.index_into_array(0), 10 + position);
@@ -139,8 +137,7 @@ TEST(TestRleUtil, MergedRunsInterator) {
 
   position = 0;
   logical_position = 0;
-  for (auto it = MergedRunsIterator<2>(right_span,
-                                       right_span);
+  for (auto it = MergedRunsIterator<2>(right_span, right_span);
        it != MergedRunsIterator<2>(); ++it) {
     ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
     ASSERT_EQ(it.index_into_buffer(0), 205 + position);
@@ -155,8 +152,7 @@ TEST(TestRleUtil, MergedRunsInterator) {
 
   position = 0;
   logical_position = 0;
-  for (auto it = MergedRunsIterator<1>(right_span);
-       it != MergedRunsIterator<1>(); ++it) {
+  for (auto it = MergedRunsIterator<1>(right_span); it != MergedRunsIterator<1>(); ++it) {
     ASSERT_EQ(it.run_length(), right_only_run_lengths[position]);
     ASSERT_EQ(it.index_into_buffer(0), 205 + position);
     ASSERT_EQ(it.index_into_array(0), 5 + position);
