@@ -41,7 +41,7 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
                                             int i) {
   if (i >= s->num_fields() || i < 0) {
-    cpp11::stop("Invalid field index for schema.");
+    arrow::arrow_stop("Invalid field index for schema.");
   }
 
   return s->field(i);

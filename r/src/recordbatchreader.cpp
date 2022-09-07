@@ -69,7 +69,7 @@ class RFunctionRecordBatchReader : public arrow::RecordBatchReader {
       if (result_sexp == R_NilValue) {
         return std::shared_ptr<arrow::RecordBatch>(nullptr);
       } else if (!Rf_inherits(result_sexp, "RecordBatch")) {
-        cpp11::stop("Expected fun() to return an arrow::RecordBatch");
+        arrow::arrow_stop("Expected fun() to return an arrow::RecordBatch");
       }
 
       return cpp11::as_cpp<std::shared_ptr<arrow::RecordBatch>>(result_sexp);
@@ -154,7 +154,7 @@ int ipc___RecordBatchFileReader__num_record_batches(
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   if (i < 0 && i >= reader->num_record_batches()) {
-    cpp11::stop("Record batch index out of bounds");
+    arrow::arrow_stop("Record batch index out of bounds");
   }
   return ValueOrStop(reader->ReadRecordBatch(i));
 }

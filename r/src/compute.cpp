@@ -98,7 +98,7 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 
   // This assumes that R objects have already been converted to Arrow objects;
   // that seems right but should we do the wrapping here too/instead?
-  cpp11::stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
+  arrow::arrow_stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
 }
 }  // namespace cpp11
 
@@ -123,7 +123,7 @@ SEXP from_datum(arrow::Datum datum) {
       break;
   }
 
-  cpp11::stop("from_datum: Not implemented for Datum %s", datum.ToString().c_str());
+  arrow::arrow_stop("from_datum: Not implemented for Datum %s", datum.ToString().c_str());
 }
 
 std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
@@ -632,7 +632,7 @@ arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
 
         cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
         if (!Rf_inherits(output_type_sexp, "DataType")) {
-          cpp11::stop(
+          arrow::arrow_stop(
               "Function specified as arrow_scalar_function() out_type argument must "
               "return a DataType");
         }
@@ -681,7 +681,7 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
 
           // Error for an Array result of the wrong type
           if (!result->type()->Equals(array->type())) {
-            return cpp11::stop(
+            return arrow::arrow_stop(
                 "Expected return Array or Scalar with type '%s' from user-defined "
                 "function but got Array with type '%s'",
                 result->type()->ToString().c_str(), array->type()->ToString().c_str());
@@ -693,7 +693,7 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
 
           // handle a Scalar result of the wrong type
           if (!result->type()->Equals(scalar->type)) {
-            return cpp11::stop(
+            return arrow::arrow_stop(
                 "Expected return Array or Scalar with type '%s' from user-defined "
                 "function but got Scalar with type '%s'",
                 result->type()->ToString().c_str(), scalar->type->ToString().c_str());
@@ -703,7 +703,7 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
               arrow::MakeArrayFromScalar(*scalar, span.length, context->memory_pool()));
           result->value = std::move(array->data());
         } else {
-          cpp11::stop("arrow_scalar_function must return an Array or Scalar");
+          arrow::arrow_stop("arrow_scalar_function must return an Array or Scalar");
         }
       },
       "execute scalar user-defined function");
@@ -716,7 +716,7 @@ void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
   R_xlen_t n_kernels = in_type_r.size();
 
   if (n_kernels == 0) {
-    cpp11::stop("Can't register user-defined function with zero kernels");
+    arrow::arrow_stop("Can't register user-defined function with zero kernels");
   }
 
   // Compute the Arity from the list of input kernels. We don't currently handle
@@ -726,7 +726,7 @@ void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
   for (R_xlen_t i = 1; i < n_kernels; i++) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
     if (in_types->num_fields() != n_args) {
-      cpp11::stop(
+      arrow::arrow_stop(
           "Kernels for user-defined function must accept the same number of arguments");
     }
   }

@@ -599,7 +599,7 @@ class Converter_Dictionary : public Converter {
           // TODO: also add int64, uint32, uint64 downcasts, if possible
           break;
         default:
-          cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
+          arrow::arrow_stop("Cannot convert Dictionary Array of type `%s` to R",
                       dict_type.ToString().c_str());
       }
 
@@ -1352,7 +1352,7 @@ std::shared_ptr<Converter> Converter::Make(
       break;
   }
 
-  cpp11::stop("cannot handle Array of type <%s>", type->name().c_str());
+  arrow::arrow_stop("cannot handle Array of type <%s>", type->name().c_str());
 }
 
 std::shared_ptr<ChunkedArray> to_chunks(const std::shared_ptr<Array>& array) {

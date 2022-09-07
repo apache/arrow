@@ -52,6 +52,24 @@
 #endif
 
 namespace arrow {
+
+class RException : public std::runtime_error {
+ public:
+  RException(const char* msg) : std::runtime_error(msg) {}
+};
+
+__attribute__((noreturn)) static inline void arrow_stop(const char* fmt, ...) {
+  char message[8096];
+  memset(message, 0, sizeof(message));
+
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(message, sizeof(message), fmt, args);
+  va_end(args);
+
+  throw RException(message);
+}
+
 namespace r {
 
 template <typename T>
@@ -64,14 +82,14 @@ struct Pointer {
       // User passed a character representation of the pointer address
       SEXP char0 = STRING_ELT(x, 0);
       if (char0 == NA_STRING) {
-        cpp11::stop("Can't convert NA_character_ to pointer");
+        arrow::arrow_stop("Can't convert NA_character_ to pointer");
       }
 
       const char* input_chars = CHAR(char0);
       char* endptr;
       uint64_t ptr_value = strtoull(input_chars, &endptr, 0);
       if (endptr != (input_chars + strlen(input_chars))) {
-        cpp11::stop("Can't parse '%s' as a 64-bit integer address", input_chars);
+        arrow::arrow_stop("Can't parse '%s' as a 64-bit integer address", input_chars);
       }
 
       ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
@@ -90,7 +108,7 @@ struct Pointer {
       // User passed a double(1) of the static-casted pointer address.
       ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
     } else {
-      cpp11::stop("Can't convert input object to pointer");
+      arrow::arrow_stop("Can't convert input object to pointer");
     }
   }
 
@@ -207,12 +225,12 @@ Pointer r6_to_pointer(SEXP self) {
   if (!Rf_inherits(self, "ArrowObject")) {
     std::string type_name = arrow::util::nameof<
         cpp11::decay_t<typename std::remove_pointer<Pointer>::type>>();
-    cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
+    arrow::arrow_stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
   void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
   if (p == nullptr) {
     SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
-    cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
+    arrow::arrow_stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
   }
   return reinterpret_cast<Pointer>(p);
 }
@@ -357,7 +375,7 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   SEXP r6_class = Rf_install(r6_class_name);
 
   if (Rf_findVarInFrame3(arrow::r::ns::arrow, r6_class, FALSE) == R_UnboundValue) {
-    cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
+    arrow::arrow_stop("No arrow R6 class named '%s'", r6_class_name);
   }
 
   // make call:  <symbol>$new(<x>)

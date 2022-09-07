@@ -342,7 +342,7 @@ ds::SegmentEncoding GetSegmentEncoding(const std::string& segment_encoding) {
   } else if (segment_encoding == "uri") {
     return ds::SegmentEncoding::Uri;
   }
-  cpp11::stop("invalid segment encoding: " + segment_encoding);
+  arrow::arrow_stop("invalid segment encoding: %s", segment_encoding.c_str());
   return ds::SegmentEncoding::None;
 }
 

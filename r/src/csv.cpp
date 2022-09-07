@@ -131,14 +131,14 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
           timestamp_parsers.push_back(
               cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
         } else {
-          cpp11::stop(
+          arrow::arrow_stop(
               "unsupported timestamp parser, must be a scalar string or a "
               "<TimestampParser> object");
         }
       }
 
     } else {
-      cpp11::stop(
+      arrow::arrow_stop(
           "unsupported timestamp parser, must be character vector of strptime "
           "specifications, or a list of <TimestampParser> objects");
     }
