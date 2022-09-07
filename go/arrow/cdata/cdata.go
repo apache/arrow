@@ -27,7 +27,11 @@ package cdata
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
-// struct ArrowArray* get_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
+// struct ArrowArray* get_arr() {
+//	struct ArrowArray* out = (struct ArrowArray*)(malloc(sizeof(struct ArrowArray)));
+//	memset(out, 0, sizeof(struct ArrowArray));
+//	return out;
+// }
 // struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
 //
 import "C"
@@ -655,18 +659,22 @@ func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, er
 func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
 	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
+	rdr.arr = C.get_arr()
 	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) {
 		if r.cur != nil {
 			r.cur.Release()
 		}
 		C.ArrowArrayStreamRelease(r.stream)
+		C.ArrowArrayRelease(r.arr)
 		C.free(unsafe.Pointer(r.stream))
+		C.free(unsafe.Pointer(r.arr))
 	})
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
 type nativeCRecordBatchReader struct {
 	stream *CArrowArrayStream
+	arr    *CArrowArray
 	schema *arrow.Schema
 
 	cur arrow.Record
@@ -713,18 +721,16 @@ func (n *nativeCRecordBatchReader) next() error {
 		n.cur = nil
 	}
 
-	arr := C.get_arr()
-	defer C.free(unsafe.Pointer(arr))
-	errno := C.stream_get_next(n.stream, arr)
+	errno := C.stream_get_next(n.stream, n.arr)
 	if errno != 0 {
 		return n.getError(int(errno))
 	}
 
-	if C.ArrowArrayIsReleased(arr) == 1 {
+	if C.ArrowArrayIsReleased(n.arr) == 1 {
 		return io.EOF
 	}
 
-	rec, err := ImportCRecordBatchWithSchema(arr, n.schema)
+	rec, err := ImportCRecordBatchWithSchema(n.arr, n.schema)
 	if err != nil {
 		return err
 	}
