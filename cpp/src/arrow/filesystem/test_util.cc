@@ -974,7 +974,7 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_OK_AND_EQ(0, stream->Tell());
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
-  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6 /*Remaining + 1*/));
   AssertBufferEqual(*buffer, " data");
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(1));
   AssertBufferEqual(*buffer, "");
