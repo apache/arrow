@@ -133,22 +133,19 @@ class MergedRunsIterator {
 
   bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
 
-
-  /// \brief returns a physical index into the values array buffers of a given input, pointing to
-  /// the value of the current run. The index includes the array offset, so it can be used to access
-  /// a buffer directly
+  /// \brief returns a physical index into the values array buffers of a given input,
+  /// pointing to the value of the current run. The index includes the array offset, so it
+  /// can be used to access a buffer directly
   int64_t index_into_buffer(int64_t input_id) const {
     return run_index[input_id] + ValuesArray(*inputs[input_id]).offset;
   }
-  /// \brief returns a physical index into the values array of a given input, pointing to the value
-  /// of the current run
-  int64_t index_into_array(int64_t input_id) const {
-    return run_index[input_id];
-  }
+  /// \brief returns a physical index into the values array of a given input, pointing to
+  /// the value of the current run
+  int64_t index_into_array(int64_t input_id) const { return run_index[input_id]; }
   /// \brief returns the logical length of the current run
   int64_t run_length() const { return merged_run_end - logical_position; }
-  /// \brief returns the accumulated length of all runs from the beginning of the array including
-  /// the current one
+  /// \brief returns the accumulated length of all runs from the beginning of the array
+  /// including the current one
   int64_t accumulated_run_length() const { return merged_run_end; }
 
  private:
