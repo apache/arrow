@@ -64,9 +64,11 @@ jobs:
         run: |
           set -ex
           DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
+          git remote add upstream https://github.com/apache/arrow
+          git fetch upstream
 
           changed() {
-            git diff --name-only $DEFAULT_BRANCH... | grep -e "$1" >/dev/null 2>&1
+            git diff --name-only upstream/$DEFAULT_BRANCH... | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
             echo "R_DOCS=true" >> $GITHUB_ENV
@@ -129,7 +131,7 @@ jobs:
         if: env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
-          changed_files <- system("git diff --name-only ${{ github.event.repository.default_branch }}... 2>&1", intern = TRUE)
+          changed_files <- system("git diff --name-only upstream/${{ github.event.repository.default_branch }}... 2>&1", intern = TRUE)
           # only grab the .R files under r/
           changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
           # remove codegen.R and other possible exclusions
