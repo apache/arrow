@@ -43,6 +43,9 @@ func NewStructArray(cols []arrow.Array, names []string) (*Struct, error) {
 	return NewStructArrayWithNulls(cols, names, nil, 0, 0)
 }
 
+// NewStructArrayWithNulls is like NewStructArray as a convenience function,
+// but also takes in a null bitmap, the number of nulls, and an optional offset
+// to use for creating the Struct Array.
 func NewStructArrayWithNulls(cols []arrow.Array, names []string, nullBitmap *memory.Buffer, nullCount int, offset int) (*Struct, error) {
 	if len(cols) != len(names) {
 		return nil, fmt.Errorf("%w: mismatching number of fields and child arrays", arrow.ErrInvalid)
