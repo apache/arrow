@@ -27,6 +27,7 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"runtime/cgo"
 	"testing"
 	"time"
 	"unsafe"
@@ -34,6 +35,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
@@ -658,4 +660,37 @@ func TestRecordReaderStream(t *testing.T) {
 		assert.Equal(t, "bar", rec.Column(1).(*array.String).Value(1))
 		assert.Equal(t, "baz", rec.Column(1).(*array.String).Value(2))
 	}
+}
+
+func TestExportRecordReaderStream(t *testing.T) {
+	reclist := arrdata.Records["primitives"]
+	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
+
+	out := createTestStreamObj()
+	ExportRecordReader(rdr, out)
+
+	assert.NotNil(t, out.get_schema)
+	assert.NotNil(t, out.get_next)
+	assert.NotNil(t, out.get_last_error)
+	assert.NotNil(t, out.release)
+	assert.NotNil(t, out.private_data)
+
+	h := *(*cgo.Handle)(out.private_data)
+	assert.Same(t, rdr, h.Value().(cRecordReader).rdr)
+
+	importedRdr := ImportCArrayStream(out, nil)
+	i := 0
+	for {
+		rec, err := importedRdr.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			assert.NoError(t, err)
+		}
+
+		assert.Truef(t, array.RecordEqual(reclist[i], rec), "expected: %s\ngot: %s", reclist[i], rec)
+		i++
+	}
+	assert.EqualValues(t, len(reclist), i)
 }
