@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 
@@ -162,16 +163,25 @@ TEST(GetTakeIndices, RandomlyGenerated) {
 // Filter tests
 
 std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
-  if (filter->null_count() == 0) {
+  const bool is_rle = filter->type_id() == Type::RUN_LENGTH_ENCODED;
+  // work directly on run values array in case of RLE
+  const ArrayData& data = is_rle ? *filter->data()->child_data[1] : *filter->data();
+  if (data.GetNullCount() == 0) {
     return filter;
   }
-  const auto& data = *filter->data();
   auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1], nullptr, 0,
                                                 data.offset);
   auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0], nullptr, 0,
                                                  data.offset);
   EXPECT_OK_AND_ASSIGN(Datum out_datum, And(is_true, is_valid));
-  return out_datum.make_array();
+  if (is_rle) {
+    auto& rle_filter = dynamic_cast<RunLengthEncodedArray&>(*filter);
+    return RunLengthEncodedArray::Make(rle_filter.run_ends_array(),
+                                       out_datum.make_array(), rle_filter.length())
+        .ValueOrDie();
+  } else {
+    return out_datum.make_array();
+  }
 }
 
 class TestFilterKernel : public ::testing::Test {
@@ -203,11 +213,9 @@ class TestFilterKernel : public ::testing::Test {
     }
   }
 
-  void AssertFilter(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter,
-                    const std::shared_ptr<Array>& expected) {
-    DoAssertFilter(values, filter, expected);
-
+  void AssertFilterSliced(const std::shared_ptr<Array>& values,
+                          const std::shared_ptr<Array>& filter,
+                          const std::shared_ptr<Array>& expected) {
     if (values->type_id() == Type::DENSE_UNION) {
       // Concatenation of dense union not supported
       return;
@@ -225,24 +233,44 @@ class TestFilterKernel : public ::testing::Test {
     values_sliced = values_sliced->Slice(3, values->length());
     filter_sliced = filter_sliced->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
+  }
 
-    ARROW_SCOPED_TRACE("for run-length encoded values and filter");
-    // Check RLE
-    // TODO: handle RLE filter kernel for non-primitive types
+  void AssertFilterRLE(const std::shared_ptr<Array>& values,
+                       const std::shared_ptr<Array>& filter,
+                       const std::shared_ptr<Array>& expected) {
+    // TODO: create RLE filter kernel for non-primitive types
     if (!is_primitive(values->type_id())) {
       return;
     }
-
     ASSERT_OK_AND_ASSIGN(auto values_rle, RunLengthEncode(values));
     ASSERT_OK_AND_ASSIGN(auto filter_rle, RunLengthEncode(filter));
     ASSERT_OK_AND_ASSIGN(auto expected_rle, RunLengthEncode(expected));
-
-    DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
-                   expected_rle.make_array());
-
+    {
+      ARROW_SCOPED_TRACE("for run-length encoded non-sliced values and filter");
+      DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                     expected_rle.make_array());
+    }
+    {
+      ARROW_SCOPED_TRACE(
+          "for run-length encoded values and filter with sliced child arrays");
+      auto values_rle_sliced = values_rle.array()->Copy();
+      rle_util::AddArtificialOffsetInChildArray(values_rle_sliced.get(), 2);
+      auto filter_rle_sliced = filter_rle.array()->Copy();
+      //  rle_util::AddArtificialOffsetInChildArray(filter_rle_sliced.get(), 1000);
+      DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                     expected_rle.make_array());
+    }
     // ASSERT_OK_AND_ASSIGN(auto values_filler_rle_nomerge,
     // RunLengthEncode(values_filler)); ASSERT_OK_AND_ASSIGN(auto
     // values_filler_rle_nomerge, RunLengthEncode(filter_filler));
+  }
+
+  void AssertFilter(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& filter,
+                    const std::shared_ptr<Array>& expected) {
+    DoAssertFilter(values, filter, expected);
+    AssertFilterSliced(values, filter, expected);
+    AssertFilterRLE(values, filter, expected);
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
