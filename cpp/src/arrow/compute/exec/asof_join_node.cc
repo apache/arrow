@@ -712,6 +712,11 @@ class CompositeReferenceTable {
   }
 };
 
+// TODO: Currently, AsofJoinNode uses 64-bit hashing which leads to a non-negligible
+// probability of collision, which can cause incorrect results when many different by-key
+// values are processed. Thus, AsofJoinNode is currently limited to about 100k by-keys for
+// guaranteeing this probability is below 1 in a billion. The fix is 128-bit hashing.
+// See ARROW-17653
 class AsofJoinNode : public ExecNode {
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
   Result<bool> UpdateRhs() {
