@@ -298,7 +298,7 @@ test_that("infer_type() infers type for lists starting with NULL - ARROW-17639",
   null_start_list <- list(NULL, c(2, 3), c(4, 5))
 
   expect_equal(
-    infer_type(null_list),
+    infer_type(null_start_list),
     list_of(float64())
   )
 
