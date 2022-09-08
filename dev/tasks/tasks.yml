@@ -1085,7 +1085,6 @@ tasks:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       github_runner: ["self-hosted", "macOS", "arm64"]
-      arch_emulation: arm64
       target: "wheels"
 
   ######################## Windows verification ##############################
