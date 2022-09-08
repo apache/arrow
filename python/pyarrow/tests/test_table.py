@@ -2199,7 +2199,7 @@ def test_table_cast_invalid():
     table = pa.table({'a': [None, 1], 'b': [None, True]})
     new_schema = pa.schema([pa.field("a", "int64", nullable=True),
                             pa.field("b", "bool", nullable=False)])
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         table.cast(new_schema)
 
     table = pa.table({'a': [None, 1], 'b': [False, True]})
