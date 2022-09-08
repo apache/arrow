@@ -35,11 +35,14 @@ Status RandomGeneratorHolder::Make(const FunctionNode& node,
 
   auto literal_type = literal->return_type()->id();
   ARROW_RETURN_IF(
-      literal_type != arrow::Type::INT32,
-      Status::Invalid("'random' function requires an int32 literal as parameter"));
+      literal_type != arrow::Type::INT32 && literal_type != arrow::Type::INT64,
+      Status::Invalid("'random' function requires an int32/int64 literal as parameter"));
 
-  *holder = std::shared_ptr<RandomGeneratorHolder>(new RandomGeneratorHolder(
-      literal->is_null() ? 0 : arrow::util::get<int32_t>(literal->holder())));
+  auto seed = literal_type == arrow::Type::INT32
+                  ? static_cast<int64_t>(arrow::util::get<int32_t>(literal->holder()))
+                  : arrow::util::get<int64_t>(literal->holder());
+  *holder = std::shared_ptr<RandomGeneratorHolder>(
+      new RandomGeneratorHolder(literal->is_null() ? 0 : seed));
   return Status::OK();
 }
 }  // namespace gandiva

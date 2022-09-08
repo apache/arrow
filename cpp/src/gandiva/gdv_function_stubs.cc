@@ -70,6 +70,12 @@ double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
   return (*holder)();
 }
 
+double gdv_fn_random_with_seed_int64(int64_t ptr, int64_t seed, bool seed_validity) {
+  gandiva::RandomGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
 bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity) {
   if (!in_validity) {
     return false;
@@ -824,6 +830,11 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {types->i64_type(), types->i32_type(), types->i1_type()};
   engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_random_with_seed));
+
+  args = {types->i64_type(), types->i64_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed_int64", types->double_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_random_with_seed_int64));
 
   // gdv_fn_dec_from_string
   args = {
