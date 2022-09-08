@@ -36,22 +36,22 @@ cdef shared_ptr[CTable] _process_named_table(dict named_args, const std_vector[c
         py_names.append(frombytes(c_name))
     return pyarrow_unwrap_table(named_args["provider"](py_names))
 
+
 cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector[c_string]& names):
     cdef:
         shared_ptr[CTable] c_in_table
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         vector[CDeclaration.Input] no_c_inputs
-        CDeclaration c_declaration
     
     c_in_table = _process_named_table(named_args, names)
     c_tablesourceopts = make_shared[CTableSourceNodeOptions](
                 c_in_table, 1 << 20)
     c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
                 c_tablesourceopts)
-    c_declaration = CDeclaration(tobytes("table_source"),
+    return CDeclaration(tobytes("table_source"),
                              no_c_inputs, c_input_node_opts)
-    return c_declaration
+    
 
 
 def run_query(plan, table_provider=None):
