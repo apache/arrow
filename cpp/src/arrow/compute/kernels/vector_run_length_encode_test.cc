@@ -94,7 +94,7 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_EQ(encoded->length, data.input->length());
   ASSERT_EQ(encoded->offset, 0);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
-  ASSERT_EQ(encoded->null_count, data.input->null_count());
+  ASSERT_EQ(encoded->null_count, 0);
 
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
