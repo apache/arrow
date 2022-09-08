@@ -260,9 +260,6 @@ class TestFilterKernel : public ::testing::Test {
       DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
                      expected_rle.make_array());
     }
-    // ASSERT_OK_AND_ASSIGN(auto values_filler_rle_nomerge,
-    // RunLengthEncode(values_filler)); ASSERT_OK_AND_ASSIGN(auto
-    // values_filler_rle_nomerge, RunLengthEncode(filter_filler));
   }
 
   void AssertFilter(const std::shared_ptr<Array>& values,
