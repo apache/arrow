@@ -58,7 +58,7 @@ you may need to increase R's download timeout from the default of 60 seconds, e.
 bucket <- "https://voltrondata-labs-datasets.s3.us-east-2.amazonaws.com"
 for (year in 2009:2022) {
   if (year == 2022) {
-    # We only have through June 2019 there
+    # We only have through Feb 2022 there
     months <- 1:2
   } else {
     months <- 1:12
