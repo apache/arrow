@@ -92,7 +92,7 @@ jobs:
           ulimit -c unlimited
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
-          archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
+          archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} -e ARROW_EXTRA_ERROR_CONTEXT=ON ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
