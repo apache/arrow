@@ -25,6 +25,13 @@ test_that("Write a feather file", {
   expect_identical(tib_out, tib)
 })
 
+test_that("write_ipc_file() returns its input", {
+  tib_out <- write_ipc_file(tib, feather_file)
+  expect_true(file.exists(feather_file))
+  # Input is returned unmodified
+  expect_identical(tib_out, tib)
+})
+
 expect_feather_roundtrip <- function(write_fun) {
   tf2 <- normalizePath(tempfile(), mustWork = FALSE)
   tf3 <- tempfile()
@@ -66,18 +73,25 @@ expect_feather_roundtrip <- function(write_fun) {
 test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "lz4"))
   }
   if (codec_is_available("zstd")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd"))
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd", compression_level = 3))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd", compression_level = 3))
   }
 
   # Write from Arrow data structures
   expect_feather_roundtrip(function(x, f) write_feather(RecordBatch$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(RecordBatch$create(x), f))
   expect_feather_roundtrip(function(x, f) write_feather(Table$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(Table$create(x), f))
 })
 
 test_that("write_feather option error handling", {
@@ -103,12 +117,24 @@ test_that("write_feather option error handling", {
   expect_false(file.exists(tf))
 })
 
+test_that("write_ipc_file option error handling", {
+  tf <- tempfile()
+  expect_false(file.exists(tf))
+  expect_error(
+    write_ipc_file(tib, tf, version = 1),
+    "unused argument \\(version = 1\\)"
+  )
+  expect_error(
+    write_ipc_file(tib, tf, compression_level = 1024),
+    "Can only specify a 'compression_level' when 'compression' is 'zstd'"
+  )
+  expect_match_arg_error(write_ipc_file(tib, tf, compression = "bz2"))
+  expect_false(file.exists(tf))
+})
+
 test_that("write_feather with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_feather(bad_input, feather_file),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_feather(bad_input, feather_file))
 })
 
 test_that("read_feather supports col_select = <names>", {
@@ -181,6 +207,41 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   )
 })
 
+test_that("write_feather() does not detect compression from filename", {
+  # TODO(ARROW-17221): should this be supported?
+  without <- tempfile(fileext = ".arrow")
+  with_zst <- tempfile(fileext = ".arrow.zst")
+  write_feather(mtcars, without)
+  write_feather(mtcars, with_zst)
+  expect_equal(file.size(without), file.size(with_zst))
+})
+
+test_that("read_feather() handles (ignores) compression in filename", {
+  df <- tibble::tibble(x = 1:5)
+  f <- tempfile(fileext = ".parquet.zst")
+  write_feather(df, f)
+  expect_equal(read_feather(f), df)
+})
+
+test_that("read_feather() and write_feather() accept connection objects", {
+  skip_if_not(CanRunWithCapturedR())
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_feather(test_tbl, file(tf))
+  expect_identical(read_feather(tf), test_tbl)
+  expect_identical(read_feather(file(tf)), read_feather(tf))
+})
+
 test_that("read_feather closes connection to file", {
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -222,7 +283,7 @@ test_that("FeatherReader methods", {
   # print method
   expect_identical(
     capture.output(print(reader)),
-    # TODO: can we get  rows/columns?
+    # TODO: can we get rows/columns?
     c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
   )
 })
@@ -233,18 +294,20 @@ ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
 
 test_that("Error messages are shown when the compression algorithm lz4 is not found", {
   msg <- paste0(
-    "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, ",
+    ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of ",
-    "these environment variables before installing:\n\n * LIBARROW_MINIMAL=false ",
-    "(for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')",
+    "these environment variables before installing:",
+    "\n\n \\* Sys\\.setenv\\(LIBARROW_MINIMAL = \"false\"\\) .*",
+    "\\(for all optional features, including 'lz4'\\)",
+    "\n \\* Sys\\.setenv\\(ARROW_WITH_LZ4 = \"ON\"\\) \\(for just 'lz4'\\)",
     "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
   if (codec_is_available("lz4")) {
     d <- read_feather(ft_file)
-    expect_is(d, "data.frame")
+    expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_feather(ft_file), msg, fixed = TRUE)
+    expect_error(read_feather(ft_file), msg)
   }
 })
 
@@ -253,4 +316,8 @@ test_that("Error is created when feather reads a parquet file", {
     read_feather(system.file("v0.7.1.parquet", package = "arrow")),
     "Not a Feather V1 or Arrow IPC file"
   )
+})
+
+test_that("The read_ipc_file function is an alias of read_feather", {
+  expect_identical(read_ipc_file, read_feather)
 })

@@ -45,6 +45,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class TestDoExchange {
@@ -353,6 +354,7 @@ public class TestDoExchange {
 
   /** Have the client cancel without reading; ensure memory is not leaked. */
   @Test
+  @Ignore
   public void testClientCancel() throws Exception {
     try (final FlightClient.ExchangeReaderWriter stream =
              client.doExchange(FlightDescriptor.command(EXCHANGE_DO_GET))) {

@@ -48,7 +48,7 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
 
   // Start by visiting any bits preceding the first full byte.
   int64_t num_bits_before_full_bytes =
-      BitUtil::RoundUpToMultipleOf8(start_offset) - start_offset;
+      bit_util::RoundUpToMultipleOf8(start_offset) - start_offset;
   // Truncate num_bits_before_full_bytes if it is greater than length.
   if (num_bits_before_full_bytes > length) {
     num_bits_before_full_bytes = length;
@@ -58,7 +58,7 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
 
   // Shift the start pointer to the first full byte and compute the
   // number of full bytes to be read.
-  const uint8_t* first_full_byte = bitmap + BitUtil::CeilDiv(start_offset, 8);
+  const uint8_t* first_full_byte = bitmap + bit_util::CeilDiv(start_offset, 8);
   const int64_t num_full_bytes = (length - num_bits_before_full_bytes) / 8;
 
   // Iterate over each full byte of the input bitmap and call the visitor in
@@ -68,14 +68,14 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
     const uint8_t byte = *(first_full_byte + byte_index);
 
     // Execute the visitor function on each bit of the current byte.
-    visit(BitUtil::GetBitFromByte(byte, 0));
-    visit(BitUtil::GetBitFromByte(byte, 1));
-    visit(BitUtil::GetBitFromByte(byte, 2));
-    visit(BitUtil::GetBitFromByte(byte, 3));
-    visit(BitUtil::GetBitFromByte(byte, 4));
-    visit(BitUtil::GetBitFromByte(byte, 5));
-    visit(BitUtil::GetBitFromByte(byte, 6));
-    visit(BitUtil::GetBitFromByte(byte, 7));
+    visit(bit_util::GetBitFromByte(byte, 0));
+    visit(bit_util::GetBitFromByte(byte, 1));
+    visit(bit_util::GetBitFromByte(byte, 2));
+    visit(bit_util::GetBitFromByte(byte, 3));
+    visit(bit_util::GetBitFromByte(byte, 4));
+    visit(bit_util::GetBitFromByte(byte, 5));
+    visit(bit_util::GetBitFromByte(byte, 6));
+    visit(bit_util::GetBitFromByte(byte, 7));
   }
 
   // Write any leftover bits in the last byte.

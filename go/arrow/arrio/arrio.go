@@ -16,30 +16,31 @@
 
 // Package arrio exposes functions to manipulate records, exposing and using
 // interfaces not unlike the ones defined in the stdlib io package.
-package arrio // import "github.com/apache/arrow/go/arrow/arrio"
+package arrio
 
 import (
+	"errors"
 	"io"
 
-	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow"
 )
 
 // Reader is the interface that wraps the Read method.
 type Reader interface {
 	// Read reads the current record from the underlying stream and an error, if any.
 	// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
-	Read() (array.Record, error)
+	Read() (arrow.Record, error)
 }
 
 // ReaderAt is the interface that wraps the ReadAt method.
 type ReaderAt interface {
 	// ReadAt reads the i-th record from the underlying stream and an error, if any.
-	ReadAt(i int64) (array.Record, error)
+	ReadAt(i int64) (arrow.Record, error)
 }
 
 // Writer is the interface that wraps the Write method.
 type Writer interface {
-	Write(rec array.Record) error
+	Write(rec arrow.Record) error
 }
 
 // Copy copies all the records available from src to dst.
@@ -53,7 +54,7 @@ func Copy(dst Writer, src Reader) (n int64, err error) {
 	for {
 		rec, err := src.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return n, nil
 			}
 			return n, err
@@ -73,7 +74,7 @@ func CopyN(dst Writer, src Reader, n int64) (written int64, err error) {
 	for ; written < n; written++ {
 		rec, err := src.Read()
 		if err != nil {
-			if err == io.EOF && written == n {
+			if errors.Is(err, io.EOF) && written == n {
 				return written, nil
 			}
 			return written, err

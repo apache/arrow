@@ -32,6 +32,7 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
@@ -692,12 +693,14 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   private void checkIndex(long index, long fieldLength) {
-    // check reference count
-    this.ensureAccessible();
-    // check bounds
-    if (isOutOfBounds(index, fieldLength, this.capacity())) {
-      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
-        index, fieldLength, this.capacity()));
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      // check reference count
+      this.ensureAccessible();
+      // check bounds
+      if (isOutOfBounds(index, fieldLength, this.capacity())) {
+        throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+                index, fieldLength, this.capacity()));
+      }
     }
   }
 
@@ -1095,13 +1098,14 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Prints information of this buffer into <code>sb</code> at the given
+   * Print information of this buffer into <code>sb</code> at the given
    * indentation and verbosity level.
    *
    * <p>It will include history if BaseAllocator.DEBUG is true and
    * the verbosity.includeHistoricalLog are true.
    *
    */
+  @VisibleForTesting
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     CommonUtil.indent(sb, indent).append(toString());
 
@@ -1109,6 +1113,16 @@ public final class ArrowBuf implements AutoCloseable {
       sb.append("\n");
       historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
+  }
+
+  /**
+   * Print detailed information of this buffer into <code>sb</code>.
+   *
+   * <p>Most information will only be present if BaseAllocator.DEBUG is true.
+   *
+   */
+  public void print(StringBuilder sb, int indent) {
+    print(sb, indent, Verbosity.LOG_WITH_STACKTRACE);
   }
 
   /**
@@ -1195,51 +1209,8 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
-  /**
-   * Following are wrapper methods to keep this backward compatible.
-   */
-  @Deprecated
-  public void release() {
-    referenceManager.release();
-  }
-
-  @Deprecated
-  public void release(int decrement) {
-    referenceManager.release(decrement);
-  }
-
-  @Deprecated
-  public void retain() {
-    referenceManager.retain();
-  }
-
-  @Deprecated
-  public void retain(int increment) {
-    referenceManager.retain(increment);
-  }
-
-  @Deprecated
   public ArrowBuf clear() {
     this.readerIndex = this.writerIndex = 0;
     return this;
   }
-
-  /**
-   * Initialize the reader and writer index.
-   * @param readerIndex index to read from
-   * @param writerIndex index to write to
-   * @return this
-   */
-  @Deprecated
-  public ArrowBuf setIndex(int readerIndex, int writerIndex) {
-    if (readerIndex >= 0 && readerIndex <= writerIndex && writerIndex <= this.capacity()) {
-      this.readerIndex = readerIndex;
-      this.writerIndex = writerIndex;
-      return this;
-    } else {
-      throw new IndexOutOfBoundsException(String.format("readerIndex: %d, writerIndex: %d " +
-       "(expected:0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
-    }
-  }
-
 }

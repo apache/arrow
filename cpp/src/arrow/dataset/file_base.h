@@ -46,7 +46,7 @@ namespace dataset {
 
 /// \brief The path and filesystem where an actual file is located or a buffer which can
 /// be read like a file
-class ARROW_DS_EXPORT FileSource {
+class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
  public:
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
@@ -114,6 +114,9 @@ class ARROW_DS_EXPORT FileSource {
   Result<std::shared_ptr<io::InputStream>> OpenCompressed(
       util::optional<Compression::type> compression = util::nullopt) const;
 
+  /// \brief equality comparison with another FileSource
+  bool Equals(const FileSource& other) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
@@ -147,15 +150,10 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
-  /// \brief Open a FileFragment for scanning.
-  /// May populate lazy properties of the FileFragment.
-  virtual Result<ScanTaskIterator> ScanFile(
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
-  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const;
   virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options);
@@ -184,9 +182,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 };
 
 /// \brief A Fragment that is stored in a file with a known format
-class ARROW_DS_EXPORT FileFragment : public Fragment {
+class ARROW_DS_EXPORT FileFragment : public Fragment,
+                                     public util::EqualityComparable<FileFragment> {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
   Future<util::optional<int64_t>> CountRows(
@@ -198,6 +196,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+  bool Equals(const FileFragment& other) const;
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
@@ -319,12 +319,15 @@ class ARROW_DS_EXPORT FileWriter {
   Status Write(RecordBatchReader* batches);
 
   /// \brief Indicate that writing is done.
-  virtual Status Finish();
+  virtual Future<> Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
   const std::shared_ptr<FileWriteOptions>& options() const { return options_; }
   const fs::FileLocator& destination() const { return destination_locator_; }
+
+  /// \brief After Finish() is called, provides number of bytes written to file.
+  Result<int64_t> GetBytesWritten() const;
 
  protected:
   FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options,
@@ -335,12 +338,13 @@ class ARROW_DS_EXPORT FileWriter {
         destination_(std::move(destination)),
         destination_locator_(std::move(destination_locator)) {}
 
-  virtual Status FinishInternal() = 0;
+  virtual Future<> FinishInternal() = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<FileWriteOptions> options_;
   std::shared_ptr<io::OutputStream> destination_;
   fs::FileLocator destination_locator_;
+  util::optional<int64_t> bytes_written_;
 };
 
 /// \brief Options for writing a dataset.
@@ -364,6 +368,39 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
 
+  /// If greater than 0 then this will limit the maximum number of files that can be left
+  /// open. If an attempt is made to open too many files then the least recently used file
+  /// will be closed.  If this setting is set too low you may end up fragmenting your data
+  /// into many small files.
+  ///
+  /// The default is 900 which also allows some # of files to be open by the scanner
+  /// before hitting the default Linux limit of 1024
+  uint32_t max_open_files = 900;
+
+  /// If greater than 0 then this will limit how many rows are placed in any single file.
+  /// Otherwise there will be no limit and one file will be created in each output
+  /// directory unless files need to be closed to respect max_open_files
+  uint64_t max_rows_per_file = 0;
+
+  /// If greater than 0 then this will cause the dataset writer to batch incoming data
+  /// and only write the row groups to the disk when sufficient rows have accumulated.
+  /// The final row group size may be less than this value and other options such as
+  /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
+  uint64_t min_rows_per_group = 0;
+
+  /// If greater than 0 then the dataset writer may split up large incoming batches into
+  /// multiple row groups.  If this value is set then min_rows_per_group should also be
+  /// set or else you may end up with very small row groups (e.g. if the incoming row
+  /// group size is just barely larger than this value).
+  uint64_t max_rows_per_group = 1 << 20;
+
+  /// Controls what happens if an output directory already exists.
+  ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;
+
+  /// \brief If false the dataset writer will not create directories
+  /// This is mainly intended for filesystems that do not require directories such as S3.
+  bool create_dir = true;
+
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().
   std::function<Status(FileWriter*)> writer_pre_finish = [](FileWriter*) {
@@ -381,7 +418,26 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   }
 };
 
+/// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
+class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit WriteNodeOptions(
+      FileSystemDatasetWriteOptions options,
+      std::shared_ptr<const KeyValueMetadata> custom_metadata = NULLPTR)
+      : write_options(std::move(options)), custom_metadata(std::move(custom_metadata)) {}
+
+  /// \brief Options to control how to write the dataset
+  FileSystemDatasetWriteOptions write_options;
+  /// \brief Optional metadata to attach to written batches
+  std::shared_ptr<const KeyValueMetadata> custom_metadata;
+};
+
 /// @}
+
+namespace internal {
+ARROW_DS_EXPORT void InitializeDatasetWriter(
+    arrow::compute::ExecFactoryRegistry* registry);
+}
 
 }  // namespace dataset
 }  // namespace arrow

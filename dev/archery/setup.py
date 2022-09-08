@@ -21,8 +21,8 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 6):
-    sys.exit('Python < 3.6 is not supported')
+if sys.version_info < (3, 7):
+    sys.exit('Python < 3.7 is not supported')
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'
@@ -32,10 +32,11 @@ extras = {
     'benchmark': ['pandas'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': [jinja_req, 'jira', 'semver', 'gitpython'],
-    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'ruamel.yaml',
-                 'setuptools_scm'],
+    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'requests',
+                 'ruamel.yaml', 'setuptools_scm'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
                         'setuptools_scm'],
+    'numpydoc': ['numpydoc==1.1.0']
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
@@ -49,6 +50,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=find_packages(),
     include_package_data=True,
+    python_requires='>=3.7',
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,

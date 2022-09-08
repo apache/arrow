@@ -21,9 +21,9 @@
 
 Archery is documented on the Arrow website:
 
-* [Daily development using Archery](https://arrow.apache.org/docs/developers/archery.html)
-* [Using Archery and Crossbow](https://arrow.apache.org/docs/developers/crossbow.html)
-* [Using Archer and Docker](https://arrow.apache.org/docs/developers/docker.html)
+* [Daily development using Archery](https://arrow.apache.org/docs/developers/continuous_integration/archery.html)
+* [Using Archery and Crossbow](https://arrow.apache.org/docs/developers/continuous_integration/crossbow.html)
+* [Using Archer and Docker](https://arrow.apache.org/docs/developers/continuous_integration/docker.html)
 
 # Installing Archery
 
@@ -47,3 +47,5 @@ to use the functionality of it:
 Additionally, if you would prefer to install everything at once,
 `pip install -e "arrow/dev/archery[all]"` is an alias for all of
 the above subpackages.
+
+For some prior art on benchmarking in Arrow, see [this prototype](https://github.com/apache/arrow/tree/0409498819332fc479f8df38babe3426d707fb9e/dev/benchmarking).

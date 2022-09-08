@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/csv/test_common.h"
+
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -98,15 +99,16 @@ static void WriteInvalidRow(std::ostream& writer, size_t row_index) {
 }
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows, bool valid) {
+Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(
+    size_t num_rows, std::function<bool(size_t)> is_valid) {
   std::stringstream writer;
 
   WriteHeader(writer);
   for (size_t i = 0; i < num_rows; ++i) {
-    if (i == num_rows / 2 && !valid) {
-      WriteInvalidRow(writer, i);
-    } else {
+    if (!is_valid || is_valid(i)) {
       WriteRow(writer, i);
+    } else {
+      WriteInvalidRow(writer, i);
     }
   }
 

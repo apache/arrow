@@ -26,7 +26,8 @@ from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          parametrize_legacy_dataset)
+                                          parametrize_legacy_dataset,
+                                          _test_dataframe)
 
 try:
     import pyarrow.parquet as pq
@@ -45,6 +46,8 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -72,6 +75,31 @@ def test_set_data_page_size(use_legacy_dataset):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
+def test_set_write_batch_size(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(
+        table, data_page_size=10, write_batch_size=1, version='2.4'
+    )
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_set_dictionary_pagesize_limit(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(table, dictionary_pagesize_limit=1,
+                     data_page_size=10, version='2.4')
+
+    with pytest.raises(TypeError):
+        _check_roundtrip(table, dictionary_pagesize_limit="a",
+                         data_page_size=10, version='2.4')
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
 def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
     tables = []
@@ -85,7 +113,7 @@ def test_chunked_table_write(use_legacy_dataset):
         for use_dictionary in [True, False]:
             for table in tables:
                 _check_roundtrip(
-                    table, version='2.0',
+                    table, version='2.6',
                     use_legacy_dataset=use_legacy_dataset,
                     data_page_version=data_page_version,
                     use_dictionary=use_dictionary)
@@ -98,11 +126,11 @@ def test_memory_map(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, memory_map=True,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -115,11 +143,11 @@ def test_enable_buffered_stream(tempdir, use_legacy_dataset):
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
-                     version='2.0', use_legacy_dataset=use_legacy_dataset)
+                     version='2.6', use_legacy_dataset=use_legacy_dataset)
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
-        _write_table(table, f, version='2.0')
+        _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, buffer_size=4096,
                                 use_legacy_dataset=use_legacy_dataset)
     assert table_read.equals(table)
@@ -176,7 +204,7 @@ def test_empty_table_roundtrip(use_legacy_dataset):
     assert table.schema.field('null').type == pa.null()
     assert table.schema.field('null_list').type == pa.list_(pa.null())
     _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+        table, version='2.6', use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -353,6 +381,105 @@ def test_byte_stream_split(use_legacy_dataset):
 
 
 @parametrize_legacy_dataset
+def test_column_encoding(use_legacy_dataset):
+    arr_float = pa.array(list(map(float, range(100))))
+    arr_int = pa.array(list(map(int, range(100))))
+    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
+                                       names=['a', 'b'])
+
+    # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
+    # column 'b'.
+    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
+                     column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "PLAIN" for all columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding="PLAIN",
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
+    # This should throw an error as it is only supports FLOAT and DOUBLE.
+    with pytest.raises(IOError,
+                       match="BYTE_STREAM_SPLIT only supports FLOAT and"
+                             " DOUBLE"):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "DELTA_BINARY_PACKED".
+    # This should throw an error as it is only supported for reading.
+    with pytest.raises(IOError,
+                       match="Not yet implemented: Selected encoding is"
+                             " not supported."):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "RLE_DICTIONARY".
+    # This should throw an error as dictionary encoding is already used by
+    # default and not supported to be specified as "fallback" encoding
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding="RLE_DICTIONARY",
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass unsupported encoding.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'a': "MADE_UP_ENCODING"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_dictionary.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=['b'],
+                         column_encoding={'b': "PLAIN"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_dictionary=True (default value).
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         column_encoding={'b': "PLAIN"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_byte_stream_split on same column.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         use_byte_stream_split=['a'],
+                         column_encoding={'a': "RLE",
+                                          'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_byte_stream_split=True.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         use_byte_stream_split=True,
+                         column_encoding={'a': "RLE",
+                                          'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding=True.
+    # This should throw an error.
+    with pytest.raises(TypeError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding=True,
+                         use_legacy_dataset=use_legacy_dataset)
+
+
+@parametrize_legacy_dataset
 def test_compression_level(use_legacy_dataset):
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
@@ -379,13 +506,23 @@ def test_compression_level(use_legacy_dataset):
                      compression_level={'a': 2, 'b': 3},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check if both LZ4 compressors are working
+    # (level < 3 -> fast, level >= 3 -> HC)
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=1,
+                     use_legacy_dataset=use_legacy_dataset)
+
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=9,
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
-    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # Uncompressed, snappy and lzo do not support specifying a compression
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
@@ -413,7 +550,7 @@ def test_multithreaded_read(use_legacy_dataset):
     table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(table, buf, compression='SNAPPY', version='2.0')
+    _write_table(table, buf, compression='SNAPPY', version='2.6')
 
     buf.seek(0)
     table1 = _read_table(
@@ -484,7 +621,11 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
         pq.read_table(datadir / 'v0.7.1.parquet',
                       use_legacy_dataset=use_legacy_dataset)
 
-    assert len(record) == 0
+    if use_legacy_dataset:
+        # FutureWarning: 'use_legacy_dataset=True'
+        assert len(record) == 1
+    else:
+        assert len(record) == 0
 
 
 @pytest.mark.pandas
@@ -629,3 +770,62 @@ def test_reads_over_batch(tempdir):
     pq.write_table(table, path)
     table2 = pq.read_table(path)
     assert table == table2
+
+
+@pytest.mark.dataset
+def test_permutation_of_column_order(tempdir):
+    # ARROW-2366
+    case = tempdir / "dataset_column_order_permutation"
+    case.mkdir(exist_ok=True)
+
+    data1 = pa.table([[1, 2, 3], [.1, .2, .3]], names=['a', 'b'])
+    pq.write_table(data1, case / "data1.parquet")
+
+    data2 = pa.table([[.4, .5, .6], [4, 5, 6]], names=['b', 'a'])
+    pq.write_table(data2, case / "data2.parquet")
+
+    table = pq.read_table(str(case))
+    table2 = pa.table([[1, 2, 3, 4, 5, 6],
+                       [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                      names=['a', 'b'])
+
+    assert table == table2
+
+
+def test_read_table_legacy_deprecated(tempdir):
+    # ARROW-15870
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+    pq.write_table(table, path)
+
+    with pytest.warns(
+        FutureWarning, match="Passing 'use_legacy_dataset=True'"
+    ):
+        pq.read_table(path, use_legacy_dataset=True)
+
+
+def test_thrift_size_limits(tempdir):
+    path = tempdir / 'largethrift.parquet'
+
+    array = pa.array(list(range(10)))
+    num_cols = 1000
+    table = pa.table(
+        [array] * num_cols,
+        names=[f'some_long_column_name_{i}' for i in range(num_cols)])
+    pq.write_table(table, path)
+
+    with pytest.raises(
+            OSError,
+            match="Couldn't deserialize thrift:.*Exceeded size limit"):
+        pq.read_table(path, thrift_string_size_limit=50 * num_cols)
+    with pytest.raises(
+            OSError,
+            match="Couldn't deserialize thrift:.*Exceeded size limit"):
+        pq.read_table(path, thrift_container_size_limit=num_cols)
+
+    got = pq.read_table(path, thrift_string_size_limit=100 * num_cols)
+    assert got == table
+    got = pq.read_table(path, thrift_container_size_limit=2 * num_cols)
+    assert got == table
+    got = pq.read_table(path)
+    assert got == table

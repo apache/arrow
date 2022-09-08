@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title Schema class
 #'
-#' @description A `Schema` is a list of [Field]s, which map names to
+#' @description A `Schema` is an Arrow object containing [Field]s, which map names to
 #' Arrow [data types][data-type]. Create a `Schema` when you
 #' want to convert an R `data.frame` to Arrow but don't want to rely on the
 #' default mapping of R types to Arrow types, such as when you want to choose a
@@ -77,11 +77,19 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examplesIf arrow_available()
+#' @examples
+#' schema(a = int32(), b = float64())
+#'
+#' schema(
+#'   field("b", double()),
+#'   field("c", bool(), nullable = FALSE),
+#'   field("d", string())
+#' )
+#'
 #' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-#' tab1 <- Table$create(df)
+#' tab1 <- arrow_table(df)
 #' tab1$schema
-#' tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
+#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 #' tab2$schema
 #' @export
 Schema <- R6Class("Schema",
@@ -113,7 +121,16 @@ Schema <- R6Class("Schema",
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
-    export_to_c = function(ptr) ExportSchema(self, ptr)
+    export_to_c = function(ptr) ExportSchema(self, ptr),
+    code = function() {
+      names <- self$names
+      codes <- map2(names, self$fields, function(name, field) {
+        field$type$code()
+      })
+      codes <- set_names(codes, names)
+
+      call2("schema", !!!codes)
+    }
   ),
   active = list(
     names = function() {
@@ -122,9 +139,18 @@ Schema <- R6Class("Schema",
     num_fields = function() Schema__num_fields(self),
     fields = function() Schema__fields(self),
     HasMetadata = function() Schema__HasMetadata(self),
+    raw_metadata = function() {
+      # This is the named list of strings
+      Schema__metadata(self)
+    },
     metadata = function(new_metadata) {
       if (missing(new_metadata)) {
-        Schema__metadata(self)
+        out <- self$raw_metadata
+        if (!is.null(out[["r"]])) {
+          # Can't unserialize NULL
+          out[["r"]] <- .deserialize_arrow_r_metadata(out[["r"]])
+        }
+        out
       } else {
         # Set the metadata
         out <- self$WithMetadata(new_metadata)
@@ -133,10 +159,34 @@ Schema <- R6Class("Schema",
         self$set_pointer(out$pointer())
         self
       }
+    },
+    r_metadata = function(new) {
+      # Helper for the R metadata that handles the serialization
+      # See also method on ArrowTabular
+      if (missing(new)) {
+        self$metadata$r
+      } else {
+        # Set the R metadata
+        self$metadata$r <- new
+        self
+      }
     }
   )
 )
-Schema$create <- function(...) schema_(.fields(list2(...)))
+Schema$create <- function(...) {
+  .list <- list2(...)
+
+  # if we were provided only a list of types or fields, use that
+  if (length(.list) == 1 && is_list(.list[[1]])) {
+    .list <- .list[[1]]
+  }
+
+  if (all(map_lgl(.list, ~ inherits(., "Field")))) {
+    schema_(.list)
+  } else {
+    schema_(.fields(.list))
+  }
+}
 #' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
 
@@ -153,6 +203,9 @@ prepare_key_value_metadata <- function(metadata) {
       call. = FALSE
     )
   }
+  if (is.list(metadata[["r"]])) {
+    metadata[["r"]] <- .serialize_arrow_r_metadata(metadata[["r"]])
+  }
   map_chr(metadata, as.character)
 }
 
@@ -161,7 +214,7 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... named list of [data types][data-type]
+#' @param ... [fields][field] or field name/[data type][data-type] pairs
 #' @export
 #' @rdname Schema
 schema <- Schema$create
@@ -286,7 +339,7 @@ read_schema <- function(stream, ...) {
 #' @return A `Schema` with the union of fields contained in the inputs, or
 #'   `NULL` if any of `schemas` is `NULL`
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
@@ -300,6 +353,33 @@ unify_schemas <- function(..., schemas = list(...)) {
 #' @export
 print.arrow_r_metadata <- function(x, ...) {
   utils::str(x)
-  utils::str(.unserialize_arrow_r_metadata(x))
+  utils::str(.deserialize_arrow_r_metadata(x))
   invisible(x)
+}
+
+#' Convert an object to an Arrow DataType
+#'
+#' @param x An object to convert to a [schema()]
+#' @param ... Passed to S3 methods.
+#'
+#' @return A [Schema] object.
+#' @export
+#'
+#' @examples
+#' as_schema(schema(col1 = int32()))
+#'
+as_schema <- function(x, ...) {
+  UseMethod("as_schema")
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.Schema <- function(x, ...) {
+  x
+}
+
+#' @rdname as_schema
+#' @export
+as_schema.StructType <- function(x, ...) {
+  schema(!!!x$fields())
 }

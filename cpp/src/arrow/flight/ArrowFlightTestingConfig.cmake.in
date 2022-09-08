@@ -21,8 +21,8 @@
 #
 # This config sets the following targets in your project::
 #
-#   arrow_flight_testing_shared - for linked as shared library if shared library is built
-#   arrow_flight_testing_static - for linked as static library if static library is built
+#   ArrowFlightTesting::arrow_flight_testing_shared - for linked as shared library if shared library is built
+#   ArrowFlightTesting::arrow_flight_testing_static - for linked as static library if static library is built
 
 @PACKAGE_INIT@
 
@@ -30,8 +30,8 @@ include(CMakeFindDependencyMacro)
 find_dependency(ArrowFlight)
 find_dependency(ArrowTesting)
 
-# Load targets only once. If we load targets multiple times, CMake reports
-# already existent target error.
-if(NOT (TARGET arrow_flight_testing_shared OR TARGET arrow_flight_testing_static))
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTestingTargets.cmake")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTestingTargets.cmake")
+
+arrow_keep_backward_compatibility(ArrowFlightTetsing arrow_flight_testing)
+
+check_required_components(ArrowFlightTesting)

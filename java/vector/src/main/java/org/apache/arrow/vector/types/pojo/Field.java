@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
@@ -61,6 +62,10 @@ public class Field {
 
   public static Field nullable(String name, ArrowType type) {
     return new Field(name, FieldType.nullable(type), null);
+  }
+
+  public static Field notNullable(String name, ArrowType type) {
+    return new Field(name, FieldType.notNullable(type), null);
   }
 
   private final String name;
@@ -91,27 +96,7 @@ public class Field {
   private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
-    this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
-  }
-
-  /**
-   * Creates a new field.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
-    this(name, new FieldType(nullable, type, null, null), children);
-  }
-
-  /**
-   * Creates a new field.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
-    this(name, new FieldType(nullable, type, dictionary, null), children);
+    this.children = children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
   }
 
   public Field(String name, FieldType fieldType, List<Field> children) {

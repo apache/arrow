@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrdata // import "github.com/apache/arrow/go/arrow/internal/arrdata"
+package arrdata
 
 import (
 	"fmt"
@@ -23,15 +23,15 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // CheckArrowFile checks whether a given ARROW file contains the expected list of records.
-func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	_, err := f.Seek(0, io.SeekStart)
@@ -62,7 +62,7 @@ func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arro
 
 }
 
-func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	_, err := f.Seek(0, io.SeekStart)
@@ -85,6 +85,7 @@ func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, sc
 			errs <- fmt.Errorf("could not read record %d: %v", i, err)
 			return
 		}
+		defer rec.Release()
 		if !array.RecordEqual(rec, recs[i]) {
 			errs <- fmt.Errorf("records[%d] differ", i)
 		}
@@ -111,7 +112,7 @@ func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, sc
 }
 
 // CheckArrowStream checks whether a given ARROW stream contains the expected list of records.
-func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	_, err := f.Seek(0, io.SeekStart)
@@ -141,7 +142,7 @@ func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *ar
 }
 
 // WriteFile writes a list of records to the given file descriptor, as an ARROW file.
-func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	w, err := ipc.NewFileWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
@@ -177,10 +178,10 @@ func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Sch
 }
 
 // WriteFile writes a list of records to the given file descriptor, as an ARROW file.
-func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType) {
+func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record, codec flatbuf.CompressionType, concurrency int) {
 	t.Helper()
 
-	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem)}
+	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem), ipc.WithCompressConcurrency(concurrency)}
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
 		opts = append(opts, ipc.WithLZ4())
@@ -223,7 +224,7 @@ func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema 
 }
 
 // WriteStream writes a list of records to the given file descriptor, as an ARROW stream.
-func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	w := ipc.NewWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
@@ -244,7 +245,7 @@ func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.S
 
 // WriteStreamCompressed writes a list of records to the given file descriptor as an ARROW stream
 // using the provided compression type.
-func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType, np int) {
+func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record, codec flatbuf.CompressionType, np int) {
 	t.Helper()
 
 	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem), ipc.WithCompressConcurrency(np)}

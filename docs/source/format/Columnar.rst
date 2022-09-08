@@ -83,6 +83,8 @@ concepts, here is a small glossary to help disambiguate.
   layout. Similarly, strings can be stored as ``List<1-byte>``. A
   timestamp may be stored as 64-bit fixed-size layout.
 
+.. _format_layout:
+
 Physical Memory Layout
 ======================
 
@@ -206,17 +208,19 @@ right-to-left: ::
               0  0  1  0  1  0  1  1
 
 Arrays having a 0 null count may choose to not allocate the validity
-bitmap. Implementations may choose to always allocate one anyway as a
-matter of convenience, but this should be noted when memory is being
-shared.
+bitmap; how this is represented depends on the implementation (for
+example, a C++ implementation may represent such an "absent" validity
+bitmap using a NULL pointer). Implementations may choose to always allocate
+a validity bitmap anyway as a matter of convenience. Consumers of Arrow
+arrays should be ready to handle those two possibilities.
 
-Nested type arrays except for union types have their own validity bitmap and
-null count regardless of the null count and valid bits of their child arrays.
+Nested type arrays (except for union types as noted above) have their own
+top-level validity bitmap and null count, regardless of the null count and
+valid bits of their child arrays.
 
-Array slots which are null are not required to have a particular
-value; any "masked" memory can have any value and need not be zeroed,
-though implementations frequently choose to zero memory for null
-values.
+Array slots which are null are not required to have a particular value;
+any "masked" memory can have any value and need not be zeroed, though
+implementations frequently choose to zero memory for null values.
 
 Fixed-size Primitive Layout
 ---------------------------
@@ -307,7 +311,11 @@ That is, a null value may occupy a **non-empty** memory space in the data
 buffer. When this is true, the content of the corresponding memory space
 is undefined.
 
-Generally the first value in the offsets array is 0, and the last slot
+Offsets must be monotonically increasing, that is ``offsets[j+1] >= offsets[j]``
+for ``0 <= j < length``, even for null slots. This property ensures the
+location for all values is valid and well defined.
+
+Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
 
@@ -446,13 +454,10 @@ types (which can all be distinct), called its fields. Each field must
 have a UTF8-encoded name, and these field names are part of the type
 metadata.
 
-A struct array does not have any additional allocated physical storage
-for its values.  A struct array must still have an allocated validity
-bitmap, if it has one or more null values.
-
 Physically, a struct array has one child array for each field. The
 child arrays are independent and need not be adjacent to each other in
-memory.
+memory. A struct array also has a validity bitmap to encode top-level
+validity information.
 
 For example, the struct (field names shown here as strings for illustration
 purposes)::
@@ -516,19 +521,24 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
           |------------|-------------|-------------|-------------|-------------|
           | 1          | 2           | unspecified | 4           | unspecified |
 
-While a struct does not have physical storage for each of its semantic
-slots (i.e. each scalar C-like struct), an entire struct slot can be
-set to null via the validity bitmap. Any of the child field arrays can
-have null values according to their respective independent validity
-bitmaps. This implies that for a particular struct slot the validity
-bitmap for the struct array might indicate a null slot when one or
-more of its child arrays has a non-null value in their corresponding
-slot.  When reading the struct array the parent validity bitmap takes
-priority.  This is illustrated in the example above, the child arrays
-have valid entries for the null struct but are 'hidden' from the
-consumer by the parent array's validity bitmap.  However, when treated
-independently corresponding values of the children array will be
-non-null.
+Struct Validity
+~~~~~~~~~~~~~~~
+
+A struct array has its own validity bitmap that is independent of its
+child arrays' validity bitmaps. The validity bitmap for the struct
+array might indicate a null when one or more of its child arrays has
+a non-null value in its corresponding slot; or conversely, a child
+array might have a null in its validity bitmap while the struct array's
+validity bitmap shows a non-null value.
+
+Therefore, to know whether a particular child entry is valid, one must
+take the logical AND of the corresponding bits in the two validity bitmaps
+(the struct array's and the child array's).
+
+This is illustrated in the example above, the child arrays have valid entries
+for the null struct but they are "hidden" by the struct array's validity
+bitmap. However, when treated independently, corresponding entries of the
+children array will be non-null.
 
 Union Layout
 ------------
@@ -555,21 +565,18 @@ each value. Its physical layout is as follows:
   union has a corresponding type id whose values are found in this
   buffer. A union with more than 127 possible types can be modeled as
   a union of unions.
-* Offsets buffer: A buffer of signed int32 values indicating the
+* Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a
   given slot. The respective offsets for each child value array must
   be in order / increasing.
 
-Critically, the dense union allows for minimal overhead in the ubiquitous
-union-of-structs with non-overlapping-fields use case (``Union<s1: Struct1, s2:
-Struct2, s3: Struct3, ...>``)
+**Example Layout: ``DenseUnion<f: Float32, i: Int32>``**
 
-**Example Layout: Dense union**
+For the union array: ::
 
-An example layout for logical union of: ``Union<f: float, i: int32>``
-having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
+    [{f=1.2}, null, {f=3.4}, {i=5}]
 
-::
+will have the following layout: ::
 
     * Length: 4, Null count: 0
     * Types buffer:
@@ -585,7 +592,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
       | 0        | 1           | 2          | 0           | unspecified |
 
     * Children arrays:
-      * Field-0 array (f: float):
+      * Field-0 array (f: Float32):
         * Length: 2, Null count: 1
         * Validity bitmap buffer: 00000101
 
@@ -596,7 +603,7 @@ having the values: ``[{f=1.2}, null, {f=3.4}, {i=5}]``
           | 1.2, null, 3.4 | unspecified |
 
 
-      * Field-1 array (i: int32):
+      * Field-1 array (i: Int32):
         * Length: 1, Null count: 0
         * Validity bitmap buffer: Not required
 
@@ -620,11 +627,11 @@ use cases:
 * A sparse union is more amenable to vectorized expression evaluation in some use cases.
 * Equal-length arrays can be interpreted as a union by only defining the types array.
 
-**Example layout: ``SparseUnion<u0: Int32, u1: Float, u2: VarBinary>``**
+**Example layout: ``SparseUnion<i: Int32, f: Float32, s: VarBinary>``**
 
 For the union array: ::
 
-    [{u0=5}, {u1=1.2}, {u2='joe'}, {u1=3.4}, {u0=4}, {u2='mark'}]
+    [{i=5}, {f=1.2}, {s='joe'}, {f=3.4}, {i=4}, {s='mark'}]
 
 will have the following layout: ::
 
@@ -637,7 +644,7 @@ will have the following layout: ::
 
     * Children arrays:
 
-      * u0 (Int32):
+      * i (Int32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -651,7 +658,7 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
-      * u1 (float):
+      * f (Float32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -665,7 +672,7 @@ will have the following layout: ::
           |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
           | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
 
-      * u2 (`VarBinary`)
+      * s (`VarBinary`)
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
@@ -673,7 +680,7 @@ will have the following layout: ::
           |--------------------------|-----------------------|
           | 00100100                 | 0 (padding)           |
 
-        * Offsets buffer (int32)
+        * Offsets buffer (Int32)
 
           | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
           |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
@@ -1038,7 +1045,11 @@ file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
 supported). Delta dictionaries are applied in the order they appear in
 the file footer. We recommend the ".arrow" extension for files created with
-this format.
+this format. Note that files created with this format are sometimes called
+"Feather V2" or with the ".feather" extension, the name and the extension
+derived from "Feather (V1)", which was a proof of concept early in
+the Arrow project for language-agnostic fast data frame storage for
+Python (pandas) and R.
 
 Dictionary Messages
 -------------------

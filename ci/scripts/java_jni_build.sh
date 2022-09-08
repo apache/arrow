@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,21 +17,53 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 arrow_dir=${1}
-cpp_lib_dir=${2}
-java_dist_dir=${3}
+arrow_install_dir=${2}
+build_dir=${3}/java_jni
+# The directory where the final binaries will be stored when scripts finish
+dist_dir=${4}
 
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
+echo "=== Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf ${build_dir}
 
-pushd ${arrow_dir}/java
+echo "=== Building Arrow Java C Data Interface native library ==="
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
 
-# build the entire project
-mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  *)
+    n_jobs=${NPROC:-1}
+    ;;
+esac
 
-# copy all jars and pom files to the distribution folder
-find . -name "*.jar" -exec echo {} \; -exec cp {} $java_dist_dir \;
-find . -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
-
+: ${ARROW_JAVA_BUILD_TESTS:=${ARROW_BUILD_TESTS:-OFF}}
+: ${CMAKE_BUILD_TYPE:=release}
+cmake \
+  -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-ON} \
+  -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+  -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
+  -DCMAKE_INSTALL_PREFIX=${dist_dir} \
+  -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  -GNinja \
+  ${JAVA_JNI_CMAKE_ARGS:-} \
+  ${arrow_dir}/java
+export CMAKE_BUILD_PARALLEL_LEVEL=${n_jobs}
+cmake --build . --config ${CMAKE_BUILD_TYPE}
+if [ "${ARROW_JAVA_BUILD_TESTS}" = "ON" ]; then
+  ctest \
+    --output-on-failure \
+    --parallel ${n_jobs} \
+    --timeout 300
+fi
+cmake --build . --config ${CMAKE_BUILD_TYPE} --target install
 popd

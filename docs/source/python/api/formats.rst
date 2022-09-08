@@ -18,7 +18,7 @@
 Tabular File Formats
 ====================
 
-.. _api.csv:
+.. _py-api-csv:
 
 CSV Files
 ---------
@@ -38,6 +38,7 @@ CSV Files
    open_csv
    read_csv
    write_csv
+   InvalidRow
 
 .. _api.feather:
 
@@ -88,6 +89,34 @@ Parquet Files
    write_table
    write_to_dataset
 
+Parquet Metadata
+~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: ../generated/
+
+   FileMetaData
+   RowGroupMetaData
+   ColumnChunkMetaData
+   Statistics
+   ParquetSchema
+   ColumnSchema
+   ParquetLogicalType
+
+Encrypted Parquet Files
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: pyarrow.parquet.encryption
+
+.. autosummary::
+   :toctree: ../generated/
+
+   CryptoFactory
+   KmsClient
+   KmsConnectionConfig
+   EncryptionConfiguration
+   DecryptionConfiguration
+
 .. _api.orc:
 
 ORC Files
@@ -99,3 +128,6 @@ ORC Files
    :toctree: ../generated/
 
    ORCFile
+   ORCWriter
+   read_table
+   write_table

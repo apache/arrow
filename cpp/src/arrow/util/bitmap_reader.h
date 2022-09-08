@@ -79,7 +79,8 @@ class BitmapUInt64Reader {
       : bitmap_(util::MakeNonNull(bitmap) + start_offset / 8),
         num_carry_bits_(8 - start_offset % 8),
         length_(length),
-        remaining_length_(length_) {
+        remaining_length_(length_),
+        carry_bits_(0) {
     if (length_ > 0) {
       // Load carry bits from the first byte's MSBs
       if (length_ >= num_carry_bits_) {
@@ -123,16 +124,16 @@ class BitmapUInt64Reader {
     uint64_t word;
     memcpy(&word, bitmap_, 8);
     bitmap_ += 8;
-    return BitUtil::ToLittleEndian(word);
+    return bit_util::ToLittleEndian(word);
   }
 
   uint64_t LoadPartialWord(int8_t bit_offset, int64_t num_bits) {
     uint64_t word = 0;
-    const int64_t num_bytes = BitUtil::BytesForBits(num_bits);
+    const int64_t num_bytes = bit_util::BytesForBits(num_bits);
     memcpy(&word, bitmap_, num_bytes);
     bitmap_ += num_bytes;
-    return (BitUtil::ToLittleEndian(word) >> bit_offset) &
-           BitUtil::LeastSignificantBitMask(num_bits);
+    return (bit_util::ToLittleEndian(word) >> bit_offset) &
+           bit_util::LeastSignificantBitMask(num_bits);
   }
 
   const uint8_t* bitmap_;
@@ -153,14 +154,14 @@ class BitmapWordReader {
   BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length)
       : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
         bitmap_(bitmap + offset / 8),
-        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)) {
+        bitmap_end_(bitmap_ + bit_util::BytesForBits(offset_ + length)) {
     // decrement word count by one as we may touch two adjacent words in one iteration
     nwords_ = length / (sizeof(Word) * 8) - 1;
     if (nwords_ < 0) {
       nwords_ = 0;
     }
     trailing_bits_ = static_cast<int>(length - nwords_ * sizeof(Word) * 8);
-    trailing_bytes_ = static_cast<int>(BitUtil::BytesForBits(trailing_bits_));
+    trailing_bytes_ = static_cast<int>(bit_util::BytesForBits(trailing_bits_));
 
     if (nwords_ > 0) {
       current_data.word_ = load<Word>(bitmap_);
@@ -250,7 +251,7 @@ class BitmapWordReader {
   template <typename DType>
   DType load(const uint8_t* bitmap) {
     assert(bitmap + sizeof(DType) <= bitmap_end_);
-    return BitUtil::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
+    return bit_util::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
   }
 };
 
@@ -259,11 +260,11 @@ struct OptionalBitIndexer {
   const uint8_t* bitmap;
   const int64_t offset;
 
-  explicit OptionalBitIndexer(const std::shared_ptr<Buffer>& buffer, int64_t offset = 0)
-      : bitmap(buffer == NULLPTR ? NULLPTR : buffer->data()), offset(offset) {}
+  explicit OptionalBitIndexer(const uint8_t* buffer = NULLPTR, int64_t offset = 0)
+      : bitmap(buffer), offset(offset) {}
 
   bool operator[](int64_t i) const {
-    return bitmap == NULLPTR || BitUtil::GetBit(bitmap, offset + i);
+    return bitmap == NULLPTR || bit_util::GetBit(bitmap, offset + i);
   }
 };
 

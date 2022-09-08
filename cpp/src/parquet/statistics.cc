@@ -32,7 +32,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -434,11 +434,11 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   const auto null_func = [&]() {};
 
   if (::arrow::is_binary_like(values.type_id())) {
-    ::arrow::VisitArrayDataInline<::arrow::BinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
-    ::arrow::VisitArrayDataInline<::arrow::LargeBinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   }
 
@@ -527,8 +527,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
 
     if (has_min_max_ != other.has_min_max_) return false;
+    if (has_min_max_) {
+      if (!MinMaxEqual(other)) return false;
+    }
 
-    return (has_min_max_ && MinMaxEqual(other)) && null_count() == other.null_count() &&
+    return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
            num_values() == other.num_values();
   }
@@ -559,9 +562,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
   }
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
-  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null) override;
+  void Update(const T* values, int64_t num_values, int64_t null_count) override;
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
+                    int64_t num_spaced_values, int64_t num_values,
+                    int64_t null_count) override;
 
   void Update(const ::arrow::Array& values, bool update_counts) override {
     if (update_counts) {
@@ -671,7 +675,7 @@ inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
 template <typename DType>
 bool TypedStatisticsImpl<DType>::MinMaxEqual(
     const TypedStatisticsImpl<DType>& other) const {
-  return min_ != other.min_ && max_ != other.max_;
+  return min_ == other.min_ && max_ == other.max_;
 }
 
 template <>
@@ -694,33 +698,32 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
-                                        int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
+                                        int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
-  SetMinMaxPair(comparator_->GetMinMax(values, num_not_null));
+  if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* valid_bits,
                                               int64_t valid_bits_offset,
-                                              int64_t num_not_null, int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+                                              int64_t num_spaced_values,
+                                              int64_t num_values, int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
-
-  int64_t length = num_null + num_not_null;
-  SetMinMaxPair(
-      comparator_->GetMinMaxSpaced(values, length, valid_bits, valid_bits_offset));
+  if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                             valid_bits_offset));
 }
 
 template <typename DType>

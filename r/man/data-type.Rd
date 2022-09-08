@@ -27,14 +27,19 @@
 \alias{date64}
 \alias{time32}
 \alias{time64}
+\alias{duration}
 \alias{null}
 \alias{timestamp}
 \alias{decimal}
+\alias{decimal128}
+\alias{decimal256}
 \alias{struct}
 \alias{list_of}
 \alias{large_list_of}
 \alias{FixedSizeListType}
 \alias{fixed_size_list_of}
+\alias{MapType}
+\alias{map_of}
 \title{Apache Arrow data types}
 \usage{
 int8()
@@ -87,11 +92,17 @@ time32(unit = c("ms", "s"))
 
 time64(unit = c("ns", "us"))
 
+duration(unit = c("s", "ms", "us", "ns"))
+
 null()
 
 timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
 decimal(precision, scale)
+
+decimal128(precision, scale)
+
+decimal256(precision, scale)
 
 struct(...)
 
@@ -100,6 +111,8 @@ list_of(type)
 large_list_of(type)
 
 fixed_size_list_of(type, list_size)
+
+map_of(key_type, item_type, .keys_sorted = FALSE)
 }
 \arguments{
 \item{byte_width}{byte width for \code{FixedSizeBinary} type.}
@@ -110,15 +123,25 @@ take any of those four values.}
 
 \item{timezone}{For \code{timestamp()}, an optional time zone string.}
 
-\item{precision}{For \code{decimal()}, precision}
+\item{precision}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the
+number of significant digits the arrow \code{decimal} type can represent. The
+maximum precision for \code{decimal128()} is 38 significant digits, while for
+\code{decimal256()} it is 76 digits. \code{decimal()} will use it to choose which
+type of decimal to return.}
 
-\item{scale}{For \code{decimal()}, scale}
+\item{scale}{For \code{decimal()}, \code{decimal128()}, and \code{decimal256()} the number
+of digits after the decimal point. It can be negative.}
 
 \item{...}{For \code{struct()}, a named list of types to define the struct columns}
 
 \item{type}{For \code{list_of()}, a data type to make a list-of-type}
 
 \item{list_size}{list size for \code{FixedSizeList} type.}
+
+\item{key_type, item_type}{For \code{MapType}, the key and item types.}
+
+\item{.keys_sorted}{Use \code{TRUE} to assert that keys of a \code{MapType} are
+sorted.}
 }
 \value{
 An Arrow type object inheriting from DataType.
@@ -149,14 +172,61 @@ are translated to R objects, \code{uint32} and \code{uint64} are converted to \c
 ("numeric") and \code{int64} is converted to \code{bit64::integer64}. For \code{int64}
 types, this conversion can be disabled (so that \code{int64} always yields a
 \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
+
+\code{decimal128()} creates a \code{Decimal128Type}. Arrow decimals are fixed-point
+decimal numbers encoded as a scalar integer. The \code{precision} is the number of
+significant digits that the decimal type can represent; the \code{scale} is the
+number of digits after the decimal point. For example, the number 1234.567
+has a precision of 7 and a scale of 3. Note that \code{scale} can be negative.
+
+As an example, \code{decimal128(7, 3)} can exactly represent the numbers 1234.567 and
+-1234.567 (encoded internally as the 128-bit integers 1234567 and -1234567,
+respectively), but neither 12345.67 nor 123.4567.
+
+\code{decimal128(5, -3)} can exactly represent the number 12345000 (encoded
+internally as the 128-bit integer 12345), but neither 123450000 nor 1234500.
+The \code{scale} can be thought of as an argument that controls rounding. When
+negative, \code{scale} causes the number to be expressed using scientific notation
+and power of 10.
+
+\code{decimal256()} creates a \code{Decimal256Type}, which allows for higher maximum
+precision. For most use cases, the maximum precision offered by \code{Decimal128Type}
+is sufficient, and it will result in a more compact and more efficient encoding.
+
+\code{decimal()} creates either a \code{Decimal128Type} or a \code{Decimal256Type}
+depending on the value for \code{precision}. If \code{precision} is greater than 38 a
+\code{Decimal256Type} is returned, otherwise a \code{Decimal128Type}.
+
+Use \code{decimal128()} or \code{decimal256()} as the names are more informative than
+\code{decimal()}.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
 time64("ns")
-\dontshow{\}) # examplesIf}
+
+# Use the cast method to change the type of data contained in Arrow objects.
+# Please check the documentation of each data object class for details.
+my_scalar <- Scalar$create(0L, type = int64()) # int64
+my_scalar$cast(timestamp("ns")) # timestamp[ns]
+
+my_array <- Array$create(0L, type = int64()) # int64
+my_array$cast(timestamp("s", timezone = "UTC")) # timestamp[s, tz=UTC]
+
+my_chunked_array <- chunked_array(0L, 1L) # int32
+my_chunked_array$cast(date32()) # date32[day]
+
+# You can also use `cast()` in an Arrow dplyr query.
+if (requireNamespace("dplyr", quietly = TRUE)) {
+  library(dplyr, warn.conflicts = FALSE)
+  arrow_table(mtcars) \%>\%
+    transmute(
+      col1 = cast(cyl, string()),
+      col2 = cast(cyl, int8())
+    ) \%>\%
+    compute()
+}
 }
 \seealso{
 \code{\link[=dictionary]{dictionary()}} for creating a dictionary (factor-like) type.

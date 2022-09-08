@@ -18,12 +18,12 @@
 #}
 # Apache Arrow {{ release.version }} ({{ release.version.release_date or today() }})
 
-{% for category, issues in categories.items() -%}
+{% for category, issue_commit_pairs in categories.items() -%}
 
 ## {{ category }}
 
-{% for issue in issues -%}
-* [{{ issue.key }}](https://issues.apache.org/jira/browse/{{ issue.key }}) - {{ issue.summary | md }}
+{% for issue, commit in issue_commit_pairs -%}
+* [{{ issue.key }}](https://issues.apache.org/jira/browse/{{ issue.key }}) - {{ commit.title.to_string(with_issue=False) if commit else issue.summary | md }}
 {% endfor %}
 
 {% endfor %}

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
+import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
 import static org.junit.Assert.assertEquals;
 
 import java.sql.Connection;
@@ -28,7 +29,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
-import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -106,7 +106,7 @@ public class JdbcAliasToArrowTest {
 
     try (ResultSet resultSet = conn.createStatement().executeQuery(QUERY)) {
       final VectorSchemaRoot vector =
-          JdbcToArrow.sqlToArrow(resultSet, new RootAllocator(Integer.MAX_VALUE));
+          sqlToArrow(resultSet, new RootAllocator(Integer.MAX_VALUE));
 
       assertEquals(rowCount, vector.getRowCount());
       Schema vectorSchema = vector.getSchema();

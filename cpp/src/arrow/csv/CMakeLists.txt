@@ -32,6 +32,7 @@ add_arrow_test(csv-test SOURCES ${CSV_TEST_SRCS})
 
 add_arrow_benchmark(converter_benchmark PREFIX "arrow-csv")
 add_arrow_benchmark(parser_benchmark PREFIX "arrow-csv")
+add_arrow_benchmark(writer_benchmark PREFIX "arrow-csv")
 
 arrow_install_all_headers("arrow/csv")
 

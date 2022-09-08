@@ -22,8 +22,15 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/goccy/go-json"
 )
+
+type BinaryLike interface {
+	arrow.Array
+	ValueBytes() []byte
+	ValueOffset64(int) int64
+}
 
 // A type which represents an immutable sequence of variable-length binary strings.
 type Binary struct {
@@ -33,10 +40,10 @@ type Binary struct {
 }
 
 // NewBinaryData constructs a new Binary array from data.
-func NewBinaryData(data *Data) *Binary {
+func NewBinaryData(data arrow.ArrayData) *Binary {
 	a := &Binary{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -61,6 +68,10 @@ func (a *Binary) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.valueOffsets[a.array.data.offset+i])
+}
+
+func (a *Binary) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
 }
 
 func (a *Binary) ValueLen(i int) int {
@@ -115,6 +126,36 @@ func (a *Binary) setData(data *Data) {
 	if valueOffsets := data.buffers[1]; valueOffsets != nil {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.valueOffsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: binary offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.valueOffsets[expNumOffsets-1]) > len(a.valueBytes) {
+		panic("arrow/array: binary offsets out of bounds of data buffer")
+	}
+}
+
+func (a *Binary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *Binary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
 }
 
 func arrayEqualBinary(left, right *Binary) bool {
@@ -122,7 +163,140 @@ func arrayEqualBinary(left, right *Binary) bool {
 		if left.IsNull(i) {
 			continue
 		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+		if !bytes.Equal(left.Value(i), right.Value(i)) {
+			return false
+		}
+	}
+	return true
+}
+
+type LargeBinary struct {
+	array
+	valueOffsets []int64
+	valueBytes   []byte
+}
+
+func NewLargeBinaryData(data arrow.ArrayData) *LargeBinary {
+	a := &LargeBinary{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *LargeBinary) Value(i int) []byte {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	idx := a.array.data.offset + i
+	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
+}
+
+func (a *LargeBinary) ValueString(i int) string {
+	b := a.Value(i)
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (a *LargeBinary) ValueOffset(i int) int64 {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return a.valueOffsets[a.array.data.offset+i]
+}
+
+func (a *LargeBinary) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
+}
+
+func (a *LargeBinary) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.valueOffsets[beg+1] - a.valueOffsets[beg])
+}
+
+func (a *LargeBinary) ValueOffsets() []int64 {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length + 1
+	return a.valueOffsets[beg:end]
+}
+
+func (a *LargeBinary) ValueBytes() []byte {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length
+	return a.valueBytes[a.valueOffsets[beg]:a.valueOffsets[end]]
+}
+
+func (a *LargeBinary) String() string {
+	var o strings.Builder
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(&o, "%q", a.ValueString(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *LargeBinary) setData(data *Data) {
+	if len(data.buffers) != 3 {
+		panic("len(data.buffers) != 3")
+	}
+
+	a.array.setData(data)
+
+	if valueData := data.buffers[2]; valueData != nil {
+		a.valueBytes = valueData.Bytes()
+	}
+
+	if valueOffsets := data.buffers[1]; valueOffsets != nil {
+		a.valueOffsets = arrow.Int64Traits.CastFromBytes(valueOffsets.Bytes())
+	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.valueOffsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: large binary offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.valueOffsets[expNumOffsets-1]) > len(a.valueBytes) {
+		panic("arrow/array: large binary offsets out of bounds of data buffer")
+	}
+}
+
+func (a *LargeBinary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *LargeBinary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
+}
+
+func arrayEqualLargeBinary(left, right *LargeBinary) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !bytes.Equal(left.Value(i), right.Value(i)) {
 			return false
 		}
 	}
@@ -130,5 +304,5 @@ func arrayEqualBinary(left, right *Binary) bool {
 }
 
 var (
-	_ Interface = (*Binary)(nil)
+	_ arrow.Array = (*Binary)(nil)
 )

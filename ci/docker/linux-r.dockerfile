@@ -30,6 +30,12 @@ ENV ARROW_R_DEV=${r_dev}
 ARG devtoolset_version=-1
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
+ARG r_prune_deps=FALSE
+ENV R_PRUNE_DEPS=${r_prune_deps}
+
+ARG r_custom_ccache=false
+ENV R_CUSTOM_CCACHE=${r_custom_ccache}
+
 ARG tz="UTC"
 ENV TZ=${tz}
 
@@ -40,7 +46,12 @@ ENV PATH "${RPREFIX}/bin:${PATH}"
 COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
 COPY ci/etc/rprofile /arrow/ci/etc/
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
+
+# Set up Python 3 and its dependencies
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

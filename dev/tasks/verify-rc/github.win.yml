@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate Windows source"
-    runs-on: windows-2016
+    runs-on: windows-2019
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
@@ -31,15 +31,20 @@ jobs:
     {% endif %}
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       - uses: conda-incubator/setup-miniconda@v2
       - name: Install System Dependencies
         run: |
           choco install boost-msvc-14.1
           choco install wget
+
+      - name: Download Timezone Database
+        shell: bash
+        run: arrow/ci/scripts/download_tz_database.sh
+
       - name: Run verification
         shell: cmd
         run: |
           cd arrow
-          dev/release/{{ script }} {{ release|default("1.0.0") }} {{ rc|default("0") }}
+          dev/release/{{ script }} {{ release|default("") }} {{ rc|default("") }}

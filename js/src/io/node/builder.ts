@@ -16,8 +16,9 @@
 // under the License.
 
 import { Duplex } from 'stream';
-import { DataType } from '../../type';
-import { Builder, BuilderOptions } from '../../builder/index';
+import { DataType } from '../../type.js';
+import { Builder, BuilderOptions } from '../../builder.js';
+import { makeBuilder } from '../../factories.js';
 
 /** @ignore */
 export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
@@ -30,7 +31,7 @@ export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> ext
 
 /** @ignore */
 export function builderThroughNodeStream<T extends DataType = any, TNull = any>(options: BuilderDuplexOptions<T, TNull>) {
-    return new BuilderDuplex(Builder.new(options), options);
+    return new BuilderDuplex(makeBuilder(options), options);
 }
 
 /** @ignore */

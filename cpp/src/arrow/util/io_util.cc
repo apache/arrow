@@ -34,10 +34,14 @@
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
 #include <string>
@@ -55,6 +59,7 @@
 // file compatibility stuff
 
 #ifdef _WIN32
+#include <direct.h>
 #include <io.h>
 #include <share.h>
 #else  // POSIX-like platforms
@@ -94,6 +99,16 @@
 // For filename conversion
 #if defined(_WIN32)
 #include "arrow/util/utf8.h"
+#endif
+
+#ifdef _WIN32
+#include <psapi.h>
+
+#elif __APPLE__
+#include <mach/mach.h>
+
+#elif __linux__
+#include <fstream>
 #endif
 
 namespace arrow {
@@ -187,16 +202,26 @@ std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
 #if _WIN32
 std::string WinErrorMessage(int errnum) {
-  char buf[1024];
-  auto nchars = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                               NULL, errnum, 0, buf, sizeof(buf), NULL);
-  if (nchars == 0) {
+  constexpr DWORD max_n_chars = 1024;
+  WCHAR utf16_message[max_n_chars];
+  auto n_utf16_chars =
+      FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+                     errnum, 0, utf16_message, max_n_chars, NULL);
+  if (n_utf16_chars == 0) {
     // Fallback
     std::stringstream ss;
     ss << "Windows error #" << errnum;
     return ss.str();
   }
-  return std::string(buf, nchars);
+  auto utf8_message_result =
+      arrow::util::WideStringToUTF8(std::wstring(utf16_message, n_utf16_chars));
+  if (!utf8_message_result.ok()) {
+    std::stringstream ss;
+    ss << "Windows error #" << errnum;
+    ss << "; failed to convert error message to UTF-8: " << utf8_message_result.status();
+    return ss.str();
+  }
+  return *utf8_message_result;
 }
 #endif
 
@@ -225,6 +250,150 @@ class ErrnoDetail : public StatusDetail {
 #if _WIN32
 const char kWinErrorDetailTypeId[] = "arrow::WinErrorDetail";
 
+// Map from a Windows error code to a `errno` value
+//
+// Most code in this function is taken from CPython's `PC/errmap.h`.
+// Unlike CPython however, we return 0 for unknown / unsupported values.
+int WinErrorToErrno(int winerror) {
+  // Unwrap FACILITY_WIN32 HRESULT errors.
+  if ((winerror & 0xFFFF0000) == 0x80070000) {
+    winerror &= 0x0000FFFF;
+  }
+
+  // Winsock error codes (10000-11999) are errno values.
+  if (winerror >= 10000 && winerror < 12000) {
+    switch (winerror) {
+      case WSAEINTR:
+      case WSAEBADF:
+      case WSAEACCES:
+      case WSAEFAULT:
+      case WSAEINVAL:
+      case WSAEMFILE:
+        // Winsock definitions of errno values. See WinSock2.h
+        return winerror - 10000;
+      default:
+        return winerror;
+    }
+  }
+
+  switch (winerror) {
+    case ERROR_FILE_NOT_FOUND:        //    2
+    case ERROR_PATH_NOT_FOUND:        //    3
+    case ERROR_INVALID_DRIVE:         //   15
+    case ERROR_NO_MORE_FILES:         //   18
+    case ERROR_BAD_NETPATH:           //   53
+    case ERROR_BAD_NET_NAME:          //   67
+    case ERROR_BAD_PATHNAME:          //  161
+    case ERROR_FILENAME_EXCED_RANGE:  //  206
+      return ENOENT;
+
+    case ERROR_BAD_ENVIRONMENT:  //   10
+      return E2BIG;
+
+    case ERROR_BAD_FORMAT:                 //   11
+    case ERROR_INVALID_STARTING_CODESEG:   //  188
+    case ERROR_INVALID_STACKSEG:           //  189
+    case ERROR_INVALID_MODULETYPE:         //  190
+    case ERROR_INVALID_EXE_SIGNATURE:      //  191
+    case ERROR_EXE_MARKED_INVALID:         //  192
+    case ERROR_BAD_EXE_FORMAT:             //  193
+    case ERROR_ITERATED_DATA_EXCEEDS_64k:  //  194
+    case ERROR_INVALID_MINALLOCSIZE:       //  195
+    case ERROR_DYNLINK_FROM_INVALID_RING:  //  196
+    case ERROR_IOPL_NOT_ENABLED:           //  197
+    case ERROR_INVALID_SEGDPL:             //  198
+    case ERROR_AUTODATASEG_EXCEEDS_64k:    //  199
+    case ERROR_RING2SEG_MUST_BE_MOVABLE:   //  200
+    case ERROR_RELOC_CHAIN_XEEDS_SEGLIM:   //  201
+    case ERROR_INFLOOP_IN_RELOC_CHAIN:     //  202
+      return ENOEXEC;
+
+    case ERROR_INVALID_HANDLE:         //    6
+    case ERROR_INVALID_TARGET_HANDLE:  //  114
+    case ERROR_DIRECT_ACCESS_HANDLE:   //  130
+      return EBADF;
+
+    case ERROR_WAIT_NO_CHILDREN:    //  128
+    case ERROR_CHILD_NOT_COMPLETE:  //  129
+      return ECHILD;
+
+    case ERROR_NO_PROC_SLOTS:        //   89
+    case ERROR_MAX_THRDS_REACHED:    //  164
+    case ERROR_NESTING_NOT_ALLOWED:  //  215
+      return EAGAIN;
+
+    case ERROR_ARENA_TRASHED:      //    7
+    case ERROR_NOT_ENOUGH_MEMORY:  //    8
+    case ERROR_INVALID_BLOCK:      //    9
+    case ERROR_NOT_ENOUGH_QUOTA:   // 1816
+      return ENOMEM;
+
+    case ERROR_ACCESS_DENIED:            //    5
+    case ERROR_CURRENT_DIRECTORY:        //   16
+    case ERROR_WRITE_PROTECT:            //   19
+    case ERROR_BAD_UNIT:                 //   20
+    case ERROR_NOT_READY:                //   21
+    case ERROR_BAD_COMMAND:              //   22
+    case ERROR_CRC:                      //   23
+    case ERROR_BAD_LENGTH:               //   24
+    case ERROR_SEEK:                     //   25
+    case ERROR_NOT_DOS_DISK:             //   26
+    case ERROR_SECTOR_NOT_FOUND:         //   27
+    case ERROR_OUT_OF_PAPER:             //   28
+    case ERROR_WRITE_FAULT:              //   29
+    case ERROR_READ_FAULT:               //   30
+    case ERROR_GEN_FAILURE:              //   31
+    case ERROR_SHARING_VIOLATION:        //   32
+    case ERROR_LOCK_VIOLATION:           //   33
+    case ERROR_WRONG_DISK:               //   34
+    case ERROR_SHARING_BUFFER_EXCEEDED:  //   36
+    case ERROR_NETWORK_ACCESS_DENIED:    //   65
+    case ERROR_CANNOT_MAKE:              //   82
+    case ERROR_FAIL_I24:                 //   83
+    case ERROR_DRIVE_LOCKED:             //  108
+    case ERROR_SEEK_ON_DEVICE:           //  132
+    case ERROR_NOT_LOCKED:               //  158
+    case ERROR_LOCK_FAILED:              //  167
+    case 35:                             //   35 (undefined)
+      return EACCES;
+
+    case ERROR_FILE_EXISTS:     //   80
+    case ERROR_ALREADY_EXISTS:  //  183
+      return EEXIST;
+
+    case ERROR_NOT_SAME_DEVICE:  //   17
+      return EXDEV;
+
+    case ERROR_DIRECTORY:  //  267 (bpo-12802)
+      return ENOTDIR;
+
+    case ERROR_TOO_MANY_OPEN_FILES:  //    4
+      return EMFILE;
+
+    case ERROR_DISK_FULL:  //  112
+      return ENOSPC;
+
+    case ERROR_BROKEN_PIPE:  //  109
+    case ERROR_NO_DATA:      //  232 (bpo-13063)
+      return EPIPE;
+
+    case ERROR_DIR_NOT_EMPTY:  //  145
+      return ENOTEMPTY;
+
+    case ERROR_NO_UNICODE_TRANSLATION:  // 1113
+      return EILSEQ;
+
+    case ERROR_INVALID_FUNCTION:   //    1
+    case ERROR_INVALID_ACCESS:     //   12
+    case ERROR_INVALID_DATA:       //   13
+    case ERROR_INVALID_PARAMETER:  //   87
+    case ERROR_NEGATIVE_SEEK:      //  131
+      return EINVAL;
+    default:
+      return 0;
+  }
+}
+
 class WinErrorDetail : public StatusDetail {
  public:
   explicit WinErrorDetail(int errnum) : errnum_(errnum) {}
@@ -238,6 +407,8 @@ class WinErrorDetail : public StatusDetail {
   }
 
   int errnum() const { return errnum_; }
+
+  int equivalent_errno() const { return WinErrorToErrno(errnum_); }
 
  protected:
   int errnum_;
@@ -267,11 +438,17 @@ class SignalDetail : public StatusDetail {
 }  // namespace
 
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
+  if (!errnum) {
+    return nullptr;
+  }
   return std::make_shared<WinErrorDetail>(errnum);
 }
 #endif
@@ -282,8 +459,15 @@ std::shared_ptr<StatusDetail> StatusDetailFromSignal(int signum) {
 
 int ErrnoFromStatus(const Status& status) {
   const auto detail = status.detail();
-  if (detail != nullptr && detail->type_id() == kErrnoDetailTypeId) {
-    return checked_cast<const ErrnoDetail&>(*detail).errnum();
+  if (detail != nullptr) {
+    if (detail->type_id() == kErrnoDetailTypeId) {
+      return checked_cast<const ErrnoDetail&>(*detail).errnum();
+    }
+#if _WIN32
+    if (detail->type_id() == kWinErrorDetailTypeId) {
+      return checked_cast<const WinErrorDetail&>(*detail).equivalent_errno();
+    }
+#endif
   }
   return 0;
 }
@@ -305,6 +489,26 @@ int SignalFromStatus(const Status& status) {
   }
   return 0;
 }
+
+namespace {
+
+Result<NativePathString> NativeReal(const NativePathString& path) {
+#if _WIN32
+  std::array<wchar_t, _MAX_PATH> resolved = {};
+  if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
+      nullptr) {
+    return IOErrorFromWinError(errno, "Failed to resolve real path");
+  }
+#else
+  std::array<char, PATH_MAX + 1> resolved;
+  if (realpath(path.c_str(), resolved.data()) == nullptr) {
+    return IOErrorFromErrno(errno, "Failed to resolve real path");
+  }
+#endif
+  return NativePathString{resolved.data()};
+}
+
+}  // namespace
 
 //
 // PlatformFilename implementation
@@ -342,8 +546,8 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
   return *this;
 }
 
-PlatformFilename::PlatformFilename(const NativePathString& path)
-    : PlatformFilename(Impl{path}) {}
+PlatformFilename::PlatformFilename(NativePathString path)
+    : PlatformFilename(Impl{std::move(path)}) {}
 
 PlatformFilename::PlatformFilename(const NativePathString::value_type* path)
     : PlatformFilename(NativePathString(path)) {}
@@ -374,6 +578,11 @@ std::string PlatformFilename::ToString() const {
 
 PlatformFilename PlatformFilename::Parent() const {
   return PlatformFilename(NativeParent(ToNative()));
+}
+
+Result<PlatformFilename> PlatformFilename::Real() const {
+  ARROW_ASSIGN_OR_RAISE(auto real, NativeReal(ToNative()));
+  return PlatformFilename(std::move(real));
 }
 
 Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
@@ -779,82 +988,94 @@ Result<bool> FileExists(const PlatformFilename& path) {
 }
 
 //
-// Functions for creating file descriptors
+// Creating and destroying file descriptors
 //
 
-#define CHECK_LSEEK(retval) \
-  if ((retval) == -1) return Status::IOError("lseek failed");
+FileDescriptor::FileDescriptor(FileDescriptor&& other) : fd_(other.fd_.exchange(-1)) {}
 
-static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_WIN32)
-  return _lseeki64(fd, pos, whence);
-#else
-  return lseek(fd, pos, whence);
-#endif
-}
-
-static inline Result<int> CheckFileOpResult(int fd_ret, int errno_actual,
-                                            const PlatformFilename& file_name,
-                                            const char* opname) {
-  if (fd_ret == -1) {
-#ifdef _WIN32
-    int winerr = GetLastError();
-    if (winerr != ERROR_SUCCESS) {
-      return IOErrorFromWinError(GetLastError(), "Failed to ", opname, " file '",
-                                 file_name.ToString(), "'");
-    }
-#endif
-    return IOErrorFromErrno(errno_actual, "Failed to ", opname, " file '",
-                            file_name.ToString(), "'");
+FileDescriptor& FileDescriptor::operator=(FileDescriptor&& other) {
+  int old_fd = fd_.exchange(other.fd_.exchange(-1));
+  if (old_fd != -1) {
+    CloseFromDestructor(old_fd);
   }
-  return fd_ret;
+  return *this;
 }
 
-Result<int> FileOpenReadable(const PlatformFilename& file_name) {
-  int fd, errno_actual;
+void FileDescriptor::CloseFromDestructor(int fd) {
+  ARROW_WARN_NOT_OK(FileClose(fd), "Failed to close file descriptor");
+}
+
+FileDescriptor::~FileDescriptor() {
+  int fd = fd_.load();
+  if (fd != -1) {
+    CloseFromDestructor(fd);
+  }
+}
+
+Status FileDescriptor::Close() {
+  int fd = fd_.exchange(-1);
+  if (fd != -1) {
+    return FileClose(fd);
+  }
+  return Status::OK();
+}
+
+int FileDescriptor::Detach() { return fd_.exchange(-1); }
+
+static Result<int64_t> lseek64_compat(int fd, int64_t pos, int whence) {
 #if defined(_WIN32)
-  SetLastError(0);
+  int64_t ret = _lseeki64(fd, pos, whence);
+#else
+  int64_t ret = lseek(fd, pos, whence);
+#endif
+  if (ret == -1) {
+    return Status::IOError("lseek failed");
+  }
+  return ret;
+}
+
+Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
+  FileDescriptor fd;
+#if defined(_WIN32)
   HANDLE file_handle = CreateFileW(file_name.ToNative().c_str(), GENERIC_READ,
                                    FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-  DWORD last_error = GetLastError();
-  if (last_error == ERROR_SUCCESS) {
-    errno_actual = 0;
-    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
-                         _O_RDONLY | _O_BINARY | _O_NOINHERIT);
-  } else {
-    return IOErrorFromWinError(last_error, "Failed to open local file '",
+  if (file_handle == INVALID_HANDLE_VALUE) {
+    return IOErrorFromWinError(GetLastError(), "Failed to open local file '",
                                file_name.ToString(), "'");
   }
+  int ret = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                            _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+  if (ret == -1) {
+    CloseHandle(file_handle);
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #else
-  fd = open(file_name.ToNative().c_str(), O_RDONLY);
-  errno_actual = errno;
-
-  if (fd >= 0) {
-    // open(O_RDONLY) succeeds on directories, check for it
-    struct stat st;
-    int ret = fstat(fd, &st);
-    if (ret == -1) {
-      ARROW_UNUSED(FileClose(fd));
-      // Will propagate error below
-    } else if (S_ISDIR(st.st_mode)) {
-      ARROW_UNUSED(FileClose(fd));
-      return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
-                             "' is a directory");
-    }
+  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  if (ret < 0) {
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  // open(O_RDONLY) succeeds on directories, check for it
+  fd = FileDescriptor(ret);
+  struct stat st;
+  ret = fstat(fd.fd(), &st);
+  if (ret == 0 && S_ISDIR(st.st_mode)) {
+    return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
+                           "' is a directory");
   }
 #endif
 
-  return CheckFileOpResult(fd, errno_actual, file_name, "open local");
+  return std::move(fd);
 }
 
-Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
-                             bool truncate, bool append) {
-  int fd, errno_actual;
+Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
+                                        bool write_only, bool truncate, bool append) {
+  FileDescriptor fd;
 
 #if defined(_WIN32)
-  SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   DWORD desired_access = GENERIC_WRITE;
   DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
@@ -879,15 +1100,19 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
   HANDLE file_handle =
       CreateFileW(file_name.ToNative().c_str(), desired_access, share_mode, NULL,
                   creation_disposition, FILE_ATTRIBUTE_NORMAL, NULL);
-
-  DWORD last_error = GetLastError();
-  if (last_error == ERROR_SUCCESS || last_error == ERROR_ALREADY_EXISTS) {
-    errno_actual = 0;
-    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle), oflag);
-  } else {
-    return IOErrorFromWinError(last_error, "Failed to open local file '",
+  if (file_handle == INVALID_HANDLE_VALUE) {
+    return IOErrorFromWinError(GetLastError(), "Failed to open local file '",
                                file_name.ToString(), "'");
   }
+
+  int ret = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                            _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+  if (ret == -1) {
+    CloseHandle(file_handle);
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #else
   int oflag = O_CREAT;
 
@@ -904,59 +1129,203 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
     oflag |= O_RDWR;
   }
 
-  fd = open(file_name.ToNative().c_str(), oflag, 0666);
-  errno_actual = errno;
+  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  if (ret == -1) {
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #endif
 
-  RETURN_NOT_OK(CheckFileOpResult(fd, errno_actual, file_name, "open local"));
   if (append) {
     // Seek to end, as O_APPEND does not necessarily do it
-    auto ret = lseek64_compat(fd, 0, SEEK_END);
-    if (ret == -1) {
-      ARROW_UNUSED(FileClose(fd));
-      return Status::IOError("lseek failed");
-    }
+    RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return fd;
+  return std::move(fd);
 }
 
 Result<int64_t> FileTell(int fd) {
-  int64_t current_pos;
 #if defined(_WIN32)
-  current_pos = _telli64(fd);
+  int64_t current_pos = _telli64(fd);
   if (current_pos == -1) {
     return Status::IOError("_telli64 failed");
   }
-#else
-  current_pos = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(current_pos);
-#endif
   return current_pos;
+#else
+  return lseek64_compat(fd, 0, SEEK_CUR);
+#endif
 }
 
 Result<Pipe> CreatePipe() {
   int ret;
-  int fd[2];
-#if defined(_WIN32)
-  ret = _pipe(fd, 4096, _O_BINARY);
-#else
-  ret = pipe(fd);
-#endif
+  int fds[2];
 
+#if defined(_WIN32)
+  ret = _pipe(fds, 4096, _O_BINARY);
+#else
+  ret = ::pipe(fds);
+#endif
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Error creating pipe");
   }
-  return Pipe{fd[0], fd[1]};
+
+  return Pipe{FileDescriptor(fds[0]), FileDescriptor(fds[1])};
 }
 
-static Status StatusFromMmapErrno(const char* prefix) {
+Status SetPipeFileDescriptorNonBlocking(int fd) {
+#if defined(_WIN32)
+  const auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  DWORD mode = PIPE_NOWAIT;
+  if (!SetNamedPipeHandleState(handle, &mode, nullptr, nullptr)) {
+    return IOErrorFromWinError(GetLastError(), "Error making pipe non-blocking");
+  }
+#else
+  int flags = fcntl(fd, F_GETFL);
+  if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    return IOErrorFromErrno(errno, "Error making pipe non-blocking");
+  }
+#endif
+  return Status::OK();
+}
+
+namespace {
+
+#ifdef WIN32
+#define PIPE_WRITE _write
+#define PIPE_READ _read
+#else
+#define PIPE_WRITE write
+#define PIPE_READ read
+#endif
+
+class SelfPipeImpl : public SelfPipe {
+  static constexpr uint64_t kEofPayload = 5804561806345822987ULL;
+
+ public:
+  explicit SelfPipeImpl(bool signal_safe) : signal_safe_(signal_safe) {}
+
+  Status Init() {
+    ARROW_ASSIGN_OR_RAISE(pipe_, CreatePipe());
+    if (signal_safe_) {
+      if (!please_shutdown_.is_lock_free()) {
+        return Status::IOError("Cannot use non-lock-free atomic in a signal handler");
+      }
+      // We cannot afford blocking writes in a signal handler
+      RETURN_NOT_OK(SetPipeFileDescriptorNonBlocking(pipe_.wfd.fd()));
+    }
+    return Status::OK();
+  }
+
+  Result<uint64_t> Wait() override {
+    if (pipe_.rfd.closed()) {
+      // Already closed
+      return ClosedPipe();
+    }
+    uint64_t payload = 0;
+    char* buf = reinterpret_cast<char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
+    while (buf_size > 0) {
+      int64_t n_read = PIPE_READ(pipe_.rfd.fd(), buf, static_cast<uint32_t>(buf_size));
+      if (n_read < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        if (pipe_.rfd.closed()) {
+          return ClosedPipe();
+        }
+        return IOErrorFromErrno(errno, "Failed reading from self-pipe");
+      }
+      buf += n_read;
+      buf_size -= n_read;
+    }
+    if (payload == kEofPayload && please_shutdown_.load()) {
+      RETURN_NOT_OK(pipe_.rfd.Close());
+      return ClosedPipe();
+    }
+    return payload;
+  }
+
+  // XXX return StatusCode from here?
+  void Send(uint64_t payload) override {
+    if (signal_safe_) {
+      int saved_errno = errno;
+      DoSend(payload);
+      errno = saved_errno;
+    } else {
+      DoSend(payload);
+    }
+  }
+
+  Status Shutdown() override {
+    please_shutdown_.store(true);
+    errno = 0;
+    if (!DoSend(kEofPayload)) {
+      if (errno) {
+        return IOErrorFromErrno(errno, "Could not shutdown self-pipe");
+      } else if (!pipe_.wfd.closed()) {
+        return Status::UnknownError("Could not shutdown self-pipe");
+      }
+    }
+    return pipe_.wfd.Close();
+  }
+
+  ~SelfPipeImpl() { ARROW_WARN_NOT_OK(Shutdown(), "On self-pipe destruction"); }
+
+ protected:
+  Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
+
+  bool DoSend(uint64_t payload) {
+    // This needs to be async-signal safe as it's called from Send()
+    if (pipe_.wfd.closed()) {
+      // Already closed
+      return false;
+    }
+    const char* buf = reinterpret_cast<const char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
+    while (buf_size > 0) {
+      int64_t n_written =
+          PIPE_WRITE(pipe_.wfd.fd(), buf, static_cast<uint32_t>(buf_size));
+      if (n_written < 0) {
+        if (errno == EINTR) {
+          continue;
+        } else {
+          // Perhaps EAGAIN if non-blocking, or EBADF if closed in the meantime?
+          // In any case, we can't do anything more here.
+          break;
+        }
+      }
+      buf += n_written;
+      buf_size -= n_written;
+    }
+    return buf_size == 0;
+  }
+
+  const bool signal_safe_;
+  Pipe pipe_;
+  std::atomic<bool> please_shutdown_{false};
+};
+
+#undef PIPE_WRITE
+#undef PIPE_READ
+
+}  // namespace
+
+Result<std::shared_ptr<SelfPipe>> SelfPipe::Make(bool signal_safe) {
+  auto ptr = std::make_shared<SelfPipeImpl>(signal_safe);
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+SelfPipe::~SelfPipe() = default;
+
+namespace {
+
+Status StatusFromMmapErrno(const char* prefix) {
 #ifdef _WIN32
   errno = __map_mman_error(GetLastError(), EPERM);
 #endif
   return IOErrorFromErrno(errno, prefix);
 }
-
-namespace {
 
 int64_t GetPageSizeInternal() {
 #if defined(__APPLE__)
@@ -1132,9 +1501,7 @@ Status FileClose(int fd) {
 //
 
 Status FileSeek(int fd, int64_t pos, int whence) {
-  int64_t ret = lseek64_compat(fd, pos, whence);
-  CHECK_LSEEK(ret);
-  return Status::OK();
+  return lseek64_compat(fd, pos, whence).status();
 }
 
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
@@ -1188,35 +1555,54 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
     return -1;
   }
 #else
-  return static_cast<int64_t>(
-      pread(fd, buf, static_cast<size_t>(nbytes), static_cast<off_t>(pos)));
+  int64_t ret;
+  do {
+    ret = static_cast<int64_t>(
+        pread(fd, buf, static_cast<size_t>(nbytes), static_cast<off_t>(pos)));
+  } while (ret == -1 && errno == EINTR);
+  return ret;
 #endif
 }
 
 Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
-  int64_t bytes_read = 0;
-
-  while (bytes_read < nbytes) {
-    int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_read);
 #if defined(_WIN32)
-    int64_t ret =
-        static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(chunksize)));
-#else
-    int64_t ret = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(chunksize)));
+  HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
 #endif
+  int64_t total_bytes_read = 0;
 
-    if (ret == -1) {
+  while (total_bytes_read < nbytes) {
+    const int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - total_bytes_read);
+    int64_t bytes_read = 0;
+#if defined(_WIN32)
+    DWORD dwBytesRead = 0;
+    if (!ReadFile(handle, buffer, static_cast<uint32_t>(chunksize), &dwBytesRead,
+                  nullptr)) {
+      auto errnum = GetLastError();
+      // Return a normal EOF when the write end of a pipe was closed
+      if (errnum != ERROR_HANDLE_EOF && errnum != ERROR_BROKEN_PIPE) {
+        return IOErrorFromWinError(GetLastError(), "Error reading bytes from file");
+      }
+    }
+    bytes_read = dwBytesRead;
+#else
+    bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(chunksize)));
+    if (bytes_read == -1) {
+      if (errno == EINTR) {
+        continue;
+      }
       return IOErrorFromErrno(errno, "Error reading bytes from file");
     }
-    if (ret == 0) {
+#endif
+
+    if (bytes_read == 0) {
       // EOF
       break;
     }
-    buffer += ret;
-    bytes_read += ret;
+    buffer += bytes_read;
+    total_bytes_read += bytes_read;
   }
-  return bytes_read;
+  return total_bytes_read;
 }
 
 Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {
@@ -1246,28 +1632,28 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
 //
 
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
-  int ret = 0;
   int64_t bytes_written = 0;
 
-  while (ret != -1 && bytes_written < nbytes) {
-    int64_t chunksize =
+  while (bytes_written < nbytes) {
+    const int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
 #if defined(_WIN32)
-    ret = static_cast<int>(
+    int64_t ret = static_cast<int64_t>(
         _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
 #else
-    ret = static_cast<int>(
+    int64_t ret = static_cast<int64_t>(
         write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
+    if (ret == -1 && errno == EINTR) {
+      continue;
+    }
 #endif
 
-    if (ret != -1) {
-      bytes_written += ret;
+    if (ret == -1) {
+      return IOErrorFromErrno(errno, "Error writing bytes to file");
     }
+    bytes_written += ret;
   }
 
-  if (ret == -1) {
-    return IOErrorFromErrno(errno, "Error writing bytes to file");
-  }
   return Status::OK();
 }
 
@@ -1481,7 +1867,9 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       [&](const NativePathString& base_dir) -> Result<std::unique_ptr<TemporaryDir>> {
     Status st;
     for (int attempt = 0; attempt < 3; ++attempt) {
-      PlatformFilename fn(base_dir + kNativeSep + base_name + kNativeSep);
+      PlatformFilename fn_base_dir(base_dir);
+      PlatformFilename fn_base_name(base_name + kNativeSep);
+      PlatformFilename fn = fn_base_dir.Join(fn_base_name);
       auto result = CreateDir(fn);
       if (!result.ok()) {
         // Probably a permissions error or a non-existing base_dir
@@ -1518,10 +1906,8 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
 TemporaryDir::~TemporaryDir() {
-  Status st = DeleteDirTree(path_).status();
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
-  }
+  ARROW_WARN_NOT_OK(DeleteDirTree(path_).status(),
+                    "When trying to delete temporary directory");
 }
 
 SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}
@@ -1662,6 +2048,9 @@ int64_t GetRandomSeed() {
   // The process-global seed generator to aims to avoid calling std::random_device
   // unless truly necessary (it can block on some systems, see ARROW-10287).
   static auto seed_gen = GetSeedGenerator();
+  static std::mutex seed_gen_mutex;
+
+  std::lock_guard<std::mutex> lock(seed_gen_mutex);
   return static_cast<int64_t>(seed_gen());
 }
 
@@ -1679,6 +2068,45 @@ uint64_t GetThreadId() {
 uint64_t GetOptionalThreadId() {
   auto tid = GetThreadId();
   return (tid == 0) ? tid - 1 : tid;
+}
+
+// Returns the current resident set size (physical memory use) measured
+// in bytes, or zero if the value cannot be determined on this OS.
+int64_t GetCurrentRSS() {
+#if defined(_WIN32)
+  // Windows --------------------------------------------------
+  PROCESS_MEMORY_COUNTERS info;
+  GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+  return static_cast<int64_t>(info.WorkingSetSize);
+
+#elif defined(__APPLE__)
+  // OSX ------------------------------------------------------
+  struct mach_task_basic_info info;
+  mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+  return static_cast<int64_t>(info.resident_size);
+
+#elif defined(__linux__)
+  // Linux ----------------------------------------------------
+  int64_t rss = 0L;
+
+  std::ifstream fp("/proc/self/statm");
+  if (fp) {
+    fp >> rss;
+    return rss * sysconf(_SC_PAGESIZE);
+  } else {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value from /proc/self/statm";
+    return 0;
+  }
+
+#else
+  // AIX, BSD, Solaris, and Unknown OS ------------------------
+  return 0;  // Unsupported.
+#endif
 }
 
 }  // namespace internal

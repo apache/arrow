@@ -25,19 +25,21 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
-class TestRecordBatch : public TestBase {};
+class TestRecordBatch : public ::testing::Test {};
 
 TEST_F(TestRecordBatch, Equals) {
   const int length = 10;
@@ -53,9 +55,11 @@ TEST_F(TestRecordBatch, Equals) {
   auto schema2 = ::arrow::schema({f0, f1});
   auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
-  auto a2 = MakeRandomArray<Int16Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
+  auto a2 = gen.ArrayOf(int16(), length);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
   auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
@@ -80,10 +84,12 @@ TEST_F(TestRecordBatch, Validate) {
 
   auto schema = ::arrow::schema({f0, f1, f2});
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
-  auto a2 = MakeRandomArray<Int16Array>(length);
-  auto a3 = MakeRandomArray<Int16Array>(5);
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
+  auto a2 = gen.ArrayOf(int16(), length);
+  auto a3 = gen.ArrayOf(int16(), 5);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
@@ -108,8 +114,10 @@ TEST_F(TestRecordBatch, Slice) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema(fields);
 
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
   auto a2 = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6]");
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1, a2});
@@ -144,9 +152,11 @@ TEST_F(TestRecordBatch, AddColumn) {
   auto schema2 = ::arrow::schema({field2, field3});
   auto schema3 = ::arrow::schema({field2});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
 
   auto batch1 = RecordBatch::Make(schema1, length, {array1, array2});
   auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
@@ -160,7 +170,7 @@ TEST_F(TestRecordBatch, AddColumn) {
   ASSERT_RAISES(Invalid, batch.AddColumn(-1, field1, array1));
 
   // Negative test with wrong length
-  auto longer_col = MakeRandomArray<Int32Array>(length + 1);
+  auto longer_col = gen.ArrayOf(int32(), length + 1);
   ASSERT_RAISES(Invalid, batch.AddColumn(0, field1, longer_col));
 
   // Negative test with mismatch type
@@ -189,9 +199,11 @@ TEST_F(TestRecordBatch, SetColumn) {
   auto schema2 = ::arrow::schema({field1, field3});
   auto schema3 = ::arrow::schema({field3, field2});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
 
   auto batch1 = RecordBatch::Make(schema1, length, {array1, array2});
   auto batch2 = RecordBatch::Make(schema2, length, {array1, array3});
@@ -204,7 +216,7 @@ TEST_F(TestRecordBatch, SetColumn) {
   ASSERT_RAISES(Invalid, batch.SetColumn(-1, field1, array1));
 
   // Negative test with wrong length
-  auto longer_col = MakeRandomArray<Int32Array>(length + 1);
+  auto longer_col = gen.ArrayOf(int32(), length + 1);
   ASSERT_RAISES(Invalid, batch.SetColumn(0, field1, longer_col));
 
   // Negative test with mismatch type
@@ -229,9 +241,11 @@ TEST_F(TestRecordBatch, RemoveColumn) {
   auto schema3 = ::arrow::schema({field1, field3});
   auto schema4 = ::arrow::schema({field1, field2});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
 
   auto batch1 = RecordBatch::Make(schema1, length, {array1, array2, array3});
   auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
@@ -264,9 +278,11 @@ TEST_F(TestRecordBatch, SelectColumns) {
 
   auto schema1 = ::arrow::schema({field1, field2, field3});
 
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
 
   auto batch = RecordBatch::Make(schema1, length, {array1, array2, array3});
 
@@ -286,9 +302,11 @@ TEST_F(TestRecordBatch, SelectColumns) {
 TEST_F(TestRecordBatch, RemoveColumnEmpty) {
   const int length = 10;
 
+  random::RandomArrayGenerator gen(42);
+
   auto field1 = field("f1", int32());
   auto schema1 = ::arrow::schema({field1});
-  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array1 = gen.ArrayOf(int32(), length);
   auto batch1 = RecordBatch::Make(schema1, length, {array1});
 
   ASSERT_OK_AND_ASSIGN(auto empty, batch1->RemoveColumn(0));
@@ -308,7 +326,8 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
-  ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(MakeRandomArray<Int32Array>(10)));
+  random::RandomArrayGenerator gen(42);
+  ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(gen.ArrayOf(int32(), 6)));
 }
 
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
@@ -316,5 +335,131 @@ TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
       ArrayFromJSON(struct_({field("f1", int32())}), R"([{"f1": 1}, null])");
   ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(struct_array));
 }
+
+TEST_F(TestRecordBatch, MakeEmpty) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> empty,
+                       RecordBatch::MakeEmpty(schema));
+  AssertSchemaEqual(*schema, *empty->schema());
+  ASSERT_OK(empty->ValidateFull());
+  ASSERT_EQ(empty->num_rows(), 0);
+}
+
+class TestRecordBatchReader : public ::testing::Test {
+ public:
+  void SetUp() override { MakeBatchesAndReader(100); }
+
+ protected:
+  void MakeBatchesAndReader(int length) {
+    auto field1 = field("f1", int32());
+    auto field2 = field("f2", uint8());
+    auto field3 = field("f3", int16());
+
+    auto schema = ::arrow::schema({field1, field2, field3});
+
+    random::RandomArrayGenerator gen(42);
+
+    auto array1_1 = gen.ArrayOf(int32(), length);
+    auto array1_2 = gen.ArrayOf(int32(), length);
+    auto array1_3 = gen.ArrayOf(int32(), length);
+
+    auto array2_1 = gen.ArrayOf(uint8(), length);
+    auto array2_2 = gen.ArrayOf(uint8(), length);
+    auto array2_3 = gen.ArrayOf(uint8(), length);
+
+    auto array3_1 = gen.ArrayOf(int16(), length);
+    auto array3_2 = gen.ArrayOf(int16(), length);
+    auto array3_3 = gen.ArrayOf(int16(), length);
+
+    auto batch1 = RecordBatch::Make(schema, length, {array1_1, array2_1, array3_1});
+    auto batch2 = RecordBatch::Make(schema, length, {array1_2, array2_2, array3_2});
+    auto batch3 = RecordBatch::Make(schema, length, {array1_3, array2_3, array3_3});
+
+    batches_ = {batch1, batch2, batch3};
+
+    ASSERT_OK_AND_ASSIGN(reader_, RecordBatchReader::Make(batches_));
+  }
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::shared_ptr<RecordBatchReader> reader_;
+};
+
+TEST_F(TestRecordBatchReader, RangeForLoop) {
+  int64_t i = 0;
+
+  for (auto maybe_batch : *reader_) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+    AssertBatchesEqual(*batch, *batches_[i++]);
+  }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
+}
+
+TEST_F(TestRecordBatchReader, BeginEndForLoop) {
+  int64_t i = 0;
+
+  for (auto it = reader_->begin(); it != reader_->end(); ++it) {
+    ASSERT_OK_AND_ASSIGN(auto batch, *it);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+    AssertBatchesEqual(*batch, *batches_[i++]);
+  }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
+}
+
+TEST_F(TestRecordBatchReader, ToRecordBatches) {
+  ASSERT_OK_AND_ASSIGN(auto batches, reader_->ToRecordBatches());
+  ASSERT_EQ(batches.size(), batches_.size());
+  for (size_t index = 0; index < batches.size(); index++) {
+    AssertBatchesEqual(*batches[index], *batches_[index]);
+  }
+
+  ASSERT_OK_AND_ASSIGN(batches, reader_->ToRecordBatches());
+  ASSERT_EQ(batches.size(), 0);
+}
+
+TEST_F(TestRecordBatchReader, ToTable) {
+  ASSERT_OK_AND_ASSIGN(auto table, reader_->ToTable());
+  const auto& chunks = table->column(0)->chunks();
+  ASSERT_EQ(chunks.size(), batches_.size());
+  for (size_t index = 0; index < batches_.size(); index++) {
+    AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
+  }
+
+  ASSERT_OK_AND_ASSIGN(table, reader_->ToTable());
+  ASSERT_EQ(table->column(0)->chunks().size(), 0);
+}
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+TEST_F(TestRecordBatchReader, DeprecatedReadAllToRecordBatches) {
+  RecordBatchVector batches;
+  ASSERT_OK(reader_->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), batches_.size());
+  for (size_t index = 0; index < batches.size(); index++) {
+    AssertBatchesEqual(*batches[index], *batches_[index]);
+  }
+
+  ASSERT_OK(reader_->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 0);
+}
+
+TEST_F(TestRecordBatchReader, DeprecatedReadAllToTable) {
+  std::shared_ptr<Table> table;
+
+  ASSERT_OK(reader_->ReadAll(&table));
+  const auto& chunks = table->column(0)->chunks();
+  ASSERT_EQ(chunks.size(), batches_.size());
+  for (size_t index = 0; index < batches_.size(); index++) {
+    AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
+  }
+
+  ASSERT_OK(reader_->ReadAll(&table));
+  ASSERT_EQ(table->column(0)->chunks().size(), 0);
+}
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow

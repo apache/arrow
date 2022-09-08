@@ -15,9 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
+[apache-arrow-almalinux]
+name=Apache Arrow for AlmaLinux $releasever - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/almalinux/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
 [apache-arrow-amazon-linux]
 name=Apache Arrow for Amazon Linux $releasever - $basearch
 baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
+[apache-arrow-centos-stream]
+name=Apache Arrow for CentOS Stream $releasever - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$stream/$basearch/
 gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
@@ -31,7 +45,14 @@ gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
 
 [apache-arrow-rhel]
 name=Apache Arrow for RHEL $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
+baseurl=https://apache.jfrog.io/artifactory/arrow/almalinux/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
+[apache-arrow-rhel7]
+name=Apache Arrow for RHEL 7 - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/7/$basearch/
 gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow

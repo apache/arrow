@@ -24,6 +24,7 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
+import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
@@ -42,8 +43,10 @@ try:
     import pygit2
 except ImportError:
     PygitRemoteCallbacks = object
+    GitError = Exception
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+    GitError = pygit2.GitError
 
 from ..utils.source import ArrowSources
 
@@ -205,6 +208,20 @@ def _git_ssh_to_https(url):
     return url.replace('git@github.com:', 'https://github.com/')
 
 
+def _parse_github_user_repo(remote_url):
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    if m is None:
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
+    user, repo = m.group(1), m.group(2)
+    return user, repo
+
+
 class Repo:
     """
     Base class for interaction with local git repositories
@@ -254,9 +271,18 @@ class Repo:
                                 "Crossbow: {}".format(remote.url))
         return remote
 
-    def fetch(self):
+    def fetch(self, retry=3):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
-        self.origin.fetch([refspec])
+        attempt = 1
+        while True:
+            try:
+                self.origin.fetch([refspec])
+                break
+            except GitError as e:
+                if retry and attempt < retry:
+                    attempt += 1
+                else:
+                    raise e
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
@@ -288,7 +314,11 @@ class Repo:
         try:
             return self.repo.branches[self.repo.head.shorthand]
         except KeyError:
-            return None  # detached
+            raise CrossbowError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
 
     @property
     def remote(self):
@@ -296,7 +326,11 @@ class Repo:
         try:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
-            return None  # cannot detect
+            raise CrossbowError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the `{}` branch first to have '
+                'a remote tracking counterpart.'.format(self.branch.name)
+            )
 
     @property
     def remote_url(self):
@@ -305,10 +339,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with GitHub OAuth token.
         """
-        try:
-            return self._remote_url or _git_ssh_to_https(self.remote.url)
-        except AttributeError:
-            return None
+        return self._remote_url or _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -388,23 +419,13 @@ class Repo:
         blob = self.repo[entry.id]
         return blob.data
 
-    def _parse_github_user_repo(self):
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
-        if m is None:
-            raise CrossbowError(
-                "Unable to parse the github owner and repository from the "
-                "repository's remote url '{}'".format(self.remote_url)
-            )
-        user, repo = m.group(1), m.group(2)
-        return user, repo
-
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
             if not _have_github3:
                 raise ImportError('Must install github3.py')
             github_token = github_token or self.github_token
-            username, reponame = self._parse_github_user_repo()
+            username, reponame = _parse_github_user_repo(self.remote_url)
             session = github3.session.GitHubSession(
                 default_connect_timeout=10,
                 default_read_timeout=30
@@ -524,6 +545,25 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head=None, base="master", body=None,
+                  github_token=None, create=False):
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
+            )
+
 
 class Queue(Repo):
 
@@ -536,17 +576,48 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _prefix_contains_date(self, prefix):
+        prefix_date_pattern = re.compile(r'[\w\/-]*-(\d+)-(\d+)-(\d+)')
+        match_prefix = prefix_date_pattern.match(prefix)
+        if match_prefix:
+            return match_prefix.group(0)[-10:]
+
+    def _latest_prefix_date(self, prefix):
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
+        else:
+            latest = -1
+        return latest
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
+    def _new_hex_id(self, prefix):
+        """Append a new id to branch's identifier based on the prefix"""
+        hex_id = uuid.uuid4().hex[:10]
+        return '{}-{}'.format(prefix, hex_id)
+
     def latest_for_prefix(self, prefix):
-        latest_id = self._latest_prefix_id(prefix)
-        if latest_id < 0:
-            raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
-            )
+        prefix_date = self._prefix_contains_date(prefix)
+        if prefix.startswith("nightly") and not prefix_date:
+            latest_id = self._latest_prefix_date(prefix)
+            if not latest_id:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}'' yet"
+                )
+            latest_id += "-0"
+        else:
+            latest_id = self._latest_prefix_id(prefix)
+            if latest_id < 0:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}' yet"
+                )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
@@ -585,29 +656,20 @@ class Queue(Repo):
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix='build', increment_job_id=True):
         if not isinstance(job, Job):
             raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        if job.target.remote is None:
-            raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(job.target.branch)
-            )
-        if job.target.branch is None:
-            raise CrossbowError(
-                'Cannot determine the current branch of the Arrow repository '
-                'to clone or push to, perhaps it is in detached HEAD state. '
-                'Please checkout a branch.'
-            )
-
-        # auto increment and set next job id, e.g. build-85
         job._queue = self
-        job.branch = self._next_job_id(prefix)
+        if increment_job_id:
+            # auto increment and set next job id, e.g. build-85
+            job.branch = self._next_job_id(prefix)
+        else:
+            # set new branch to something unique, e.g. build-41d017af40
+            job.branch = self._new_hex_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
@@ -617,6 +679,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -637,7 +700,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
@@ -653,7 +716,7 @@ def get_version(root, **kwargs):
     if 'dev' not in tag:
         major += 1
 
-    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance)
+    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance or 0)
 
 
 class Serializable:
@@ -679,8 +742,12 @@ class Target(Serializable):
         self.email = email
         self.branch = branch
         self.remote = remote
+        self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        # TODO(ARROW-17552): Remove "master" from default_branch after
+        #                    migration to "main".
+        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -718,6 +785,11 @@ class Target(Serializable):
         return cls(head=head, email=email, branch=branch, remote=remote,
                    version=version)
 
+    def is_default_branch(self):
+        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
+        #                    once "master" is removed from "default_branch".
+        return self.branch in self.default_branch
+
 
 class Task(Serializable):
     """
@@ -731,7 +803,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -740,6 +812,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -788,12 +861,13 @@ class Task(Serializable):
             self._status = TaskStatus(github_commit)
         return self._status
 
-    def assets(self, force_query=False):
+    def assets(self, force_query=False, validate_patterns=True):
         _assets = getattr(self, '_assets', None)
         if force_query or _assets is None:
             github_release = self._queue.github_release(self.tag)
             self._assets = TaskAssets(github_release,
-                                      artifact_patterns=self.artifacts)
+                                      artifact_patterns=self.artifacts,
+                                      validate_patterns=validate_patterns)
         return self._assets
 
 
@@ -874,7 +948,8 @@ class TaskStatus:
 
 class TaskAssets(dict):
 
-    def __init__(self, github_release, artifact_patterns):
+    def __init__(self, github_release, artifact_patterns,
+                 validate_patterns=True):
         # HACK(kszucs): don't expect uploaded assets of no atifacts were
         # defiened for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
@@ -885,9 +960,13 @@ class TaskAssets(dict):
         else:
             github_assets = {a.name: a for a in github_release.assets()}
 
+        if not validate_patterns:
+            # shortcut to avoid pattern validation and just set all artifacts
+            return self.update(github_assets)
+
         for pattern in artifact_patterns:
             # artifact can be a regex pattern
-            compiled = re.compile(pattern)
+            compiled = re.compile(f"^{pattern}$")
             matches = list(
                 filter(None, map(compiled.match, github_assets.keys()))
             )
@@ -921,8 +1000,6 @@ class Job(Serializable):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
-        if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
         if not isinstance(params, dict):
             raise ValueError('`params` must be an instance of dict')
 
@@ -948,6 +1025,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():
@@ -1018,9 +1096,10 @@ class Job(Serializable):
                     'no_rc_version': target.no_rc_version,
                     'no_rc_semver_version': target.no_rc_semver_version}
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
 
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
@@ -1073,11 +1152,11 @@ class Config(dict):
         config_tasks = dict(self['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(groups or [])
-        task_whitelist = list(tasks or [])
+        group_allowlist = list(groups or [])
+        task_allowlist = list(tasks or [])
 
         # validate that the passed groups are defined in the config
-        requested_groups = set(group_whitelist)
+        requested_groups = set(group_allowlist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
@@ -1085,13 +1164,9 @@ class Config(dict):
             )
             raise CrossbowError(msg)
 
-        # merge the tasks defined in the selected groups
-        task_patterns = [list(config_groups[name]) for name in group_whitelist]
-        task_patterns = set(sum(task_patterns, task_whitelist))
-
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
-        for pattern in task_patterns:
+        for pattern in task_allowlist:
             matches = fnmatch.filter(valid_tasks, pattern)
             if len(matches):
                 requested_tasks.update(matches)
@@ -1099,6 +1174,37 @@ class Config(dict):
                 raise CrossbowError(
                     "Unable to match any tasks for `{}`".format(pattern)
                 )
+
+        requested_group_tasks = set()
+        for group in group_allowlist:
+            # separate the patterns from the blocklist patterns
+            task_patterns = list(config_groups[group])
+            task_blocklist_patterns = [
+                x.strip("~") for x in task_patterns if x.startswith("~")]
+            task_patterns = [x for x in task_patterns if not x.startswith("~")]
+
+            # treat the task names as glob patterns to select tasks more easily
+            for pattern in task_patterns:
+                matches = fnmatch.filter(valid_tasks, pattern)
+                if len(matches):
+                    requested_group_tasks.update(matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+            # remove any tasks that are negated with ~task-name
+            for block_pattern in task_blocklist_patterns:
+                matches = fnmatch.filter(valid_tasks, block_pattern)
+                if len(matches):
+                    requested_group_tasks = requested_group_tasks.difference(
+                        matches)
+                else:
+                    raise CrossbowError(
+                        "Unable to match any tasks for `{}`".format(pattern)
+                    )
+
+        requested_tasks = requested_tasks.union(requested_group_tasks)
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
@@ -1113,9 +1219,11 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly referening the tasks
+        # validate that the task groups are properly refering to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
+                # remove the negation character for blocklisted tasks
+                pattern = pattern.strip("~")
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(
@@ -1127,7 +1235,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1144,13 +1252,19 @@ class Config(dict):
             version='1.0.0dev123',
             email='dummy@example.ltd'
         )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )
@@ -1164,3 +1278,5 @@ yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
+yaml.register_class(Queue)
+yaml.register_class(TaskStatus)

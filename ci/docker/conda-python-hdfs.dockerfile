@@ -17,16 +17,16 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.6
+ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
 ARG maven=3.5
-RUN conda install -q \
+RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \
-    conda clean --all
+    mamba clean --all
 
 # installing libhdfs (JNI)
 ARG hdfs=3.2.1
@@ -46,6 +46,7 @@ ENV CC=gcc \
     ARROW_GANDIVA=OFF \
     ARROW_PLASMA=OFF \
     ARROW_PARQUET=ON \
+    PARQUET_REQUIRE_ENCRYPTION=ON \
     ARROW_ORC=OFF \
     ARROW_HDFS=ON \
     ARROW_PYTHON=ON \

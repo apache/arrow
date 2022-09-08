@@ -21,10 +21,7 @@
 #include <cstdint>
 #include <fstream>  // IWYU pragma: keep
 
-#ifdef _WIN32
-#include <crtdbg.h>
-#include <io.h>
-#else
+#ifndef _WIN32
 #include <fcntl.h>
 #endif
 
@@ -33,8 +30,12 @@
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::IOErrorFromErrno;
+
 namespace io {
 
 void AssertFileContents(const std::string& path, const std::string& contents) {
@@ -48,35 +49,25 @@ void AssertFileContents(const std::string& path, const std::string& contents) {
 
 bool FileExists(const std::string& path) { return std::ifstream(path.c_str()).good(); }
 
-#if defined(_WIN32)
-static void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
-                                const wchar_t* source_file, unsigned int source_line,
-                                uintptr_t reserved) {
-  wprintf(L"Invalid parameter in function '%s'. Source: '%s' line %d expression '%s'\n",
-          func, source_file, source_line, expr);
-}
-#endif
-
-bool FileIsClosed(int fd) {
-#if defined(_WIN32)
-  // Disables default behavior on wrong params which causes the application to crash
-  // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
-  _set_invalid_parameter_handler(InvalidParamHandler);
-
-  // Disables possible assertion alert box on invalid input arguments
-  _CrtSetReportMode(_CRT_ASSERT, 0);
-
-  int new_fd = _dup(fd);
-  if (new_fd == -1) {
-    return errno == EBADF;
+Status PurgeLocalFileFromOsCache(const std::string& path) {
+#if defined(POSIX_FADV_WILLNEED)
+  int fd = open(path.c_str(), O_WRONLY);
+  if (fd < 0) {
+    return IOErrorFromErrno(errno, "open on ", path,
+                            " to clear from cache did not succeed.");
   }
-  _close(new_fd);
-  return false;
+  int err = posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+  if (err != 0) {
+    return IOErrorFromErrno(err, "fadvise on ", path,
+                            " to clear from cache did not succeed");
+  }
+  err = close(fd);
+  if (err == 0) {
+    return Status::OK();
+  }
+  return IOErrorFromErrno(err, "close on ", path, " to clear from cache did not succeed");
 #else
-  if (-1 != fcntl(fd, F_GETFD)) {
-    return false;
-  }
-  return errno == EBADF;
+  return Status::NotImplemented("posix_fadvise is not implemented on this machine");
 #endif
 }
 

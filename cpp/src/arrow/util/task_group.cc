@@ -79,7 +79,8 @@ class ThreadedTaskGroup : public TaskGroup {
       : executor_(executor),
         stop_token_(std::move(stop_token)),
         nremaining_(0),
-        ok_(true) {}
+        ok_(true),
+        finished_(false) {}
 
   ~ThreadedTaskGroup() override {
     // Make sure all pending tasks are finished, so that dangling references
@@ -200,12 +201,12 @@ class ThreadedTaskGroup : public TaskGroup {
   StopToken stop_token_;
   std::atomic<int32_t> nremaining_;
   std::atomic<bool> ok_;
+  std::atomic<bool> finished_;
 
   // These members use locking
   std::mutex mutex_;
   std::condition_variable cv_;
   Status status_;
-  bool finished_ = false;
   util::optional<Future<>> completion_future_;
 };
 

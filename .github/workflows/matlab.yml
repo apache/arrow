@@ -32,29 +32,28 @@ on:
       - 'cpp/src/arrow/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
 
-  matlab:
-    name: AMD64 Ubuntu 20.04 MATLAB 
+  ubuntu:
+    name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v0
+        uses: matlab-actions/setup-matlab@v1
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
-        env: 
+        env:
           # libarrow.so requires a more recent version of libstdc++.so
           # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
           # Therefore, if a MEX function that depends on libarrow.so
@@ -62,6 +61,33 @@ jobs:
           # errors will occur. To work around this issue, we can explicitly
           # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
           LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+
+          # Add the installation directory to the MATLAB Search Path by
+          # setting the MATLABPATH environment variable.
+          MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v1
         with:
           select-by-folder: matlab/test
+  macos:
+    name: AMD64 macOS 11 MATLAB
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install ninja-build
+        run: brew install ninja
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+      - name: Build MATLAB Interface
+        run: ci/scripts/matlab_build.sh $(pwd)
+      - name: Run MATLAB Tests
+        env:
+          # Add the installation directory to the MATLAB Search Path by
+          # setting the MATLABPATH environment variable.
+          MATLABPATH: matlab/install/arrow_matlab
+        uses: matlab-actions/run-tests@v1
+        with:
+          select-by-folder: matlab/test 

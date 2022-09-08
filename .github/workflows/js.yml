@@ -32,7 +32,7 @@ on:
       - 'js/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -42,21 +42,17 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 NodeJS 14
+    name: AMD64 Debian 11 NodeJS 16
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -72,22 +68,19 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}
+    name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
     runs-on: macos-latest
     if: github.event_name == 'push'
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:
@@ -100,18 +93,18 @@ jobs:
         run: ci/scripts/js_test.sh $(pwd)
 
   windows:
-    name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
+    name: AMD64 Windows NodeJS ${{ matrix.node }}
     runs-on: windows-latest
     if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         with:
-          submodules: true
+          fetch-depth: 0
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:

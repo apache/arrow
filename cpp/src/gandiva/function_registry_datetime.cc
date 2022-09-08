@@ -21,14 +21,15 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                    \
-  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),       \
-      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}),    \
-      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {"month"}), \
-      DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                     \
-      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                           \
-      DATE_TYPES(INNER, name##Hour, {"hour"}),                                         \
-      DATE_TYPES(INNER, name##Minute, {"minute"}),                                     \
+#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                 \
+  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),    \
+      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}), \
+      DATE_TYPES(INNER, name##Quarter, ({"quarter"})),                              \
+      DATE_TYPES(INNER, name##Month, {"month"}),                                    \
+      DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                  \
+      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                        \
+      DATE_TYPES(INNER, name##Hour, {"hour"}),                                      \
+      DATE_TYPES(INNER, name##Minute, {"minute"}),                                  \
       DATE_TYPES(INNER, name##Second, {"second"})
 
 #define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
@@ -44,8 +45,12 @@ namespace gandiva {
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {"minute"}), \
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {"second"})
 
+#define NEXT_DAY_FNS(name) DATE_TYPES(NEXT_DAY_SAFE_NULL_IF_NULL, name, {})
+
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, month_interval),
       DATE_EXTRACTION_TRUNCATION_FNS(EXTRACT_SAFE_NULL_IF_NULL, extract),
       DATE_EXTRACTION_TRUNCATION_FNS(TRUNCATE_SAFE_NULL_IF_NULL, date_trunc_),
 
@@ -55,6 +60,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       TIME_EXTRACTION_FNS(extract),
 
+      NEXT_DAY_FNS(next_day),
+
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
@@ -63,8 +70,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      kResultNullIfNull, "castTIMESTAMP_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castVARCHAR", {}, DataTypeVector{timestamp(), int64()}, utf8(),
-                     kResultNullIfNull, "castVARCHAR_timestamp_int64",
+      NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{timestamp(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_timestamp_int64",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8()}, date64(),
@@ -87,8 +94,15 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castDATE", {"to_date"}, DataTypeVector{timestamp()}, date64(),
                      kResultNullIfNull, "castDATE_timestamp"),
 
+      NativeFunction("castTIME", {}, DataTypeVector{utf8()}, time32(), kResultNullIfNull,
+                     "castTIME_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castTIME", {}, DataTypeVector{timestamp()}, time32(),
                      kResultNullIfNull, "castTIME_timestamp"),
+
+      NativeFunction("castTIME", {}, DataTypeVector{int32()}, time32(), kResultNullIfNull,
+                     "castTIME_int32"),
 
       NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "castBIGINT_daytimeinterval"),
@@ -121,6 +135,41 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),
+
+      NativeFunction("castINTERVALDAY", {}, DataTypeVector{utf8()}, day_time_interval(),
+                     kResultNullInternal, "gdv_fn_cast_intervalday_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction(
+          "castintervalday", {}, DataTypeVector{utf8(), int32()}, day_time_interval(),
+          kResultNullInternal, "gdv_fn_cast_intervalday_utf8_int32",
+          NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
+              NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castintervalyear", {}, DataTypeVector{utf8()}, month_interval(),
+                     kResultNullInternal, "gdv_fn_cast_intervalyear_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction(
+          "castintervalyear", {}, DataTypeVector{utf8(), int32()}, month_interval(),
+          kResultNullInternal, "gdv_fn_cast_intervalyear_utf8_int32",
+          NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
+              NativeFunction::kCanReturnErrors),
+
+      NativeFunction("datediff", {}, DataTypeVector{timestamp(), timestamp()}, int32(),
+                     kResultNullIfNull, "datediff_timestamp_timestamp"),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()},
+                     timestamp(), kResultNullIfNull, "to_utc_timezone_timestamp",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("from_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()},
+                     timestamp(), kResultNullIfNull, "from_utc_timezone_timestamp",
+                     NativeFunction::kNeedsContext),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),
       BASE_NUMERIC_TYPES(TO_TIME_SAFE_NULL_IF_NULL, to_time, {}),

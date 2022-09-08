@@ -41,6 +41,9 @@ else
   distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
 fi
 distribution_version=$(echo ${distribution_version} | sed -e 's/\..*$//g')
+if grep -q 'CentOS Stream' /etc/system-release; then
+  distribution_version+="-stream"
+fi
 
 architecture="$(arch)"
 lib_directory=/usr/lib64
@@ -115,6 +118,10 @@ if [ -n "${SOURCE_ARCHIVE}" ]; then
 else
   run cp /host/tmp/${PACKAGE}-${VERSION}.* rpmbuild/SOURCES/
 fi
+if [ -x /host/prepare-sources.sh ]; then
+  /host/prepare-sources.sh
+fi
+
 run cp \
     /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/

@@ -14,24 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-file-to-stream"
+package main
 
 import (
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func TestFileToStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-file-to-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {

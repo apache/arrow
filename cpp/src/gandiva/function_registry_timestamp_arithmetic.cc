@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/function_registry_timestamp_arithmetic.h"
+
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -24,7 +25,11 @@ namespace gandiva {
   BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int32, timestamp, timestamp),     \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int32, date64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, timestamp, timestamp), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, date64, date64)
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, date64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int32, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int32, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64)
 
 #define TIMESTAMP_DIFF_FN(name, ALIASES) \
   BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, timestamp, int32)
@@ -64,7 +69,7 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
       TIMESTAMP_ADD_FNS(timestampaddHour, {}),
       TIMESTAMP_ADD_FNS(timestampaddDay, {}),
       TIMESTAMP_ADD_FNS(timestampaddWeek, {}),
-      TIMESTAMP_ADD_FNS(timestampaddMonth, {}),
+      TIMESTAMP_ADD_FNS(timestampaddMonth, {"add_months"}),
       TIMESTAMP_ADD_FNS(timestampaddQuarter, {}),
       TIMESTAMP_ADD_FNS(timestampaddYear, {}),
 

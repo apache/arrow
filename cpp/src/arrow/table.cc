@@ -266,10 +266,18 @@ std::shared_ptr<Table> Table::Make(std::shared_ptr<Schema> schema,
   return std::make_shared<SimpleTable>(std::move(schema), arrays, num_rows);
 }
 
+Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
+                                                MemoryPool* memory_pool) {
+  ChunkedArrayVector empty_table(schema->num_fields());
+  for (int i = 0; i < schema->num_fields(); i++) {
+    ARROW_ASSIGN_OR_RAISE(empty_table[i],
+                          ChunkedArray::MakeEmpty(schema->field(i)->type(), memory_pool));
+  }
+  return Table::Make(schema, empty_table, 0);
+}
+
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
-  std::shared_ptr<Table> table = nullptr;
-  RETURN_NOT_OK(reader->ReadAll(&table));
-  return table;
+  return reader->ToTable();
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatches(
@@ -327,7 +335,8 @@ Result<std::shared_ptr<Table>> Table::FromChunkedStructArray(
                    [i](const std::shared_ptr<Array>& struct_chunk) {
                      return static_cast<const StructArray&>(*struct_chunk).field(i);
                    });
-    columns[i] = std::make_shared<ChunkedArray>(std::move(chunks));
+    columns[i] =
+        std::make_shared<ChunkedArray>(std::move(chunks), type->field(i)->type());
   }
 
   return Table::Make(::arrow::schema(type->fields()), std::move(columns),
@@ -567,11 +576,20 @@ Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
   return Table::Make(schema(), std::move(compacted_columns), num_rows_);
 }
 
+Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* pool) const {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> combined, CombineChunks(pool));
+  std::vector<std::shared_ptr<Array>> arrays;
+  for (const auto& column : combined->columns()) {
+    arrays.push_back(column->chunk(0));
+  }
+  return RecordBatch::Make(schema_, num_rows_, std::move(arrays));
+}
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 
 TableBatchReader::TableBatchReader(const Table& table)
-    : table_(table),
+    : owned_table_(nullptr),
+      table_(table),
       column_data_(table.num_columns()),
       chunk_numbers_(table.num_columns(), 0),
       chunk_offsets_(table.num_columns(), 0),
@@ -579,6 +597,19 @@ TableBatchReader::TableBatchReader(const Table& table)
       max_chunksize_(std::numeric_limits<int64_t>::max()) {
   for (int i = 0; i < table.num_columns(); ++i) {
     column_data_[i] = table.column(i).get();
+  }
+}
+
+TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
+    : owned_table_(std::move(table)),
+      table_(*owned_table_),
+      column_data_(owned_table_->num_columns()),
+      chunk_numbers_(owned_table_->num_columns(), 0),
+      chunk_offsets_(owned_table_->num_columns(), 0),
+      absolute_row_position_(0),
+      max_chunksize_(std::numeric_limits<int64_t>::max()) {
+  for (int i = 0; i < owned_table_->num_columns(); ++i) {
+    column_data_[i] = owned_table_->column(i).get();
   }
 }
 
@@ -593,7 +624,8 @@ Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   }
 
   // Determine the minimum contiguous slice across all columns
-  int64_t chunksize = std::min(table_.num_rows(), max_chunksize_);
+  int64_t chunksize =
+      std::min(table_.num_rows() - absolute_row_position_, max_chunksize_);
   std::vector<const Array*> chunks(table_.num_columns());
   for (int i = 0; i < table_.num_columns(); ++i) {
     auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();

@@ -19,8 +19,8 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
 )
 
 // standard map based implementation of memo tables which can be more efficient
@@ -97,6 +97,14 @@ func (m *int32MemoTableImpl) GetOrInsert(val interface{}) (idx int, found bool, 
 		found = true
 	}
 	return
+}
+
+func (m *int32MemoTableImpl) WriteOut(out []byte) {
+	m.CopyValuesSubset(0, out)
+}
+
+func (m *int32MemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, out)
 }
 
 func (m *int32MemoTableImpl) CopyValues(out interface{}) {
@@ -183,6 +191,14 @@ func (m *int64MemoTableImpl) GetOrInsert(val interface{}) (idx int, found bool, 
 	return
 }
 
+func (m *int64MemoTableImpl) WriteOut(out []byte) {
+	m.CopyValuesSubset(0, out)
+}
+
+func (m *int64MemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, out)
+}
+
 func (m *int64MemoTableImpl) CopyValues(out interface{}) {
 	m.CopyValuesSubset(0, out)
 }
@@ -267,6 +283,14 @@ func (m *int96MemoTableImpl) GetOrInsert(val interface{}) (idx int, found bool, 
 	return
 }
 
+func (m *int96MemoTableImpl) WriteOut(out []byte) {
+	m.CopyValuesSubset(0, out)
+}
+
+func (m *int96MemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, out)
+}
+
 func (m *int96MemoTableImpl) CopyValues(out interface{}) {
 	m.CopyValuesSubset(0, out)
 }
@@ -349,6 +373,14 @@ func (m *float32MemoTableImpl) GetOrInsert(val interface{}) (idx int, found bool
 		found = true
 	}
 	return
+}
+
+func (m *float32MemoTableImpl) WriteOut(out []byte) {
+	m.CopyValuesSubset(0, out)
+}
+
+func (m *float32MemoTableImpl) WriteOutSubset(start int, out []byte) {
+	m.CopyValuesSubset(start, out)
 }
 
 func (m *float32MemoTableImpl) CopyValues(out interface{}) {

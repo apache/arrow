@@ -22,6 +22,7 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/interval.hpp>
 #include <arrow-glib/type.hpp>
 
 #include <arrow/c/bridge.h>
@@ -154,6 +155,21 @@ G_BEGIN_DECLS
  * nanoseconds since midnight in 64-bit signed integer array. It can
  * store zero or more time data. If you don't have Arrow format data,
  * you need to use #GArrowTime64ArrayBuilder to create a new array.
+ *
+ * #GArrowMonthIntervalArray is a class for the month intarval array.
+ * It can store zero or more date data. If you don't have Arrow format 
+ * data, you need to use #GArrowMonthIntervalArrayBuilder to create a 
+ * new array.
+ *
+ * #GArrowDayTimeIntervalArray is a class for the day time intarval array.
+ * It can store zero or more date data. If you don't have Arrow format 
+ * data, you need to use #GArrowDayTimeIntervalArrayBuilder to create a 
+ * new array.
+ *
+ * #GArrowMonthDayNanoIntervalArray is a class for the month day nano 
+ * intarval array. It can store zero or more date data. If you don't
+ * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
+ * to create a new array.
  *
  * #GArrowDecimal128Array is a class for 128-bit decimal array. It can
  * store zero or more 128-bit decimal data. If you don't have Arrow
@@ -2806,6 +2822,274 @@ garrow_time64_array_get_values(GArrowTime64Array *array,
 }
 
 
+G_DEFINE_TYPE(GArrowMonthIntervalArray,
+              garrow_month_interval_array,
+              GARROW_TYPE_NUMERIC_ARRAY)
+
+static void
+garrow_month_interval_array_init(GArrowMonthIntervalArray *object)
+{
+}
+
+static void
+garrow_month_interval_array_class_init(GArrowMonthIntervalArrayClass *klass)
+{
+}
+
+/**
+ * garrow_month_interval_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowMonthIntervalArray.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthIntervalArray *
+garrow_month_interval_array_new(gint64 length,
+                                GArrowBuffer *data,
+                                GArrowBuffer *null_bitmap,
+                                gint64 n_nulls)
+{
+  auto array = garrow_primitive_array_new<arrow::MonthIntervalType>(length,
+                                                                    data,
+                                                                    null_bitmap,
+                                                                    n_nulls);
+  return GARROW_MONTH_INTERVAL_ARRAY(array);
+}
+
+/**
+ * garrow_month_interval_array_get_value:
+ * @array: A #GArrowMonthIntervalArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The @i-th value.
+ *
+ * Since: 8.0.0
+ */
+gint32
+garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
+                                      gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::MonthIntervalArray *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_month_interval_array_get_values:
+ * @array: A #GArrowMonthIntervalArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 8.0.0
+ */
+const gint32 *
+garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
+                                       gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::MonthIntervalType>(
+    arrow_array, length);
+}
+
+
+G_DEFINE_TYPE(GArrowDayTimeIntervalArray,
+              garrow_day_time_interval_array,
+              GARROW_TYPE_PRIMITIVE_ARRAY)
+
+static void
+garrow_day_time_interval_array_init(GArrowDayTimeIntervalArray *object)
+{
+}
+
+static void
+garrow_day_time_interval_array_class_init(GArrowDayTimeIntervalArrayClass *klass)
+{
+}
+
+/**
+ * garrow_day_time_interval_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowDayTimeIntervalArray.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayTimeIntervalArray *
+garrow_day_time_interval_array_new(gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls)
+{
+  auto array = garrow_primitive_array_new<arrow::DayTimeIntervalType>(
+    length,
+    data,
+    null_bitmap,
+    n_nulls);
+  return GARROW_DAY_TIME_INTERVAL_ARRAY(array);
+}
+
+/**
+ * garrow_day_time_interval_array_get_value:
+ * @array: A #GArrowDayTimeIntervalArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayMillisecond *
+garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
+                                         gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_day_time_interval_array =
+    std::static_pointer_cast<arrow::DayTimeIntervalArray>(arrow_array);
+  auto arrow_day_time_interval = arrow_day_time_interval_array->GetValue(i);
+  return garrow_day_millisecond_new_raw(&arrow_day_time_interval);
+}
+
+/**
+ * garrow_day_time_interval_array_get_values:
+ * @array: A #GArrowDayTimeIntervalArray.
+ *
+ * Returns: (nullable) (element-type GArrowDayMillisecond) (transfer full):
+ *   The list of #GArrowDayMillisecond.
+ *
+ * Since: 8.0.0
+ */
+GList *
+garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_day_time_interval_array =
+    std::static_pointer_cast<arrow::DayTimeIntervalArray>(arrow_array);
+  auto length = arrow_day_time_interval_array->length();
+  GList *values = NULL;
+  for (gint64 i = 0; i < length; ++i) {
+    if (arrow_day_time_interval_array->IsValid(i)) {
+      auto arrow_value = arrow_day_time_interval_array->GetValue(i);
+      auto value = garrow_day_millisecond_new_raw(&arrow_value);
+      values = g_list_prepend(values, value);
+    } else {
+      values = g_list_prepend(values, NULL);
+    }
+  }
+  return g_list_reverse(values);
+}
+
+
+G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArray,
+              garrow_month_day_nano_interval_array,
+              GARROW_TYPE_PRIMITIVE_ARRAY)
+
+static void
+garrow_month_day_nano_interval_array_init(
+  GArrowMonthDayNanoIntervalArray *object)
+{
+}
+
+static void
+garrow_month_day_nano_interval_array_class_init(
+  GArrowMonthDayNanoIntervalArrayClass *klass)
+{
+}
+
+/**
+ * garrow_month_day_nano_interval_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowMonthDayNanoIntervalArray.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNanoIntervalArray *
+garrow_month_day_nano_interval_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls)
+{
+  auto array = garrow_primitive_array_new<arrow::MonthDayNanoIntervalType>(
+    length,
+    data,
+    null_bitmap,
+    n_nulls);
+  return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY(array);
+}
+
+/**
+ * garrow_month_day_nano_interval_array_get_value:
+ * @array: A #GArrowMonthDayNanoIntervalArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_array_get_value(
+  GArrowMonthDayNanoIntervalArray *array,
+  gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_month_day_nano_interval_array =
+    std::static_pointer_cast<arrow::MonthDayNanoIntervalArray>(arrow_array);
+  auto arrow_value = arrow_month_day_nano_interval_array->GetValue(i);
+  return garrow_month_day_nano_new_raw(&arrow_value);
+}
+
+/**
+ * garrow_month_day_nano_interval_array_get_values:
+ * @array: A #GArrowMonthDayNanoIntervalArray.
+ *
+ * Returns: (nullable) (element-type GArrowMonthDayNano) (transfer full):
+ *   The list of #GArrowMonthDayNano.
+ *
+ * Since: 8.0.0
+ */
+GList *
+garrow_month_day_nano_interval_array_get_values(
+  GArrowMonthDayNanoIntervalArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_month_day_nano_interval_array =
+    std::static_pointer_cast<arrow::MonthDayNanoIntervalArray>(arrow_array);
+  auto length = arrow_month_day_nano_interval_array->length();
+  GList *values = NULL;
+  for (gint64 i = 0; i < length; ++i) {
+    if (arrow_month_day_nano_interval_array->IsValid(i)) {
+      auto arrow_value = arrow_month_day_nano_interval_array->GetValue(i);
+      auto value = garrow_month_day_nano_new_raw(&arrow_value);
+      values = g_list_prepend(values, value);
+    } else {
+      values = g_list_prepend(values, NULL);
+    }
+  }
+  return g_list_reverse(values);
+}
+
+
 G_DEFINE_TYPE(GArrowFixedSizeBinaryArray,
               garrow_fixed_size_binary_array,
               GARROW_TYPE_PRIMITIVE_ARRAY)
@@ -3241,6 +3525,15 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::TIME64:
     type = GARROW_TYPE_TIME64_ARRAY;
+    break;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    type = GARROW_TYPE_MONTH_INTERVAL_ARRAY;
+    break;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    type = GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY;
+    break;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY;
     break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_ARRAY;

@@ -27,6 +27,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -228,6 +229,30 @@ public class TestValidateVectorTypeVisitor {
   }
 
   @Test
+  public void testDecimalVector() {
+    testPositiveCase(() ->
+            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(10, 10, 128)), allocator));
+    testPositiveCase(() ->
+            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(38, 10, 128)), allocator));
+    testPositiveCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 256)), allocator));
+    testPositiveCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(76, 10, 256)), allocator));
+    testNegativeCase(() ->
+            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 128)), allocator));
+    testNegativeCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(100, 10, 256)), allocator));
+    testNegativeCase(() ->
+            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(0, 10, 128)), allocator));
+    testNegativeCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(-1, 10, 256)), allocator));
+    testNegativeCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(30, 10, 64)), allocator));
+    testNegativeCase(() ->
+            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(10, 20, 256)), allocator));
+  }
+
+  @Test
   public void testVariableWidthVectorsPositive() {
     testPositiveCase(() -> new VarCharVector("vector", allocator));
     testPositiveCase(() -> new VarBinaryVector("vector", allocator));
@@ -296,6 +321,6 @@ public class TestValidateVectorTypeVisitor {
 
   @Test
   public void testNullVector() {
-    testPositiveCase(() -> new NullVector());
+    testPositiveCase(() -> new NullVector("null vec"));
   }
 }

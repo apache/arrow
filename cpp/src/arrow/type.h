@@ -39,6 +39,22 @@
 namespace arrow {
 namespace detail {
 
+/// \defgroup numeric-datatypes Datatypes for numeric data
+/// @{
+/// @}
+
+/// \defgroup binary-datatypes Datatypes for binary/string data
+/// @{
+/// @}
+
+/// \defgroup temporal-datatypes Datatypes for temporal data
+/// @{
+/// @}
+
+/// \defgroup nested-datatypes Datatypes for nested data
+/// @{
+/// @}
+
 class ARROW_EXPORT Fingerprintable {
  public:
   virtual ~Fingerprintable();
@@ -66,8 +82,8 @@ class ARROW_EXPORT Fingerprintable {
   virtual std::string ComputeFingerprint() const = 0;
   virtual std::string ComputeMetadataFingerprint() const = 0;
 
-  mutable std::atomic<std::string*> fingerprint_;
-  mutable std::atomic<std::string*> metadata_fingerprint_;
+  mutable std::atomic<std::string*> fingerprint_{NULLPTR};
+  mutable std::atomic<std::string*> metadata_fingerprint_{NULLPTR};
 };
 
 }  // namespace detail
@@ -110,7 +126,8 @@ struct ARROW_EXPORT DataTypeLayout {
 ///
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
-class ARROW_EXPORT DataType : public detail::Fingerprintable {
+class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
+                              public detail::Fingerprintable {
  public:
   explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
   ~DataType() override;
@@ -133,6 +150,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
+  /// \brief Apply the TypeVisitor::Visit() method specialized to the data type
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
@@ -154,6 +172,28 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the type category
   Type::type id() const { return id_; }
 
+  /// \brief Return the type category of the storage type
+  virtual Type::type storage_id() const { return id_; }
+
+  /// \brief Returns the type's fixed byte width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int32_t byte_width() const {
+    int32_t num_bits = this->bit_width();
+    return num_bits > 0 ? num_bits / 8 : -1;
+  }
+
+  /// \brief Returns the type's fixed bit width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int bit_width() const { return -1; }
+
+  // \brief EXPERIMENTAL: Enable retrieving shared_ptr<DataType> from a const
+  // context.
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return const_cast<DataType*>(this)->shared_from_this();
+  }
+
  protected:
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.
@@ -169,8 +209,74 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+/// \brief EXPERIMENTAL: Container for a type pointer which can hold a
+/// dynamically created shared_ptr<DataType> if it needs to.
+struct ARROW_EXPORT TypeHolder {
+  const DataType* type = NULLPTR;
+  std::shared_ptr<DataType> owned_type;
+
+  TypeHolder() = default;
+  TypeHolder(const TypeHolder& other) = default;
+  TypeHolder& operator=(const TypeHolder& other) = default;
+  TypeHolder(TypeHolder&& other) = default;
+  TypeHolder& operator=(TypeHolder&& other) = default;
+
+  TypeHolder(std::shared_ptr<DataType> owned_type)  // NOLINT implicit construction
+      : type(owned_type.get()), owned_type(std::move(owned_type)) {}
+
+  TypeHolder(const DataType* type)  // NOLINT implicit construction
+      : type(type) {}
+
+  Type::type id() const { return this->type->id(); }
+
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return this->type != NULLPTR ? this->type->GetSharedPtr() : NULLPTR;
+  }
+
+  const DataType& operator*() const { return *this->type; }
+
+  operator bool() { return this->type != NULLPTR; }
+
+  bool operator==(const TypeHolder& other) const {
+    if (type == other.type) return true;
+    if (type == NULLPTR || other.type == NULLPTR) return false;
+    return type->Equals(*other.type);
+  }
+
+  bool operator==(decltype(NULLPTR)) const { return this->type == NULLPTR; }
+
+  bool operator==(const DataType& other) const {
+    if (this->type == NULLPTR) return false;
+    return other.Equals(*this->type);
+  }
+
+  bool operator!=(const DataType& other) const { return !(*this == other); }
+
+  bool operator==(const std::shared_ptr<DataType>& other) const {
+    return *this == *other;
+  }
+
+  bool operator!=(const TypeHolder& other) const { return !(*this == other); }
+
+  std::string ToString() const {
+    return this->type ? this->type->ToString() : "<NULLPTR>";
+  }
+
+  static std::string ToString(const std::vector<TypeHolder>&);
+};
+
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
+
+inline bool operator==(const DataType& lhs, const DataType& rhs) {
+  return lhs.Equals(rhs);
+}
+inline bool operator!=(const DataType& lhs, const DataType& rhs) {
+  return !lhs.Equals(rhs);
+}
 
 /// \brief Return the compatible physical data type
 ///
@@ -188,8 +294,6 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type)
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
-
-  virtual int bit_width() const = 0;
 };
 
 /// \brief Base class for all data types representing primitive values
@@ -339,6 +443,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
 
+  ARROW_EXPORT friend void PrintTo(const Field& field, std::ostream* os);
+
   // Field name
   std::string name_;
 
@@ -424,6 +530,10 @@ class ARROW_EXPORT BooleanType
  protected:
   std::string ComputeFingerprint() const override;
 };
+
+/// \addtogroup numeric-datatypes
+///
+/// @{
 
 /// Concrete type class for unsigned 8-bit integer data
 class ARROW_EXPORT UInt8Type
@@ -539,11 +649,256 @@ class ARROW_EXPORT DoubleType
   std::string ComputeFingerprint() const override;
 };
 
+/// @}
+
+/// \brief Base class for all variable-size binary data types
+class ARROW_EXPORT BaseBinaryType : public DataType {
+ public:
+  using DataType::DataType;
+};
+
+constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
+
+/// \addtogroup binary-datatypes
+///
+/// @{
+
+/// \brief Concrete type class for variable-size binary data
+class ARROW_EXPORT BinaryType : public BaseBinaryType {
+ public:
+  static constexpr Type::type type_id = Type::BINARY;
+  static constexpr bool is_utf8 = false;
+  using offset_type = int32_t;
+  using PhysicalType = BinaryType;
+
+  static constexpr const char* type_name() { return "binary"; }
+
+  BinaryType() : BinaryType(Type::BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "binary"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  // Allow subclasses like StringType to change the logical type.
+  explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
+};
+
+/// \brief Concrete type class for large variable-size binary data
+class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_BINARY;
+  static constexpr bool is_utf8 = false;
+  using offset_type = int64_t;
+  using PhysicalType = LargeBinaryType;
+
+  static constexpr const char* type_name() { return "large_binary"; }
+
+  LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::VariableWidth()});
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "large_binary"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  // Allow subclasses like LargeStringType to change the logical type.
+  explicit LargeBinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
+};
+
+/// \brief Concrete type class for variable-size string data, utf8-encoded
+class ARROW_EXPORT StringType : public BinaryType {
+ public:
+  static constexpr Type::type type_id = Type::STRING;
+  static constexpr bool is_utf8 = true;
+  using PhysicalType = BinaryType;
+
+  static constexpr const char* type_name() { return "utf8"; }
+
+  StringType() : BinaryType(Type::STRING) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for large variable-size string data, utf8-encoded
+class ARROW_EXPORT LargeStringType : public LargeBinaryType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_STRING;
+  static constexpr bool is_utf8 = true;
+  using PhysicalType = LargeBinaryType;
+
+  static constexpr const char* type_name() { return "large_utf8"; }
+
+  LargeStringType() : LargeBinaryType(Type::LARGE_STRING) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "large_utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for fixed-size binary data
+class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
+ public:
+  static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static constexpr bool is_utf8 = false;
+
+  static constexpr const char* type_name() { return "fixed_size_binary"; }
+
+  explicit FixedSizeBinaryType(int32_t byte_width)
+      : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
+  explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
+      : FixedWidthType(override_type_id), byte_width_(byte_width) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "fixed_size_binary"; }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
+  }
+
+  int byte_width() const override { return byte_width_; }
+
+  int bit_width() const override;
+
+  // Validating constructor
+  static Result<std::shared_ptr<DataType>> Make(int32_t byte_width);
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  int32_t byte_width_;
+};
+
+/// @}
+
+/// \addtogroup numeric-datatypes
+///
+/// @{
+
+/// \brief Base type class for (fixed-size) decimal data
+class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
+ public:
+  explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
+                       int32_t scale)
+      : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
+
+  /// Constructs concrete decimal types
+  static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
+                                                int32_t scale);
+
+  int32_t precision() const { return precision_; }
+  int32_t scale() const { return scale_; }
+
+  /// \brief Returns the number of bytes needed for precision.
+  ///
+  /// precision must be >= 1
+  static int32_t DecimalSize(int32_t precision);
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  int32_t precision_;
+  int32_t scale_;
+};
+
+/// \brief Concrete type class for 128-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// As an example, `Decimal128Type(7, 3)` can exactly represent the numbers
+/// 1234.567 and -1234.567 (encoded internally as the 128-bit integers
+/// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+///
+/// Decimal128Type has a maximum precision of 38 significant digits
+/// (also available as Decimal128Type::kMaxPrecision).
+/// If higher precision is needed, consider using Decimal256Type.
+class ARROW_EXPORT Decimal128Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL128;
+
+  static constexpr const char* type_name() { return "decimal128"; }
+
+  /// Decimal128Type constructor that aborts on invalid input.
+  explicit Decimal128Type(int32_t precision, int32_t scale);
+
+  /// Decimal128Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString() const override;
+  std::string name() const override { return "decimal128"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 38;
+  static constexpr int32_t kByteWidth = 16;
+};
+
+/// \brief Concrete type class for 256-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// Decimal256Type has a maximum precision of 76 significant digits.
+/// (also available as Decimal256Type::kMaxPrecision).
+///
+/// For most use cases, the maximum precision offered by Decimal128Type
+/// is sufficient, and it will result in a more compact and more efficient
+/// encoding.
+class ARROW_EXPORT Decimal256Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL256;
+
+  static constexpr const char* type_name() { return "decimal256"; }
+
+  /// Decimal256Type constructor that aborts on invalid input.
+  explicit Decimal256Type(int32_t precision, int32_t scale);
+
+  /// Decimal256Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString() const override;
+  std::string name() const override { return "decimal256"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 76;
+  static constexpr int32_t kByteWidth = 32;
+};
+
+/// @}
+
+/// \addtogroup nested-datatypes
+///
+/// @{
+
 /// \brief Base class for all variable-size list data types
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
+  const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 };
@@ -663,7 +1018,9 @@ class ARROW_EXPORT MapType : public ListType {
 class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
-  using offset_type = int32_t;
+  // While the individual item size is 32-bit, the overall data size
+  // (item size * list length) may not fit in a 32-bit int.
+  using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
@@ -690,139 +1047,6 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
   std::string ComputeFingerprint() const override;
 
   int32_t list_size_;
-};
-
-/// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType {
- public:
-  using DataType::DataType;
-};
-
-constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
-
-/// \brief Concrete type class for variable-size binary data
-class ARROW_EXPORT BinaryType : public BaseBinaryType {
- public:
-  static constexpr Type::type type_id = Type::BINARY;
-  static constexpr bool is_utf8 = false;
-  using offset_type = int32_t;
-  using PhysicalType = BinaryType;
-
-  static constexpr const char* type_name() { return "binary"; }
-
-  BinaryType() : BinaryType(Type::BINARY) {}
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
-                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
-                           DataTypeLayout::VariableWidth()});
-  }
-
-  std::string ToString() const override;
-  std::string name() const override { return "binary"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-
-  // Allow subclasses like StringType to change the logical type.
-  explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
-};
-
-/// \brief Concrete type class for large variable-size binary data
-class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
- public:
-  static constexpr Type::type type_id = Type::LARGE_BINARY;
-  static constexpr bool is_utf8 = false;
-  using offset_type = int64_t;
-  using PhysicalType = LargeBinaryType;
-
-  static constexpr const char* type_name() { return "large_binary"; }
-
-  LargeBinaryType() : LargeBinaryType(Type::LARGE_BINARY) {}
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::Bitmap(),
-                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
-                           DataTypeLayout::VariableWidth()});
-  }
-
-  std::string ToString() const override;
-  std::string name() const override { return "large_binary"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-
-  // Allow subclasses like LargeStringType to change the logical type.
-  explicit LargeBinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
-};
-
-/// \brief Concrete type class for variable-size string data, utf8-encoded
-class ARROW_EXPORT StringType : public BinaryType {
- public:
-  static constexpr Type::type type_id = Type::STRING;
-  static constexpr bool is_utf8 = true;
-  using PhysicalType = BinaryType;
-
-  static constexpr const char* type_name() { return "utf8"; }
-
-  StringType() : BinaryType(Type::STRING) {}
-
-  std::string ToString() const override;
-  std::string name() const override { return "utf8"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-};
-
-/// \brief Concrete type class for large variable-size string data, utf8-encoded
-class ARROW_EXPORT LargeStringType : public LargeBinaryType {
- public:
-  static constexpr Type::type type_id = Type::LARGE_STRING;
-  static constexpr bool is_utf8 = true;
-  using PhysicalType = LargeBinaryType;
-
-  static constexpr const char* type_name() { return "large_utf8"; }
-
-  LargeStringType() : LargeBinaryType(Type::LARGE_STRING) {}
-
-  std::string ToString() const override;
-  std::string name() const override { return "large_utf8"; }
-
- protected:
-  std::string ComputeFingerprint() const override;
-};
-
-/// \brief Concrete type class for fixed-size binary data
-class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
- public:
-  static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
-  static constexpr bool is_utf8 = false;
-
-  static constexpr const char* type_name() { return "fixed_size_binary"; }
-
-  explicit FixedSizeBinaryType(int32_t byte_width)
-      : FixedWidthType(Type::FIXED_SIZE_BINARY), byte_width_(byte_width) {}
-  explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
-      : FixedWidthType(override_type_id), byte_width_(byte_width) {}
-
-  std::string ToString() const override;
-  std::string name() const override { return "fixed_size_binary"; }
-
-  DataTypeLayout layout() const override {
-    return DataTypeLayout(
-        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
-  }
-
-  int32_t byte_width() const { return byte_width_; }
-  int bit_width() const override;
-
-  // Validating constructor
-  static Result<std::shared_ptr<DataType>> Make(int32_t byte_width);
-
- protected:
-  std::string ComputeFingerprint() const override;
-
-  int32_t byte_width_;
 };
 
 /// \brief Concrete type class for struct data
@@ -856,104 +1080,20 @@ class ARROW_EXPORT StructType : public NestedType {
   /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
+  /// \brief Create a new StructType with field added at given index
+  Result<std::shared_ptr<StructType>> AddField(int i,
+                                               const std::shared_ptr<Field>& field) const;
+  /// \brief Create a new StructType by removing the field at given index
+  Result<std::shared_ptr<StructType>> RemoveField(int i) const;
+  /// \brief Create a new StructType by changing the field at given index
+  Result<std::shared_ptr<StructType>> SetField(int i,
+                                               const std::shared_ptr<Field>& field) const;
+
  private:
   std::string ComputeFingerprint() const override;
 
   class Impl;
   std::unique_ptr<Impl> impl_;
-};
-
-/// \brief Base type class for (fixed-size) decimal data
-class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
- public:
-  explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
-                       int32_t scale)
-      : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
-
-  /// Constructs concrete decimal types
-  static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
-                                                int32_t scale);
-
-  int32_t precision() const { return precision_; }
-  int32_t scale() const { return scale_; }
-
-  /// \brief Returns the number of bytes needed for precision.
-  ///
-  /// precision must be >= 1
-  static int32_t DecimalSize(int32_t precision);
-
- protected:
-  std::string ComputeFingerprint() const override;
-
-  int32_t precision_;
-  int32_t scale_;
-};
-
-/// \brief Concrete type class for 128-bit decimal data
-///
-/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
-/// integer.  The precision is the number of significant digits that the
-/// decimal type can represent; the scale is the number of digits after
-/// the decimal point (note the scale can be negative).
-///
-/// As an example, `Decimal128Type(7, 3)` can exactly represent the numbers
-/// 1234.567 and -1234.567 (encoded internally as the 128-bit integers
-/// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
-///
-/// Decimal128Type has a maximum precision of 38 significant digits
-/// (also available as Decimal128Type::kMaxPrecision).
-/// If higher precision is needed, consider using Decimal256Type.
-class ARROW_EXPORT Decimal128Type : public DecimalType {
- public:
-  static constexpr Type::type type_id = Type::DECIMAL128;
-
-  static constexpr const char* type_name() { return "decimal128"; }
-
-  /// Decimal128Type constructor that aborts on invalid input.
-  explicit Decimal128Type(int32_t precision, int32_t scale);
-
-  /// Decimal128Type constructor that returns an error on invalid input.
-  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
-
-  std::string ToString() const override;
-  std::string name() const override { return "decimal128"; }
-
-  static constexpr int32_t kMinPrecision = 1;
-  static constexpr int32_t kMaxPrecision = 38;
-  static constexpr int32_t kByteWidth = 16;
-};
-
-/// \brief Concrete type class for 256-bit decimal data
-///
-/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
-/// integer.  The precision is the number of significant digits that the
-/// decimal type can represent; the scale is the number of digits after
-/// the decimal point (note the scale can be negative).
-///
-/// Decimal256Type has a maximum precision of 76 significant digits.
-/// (also available as Decimal256Type::kMaxPrecision).
-///
-/// For most use cases, the maximum precision offered by Decimal128Type
-/// is sufficient, and it will result in a more compact and more efficient
-/// encoding.
-class ARROW_EXPORT Decimal256Type : public DecimalType {
- public:
-  static constexpr Type::type type_id = Type::DECIMAL256;
-
-  static constexpr const char* type_name() { return "decimal256"; }
-
-  /// Decimal256Type constructor that aborts on invalid input.
-  explicit Decimal256Type(int32_t precision, int32_t scale);
-
-  /// Decimal256Type constructor that returns an error on invalid input.
-  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
-
-  std::string ToString() const override;
-  std::string name() const override { return "decimal256"; }
-
-  static constexpr int32_t kMinPrecision = 1;
-  static constexpr int32_t kMaxPrecision = 76;
-  static constexpr int32_t kByteWidth = 32;
 };
 
 /// \brief Base type class for union data
@@ -1061,8 +1201,14 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
+/// @}
+
 // ----------------------------------------------------------------------
 // Date and time types
+
+/// \addtogroup temporal-datatypes
+///
+/// @{
 
 /// \brief Base type for all date and time types
 class ARROW_EXPORT TemporalType : public FixedWidthType {
@@ -1250,7 +1396,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 // Base class for the different kinds of calendar intervals.
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
-  enum type { MONTHS, DAY_TIME };
+  enum type { MONTHS, DAY_TIME, MONTH_DAY_NANO };
 
   virtual type interval_type() const = 0;
 
@@ -1287,8 +1433,8 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   struct DayMilliseconds {
     int32_t days = 0;
     int32_t milliseconds = 0;
-    DayMilliseconds() = default;
-    DayMilliseconds(int32_t days, int32_t milliseconds)
+    constexpr DayMilliseconds() = default;
+    constexpr DayMilliseconds(int32_t days, int32_t milliseconds)
         : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
@@ -1317,6 +1463,50 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, DayTimeIntervalType::DayMilliseconds interval);
+
+/// \brief Represents a number of months, days and nanoseconds between
+/// two dates.
+///
+/// All fields are independent from one another.
+class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
+ public:
+  struct MonthDayNanos {
+    int32_t months;
+    int32_t days;
+    int64_t nanoseconds;
+    bool operator==(MonthDayNanos other) const {
+      return this->months == other.months && this->days == other.days &&
+             this->nanoseconds == other.nanoseconds;
+    }
+    bool operator!=(MonthDayNanos other) const { return !(*this == other); }
+  };
+  using c_type = MonthDayNanos;
+  using PhysicalType = MonthDayNanoIntervalType;
+
+  static_assert(sizeof(MonthDayNanos) == 16,
+                "MonthDayNanos struct assumed to be of size 16 bytes");
+  static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
+
+  static constexpr const char* type_name() { return "month_day_nano_interval"; }
+
+  IntervalType::type interval_type() const override {
+    return IntervalType::MONTH_DAY_NANO;
+  }
+
+  MonthDayNanoIntervalType() : IntervalType(type_id) {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "month_day_nano_interval"; }
+};
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval);
+
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  public:
@@ -1344,6 +1534,8 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  private:
   TimeUnit::type unit_;
 };
+
+/// @}
 
 // ----------------------------------------------------------------------
 // Dictionary type (for representing categorical or dictionary-encoded
@@ -1501,6 +1693,11 @@ class ARROW_EXPORT FieldRef {
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
 
+  /// Construct a nested FieldRef.
+  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
+    Flatten(std::move(refs));
+  }
+
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef
   template <typename A0, typename A1, typename... A>
@@ -1529,9 +1726,11 @@ class ARROW_EXPORT FieldRef {
   /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
   /// those must be escaped with a preceding '\'.
   static Result<FieldRef> FromDotPath(const std::string& dot_path);
+  std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
   bool operator==(const FieldRef& other) const { return Equals(other); }
+  bool operator!=(const FieldRef& other) const { return !Equals(other); }
 
   std::string ToString() const;
 
@@ -1556,6 +1755,11 @@ class ARROW_EXPORT FieldRef {
   }
   const std::string* name() const {
     return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+  }
+  const std::vector<FieldRef>* nested_refs() const {
+    return util::holds_alternative<std::vector<FieldRef>>(impl_)
+               ? &util::get<std::vector<FieldRef>>(impl_)
+               : NULLPTR;
   }
 
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
@@ -1915,9 +2119,42 @@ std::string ToTypeName(Type::type id);
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
 
-ARROW_EXPORT
-int GetByteWidth(const DataType& type);
-
 }  // namespace internal
+
+// Helpers to get instances of data types based on general categories
+
+/// \brief Signed integer types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+/// \brief Unsigned integer types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+/// \brief Signed and unsigned integer types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntTypes();
+/// \brief Floating point types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+/// \brief Number types without boolean - integer and floating point types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+/// \brief Binary and string-like types (except fixed-size binary)
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+/// \brief Binary and large-binary types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
+/// \brief String and large-string types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& StringTypes();
+/// \brief Temporal types including date, time and timestamps for each unit
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+/// \brief Interval types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+/// \brief Numeric, base binary, date, boolean and null types
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 }  // namespace arrow

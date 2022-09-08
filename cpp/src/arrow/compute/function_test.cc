@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/function.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
@@ -57,6 +58,16 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "null")));
   options.emplace_back(new ArithmeticOptions());
   options.emplace_back(new ArithmeticOptions(/*check_overflow=*/true));
+  options.emplace_back(new RoundOptions());
+  options.emplace_back(
+      new RoundOptions(/*ndigits=*/2, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
+  options.emplace_back(new RoundTemporalOptions());
+  options.emplace_back(new RoundTemporalOptions(
+      /*multiple=*/2,
+      /*unit=*/CalendarUnit::WEEK, /*week_starts_monday*/ true));
+  options.emplace_back(new RoundToMultipleOptions());
+  options.emplace_back(new RoundToMultipleOptions(
+      /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());
@@ -77,9 +88,14 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new ExtractRegexOptions("pattern2"));
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(int64(), "[1, 2, 3, 4]")));
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(boolean(), "[true, false]")));
-  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
+  options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI, true));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
   options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
+#ifndef _WIN32
+  options.emplace_back(new AssumeTimezoneOptions(
+      "Europe/Amsterdam", AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
+      AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE));
+#endif
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
   options.emplace_back(new TrimOptions(" "));
@@ -92,6 +108,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(
       new MakeStructOptions({"col1"}, {false}, {key_value_metadata({{"key", "val"}})}));
   options.emplace_back(new DayOfWeekOptions(false, 1));
+  options.emplace_back(new WeekOptions(true, false, false));
   options.emplace_back(new CastOptions(CastOptions::Safe(boolean())));
   options.emplace_back(new CastOptions(CastOptions::Unsafe(int64())));
   options.emplace_back(new FilterOptions());
@@ -110,6 +127,10 @@ TEST(FunctionOptions, Equality) {
       {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
+  options.emplace_back(new SelectKOptions(0, {}));
+  options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
+  options.emplace_back(new Utf8NormalizeOptions());
+  options.emplace_back(new Utf8NormalizeOptions(Utf8NormalizeOptions::NFD));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;
@@ -132,7 +153,7 @@ TEST(FunctionOptions, Equality) {
   }
 }
 
-struct ExecBatch;
+struct ExecSpan;
 
 TEST(Arity, Basics) {
   auto nullary = Arity::Nullary();
@@ -158,8 +179,9 @@ TEST(Arity, Basics) {
 }
 
 TEST(ScalarFunction, Basics) {
-  ScalarFunction func("scalar_test", Arity::Binary(), /*doc=*/nullptr);
-  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1), /*doc=*/nullptr);
+  ScalarFunction func("scalar_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
+  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1),
+                              /*doc=*/FunctionDoc::Empty());
 
   ASSERT_EQ("scalar_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -173,8 +195,9 @@ TEST(ScalarFunction, Basics) {
 }
 
 TEST(VectorFunction, Basics) {
-  VectorFunction func("vector_test", Arity::Binary(), /*doc=*/nullptr);
-  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1), /*doc=*/nullptr);
+  VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
+  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1),
+                              /*doc=*/FunctionDoc::Empty());
 
   ASSERT_EQ("vector_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -187,12 +210,12 @@ TEST(VectorFunction, Basics) {
   ASSERT_EQ(Function::VECTOR, varargs_func.kind());
 }
 
-auto ExecNYI = [](KernelContext* ctx, const ExecBatch& args, Datum* out) {
+auto ExecNYI = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) {
   return Status::NotImplemented("NYI");
 };
 
-template <typename FunctionType>
-void CheckAddDispatch(FunctionType* func) {
+template <typename FunctionType, typename ExecType>
+void CheckAddDispatch(FunctionType* func, ExecType exec) {
   using KernelType = typename FunctionType::KernelType;
 
   ASSERT_EQ(0, func->num_kernels());
@@ -201,34 +224,34 @@ void CheckAddDispatch(FunctionType* func) {
   std::vector<InputType> in_types1 = {int32(), int32()};
   OutputType out_type1 = int32();
 
-  ASSERT_OK(func->AddKernel(in_types1, out_type1, ExecNYI));
-  ASSERT_OK(func->AddKernel({int32(), int8()}, int32(), ExecNYI));
+  ASSERT_OK(func->AddKernel(in_types1, out_type1, exec));
+  ASSERT_OK(func->AddKernel({int32(), int8()}, int32(), exec));
 
   // Duplicate sig is okay
-  ASSERT_OK(func->AddKernel(in_types1, out_type1, ExecNYI));
+  ASSERT_OK(func->AddKernel(in_types1, out_type1, exec));
 
-  // Add given a descr
-  KernelType descr({float64(), float64()}, float64(), ExecNYI);
-  ASSERT_OK(func->AddKernel(descr));
+  // Add a kernel
+  KernelType kernel({float64(), float64()}, float64(), exec);
+  ASSERT_OK(func->AddKernel(kernel));
 
   ASSERT_EQ(4, func->num_kernels());
   ASSERT_EQ(4, func->kernels().size());
 
   // Try adding some invalid kernels
-  ASSERT_RAISES(Invalid, func->AddKernel({}, int32(), ExecNYI));
-  ASSERT_RAISES(Invalid, func->AddKernel({int32()}, int32(), ExecNYI));
-  ASSERT_RAISES(Invalid, func->AddKernel({int8(), int8(), int8()}, int32(), ExecNYI));
+  ASSERT_RAISES(Invalid, func->AddKernel({}, int32(), exec));
+  ASSERT_RAISES(Invalid, func->AddKernel({int32()}, int32(), exec));
+  ASSERT_RAISES(Invalid, func->AddKernel({int8(), int8(), int8()}, int32(), exec));
 
   // Add valid and invalid kernel using kernel struct directly
-  KernelType valid_kernel({boolean(), boolean()}, boolean(), ExecNYI);
+  KernelType valid_kernel({boolean(), boolean()}, boolean(), exec);
   ASSERT_OK(func->AddKernel(valid_kernel));
 
-  KernelType invalid_kernel({boolean()}, boolean(), ExecNYI);
+  KernelType invalid_kernel({boolean()}, boolean(), exec);
   ASSERT_RAISES(Invalid, func->AddKernel(invalid_kernel));
 
-  ASSERT_OK_AND_ASSIGN(const Kernel* kernel, func->DispatchExact({int32(), int32()}));
+  ASSERT_OK_AND_ASSIGN(const Kernel* dispatched, func->DispatchExact({int32(), int32()}));
   KernelSignature expected_sig(in_types1, out_type1);
-  ASSERT_TRUE(kernel->signature->Equals(expected_sig));
+  ASSERT_TRUE(dispatched->signature->Equals(expected_sig));
 
   // No kernel available
   ASSERT_RAISES(NotImplemented, func->DispatchExact({utf8(), utf8()}));
@@ -239,15 +262,17 @@ void CheckAddDispatch(FunctionType* func) {
 }
 
 TEST(ScalarVectorFunction, DispatchExact) {
-  ScalarFunction func1("scalar_test", Arity::Binary(), /*doc=*/nullptr);
-  VectorFunction func2("vector_test", Arity::Binary(), /*doc=*/nullptr);
+  ScalarFunction func1("scalar_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
+  VectorFunction func2("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
 
-  CheckAddDispatch(&func1);
-  CheckAddDispatch(&func2);
+  CheckAddDispatch(&func1, ExecNYI);
+
+  // ARROW-16576: will migrate later to new span-based kernel exec API
+  CheckAddDispatch(&func2, ExecNYI);
 }
 
 TEST(ArrayFunction, VarArgs) {
-  ScalarFunction va_func("va_test", Arity::VarArgs(1), /*doc=*/nullptr);
+  ScalarFunction va_func("va_test", Arity::VarArgs(1), /*doc=*/FunctionDoc::Empty());
 
   std::vector<InputType> va_args = {int8()};
 
@@ -263,7 +288,7 @@ TEST(ArrayFunction, VarArgs) {
   ScalarKernel non_va_kernel(std::make_shared<KernelSignature>(va_args, int8()), ExecNYI);
   ASSERT_RAISES(Invalid, va_func.AddKernel(non_va_kernel));
 
-  std::vector<ValueDescr> args = {ValueDescr::Scalar(int8()), int8(), int8()};
+  std::vector<TypeHolder> args = {int8(), int8(), int8()};
   ASSERT_OK_AND_ASSIGN(const Kernel* kernel, va_func.DispatchExact(args));
   ASSERT_TRUE(kernel->signature->MatchesInputs(args));
 
@@ -273,7 +298,7 @@ TEST(ArrayFunction, VarArgs) {
 }
 
 TEST(ScalarAggregateFunction, Basics) {
-  ScalarAggregateFunction func("agg_test", Arity::Unary(), /*doc=*/nullptr);
+  ScalarAggregateFunction func("agg_test", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
 
   ASSERT_EQ("agg_test", func.name());
   ASSERT_EQ(1, func.arity().num_args);
@@ -285,16 +310,14 @@ Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitAr
   return nullptr;
 }
 
-Status NoopConsume(KernelContext*, const ExecBatch&) { return Status::OK(); }
-Status NoopMerge(KernelContext*, const KernelState&, KernelState*) {
-  return Status::OK();
-}
+Status NoopConsume(KernelContext*, const ExecSpan&) { return Status::OK(); }
+Status NoopMerge(KernelContext*, KernelState&&, KernelState*) { return Status::OK(); }
 Status NoopFinalize(KernelContext*, Datum*) { return Status::OK(); }
 
 TEST(ScalarAggregateFunction, DispatchExact) {
-  ScalarAggregateFunction func("agg_test", Arity::Unary(), /*doc=*/nullptr);
+  ScalarAggregateFunction func("agg_test", Arity::Unary(), FunctionDoc::Empty());
 
-  std::vector<InputType> in_args = {ValueDescr::Array(int8())};
+  std::vector<InputType> in_args = {int8()};
   ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,
                                NoopMerge, NoopFinalize);
   ASSERT_OK(func.AddKernel(kernel));
@@ -316,18 +339,14 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   kernel.signature = std::make_shared<KernelSignature>(in_args, float64());
   ASSERT_RAISES(Invalid, func.AddKernel(kernel));
 
-  std::vector<ValueDescr> dispatch_args = {ValueDescr::Array(int8())};
+  std::vector<TypeHolder> dispatch_args = {int8()};
   ASSERT_OK_AND_ASSIGN(const Kernel* selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_EQ(func.kernels()[0], selected_kernel);
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 
-  // We declared that only arrays are accepted
-  dispatch_args[0] = {ValueDescr::Scalar(int8())};
-  ASSERT_RAISES(NotImplemented, func.DispatchExact(dispatch_args));
-
   // Didn't qualify the float64() kernel so this actually dispatches (even
   // though that may not be what you want)
-  dispatch_args[0] = {ValueDescr::Scalar(float64())};
+  dispatch_args[0] = {float64()};
   ASSERT_OK_AND_ASSIGN(selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 }

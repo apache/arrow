@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of fixed-length binary strings.
@@ -33,10 +34,10 @@ type FixedSizeBinary struct {
 }
 
 // NewFixedSizeBinaryData constructs a new fixed-size binary array from data.
-func NewFixedSizeBinaryData(data *Data) *FixedSizeBinary {
+func NewFixedSizeBinaryData(data arrow.ArrayData) *FixedSizeBinary {
 	a := &FixedSizeBinary{bytewidth: int32(data.DataType().(arrow.FixedWidthDataType).BitWidth() / 8)}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -78,12 +79,32 @@ func (a *FixedSizeBinary) setData(data *Data) {
 
 }
 
+func (a *FixedSizeBinary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	return a.Value(i)
+}
+
+func (a *FixedSizeBinary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.Value(i)
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
+}
+
 func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
 		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+		if !bytes.Equal(left.Value(i), right.Value(i)) {
 			return false
 		}
 	}
@@ -91,5 +112,5 @@ func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {
 }
 
 var (
-	_ Interface = (*FixedSizeBinary)(nil)
+	_ arrow.Array = (*FixedSizeBinary)(nil)
 )

@@ -32,7 +32,6 @@ try:
     import pickle5
 except ImportError:
     pickle5 = None
-import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -105,6 +104,22 @@ def test_long_array_format():
   98,
   99
 ]"""
+    assert result == expected
+
+
+def test_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(indent=1)
+    expected = '[\n "",\n null,\n "foo"\n]'
+
+    assert result == expected
+
+
+def test_top_level_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(top_level_indent=1)
+    expected = ' [\n   "",\n   null,\n   "foo"\n ]'
+
     assert result == expected
 
 
@@ -308,6 +323,8 @@ def test_nulls(ty):
 
 
 def test_array_from_scalar():
+    pytz = pytest.importorskip("pytz")
+
     today = datetime.date.today()
     now = datetime.datetime.now()
     now_utc = now.replace(tzinfo=pytz.utc)
@@ -686,14 +703,14 @@ def test_struct_from_arrays():
     assert arr.to_pylist() == [None] + expected_list[1:]
 
     # Bad masks
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(arrays, fields, mask=[True, False, False])
 
     with pytest.raises(ValueError, match='not contain nulls'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.array([True, False, None]))
 
-    with pytest.raises(ValueError, match='Mask must be'):
+    with pytest.raises(TypeError, match='Mask must be'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.chunked_array([mask]))
 
@@ -706,6 +723,15 @@ def test_struct_array_from_chunked():
 
     with pytest.raises(TypeError, match="Expected Array"):
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
+
+@pytest.mark.parametrize("offset", (0, 1))
+def test_dictionary_from_buffers(offset):
+    a = pa.array(["one", "two", "three", "two", "one"]).dictionary_encode()
+    b = pa.DictionaryArray.from_buffers(a.type, len(a)-offset,
+                                        a.indices.buffers(), a.dictionary,
+                                        offset=offset)
+    assert a[offset:] == b
 
 
 def test_dictionary_from_numpy():
@@ -860,6 +886,12 @@ def test_list_from_arrays(list_array_type, list_type_factory):
 
     assert result.equals(expected)
 
+    # With specified type
+    typ = list_type_factory(pa.field("name", pa.binary()))
+    result = list_array_type.from_arrays(offsets, values, typ)
+    assert result.type == typ
+    assert result.type.value_field.name == "name"
+
     # With nulls
     offsets = [0, None, 2, 6]
     values = [b'a', b'b', b'c', b'd', b'e', b'f']
@@ -889,6 +921,74 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     result = list_array_type.from_arrays(offsets, values)
     with pytest.raises(ValueError):
         result.validate(full=True)
+
+    # mismatching type
+    typ = list_type_factory(pa.binary())
+    with pytest.raises(TypeError):
+        list_array_type.from_arrays(offsets, values, type=typ)
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+@pytest.mark.parametrize("arr", (
+    [None, [0]],
+    [None, [0, None], [0]],
+    [[0], [1]],
+))
+def test_list_array_types_from_arrays(
+    list_array_type, list_type_factory, arr
+):
+    arr = pa.array(arr, list_type_factory(pa.int8()))
+    reconstructed_arr = list_array_type.from_arrays(
+        arr.offsets, arr.values, mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+
+@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
+    (pa.ListArray, pa.list_),
+    (pa.LargeListArray, pa.large_list)
+))
+def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
+    # Fail when manual offsets include nulls and mask passed
+    # ListArray.offsets doesn't report nulls.
+
+    # This test case arr.offsets == [0, 1, 1, 3, 4]
+    arr = pa.array([[0], None, [0, None], [0]], list_type_factory(pa.int8()))
+    offsets = pa.array([0, None, 1, 3, 4])
+
+    # Using array's offset has no nulls; gives empty lists on top level
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
+    assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
+
+    # Manually specifiying offsets (with nulls) is same as mask at top level
+    reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
+    assert arr == reconstructed_arr
+    reconstructed_arr = list_array_type.from_arrays(arr.offsets,
+                                                    arr.values,
+                                                    mask=arr.is_null())
+    assert arr == reconstructed_arr
+
+    # But using both is ambiguous, in this case `offsets` has nulls
+    with pytest.raises(ValueError, match="Ambiguous to specify both "):
+        list_array_type.from_arrays(offsets, arr.values, mask=arr.is_null())
+
+    # Not supported to reconstruct from a slice.
+    arr_slice = arr[1:]
+    msg = "Null bitmap with offsets slice not supported."
+    with pytest.raises(NotImplementedError, match=msg):
+        list_array_type.from_arrays(
+            arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
+
+
+def test_map_labelled():
+    #  ARROW-13735
+    t = pa.map_(pa.field("name", "string", nullable=False), "int64")
+    arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=t)
+    assert arr.type.key_field == pa.field("name", pa.utf8(), nullable=False)
+    assert arr.type.item_field == pa.field("value", pa.int64())
+    assert len(arr) == 2
 
 
 def test_map_from_arrays():
@@ -948,6 +1048,12 @@ def test_fixed_size_list_from_arrays():
     assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
     assert result.type.equals(pa.list_(pa.int64(), 4))
 
+    typ = pa.list_(pa.field("name", pa.int64()), 4)
+    result = pa.FixedSizeListArray.from_arrays(values, type=typ)
+    assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+    assert result.type.equals(typ)
+    assert result.type.value_field.name == "name"
+
     # raise on invalid values / list_size
     with pytest.raises(ValueError):
         pa.FixedSizeListArray.from_arrays(values, -4)
@@ -959,6 +1065,23 @@ def test_fixed_size_list_from_arrays():
     with pytest.raises(ValueError):
         # length of values not multiple of 5
         pa.FixedSizeListArray.from_arrays(values, 5)
+
+    typ = pa.list_(pa.int64(), 5)
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values, type=typ)
+
+    # raise on mismatching values type
+    typ = pa.list_(pa.float64(), 4)
+    with pytest.raises(TypeError):
+        pa.FixedSizeListArray.from_arrays(values, type=typ)
+
+    # raise on specifying none or both of list_size / type
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values)
+
+    typ = pa.list_(pa.int64(), 4)
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values, list_size=4, type=typ)
 
 
 def test_variable_list_from_arrays():
@@ -1221,7 +1344,7 @@ def test_cast_none():
     # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
     arr = pa.array([1, 2, 3])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         arr.cast(None)
 
 
@@ -1486,6 +1609,7 @@ def test_cast_from_null():
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
         pa.duration('us'),
+        pa.month_day_nano_interval(),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -1604,8 +1728,19 @@ def test_unique_value_counts_dictionary_type():
     assert unique_result.equals(expected)
 
     result = arr.value_counts()
-    result.field('values').equals(unique_result)
-    result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([3, 5, 4], type='int64'))
+
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([], type='int64'), dictionary)
+    unique_result = arr.unique()
+    expected = pa.DictionaryArray.from_arrays(pa.array([], type='int64'),
+                                              pa.array([], type='utf8'))
+    assert unique_result.equals(expected)
+
+    result = arr.value_counts()
+    assert result.field('values').equals(unique_result)
+    assert result.field('counts').equals(pa.array([], type='int64'))
 
 
 def test_dictionary_encode_simple():
@@ -2151,6 +2286,121 @@ def test_array_from_numpy_ascii():
     assert arrow_arr.equals(expected)
 
 
+def test_interval_array_from_timedelta():
+    data = [
+        None,
+        datetime.timedelta(days=1, seconds=1, microseconds=1,
+                           milliseconds=1, minutes=1, hours=1, weeks=1)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([0, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             milliseconds=1, minutes=1,
+                                             hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
+@pytest.mark.pandas
+def test_interval_array_from_relativedelta():
+    # dateutil is dependency of pandas
+    from dateutil.relativedelta import relativedelta
+    from pandas import DateOffset
+    data = [
+        None,
+        relativedelta(years=1, months=1,
+                      days=1, seconds=1, microseconds=1,
+                      minutes=1, hours=1, weeks=1, leapdays=1)]
+    # Note leapdays are ignored.
+
+    # From relativedelta
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8,
+                         (datetime.timedelta(seconds=1, microseconds=1,
+                                             minutes=1, hours=1) //
+                          datetime.timedelta(microseconds=1)) * 1000])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pandas().tolist() == [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=0)]
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(weeks=((1 << 32) // 7), days=100)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(seconds=((1 << 64) // 1000000000),
+                             nanoseconds=1)])
+    with pytest.raises(ValueError):
+        pa.array([DateOffset(microseconds=((1 << 64) // 100))])
+
+
+def test_interval_array_from_tuple():
+    data = [None, (1, 2, -3)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([1, 2, -3])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
+@pytest.mark.pandas
+def test_interval_array_from_dateoffset():
+    from pandas.tseries.offsets import DateOffset
+    data = [
+        None,
+        DateOffset(years=1, months=1,
+                   days=1, seconds=1, microseconds=1,
+                   minutes=1, hours=1, weeks=1, nanoseconds=1),
+        DateOffset()]
+
+    arr = pa.array(data)
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([13, 8, 3661000001001]),
+        pa.MonthDayNano([0, 0, 0])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    expected_from_pandas = [
+        None, DateOffset(months=13, days=8,
+                         microseconds=(
+                             datetime.timedelta(seconds=1, microseconds=1,
+                                                minutes=1, hours=1) //
+                             datetime.timedelta(microseconds=1)),
+                         nanoseconds=1),
+        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+
+    assert arr.to_pandas().tolist() == expected_from_pandas
+
+    # nested list<interval> array conversion
+    actual_list = pa.array([data]).to_pandas().tolist()
+    assert len(actual_list) == 1
+    assert list(actual_list[0]) == expected_from_pandas
+
+
 def test_array_from_numpy_unicode():
     dtypes = ['<U5', '>U5']
 
@@ -2339,16 +2589,33 @@ def test_buffers_nested():
     assert struct.unpack('4xh', values) == (43,)
 
 
-def test_nbytes_sizeof():
+def test_total_buffer_size():
     a = pa.array(np.array([4, 5, 6], dtype='int64'))
     assert a.nbytes == 8 * 3
+    assert a.get_total_buffer_size() == 8 * 3
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([1, None, 3], type='int64')
     assert a.nbytes == 8*3 + 1
+    assert a.get_total_buffer_size() == 8*3 + 1
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
-    assert a.nbytes == 1 + 4 * 4 + 1 + 6 * 8
+    assert a.nbytes == 62
+    assert a.get_total_buffer_size() == 1 + 4 * 4 + 1 + 6 * 8
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
+    a = pa.array([[[5, 6, 7]], [[9, 10]]], type=pa.list_(pa.list_(pa.int8())))
+    assert a.get_total_buffer_size() == (4 * 3) + (4 * 3) + (1 * 5)
+    assert a.nbytes == 21
+    a = pa.array([[[1, 2], [3, 4]], [[5, 6, 7], None, [8]], [[9, 10]]],
+                 type=pa.list_(pa.list_(pa.int8())))
+    a1 = a.slice(1, 2)
+    assert a1.nbytes == (4 * 2) + 1 + (4 * 4) + (1 * 6)
+    assert a1.get_total_buffer_size() == (4 * 4) + 1 + (4 * 7) + (1 * 10)
+
+
+def test_nbytes_size():
+    a = pa.chunked_array([pa.array([1, None, 3], type=pa.int16()),
+                          pa.array([4, 5, 6], type=pa.int16())])
+    assert a.nbytes == 13
 
 
 def test_invalid_tensor_constructor_repr():
@@ -2418,9 +2685,8 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr2.values.values.equals(arr0)
 
 
-@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
-def test_list_value_parent_indices(offset_type, list_type_factory):
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+def test_list_value_parent_indices(list_type_factory):
     arr = pa.array(
         [
             [0, 1, 2],
@@ -2428,7 +2694,7 @@ def test_list_value_parent_indices(offset_type, list_type_factory):
             [],
             [3, 4]
         ], type=list_type_factory(pa.int32()))
-    expected = pa.array([0, 0, 0, 3, 3], type=offset_type)
+    expected = pa.array([0, 0, 0, 3, 3], type=pa.int64())
     assert arr.value_parent_indices().equals(expected)
 
 
@@ -2520,6 +2786,30 @@ def test_fixed_size_list_array_flatten():
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_map_array_values_offsets():
+    ty = pa.map_(pa.utf8(), pa.int32())
+    ty_values = pa.struct([pa.field("key", pa.utf8(), nullable=False),
+                           pa.field("value", pa.int32())])
+    a = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=ty)
+
+    assert a.values.type.equals(ty_values)
+    assert a.values == pa.array([
+        {'key': 'a', 'value': 1},
+        {'key': 'b', 'value': 2},
+        {'key': 'c', 'value': 3},
+    ], type=ty_values)
+    assert a.keys.equals(pa.array(['a', 'b', 'c']))
+    assert a.items.equals(pa.array([1, 2, 3], type=pa.int32()))
+
+    assert pa.ListArray.from_arrays(a.offsets, a.keys).equals(
+        pa.array([['a', 'b'], ['c']]))
+    assert pa.ListArray.from_arrays(a.offsets, a.items).equals(
+        pa.array([[1, 2], [3]], type=pa.list_(pa.int32())))
+
+    with pytest.raises(NotImplementedError):
+        a.flatten()
 
 
 def test_struct_array_flatten():
@@ -2746,6 +3036,64 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_array_supported_masks():
+    # ARROW-13883
+    arr = pa.array([4, None, 4, 3.],
+                   mask=np.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=pa.array([False, True, False, True]))
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, None, 4, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, 4, None]
+
+    arr = pa.array([4, 3, None, 3],
+                   mask=[False, True, False, True])
+    assert arr.to_pylist() == [4, None, None, None]
+
+    # Non boolean values
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=[1.0, 2.0, 3.0, 4.0])
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=np.array([1.0, 2.0, 3.0, 4.0]))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, True, False, True],
+                                     mask=pa.array([True, True, True, True])))
+
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([4, None, 4, 3],
+                       mask=pa.array([False, None, False, True]))
+
+    # Numpy arrays only accepts numpy masks
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=[True, False, True, False])
+
+    with pytest.raises(TypeError):
+        arr = pa.array(np.array([4, None, 4, 3.]),
+                       mask=pa.array([True, False, True, False]))
+
+
+@pytest.mark.pandas
+def test_array_supported_pandas_masks():
+    import pandas
+    arr = pa.array(pandas.Series([0, 1], name="a", dtype="int64"),
+                   mask=pandas.Series([True, False], dtype='bool'))
+    assert arr.to_pylist() == [None, 1]
+
+
 def test_binary_array_masked():
     # ARROW-12431
     masked_basic = pa.array([b'\x05'], type=pa.binary(1),
@@ -2795,7 +3143,7 @@ def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
         ([1, 2], np.array([False, False], dtype="O"),
-         pa.ArrowInvalid, "must be boolean dtype"),
+         TypeError, "must be boolean dtype"),
 
         ([1, 2], np.array([[False], [False]]),
          pa.ArrowInvalid, "must be 1D array"),

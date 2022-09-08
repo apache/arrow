@@ -16,12 +16,15 @@
 // under the License.
 
 #include <algorithm>
+#include <regex>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
@@ -29,15 +32,15 @@ namespace internal {
 
 // XXX How does this encode Windows UNC paths?
 
-std::vector<std::string> SplitAbstractPath(const std::string& path) {
+std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
-  // Strip trailing slash
-  if (v.length() > 0 && v.back() == kSep) {
+  // Strip trailing separator
+  if (v.length() > 0 && v.back() == sep) {
     v = v.substr(0, v.length() - 1);
   }
-  // Strip leading slash
-  if (v.length() > 0 && v.front() == kSep) {
+  // Strip leading separator
+  if (v.length() > 0 && v.front() == sep) {
     v = v.substr(1);
   }
   if (v.length() == 0) {
@@ -50,7 +53,7 @@ std::vector<std::string> SplitAbstractPath(const std::string& path) {
 
   size_t start = 0;
   while (true) {
-    size_t end = v.find_first_of(kSep, start);
+    size_t end = v.find_first_of(sep, start);
     append_part(start, end);
     if (end == std::string::npos) {
       break;
@@ -135,6 +138,13 @@ util::string_view RemoveLeadingSlash(util::string_view key) {
     key.remove_prefix(1);
   }
   return key;
+}
+
+Status AssertNoTrailingSlash(util::string_view key) {
+  if (key.back() == '/') {
+    return NotAFile(key);
+  }
+  return Status::OK();
 }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
@@ -264,6 +274,65 @@ bool IsEmptyPath(util::string_view v) {
     }
   }
   return true;
+}
+
+bool IsLikelyUri(util::string_view v) {
+  if (v.empty() || v[0] == '/') {
+    return false;
+  }
+  const auto pos = v.find_first_of(':');
+  if (pos == v.npos) {
+    return false;
+  }
+  if (pos < 2) {
+    // One-letter URI schemes don't officially exist, perhaps a Windows drive letter?
+    return false;
+  }
+  if (pos > 36) {
+    // The largest IANA-registered URI scheme is "microsoft.windows.camera.multipicker"
+    // with 36 characters.
+    return false;
+  }
+  return ::arrow::internal::IsValidUriScheme(v.substr(0, pos));
+}
+
+struct Globber::Impl {
+  std::regex pattern_;
+
+  explicit Impl(const std::string& p) : pattern_(std::regex(PatternToRegex(p))) {}
+
+  static std::string PatternToRegex(const std::string& p) {
+    std::string special_chars = "()[]{}+-|^$\\.&~# \t\n\r\v\f";
+    std::string transformed;
+    auto it = p.begin();
+    while (it != p.end()) {
+      if (*it == '\\') {
+        transformed += '\\';
+        if (++it != p.end()) {
+          transformed += *it;
+        }
+      } else if (*it == '*') {
+        transformed += "[^/]*";
+      } else if (*it == '?') {
+        transformed += "[^/]";
+      } else if (special_chars.find(*it) != std::string::npos) {
+        transformed += "\\";
+        transformed += *it;
+      } else {
+        transformed += *it;
+      }
+      it++;
+    }
+    return transformed;
+  }
+};
+
+Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
+
+Globber::~Globber() {}
+
+bool Globber::Matches(const std::string& path) {
+  return regex_match(path, impl_->pattern_);
 }
 
 }  // namespace internal

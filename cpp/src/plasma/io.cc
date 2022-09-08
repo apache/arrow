@@ -64,11 +64,11 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
 }
 
 Status WriteMessage(int fd, MessageType type, int64_t length, uint8_t* bytes) {
-  int64_t version = arrow::BitUtil::ToLittleEndian(kPlasmaProtocolVersion);
+  int64_t version = arrow::bit_util::ToLittleEndian(kPlasmaProtocolVersion);
   assert(sizeof(MessageType) == sizeof(int64_t));
   type = static_cast<MessageType>(
-      arrow::BitUtil::ToLittleEndian(static_cast<int64_t>(type)));
-  int64_t length_le = arrow::BitUtil::ToLittleEndian(length);
+      arrow::bit_util::ToLittleEndian(static_cast<int64_t>(type)));
+  int64_t length_le = arrow::bit_util::ToLittleEndian(length);
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)));
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&type), sizeof(type)));
   RETURN_NOT_OK(WriteBytes(fd, reinterpret_cast<uint8_t*>(&length_le), sizeof(length)));
@@ -102,19 +102,19 @@ Status ReadMessage(int fd, MessageType* type, std::vector<uint8_t>* buffer) {
   int64_t version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
                      *type = MessageType::PlasmaDisconnectClient);
-  version = arrow::BitUtil::FromLittleEndian(version);
+  version = arrow::bit_util::FromLittleEndian(version);
   ARROW_CHECK(version == kPlasmaProtocolVersion) << "version = " << version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
                      *type = MessageType::PlasmaDisconnectClient);
   assert(sizeof(MessageType) == sizeof(int64_t));
   *type = static_cast<MessageType>(
-      arrow::BitUtil::FromLittleEndian(static_cast<int64_t>(*type)));
+      arrow::bit_util::FromLittleEndian(static_cast<int64_t>(*type)));
   int64_t length_temp;
   RETURN_NOT_OK_ELSE(
       ReadBytes(fd, reinterpret_cast<uint8_t*>(&length_temp), sizeof(length_temp)),
       *type = MessageType::PlasmaDisconnectClient);
   // The length must be read as an int64_t, but it should be used as a size_t.
-  size_t length = static_cast<size_t>(arrow::BitUtil::FromLittleEndian(length_temp));
+  size_t length = static_cast<size_t>(arrow::bit_util::FromLittleEndian(length_temp));
   if (length > buffer->size()) {
     buffer->resize(length);
   }

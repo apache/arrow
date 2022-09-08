@@ -19,20 +19,71 @@
 
 set -ex
 
+# simplistic semver comparison
+verlte() {
+    [ "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+}
+verlt() {
+    [ "$1" = "$2" ] && return 1 || verlte $1 $2
+}
+
+ver=`go env GOVERSION`
+
 source_dir=${1}/go
+
+testargs="-race"
+if verlte "1.18" "${ver#go}" && [ "$(go env GOOS)" != "darwin" ]; then
+    # asan not supported on darwin/amd64
+    testargs="-asan"
+fi
+
+case "$(uname)" in
+    MINGW*)
+        # -asan and -race don't work on windows currently
+        testargs=""
+        ;;
+esac
+
+if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
+    testargs="" # -race and -asan not supported on s390x
+fi
+
+# Go static check (skipped in MinGW)
+if [[ -z "${MINGW_LINT}" ]]; then
+    pushd ${source_dir}
+    "$(go env GOPATH)"/bin/staticcheck ./...
+    popd
+fi
+
 
 pushd ${source_dir}/arrow
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $d
-done
+TAGS="assert,test"
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
+    if [[ "${MSYSTEM}" = "MINGW64" ]]; then
+        export PATH=${MINGW_PREFIX}/bin:$PATH
+    fi
+    TAGS="${TAGS},ccalloc"
+fi
+
+
+# the cgo implementation of the c data interface requires the "test"
+# tag in order to run its tests so that the testing functions implemented
+# in .c files don't get included in non-test builds.
+
+go test $testargs -tags $TAGS ./...
+
+# only test compute when Go is >= 1.18
+if verlte "1.18" "${ver#go}"; then
+    go test $testargs -tags $TAGS ./compute/...
+fi
 
 popd
 
+export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
+
 pushd ${source_dir}/parquet
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $d
-done
+go test $testargs -tags assert ./...
 
 popd

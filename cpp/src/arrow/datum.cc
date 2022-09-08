@@ -28,24 +28,11 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/memory.h"
 
 namespace arrow {
-
-static bool CollectionEquals(const std::vector<Datum>& left,
-                             const std::vector<Datum>& right) {
-  if (left.size() != right.size()) {
-    return false;
-  }
-
-  for (size_t i = 0; i < left.size(); i++) {
-    if (!left[i].Equals(right[i])) {
-      return false;
-    }
-  }
-  return true;
-}
 
 Datum::Datum(const Array& value) : Datum(value.data()) {}
 
@@ -55,7 +42,6 @@ Datum::Datum(const std::shared_ptr<Array>& value)
 Datum::Datum(std::shared_ptr<ChunkedArray> value) : value(std::move(value)) {}
 Datum::Datum(std::shared_ptr<RecordBatch> value) : value(std::move(value)) {}
 Datum::Datum(std::shared_ptr<Table> value) : value(std::move(value)) {}
-Datum::Datum(std::vector<Datum> value) : value(std::move(value)) {}
 
 Datum::Datum(bool value) : value(std::make_shared<BooleanScalar>(value)) {}
 Datum::Datum(int8_t value) : value(std::make_shared<Int8Scalar>(value)) {}
@@ -128,6 +114,25 @@ int64_t Datum::length() const {
   }
 }
 
+int64_t Datum::TotalBufferSize() const {
+  switch (this->kind()) {
+    case Datum::ARRAY:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<ArrayData>>(this->value));
+    case Datum::CHUNKED_ARRAY:
+      return util::TotalBufferSize(
+          *util::get<std::shared_ptr<ChunkedArray>>(this->value));
+    case Datum::RECORD_BATCH:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<RecordBatch>>(this->value));
+    case Datum::TABLE:
+      return util::TotalBufferSize(*util::get<std::shared_ptr<Table>>(this->value));
+    case Datum::SCALAR:
+      return 0;
+    default:
+      DCHECK(false);
+      return 0;
+  }
+}
+
 int64_t Datum::null_count() const {
   if (this->kind() == Datum::ARRAY) {
     return util::get<std::shared_ptr<ArrayData>>(this->value)->GetNullCount();
@@ -168,71 +173,10 @@ bool Datum::Equals(const Datum& other) const {
       return internal::SharedPtrEquals(this->record_batch(), other.record_batch());
     case Datum::TABLE:
       return internal::SharedPtrEquals(this->table(), other.table());
-    case Datum::COLLECTION:
-      return CollectionEquals(this->collection(), other.collection());
     default:
       return false;
   }
 }
-
-ValueDescr Datum::descr() const {
-  if (this->is_arraylike()) {
-    return ValueDescr(this->type(), ValueDescr::ARRAY);
-  } else if (this->is_scalar()) {
-    return ValueDescr(this->type(), ValueDescr::SCALAR);
-  } else {
-    DCHECK(false) << "Datum is not value-like, this method should not be called";
-    return ValueDescr();
-  }
-}
-
-ValueDescr::Shape Datum::shape() const {
-  if (this->is_arraylike()) {
-    return ValueDescr::ARRAY;
-  } else if (this->is_scalar()) {
-    return ValueDescr::SCALAR;
-  } else {
-    DCHECK(false) << "Datum is not value-like, this method should not be called";
-    return ValueDescr::ANY;
-  }
-}
-
-static std::string FormatValueDescr(const ValueDescr& descr) {
-  std::stringstream ss;
-  switch (descr.shape) {
-    case ValueDescr::ANY:
-      ss << "any";
-      break;
-    case ValueDescr::ARRAY:
-      ss << "array";
-      break;
-    case ValueDescr::SCALAR:
-      ss << "scalar";
-      break;
-    default:
-      DCHECK(false);
-      break;
-  }
-  ss << "[" << descr.type->ToString() << "]";
-  return ss.str();
-}
-
-std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
-
-std::string ValueDescr::ToString(const std::vector<ValueDescr>& descrs) {
-  std::stringstream ss;
-  ss << "(";
-  for (size_t i = 0; i < descrs.size(); ++i) {
-    if (i > 0) {
-      ss << ", ";
-    }
-    ss << descrs[i].ToString();
-  }
-  ss << ")";
-  return ss.str();
-}
-
-void PrintTo(const ValueDescr& descr, std::ostream* os) { *os << descr.ToString(); }
 
 std::string Datum::ToString() const {
   switch (this->kind()) {
@@ -248,32 +192,10 @@ std::string Datum::ToString() const {
       return "RecordBatch";
     case Datum::TABLE:
       return "Table";
-    case Datum::COLLECTION: {
-      std::stringstream ss;
-      ss << "Collection(";
-      const auto& values = this->collection();
-      for (size_t i = 0; i < values.size(); ++i) {
-        if (i > 0) {
-          ss << ", ";
-        }
-        ss << values[i].ToString();
-      }
-      ss << ')';
-      return ss.str();
-    }
     default:
       DCHECK(false);
       return "";
   }
-}
-
-ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
-  for (const auto& descr : args) {
-    if (descr.shape == ValueDescr::ARRAY) {
-      return ValueDescr::ARRAY;
-    }
-  }
-  return ValueDescr::SCALAR;
 }
 
 void PrintTo(const Datum& datum, std::ostream* os) {
@@ -286,6 +208,26 @@ void PrintTo(const Datum& datum, std::ostream* os) {
       break;
     default:
       *os << datum.ToString();
+  }
+}
+
+std::string ToString(Datum::Kind kind) {
+  switch (kind) {
+    case Datum::NONE:
+      return "None";
+    case Datum::SCALAR:
+      return "Scalar";
+    case Datum::ARRAY:
+      return "Array";
+    case Datum::CHUNKED_ARRAY:
+      return "ChunkedArray";
+    case Datum::RECORD_BATCH:
+      return "RecordBatch";
+    case Datum::TABLE:
+      return "Table";
+    default:
+      DCHECK(false);
+      return "";
   }
 }
 

@@ -23,6 +23,8 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -32,13 +34,15 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'format/Flight.proto'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -48,12 +52,11 @@ env:
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
-
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -67,13 +70,10 @@ jobs:
             title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
+          submodules: recursive
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -81,7 +81,7 @@ jobs:
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -105,19 +105,24 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Run
+          submodules: recursive
+      - name: Check CMake presets
+        run: |
+          cd cpp
+          cmake --list-presets
+      - name: Run minimal example
         run: |
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
 
   macos:
-    name: AMD64 MacOS 10.15 C++
+    name: AMD64 macOS 11 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
     env:
@@ -125,6 +130,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
@@ -136,25 +142,44 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
+      ARROW_WITH_OPENTELEMETRY: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      # System Abseil installed by Homebrew uses C++ 17
+      CMAKE_CXX_STANDARD: 17
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Install Dependencies
-        shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            ci/scripts/install_minio.sh latest /usr/local
+      - name: Install Google Cloud Storage Testbench
+        run: ci/scripts/install_gcs_testbench.sh default
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-
       - name: Build
-        shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
@@ -165,19 +190,18 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++
+    name: AMD64 ${{ matrix.name }} C++17
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
+          - windows-2019
         include:
-          - os: windows-latest
+          - os: windows-2019
             name: Windows 2019
-            generator: Visual Studio 16 2019
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -196,16 +220,19 @@ jobs:
       ARROW_WITH_BROTLI: OFF
       ARROW_WITH_BZ2: OFF
       ARROW_WITH_LZ4: OFF
+      ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
-      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
+      OPENSSL_ROOT_DIR: >-
+        C:\Program Files\OpenSSL-Win64
+      NPROC: 3
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -220,25 +247,48 @@ jobs:
       - name: Install Dependencies
         run: choco install -y --no-progress openssl
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
+          submodules: recursive
+      - name: Download Timezone Database
         shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Build
+        run: ci/scripts/download_tz_database.sh
+      - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+          ci/scripts/install_ccache.sh 4.6.2 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    # Build may take 1h+ without cache and installing Google Cloud
+    # Storage Testbench may take 20m+ without cache.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -252,7 +302,9 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -264,6 +316,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
+      ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
@@ -273,7 +326,9 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
-      CMAKE_UNITY_BUILD: ON
+      # We can't use unity build because we don't have enough memory on
+      # GitHub Actions.
+      # CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -284,20 +339,17 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW${{ matrix.mingw-n-bits }}
           update: true
       - name: Setup MSYS2
         shell: msys2 {0}
-        run: |
-          ci/scripts/msys2_setup.sh cpp
+        run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
         uses: actions/cache@v2
         with:
@@ -309,18 +361,31 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
       - name: Download MinIO
         shell: msys2 {0}
         run: |
           mkdir -p /usr/local/bin
           wget \
             --output-document /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Cache Python wheels
+        uses: actions/cache@v2
+        with:
+          path: "${{ env.PIP_CACHE_DIR }}"
+          key: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
+          restore-keys: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-
+      - name: Install Google Cloud Storage Testbench
+        shell: msys2 {0}
+        run: |
+          ci/scripts/install_gcs_testbench.sh default
       - name: Test
         shell: msys2 {0}
         run: |
-          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
           export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
           PYTHONPATH="${PYTHONHOME}"
           PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"

@@ -48,6 +48,16 @@ class EqualOptions {
     return res;
   }
 
+  /// Whether or not zeros with differing signs are considered equal.
+  bool signed_zeros_equal() const { return signed_zeros_equal_; }
+
+  /// Return a new EqualOptions object with the "signed_zeros_equal" property changed.
+  EqualOptions signed_zeros_equal(bool v) const {
+    auto res = EqualOptions(*this);
+    res.signed_zeros_equal_ = v;
+    return res;
+  }
+
   /// The absolute tolerance for approximate comparisons of floating-point values.
   double atol() const { return atol_; }
 
@@ -76,6 +86,8 @@ class EqualOptions {
  protected:
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
+  bool signed_zeros_equal_ = true;
+
   std::ostream* diff_sink_ = NULLPTR;
 };
 

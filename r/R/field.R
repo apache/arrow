@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title Field class
 #' @usage NULL
 #' @format NULL
@@ -54,11 +54,11 @@ Field <- R6Class("Field",
     }
   )
 )
-Field$create <- function(name, type, metadata) {
+Field$create <- function(name, type, metadata, nullable = TRUE) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  Field__initialize(enc2utf8(name), type, TRUE)
+  Field__initialize(enc2utf8(name), type, nullable)
 }
 #' @include arrowExports.R
 Field$import_from_c <- ImportField
@@ -66,14 +66,15 @@ Field$import_from_c <- ImportField
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
+#' @param nullable TRUE if field is nullable
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' field("x", int32())
 #' @rdname Field
 #' @export
 field <- Field$create
 
-.fields <- function(.list) {
+.fields <- function(.list, nullable = TRUE) {
   if (length(.list)) {
     assert_that(!is.null(nms <- names(.list)))
     map2(nms, .list, field)

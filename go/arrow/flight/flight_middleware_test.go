@@ -18,14 +18,17 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
+	sync "sync"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -86,20 +89,18 @@ func (s ServerExpectHeaderMiddleware) StartCall(ctx context.Context) context.Con
 func (s ServerExpectHeaderMiddleware) CallCompleted(context.Context, error) {}
 
 func TestServerStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithInsecure())
+	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -113,7 +114,7 @@ func TestServerStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)
@@ -134,20 +135,18 @@ func TestServerStreamMiddleware(t *testing.T) {
 }
 
 func TestServerUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithInsecure())
+	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -180,6 +179,7 @@ func TestServerUnaryMiddleware(t *testing.T) {
 type ClientTestSendHeaderMiddleware struct {
 	ctx context.Context
 	md  metadata.MD
+	mx  sync.Mutex
 }
 
 func (c *ClientTestSendHeaderMiddleware) StartCall(ctx context.Context) context.Context {
@@ -200,19 +200,19 @@ func (c *ClientTestSendHeaderMiddleware) HeadersReceived(ctx context.Context, md
 		panic("invalid context client middleware")
 	}
 
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	c.md = md
 }
 
 func TestClientStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerExpectHeaderMiddleware{}),
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -220,7 +220,7 @@ func TestClientStreamMiddleware(t *testing.T) {
 	middleware := &ClientTestSendHeaderMiddleware{}
 	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, []flight.ClientMiddleware{
 		flight.CreateClientMiddleware(middleware),
-	}, grpc.WithInsecure())
+	}, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -230,7 +230,7 @@ func TestClientStreamMiddleware(t *testing.T) {
 	for {
 		info, err := flightStream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			assert.NoError(t, err)
@@ -246,20 +246,20 @@ func TestClientStreamMiddleware(t *testing.T) {
 		assert.True(t, recs[0].Schema().Equal(sc))
 	}
 
+	middleware.mx.Lock()
+	defer middleware.mx.Unlock()
 	assert.Equal(t, []string{"bar"}, middleware.md.Get("foo"))
 	assert.Equal(t, []string{"duper"}, middleware.md.Get("super"))
 }
 
 func TestClientUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerExpectHeaderMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -267,7 +267,7 @@ func TestClientUnaryMiddleware(t *testing.T) {
 	middle := &ClientTestSendHeaderMiddleware{}
 	client, err := flight.NewClientWithMiddleware(s.Addr().String(), nil, []flight.ClientMiddleware{
 		flight.CreateClientMiddleware(middle),
-	}, grpc.WithInsecure())
+	}, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	require.NoError(t, err)
 	defer client.Close()

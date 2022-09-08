@@ -27,6 +27,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -43,7 +44,9 @@ std::vector<std::string> GetInputLabels(const ExecNode::NodeVector& inputs) {
   return labels;
 }
 }  // namespace
-struct UnionNode : ExecNode {
+
+class UnionNode : public ExecNode {
+ public:
   UnionNode(ExecPlan* plan, std::vector<ExecNode*> inputs)
       : ExecNode(plan, inputs, GetInputLabels(inputs),
                  /*output_schema=*/inputs[0]->output_schema(),
@@ -52,7 +55,7 @@ struct UnionNode : ExecNode {
     ARROW_DCHECK(counter_completed == false);
   }
 
-  const char* kind_name() override { return "UnionNode"; }
+  const char* kind_name() const override { return "UnionNode"; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -73,6 +76,7 @@ struct UnionNode : ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
@@ -85,6 +89,7 @@ struct UnionNode : ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
 
@@ -92,6 +97,8 @@ struct UnionNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+    EVENT(span_, "InputFinished",
+          {{"input", input_count_.count()}, {"batches.length", total_batches}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     total_batches_.fetch_add(total_batches);
@@ -105,15 +112,28 @@ struct UnionNode : ExecNode {
   }
 
   Status StartProducing() override {
-    finished_ = Future<>::Make();
+    START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
+                       {{"node.label", label()},
+                        {"node.detail", ToString()},
+                        {"node.kind", kind_name()}});
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    for (auto* input : inputs_) {
+      input->PauseProducing(this, counter);
+    }
+  }
 
-  void ResumeProducing(ExecNode* output) override {}
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    for (auto* input : inputs_) {
+      input->ResumeProducing(this, counter);
+    }
+  }
 
   void StopProducing(ExecNode* output) override {
+    EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
       finished_.MarkFinished();
@@ -138,10 +158,14 @@ struct UnionNode : ExecNode {
   AtomicCounter batch_count_;
   AtomicCounter input_count_;
   std::atomic<int> total_batches_{0};
-  Future<> finished_ = Future<>::MakeFinished();
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterUnion("union", UnionNode::Make);
+namespace internal {
 
+void RegisterUnionNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("union", UnionNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -20,25 +20,15 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v10/parquet"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 )
-
-var toLEFunc func(uint32) uint32
-
-func init() {
-	if endian.IsBigEndian {
-		toLEFunc = bits.ReverseBytes32
-	} else {
-		toLEFunc = func(in uint32) uint32 { return in }
-	}
-}
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata plain_encoder_types.gen.go.tmpl typed_encoder.gen.go.tmpl
 
@@ -186,7 +176,7 @@ func (d *dictEncoder) BitWidth() int {
 
 // WriteDict writes the dictionary index to the given byte slice.
 func (d *dictEncoder) WriteDict(out []byte) {
-	d.memo.CopyValues(out)
+	d.memo.WriteOut(out)
 }
 
 // WriteIndices performs Run Length encoding on the indexes and the writes the encoded
@@ -235,7 +225,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 	switch s := src.(type) {
 	case []int32:
 		o := out.([]int32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -246,7 +236,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []int64:
 		o := out.([]int64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -257,7 +247,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float32:
 		o := out.([]float32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -268,7 +258,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float64:
 		o := out.([]float64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -279,7 +269,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.ByteArray:
 		o := out.([]parquet.ByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -290,7 +280,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.FixedLenByteArray:
 		o := out.([]parquet.FixedLenByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -301,7 +291,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []bool:
 		o := out.([]bool)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {

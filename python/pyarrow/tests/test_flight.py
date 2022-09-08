@@ -19,19 +19,21 @@ import ast
 import base64
 import itertools
 import os
+import pathlib
 import signal
 import struct
 import tempfile
 import threading
 import time
 import traceback
+import json
 
 import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import tobytes
-from pyarrow.util import pathlib, find_free_port
+from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
 try:
@@ -117,6 +119,12 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
+def multiple_column_table():
+    return pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                names=['a', 'b'])
+
+
 class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
@@ -132,6 +140,7 @@ class ConstantFlightServer(FlightServerBase):
         self.table_factories = {
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
+            b'multi': multiple_column_table,
         }
         self.options = options
 
@@ -353,17 +362,23 @@ class SlowFlightServer(FlightServerBase):
 class ErrorFlightServer(FlightServerBase):
     """A Flight server that uses all the Flight-specific errors."""
 
+    @staticmethod
+    def error_cases():
+        return {
+            "internal": flight.FlightInternalError,
+            "timedout": flight.FlightTimedOutError,
+            "cancel": flight.FlightCancelledError,
+            "unauthenticated": flight.FlightUnauthenticatedError,
+            "unauthorized": flight.FlightUnauthorizedError,
+            "notimplemented": NotImplementedError,
+            "invalid": pa.ArrowInvalid,
+            "key": KeyError,
+        }
+
     def do_action(self, context, action):
-        if action.type == "internal":
-            raise flight.FlightInternalError("foo")
-        elif action.type == "timedout":
-            raise flight.FlightTimedOutError("foo")
-        elif action.type == "cancel":
-            raise flight.FlightCancelledError("foo")
-        elif action.type == "unauthenticated":
-            raise flight.FlightUnauthenticatedError("foo")
-        elif action.type == "unauthorized":
-            raise flight.FlightUnauthorizedError("foo")
+        error_cases = ErrorFlightServer.error_cases()
+        if action.type in error_cases:
+            raise error_cases[action.type]("foo")
         elif action.type == "protobuf":
             err_msg = b'this is an error message'
             raise flight.FlightUnauthorizedError("foo", err_msg)
@@ -637,7 +652,7 @@ class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
 
 
 class HeaderAuthServerMiddleware(ServerMiddleware):
-    """A ServerMiddleware that transports incoming username and passowrd."""
+    """A ServerMiddleware that transports incoming username and password."""
 
     def __init__(self, token):
         self.token = token
@@ -804,6 +819,9 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     EXPECTED = {
         "x-text": ["foo", "bar"],
         "x-binary-bin": [b"\x00", b"\x01"],
+        # ARROW-16606: ensure mixed-case headers are accepted
+        "x-MIXED-case": ["baz"],
+        b"x-other-MIXED-case": ["baz"],
     }
 
     def __init__(self, factory):
@@ -880,38 +898,48 @@ def test_client_wait_for_available():
         server = FlightServerBase(location)
         server.serve()
 
-    client = FlightClient(location)
-    thread = threading.Thread(target=serve, daemon=True)
-    thread.start()
+    with FlightClient(location) as client:
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
 
-    started = time.time()
-    client.wait_for_available(timeout=5)
-    elapsed = time.time() - started
-    assert elapsed >= 0.5
+        started = time.time()
+        client.wait_for_available(timeout=5)
+        elapsed = time.time() - started
+        assert elapsed >= 0.5
 
 
 def test_flight_list_flights():
     """Try a simple list_flights call."""
-    with ConstantFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         assert list(client.list_flights()) == []
         flights = client.list_flights(ConstantFlightServer.CRITERIA)
         assert len(list(flights)) == 1
+
+
+def test_flight_client_close():
+    with ConstantFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
+        assert list(client.list_flights()) == []
+        client.close()
+        client.close()  # Idempotent
+        with pytest.raises(pa.ArrowInvalid):
+            list(client.list_flights())
 
 
 def test_flight_do_get_ints():
     """Try a simple do_get call."""
     table = simple_ints_table()
 
-    with ConstantFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
     options = pa.ipc.IpcWriteOptions(
         metadata_version=pa.ipc.MetadataVersion.V4)
-    with ConstantFlightServer(options=options) as server:
-        client = flight.connect(('localhost', server.port))
+    with ConstantFlightServer(options=options) as server, \
+            flight.connect(('localhost', server.port)) as client:
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -921,8 +949,8 @@ def test_flight_do_get_ints():
 
     with pytest.raises(flight.FlightServerError,
                        match="expected IpcWriteOptions, got <class 'int'>"):
-        with ConstantFlightServer(options=42) as server:
-            client = flight.connect(('localhost', server.port))
+        with ConstantFlightServer(options=42) as server, \
+                flight.connect(('localhost', server.port)) as client:
             data = client.do_get(flight.Ticket(b'ints')).read_all()
 
 
@@ -931,8 +959,8 @@ def test_do_get_ints_pandas():
     """Try a simple do_get call."""
     table = simple_ints_table()
 
-    with ConstantFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         data = client.do_get(flight.Ticket(b'ints')).read_pandas()
         assert list(data['some_ints']) == table.column(0).to_pylist()
 
@@ -940,8 +968,8 @@ def test_do_get_ints_pandas():
 def test_flight_do_get_dicts():
     table = simple_dicts_table()
 
-    with ConstantFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         data = client.do_get(flight.Ticket(b'dicts')).read_all()
         assert data.equals(table)
 
@@ -950,8 +978,8 @@ def test_flight_do_get_ticket():
     """Make sure Tickets get passed to the server."""
     data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
     table = pa.Table.from_arrays(data1, names=['a'])
-    with CheckTicketFlightServer(expected_ticket=b'the-ticket') as server:
-        client = flight.connect(('localhost', server.port))
+    with CheckTicketFlightServer(expected_ticket=b'the-ticket') as server, \
+            flight.connect(('localhost', server.port)) as client:
         data = client.do_get(flight.Ticket(b'the-ticket')).read_all()
         assert data.equals(table)
 
@@ -973,8 +1001,8 @@ def test_flight_get_info():
 
 def test_flight_get_schema():
     """Make sure GetSchema returns correct schema."""
-    with GetInfoFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with GetInfoFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         info = client.get_schema(flight.FlightDescriptor.for_command(b''))
         assert info.schema == pa.schema([('a', pa.int32())])
 
@@ -982,8 +1010,8 @@ def test_flight_get_schema():
 def test_list_actions():
     """Make sure the return type of ListActions is validated."""
     # ARROW-6392
-    with ListActionsErrorFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ListActionsErrorFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         with pytest.raises(
                 flight.FlightServerError,
                 match=("Results of list_actions must be "
@@ -991,8 +1019,8 @@ def test_list_actions():
         ):
             list(client.list_actions())
 
-    with ListActionsFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ListActionsFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         assert list(client.list_actions()) == \
             ListActionsFlightServer.expected_actions()
 
@@ -1018,8 +1046,8 @@ class ConvenienceServer(FlightServerBase):
 
 
 def test_do_action_result_convenience():
-    with ConvenienceServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ConvenienceServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
 
         # do_action as action type without body
         results = [x.body for x in client.do_action('simple-action')]
@@ -1032,8 +1060,8 @@ def test_do_action_result_convenience():
 
 
 def test_nicer_server_exceptions():
-    with ConvenienceServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ConvenienceServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         with pytest.raises(flight.FlightServerError,
                            match="a bytes-like object is required"):
             list(client.do_action('bad-action'))
@@ -1062,8 +1090,8 @@ def test_flight_domain_socket():
     with tempfile.NamedTemporaryFile() as sock:
         sock.close()
         location = flight.Location.for_grpc_unix(sock.name)
-        with ConstantFlightServer(location=location):
-            client = FlightClient(location)
+        with ConstantFlightServer(location=location), \
+                FlightClient(location) as client:
 
             reader = client.do_get(flight.Ticket(b'ints'))
             table = simple_ints_table()
@@ -1089,8 +1117,8 @@ def test_flight_large_message():
         pa.array(range(0, 10 * 1024 * 1024))
     ], names=['a'])
 
-    with EchoFlightServer(expected_schema=data.schema) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoFlightServer(expected_schema=data.schema) as server, \
+            FlightClient(('localhost', server.port)) as client:
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)
         # Write a single giant chunk
@@ -1106,8 +1134,8 @@ def test_flight_generator_stream():
         pa.array(range(0, 10 * 1024))
     ], names=['a'])
 
-    with EchoStreamFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)
         writer.write_table(data)
@@ -1118,8 +1146,8 @@ def test_flight_generator_stream():
 
 def test_flight_invalid_generator_stream():
     """Try streaming data with mismatched schemas."""
-    with InvalidStreamFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with InvalidStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         with pytest.raises(pa.ArrowException):
             client.do_get(flight.Ticket(b'')).read_all()
 
@@ -1128,8 +1156,8 @@ def test_timeout_fires():
     """Make sure timeouts fire on slow requests."""
     # Do this in a separate thread so that if it fails, we don't hang
     # the entire test process
-    with SlowFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with SlowFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         action = flight.Action("", b"")
         options = flight.FlightCallOptions(timeout=0.2)
         # gRPC error messages change based on version, so don't look
@@ -1140,10 +1168,27 @@ def test_timeout_fires():
 
 def test_timeout_passes():
     """Make sure timeouts do not fire on fast requests."""
-    with ConstantFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         options = flight.FlightCallOptions(timeout=5.0)
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
+
+
+def test_read_options():
+    """Make sure ReadOptions can be used."""
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        options = flight.FlightCallOptions(
+            read_options=IpcReadOptions(included_fields=[1]))
+        response1 = client.do_get(flight.Ticket(
+            b'multi'), options=options).read_all()
+        response2 = client.do_get(flight.Ticket(b'multi')).read_all()
+
+        assert response2.num_columns == 2
+        assert response1.num_columns == 1
+        assert response1 == expected
+        assert response2 == multiple_column_table()
 
 
 basic_auth_handler = HttpBasicServerAuthHandler(creds={
@@ -1158,8 +1203,8 @@ token_auth_handler = TokenServerAuthHandler(creds={
 @pytest.mark.slow
 def test_http_basic_unauth():
     """Test that auth fails when not authenticated."""
-    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server, \
+            FlightClient(('localhost', server.port)) as client:
         action = flight.Action("who-am-i", b"")
         with pytest.raises(flight.FlightUnauthenticatedError,
                            match=".*unauthenticated.*"):
@@ -1170,8 +1215,8 @@ def test_http_basic_unauth():
                     reason="ARROW-10013: gRPC on Windows corrupts peer()")
 def test_http_basic_auth():
     """Test a Python implementation of HTTP basic authentication."""
-    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server, \
+            FlightClient(('localhost', server.port)) as client:
         action = flight.Action("who-am-i", b"")
         client.authenticate(HttpBasicClientAuthHandler('test', 'p4ssw0rd'))
         results = client.do_action(action)
@@ -1183,8 +1228,8 @@ def test_http_basic_auth():
 
 def test_http_basic_auth_invalid_password():
     """Test that auth fails with the wrong password."""
-    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server, \
+            FlightClient(('localhost', server.port)) as client:
         action = flight.Action("who-am-i", b"")
         with pytest.raises(flight.FlightUnauthenticatedError,
                            match=".*wrong password.*"):
@@ -1194,8 +1239,8 @@ def test_http_basic_auth_invalid_password():
 
 def test_token_auth():
     """Test an auth mechanism that uses a handshake."""
-    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server, \
+            FlightClient(('localhost', server.port)) as client:
         action = flight.Action("who-am-i", b"")
         client.authenticate(TokenClientAuthHandler('test', 'p4ssw0rd'))
         identity = next(client.do_action(action))
@@ -1204,8 +1249,8 @@ def test_token_auth():
 
 def test_token_auth_invalid():
     """Test an auth mechanism that uses a handshake."""
-    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
-        client = FlightClient(('localhost', server.port))
+    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server, \
+            FlightClient(('localhost', server.port)) as client:
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
@@ -1218,8 +1263,8 @@ def test_authenticate_basic_token():
     """Test authenticate_basic_token with bearer token and auth headers."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
-    }) as server:
-        client = FlightClient(('localhost', server.port))
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         token_pair = client.authenticate_basic_token(b'test', b'password')
         assert token_pair[0] == b'authorization'
         assert token_pair[1] == b'Bearer token1234'
@@ -1229,8 +1274,8 @@ def test_authenticate_basic_token_invalid_password():
     """Test authenticate_basic_token with an invalid password."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
-    }) as server:
-        client = FlightClient(('localhost', server.port))
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate_basic_token(b'test', b'badpassword')
 
@@ -1239,8 +1284,8 @@ def test_authenticate_basic_token_and_action():
     """Test authenticate_basic_token and doAction after authentication."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
-    }) as server:
-        client = FlightClient(('localhost', server.port))
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         token_pair = client.authenticate_basic_token(b'test', b'password')
         assert token_pair[0] == b'authorization'
         assert token_pair[1] == b'Bearer token1234'
@@ -1279,17 +1324,18 @@ def test_authenticate_basic_token_with_client_middleware():
         assert client_auth_middleware.call_credential[0] == b'authorization'
         assert client_auth_middleware.call_credential[1] == \
             b'Bearer ' + b'token1234'
+        client.close()
 
 
 def test_arbitrary_headers_in_flight_call_options():
     """Test passing multiple arbitrary headers to the middleware."""
     with ArbitraryHeadersFlightServer(
-            auth_handler=no_op_auth_handler,
-            middleware={
-                "auth": HeaderAuthServerMiddlewareFactory(),
-                "arbitrary-headers": ArbitraryHeadersServerMiddlewareFactory()
-            }) as server:
-        client = FlightClient(('localhost', server.port))
+        auth_handler=no_op_auth_handler,
+        middleware={
+            "auth": HeaderAuthServerMiddlewareFactory(),
+            "arbitrary-headers": ArbitraryHeadersServerMiddlewareFactory()
+        }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         token_pair = client.authenticate_basic_token(b'test', b'password')
         assert token_pair[0] == b'authorization'
         assert token_pair[1] == b'Bearer token1234'
@@ -1326,11 +1372,10 @@ def test_tls_fails():
     """Make sure clients cannot connect when cert verification fails."""
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        # Ensure client doesn't connect when certificate verification
-        # fails (this is a slow test since gRPC does retry a few times)
-        client = FlightClient("grpc+tls://localhost:" + str(s.port))
-
+    # Ensure client doesn't connect when certificate verification
+    # fails (this is a slow test since gRPC does retry a few times)
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s, \
+            FlightClient("grpc+tls://localhost:" + str(s.port)) as client:
         # gRPC error messages change based on version, so don't look
         # for a particular error
         with pytest.raises(flight.FlightUnavailableError):
@@ -1343,9 +1388,9 @@ def test_tls_do_get():
     table = simple_ints_table()
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = FlightClient(('localhost', s.port),
-                              tls_root_certs=certs["root_cert"])
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s, \
+        FlightClient(('localhost', s.port),
+                     tls_root_certs=certs["root_cert"]) as client:
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -1364,6 +1409,7 @@ def test_tls_disable_server_verification():
             pytest.skip('disable_server_verification feature is not available')
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
+        client.close()
 
 
 @pytest.mark.requires_testing_data
@@ -1371,10 +1417,10 @@ def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = flight.connect(('localhost', s.port),
-                                tls_root_certs=certs["root_cert"],
-                                override_hostname="fakehostname")
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s,\
+        flight.connect(('localhost', s.port),
+                       tls_root_certs=certs["root_cert"],
+                       override_hostname="fakehostname") as client:
         with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 
@@ -1387,8 +1433,8 @@ def test_flight_do_get_metadata():
     table = pa.Table.from_arrays(data, names=['a'])
 
     batches = []
-    with MetadataFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
         while True:
@@ -1410,8 +1456,8 @@ def test_flight_do_get_metadata_v4():
         [pa.array([-10, -5, 0, 5, 10])], names=['a'])
     options = pa.ipc.IpcWriteOptions(
         metadata_version=pa.ipc.MetadataVersion.V4)
-    with MetadataFlightServer(options=options) as server:
-        client = FlightClient(('localhost', server.port))
+    with MetadataFlightServer(options=options) as server, \
+            FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         data = reader.read_all()
         assert data.equals(table)
@@ -1424,8 +1470,8 @@ def test_flight_do_put_metadata():
     ]
     table = pa.Table.from_arrays(data, names=['a'])
 
-    with MetadataFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         writer, metadata_reader = client.do_put(
             flight.FlightDescriptor.for_path(''),
             table.schema)
@@ -1445,9 +1491,9 @@ def test_flight_do_put_limit():
         pa.array(np.ones(768, dtype=np.int64())),
     ], names=['a'])
 
-    with EchoFlightServer() as server:
-        client = FlightClient(('localhost', server.port),
-                              write_size_limit_bytes=4096)
+    with EchoFlightServer() as server, \
+        FlightClient(('localhost', server.port),
+                     write_size_limit_bytes=4096) as client:
         writer, metadata_reader = client.do_put(
             flight.FlightDescriptor.for_path(''),
             large_batch.schema)
@@ -1470,19 +1516,20 @@ def test_flight_do_put_limit():
 @pytest.mark.slow
 def test_cancel_do_get():
     """Test canceling a DoGet operation on the client side."""
-    with ConstantFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
-        with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
+        with pytest.raises(flight.FlightCancelledError,
+                           match="(?i).*cancel.*"):
             reader.read_chunk()
 
 
 @pytest.mark.slow
 def test_cancel_do_get_threaded():
     """Test canceling a DoGet operation from another thread."""
-    with SlowFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with SlowFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b'ints'))
 
         read_first_message = threading.Event()
@@ -1545,19 +1592,12 @@ def test_roundtrip_types():
 
 def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
-    with ErrorFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ErrorFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
 
-        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
-            list(client.do_action(flight.Action("internal", b"")))
-        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
-            list(client.do_action(flight.Action("timedout", b"")))
-        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
-            list(client.do_action(flight.Action("cancel", b"")))
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthenticated", b"")))
-        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthorized", b"")))
+        for arg, exc_type in ErrorFlightServer.error_cases().items():
+            with pytest.raises(exc_type, match=".*foo.*"):
+                list(client.do_action(flight.Action(arg, b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
 
@@ -1598,8 +1638,8 @@ def test_do_put_independent_read_write():
     ]
     table = pa.Table.from_arrays(data, names=['a'])
 
-    with MetadataFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         writer, metadata_reader = client.do_put(
             flight.FlightDescriptor.for_path(''),
             table.schema)
@@ -1631,8 +1671,8 @@ def test_server_middleware_same_thread():
     """Ensure that server middleware run on the same thread as the RPC."""
     with HeaderFlightServer(middleware={
         "test": HeaderServerMiddlewareFactory(),
-    }) as server:
-        client = FlightClient(('localhost', server.port))
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         results = list(client.do_action(flight.Action(b"test", b"")))
         assert len(results) == 1
         value = results[0].body.to_pybytes()
@@ -1643,8 +1683,8 @@ def test_middleware_reject():
     """Test rejecting an RPC with server middleware."""
     with HeaderFlightServer(middleware={
         "test": SelectiveAuthServerMiddlewareFactory(),
-    }) as server:
-        client = FlightClient(('localhost', server.port))
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
         # The middleware allows this through without auth.
         with pytest.raises(pa.ArrowNotImplementedError):
             list(client.list_actions())
@@ -1665,11 +1705,11 @@ def test_middleware_mapping():
     """Test that middleware records methods correctly."""
     server_middleware = RecordingServerMiddlewareFactory()
     client_middleware = RecordingClientMiddlewareFactory()
-    with FlightServerBase(middleware={"test": server_middleware}) as server:
-        client = FlightClient(
+    with FlightServerBase(middleware={"test": server_middleware}) as server, \
+        FlightClient(
             ('localhost', server.port),
             middleware=[client_middleware]
-        )
+    ) as client:
 
         descriptor = flight.FlightDescriptor.for_command(b"")
         with pytest.raises(NotImplementedError):
@@ -1706,8 +1746,8 @@ def test_middleware_mapping():
 
 
 def test_extra_info():
-    with ErrorFlightServer() as server:
-        client = FlightClient(('localhost', server.port))
+    with ErrorFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
         try:
             list(client.do_action(flight.Action("protobuf", b"")))
             assert False
@@ -1726,12 +1766,12 @@ def test_mtls():
     with ConstantFlightServer(
             tls_certificates=[certs["certificates"][0]],
             verify_client=True,
-            root_certificates=certs["root_cert"]) as s:
-        client = FlightClient(
+            root_certificates=certs["root_cert"]) as s, \
+        FlightClient(
             ('localhost', s.port),
             tls_root_certs=certs["root_cert"],
             cert_chain=certs["certificates"][0].cert,
-            private_key=certs["certificates"][0].key)
+            private_key=certs["certificates"][0].key) as client:
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -1742,8 +1782,8 @@ def test_doexchange_get():
         pa.array(range(0, 10 * 1024))
     ], names=["a"])
 
-    with ExchangeFlightServer() as server:
-        client = FlightClient(("localhost", server.port))
+    with ExchangeFlightServer() as server, \
+            FlightClient(("localhost", server.port)) as client:
         descriptor = flight.FlightDescriptor.for_command(b"get")
         writer, reader = client.do_exchange(descriptor)
         with writer:
@@ -1758,8 +1798,8 @@ def test_doexchange_put():
     ], names=["a"])
     batches = data.to_batches(max_chunksize=512)
 
-    with ExchangeFlightServer() as server:
-        client = FlightClient(("localhost", server.port))
+    with ExchangeFlightServer() as server, \
+            FlightClient(("localhost", server.port)) as client:
         descriptor = flight.FlightDescriptor.for_command(b"put")
         writer, reader = client.do_exchange(descriptor)
         with writer:
@@ -1780,8 +1820,8 @@ def test_doexchange_echo():
     ], names=["a"])
     batches = data.to_batches(max_chunksize=512)
 
-    with ExchangeFlightServer() as server:
-        client = FlightClient(("localhost", server.port))
+    with ExchangeFlightServer() as server, \
+            FlightClient(("localhost", server.port)) as client:
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         with writer:
@@ -1820,8 +1860,8 @@ def test_doexchange_echo_v4():
 
     options = pa.ipc.IpcWriteOptions(
         metadata_version=pa.ipc.MetadataVersion.V4)
-    with ExchangeFlightServer(options=options) as server:
-        client = FlightClient(("localhost", server.port))
+    with ExchangeFlightServer(options=options) as server, \
+            FlightClient(("localhost", server.port)) as client:
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         with writer:
@@ -1846,8 +1886,8 @@ def test_doexchange_transform():
         pa.array(range(3, 1024 * 3 + 3, 3)),
     ], names=["sum"])
 
-    with ExchangeFlightServer() as server:
-        client = FlightClient(("localhost", server.port))
+    with ExchangeFlightServer() as server, \
+            FlightClient(("localhost", server.port)) as client:
         descriptor = flight.FlightDescriptor.for_command(b"transform")
         writer, reader = client.do_exchange(descriptor)
         with writer:
@@ -1864,15 +1904,20 @@ def test_middleware_multi_header():
         "test": MultiHeaderServerMiddlewareFactory(),
     }) as server:
         headers = MultiHeaderClientMiddlewareFactory()
-        client = FlightClient(('localhost', server.port), middleware=[headers])
-        response = next(client.do_action(flight.Action(b"", b"")))
-        # The server echoes the headers it got back to us.
-        raw_headers = response.body.to_pybytes().decode("utf-8")
-        client_headers = ast.literal_eval(raw_headers)
-        # Don't directly compare; gRPC may add headers like User-Agent.
-        for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
-            assert client_headers.get(header) == values
-            assert headers.last_headers.get(header) == values
+        with FlightClient(
+                ('localhost', server.port),
+                middleware=[headers]) as client:
+            response = next(client.do_action(flight.Action(b"", b"")))
+            # The server echoes the headers it got back to us.
+            raw_headers = response.body.to_pybytes().decode("utf-8")
+            client_headers = ast.literal_eval(raw_headers)
+            # Don't directly compare; gRPC may add headers like User-Agent.
+            for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+                header = header.lower()
+                if isinstance(header, bytes):
+                    header = header.decode("ascii")
+                assert client_headers.get(header) == values
+                assert headers.last_headers.get(header) == values
 
 
 @pytest.mark.requires_testing_data
@@ -1888,6 +1933,7 @@ def test_generic_options():
                                 generic_options=options)
         with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
+        client.close()
         # Try setting an int argument that will make requests fail
         options = [("grpc.max_receive_message_length", 32)]
         client = flight.connect(('localhost', s.port),
@@ -1895,6 +1941,7 @@ def test_generic_options():
                                 generic_options=options)
         with pytest.raises(pa.ArrowInvalid):
             client.do_get(flight.Ticket(b'ints'))
+        client.close()
 
 
 class CancelFlightServer(FlightServerBase):
@@ -1939,12 +1986,13 @@ def test_interrupt():
             # In case KeyboardInterrupt didn't interrupt read_all
             # above, at least prevent it from stopping the test suite
             pytest.fail("KeyboardInterrupt didn't interrupt Flight read_all")
-        e = exc_info.value.__context__
-        assert isinstance(e, pa.ArrowCancelled) or \
-            isinstance(e, KeyboardInterrupt)
+        # __context__ is sometimes None
+        e = exc_info.value
+        assert isinstance(e, (pa.ArrowCancelled, KeyboardInterrupt)) or \
+            isinstance(e.__context__, (pa.ArrowCancelled, KeyboardInterrupt))
 
-    with CancelFlightServer() as server:
-        client = FlightClient(("localhost", server.port))
+    with CancelFlightServer() as server, \
+            FlightClient(("localhost", server.port)) as client:
 
         reader = client.do_get(flight.Ticket(b""))
         test(reader.read_all)
@@ -1952,13 +2000,18 @@ def test_interrupt():
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         test(reader.read_all)
+        try:
+            writer.close()
+        except (KeyboardInterrupt, flight.FlightCancelledError):
+            # Silence the Cancelled/Interrupt exception
+            pass
 
 
 def test_never_sends_data():
     # Regression test for ARROW-12779
     match = "application server implementation error"
-    with NeverSendsDataFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with NeverSendsDataFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         with pytest.raises(flight.FlightServerError, match=match):
             client.do_get(flight.Ticket(b'')).read_all()
 
@@ -1975,8 +2028,8 @@ def test_large_descriptor():
     # since some CI pipelines can't run the C++ equivalent
     large_descriptor = flight.FlightDescriptor.for_command(
         b' ' * (2 ** 31 + 1))
-    with FlightServerBase() as server:
-        client = flight.connect(('localhost', server.port))
+    with FlightServerBase() as server, \
+            flight.connect(('localhost', server.port)) as client:
         with pytest.raises(OSError,
                            match="Failed to serialize Flight descriptor"):
             writer, _ = client.do_put(large_descriptor, pa.schema([]))
@@ -1992,8 +2045,8 @@ def test_large_metadata_client():
     # Regression test for ARROW-13253
     descriptor = flight.FlightDescriptor.for_command(b'')
     metadata = b' ' * (2 ** 31 + 1)
-    with EchoFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with EchoFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         with pytest.raises(pa.ArrowCapacityError,
                            match="app_metadata size overflow"):
             writer, _ = client.do_put(descriptor, pa.schema([]))
@@ -2007,8 +2060,8 @@ def test_large_metadata_client():
                 writer.write_metadata(metadata)
 
     del metadata
-    with LargeMetadataFlightServer() as server:
-        client = flight.connect(('localhost', server.port))
+    with LargeMetadataFlightServer() as server, \
+            flight.connect(('localhost', server.port)) as client:
         with pytest.raises(flight.FlightServerError,
                            match="app_metadata size overflow"):
             reader = client.do_get(flight.Ticket(b''))
@@ -2018,3 +2071,109 @@ def test_large_metadata_client():
             writer, reader = client.do_exchange(descriptor)
             with writer:
                 reader.read_all()
+
+
+class ActionNoneFlightServer(EchoFlightServer):
+    """A server that implements a side effect to a non iterable action."""
+    VALUES = []
+
+    def do_action(self, context, action):
+        if action.type == "get_value":
+            return [json.dumps(self.VALUES).encode('utf-8')]
+        elif action.type == "append":
+            self.VALUES.append(True)
+            return None
+        raise NotImplementedError
+
+
+def test_none_action_side_effect():
+    """Ensure that actions are executed even when we don't consume iterator.
+
+    See https://issues.apache.org/jira/browse/ARROW-14255
+    """
+
+    with ActionNoneFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        client.do_action(flight.Action("append", b""))
+        r = client.do_action(flight.Action("get_value", b""))
+        assert json.loads(next(r).body.to_pybytes()) == [True]
+
+
+@pytest.mark.slow  # Takes a while for gRPC to "realize" writes fail
+def test_write_error_propagation():
+    """
+    Ensure that exceptions during writing preserve error context.
+
+    See https://issues.apache.org/jira/browse/ARROW-16592.
+    """
+    expected_message = "foo"
+    expected_info = b"bar"
+    exc = flight.FlightCancelledError(
+        expected_message, extra_info=expected_info)
+    descriptor = flight.FlightDescriptor.for_command(b"")
+    schema = pa.schema([("int64", pa.int64())])
+
+    class FailServer(flight.FlightServerBase):
+        def do_put(self, context, descriptor, reader, writer):
+            raise exc
+
+        def do_exchange(self, context, descriptor, reader, writer):
+            raise exc
+
+    with FailServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # DoPut
+        writer, reader = client.do_put(descriptor, schema)
+
+        # Set a concurrent reader - ensure this doesn't block the
+        # writer side from calling Close()
+        def _reader():
+            try:
+                while True:
+                    reader.read()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_batch(pa.record_batch([[1]], schema=schema))
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+        # DoExchange
+        writer, reader = client.do_exchange(descriptor)
+
+        def _reader():
+            try:
+                while True:
+                    reader.read_chunk()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_metadata(b" ")
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+
+def test_interpreter_shutdown():
+    """
+    Ensure that the gRPC server is stopped at interpreter shutdown.
+
+    See https://issues.apache.org/jira/browse/ARROW-16597.
+    """
+    util.invoke_script("arrow_16597.py")

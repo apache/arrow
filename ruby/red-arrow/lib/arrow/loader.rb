@@ -30,9 +30,11 @@ module Arrow
       require_libraries
       require_extension_library
       gc_guard
+      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
+      require "arrow/array-computable"
       require "arrow/column-containable"
       require "arrow/field-containable"
       require "arrow/generic-filterable"
@@ -58,6 +60,7 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/datum"
+      require "arrow/day-time-interval-array-builder"
       require "arrow/decimal128"
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
@@ -70,16 +73,20 @@ module Arrow
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
       require "arrow/equal-options"
+      require "arrow/expression"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/file-system"
       require "arrow/fixed-size-binary-array"
       require "arrow/fixed-size-binary-array-builder"
+      require "arrow/function"
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
       require "arrow/map-array"
       require "arrow/map-array-builder"
       require "arrow/map-data-type"
+      require "arrow/month-day-nano-interval-array-builder"
       require "arrow/null-array"
       require "arrow/null-array-builder"
       require "arrow/path-extension"
@@ -91,6 +98,7 @@ module Arrow
       require "arrow/record-batch-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
+      require "arrow/s3-global-options"
       require "arrow/scalar"
       require "arrow/schema"
       require "arrow/slicer"
@@ -99,10 +107,12 @@ module Arrow
       require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
+      require "arrow/string-array-builder"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
       require "arrow/table"
+      require "arrow/table-concatenate-options"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
       require "arrow/table-table-formatter"
@@ -110,6 +120,7 @@ module Arrow
       require "arrow/table-saver"
       require "arrow/tensor"
       require "arrow/time"
+      require "arrow/time-unit"
       require "arrow/time32-array"
       require "arrow/time32-array-builder"
       require "arrow/time32-data-type"
@@ -207,6 +218,17 @@ module Arrow
         super(info, klass, method_name)
       else
         super
+      end
+    end
+
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      case klass.name
+      when "Arrow::RecordBatchFileReader"
+        case function_info.name
+        when "new"
+          function_info.lock_gvl_default = false
+        end
       end
     end
   end

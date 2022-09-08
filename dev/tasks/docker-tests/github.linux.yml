@@ -21,34 +21,48 @@
 
 jobs:
   test:
-    name: Docker Test
+    name: |
+      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
-  {% if env is defined %}
-    env:
-    {% for key, value in env.items() %}
-      {{ key }}: {{ value }}
-    {% endfor %}
-  {% endif %}
+{{ macros.github_set_env(env) }}
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_install_archery()|indent }}
-
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
 
       - name: Execute Docker Build
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }} {{ command|default("") }}
+        run: |
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+            {{ flags|default("") }} \
+            {{ image }} \
+            {{ command|default("") }}
 
-    {% if '-r' in image %}
       - name: Dump R install logs
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
-        continue-on-error: true
         if: always()
-    {% endif %}
+        run: |
+          log=arrow/r/check/arrow.Rcheck/00install.out
+          if [ -f ${log} ]; then
+            cat ${log}
+          fi
+      - name: Dump R test logs
+        if: always()
+        run: |
+          for log in arrow/r/check/arrow.Rcheck/tests/testthat.Rout*; do
+            if [ -f ${log} ]; then
+              echo ${log}
+              cat ${log}
+            fi
+          done
+      - name: Save the R test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+          if-no-files-found: ignore
 
-    {% if arrow.branch == 'master' %}
+    {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash

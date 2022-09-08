@@ -29,12 +29,14 @@ import org.apache.arrow.util.Preconditions;
  * Currently, this is:
  * <ul>
  *   <li>The JDBC {@link java.sql.Types} type.</li>
- *   <li>The field's precision (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types)</li>
- *   <li>The field's scale (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types)</li>
+ *   <li>The nullability.</li>
+ *   <li>The field's precision (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types).</li>
+ *   <li>The field's scale (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types).</li>
  * </ul>
  */
 public class JdbcFieldInfo {
   private final int jdbcType;
+  private final int nullability;
   private final int precision;
   private final int scale;
 
@@ -52,6 +54,7 @@ public class JdbcFieldInfo {
         "DECIMAL and NUMERIC types require a precision and scale; please use another constructor.");
 
     this.jdbcType = jdbcType;
+    this.nullability = ResultSetMetaData.columnNullableUnknown;
     this.precision = 0;
     this.scale = 0;
   }
@@ -66,6 +69,23 @@ public class JdbcFieldInfo {
    */
   public JdbcFieldInfo(int jdbcType, int precision, int scale) {
     this.jdbcType = jdbcType;
+    this.nullability = ResultSetMetaData.columnNullableUnknown;
+    this.precision = precision;
+    this.scale = scale;
+  }
+
+  /**
+   * Builds a <code>JdbcFieldInfo</code> from the {@link java.sql.Types} type, nullability, precision, and scale.
+   *
+   * @param jdbcType The {@link java.sql.Types} type.
+   * @param nullability The nullability. Must be one of {@link ResultSetMetaData#columnNoNulls},
+   *     {@link ResultSetMetaData#columnNullable}, or {@link ResultSetMetaData#columnNullableUnknown}.
+   * @param precision The field's numeric precision.
+   * @param scale The field's numeric scale.
+   */
+  public JdbcFieldInfo(int jdbcType, int nullability, int precision, int scale) {
+    this.jdbcType = jdbcType;
+    this.nullability = nullability;
     this.precision = precision;
     this.scale = scale;
   }
@@ -87,6 +107,7 @@ public class JdbcFieldInfo {
         "The index must be within the number of columns (1 to %s, inclusive)", rsmd.getColumnCount());
 
     this.jdbcType = rsmd.getColumnType(column);
+    this.nullability = rsmd.isNullable(column);
     this.precision = rsmd.getPrecision(column);
     this.scale = rsmd.getScale(column);
   }
@@ -96,6 +117,13 @@ public class JdbcFieldInfo {
    */
   public int getJdbcType() {
     return jdbcType;
+  }
+
+  /**
+   * The nullability.
+   */
+  public int isNullable() {
+    return nullability;
   }
 
   /**

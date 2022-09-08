@@ -18,12 +18,14 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	status "google.golang.org/grpc/status"
 )
@@ -37,7 +39,9 @@ const (
 	invalidBearer   = "PANDABEAR"
 )
 
-type HeaderAuthTestFlight struct{}
+type HeaderAuthTestFlight struct {
+	flight.BaseFlightServer
+}
 
 func (h *HeaderAuthTestFlight) ListFlights(c *flight.Criteria, fs flight.FlightService_ListFlightsServer) error {
 	fs.Send(&flight.FlightInfo{
@@ -68,18 +72,15 @@ func (*validator) IsValid(bearerToken string) (interface{}, error) {
 
 func TestErrorAuths(t *testing.T) {
 	unary, stream := flight.CreateServerBearerTokenAuthInterceptors(&validator{})
-	s := flight.NewFlightServer(nil, grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
+	s := flight.NewFlightServer(grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-		GetSchema:   f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,18 +148,15 @@ func TestErrorAuths(t *testing.T) {
 }
 
 func TestBasicAuthHelpers(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-		GetSchema:   f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
 
-	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +168,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 	}
 
 	_, err = fs.Recv()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatal("Should have failed with unauthenticated error")
 	}
 
@@ -189,7 +187,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if "foobar" != string(info.Schema) {
+	if string(info.Schema) != "foobar" {
 		t.Fatal("should have received 'foobar'")
 	}
 
@@ -198,7 +196,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if "carebears" != string(sc.Schema) {
+	if string(sc.Schema) != "carebears" {
 		t.Fatal("should have received carebears")
 	}
 }

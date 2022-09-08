@@ -29,11 +29,13 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -114,6 +116,28 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
         "Expecting date unit %s, actual date unit %s.", expectedDateUnit, dateType.getUnit());
   }
 
+  private void validateDecimalVector(ValueVector vector) {
+    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Decimal,
+            "Vector %s is not a decimal vector", vector.getClass());
+    ArrowType.Decimal decimalType = (ArrowType.Decimal) vector.getField().getFieldType().getType();
+    validateOrThrow(decimalType.getScale() >= 0, "The scale of decimal %s is negative.", decimalType.getScale());
+    validateOrThrow(decimalType.getScale() <= decimalType.getPrecision(),
+            "The scale of decimal %s is greater than the precision %s.",
+            decimalType.getScale(), decimalType.getPrecision());
+    switch (decimalType.getBitWidth()) {
+      case DecimalVector.TYPE_WIDTH * 8:
+        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= DecimalVector.MAX_PRECISION,
+                "Invalid precision %s for decimal 128.", decimalType.getPrecision());
+        break;
+      case Decimal256Vector.TYPE_WIDTH * 8:
+        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= Decimal256Vector.MAX_PRECISION,
+                "Invalid precision %s for decimal 256.", decimalType.getPrecision());
+        break;
+      default:
+        throw new ValidateUtil.ValidateException("Only decimal 128 or decimal 256 are supported for decimal types");
+    }
+  }
+
   private void validateTimeVector(ValueVector vector, TimeUnit expectedTimeUnit, int expectedBitWidth) {
     validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Time,
         "Vector %s is not a time vector.", vector.getClass());
@@ -143,6 +167,17 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else {
       validateOrThrow(timestampType.getTimezone() == null, "The time zone should be null");
     }
+  }
+
+  private void validateExtensionTypeVector(ExtensionTypeVector<?> vector) {
+    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.ExtensionType,
+        "Vector %s is not an extension type vector.", vector.getClass());
+    validateOrThrow(vector.getField().getMetadata().containsKey(ArrowType.ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            "Field %s does not have proper extension type metadata: %s",
+            vector.getField().getName(),
+            vector.getField().getMetadata());
+    // Validate the storage vector type
+    vector.getUnderlyingVector().accept(this, null);
   }
 
   @Override
@@ -175,10 +210,7 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateVectorCommon(vector, ArrowType.Bool.class);
     } else if (vector instanceof DecimalVector || vector instanceof Decimal256Vector) {
       validateVectorCommon(vector, ArrowType.Decimal.class);
-      ArrowType.Decimal arrowType = (ArrowType.Decimal) vector.getField().getType();
-      validateOrThrow(arrowType.getScale() > 0, "The scale of decimal %s is not positive.", arrowType.getScale());
-      validateOrThrow(arrowType.getPrecision() > 0, "The precision of decimal %S is not positive.",
-          arrowType.getPrecision());
+      validateDecimalVector(vector);
     } else if (vector instanceof DateDayVector) {
       validateVectorCommon(vector, ArrowType.Date.class);
       validateDateVector(vector, DateUnit.DAY);
@@ -200,6 +232,9 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else if (vector instanceof IntervalDayVector) {
       validateVectorCommon(vector, ArrowType.Interval.class);
       validateIntervalVector(vector, IntervalUnit.DAY_TIME);
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      validateVectorCommon(vector, ArrowType.Interval.class);
+      validateIntervalVector(vector, IntervalUnit.MONTH_DAY_NANO);
     } else if (vector instanceof IntervalYearVector) {
       validateVectorCommon(vector, ArrowType.Interval.class);
       validateIntervalVector(vector, IntervalUnit.YEAR_MONTH);
@@ -351,6 +386,12 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(NullVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Null.class);
+    return null;
+  }
+
+  @Override
+  public Void visit(ExtensionTypeVector<?> vector, Void value) {
+    validateExtensionTypeVector(vector);
     return null;
   }
 }

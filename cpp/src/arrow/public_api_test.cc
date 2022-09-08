@@ -50,10 +50,6 @@
 #include "arrow/json/api.h"  // IWYU pragma: keep
 #endif
 
-#ifdef ARROW_PYTHON
-#include "arrow/python/api.h"  // IWYU pragma: keep
-#endif
-
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."
 #endif
@@ -62,12 +58,31 @@
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
 #endif
 
+#ifdef OPENTELEMETRY_VERSION
+#error "OpenTelemetry should not be visible from Arrow public headers."
+#endif
+
 #ifdef XSIMD_VERSION_MAJOR
 #error "xsimd should not be visible from Arrow public headers."
 #endif
 
+#ifdef HAS_CHRONO_ROUNDING
+#error "arrow::vendored::date should not be visible from Arrow public headers."
+#endif
+
+#ifdef PROTOBUF_EXPORT
+#error "Protocol Buffers should not be visible from Arrow public headers."
+#endif
+
+#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
+    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
+#error "Windows.h should not be included by Arrow public headers"
+#endif
+
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
 
@@ -84,6 +99,48 @@ TEST(Misc, BuildInfo) {
   ss << info.version_major << "." << info.version_minor << "." << info.version_patch;
   ASSERT_THAT(info.version_string, ::testing::HasSubstr(ss.str()));
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
+}
+
+TEST(Misc, SetTimezoneConfig) {
+#ifndef _WIN32
+  GTEST_SKIP() << "Can only set the Timezone database on Windows";
+#elif !defined(ARROW_FILESYSTEM)
+  GTEST_SKIP() << "Need filesystem support to test timezone config.";
+#else
+  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+
+  util::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
+  std::string tzdata_dir;
+  if (tzdata_result.has_value()) {
+    tzdata_dir = tzdata_result.value();
+  } else {
+    auto home_raw = std::getenv("USERPROFILE");
+    std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
+    ASSERT_OK_AND_ASSIGN(tzdata_dir, fs->NormalizePath(home + "\\Downloads\\tzdata"));
+  }
+  ASSERT_OK_AND_ASSIGN(tzdata_dir, fs->NormalizePath(tzdata_dir));
+  ASSERT_OK_AND_ASSIGN(auto tzdata_path,
+                       arrow::internal::PlatformFilename::FromString(tzdata_dir));
+
+  if (!arrow::internal::FileExists(tzdata_path).ValueOr(false)) {
+    GTEST_SKIP() << "Couldn't find timezone database in expected dir: " << tzdata_dir;
+  }
+  // Create a tmp directory
+  ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
+
+  // Validate that setting tzdb to that dir fails
+  arrow::GlobalOptions options = {util::make_optional(tempdir->path().ToString())};
+  ASSERT_NOT_OK(arrow::Initialize(options));
+
+  // Copy tzdb data from ~/Downloads
+  auto selector = arrow::fs::FileSelector();
+  selector.base_dir = tzdata_dir;
+  selector.recursive = true;
+  ASSERT_OK(arrow::fs::CopyFiles(fs, selector, fs, tempdir->path().ToString()));
+
+  // Validate that tzdb is working
+  ASSERT_OK(arrow::Initialize(options));
+#endif
 }
 
 }  // namespace arrow

@@ -35,6 +35,7 @@
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
@@ -63,6 +64,11 @@ Status SetIOThreadPoolCapacity(int threads) {
 }
 
 FileInterface::~FileInterface() = default;
+
+Future<> FileInterface::CloseAsync() {
+  return DeferNotOk(
+      default_io_context().executor()->Submit([this]() { return Close(); }));
+}
 
 Status FileInterface::Abort() { return Close(); }
 
@@ -241,8 +247,14 @@ class FileSegmentReader
   int64_t nbytes_;
 };
 
-std::shared_ptr<InputStream> RandomAccessFile::GetStream(
+Result<std::shared_ptr<InputStream>> RandomAccessFile::GetStream(
     std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes) {
+  if (file_offset < 0) {
+    return Status::Invalid("file_offset should be a positive value, got: ", file_offset);
+  }
+  if (nbytes < 0) {
+    return Status::Invalid("nbytes should be a positive value, got: ", nbytes);
+  }
   return std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
 }
 
@@ -352,13 +364,38 @@ void SharedExclusiveChecker::UnlockExclusive() {}
 
 #endif
 
-static std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  auto maybe_pool = ThreadPool::MakeEternal(/*threads=*/8);
+// -----------------------------------------------------------------------
+// Global IO thread pool
+
+namespace {
+
+constexpr int kDefaultNumIoThreads = 8;
+
+std::shared_ptr<ThreadPool> MakeIOThreadPool() {
+  int threads = 0;
+  auto maybe_env_var = ::arrow::internal::GetEnvVar("ARROW_IO_THREADS");
+  if (maybe_env_var.ok()) {
+    auto str = *std::move(maybe_env_var);
+    if (!str.empty()) {
+      try {
+        threads = std::stoi(str);
+      } catch (...) {
+      }
+      if (threads <= 0) {
+        ARROW_LOG(WARNING)
+            << "ARROW_IO_THREADS does not contain a valid number of threads "
+               "(should be an integer > 0)";
+      }
+    }
+  }
+  auto maybe_pool = ThreadPool::MakeEternal(threads > 0 ? threads : kDefaultNumIoThreads);
   if (!maybe_pool.ok()) {
     maybe_pool.status().Abort("Failed to create global IO thread pool");
   }
   return *std::move(maybe_pool);
 }
+
+}  // namespace
 
 ThreadPool* GetIOThreadPool() {
   static std::shared_ptr<ThreadPool> pool = MakeIOThreadPool();

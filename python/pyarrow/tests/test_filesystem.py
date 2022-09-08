@@ -15,11 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 import pyarrow as pa
 from pyarrow import filesystem
 
+import os
 import pytest
 
 
@@ -31,10 +30,7 @@ def test_filesystem_deprecated():
         filesystem.LocalFileSystem.get_instance()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="getattr needs Python 3.7")
 def test_filesystem_deprecated_toplevel():
-
     with pytest.warns(FutureWarning):
         pa.localfs
 
@@ -65,3 +61,14 @@ def test_resolve_local_path():
         fs, path = filesystem.resolve_filesystem_and_path(uri)
         assert isinstance(fs, filesystem.LocalFileSystem)
         assert path == uri
+
+
+def test_resolve_home_directory():
+    uri = '~/myfile.parquet'
+    fs, path = filesystem.resolve_filesystem_and_path(uri)
+    assert isinstance(fs, filesystem.LocalFileSystem)
+    assert path == os.path.expanduser(uri)
+
+    local_fs = filesystem.LocalFileSystem()
+    fs, path = filesystem.resolve_filesystem_and_path(uri, local_fs)
+    assert path == os.path.expanduser(uri)

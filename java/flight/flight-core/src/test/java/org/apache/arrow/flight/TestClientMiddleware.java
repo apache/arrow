@@ -246,12 +246,13 @@ public class TestClientMiddleware {
   }
 
   // Used to test that middleware can send and receive multi-valued text and binary headers.
-  static final Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>() {{
-      put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
-    }};
-  static final Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>() {{
-      put("x-text", Arrays.asList("foo", "bar"));
-    }};
+  static Map<String, List<byte[]>> EXPECTED_BINARY_HEADERS = new HashMap<String, List<byte[]>>();
+  static Map<String, List<String>> EXPECTED_TEXT_HEADERS = new HashMap<String, List<String>>();
+
+  static {
+    EXPECTED_BINARY_HEADERS.put("x-binary-bin", Arrays.asList(new byte[] {0}, new byte[]{1}));
+    EXPECTED_TEXT_HEADERS.put("x-text", Arrays.asList("foo", "bar"));
+  }
 
   static class MultiHeaderServerMiddlewareFactory implements
       FlightServerMiddleware.Factory<MultiHeaderServerMiddleware> {

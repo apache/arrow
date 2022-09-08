@@ -25,12 +25,10 @@
 //
 // Install
 //
-// You can download the library via:
-//   go get -u github.com/apache/arrow/go/parquet
-//
-// In addition, two cli utilities are provided:
-// 	go install github.com/apache/arrow/go/parquet/cmd/parquet_reader
-// 	go install github.com/apache/arrow/go/parquet/cmd/parquet_schema
+// You can download the library and cli utilities via:
+//   go get -u github.com/apache/arrow/go/v10/parquet
+//   go install github.com/apache/arrow/go/v10/parquet/cmd/parquet_reader@latest
+//   go install github.com/apache/arrow/go/v10/parquet/cmd/parquet_schema@latest
 //
 // Modules
 //
@@ -65,4 +63,5 @@
 // sure what to use, just use Plain and Dictionary encoding.
 package parquet
 
+//go:generate go run golang.org/x/tools/cmd/stringer -type=Version -linecomment
 //go:generate thrift -o internal -r --gen go ../../cpp/src/parquet/parquet.thrift

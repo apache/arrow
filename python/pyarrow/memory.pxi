@@ -76,12 +76,24 @@ cdef class MemoryPool(_Weakrefable):
         """
         return frombytes(self.pool.backend_name())
 
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"backend_name={self.backend_name} "
+                f"bytes_allocated={self.bytes_allocated()} "
+                f"max_memory={self.max_memory()}>")
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
         return c_get_memory_pool()
     else:
         return memory_pool.pool
+
+
+cdef api object box_memory_pool(CMemoryPool *c_pool):
+    cdef MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_pool)
+    return pool
 
 
 cdef class LoggingMemoryPool(MemoryPool):
@@ -112,6 +124,11 @@ cdef class ProxyMemoryPool(MemoryPool):
 def default_memory_pool():
     """
     Return the process-global memory pool.
+
+    Examples
+    --------
+    >>> default_memory_pool()
+    <pyarrow.MemoryPool backend_name=... bytes_allocated=0 max_memory=...>
     """
     cdef:
         MemoryPool pool = MemoryPool.__new__(MemoryPool)
@@ -123,6 +140,11 @@ def proxy_memory_pool(MemoryPool parent):
     """
     Create and return a MemoryPool instance that redirects to the
     *parent*, but with separate allocation statistics.
+
+    Parameters
+    ----------
+    parent : MemoryPool
+        The real memory pool that should be used for allocations.
     """
     cdef ProxyMemoryPool out = ProxyMemoryPool.__new__(ProxyMemoryPool)
     out.proxy_pool.reset(new CProxyMemoryPool(parent.pool))
@@ -134,6 +156,11 @@ def logging_memory_pool(MemoryPool parent):
     """
     Create and return a MemoryPool instance that redirects to the
     *parent*, but also dumps allocation logs on stderr.
+
+    Parameters
+    ----------
+    parent : MemoryPool
+        The real memory pool that should be used for allocations.
     """
     cdef LoggingMemoryPool out = LoggingMemoryPool.__new__(
         LoggingMemoryPool, parent)
@@ -181,6 +208,14 @@ def mimalloc_memory_pool():
 
 
 def set_memory_pool(MemoryPool pool):
+    """
+    Set the default memory pool.
+
+    Parameters
+    ----------
+    pool : MemoryPool
+        The memory pool that should be used by default.
+    """
     c_set_default_memory_pool(pool.pool)
 
 
@@ -229,3 +264,11 @@ def jemalloc_set_decay_ms(decay_ms):
         that this change will only affect future memory arenas
     """
     check_status(c_jemalloc_set_decay_ms(decay_ms))
+
+
+def supported_memory_backends():
+    """
+    Return a list of available memory pool backends
+    """
+    cdef vector[c_string] backends = c_supported_memory_backends()
+    return [backend.decode() for backend in backends]

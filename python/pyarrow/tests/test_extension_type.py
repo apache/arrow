@@ -17,6 +17,7 @@
 
 import pickle
 import weakref
+from uuid import uuid4, UUID
 
 import numpy as np
 import pyarrow as pa
@@ -33,7 +34,24 @@ class IntegerType(pa.PyExtensionType):
         return IntegerType, ()
 
 
+class UuidScalarType(pa.ExtensionScalar):
+    def as_py(self):
+        return None if self.value is None else UUID(bytes=self.value.as_py())
+
+
 class UuidType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.binary(16))
+
+    def __reduce__(self):
+        return UuidType, ()
+
+    def __arrow_ext_scalar_class__(self):
+        return UuidScalarType
+
+
+class UuidType2(pa.PyExtensionType):
 
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.binary(16))
@@ -74,6 +92,19 @@ class MyListType(pa.PyExtensionType):
 
     def __reduce__(self):
         return MyListType, (self.storage_type,)
+
+
+class AnnotatedType(pa.PyExtensionType):
+    """
+    Generic extension type that can store any storage type.
+    """
+
+    def __init__(self, storage_type, annotation):
+        self.annotation = annotation
+        super().__init__(storage_type)
+
+    def __reduce__(self):
+        return AnnotatedType, (self.storage_type, self.annotation)
 
 
 def ipc_write_batch(batch):
@@ -120,6 +151,38 @@ def test_ext_type__storage_type():
     ty = ParamExtType(5)
     assert ty.storage_type == pa.binary(5)
     assert ty.__class__ is ParamExtType
+
+
+def test_ext_type_as_py():
+    ty = UuidType()
+    expected = uuid4()
+    scalar = pa.ExtensionScalar.from_storage(ty, expected.bytes)
+    assert scalar.as_py() == expected
+
+    # test array
+    uuids = [uuid4() for _ in range(3)]
+    storage = pa.array([uuid.bytes for uuid in uuids], type=pa.binary(16))
+    arr = pa.ExtensionArray.from_storage(ty, storage)
+
+    # Works for __get_item__
+    for i, expected in enumerate(uuids):
+        assert arr[i].as_py() == expected
+
+    # Works for __iter__
+    for result, expected in zip(arr, uuids):
+        assert result.as_py() == expected
+
+    # test chunked array
+    data = [
+        pa.ExtensionArray.from_storage(ty, storage),
+        pa.ExtensionArray.from_storage(ty, storage)
+    ]
+    carr = pa.chunked_array(data)
+    for i, expected in enumerate(uuids + uuids):
+        assert carr[i].as_py() == expected
+
+    for result, expected in zip(carr, uuids + uuids):
+        assert result.as_py() == expected
 
 
 def test_uuid_type_pickle():
@@ -201,18 +264,52 @@ def test_ext_array_equality():
     assert not d.equals(f)
 
 
+def test_ext_array_wrap_array():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ExtensionArray)
+    assert arr.type == ty
+    assert arr.storage == storage
+
+    storage = pa.chunked_array([[b"abc", b"def"], [b"ghi"]],
+                               type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.type == ty
+    assert arr.chunk(0).storage == storage.chunk(0)
+    assert arr.chunk(1).storage == storage.chunk(1)
+
+    # Wrong storage type
+    storage = pa.array([b"foo", b"bar", None])
+    with pytest.raises(TypeError, match="Incompatible storage type"):
+        ty.wrap_array(storage)
+
+    # Not an array or chunked array
+    with pytest.raises(TypeError, match="Expected array or chunked array"):
+        ty.wrap_array(None)
+
+
 def test_ext_scalar_from_array():
     data = [b"0123456789abcdef", b"0123456789abcdef",
             b"zyxwvutsrqponmlk", None]
     storage = pa.array(data, type=pa.binary(16))
     ty1 = UuidType()
     ty2 = ParamExtType(16)
+    ty3 = UuidType2()
 
     a = pa.ExtensionArray.from_storage(ty1, storage)
     b = pa.ExtensionArray.from_storage(ty2, storage)
+    c = pa.ExtensionArray.from_storage(ty3, storage)
 
     scalars_a = list(a)
     assert len(scalars_a) == 4
+
+    assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
+    assert type(a[0]) == UuidScalarType
+    assert type(scalars_a[0]) == UuidScalarType
 
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
@@ -220,17 +317,36 @@ def test_ext_scalar_from_array():
         assert s.type == ty1
         if val is not None:
             assert s.value == pa.scalar(val, storage.type)
+            assert s.as_py() == UUID(bytes=val)
         else:
             assert s.value is None
-        assert s.as_py() == val
 
     scalars_b = list(b)
     assert len(scalars_b) == 4
 
     for sa, sb in zip(scalars_a, scalars_b):
+        assert isinstance(sb, pa.ExtensionScalar)
         assert sa.is_valid == sb.is_valid
-        assert sa.as_py() == sb.as_py()
+        if sa.as_py() is None:
+            assert sa.as_py() == sb.as_py()
+        else:
+            assert sa.as_py().bytes == sb.as_py()
         assert sa != sb
+
+    scalars_c = list(c)
+    assert len(scalars_c) == 4
+
+    for s, val in zip(scalars_c, data):
+        assert isinstance(s, pa.ExtensionScalar)
+        assert s.is_valid == (val is not None)
+        assert s.type == ty3
+        if val is not None:
+            assert s.value == pa.scalar(val, storage.type)
+            assert s.as_py() == val
+        else:
+            assert s.value is None
+
+    assert a.to_pylist() == [UUID(bytes=x) if x else None for x in data]
 
 
 def test_ext_scalar_from_storage():
@@ -319,6 +435,58 @@ def test_ext_array_conversion_to_pandas():
     pd.testing.assert_series_equal(result, expected)
 
 
+@pytest.fixture
+def struct_w_ext_data():
+    storage1 = pa.array([1, 2, 3], type=pa.int64())
+    storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
+    ty1 = IntegerType()
+    ty2 = ParamExtType(3)
+
+    arr1 = pa.ExtensionArray.from_storage(ty1, storage1)
+    arr2 = pa.ExtensionArray.from_storage(ty2, storage2)
+
+    sarr1 = pa.StructArray.from_arrays([arr1], ["f0"])
+    sarr2 = pa.StructArray.from_arrays([arr2], ["f1"])
+
+    return [sarr1, sarr2]
+
+
+def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
+    # ARROW-15291
+    # Check that we don't segfault when trying to build
+    # a numpy array from a StructArray with a field being
+    # an ExtensionArray
+
+    result = struct_w_ext_data[0].to_numpy(zero_copy_only=False)
+    expected = np.array([{'f0': 1}, {'f0': 2},
+                         {'f0': 3}], dtype=object)
+    np.testing.assert_array_equal(result, expected)
+
+    result = struct_w_ext_data[1].to_numpy(zero_copy_only=False)
+    expected = np.array([{'f1': b'123'}, {'f1': b'456'},
+                         {'f1': b'789'}], dtype=object)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.pandas
+def test_struct_w_ext_array_to_pandas(struct_w_ext_data):
+    # ARROW-15291
+    # Check that we don't segfault when trying to build
+    # a Pandas dataframe from a StructArray with a field
+    # being an ExtensionArray
+    import pandas as pd
+
+    result = struct_w_ext_data[0].to_pandas()
+    expected = pd.Series([{'f0': 1}, {'f0': 2},
+                         {'f0': 3}], dtype=object)
+    pd.testing.assert_series_equal(result, expected)
+
+    result = struct_w_ext_data[1].to_pandas()
+    expected = pd.Series([{'f1': b'123'}, {'f1': b'456'},
+                         {'f1': b'789'}], dtype=object)
+    pd.testing.assert_series_equal(result, expected)
+
+
 def test_cast_kernel_on_extension_arrays():
     # test array casting
     storage = pa.array([1, 2, 3, 4], pa.int64())
@@ -353,6 +521,14 @@ def test_casting_to_extension_type_raises():
     arr = pa.array([1, 2, 3, 4], pa.int64())
     with pytest.raises(pa.ArrowNotImplementedError):
         arr.cast(IntegerType())
+
+
+def test_null_storage_type():
+    ext_type = AnnotatedType(pa.null(), {"key": "value"})
+    storage = pa.array([None] * 10, pa.null())
+    arr = pa.ExtensionArray.from_storage(ext_type, storage)
+    assert arr.null_count == 10
+    arr.validate(full=True)
 
 
 def example_batch():
@@ -734,3 +910,18 @@ def test_to_numpy():
     for result in [np.asarray(charr), charr.to_numpy()]:
         assert result.dtype == np.int64
         np.testing.assert_array_equal(result, np.array([], dtype='int64'))
+
+
+def test_empty_take():
+    # https://issues.apache.org/jira/browse/ARROW-13474
+    ext_type = IntegerType()
+    storage = pa.array([], type=pa.int64())
+    empty_arr = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = empty_arr.filter(pa.array([], pa.bool_()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
+
+    result = empty_arr.take(pa.array([], pa.int32()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)

@@ -64,7 +64,8 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
-            IArrowTypeVisitor<DictionaryType>
+            IArrowTypeVisitor<DictionaryType>,
+            IArrowTypeVisitor<FixedSizeBinaryType>
         {
             private FlatBufferBuilder Builder { get; }
 
@@ -208,6 +209,13 @@ namespace Apache.Arrow.Ipc
                 // pass through to the value type, as we've already captured the index
                 // type in the DictionaryEncoding metadata in the parent field
                 type.ValueType.Accept(this);
+            }
+            
+            public void Visit(FixedSizeBinaryType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FixedSizeBinary,
+                    Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
             }
 
             public void Visit(IArrowType type)

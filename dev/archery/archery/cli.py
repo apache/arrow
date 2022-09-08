@@ -18,7 +18,6 @@
 from collections import namedtuple
 from io import StringIO
 import click
-import errno
 import json
 import logging
 import os
@@ -118,11 +117,17 @@ def _apply_options(cmd, options):
 @cpp_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
+@click.option("--build-static", default=True, type=BOOL,
+              help="Build static libraries")
+@click.option("--build-shared", default=True, type=BOOL,
+              help="Build shared libraries")
+@click.option("--build-unity", default=True, type=BOOL,
+              help="Use CMAKE_UNITY_BUILD")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
-@click.option("--simd-level", default="SSE4_2", type=simd_level,
+@click.option("--simd-level", default="DEFAULT", type=simd_level,
               help="Toggles ARROW_SIMD_LEVEL option.")
 # Tests and benchmarks
 @click.option("--with-tests", default=True, type=BOOL,
@@ -157,6 +162,8 @@ def _apply_options(cmd, options):
               help="Build with Flight rpc support.")
 @click.option("--with-gandiva", default=None, type=BOOL,
               help="Build with Gandiva expression compiler support.")
+@click.option("--with-gcs", default=None, type=BOOL,
+              help="Build Arrow with Google Cloud Storage (GCS) support.")
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,
@@ -298,15 +305,22 @@ def lint(ctx, src, fix, iwyu_all, **checks):
         sys.exit(1)
 
 
+def _flatten_numpydoc_rules(rules):
+    flattened = []
+    for rule in rules:
+        flattened.extend(filter(None, rule.split(',')))
+    return flattened
+
+
 @archery.command(short_help="Lint python docstring with NumpyDoc")
 @click.argument('symbols', nargs=-1)
 @click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--allow-rule", "-a", multiple=True,
-              help="Allow only these rules")
+              help="Allow only these rules (can be comma-separated)")
 @click.option("--disallow-rule", "-d", multiple=True,
-              help="Disallow these rules")
+              help="Disallow these rules (can be comma-separated)")
 def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     Pass list of modules or symbols as arguments to restrict the validation.
@@ -321,8 +335,9 @@ def numpydoc(src, symbols, allow_rule, disallow_rule):
     """
     disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
-        results = python_numpydoc(symbols, allow_rules=allow_rule,
-                                  disallow_rules=disallow_rule)
+        results = python_numpydoc(
+            symbols, allow_rules=_flatten_numpydoc_rules(allow_rule),
+            disallow_rules=_flatten_numpydoc_rules(disallow_rule))
         for result in results:
             result.ok()
     except LintValidationException:
@@ -353,7 +368,7 @@ def benchmark_common_options(cmd):
                      is_flag=True,
                      help="Preserve workspace for investigation."),
         click.option("--output", metavar="<output>",
-                     type=click.File("w", encoding="utf8"), default="-",
+                     type=click.File("w", encoding="utf8"), default=None,
                      help="Capture output result into file."),
         click.option("--language", metavar="<lang>", type=str, default="cpp",
                      show_default=True, callback=check_language,
@@ -418,7 +433,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 src, root, rev_or_path, conf)
 
         for b in runner_base.list_benchmarks:
-            click.echo(b, file=output)
+            click.echo(b, file=output or sys.stdout)
 
 
 @benchmark.command(name="run", short_help="Run benchmark suite")
@@ -494,7 +509,12 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 repetitions=repetitions,
                 benchmark_filter=benchmark_filter)
 
-        json.dump(runner_base, output, cls=JsonEncoder)
+        # XXX for some reason, the benchmark runner only does its work
+        # when asked to JSON-serialize the results, so produce a JSON
+        # output even when none is requested.
+        json_out = json.dumps(runner_base, cls=JsonEncoder)
+        if output is not None:
+            output.write(json_out)
 
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
@@ -633,8 +653,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
         ren_counters = language == "java"
         formatted = _format_comparisons_with_pandas(comparisons_json,
                                                     no_counters, ren_counters)
-        output.write(formatted)
-        output.write('\n')
+        print(formatted, file=output or sys.stdout)
 
 
 def _get_comparisons_as_json(comparisons):
@@ -692,6 +711,8 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
+@click.option('--with-csharp', type=bool, default=False,
+              help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests')
 @click.option('--with-js', type=bool, default=False,
@@ -701,7 +722,7 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--write_generated_json', default=False,
+@click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
@@ -732,7 +753,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go', 'rust']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:
@@ -744,11 +765,7 @@ def integration(with_all=False, random_seed=12345, **args):
             enabled_languages += 1
 
     if gen_path:
-        try:
-            os.makedirs(gen_path)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
         if enabled_languages == 0:
@@ -769,138 +786,6 @@ def trigger_bot(event_name, event_payload, arrow_token):
 
     bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
     bot.handle(event_name, event_payload)
-
-
-@archery.group('release')
-@click.option("--src", metavar="<arrow_src>", default=None,
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory.")
-@click.option("--jira-cache", type=click.Path(), default=None,
-              help="File path to cache queried JIRA issues per version.")
-@click.pass_obj
-def release(obj, src, jira_cache):
-    """Release releated commands."""
-    from .release import Jira, CachedJira
-
-    jira = Jira()
-    if jira_cache is not None:
-        jira = CachedJira(jira_cache, jira=jira)
-
-    obj['jira'] = jira
-    obj['repo'] = src.path
-
-
-@release.command('curate')
-@click.argument('version')
-@click.pass_obj
-def release_curate(obj, version):
-    """Release curation."""
-    from .release import Release
-
-    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
-    curation = release.curate()
-
-    click.echo(curation.render('console'))
-
-
-@release.group('changelog')
-def release_changelog():
-    """Release changelog."""
-    pass
-
-
-@release_changelog.command('add')
-@click.argument('version')
-@click.pass_obj
-def release_changelog_add(obj, version):
-    """Prepend the changelog with the current release"""
-    from .release import Release
-
-    jira, repo = obj['jira'], obj['repo']
-
-    # just handle the current version
-    release = Release.from_jira(version, jira=jira, repo=repo)
-    if release.is_released:
-        raise ValueError('This version has been already released!')
-
-    changelog = release.changelog()
-    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
-
-    current_content = changelog_path.read_text()
-    new_content = changelog.render('markdown') + current_content
-
-    changelog_path.write_text(new_content)
-    click.echo("CHANGELOG.md is updated!")
-
-
-@release_changelog.command('generate')
-@click.argument('version')
-@click.argument('output', type=click.File('w', encoding='utf8'), default='-')
-@click.pass_obj
-def release_changelog_generate(obj, version, output):
-    """Generate the changelog of a specific release."""
-    from .release import Release
-
-    jira, repo = obj['jira'], obj['repo']
-
-    # just handle the current version
-    release = Release.from_jira(version, jira=jira, repo=repo)
-
-    changelog = release.changelog()
-    output.write(changelog.render('markdown'))
-
-
-@release_changelog.command('regenerate')
-@click.pass_obj
-def release_changelog_regenerate(obj):
-    """Regeneretate the whole CHANGELOG.md file"""
-    from .release import Release
-
-    jira, repo = obj['jira'], obj['repo']
-    changelogs = []
-
-    for version in jira.arrow_versions():
-        if not version.released:
-            continue
-        release = Release.from_jira(version, jira=jira, repo=repo)
-        click.echo('Querying changelog for version: {}'.format(version))
-        changelogs.append(release.changelog())
-
-    click.echo('Rendering new CHANGELOG.md file...')
-    changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
-    with changelog_path.open('w') as fp:
-        for cl in changelogs:
-            fp.write(cl.render('markdown'))
-
-
-@release.command('cherry-pick')
-@click.argument('version')
-@click.option('--dry-run/--execute', default=True,
-              help="Display the git commands instead of executing them.")
-@click.option('--recreate/--continue', default=True,
-              help="Recreate the maintenance branch or only apply unapplied "
-                   "patches.")
-@click.pass_obj
-def release_cherry_pick(obj, version, dry_run, recreate):
-    """
-    Cherry pick commits.
-    """
-    from .release import Release, MinorRelease, PatchRelease
-
-    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
-    if not isinstance(release, (MinorRelease, PatchRelease)):
-        raise click.UsageError('Cherry-pick command only supported for minor '
-                               'and patch releases')
-
-    if not dry_run:
-        release.cherry_pick_commits(recreate_branch=recreate)
-        click.echo('Executed the following commands:\n')
-
-    click.echo(
-        'git checkout {} -b {}'.format(release.previous.tag, release.branch)
-    )
-    for commit in release.commits_to_pick():
-        click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
 @archery.group("linking")
@@ -932,6 +817,8 @@ def linking_check_dependencies(obj, allowed, disallowed, paths):
 
 
 add_optional_command("docker", module=".docker.cli", function="docker",
+                     parent=archery)
+add_optional_command("release", module=".release.cli", function="release",
                      parent=archery)
 add_optional_command("crossbow", module=".crossbow.cli", function="crossbow",
                      parent=archery)

@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <vector>
 
 #include <gtest/gtest.h>

@@ -56,6 +56,7 @@
 #' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
 #' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
 #' - `$length()`: Size in the number of elements this array contains
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the array
 #' - `$offset`: A relative position into another array's data, to enable zero-copy slicing
 #' - `$null_count`: The number of null entries in the array
 #' - `$type`: logical type of data
@@ -84,7 +85,7 @@
 #'
 #' @rdname array
 #' @name array
-#' @examplesIf arrow_available()
+#' @examples
 #' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())
@@ -112,6 +113,7 @@ Array <- R6Class("Array",
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
     type_id = function() Array__type_id(self),
+    nbytes = function() Array__ReferencedBufferSize(self),
     Equals = function(other, ...) {
       inherits(other, "Array") && Array__Equals(self, other)
     },
@@ -153,12 +155,6 @@ Array <- R6Class("Array",
       assert_is(i, "Array")
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
-    SortIndices = function(descending = FALSE) {
-      assert_that(is.logical(descending))
-      assert_that(length(descending) == 1L)
-      assert_that(!is.na(descending))
-      call_function("array_sort_indices", self, options = list(order = descending))
-    },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
@@ -166,6 +162,7 @@ Array <- R6Class("Array",
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
     },
+    Same = function(other) Array__Same(self, other),
     Validate = function() Array__Validate(self),
     export_to_c = function(array_ptr, schema_ptr) ExportArray(self, array_ptr, schema_ptr)
   ),
@@ -179,6 +176,9 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
+  if (is.null(x) && is.null(type)) {
+    type <- null()
+  }
   if (inherits(x, "Scalar")) {
     out <- x$as_array()
     if (!is.null(type)) {
@@ -186,10 +186,204 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
-  vec_to_arrow(x, type)
+
+  if (is.null(type)) {
+    return(vec_to_Array(x, type))
+  }
+
+  # when a type is given, try to create a vector of the desired type. If that
+  # fails, attempt to cast and if casting is successful, suggest to the user
+  # to try casting manually. If the casting fails, return the original error
+  # message.
+  tryCatch(
+    vec_to_Array(x, type),
+    error = function(cnd) {
+      attempt <- try(vec_to_Array(x, NULL)$cast(type), silent = TRUE)
+      abort(
+        c(conditionMessage(cnd),
+          i = if (!inherits(attempt, "try-error")) {
+            "You might want to try casting manually with `Array$create(...)$cast(...)`."
+          }
+        )
+      )
+    }
+  )
 }
+
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
+
+
+#' Convert an object to an Arrow Array
+#'
+#' The `as_arrow_array()` function is identical to `Array$create()` except
+#' that it is an S3 generic, which allows methods to be defined in other
+#' packages to convert objects to [Array]. `Array$create()` is slightly faster
+#' because it tries to convert in C++ before falling back on
+#' `as_arrow_array()`.
+#'
+#' @param x An object to convert to an Arrow Array
+#' @param ... Passed to S3 methods
+#' @param type A [type][data-type] for the final Array. A value of `NULL`
+#'   will default to the type guessed by [infer_type()].
+#'
+#' @return An [Array] with type `type`.
+#' @export
+#'
+#' @examples
+#' as_arrow_array(1:5)
+#'
+as_arrow_array <- function(x, ..., type = NULL) {
+  UseMethod("as_arrow_array")
+}
+
+#' @export
+as_arrow_array.default <- function(x, ..., type = NULL, from_vec_to_array = FALSE) {
+  # If from_vec_to_array is TRUE, this is a call from C++ after
+  # trying the internal C++ conversion and S3 dispatch has failed
+  # failed to find a method for the object. This call happens when creating
+  # Array, ChunkedArray, RecordBatch, and Table objects from data.frame
+  # if the internal C++ conversion (faster and can usually be parallelized)
+  # is not implemented. If the C++ call has reached this default method,
+  # we error. If from_vec_to_array is FALSE, we call vec_to_Array to use the
+  # internal C++ conversion.
+  if (from_vec_to_array) {
+    # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
+    # extension type.
+    if (vctrs::vec_is(x) && is.null(type)) {
+      vctrs_extension_array(x)
+    } else if (vctrs::vec_is(x) && inherits(type, "VctrsExtensionType")) {
+      vctrs_extension_array(
+        x,
+        ptype = type$ptype(),
+        storage_type = type$storage_type()
+      )
+    } else {
+      stop_cant_convert_array(x, type)
+    }
+  } else {
+    vec_to_Array(x, type)
+  }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Array <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    x
+  } else {
+    x$cast(type)
+  }
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.Scalar <- function(x, ..., type = NULL) {
+  as_arrow_array(x$as_array(), ..., type = type)
+}
+
+#' @rdname as_arrow_array
+#' @export
+as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
+  concat_arrays(!!!x$chunks, type = type)
+}
+
+# data.frame conversion can happen in C++ when all the columns can be
+# converted in C++ and when `type` is not an ExtensionType; however,
+# when calling as_arrow_array(), this method will get called regardless
+# of whether or not this can or can't happen.
+#' @export
+as_arrow_array.data.frame <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+
+  if (inherits(type, "VctrsExtensionType")) {
+    storage <- as_arrow_array(x, type = type$storage_type())
+    new_extension_array(storage, type)
+  } else if (inherits(type, "StructType")) {
+    fields <- type$fields()
+    names <- map_chr(fields, "name")
+    types <- map(fields, "type")
+    arrays <- Map(as_arrow_array, x, types)
+    names(arrays) <- names
+
+    # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
+    batch <- record_batch(!!!arrays)
+    array_ptr <- allocate_arrow_array()
+    schema_ptr <- allocate_arrow_schema()
+    on.exit({
+      delete_arrow_array(array_ptr)
+      delete_arrow_schema(schema_ptr)
+    })
+
+    batch$export_to_c(array_ptr, schema_ptr)
+    Array$import_from_c(array_ptr, schema_ptr)
+  } else {
+    stop_cant_convert_array(x, type)
+  }
+}
+
+stop_cant_convert_array <- function(x, type) {
+  if (is.null(type)) {
+    abort(
+      sprintf(
+        "Can't create Array from object of type %s",
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  } else {
+    abort(
+      sprintf(
+        "Can't create Array<%s> from object of type %s",
+        format(type$code()),
+        paste(class(x), collapse = " / ")
+      ),
+      call = rlang::caller_env()
+    )
+  }
+}
+
+#' Concatenate zero or more Arrays
+#'
+#' Concatenates zero or more [Array] objects into a single
+#' array. This operation will make a copy of its input; if you need
+#' the behavior of a single Array but don't need a
+#' single object, use [ChunkedArray].
+#'
+#' @param ... zero or more [Array] objects to concatenate
+#' @param type An optional `type` describing the desired
+#'   type for the final Array.
+#'
+#' @return A single [Array]
+#' @export
+#'
+#' @examples
+#' concat_arrays(Array$create(1:3), Array$create(4:5))
+concat_arrays <- function(..., type = NULL) {
+  dots <- lapply(list2(...), Array$create, type = type)
+
+  if (length(dots) == 0 && is.null(type)) {
+    return(Array$create(logical(), type = null()))
+  } else if (length(dots) == 0) {
+    return(Array$create(logical(), type = null())$cast(type))
+  }
+
+  if (!is.null(type)) {
+    dots <- lapply(dots, function(array) array$cast(type))
+  }
+
+  arrow__Concatenate(dots)
+}
+
+#' @rdname concat_arrays
+#' @export
+c.Array <- function(...) {
+  abort(c(
+    "Use `concat_arrays()` or `ChunkedArray$create()` instead.",
+    i = "`concat_arrays()` creates a new Array by copying data.",
+    i = "`ChunkedArray$create()` uses the arrays as chunks for zero-copy concatenation."
+  ))
+}
 
 #' @rdname array
 #' @usage NULL
@@ -327,3 +521,17 @@ is.Array <- function(x, type = NULL) { # nolint
   }
   is_it
 }
+
+#' @rdname array
+#' @usage NULL
+#' @format NULL
+#' @export
+MapArray <- R6Class("MapArray",
+  inherit = ListArray,
+  public = list(
+    keys = function() MapArray__keys(self),
+    items = function() MapArray__items(self),
+    keys_nested = function() MapArray__keys_nested(self),
+    items_nested = function() MapArray__items_nested(self)
+  )
+)

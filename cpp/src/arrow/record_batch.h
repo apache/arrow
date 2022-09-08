@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -59,6 +60,17 @@ class ARROW_EXPORT RecordBatch {
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<ArrayData>> columns);
+
+  /// \brief Create an empty RecordBatch of a given schema
+  ///
+  /// The output RecordBatch will be created with DataTypes from
+  /// the given schema.
+  ///
+  /// \param[in] schema the schema of the empty RecordBatch
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the resulting RecordBatch
+  static Result<std::shared_ptr<RecordBatch>> MakeEmpty(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
 
   /// \brief Convert record batch to struct array
   ///
@@ -130,6 +142,10 @@ class ARROW_EXPORT RecordBatch {
       int i, std::string field_name, const std::shared_ptr<Array>& column) const;
 
   /// \brief Replace a column in the record batch, producing a new RecordBatch
+  ///
+  /// \param[in] i field index, does boundscheck
+  /// \param[in] field field to be replaced
+  /// \param[in] column column to be replaced
   virtual Result<std::shared_ptr<RecordBatch>> SetColumn(
       int i, const std::shared_ptr<Field>& field,
       const std::shared_ptr<Array>& column) const = 0;
@@ -195,12 +211,17 @@ class ARROW_EXPORT RecordBatch {
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };
 
+struct ARROW_EXPORT RecordBatchWithMetadata {
+  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
   using ValueType = std::shared_ptr<RecordBatch>;
 
-  virtual ~RecordBatchReader() = default;
+  virtual ~RecordBatchReader();
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -212,6 +233,10 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
+  virtual Result<RecordBatchWithMetadata> ReadNext() {
+    return Status::NotImplemented("ReadNext with custom metadata");
+  }
+
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {
     std::shared_ptr<RecordBatch> batch;
@@ -219,10 +244,81 @@ class ARROW_EXPORT RecordBatchReader {
     return batch;
   }
 
+  /// \brief finalize reader
+  virtual Status Close() { return Status::OK(); }
+
+  class RecordBatchReaderIterator {
+   public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = std::shared_ptr<RecordBatch>;
+    using pointer = value_type const*;
+    using reference = value_type const&;
+
+    RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
+
+    explicit RecordBatchReaderIterator(RecordBatchReader* reader)
+        : batch_(RecordBatchEnd()), reader_(reader) {
+      Next();
+    }
+
+    bool operator==(const RecordBatchReaderIterator& other) const {
+      return batch_ == other.batch_;
+    }
+
+    bool operator!=(const RecordBatchReaderIterator& other) const {
+      return !(*this == other);
+    }
+
+    Result<std::shared_ptr<RecordBatch>> operator*() {
+      ARROW_RETURN_NOT_OK(batch_.status());
+
+      return batch_;
+    }
+
+    RecordBatchReaderIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    RecordBatchReaderIterator operator++(int) {
+      RecordBatchReaderIterator tmp(*this);
+      Next();
+      return tmp;
+    }
+
+   private:
+    std::shared_ptr<RecordBatch> RecordBatchEnd() {
+      return std::shared_ptr<RecordBatch>(NULLPTR);
+    }
+
+    void Next() {
+      if (reader_ == NULLPTR) {
+        batch_ = RecordBatchEnd();
+        return;
+      }
+      batch_ = reader_->Next();
+    }
+
+    Result<std::shared_ptr<RecordBatch>> batch_;
+    RecordBatchReader* reader_;
+  };
+  /// \brief Return an iterator to the first record batch in the stream
+  RecordBatchReaderIterator begin() { return RecordBatchReaderIterator(this); }
+
+  /// \brief Return an iterator to the end of the stream
+  RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
+
   /// \brief Consume entire stream as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
   Status ReadAll(RecordBatchVector* batches);
 
   /// \brief Read all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
   Status ReadAll(std::shared_ptr<Table>* table);
 
   /// \brief Create a RecordBatchReader from a vector of RecordBatch.
@@ -232,6 +328,13 @@ class ARROW_EXPORT RecordBatchReader {
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+
+  /// \brief Create a RecordBatchReader from an Iterator of RecordBatch.
+  ///
+  /// \param[in] batches an iterator of RecordBatch to read from.
+  /// \param[in] schema schema that each record batch in iterator will conform to.
+  static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
+      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 
 }  // namespace arrow

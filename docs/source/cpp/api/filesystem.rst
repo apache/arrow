@@ -42,8 +42,14 @@ High-level factory function
 Concrete implementations
 ========================
 
+"Subtree" filesystem wrapper
+----------------------------
+
 .. doxygenclass:: arrow::fs::SubTreeFileSystem
    :members:
+
+Local filesystem
+----------------
 
 .. doxygenstruct:: arrow::fs::LocalFileSystemOptions
    :members:
@@ -51,14 +57,29 @@ Concrete implementations
 .. doxygenclass:: arrow::fs::LocalFileSystem
    :members:
 
+S3 filesystem
+-------------
+
 .. doxygenstruct:: arrow::fs::S3Options
    :members:
 
 .. doxygenclass:: arrow::fs::S3FileSystem
    :members:
 
+Hadoop filesystem
+-----------------
+
 .. doxygenstruct:: arrow::fs::HdfsOptions
    :members:
 
 .. doxygenclass:: arrow::fs::HadoopFileSystem
+   :members:
+
+Google Cloud Storage filesystem
+-------------------------------
+
+.. doxygenstruct:: arrow::fs::GcsOptions
+   :members:
+
+.. doxygenclass:: arrow::fs::GcsFileSystem
    :members:

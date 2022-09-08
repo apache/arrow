@@ -55,11 +55,4 @@ Stream Classes
 File Systems
 ------------
 
-.. autosummary::
-   :toctree: ../generated/
-
-   hdfs.connect
-   LocalFileSystem
-
-.. class:: HadoopFileSystem
-   :noindex:
+See :ref:`api.fs`.

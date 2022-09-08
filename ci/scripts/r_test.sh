@@ -26,6 +26,22 @@ pushd ${source_dir}
 
 printenv
 
+# Run the nixlibs.R test suite, which is not included in the installed package
+ ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+
+# Before release, we always copy the relevant parts of the cpp source into the
+# package. In some CI checks, we will use this version of the source:
+# this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"
+# (which is where the arrow git checkout is found in docker and other CI jobs)
+# In the other CI checks the files are synced but ignored.
+make sync-cpp
+
+if [ "$ARROW_R_FORCE_TESTS" = "true" ]; then
+  export ARROW_R_DEV=TRUE
+  export NOT_CRAN=true
+  export ARROW_LARGE_MEMORY_TESTS=TRUE
+fi
+
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
@@ -41,12 +57,10 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
     export NOT_CRAN=true
   fi
 fi
-: ${TEST_R_WITH_ARROW:=TRUE}
-export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 # --run-donttest was used in R < 4.0, this is used now
-export _R_CHECK_DONTTEST_EXAMPLES_=$TEST_R_WITH_ARROW
+export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
@@ -55,6 +69,9 @@ export _R_CHECK_TESTS_NLINES_=0
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
+
+# Enable memory debug checks.
+export ARROW_DEBUG_MEMORY_POOL=trap
 
 # Hack so that texlive2020 doesn't pollute the home dir
 export TEXMFCONFIG=/tmp/texmf-config
@@ -80,9 +97,24 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       message('Running minio for S3 tests (if build supports them)')
       minio_dir <- tempfile()
       dir.create(minio_dir)
-      pid <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid))
+      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
+      on.exit(tools::pskill(pid_minio), add = TRUE)
     }
+  }
+
+  if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
+      message('Running flight demo server for tests.')
+      pid_flight <- sys::exec_background(
+          'python',
+          c(
+              '-c',
+              paste0(
+                  '__import__(\"sys\").path.append(\"./inst\"); ',
+                  '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
+              )
+          )
+      )
+      on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')

@@ -16,6 +16,8 @@
 # under the License.
 
 class TestStructScalar < Test::Unit::TestCase
+  include Helper::Buildable
+
   def setup
     fields = [
       Arrow::Field.new("score", Arrow::Int8DataType.new),
@@ -51,5 +53,18 @@ class TestStructScalar < Test::Unit::TestCase
 
   def test_value
     assert_equal(@value, @scalar.value)
+  end
+
+  def test_from_cpp
+    min_max = Arrow::Function.find("min_max")
+    args = [
+      Arrow::ArrayDatum.new(build_int8_array([0, 2, -4])),
+    ]
+    scalar = min_max.execute(args).value
+    assert_equal([
+                   Arrow::Int8Scalar.new(-4),
+                   Arrow::Int8Scalar.new(2),
+                 ],
+                 scalar.value)
   end
 end

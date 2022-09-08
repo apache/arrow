@@ -50,6 +50,8 @@ G_BEGIN_DECLS
  *
  * #GArrowBufferInputStream is a class to read data on buffer.
  *
+ * #GArrowFileInputStream is a class to read data in file.
+ *
  * #GArrowMemoryMappedInputStream is a class to read data in file by
  * mapping the file on memory. It supports zero copy.
  *
@@ -631,6 +633,86 @@ garrow_buffer_input_stream_get_buffer(GArrowBufferInputStream *input_stream)
 }
 
 
+G_DEFINE_TYPE(GArrowFileInputStream,
+              garrow_file_input_stream,
+              GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+
+static void
+garrow_file_input_stream_init(GArrowFileInputStream *object)
+{
+}
+
+static void
+garrow_file_input_stream_class_init(GArrowFileInputStreamClass *klass)
+{
+}
+
+/**
+ * garrow_file_input_stream_new:
+ * @path: The path of the file to be opened.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowFileInputStream
+ *   or %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GArrowFileInputStream *
+garrow_file_input_stream_new(const gchar *path,
+                             GError **error)
+{
+  auto arrow_stream_result = arrow::io::ReadableFile::Open(path);
+  if (garrow::check(error, arrow_stream_result, "[file-input-stream][new]")) {
+    auto arrow_stream = *arrow_stream_result;
+    return garrow_file_input_stream_new_raw(&arrow_stream);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_file_input_stream_new_file_descriptor:
+ * @file_descriptor: The file descriptor of this input stream.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowFileInputStream
+ *   or %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GArrowFileInputStream *
+garrow_file_input_stream_new_file_descriptor(gint file_descriptor,
+                                             GError **error)
+{
+  auto arrow_stream_result = arrow::io::ReadableFile::Open(file_descriptor);
+  if (garrow::check(error,
+                    arrow_stream_result,
+                    "[file-input-stream][new-file-descriptor]")) {
+    auto arrow_stream = *arrow_stream_result;
+    return garrow_file_input_stream_new_raw(&arrow_stream);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_file_input_stream_get_file_descriptor:
+ * @stream: A #GArrowFileInuptStream.
+ *
+ * Returns: The file descriptor of @stream.
+ *
+ * Since: 6.0.0
+ */
+gint
+garrow_file_input_stream_get_file_descriptor(GArrowFileInputStream *stream)
+{
+  auto arrow_stream =
+    std::static_pointer_cast<arrow::io::ReadableFile>(
+      garrow_input_stream_get_raw(GARROW_INPUT_STREAM(stream)));
+  return arrow_stream->file_descriptor();
+}
+
+
 G_DEFINE_TYPE(GArrowMemoryMappedInputStream,
               garrow_memory_mapped_input_stream,
               GARROW_TYPE_SEEKABLE_INPUT_STREAM);
@@ -657,18 +739,14 @@ GArrowMemoryMappedInputStream *
 garrow_memory_mapped_input_stream_new(const gchar *path,
                                       GError **error)
 {
-  auto arrow_memory_mapped_file_result =
-    arrow::io::MemoryMappedFile::Open(std::string(path),
-                                      arrow::io::FileMode::READ);
-  if (arrow_memory_mapped_file_result.ok()) {
-    auto arrow_memory_mapped_file =
-      arrow_memory_mapped_file_result.ValueOrDie();
-    return garrow_memory_mapped_input_stream_new_raw(&(arrow_memory_mapped_file));
+  auto arrow_stream_result =
+    arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+  if (garrow::check(error,
+                    arrow_stream_result,
+                    "[memory-mapped-input-stream][new]")) {
+    auto arrow_stream = *arrow_stream_result;
+    return garrow_memory_mapped_input_stream_new_raw(&arrow_stream);
   } else {
-    std::string context("[memory-mapped-input-stream][open]: <");
-    context += path;
-    context += ">";
-    garrow::check(error, arrow_memory_mapped_file_result, context.c_str());
     return NULL;
   }
 }
@@ -710,7 +788,8 @@ namespace garrow {
     }
 
     arrow::Result<int64_t> Tell() const override {
-      if (!G_IS_SEEKABLE(input_stream_)) {
+      if (!(G_IS_SEEKABLE(input_stream_) &&
+            g_seekable_can_seek(G_SEEKABLE(input_stream_)))) {
         std::string message("[gio-input-stream][tell] "
                             "not seekable input stream: <");
         message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));
@@ -724,17 +803,19 @@ namespace garrow {
     arrow::Result<int64_t> Read(int64_t n_bytes, void *out) override {
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
-      auto n_read_bytes = g_input_stream_read(input_stream_,
-                                              out,
-                                              n_bytes,
-                                              NULL,
-                                              &error);
-      if (n_read_bytes == -1) {
+      gsize n_read_bytes = 0;
+      auto success = g_input_stream_read_all(input_stream_,
+                                             out,
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
+        return n_read_bytes;
+      } else {
         return garrow_error_to_status(error,
                                       arrow::StatusCode::IOError,
                                       "[gio-input-stream][read]");
-      } else {
-        return n_read_bytes;
       }
     }
 
@@ -755,20 +836,22 @@ namespace garrow {
 
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
-      auto n_read_bytes = g_input_stream_read(input_stream_,
-                                              buffer->mutable_data(),
-                                              n_bytes,
-                                              NULL,
-                                              &error);
-      if (n_read_bytes == -1) {
-        return garrow_error_to_status(error,
-                                      arrow::StatusCode::IOError,
-                                      "[gio-input-stream][read][buffer]");
-      } else {
-        if (n_read_bytes < n_bytes) {
+      gsize n_read_bytes = 0;
+      auto success = g_input_stream_read_all(input_stream_,
+                                             buffer->mutable_data(),
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
+        if (n_read_bytes < static_cast<gsize>(n_bytes)) {
           RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
         return std::move(buffer);
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read][buffer]");
       }
     }
 
@@ -1203,15 +1286,27 @@ garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *buffer_input_stream)
   return arrow_buffer_reader;
 }
 
-GArrowMemoryMappedInputStream *
-garrow_memory_mapped_input_stream_new_raw(std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_memory_mapped_file)
+
+GArrowFileInputStream *
+garrow_file_input_stream_new_raw(
+  std::shared_ptr<arrow::io::ReadableFile> *arrow_stream)
 {
-  auto object = g_object_new(GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM,
-                             "input-stream", arrow_memory_mapped_file,
-                             NULL);
-  auto memory_mapped_input_stream = GARROW_MEMORY_MAPPED_INPUT_STREAM(object);
-  return memory_mapped_input_stream;
+  return GARROW_FILE_INPUT_STREAM(g_object_new(GARROW_TYPE_FILE_INPUT_STREAM,
+                                               "input-stream", arrow_stream,
+                                               NULL));
 }
+
+
+GArrowMemoryMappedInputStream *
+garrow_memory_mapped_input_stream_new_raw(
+  std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_stream)
+{
+  return GARROW_MEMORY_MAPPED_INPUT_STREAM(
+    g_object_new(GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM,
+                 "input-stream", arrow_stream,
+                 NULL));
+}
+
 
 GArrowCompressedInputStream *
 garrow_compressed_input_stream_new_raw(std::shared_ptr<arrow::io::CompressedInputStream> *arrow_raw,

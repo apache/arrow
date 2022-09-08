@@ -421,7 +421,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testUnionVectorClearAndSet() {
-    try (final UnionVector vector = new UnionVector("", allocator, null)) {
+    try (final UnionVector vector = new UnionVector("", allocator, /* field type */ null, /* call-back */ null)) {
       vector.allocateNewSafe(); // Initial allocation
 
       NullableIntHolder holder = new NullableIntHolder();

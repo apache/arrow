@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.avro.Schema;
@@ -42,13 +43,15 @@ public class ParquetWriteSupport implements AutoCloseable {
   private final Schema avroSchema;
   private final List<GenericRecord> writtenRecords = new ArrayList<>();
   private final GenericRecordListBuilder recordListBuilder = new GenericRecordListBuilder();
+  private final Random random = new Random();
 
 
   public ParquetWriteSupport(String schemaName, File outputFolder) throws Exception {
     avroSchema = readSchemaFromFile(schemaName);
-    path = outputFolder.getPath() + File.separator + "generated.parquet";
+    path = outputFolder.getPath() + File.separator + "generated-" + random.nextLong() + ".parquet";
     uri = "file://" + path;
-    writer = AvroParquetWriter.<GenericRecord>builder(new org.apache.hadoop.fs.Path(path))
+    writer = AvroParquetWriter
+        .<GenericRecord>builder(new org.apache.hadoop.fs.Path(path))
         .withSchema(avroSchema)
         .build();
   }

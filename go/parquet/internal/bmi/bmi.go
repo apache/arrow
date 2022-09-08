@@ -254,7 +254,7 @@ func extractBitsGo(bitmap, selectBitmap uint64) uint64 {
 	for selectBitmap != 0 {
 		maskLen := bits.OnesCount32(uint32(selectBitmap & lookupMask))
 		value := pextTable[selectBitmap&lookupMask][bitmap&lookupMask]
-		bitValue |= uint64(value << bitLen)
+		bitValue |= uint64(value) << bitLen
 		bitLen += maskLen
 		bitmap >>= lookupBits
 		selectBitmap >>= lookupBits

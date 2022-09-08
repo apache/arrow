@@ -26,9 +26,9 @@ MINICONDA=$HOME/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$HOME/local-libs
 CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
-PYTHON=3.7
+PYTHON=3.10
 
-git clone https://github.com/apache/arrow.git /arrow
+git config --global --add safe.directory $ARROW_ROOT
 
 #----------------------------------------------------------------------
 # Run these only once
@@ -54,7 +54,7 @@ function setup_miniconda() {
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_python.txt \
         compilers \
-        python=3.7 \
+        python=$PYTHON \
         pandas
 
   export PATH=$LOCAL_PATH
@@ -79,14 +79,12 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
-      -DARROW_FLIGHT=ON \
       -DARROW_WITH_BZ2=ON \
       -DARROW_WITH_ZLIB=ON \
       -DARROW_WITH_ZSTD=ON \
       -DARROW_WITH_LZ4=ON \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
-      -DARROW_PARQUET=ON \
       -DARROW_PLASMA=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
@@ -101,19 +99,13 @@ pushd $ARROW_ROOT/python
 
 rm -rf build/  # remove any pesky pre-existing build directory
 
+export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
-export PYARROW_WITH_FLIGHT=1
-export PYARROW_WITH_PARQUET=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick
 
 # python setup.py build_ext --inplace
 python setup.py develop
-
-# git submodules are required for unit tests
-git submodule update --init
-export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
-export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
 
 py.test pyarrow

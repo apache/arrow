@@ -15,12 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# NOTE: You must update PYTHON_WHEEL_WINDOWS_IMAGE_REVISION in .env
+# when you update this file.
+
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2017 preinstalled
-FROM abrarov/msvc-2017:2.10.0
+FROM abrarov/msvc-2017:2.11.0
 
 # Install CMake and Ninja
-RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
+ARG cmake=3.21.4
+RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System' && \
     choco install --no-progress -r -y gzip wget ninja
 
 # Add unix tools to path
@@ -31,16 +35,13 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 # Compiling vcpkg itself from a git tag doesn't work anymore since vcpkg has
 # started to ship precompiled binaries for the vcpkg-tool.
 ARG vcpkg
-RUN git clone https://github.com/Microsoft/vcpkg && \
-    vcpkg\bootstrap-vcpkg.bat -disableMetrics && \
-    setx PATH "%PATH%;C:\vcpkg" && \
-    git -C vcpkg checkout %vcpkg%
-
-# Patch ports files as needed
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
-RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
+COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+ENV VCPKG_ROOT=C:\\vcpkg
+RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
+    setx PATH "%PATH%;%VCPKG_ROOT%"
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
@@ -50,54 +51,47 @@ RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type} \
-    VCPKG_FEATURE_FLAGS=-manifests
-
-RUN vcpkg install --clean-after-build \
-        abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-filesystem \
-        boost-multiprecision \
-        boost-system \
-        brotli \
-        bzip2 \
-        c-ares \
-        curl \
-        flatbuffers \
-        gflags \
-        glog \
-        grpc \
-        lz4 \
-        openssl \
-        orc \
-        protobuf \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift \
-        utf8proc \
-        zlib \
-        zstd
+    VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
+    VCPKG_FEATURE_FLAGS="manifests"
+COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
+# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
+# ssl related fixies as well as we can patch the vcpkg portfile to support
+# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
+# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
+# previous versions => use bundled S3 build
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=%VCPKG_ROOT%\installed \
+        --x-manifest-root=arrow/ci/vcpkg \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet
 
 # Remove previous installations of python from the base image
+# NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
+# and the msi installers are failing to remove pip and tcl/tk "products" making
+# the subsequent choco python installation step failing for installing python
+# version 3.9.* due to existing python version
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
-ARG python=3.6
-RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
-    (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.4) & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.6) & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.1)
+ARG python=3.8
+RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.9" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.7" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.2" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN python -m pip install -U pip
+RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-RUN pip install -r arrow/python/requirements-wheel-build.txt
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
-# TODO(kszucs): set clcache as the compiler
-ENV CLCACHE_DIR="C:\clcache"
-RUN pip install clcache
+# ENV CLCACHE_DIR="C:\clcache"
+# ENV CLCACHE_COMPRESS=1
+# ENV CLCACHE_COMPRESSLEVEL=6
+# RUN pip install git+https://github.com/Nuitka/clcache.git
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip

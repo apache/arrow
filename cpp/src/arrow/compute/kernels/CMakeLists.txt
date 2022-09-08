@@ -24,13 +24,13 @@ add_arrow_compute_test(scalar_test
                        scalar_boolean_test.cc
                        scalar_cast_test.cc
                        scalar_compare_test.cc
+                       scalar_if_else_test.cc
                        scalar_nested_test.cc
+                       scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_string_test.cc
                        scalar_temporal_test.cc
                        scalar_validity_test.cc
-                       scalar_fill_null_test.cc
-                       scalar_if_else_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
@@ -38,24 +38,29 @@ add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_random_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Vector kernels
 
 add_arrow_compute_test(vector_test
                        SOURCES
+                       vector_cumulative_ops_test.cc
                        vector_hash_test.cc
                        vector_nested_test.cc
                        vector_replace_test.cc
                        vector_selection_test.cc
                        vector_sort_test.cc
+                       select_k_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
@@ -70,3 +75,8 @@ add_arrow_compute_test(aggregate_test
                        hash_aggregate_test.cc
                        test_util.cc)
 add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+
+# ----------------------------------------------------------------------
+# Utilities
+
+add_arrow_compute_test(kernel_utility_test SOURCES codegen_internal_test.cc)

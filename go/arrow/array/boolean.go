@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of boolean values.
@@ -35,13 +36,15 @@ type Boolean struct {
 // The nullBitmap buffer can be nil of there are no null values.
 // If nulls is not known, use UnknownNullCount to calculate the value of NullN at runtime from the nullBitmap buffer.
 func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, nulls int) *Boolean {
-	return NewBooleanData(NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls, 0))
+	arrdata := NewData(arrow.FixedWidthTypes.Boolean, length, []*memory.Buffer{nullBitmap, data}, nil, nulls, 0)
+	defer arrdata.Release()
+	return NewBooleanData(arrdata)
 }
 
-func NewBooleanData(data *Data) *Boolean {
+func NewBooleanData(data arrow.ArrayData) *Boolean {
 	a := &Boolean{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -78,6 +81,25 @@ func (a *Boolean) setData(data *Data) {
 	}
 }
 
+func (a *Boolean) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.Value(i)
+	}
+	return nil
+}
+
+func (a *Boolean) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		if a.IsValid(i) {
+			vals[i] = a.Value(i)
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
+}
+
 func arrayEqualBoolean(left, right *Boolean) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -91,5 +113,5 @@ func arrayEqualBoolean(left, right *Boolean) bool {
 }
 
 var (
-	_ Interface = (*Boolean)(nil)
+	_ arrow.Array = (*Boolean)(nil)
 )

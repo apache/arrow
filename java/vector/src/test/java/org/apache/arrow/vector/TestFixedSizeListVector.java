@@ -165,8 +165,10 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testTransferPair() {
-    try (FixedSizeListVector from = new FixedSizeListVector("from", allocator, 2, null, null);
-         FixedSizeListVector to = new FixedSizeListVector("to", allocator, 2, null, null)) {
+    try (FixedSizeListVector from = new FixedSizeListVector(
+        "from", allocator, new FieldType(true, new ArrowType.FixedSizeList(2), null), null);
+         FixedSizeListVector to = new FixedSizeListVector(
+             "to", allocator, new FieldType(true, new ArrowType.FixedSizeList(2), null), null)) {
       Float4Vector nested = (Float4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
           .getVector();
       from.allocateNew();

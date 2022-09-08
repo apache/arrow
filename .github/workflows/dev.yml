@@ -23,7 +23,7 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -38,15 +38,11 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -62,9 +58,16 @@ jobs:
         run: archery docker push ubuntu-lint
 
   release:
-    name: Source Release and Merge Script
-    runs-on: ubuntu-20.04
+    name: Source Release and Merge Script on ${{ matrix.runs-on }}
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - macos-latest
+          - ubuntu-latest
     env:
       GIT_AUTHOR_NAME: Github Actions
       GIT_AUTHOR_EMAIL: github@actions
@@ -72,20 +75,21 @@ jobs:
       GIT_COMMITTER_EMAIL: github@actions
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.6'
+          python-version: '3.8'
       - name: Install Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.6'
+          ruby-version: '2.7'
+      - name: Install .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '6.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
@@ -96,5 +100,4 @@ jobs:
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash
-        run: |
-          pytest -v dev/test_merge_arrow_pr.py
+        run: pytest -v dev/test_merge_arrow_pr.py

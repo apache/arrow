@@ -31,17 +31,18 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table_builder.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 
-class TestRecordBatchBuilder : public TestBase {
- public:
+class TestRecordBatchBuilder : public ::testing::Test {
+ protected:
+  MemoryPool* pool_ = default_memory_pool();
 };
 
 std::shared_ptr<Schema> ExampleSchema1() {
@@ -82,7 +83,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
   auto schema = ExampleSchema1();
 
   std::unique_ptr<RecordBatchBuilder> builder;
-  ASSERT_OK(RecordBatchBuilder::Make(schema, pool_, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, RecordBatchBuilder::Make(schema, pool_));
 
   std::vector<bool> is_valid = {false, true, true, true};
   std::vector<int32_t> f0_values = {0, 1, 2, 3};
@@ -123,9 +124,9 @@ TEST_F(TestRecordBatchBuilder, Basics) {
 
     if (i == kIter - 1) {
       // Do not flush in last iteration
-      ASSERT_OK(builder->Flush(false, &batch));
+      ASSERT_OK_AND_ASSIGN(batch, builder->Flush(false));
     } else {
-      ASSERT_OK(builder->Flush(&batch));
+      ASSERT_OK_AND_ASSIGN(batch, builder->Flush());
     }
 
     ASSERT_BATCHES_EQUAL(*expected, *batch);
@@ -140,7 +141,7 @@ TEST_F(TestRecordBatchBuilder, InvalidFieldLength) {
   auto schema = ExampleSchema1();
 
   std::unique_ptr<RecordBatchBuilder> builder;
-  ASSERT_OK(RecordBatchBuilder::Make(schema, pool_, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, RecordBatchBuilder::Make(schema, pool_));
 
   std::vector<bool> is_valid = {false, true, true, true};
   std::vector<int32_t> f0_values = {0, 1, 2, 3};
@@ -148,8 +149,7 @@ TEST_F(TestRecordBatchBuilder, InvalidFieldLength) {
   AppendValues<Int32Builder, int32_t>(builder->GetFieldAs<Int32Builder>(0), f0_values,
                                       is_valid);
 
-  std::shared_ptr<RecordBatch> dummy;
-  ASSERT_RAISES(Invalid, builder->Flush(&dummy));
+  ASSERT_RAISES(Invalid, builder->Flush());
 }
 
 // In #ARROW-9969 dictionary types were not updated
@@ -167,14 +167,13 @@ TEST_F(TestRecordBatchBuilder, DictionaryTypes) {
   auto schema = ::arrow::schema({f0});
 
   std::unique_ptr<RecordBatchBuilder> builder;
-  ASSERT_OK(RecordBatchBuilder::Make(schema, pool_, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, RecordBatchBuilder::Make(schema, pool_));
 
   auto b0 = builder->GetFieldAs<StringDictionaryBuilder>(0);
 
   AppendValues<StringDictionaryBuilder, std::string>(b0, f0_values, is_valid);
 
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(builder->Flush(&batch));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> batch, builder->Flush());
 
   AssertTypeEqual(batch->column(0)->type(), batch->schema()->field(0)->type());
 }

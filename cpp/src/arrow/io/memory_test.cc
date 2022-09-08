@@ -298,8 +298,8 @@ TEST(TestRandomAccessFile, GetStream) {
 
   std::shared_ptr<InputStream> stream1, stream2;
 
-  stream1 = RandomAccessFile::GetStream(file, 0, 10);
-  stream2 = RandomAccessFile::GetStream(file, 9, 16);
+  ASSERT_OK_AND_ASSIGN(stream1, RandomAccessFile::GetStream(file, 0, 10));
+  ASSERT_OK_AND_ASSIGN(stream2, RandomAccessFile::GetStream(file, 9, 16));
 
   ASSERT_OK_AND_EQ(0, stream1->Tell());
 
@@ -430,7 +430,7 @@ struct DoublingTransform {
 struct SwappingTransform {
   // A transform that swaps every pair of bytes
   Result<std::shared_ptr<Buffer>> operator()(const std::shared_ptr<Buffer>& buf) {
-    int64_t dest_size = BitUtil::RoundDown(buf->size() + has_pending_, 2);
+    int64_t dest_size = bit_util::RoundDown(buf->size() + has_pending_, 2);
     ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(dest_size));
     const uint8_t* data = buf->data();
     uint8_t* out_data = dest->mutable_data();

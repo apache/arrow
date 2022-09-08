@@ -17,10 +17,10 @@
 
 .. currentmodule:: pyarrow.fs
 
+.. _api.fs:
+
 Filesystems
 ===========
-
-.. _api.fs:
 
 Interface
 ---------
@@ -32,14 +32,15 @@ Interface
    FileSelector
    FileSystem
 
-Concrete Subclasses
--------------------
+Filesystem Implementations
+--------------------------
 
 .. autosummary::
    :toctree: ../generated/
 
    LocalFileSystem
    S3FileSystem
+   GcsFileSystem
    HadoopFileSystem
    SubTreeFileSystem
 
@@ -51,3 +52,15 @@ To define filesystems with behavior implemented in Python:
    PyFileSystem
    FileSystemHandler
    FSSpecHandler
+
+Utilities
+---------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   copy_files
+   initialize_s3
+   finalize_s3
+   resolve_s3_region
+   S3LogLevel

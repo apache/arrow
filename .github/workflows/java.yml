@@ -36,7 +36,7 @@ on:
       - 'java/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -47,29 +47,40 @@ env:
 jobs:
 
   debian:
-    name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        jdk: [11]
-        maven: [3.6.2]
+        jdk: [8, 11, 17, 18]
+        include:
+        - jdk: 8
+          title: AMD64 Debian 9 Java JDK 8 Maven 3.5.4
+          maven: 3.5.4
+          image: debian-java
+        - jdk: 11
+          title: AMD64 Debian 9 Java JDK 11 Maven 3.6.2
+          maven: 3.6.2
+          image: debian-java
+        - jdk: 17
+          title: AMD64 Oracle Linux Server 8.5 Java JDK 17 Maven 3.8.5
+          maven: 3.8.5
+          image: oracle-java
+        - jdk: 18
+          title: AMD64 Oracle Linux Server 8.6 Java JDK 18 Maven 3.8.5
+          maven: 3.8.5
+          image: oracle-java
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
+          submodules: recursive
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -77,20 +88,20 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run debian-java
+        run: archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push debian-java
+        run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
+    name: AMD64 macOS 11 Java JDK ${{ matrix.jdk }}
     runs-on: macos-latest
     if: github.event_name == 'push'
     timeout-minutes: 30
@@ -104,12 +115,37 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
+          submodules: recursive
+      - name: Build
         shell: bash
-        run: ci/scripts/util_checkout.sh
+        run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 Windows Server 2022 Java JDK ${{ matrix.jdk }}
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [11]
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
       - name: Build
         shell: bash
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build

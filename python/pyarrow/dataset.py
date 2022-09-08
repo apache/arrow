@@ -23,10 +23,11 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
-    Expression,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
+    FeatherFileFormat,
+    FilenamePartitioning,
     FileFormat,
     FileFragment,
     FileSystemDataset,
@@ -34,61 +35,69 @@ from pyarrow._dataset import (  # noqa
     FileSystemFactoryOptions,
     FileWriteOptions,
     Fragment,
+    FragmentScanOptions,
     HivePartitioning,
     IpcFileFormat,
     IpcFileWriteOptions,
     InMemoryDataset,
-    ParquetDatasetFactory,
-    ParquetFactoryOptions,
-    ParquetFileFormat,
-    ParquetFileFragment,
-    ParquetFileWriteOptions,
-    ParquetFragmentScanOptions,
-    ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
-    RowGroupInfo,
     Scanner,
     TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
+    WrittenFile,
     _get_partition_keys,
     _filesystemdataset_write,
 )
+# keep Expression functionality exposed here for backwards compatibility
+from pyarrow.compute import Expression, scalar, field  # noqa
 
 
-def field(name):
-    """Reference a named column of the dataset.
+_orc_available = False
+_orc_msg = (
+    "The pyarrow installation is not built with support for the ORC file "
+    "format."
+)
 
-    Stores only the field's name. Type and other information is known only when
-    the expression is bound to a dataset having an explicit scheme.
+try:
+    from pyarrow._dataset_orc import OrcFileFormat
+    _orc_available = True
+except ImportError:
+    pass
 
-    Parameters
-    ----------
-    name : string
-        The name of the field the expression references to.
+_parquet_available = False
+_parquet_msg = (
+    "The pyarrow installation is not built with support for the Parquet file "
+    "format."
+)
 
-    Returns
-    -------
-    field_expr : Expression
-    """
-    return Expression._field(name)
+try:
+    from pyarrow._dataset_parquet import (  # noqa
+        ParquetDatasetFactory,
+        ParquetFactoryOptions,
+        ParquetFileFormat,
+        ParquetFileFragment,
+        ParquetFileWriteOptions,
+        ParquetFragmentScanOptions,
+        ParquetReadOptions,
+        RowGroupInfo,
+    )
+    _parquet_available = True
+except ImportError:
+    pass
 
 
-def scalar(value):
-    """Expression representing a scalar value.
+def __getattr__(name):
+    if name == "OrcFileFormat" and not _orc_available:
+        raise ImportError(_orc_msg)
 
-    Parameters
-    ----------
-    value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
+    if name == "ParquetFileFormat" and not _parquet_available:
+        raise ImportError(_parquet_msg)
 
-    Returns
-    -------
-    scalar_expr : Expression
-    """
-    return Expression._scalar(value)
+    raise AttributeError(
+        "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
+    )
 
 
 def partitioning(schema=None, field_names=None, flavor=None,
@@ -111,6 +120,11 @@ def partitioning(schema=None, field_names=None, flavor=None,
       For example, given schema<year:int16, month:int8, day:int8>, a possible
       path would be "/year=2009/month=11/day=15" (but the field order does not
       need to match).
+    - "FilenamePartitioning": this scheme expects the partitions will have
+      filenames containing the field values separated by "_".
+      For example, given schema<year:int16, month:int8, day:int8>, a possible
+      partition filename "2009_11_part-0.parquet" would be parsed
+      to ("year"_ == 2009 and "month"_ == 11).
 
     Parameters
     ----------
@@ -124,8 +138,9 @@ def partitioning(schema=None, field_names=None, flavor=None,
         inferred from the file paths (only valid for DirectoryPartitioning).
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
-        a HivePartitioning.
-    dictionaries : Dict[str, Array]
+        a HivePartitioning, and ``flavor="filename"`` for a
+        FilenamePartitioning.
+    dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -142,18 +157,21 @@ def partitioning(schema=None, field_names=None, flavor=None,
 
     Specify the Schema for paths like "/2009/June":
 
-    >>> partitioning(pa.schema([("year", pa.int16()), ("month", pa.string())]))
+    >>> import pyarrow as pa
+    >>> import pyarrow.dataset as ds
+    >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
+    ...                                   ("month", pa.string())]))
 
     or let the types be inferred by only specifying the field names:
 
-    >>> partitioning(field_names=["year", "month"])
+    >>> part =  ds.partitioning(field_names=["year", "month"])
 
     For paths like "/2009/June", the year will be inferred as int32 while month
     will be inferred as string.
 
     Specify a Schema with dictionary encoding, providing dictionary values:
 
-    >>> partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([
     ...         ("year", pa.int16()),
     ...         ("month", pa.dictionary(pa.int8(), pa.string()))
@@ -165,7 +183,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Alternatively, specify a Schema with dictionary encoding, but have Arrow
     infer the dictionary values:
 
-    >>> partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([
     ...         ("year", pa.int16()),
     ...         ("month", pa.dictionary(pa.int8(), pa.string()))
@@ -174,15 +192,14 @@ def partitioning(schema=None, field_names=None, flavor=None,
 
     Create a Hive scheme for a path like "/year=2009/month=11":
 
-    >>> partitioning(
+    >>> part = ds.partitioning(
     ...     pa.schema([("year", pa.int16()), ("month", pa.int8())]),
     ...     flavor="hive")
 
     A Hive scheme can also be discovered from the directory structure (and
     types will be inferred):
 
-    >>> partitioning(flavor="hive")
-
+    >>> part = ds.partitioning(flavor="hive")
     """
     if flavor is None:
         # default flavor
@@ -203,6 +220,25 @@ def partitioning(schema=None, field_names=None, flavor=None,
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
+                "a Schema or a list of field names")
+    if flavor == "filename":
+        if schema is not None:
+            if field_names is not None:
+                raise ValueError(
+                    "Cannot specify both 'schema' and 'field_names'")
+            if dictionaries == 'infer':
+                return FilenamePartitioning.discover(schema=schema)
+            return FilenamePartitioning(schema, dictionaries)
+        elif field_names is not None:
+            if isinstance(field_names, list):
+                return FilenamePartitioning.discover(field_names)
+            else:
+                raise ValueError(
+                    "Expected list of field names, got {}".format(
+                        type(field_names)))
+        else:
+            raise ValueError(
+                "For the filename flavor, need to specify "
                 "a Schema or a list of field names")
     elif flavor == 'hive':
         if field_names is not None:
@@ -246,11 +282,19 @@ def _ensure_format(obj):
     if isinstance(obj, FileFormat):
         return obj
     elif obj == "parquet":
+        if not _parquet_available:
+            raise ValueError(_parquet_msg)
         return ParquetFileFormat()
-    elif obj in {"ipc", "arrow", "feather"}:
+    elif obj in {"ipc", "arrow"}:
         return IpcFileFormat()
+    elif obj == "feather":
+        return FeatherFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
+    elif obj == "orc":
+        if not _orc_available:
+            raise ValueError(_orc_msg)
+        return OrcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
@@ -517,8 +561,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list of) batches\
-or tables, iterable of batches, RecordBatchReader, or URI
+    source : path, list of paths, dataset, list of datasets, (list of) \
+RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -543,8 +587,8 @@ or tables, iterable of batches, RecordBatchReader, or URI
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
     format : FileFormat or str
-        Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
-        Feather, only version 2 files are supported.
+        Currently "parquet", "ipc"/"arrow"/"feather", "csv", and "orc" are
+        supported. For Feather, only version 2 files are supported.
     filesystem : FileSystem or URI string, default None
         If a single path is given as source and filesystem is None, then the
         filesystem will be inferred from the path.
@@ -583,26 +627,76 @@ or tables, iterable of batches, RecordBatchReader, or URI
 
     Examples
     --------
+    Creating an example Table:
+
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+    ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+    ...                              "Brittle stars", "Centipede"]})
+    >>> pq.write_table(table, "file.parquet")
+
     Opening a single file:
 
-    >>> dataset("path/to/file.parquet", format="parquet")
+    >>> import pyarrow.dataset as ds
+    >>> dataset = ds.dataset("file.parquet", format="parquet")
+    >>> dataset.to_table()
+    pyarrow.Table
+    year: int64
+    n_legs: int64
+    animal: string
+    ----
+    year: [[2020,2022,2021,2022,2019,2021]]
+    n_legs: [[2,2,4,4,5,100]]
+    animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
     Opening a single file with an explicit schema:
 
-    >>> dataset("path/to/file.parquet", schema=myschema, format="parquet")
+    >>> myschema = pa.schema([
+    ...     ('n_legs', pa.int64()),
+    ...     ('animal', pa.string())])
+    >>> dataset = ds.dataset("file.parquet", schema=myschema, format="parquet")
+    >>> dataset.to_table()
+    pyarrow.Table
+    n_legs: int64
+    animal: string
+    ----
+    n_legs: [[2,2,4,4,5,100]]
+    animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
     Opening a dataset for a single directory:
 
-    >>> dataset("path/to/nyc-taxi/", format="parquet")
-    >>> dataset("s3://mybucket/nyc-taxi/", format="parquet")
+    >>> ds.write_dataset(table, "partitioned_dataset", format="parquet",
+    ...                  partitioning=['year'])
+    >>> dataset = ds.dataset("partitioned_dataset", format="parquet")
+    >>> dataset.to_table()
+    pyarrow.Table
+    n_legs: int64
+    animal: string
+    ----
+    n_legs: [[5],[2],[4,100],[2,4]]
+    animal: [["Brittle stars"],["Flamingo"],...["Parrot","Horse"]]
+
+    For a single directory from a S3 bucket:
+
+    >>> ds.dataset("s3://mybucket/nyc-taxi/",
+    ...            format="parquet") # doctest: +SKIP
 
     Opening a dataset from a list of relatives local paths:
 
-    >>> dataset([
-    ...     "part0/data.parquet",
-    ...     "part1/data.parquet",
-    ...     "part3/data.parquet",
+    >>> dataset = ds.dataset([
+    ...     "partitioned_dataset/2019/part-0.parquet",
+    ...     "partitioned_dataset/2020/part-0.parquet",
+    ...     "partitioned_dataset/2021/part-0.parquet",
     ... ], format='parquet')
+    >>> dataset.to_table()
+    pyarrow.Table
+    n_legs: int64
+    animal: string
+    ----
+    n_legs: [[5],[2],[4,100]]
+    animal: [["Brittle stars"],["Flamingo"],["Dog","Centipede"]]
 
     With filesystem provided:
 
@@ -611,12 +705,14 @@ or tables, iterable of batches, RecordBatchReader, or URI
     ...     'part1/data.parquet',
     ...     'part3/data.parquet',
     ... ]
-    >>> dataset(paths, filesystem='file:///directory/prefix, format='parquet')
+    >>> ds.dataset(paths, filesystem='file:///directory/prefix,
+    ...            format='parquet') # doctest: +SKIP
 
     Which is equivalent with:
 
-    >>> fs = SubTreeFileSystem("/directory/prefix", LocalFileSystem())
-    >>> dataset(paths, filesystem=fs, format='parquet')
+    >>> fs = SubTreeFileSystem("/directory/prefix",
+    ...                        LocalFileSystem()) # doctest: +SKIP
+    >>> ds.dataset(paths, filesystem=fs, format='parquet') # doctest: +SKIP
 
     With a remote filesystem URI:
 
@@ -625,20 +721,21 @@ or tables, iterable of batches, RecordBatchReader, or URI
     ...     'nested/directory/part1/data.parquet',
     ...     'nested/directory/part3/data.parquet',
     ... ]
-    >>> dataset(paths, filesystem='s3://bucket/', format='parquet')
+    >>> ds.dataset(paths, filesystem='s3://bucket/',
+    ...            format='parquet') # doctest: +SKIP
 
     Similarly to the local example, the directory prefix may be included in the
     filesystem URI:
 
-    >>> dataset(paths, filesystem='s3://bucket/nested/directory',
-    ...         format='parquet')
+    >>> ds.dataset(paths, filesystem='s3://bucket/nested/directory',
+    ...         format='parquet') # doctest: +SKIP
 
     Construction of a nested dataset:
 
-    >>> dataset([
+    >>> ds.dataset([
     ...     dataset("s3://old-taxi-data", format="parquet"),
     ...     dataset("local/path/to/data", format="ipc")
-    ... ])
+    ... ]) # doctest: +SKIP
     """
     # collect the keyword arguments for later reuse
     kwargs = dict(
@@ -678,26 +775,50 @@ or tables, iterable of batches, RecordBatchReader, or URI
         )
 
 
-def _ensure_write_partitioning(scheme):
-    if scheme is None:
-        scheme = partitioning(pa.schema([]))
-    if not isinstance(scheme, Partitioning):
-        # TODO support passing field names, and get types from schema
-        raise ValueError("partitioning needs to be actual Partitioning object")
-    return scheme
+def _ensure_write_partitioning(part, schema, flavor):
+    if isinstance(part, PartitioningFactory):
+        raise ValueError("A PartitioningFactory cannot be used. "
+                         "Did you call the partitioning function "
+                         "without supplying a schema?")
+
+    if isinstance(part, Partitioning) and flavor:
+        raise ValueError(
+            "Providing a partitioning_flavor with "
+            "a Partitioning object is not supported"
+        )
+    elif isinstance(part, (tuple, list)):
+        # Name of fields were provided instead of a partitioning object.
+        # Create a partitioning factory with those field names.
+        part = partitioning(
+            schema=pa.schema([schema.field(f) for f in part]),
+            flavor=flavor
+        )
+    elif part is None:
+        part = partitioning(pa.schema([]), flavor=flavor)
+
+    if not isinstance(part, Partitioning):
+        raise ValueError(
+            "partitioning must be a Partitioning object or "
+            "a list of column names"
+        )
+
+    return part
 
 
-def write_dataset(data, base_dir, basename_template=None, format=None,
-                  partitioning=None, schema=None,
+def write_dataset(data, base_dir, *, basename_template=None, format=None,
+                  partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None, file_visitor=None):
+                  max_partitions=None, max_open_files=None,
+                  max_rows_per_file=None, min_rows_per_group=None,
+                  max_rows_per_group=None, file_visitor=None,
+                  existing_data_behavior='error', create_dir=True):
     """
     Write a dataset to a given format and partitioning.
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, RecordBatchReader, list of
-           Table/RecordBatch, or iterable of RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, list of \
+Table/RecordBatch, or iterable of RecordBatch
         The data to write. This can be a Dataset instance or
         in-memory Arrow data. If an iterable is given, the schema must
         also be given.
@@ -710,28 +831,51 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         "part-{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "parquet", "ipc"/"feather". If a FileSystemDataset is being written
-        and `format` is not specified, it defaults to the same format as the
-        specified FileSystemDataset. When writing a Table or RecordBatch, this
-        keyword is required.
-    partitioning : Partitioning, optional
+        "parquet", "ipc"/"arrow"/"feather", and "csv". If a FileSystemDataset
+        is being written and `format` is not specified, it defaults to the
+        same format as the specified FileSystemDataset. When writing a
+        Table or RecordBatch, this keyword is required.
+    partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
-        function.
+        function or a list of field names. When providing a list of
+        field names, you can use ``partitioning_flavor`` to drive which
+        partitioning type should be used.
+    partitioning_flavor : str, optional
+        One of the partitioning flavors supported by
+        ``pyarrow.dataset.partitioning``. If omitted will use the
+        default of ``partitioning()`` which is directory partitioning.
     schema : Schema, optional
     filesystem : FileSystem, optional
-    file_options : FileWriteOptions, optional
+    file_options : pyarrow.dataset.FileWriteOptions, optional
         FileFormat specific write options, created using the
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
-    use_async : bool, default False
-        If enabled, an async scanner will be used that should offer
-        better performance with high-latency/highly-parallel filesystems
-        (e.g. S3)
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
-    file_visitor : Function
+    max_open_files : int, default 1024
+        If greater than 0 then this will limit the maximum number of
+        files that can be left open. If an attempt is made to open
+        too many files then the least recently used file will be closed.
+        If this setting is set too low you may end up fragmenting your
+        data into many small files.
+    max_rows_per_file : int, default 0
+        Maximum number of rows per file. If greater than 0 then this will
+        limit how many rows are placed in any single file. Otherwise there
+        will be no limit and one file will be created in each output
+        directory unless files need to be closed to respect max_open_files
+    min_rows_per_group : int, default 0
+        Minimum number of rows per group. When the value is greater than 0,
+        the dataset writer will batch incoming data and only write the row
+        groups to the disk when sufficient rows have accumulated.
+    max_rows_per_group : int, default 1024 * 1024
+        Maximum number of rows per group. If the value is greater than 0,
+        then the dataset writer may split up large incoming batches into
+        multiple row groups.  If this value is set, then min_rows_per_group
+        should also be set. Otherwise it could end up with very small row
+        groups.
+    file_visitor : function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
         a path attribute and a metadata attribute.
@@ -750,6 +894,25 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
+    existing_data_behavior : 'error' | 'overwrite_or_ignore' | \
+'delete_matching'
+        Controls how the dataset will handle data that already exists in
+        the destination.  The default behavior ('error') is to raise an error
+        if any data exists in the destination.
+
+        'overwrite_or_ignore' will ignore any existing data and will
+        overwrite files with the same name as an output file.  Other
+        existing files will be ignored.  This behavior, in combination
+        with a unique basename_template for each write, will allow for
+        an append workflow.
+
+        'delete_matching' is useful when you are writing a partitioned
+        dataset.  The first time each partition directory is encountered
+        the entire directory will be deleted.  This allows you to overwrite
+        old partitions completely.
+    create_dir : bool, default True
+        If False, directories will not be created.  This can be useful for
+        filesystems that do not require directories.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -788,12 +951,33 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
-    partitioning = _ensure_write_partitioning(partitioning)
+    if max_open_files is None:
+        max_open_files = 1024
+
+    if max_rows_per_file is None:
+        max_rows_per_file = 0
+
+    if max_rows_per_group is None:
+        max_rows_per_group = 1 << 20
+
+    if min_rows_per_group is None:
+        min_rows_per_group = 0
+
+    # at this point data is a Scanner or a Dataset, anything else
+    # was converted to one of those two. So we can grab the schema
+    # to build the partitioning object from Dataset.
+    if isinstance(data, Scanner):
+        partitioning_schema = data.projected_schema
+    else:
+        partitioning_schema = data.schema
+    partitioning = _ensure_write_partitioning(partitioning,
+                                              schema=partitioning_schema,
+                                              flavor=partitioning_flavor)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads, use_async=use_async)
+        scanner = data.scanner(use_threads=use_threads)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed
@@ -803,5 +987,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor
+        file_options, max_partitions, file_visitor, existing_data_behavior,
+        max_open_files, max_rows_per_file,
+        min_rows_per_group, max_rows_per_group, create_dir
     )

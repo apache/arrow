@@ -118,16 +118,14 @@ TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
   auto list_type = large_list(entries);
   // Translates to parquet schema:
-  // optional group bag {
+  // required group bag {
   //   repeated group [unseen] (List) {
   //       required int64 Entries;
   //   }
   // }
   // So:
-  // def level 0: a null list
-  // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
+  // def level 0: an empty list
+  // def level 1: a non-null entry
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[1], [2, 3], [4, 5, 6]])");
 
   ASSERT_OK(
@@ -156,8 +154,7 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
   // So:
   // def level 0: a null list
   // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
+  // def level 2: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([null, null, null, null])");
 
@@ -168,6 +165,61 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
   const CapturedResult& result = results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 0),
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
+}
+
+TEST_F(MultipathLevelBuilderTest, NullableSingleListWithMixedElements) {
+  auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
+  auto list_type = list(entries);
+  // Translates to parquet schema:
+  // optional group bag {
+  //   repeated group [unseen] (List) {
+  //       required int64 Entries;
+  //   }
+  // }
+  // So:
+  // def level 0: a null list
+  // def level 1: an empty list
+  // def level 2: a non-null entry
+
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([null, [], null, [1]])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 1, 0, 2},
+                     /*rep_levels=*/std::vector<int16_t>(/*count=*/4, 0));
+}
+
+TEST_F(MultipathLevelBuilderTest, EmptyLists) {
+  // ARROW-13676 - ensure no out of bounds list memory accesses.
+  auto entries = field("Entries", ::arrow::int64());
+  auto list_type = list(entries);
+  // Number of elements is important, to work past buffer padding hiding
+  // the issue.
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([
+    [],[],[],[],[],[],[],[],[],[],[],[],[],[],[]])");
+
+  // Translates to parquet schema:
+  // optional group bag {
+  //   repeated group [unseen] (List) {
+  //       optional int64 Entries;
+  //   }
+  // }
+  // So:
+  // def level 0: a null list
+  // def level 1: an empty list
+  // def level 2: a null entry
+  // def level 3: a non-null entry
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/15, 1),
+                     /*rep_levels=*/std::vector<int16_t>(15, 0));
 }
 
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
@@ -182,8 +234,7 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
   // So:
   // def level 0: a null list
   // def level 1: an empty list
-  // def level 2: a null entry
-  // def level 3: a non-null entry
+  // def level 2: a non-null entry
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], []])");
 
@@ -401,8 +452,8 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
                                       R"([
                                            [null, [[1 , null, 3], []], []],
                                            [[[]], [[], [1, 2]], null, [[3]]],
-					   null,
- 					   []
+                                           null,
+                                           []
                                          ])");
 
   ASSERT_OK(

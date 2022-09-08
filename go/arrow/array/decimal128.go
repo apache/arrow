@@ -14,18 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array // import "github.com/apache/arrow/go/arrow/array"
+package array
 
 import (
+	"bytes"
 	"fmt"
+	"math"
+	"math/big"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of 128-bit decimal values.
@@ -35,10 +40,10 @@ type Decimal128 struct {
 	values []decimal128.Num
 }
 
-func NewDecimal128Data(data *Data) *Decimal128 {
+func NewDecimal128Data(data arrow.ArrayData) *Decimal128 {
 	a := &Decimal128{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -75,6 +80,25 @@ func (a *Decimal128) setData(data *Data) {
 	}
 }
 
+func (a *Decimal128) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	typ := a.DataType().(*arrow.Decimal128Type)
+	f := (&big.Float{}).SetInt(a.Value(i).BigInt())
+	f.Quo(f, big.NewFloat(math.Pow10(int(typ.Scale))))
+	return f.Text('g', int(typ.Precision))
+}
+
+func (a *Decimal128) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	return json.Marshal(vals)
+}
+
 func arrayEqualDecimal128(left, right *Decimal128) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -101,6 +125,8 @@ func NewDecimal128Builder(mem memory.Allocator, dtype *arrow.Decimal128Type) *De
 		dtype:   dtype,
 	}
 }
+
+func (b *Decimal128Builder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -134,6 +160,10 @@ func (b *Decimal128Builder) UnsafeAppend(v decimal128.Num) {
 func (b *Decimal128Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Decimal128Builder) AppendEmptyValue() {
+	b.Append(decimal128.Num{})
 }
 
 func (b *Decimal128Builder) UnsafeAppendBoolToBitmap(isValid bool) {
@@ -198,7 +228,7 @@ func (b *Decimal128Builder) Resize(n int) {
 
 // NewArray creates a Decimal128 array from the memory buffers used by the builder and resets the Decimal128Builder
 // so it can be used to build a new array.
-func (b *Decimal128Builder) NewArray() Interface {
+func (b *Decimal128Builder) NewArray() arrow.Array {
 	return b.NewDecimal128Array()
 }
 
@@ -229,7 +259,76 @@ func (b *Decimal128Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	var out *big.Float
+	var tmp big.Int
+
+	switch v := t.(type) {
+	case float64:
+		out = big.NewFloat(v)
+	case string:
+		// there's no strong rationale for using ToNearestAway, it's just
+		// what got me the closest equivalent values with the values
+		// that I tested with, and there isn't a good way to push
+		// an option all the way down here to control it.
+		out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestAway)
+		if err != nil {
+			return err
+		}
+	case json.Number:
+		out, _, err = big.ParseFloat(v.String(), 10, 127, big.ToNearestAway)
+		if err != nil {
+			return err
+		}
+	case nil:
+		b.AppendNull()
+		return nil
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(decimal128.Num{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(&tmp)
+	b.Append(decimal128.FromBigInt(val))
+	return nil
+}
+
+func (b *Decimal128Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON will add the unmarshalled values to this builder.
+//
+// If the values are strings, they will get parsed with big.ParseFloat using
+// a rounding mode of big.ToNearestAway currently.
+func (b *Decimal128Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("decimal128 builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 var (
-	_ Interface = (*Decimal128)(nil)
-	_ Builder   = (*Decimal128Builder)(nil)
+	_ arrow.Array = (*Decimal128)(nil)
+	_ Builder     = (*Decimal128Builder)(nil)
 )

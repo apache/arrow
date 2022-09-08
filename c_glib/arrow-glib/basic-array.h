@@ -19,8 +19,10 @@
 
 #pragma once
 
+#include <arrow-glib/basic-array-definition.h>
 #include <arrow-glib/basic-data-type.h>
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/interval.h>
 
 G_BEGIN_DECLS
 
@@ -42,17 +44,6 @@ GARROW_AVAILABLE_IN_5_0
 gboolean
 garrow_equal_options_is_approx(GArrowEqualOptions *options);
 
-
-#define GARROW_TYPE_ARRAY (garrow_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowArray,
-                         garrow_array,
-                         GARROW,
-                         ARRAY,
-                         GObject)
-struct _GArrowArrayClass
-{
-  GObjectClass parent_class;
-};
 
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *
@@ -617,6 +608,90 @@ const gint64 *garrow_time64_array_get_values(GArrowTime64Array *array,
                                              gint64 *length);
 
 
+#define GARROW_TYPE_MONTH_INTERVAL_ARRAY        \
+  (garrow_month_interval_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalArray,
+                         garrow_month_interval_array,
+                         GARROW,
+                         MONTH_INTERVAL_ARRAY,
+                         GArrowNumericArray)
+struct _GArrowMonthIntervalArrayClass
+{
+  GArrowNumericArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthIntervalArray *
+garrow_month_interval_array_new(gint64 length,
+                                GArrowBuffer *data,
+                                GArrowBuffer *null_bitmap,
+                                gint64 n_nulls);
+GARROW_AVAILABLE_IN_8_0
+gint32
+garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
+                                      gint64 i);
+GARROW_AVAILABLE_IN_8_0
+const gint32 *
+garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
+                                       gint64 *length);
+
+
+#define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY     \
+  (garrow_day_time_interval_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalArray,
+                         garrow_day_time_interval_array,
+                         GARROW,
+                         DAY_TIME_INTERVAL_ARRAY,
+                         GArrowPrimitiveArray)
+struct _GArrowDayTimeIntervalArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowDayTimeIntervalArray *
+garrow_day_time_interval_array_new(gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls);
+GARROW_AVAILABLE_IN_8_0
+GArrowDayMillisecond *
+garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
+                                         gint64 i);
+GARROW_AVAILABLE_IN_8_0
+GList *
+garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array);
+
+
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY       \
+  (garrow_month_day_nano_interval_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalArray,
+                         garrow_month_day_nano_interval_array,
+                         GARROW,
+                         MONTH_DAY_NANO_INTERVAL_ARRAY,
+                         GArrowPrimitiveArray)
+struct _GArrowMonthDayNanoIntervalArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNanoIntervalArray *
+garrow_month_day_nano_interval_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_array_get_value(
+  GArrowMonthDayNanoIntervalArray *array,
+  gint64 i);
+GARROW_AVAILABLE_IN_8_0
+GList *
+garrow_month_day_nano_interval_array_get_values(
+  GArrowMonthDayNanoIntervalArray *array);
+
+
 #define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY (garrow_fixed_size_binary_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryArray,
                          garrow_fixed_size_binary_array,
@@ -679,16 +754,6 @@ gchar *garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
 GArrowDecimal256 *garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
                                                     gint64 i);
 
-#define GARROW_TYPE_EXTENSION_ARRAY (garrow_extension_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowExtensionArray,
-                         garrow_extension_array,
-                         GARROW,
-                         EXTENSION_ARRAY,
-                         GArrowArray)
-struct _GArrowExtensionArrayClass
-{
-  GArrowArrayClass parent_class;
-};
 
 GARROW_AVAILABLE_IN_3_0
 GArrowArray *

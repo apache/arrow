@@ -21,10 +21,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/float16"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestArrayEqual(t *testing.T) {
@@ -61,7 +63,7 @@ func TestArraySliceEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArraySliceEqual(
+					if !array.SliceEqual(
 						arr, 0, int64(arr.Len()),
 						arr, 0, int64(arr.Len()),
 					) {
@@ -73,7 +75,7 @@ func TestArraySliceEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
+					if array.SliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
 						t.Fatalf("non-identical slices should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -90,7 +92,7 @@ func TestArrayApproxEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArrayApproxEqual(arr, arr) {
+					if !array.ApproxEqual(arr, arr) {
 						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
 					}
 					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
@@ -99,7 +101,7 @@ func TestArrayApproxEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayApproxEqual(sub1, sub2) && name != "nulls" {
+					if array.ApproxEqual(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -293,14 +295,14 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 			a2 := arrayOf(mem, tc.a2, nil)
 			defer a2.Release()
 
-			if got, want := array.ArrayApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
+			if got, want := array.ApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
 				t.Fatalf("invalid comparison: got=%v, want=%v\na1: %v\na2: %v\n", got, want, a1, a2)
 			}
 		})
 	}
 }
 
-func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
+func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
@@ -525,6 +527,85 @@ func TestRecordApproxEqual(t *testing.T) {
 
 			if array.RecordApproxEqual(sub00, sub01) && name != "nulls" {
 				t.Fatalf("non-identical records should not compare equal:\nsub0:\n%v\nsub1:\n%v", sub00, sub01)
+			}
+		})
+	}
+}
+
+func TestChunkedEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			tbl := array.NewTableFromRecords(recs[0].Schema(), recs)
+			defer tbl.Release()
+
+			for i := 0; i < int(tbl.NumCols()); i++ {
+				if !array.ChunkedEqual(tbl.Column(i).Data(), tbl.Column(i).Data()) && name != "nulls" {
+					t.Fatalf("identical chunked arrays should compare as equal:\narr:%v\n", tbl.Column(i).Data())
+				}
+			}
+		})
+	}
+}
+
+func TestChunkedApproxEqual(t *testing.T) {
+	fb := array.NewFloat64Builder(memory.DefaultAllocator)
+	defer fb.Release()
+
+	fb.AppendValues([]float64{1, 2, 3, 4, 5}, nil)
+	f1 := fb.NewFloat64Array()
+	defer f1.Release()
+
+	fb.AppendValues([]float64{6, 7}, nil)
+	f2 := fb.NewFloat64Array()
+	defer f2.Release()
+
+	fb.AppendValues([]float64{8, 9, 10}, nil)
+	f3 := fb.NewFloat64Array()
+	defer f3.Release()
+
+	c1 := arrow.NewChunked(
+		arrow.PrimitiveTypes.Float64,
+		[]arrow.Array{f1, f2, f3},
+	)
+	defer c1.Release()
+
+	fb.AppendValues([]float64{1, 2, 3}, nil)
+	f4 := fb.NewFloat64Array()
+	defer f4.Release()
+
+	fb.AppendValues([]float64{4, 5}, nil)
+	f5 := fb.NewFloat64Array()
+	defer f5.Release()
+
+	fb.AppendValues([]float64{6, 7, 8, 9}, nil)
+	f6 := fb.NewFloat64Array()
+	defer f6.Release()
+
+	fb.AppendValues([]float64{10}, nil)
+	f7 := fb.NewFloat64Array()
+	defer f7.Release()
+
+	c2 := arrow.NewChunked(
+		arrow.PrimitiveTypes.Float64,
+		[]arrow.Array{f4, f5, f6, f7},
+	)
+	defer c2.Release()
+
+	assert.True(t, array.ChunkedEqual(c1, c2))
+	assert.True(t, array.ChunkedApproxEqual(c1, c2))
+}
+
+func TestTableEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			tbl := array.NewTableFromRecords(recs[0].Schema(), recs)
+			defer tbl.Release()
+
+			if !array.TableEqual(tbl, tbl) {
+				t.Fatalf("identical tables should compare as equal:\tbl:%v\n", tbl)
+			}
+			if !array.TableApproxEqual(tbl, tbl) {
+				t.Fatalf("identical tables should compare as approx equal:\tbl:%v\n", tbl)
 			}
 		})
 	}

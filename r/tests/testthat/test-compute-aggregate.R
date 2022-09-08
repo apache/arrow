@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("compute: aggregation")
-
 test_that("list_compute_functions", {
   allfuncs <- list_compute_functions()
   expect_false(all(grepl("min", allfuncs)))
   justmins <- list_compute_functions("^min")
   expect_true(length(justmins) > 0)
   expect_true(all(grepl("min", justmins)))
+  no_hash_funcs <- list_compute_functions("^hash")
+  expect_true(length(no_hash_funcs) == 0)
 })
 
 test_that("sum.Array", {
@@ -205,15 +205,15 @@ test_that("max.ChunkedArray", {
 test_that("Edge cases", {
   a <- Array$create(NA)
   for (type in c(int32(), float64(), bool())) {
-    expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
-    expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
-    expect_equal(
-      as.vector(min(a$cast(type), na.rm = TRUE)),
+    expect_as_vector(sum(a$cast(type), na.rm = TRUE), sum(NA, na.rm = TRUE))
+    expect_as_vector(mean(a$cast(type), na.rm = TRUE), mean(NA, na.rm = TRUE))
+    expect_as_vector(
+      min(a$cast(type), na.rm = TRUE),
       # Suppress the base R warning about no non-missing arguments
       suppressWarnings(min(NA, na.rm = TRUE))
     )
-    expect_equal(
-      as.vector(max(a$cast(type), na.rm = TRUE)),
+    expect_as_vector(
+      max(a$cast(type), na.rm = TRUE),
       suppressWarnings(max(NA, na.rm = TRUE))
     )
   }
@@ -281,10 +281,6 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
 })
 
 test_that("median passes ... args to quantile", {
-  skip_if(
-    !"..." %in% names(formals(median)),
-    "The median generic lacks dots in R 3.3.0 and earlier"
-  )
   expect_equal(
     median(Array$create(c(1, 2)), interpolation = "higher"),
     Scalar$create(2)
@@ -295,40 +291,40 @@ test_that("median passes ... args to quantile", {
 })
 
 test_that("median.Array and median.ChunkedArray", {
-  expect_vector_equal(
-    median(input),
+  compare_expression(
+    median(.input),
     1:4
   )
-  expect_vector_equal(
-    median(input),
+  compare_expression(
+    median(.input),
     1:5
   )
-  expect_vector_equal(
-    median(input),
+  compare_expression(
+    median(.input),
     numeric(0)
   )
-  expect_vector_equal(
-    median(input, na.rm = FALSE),
+  compare_expression(
+    median(.input, na.rm = FALSE),
     c(1, 2, NA)
   )
-  expect_vector_equal(
-    median(input, na.rm = TRUE),
+  compare_expression(
+    median(.input, na.rm = TRUE),
     c(1, 2, NA)
   )
-  expect_vector_equal(
-    median(input, na.rm = TRUE),
+  compare_expression(
+    median(.input, na.rm = TRUE),
     NA_real_
   )
-  expect_vector_equal(
-    median(input, na.rm = FALSE),
+  compare_expression(
+    median(.input, na.rm = FALSE),
     c(1, 2, NA)
   )
-  expect_vector_equal(
-    median(input, na.rm = TRUE),
+  compare_expression(
+    median(.input, na.rm = TRUE),
     c(1, 2, NA)
   )
-  expect_vector_equal(
-    median(input, na.rm = TRUE),
+  compare_expression(
+    median(.input, na.rm = TRUE),
     NA_real_
   )
 })
@@ -388,31 +384,31 @@ test_that("value_counts", {
 test_that("any.Array and any.ChunkedArray", {
   data <- c(1:10, NA, NA)
 
-  expect_vector_equal(any(input > 5), data)
-  expect_vector_equal(any(input > 5, na.rm = TRUE), data)
-  expect_vector_equal(any(input < 1), data)
-  expect_vector_equal(any(input < 1, na.rm = TRUE), data)
+  compare_expression(any(.input > 5), data)
+  compare_expression(any(.input > 5, na.rm = TRUE), data)
+  compare_expression(any(.input < 1), data)
+  compare_expression(any(.input < 1, na.rm = TRUE), data)
 
   data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
 
-  expect_vector_equal(any(input), data_logical)
-  expect_vector_equal(any(input, na.rm = FALSE), data_logical)
-  expect_vector_equal(any(input, na.rm = TRUE), data_logical)
+  compare_expression(any(.input), data_logical)
+  compare_expression(any(.input, na.rm = FALSE), data_logical)
+  compare_expression(any(.input, na.rm = TRUE), data_logical)
 })
 
 test_that("all.Array and all.ChunkedArray", {
   data <- c(1:10, NA, NA)
 
-  expect_vector_equal(all(input > 5), data)
-  expect_vector_equal(all(input > 5, na.rm = TRUE), data)
+  compare_expression(all(.input > 5), data)
+  compare_expression(all(.input > 5, na.rm = TRUE), data)
 
-  expect_vector_equal(all(input < 11), data)
-  expect_vector_equal(all(input < 11, na.rm = TRUE), data)
+  compare_expression(all(.input < 11), data)
+  compare_expression(all(.input < 11, na.rm = TRUE), data)
 
   data_logical <- c(TRUE, TRUE, NA)
 
-  expect_vector_equal(all(input), data_logical)
-  expect_vector_equal(all(input, na.rm = TRUE), data_logical)
+  compare_expression(all(.input), data_logical)
+  compare_expression(all(.input, na.rm = TRUE), data_logical)
 })
 
 test_that("variance", {

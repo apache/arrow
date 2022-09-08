@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Ipc
@@ -98,6 +99,13 @@ namespace Apache.Arrow.Ipc
         public void AddOrReplaceDictionary(long id, IArrowArray dictionary)
         {
             _idToDictionary[id] = dictionary;
+        }
+
+        public void AddDeltaDictionary(long id, IArrowArray deltaDictionary, MemoryAllocator allocator = default)
+        {
+            IArrowArray currentDictionary = _idToDictionary[id];
+            IArrowArray dictionary = ArrowArrayConcatenator.Concatenate(new List<IArrowArray>{ currentDictionary, deltaDictionary }, allocator);
+            AddOrReplaceDictionary(id, dictionary);
         }
     }
 }

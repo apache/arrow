@@ -41,6 +41,8 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -108,7 +110,7 @@ def test_coerce_timestamps(tempdir):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df, schema=schema)
 
-    _write_table(arrow_table, filename, version="2.0", coerce_timestamps='us')
+    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='us')
     table_read = _read_table(filename)
     df_read = table_read.to_pandas()
 
@@ -120,7 +122,7 @@ def test_coerce_timestamps(tempdir):
     tm.assert_frame_equal(df_expected, df_read)
 
     with pytest.raises(ValueError):
-        _write_table(arrow_table, filename, version='2.0',
+        _write_table(arrow_table, filename, version='2.6',
                      coerce_timestamps='unknown')
 
 
@@ -144,7 +146,7 @@ def test_coerce_timestamps_truncated(tempdir):
     filename = tempdir / 'pandas_truncated.parquet'
     table_us = pa.Table.from_pandas(df_us, schema=schema_us)
 
-    _write_table(table_us, filename, version="2.0", coerce_timestamps='ms',
+    _write_table(table_us, filename, version='2.6', coerce_timestamps='ms',
                  allow_truncated_timestamps=True)
     table_ms = _read_table(filename)
     df_ms = table_ms.to_pandas()
@@ -202,7 +204,7 @@ def test_date_time_types(tempdir):
                                      'time32_from64[s]',
                                      'timestamp[ns]'])
 
-    _check_roundtrip(table, expected=expected, version='2.0')
+    _check_roundtrip(table, expected=expected, version='2.6')
 
     t0 = pa.timestamp('ms')
     data0 = np.arange(4, dtype='int64')
@@ -223,7 +225,7 @@ def test_date_time_types(tempdir):
 
     # int64 for all timestamps supported by default
     filename = tempdir / 'int64_timestamps.parquet'
-    _write_table(table, filename, version='2.0')
+    _write_table(table, filename, version='2.6')
     parquet_schema = pq.ParquetFile(filename).schema
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT64'
@@ -243,7 +245,7 @@ def test_date_time_types(tempdir):
 
     # int96 nanosecond timestamps produced upon request
     filename = tempdir / 'explicit_int96_timestamps.parquet'
-    _write_table(table, filename, version='2.0',
+    _write_table(table, filename, version='2.6',
                  use_deprecated_int96_timestamps=True)
     parquet_schema = pq.ParquetFile(filename).schema
     for i in range(3):
@@ -253,7 +255,7 @@ def test_date_time_types(tempdir):
 
     # int96 nanosecond timestamps implied by flavor 'spark'
     filename = tempdir / 'spark_int96_timestamps.parquet'
-    _write_table(table, filename, version='2.0',
+    _write_table(table, filename, version='2.6',
                  flavor='spark')
     parquet_schema = pq.ParquetFile(filename).schema
     for i in range(3):
@@ -288,7 +290,7 @@ def test_coerce_int96_timestamp_unit(unit):
     _check_roundtrip(table, expected,
                      read_table_kwargs=read_table_kwargs,
                      use_deprecated_int96_timestamps=True)
-    _check_roundtrip(table, expected, version='2.0',
+    _check_roundtrip(table, expected, version='2.6',
                      read_table_kwargs=read_table_kwargs,
                      use_deprecated_int96_timestamps=True)
 
@@ -303,7 +305,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         elif pq_reader_method == "read_table":
             return pq.read_table(filename, **kwargs)
 
-    # Recreating the initial JIRA issue referrenced in ARROW-12096
+    # Recreating the initial JIRA issue referenced in ARROW-12096
     oob_dts = [
         datetime.datetime(1000, 1, 1),
         datetime.datetime(2000, 1, 1),
@@ -382,7 +384,7 @@ def test_parquet_version_timestamp_differences():
     # Using Parquet version 2.0, seconds should be coerced to milliseconds
     # and nanoseconds should be retained by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
-    _check_roundtrip(table, expected, version='2.0')
+    _check_roundtrip(table, expected, version='2.6')
 
     # Using Parquet version 1.0, coercing to milliseconds or microseconds
     # is allowed
@@ -392,7 +394,7 @@ def test_parquet_version_timestamp_differences():
     # Using Parquet version 2.0, coercing to milliseconds or microseconds
     # is allowed
     expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
-    _check_roundtrip(table, expected, version='2.0', coerce_timestamps='us')
+    _check_roundtrip(table, expected, version='2.6', coerce_timestamps='us')
 
     # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
     # following should pass ...
@@ -404,14 +406,14 @@ def test_parquet_version_timestamp_differences():
 
     # Using Parquet version 2.0, coercing to nanoseconds is allowed
     # expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
-    # _check_roundtrip(table, expected, version='2.0', coerce_timestamps='ns')
+    # _check_roundtrip(table, expected, version='2.6', coerce_timestamps='ns')
 
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
     expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
     _check_roundtrip(table, expected,
                      use_deprecated_int96_timestamps=True)
-    _check_roundtrip(table, expected, version='2.0',
+    _check_roundtrip(table, expected, version='2.6',
                      use_deprecated_int96_timestamps=True)
 
 
@@ -426,7 +428,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
 
     filename = tempdir / 'written.parquet'
     try:
-        pq.write_table(tb, filename, version='2.0')
+        pq.write_table(tb, filename, version='2.6')
     except Exception:
         pass
     assert filename.exists()
@@ -437,4 +439,13 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # Loss of data through coercion (without explicit override) still an error
     filename = tempdir / 'not_written.parquet'
     with pytest.raises(ValueError):
-        pq.write_table(tb, filename, coerce_timestamps='ms', version='2.0')
+        pq.write_table(tb, filename, coerce_timestamps='ms', version='2.6')
+
+
+def test_duration_type():
+    # ARROW-6780
+    arrays = [pa.array([0, 1, 2, 3], type=pa.duration(unit))
+              for unit in ["s", "ms", "us", "ns"]]
+    table = pa.Table.from_arrays(arrays, ["d[s]", "d[ms]", "d[us]", "d[ns]"])
+
+    _check_roundtrip(table)

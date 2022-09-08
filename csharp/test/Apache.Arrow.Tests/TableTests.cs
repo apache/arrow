@@ -52,6 +52,34 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void TestTableFromRecordBatches()
+        {
+            RecordBatch recordBatch1 = TestData.CreateSampleRecordBatch(length: 10, true);
+            RecordBatch recordBatch2 = TestData.CreateSampleRecordBatch(length: 10, true);
+            IList<RecordBatch> recordBatches = new List<RecordBatch>() { recordBatch1, recordBatch2 };
+
+            Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
+            Assert.Equal(20, table1.RowCount);
+            Assert.Equal(23, table1.ColumnCount);
+
+            FixedSizeBinaryType type = new FixedSizeBinaryType(17);
+            Field newField1 = new Field(type.Name, type, false);
+            Schema newSchema1 = recordBatch1.Schema.SetField(20, newField1);
+            Assert.Throws<ArgumentException>(() => Table.TableFromRecordBatches(newSchema1, recordBatches));
+
+            List<Field> fields = new List<Field>();
+            Field.Builder fieldBuilder = new Field.Builder();
+            fields.Add(fieldBuilder.Name("Ints").DataType(Int32Type.Default).Nullable(true).Build());
+            fieldBuilder = new Field.Builder();
+            fields.Add(fieldBuilder.Name("Strings").DataType(StringType.Default).Nullable(true).Build());
+            StructType structType = new StructType(fields);
+
+            Field newField2 = new Field(structType.Name, structType, false);
+            Schema newSchema2 = recordBatch1.Schema.SetField(16, newField2);
+            Assert.Throws<ArgumentException>(() => Table.TableFromRecordBatches(newSchema2, recordBatches));
+        }
+
+        [Fact]
         public void TestTableAddRemoveAndSetColumn()
         {
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
@@ -79,5 +107,19 @@ namespace Apache.Arrow.Tests
             newTable = table.SetColumn(0, existingColumn);
             Assert.True(newTable.Column(0) == existingColumn);
         }
+
+        [Fact]
+        public void TestBuildFromRecordBatch()
+        {
+            Schema.Builder builder = new Schema.Builder();
+            builder.Field(new Field("A", Int64Type.Default, nullable: false));
+            Schema schema = builder.Build();
+
+            RecordBatch batch = TestData.CreateSampleRecordBatch(schema, 10);
+            Table table = Table.TableFromRecordBatches(schema, new[] { batch });
+
+            Assert.NotNull(table.Column(0).Data.Array(0) as Int64Array);
+        }
     }
+
 }

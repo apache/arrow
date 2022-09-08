@@ -254,6 +254,13 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
     valueCount = 0;
   }
 
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
   @Override
   @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {

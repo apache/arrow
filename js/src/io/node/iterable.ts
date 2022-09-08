@@ -16,7 +16,7 @@
 // under the License.
 
 import { Readable } from 'stream';
-import { isIterable, isAsyncIterable } from '../../util/compat';
+import { isIterable, isAsyncIterable } from '../../util/compat.js';
 
 /** @ignore */
 type ReadableOptions = import('stream').ReadableOptions;

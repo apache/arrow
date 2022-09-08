@@ -65,7 +65,7 @@ Type <- enum("Type::type",
   TIME64 = 20L,
   INTERVAL_MONTHS = 21L,
   INTERVAL_DAY_TIME = 22L,
-  DECIMAL = 23L,
+  DECIMAL128 = 23L,
   DECIMAL256 = 24L,
   LIST = 25L,
   STRUCT = 26L,
@@ -122,7 +122,7 @@ FileType <- enum("FileType",
 #' @export
 #' @rdname enums
 ParquetVersionType <- enum("ParquetVersionType",
-  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L
+  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L, PARQUET_2_4 = 2L, PARQUET_2_6 = 3L
 )
 
 #' @export
@@ -147,4 +147,32 @@ NullEncodingBehavior <- enum("NullEncodingBehavior",
 #' @rdname enums
 NullHandlingBehavior <- enum("NullHandlingBehavior",
   EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
+)
+
+#' @export
+#' @rdname enums
+RoundMode <- enum("RoundMode",
+  DOWN = 0L,
+  UP = 1L,
+  TOWARDS_ZERO = 2L,
+  TOWARDS_INFINITY = 3L,
+  HALF_DOWN = 4L,
+  HALF_UP = 5L,
+  HALF_TOWARDS_ZERO = 6L,
+  HALF_TOWARDS_INFINITY = 7L,
+  HALF_TO_EVEN = 8L,
+  HALF_TO_ODD = 9L
+)
+
+#' @export
+#' @rdname enums
+JoinType <- enum("JoinType",
+  LEFT_SEMI = 0L,
+  RIGHT_SEMI = 1L,
+  LEFT_ANTI = 2L,
+  RIGHT_ANTI = 3L,
+  INNER = 4L,
+  LEFT_OUTER = 5L,
+  RIGHT_OUTER = 6L,
+  FULL_OUTER = 7L
 )

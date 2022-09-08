@@ -22,8 +22,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
-/// epoch (1970-01-01), stored in either of two units:
+/// Date is either a 32-bit or 64-bit signed integer type representing an
+/// elapsed time since UNIX epoch (1970-01-01), stored in either of two units:
 ///
 /// * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
 ///   leap seconds), where the values are evenly divisible by 86400000

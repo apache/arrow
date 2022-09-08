@@ -40,7 +40,7 @@ on:
       - "r/**"
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -50,37 +50,38 @@ env:
 
 jobs:
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.1"]
+        r: ["4.2"]
         ubuntu: [20.04]
+        force-tests: ["true", "false"]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
           path: .docker
-          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+          # As this key is identical on both matrix builds only one will be able to successfully cache,
+          # this is fine as there are no differences in the build
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
+          restore-keys: |
+            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
+            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Check pkgdown reference sections
         run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -91,7 +92,7 @@ jobs:
           ulimit -c unlimited
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
-          archery docker run -e TZ=MART ubuntu-r
+          archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
@@ -126,21 +127,11 @@ jobs:
       R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
-      - name: Cache Docker Volumes
-        uses: actions/cache@v2
-        with:
-          path: .docker
-          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.config.image }}-r-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -170,34 +161,24 @@ jobs:
         continue-on-error: true
         run: archery docker push r
 
-  windows:
-    name: AMD64 Windows RTools ${{ matrix.rtools }}
-    runs-on: windows-latest
+  windows-cpp:
+    name: AMD64 Windows C++ RTools ${{ matrix.config.rtools }} ${{ matrix.config.arch }}
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35, 40]
-    env:
-      TEST_R_WITH_ARROW: "TRUE"
-      ARROW_R_CXXFLAGS: "-Werror"
-      _R_CHECK_TESTS_NLINES_: 0
+        config:
+        - { rtools: 40, arch: 'mingw32' }
+        - { rtools: 40, arch: 'mingw64' }
+        - { rtools: 40, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Make R tests verbose
-        # If you get a segfault/mysterious test Execution halted,
-        # make this `true` to see where it dies.
-        if: false
-        shell: cmd
-        run: |
-          cd r/tests
-          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
-          rm -f testthat.R.bak
       - name: Setup ccache
         shell: bash
         run: |
@@ -212,57 +193,139 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
-      - uses: r-lib/actions/setup-r@master
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
+          restore-keys: |
+            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
+            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
+      - uses: r-lib/actions/setup-r@v2
         with:
-          rtools-version: 40
           r-version: "4.1"
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@master
-        if: ${{ matrix.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: "3.6"
+          rtools-version: 40
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
         env:
-          RTOOLS_VERSION: ${{ matrix.rtools }}
+          RTOOLS_VERSION: ${{ matrix.config.rtools }}
+          MINGW_ARCH: ${{ matrix.config.arch }}
         run: ci/scripts/r_windows_build.sh
+      - name: Rename libarrow.zip
+        # So that they're unique when multiple are downloaded in the next step
+        shell: bash
+        run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
       - uses: actions/upload-artifact@v1
         with:
-          name: Rtools ${{ matrix.rtools }} Arrow C++
-          path: libarrow.zip
-      - name: Install R package dependencies
-        shell: Rscript {0}
+          name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+          path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
+
+  windows-r:
+    needs: [windows-cpp]
+    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
+    runs-on: windows-2019
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - { rtools: 40, rversion: "4.1" }
+        - { rtools: 42, rversion: "4.2" }
+        - { rtools: 42, rversion: "devel" }
+    env:
+      ARROW_R_CXXFLAGS: "-Werror"
+      _R_CHECK_TESTS_NLINES_: 0
+    steps:
+      - run: git config --global core.autocrlf false
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: mkdir r/windows
+      - name: Download artifacts
+        if: ${{ matrix.config.rtools != 42 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.config.rtools !=42 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
+          path: r/windows
+      - name: Download artifacts
+        if: ${{ matrix.config.rtools == 42 }}
+        uses: actions/download-artifact@v2
+        with:
+          name: libarrow-rtools40-ucrt64.zip
+          path: r/windows
+      - name: Unzip and rezip libarrows
+        shell: bash
         run: |
-          options(pkgType="win.binary")
-          install.packages(c("remotes", "rcmdcheck"))
-          remotes::install_deps("r", dependencies = TRUE)
+          cd r/windows
+          ls *.zip | xargs -n 1 unzip -uo
+          rm -rf *.zip
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.rversion }}
+          rtools-version: ${{ matrix.config.rtools }}
+          # RSPM keeps install times short for 3.6
+          use-public-rspm: true
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        env:
+          GITHUB_PAT: "${{ github.token }}"
+        with:
+          # For some arcane reason caching does not work on the windows runners
+          # most likely due to https://github.com/actions/cache/issues/815
+          cache: false
+          working-directory: 'r'
+          extra-packages: |
+            any::rcmdcheck
       - name: Check
         shell: Rscript {0}
         run: |
+          # Because we do R CMD build and r/windows is in .Rbuildignore,
+          # assemble the libarrow.zip file and pass it as an env var
+          setwd("r/windows")
+          zip("libarrow.zip", ".")
+          setwd("..")
+
           Sys.setenv(
-            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
-          rcmdcheck::rcmdcheck("r",
+          rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
             error_on = 'warning',
             check_dir = 'check',
             timeout = 3600
           )
+      - name: Run lintr
+        if: ${{ matrix.config.rversion == '4.2' }}
+        env:
+          NOT_CRAN: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: Rscript {0}
+        working-directory: r
+        run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+          )
+          # we use pak for package installation since it is faster, safer and more convenient
+          pak::local_install()
+          pak::pak("lintr")
+          lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
-        run: cat check/arrow.Rcheck/00install.out
+        run: cat r/check/arrow.Rcheck/00install.out
         if: always()
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Dump test logs
+        shell: bash
+        run: find r/check -name 'testthat.Rout*' -exec cat '{}' \; || true
+        if: always()

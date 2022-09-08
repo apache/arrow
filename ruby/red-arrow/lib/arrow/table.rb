@@ -195,8 +195,6 @@ module Arrow
     alias_method :size, :n_rows
     alias_method :length, :n_rows
 
-    alias_method :[], :find_column
-
     alias_method :slice_raw, :slice
 
     # @overload slice(offset, length)
@@ -236,6 +234,12 @@ module Arrow
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of the range of indices.
     #
+    # @overload slice(conditions)
+    #
+    #   @param conditions [Hash] The conditions to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #
     # @overload slice
     #
     #   @yield [slicer] Gives slicer that constructs condition to select records.
@@ -263,12 +267,37 @@ module Arrow
         expected_n_args = nil
         case args.size
         when 1
-          if args[0].is_a?(Integer)
+          case args[0]
+          when Integer
             index = args[0]
             index += n_rows if index < 0
             return nil if index < 0
             return nil if index >= n_rows
             return Record.new(self, index)
+          when Hash
+            condition_pairs = args[0]
+            slicer = Slicer.new(self)
+            conditions = []
+            condition_pairs.each do |key, value|
+              case value
+              when Range
+                # TODO: Optimize "begin <= key <= end" case by missing "between" kernel
+                # https://issues.apache.org/jira/browse/ARROW-9843
+                unless value.begin.nil?
+                  conditions << (slicer[key] >= value.begin)
+                end
+                unless value.end.nil?
+                  if value.exclude_end?
+                    conditions << (slicer[key] < value.end)
+                  else
+                    conditions << (slicer[key] <= value.end)
+                  end
+                end
+              else
+                conditions << (slicer[key] == value)
+              end
+            end
+            slicers << conditions.inject(:&)
           else
             slicers << args[0]
           end
@@ -397,41 +426,6 @@ module Arrow
       remove_column_raw(index)
     end
 
-    # TODO
-    #
-    # @return [Arrow::Table]
-    def select_columns(*selectors, &block)
-      if selectors.empty?
-        return to_enum(__method__) unless block_given?
-        selected_columns = columns.select(&block)
-      else
-        selected_columns = []
-        selectors.each do |selector|
-          case selector
-          when String, Symbol
-            column = find_column(selector)
-            if column.nil?
-              message = "unknown column: #{selector.inspect}: #{inspect}"
-              raise KeyError.new(message)
-            end
-            selected_columns << column
-          when Range
-            selected_columns.concat(columns[selector])
-          else
-            column = columns[selector]
-            if column.nil?
-              message = "out of index (0..#{n_columns - 1}): " +
-              "#{selector.inspect}: #{inspect}"
-              raise IndexError.new(message)
-            end
-            selected_columns << column
-          end
-        end
-        selected_columns = selected_columns.select(&block) if block_given?
-      end
-      self.class.new(selected_columns)
-    end
-
     # Experimental
     def group(*keys)
       Group.new(self, keys)
@@ -452,6 +446,84 @@ module Arrow
         column.data.pack
       end
       self.class.new(schema, packed_arrays)
+    end
+
+    # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
+    #   @!macro join_common_before
+    #     @param right [Arrow::Table] The right table.
+    #
+    #     Join columns with `right` on join key columns.
+    #
+    #   @!macro join_common_after
+    #     @param type [Arrow::JoinType] How to join.
+    #     @param left_outputs [::Array<String, Symbol>] Output columns in
+    #       `self`.
+    #
+    #       If both of `left_outputs` and `right_outputs` aren't
+    #       specified, all columns in `self` and `right` are
+    #       outputted.
+    #     @param right_outputs [::Array<String, Symbol>] Output columns in
+    #       `right`.
+    #
+    #       If both of `left_outputs` and `right_outputs` aren't
+    #       specified, all columns in `self` and `right` are
+    #       outputted.
+    #     @return [Arrow::Table]
+    #       The joined `Arrow::Table`.
+    #
+    #   @macro join_common_before
+    #   @param key [String, Symbol] A join key.
+    #   @macro join_common_after
+    #
+    # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #
+    #   @macro join_common_before
+    #   @param keys [::Array<String, Symbol>] Join keys.
+    #   @macro join_common_after
+    #
+    # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #
+    #   @macro join_common_before
+    #   @param keys [Hash] Specify join keys in `self` and `right` separately.
+    #   @option keys [String, Symbol, ::Array<String, Symbol>] :left
+    #     Join keys in `self`.
+    #   @option keys [String, Symbol, ::Array<String, Symbol>] :right
+    #     Join keys in `right`.
+    #   @macro join_common_after
+    #
+    # @since 7.0.0
+    def join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+      plan = ExecutePlan.new
+      left_node = plan.build_source_node(self)
+      right_node = plan.build_source_node(right)
+      if keys.is_a?(Hash)
+        left_keys = keys[:left]
+        right_keys = keys[:right]
+      else
+        left_keys = keys
+        right_keys = keys
+      end
+      left_keys = Array(left_keys)
+      right_keys = Array(right_keys)
+      hash_join_node_options = HashJoinNodeOptions.new(type,
+                                                       left_keys,
+                                                       right_keys)
+      unless left_outputs.nil?
+        hash_join_node_options.left_outputs = left_outputs
+      end
+      unless right_outputs.nil?
+        hash_join_node_options.right_outputs = right_outputs
+      end
+      hash_join_node = plan.build_hash_join_node(left_node,
+                                                 right_node,
+                                                 hash_join_node_options)
+      sink_node_options = SinkNodeOptions.new
+      plan.build_sink_node(hash_join_node, sink_node_options)
+      plan.validate
+      plan.start
+      plan.wait
+      reader = sink_node_options.get_reader(hash_join_node.output_schema)
+      reader.read_all
     end
 
     alias_method :to_s_raw, :to_s

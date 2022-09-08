@@ -47,15 +47,27 @@ Classes
    :toctree: ../generated/
 
    FileFormat
+   CsvFileFormat
+   CsvFragmentScanOptions
+   IpcFileFormat
    ParquetFileFormat
+   ParquetReadOptions
+   ParquetFragmentScanOptions
+   OrcFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   FilenamePartitioning
    Dataset
    FileSystemDataset
    FileSystemFactoryOptions
    FileSystemDatasetFactory
    UnionDataset
+   Fragment
+   FragmentScanOptions
+   TaggedRecordBatch
    Scanner
    Expression
+   InMemoryDataset
+   WrittenFile

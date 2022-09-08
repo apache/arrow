@@ -15,12 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Scalar")
 
 expect_scalar_roundtrip <- function(x, type) {
   s <- Scalar$create(x)
   expect_r6_class(s, "Scalar")
-  expect_type_equal(s$type, type)
+  expect_equal(s$type, type)
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {
     # Should this be? Missing if all elements are missing?
@@ -28,7 +27,7 @@ expect_scalar_roundtrip <- function(x, type) {
   } else {
     expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
-    expect_equal(as.vector(s), x)
+    expect_as_vector(s, x)
   }
 }
 
@@ -45,8 +44,8 @@ test_that("Scalar print", {
 })
 
 test_that("Creating Scalars of a different type and casting them", {
-  expect_type_equal(Scalar$create(4L, int8())$type, int8())
-  expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
+  expect_equal(Scalar$create(4L, int8())$type, int8())
+  expect_equal(Scalar$create(4L)$cast(float32())$type, float32())
 })
 
 test_that("Scalar to Array", {
@@ -85,8 +84,14 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_on_r_older_than("3.6")
+  v <- expect_error(as.vector(scalar_with_nul), NA)
   expect_error(
-    as.vector(scalar_with_nul),
+    v[1],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"
@@ -97,7 +102,7 @@ test_that("Handling string data with embedded nuls", {
   withr::with_options(list(arrow.skip_nul = TRUE), {
     expect_warning(
       expect_identical(
-        as.vector(scalar_with_nul),
+        as.vector(scalar_with_nul)[],
         "man"
       ),
       "Stripping '\\0' (nul) from character vector",

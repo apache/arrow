@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { memcpy } from '../util/buffer';
-import { BigIntAvailable, BigInt64Array, BigUint64Array } from '../util/compat';
+import { memcpy } from '../util/buffer.js';
 import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
-} from '../interfaces';
+} from '../interfaces.js';
 
 /** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
 /** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
 /** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
-    T extends TypedArray  ? TypedArrayConstructor<T>  :
+    T extends TypedArray ? TypedArrayConstructor<T> :
     T extends BigIntArray ? BigIntArrayConstructor<T> :
     any;
 
@@ -49,7 +48,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
         this.stride = stride;
         this.BYTES_PER_ELEMENT = buffer.BYTES_PER_ELEMENT;
         this.ArrayType = buffer.constructor as ArrayCtor<T>;
-        this._resize(this.length = buffer.length / stride | 0);
+        this._resize(this.length = Math.trunc(buffer.length / stride));
     }
 
     public buffer: T;
@@ -58,7 +57,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public readonly ArrayType: ArrayCtor<T>;
     public readonly BYTES_PER_ELEMENT: number;
 
-    public get byteLength() { return this.length * this.stride * this.BYTES_PER_ELEMENT | 0; }
+    public get byteLength() { return Math.trunc(this.length * this.stride * this.BYTES_PER_ELEMENT); }
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 
@@ -92,7 +91,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
         return this;
     }
     protected _resize(newLength: number) {
-        return this.buffer = <T> memcpy(new this.ArrayType(newLength), this.buffer);
+        return this.buffer = <T>memcpy(new this.ArrayType(newLength), this.buffer);
     }
 }
 
@@ -122,7 +121,7 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
         const byte = idx >> 3, bit = idx % 8, cur = buffer[byte] >> bit & 1;
         // If `val` is truthy and the current bit is 0, flip it to 1 and increment `numValid`.
         // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `numValid`.
-        val ? cur === 0 && ((buffer[byte] |=  (1 << bit)), ++this.numValid)
+        val ? cur === 0 && ((buffer[byte] |= (1 << bit)), ++this.numValid)
             : cur === 1 && ((buffer[byte] &= ~(1 << bit)), --this.numValid);
         return this;
     }
@@ -155,28 +154,28 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     }
 }
 
-/** @ignore */
-export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
-    public buffer64!: R;
-    protected _ArrayType64!: BigIntArrayConstructor<R>;
-    public get ArrayType64() {
-        return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
-    }
-    public set(index: number, value: DataValue<T>) {
-        this.reserve(index - this.length + 1);
-        switch (typeof value) {
-            case 'bigint': this.buffer64[index] = value; break;
-            case 'number': this.buffer[index * this.stride] = value; break;
-            default: this.buffer.set(value as TypedArray, index * this.stride);
-        }
-        return this;
-    }
-    protected _resize(newLength: number) {
-        const data = super._resize(newLength);
-        const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
-        if (BigIntAvailable) {
-            this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
-        }
-        return data;
-    }
-}
+// /** @ignore */
+// export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
+//     public buffer64!: R;
+//     protected _ArrayType64!: BigIntArrayConstructor<R>;
+//     public get ArrayType64() {
+//         return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
+//     }
+//     public set(index: number, value: DataValue<T>) {
+//         this.reserve(index - this.length + 1);
+//         switch (typeof value) {
+//             case 'bigint': this.buffer64[index] = value; break;
+//             case 'number': this.buffer[index * this.stride] = value; break;
+//             default: this.buffer.set(value as TypedArray, index * this.stride);
+//         }
+//         return this;
+//     }
+//     protected _resize(newLength: number) {
+//         const data = super._resize(newLength);
+//         const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
+//         if (BigIntAvailable) {
+//             this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
+//         }
+//         return data;
+//     }
+// }

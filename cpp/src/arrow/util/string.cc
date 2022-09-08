@@ -92,11 +92,16 @@ Status ParseHexValue(const char* data, uint8_t* out) {
 
 namespace internal {
 
-std::vector<util::string_view> SplitString(util::string_view v, char delimiter) {
+std::vector<util::string_view> SplitString(util::string_view v, char delimiter,
+                                           int64_t limit) {
   std::vector<util::string_view> parts;
   size_t start = 0, end;
   while (true) {
-    end = v.find(delimiter, start);
+    if (limit > 0 && static_cast<size_t>(limit - 1) <= parts.size()) {
+      end = std::string::npos;
+    } else {
+      end = v.find(delimiter, start);
+    }
     parts.push_back(v.substr(start, end - start));
     if (end == std::string::npos) {
       break;
@@ -185,6 +190,16 @@ util::optional<std::string> Replace(util::string_view s, util::string_view token
   }
   return s.substr(0, token_start).to_string() + replacement.to_string() +
          s.substr(token_start + token.size()).to_string();
+}
+
+Result<bool> ParseBoolean(util::string_view value) {
+  if (AsciiEqualsCaseInsensitive(value, "true") || value == "1") {
+    return true;
+  } else if (AsciiEqualsCaseInsensitive(value, "false") || value == "0") {
+    return false;
+  } else {
+    return Status::Invalid("String is not a valid boolean value: '", value, "'.");
+  }
 }
 
 }  // namespace internal

@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.TimeZone;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
-import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
@@ -105,18 +104,18 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
    */
   @Test
   public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
-    testDataSets(JdbcToArrow.sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
         Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
-    testDataSets(JdbcToArrow.sqlToArrow(
+    testDataSets(sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
         new JdbcToArrowConfigBuilder(
             new RootAllocator(Integer.MAX_VALUE),
             Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()));
-    testDataSets(JdbcToArrow.sqlToArrow(
+    testDataSets(sqlToArrow(
         conn,
         table.getQuery(),
         new JdbcToArrowConfigBuilder(

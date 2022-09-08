@@ -27,7 +27,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -277,7 +277,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
   if (!is_integer(indices_type->id())) {
     return Status::TypeError("Type of SparseCOOIndex indices must be integer");
   }
-  const int64_t elsize = internal::GetByteWidth(*indices_type);
+  const int64_t elsize = indices_type->byte_width();
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
   return Make(indices_type, indices_shape, indices_strides, indices_data);

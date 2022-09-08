@@ -102,13 +102,13 @@ class ARROW_EXPORT BitRunReader {
     int64_t start_bit_offset = start_position & 63;
     // Invert the word for proper use of CountTrailingZeros and
     // clear bits so CountTrailingZeros can do it magic.
-    word_ = ~word_ & ~BitUtil::LeastSignificantBitMask(start_bit_offset);
+    word_ = ~word_ & ~bit_util::LeastSignificantBitMask(start_bit_offset);
 
     // Go  forward until the next change from unset to set.
-    int64_t new_bits = BitUtil::CountTrailingZeros(word_) - start_bit_offset;
+    int64_t new_bits = bit_util::CountTrailingZeros(word_) - start_bit_offset;
     position_ += new_bits;
 
-    if (ARROW_PREDICT_FALSE(BitUtil::IsMultipleOf64(position_)) &&
+    if (ARROW_PREDICT_FALSE(bit_util::IsMultipleOf64(position_)) &&
         ARROW_PREDICT_TRUE(position_ < length_)) {
       // Continue extending position while we can advance an entire word.
       // (updates position_ accordingly).
@@ -125,10 +125,10 @@ class ARROW_EXPORT BitRunReader {
       // Advance the position of the bitmap for loading.
       bitmap_ += sizeof(uint64_t);
       LoadNextWord();
-      new_bits = BitUtil::CountTrailingZeros(word_);
+      new_bits = bit_util::CountTrailingZeros(word_);
       // Continue calculating run length.
       position_ += new_bits;
-    } while (ARROW_PREDICT_FALSE(BitUtil::IsMultipleOf64(position_)) &&
+    } while (ARROW_PREDICT_FALSE(bit_util::IsMultipleOf64(position_)) &&
              ARROW_PREDICT_TRUE(position_ < length_) && new_bits > 0);
   }
 
@@ -141,13 +141,13 @@ class ARROW_EXPORT BitRunReader {
     if (ARROW_PREDICT_TRUE(bits_remaining >= 64)) {
       std::memcpy(&word_, bitmap_, 8);
     } else {
-      int64_t bytes_to_load = BitUtil::BytesForBits(bits_remaining);
+      int64_t bytes_to_load = bit_util::BytesForBits(bits_remaining);
       auto word_ptr = reinterpret_cast<uint8_t*>(&word_);
       std::memcpy(word_ptr, bitmap_, bytes_to_load);
       // Ensure stoppage at last bit in bitmap by reversing the next higher
       // order bit.
-      BitUtil::SetBitTo(word_ptr, bits_remaining,
-                        !BitUtil::GetBit(word_ptr, bits_remaining - 1));
+      bit_util::SetBitTo(word_ptr, bits_remaining,
+                         !bit_util::GetBit(word_ptr, bits_remaining - 1));
     }
 
     // Two cases:
@@ -294,25 +294,25 @@ class BaseSetBitRunReader {
     if (!Reverse) {
       bitmap_ += 8;
     }
-    return BitUtil::ToLittleEndian(word);
+    return bit_util::ToLittleEndian(word);
   }
 
   uint64_t LoadPartialWord(int8_t bit_offset, int64_t num_bits) {
     assert(num_bits > 0);
     uint64_t word = 0;
-    const int64_t num_bytes = BitUtil::BytesForBits(num_bits);
+    const int64_t num_bytes = bit_util::BytesForBits(num_bits);
     if (Reverse) {
       // Read in the most significant bytes of the word
       bitmap_ -= num_bytes;
       memcpy(reinterpret_cast<char*>(&word) + 8 - num_bytes, bitmap_, num_bytes);
       // XXX MostSignificantBitmask
-      return (BitUtil::ToLittleEndian(word) << bit_offset) &
-             ~BitUtil::LeastSignificantBitMask(64 - num_bits);
+      return (bit_util::ToLittleEndian(word) << bit_offset) &
+             ~bit_util::LeastSignificantBitMask(64 - num_bits);
     } else {
       memcpy(&word, bitmap_, num_bytes);
       bitmap_ += num_bytes;
-      return (BitUtil::ToLittleEndian(word) >> bit_offset) &
-             BitUtil::LeastSignificantBitMask(num_bits);
+      return (bit_util::ToLittleEndian(word) >> bit_offset) &
+             bit_util::LeastSignificantBitMask(num_bits);
     }
   }
 
@@ -434,12 +434,12 @@ class BaseSetBitRunReader {
 
 template <>
 inline int BaseSetBitRunReader<false>::CountFirstZeros(uint64_t word) {
-  return BitUtil::CountTrailingZeros(word);
+  return bit_util::CountTrailingZeros(word);
 }
 
 template <>
 inline int BaseSetBitRunReader<true>::CountFirstZeros(uint64_t word) {
-  return BitUtil::CountLeadingZeros(word);
+  return bit_util::CountLeadingZeros(word);
 }
 
 template <>

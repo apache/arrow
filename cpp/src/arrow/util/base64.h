@@ -19,16 +19,17 @@
 
 #include <string>
 
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
 
 ARROW_EXPORT
-std::string base64_encode(unsigned char const*, unsigned int len);
+std::string base64_encode(string_view s);
 
 ARROW_EXPORT
-std::string base64_decode(std::string const& s);
+std::string base64_decode(string_view s);
 
 }  // namespace util
 }  // namespace arrow

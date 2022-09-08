@@ -339,17 +339,22 @@ cdef class PlasmaClient(_Weakrefable):
         """
         Create a new buffer in the PlasmaStore for a particular object ID.
 
-        The returned buffer is mutable until seal is called.
+        The returned buffer is mutable until ``seal()`` is called.
 
         Parameters
         ----------
         object_id : ObjectID
             The object ID used to identify an object.
-        size : int
+        data_size : int
             The size in bytes of the created buffer.
         metadata : bytes
             An optional string of bytes encoding whatever metadata the user
             wishes to encode.
+
+        Returns
+        -------
+        buffer : Buffer
+            A mutable buffer where to write the object data.
 
         Raises
         ------
@@ -357,9 +362,10 @@ cdef class PlasmaClient(_Weakrefable):
             This exception is raised if the object could not be created because
             there already is an object with the same ID in the plasma store.
 
-        PlasmaStoreFull: This exception is raised if the object could
-                not be created because the plasma store is unable to evict
-                enough objects to create room for it.
+        PlasmaStoreFull
+            This exception is raised if the object could
+            not be created because the plasma store is unable to evict
+            enough objects to create room for it.
         """
         cdef shared_ptr[CBuffer] data
         with nogil:
@@ -498,7 +504,8 @@ cdef class PlasmaClient(_Weakrefable):
 
         Returns
         -------
-        The object ID associated to the Python buffer object.
+        ObjectID
+            The object ID associated to the Python buffer object.
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
@@ -530,7 +537,8 @@ cdef class PlasmaClient(_Weakrefable):
 
         Returns
         -------
-        The object ID associated to the Python object.
+        ObjectID
+            The object ID associated to the Python object.
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())

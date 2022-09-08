@@ -17,57 +17,25 @@
 package utils_test
 
 import (
-	"math/rand"
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v10/parquet/internal/testutils"
 )
 
-const bufferSize = 1024 * 8
-
-// a naive bitmap reader for a baseline
-
-type NaiveBitmapReader struct {
-	bitmap []byte
-	pos    int
+type linearBitRunReader struct {
+	reader *bitutil.BitmapReader
 }
 
-func (n *NaiveBitmapReader) IsSet() bool    { return bitutil.BitIsSet(n.bitmap, n.pos) }
-func (n *NaiveBitmapReader) IsNotSet() bool { return !n.IsSet() }
-func (n *NaiveBitmapReader) Next()          { n.pos++ }
-
-// naive bitmap writer for a baseline
-
-type NaiveBitmapWriter struct {
-	bitmap []byte
-	pos    int
-}
-
-func (n *NaiveBitmapWriter) Set() {
-	byteOffset := n.pos / 8
-	bitOffset := n.pos % 8
-	bitSetMask := uint8(1 << bitOffset)
-	n.bitmap[byteOffset] |= bitSetMask
-}
-
-func (n *NaiveBitmapWriter) Clear() {
-	byteOffset := n.pos / 8
-	bitOffset := n.pos % 8
-	bitClearMask := uint8(0xFF ^ (1 << bitOffset))
-	n.bitmap[byteOffset] &= bitClearMask
-}
-
-func (n *NaiveBitmapWriter) Next()   { n.pos++ }
-func (n *NaiveBitmapWriter) Finish() {}
-
-func randomBuffer(nbytes int64) []byte {
-	buf := make([]byte, nbytes)
-	r := rand.New(rand.NewSource(0))
-	r.Read(buf)
-	return buf
+func (l linearBitRunReader) NextRun() bitutils.BitRun {
+	r := bitutils.BitRun{0, l.reader.Set()}
+	for l.reader.Pos() < l.reader.Len() && l.reader.Set() == r.Set {
+		r.Len++
+		l.reader.Next()
+	}
+	return r
 }
 
 func randomBitsBuffer(nbits, setPct int64) []byte {
@@ -80,7 +48,7 @@ func randomBitsBuffer(nbits, setPct int64) []byte {
 	rag.GenerateBitmap(buf, nbits, prob)
 
 	if setPct == -1 {
-		wr := utils.NewBitmapWriter(buf, 0, nbits)
+		wr := bitutil.NewBitmapWriter(buf, 0, int(nbits))
 		for i := int64(0); i < nbits; i++ {
 			if i%2 == 0 {
 				wr.Set()
@@ -93,63 +61,7 @@ func randomBitsBuffer(nbits, setPct int64) []byte {
 	return buf
 }
 
-func BenchmarkBitmapReader(b *testing.B) {
-	buf := randomBuffer(bufferSize)
-	nbits := bufferSize * 8
-
-	b.Run("naive baseline", func(b *testing.B) {
-		b.SetBytes(2 * bufferSize)
-		for i := 0; i < b.N; i++ {
-			{
-				total := 0
-				rdr := NaiveBitmapReader{buf, 0}
-				for j := 0; j < nbits; j++ {
-					if rdr.IsSet() {
-						total++
-					}
-					rdr.Next()
-				}
-			}
-			{
-				total := 0
-				rdr := NaiveBitmapReader{buf, 0}
-				for j := 0; j < nbits; j++ {
-					if rdr.IsSet() {
-						total++
-					}
-					rdr.Next()
-				}
-			}
-		}
-	})
-	b.Run("bitmap reader", func(b *testing.B) {
-		b.SetBytes(2 * bufferSize)
-		for i := 0; i < b.N; i++ {
-			{
-				total := 0
-				rdr := utils.NewBitmapReader(buf, 0, int64(nbits))
-				for j := 0; j < nbits; j++ {
-					if rdr.Set() {
-						total++
-					}
-					rdr.Next()
-				}
-			}
-			{
-				total := 0
-				rdr := utils.NewBitmapReader(buf, 0, int64(nbits))
-				for j := 0; j < nbits; j++ {
-					if rdr.Set() {
-						total++
-					}
-					rdr.Next()
-				}
-			}
-		}
-	})
-}
-
-func testBitRunReader(rdr utils.BitRunReader) (setTotal int64) {
+func testBitRunReader(rdr bitutils.BitRunReader) (setTotal int64) {
 	for {
 		br := rdr.NextRun()
 		if br.Len == 0 {
@@ -170,14 +82,14 @@ func BenchmarkBitRunReader(b *testing.B) {
 			b.Run("linear", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := linearBitRunReader{utils.NewBitmapReader(buf, 0, numBits)}
+					rdr := linearBitRunReader{bitutil.NewBitmapReader(buf, 0, numBits)}
 					testBitRunReader(rdr)
 				}
 			})
 			b.Run("internal", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewBitRunReader(buf, 0, numBits)
 					testBitRunReader(rdr)
 				}
 			})
@@ -185,7 +97,7 @@ func BenchmarkBitRunReader(b *testing.B) {
 	}
 }
 
-func testSetBitRunReader(rdr utils.SetBitRunReader) (setTotal int64) {
+func testSetBitRunReader(rdr bitutils.SetBitRunReader) (setTotal int64) {
 	for {
 		br := rdr.NextRun()
 		if br.Length == 0 {
@@ -204,14 +116,14 @@ func BenchmarkSetBitRunReader(b *testing.B) {
 			b.Run("reader", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewSetBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewSetBitRunReader(buf, 0, numBits)
 					testSetBitRunReader(rdr)
 				}
 			})
 			b.Run("reverse rdr", func(b *testing.B) {
 				b.SetBytes(numBits / 8)
 				for i := 0; i < b.N; i++ {
-					rdr := utils.NewReverseSetBitRunReader(buf, 0, numBits)
+					rdr := bitutils.NewReverseSetBitRunReader(buf, 0, numBits)
 					testSetBitRunReader(rdr)
 				}
 			})

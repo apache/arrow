@@ -21,19 +21,17 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
+#include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-
-class BinaryArray;
-class RecordBatch;
 
 using internal::checked_cast;
 
@@ -63,7 +61,6 @@ TEST(Datum, ImplicitConstructors) {
 
 TEST(Datum, Constructors) {
   Datum val(std::make_shared<Int64Scalar>(1));
-  ASSERT_EQ(ValueDescr::SCALAR, val.shape());
   AssertTypeEqual(*int64(), *val.type());
   ASSERT_TRUE(val.is_scalar());
   ASSERT_FALSE(val.is_array());
@@ -79,7 +76,6 @@ TEST(Datum, Constructors) {
 
   Datum val2(arr);
   ASSERT_EQ(Datum::ARRAY, val2.kind());
-  ASSERT_EQ(ValueDescr::ARRAY, val2.shape());
   AssertTypeEqual(*int64(), *val2.type());
   AssertArraysEqual(*arr, *val2.make_array());
   ASSERT_TRUE(val2.is_array());
@@ -133,40 +129,24 @@ TEST(Datum, ToString) {
   Datum v1(arr);
   Datum v2(std::make_shared<Int8Scalar>(1));
 
-  std::vector<Datum> vec1 = {v1};
-  Datum v3(vec1);
-
-  std::vector<Datum> vec2 = {v1, v2};
-  Datum v4(vec2);
-
   ASSERT_EQ("Array", v1.ToString());
   ASSERT_EQ("Scalar", v2.ToString());
-  ASSERT_EQ("Collection(Array)", v3.ToString());
-  ASSERT_EQ("Collection(Array, Scalar)", v4.ToString());
 }
 
-TEST(ValueDescr, Basics) {
-  ValueDescr d1(utf8(), ValueDescr::SCALAR);
-  ValueDescr d2 = ValueDescr::Any(utf8());
-  ValueDescr d3 = ValueDescr::Scalar(utf8());
-  ValueDescr d4 = ValueDescr::Array(utf8());
+TEST(Datum, TotalBufferSize) {
+  auto arr = ArrayFromJSON(int8(), "[1, 2, 3, 4]");
+  Datum arr_datum(arr);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> chunked_arr,
+                       ChunkedArray::Make({arr}));
+  Datum chunked_datum(chunked_arr);
+  std::shared_ptr<Schema> schm = schema({field("a", int8())});
+  Datum rb_datum(RecordBatch::Make(schm, 4, {arr}));
+  Datum tab_datum(Table::Make(std::move(schm), {std::move(arr)}, 4));
 
-  ASSERT_EQ(ValueDescr::SCALAR, d1.shape);
-  AssertTypeEqual(*utf8(), *d1.type);
-  ASSERT_EQ(ValueDescr::Scalar(utf8()), d1);
-
-  ASSERT_EQ(ValueDescr::ANY, d2.shape);
-  AssertTypeEqual(*utf8(), *d2.type);
-  ASSERT_EQ(ValueDescr::Any(utf8()), d2);
-  ASSERT_NE(ValueDescr::Any(int32()), d2);
-
-  ASSERT_EQ(ValueDescr::SCALAR, d3.shape);
-  ASSERT_EQ(ValueDescr::ARRAY, d4.shape);
-
-  ASSERT_EQ("scalar[string]", d1.ToString());
-  ASSERT_EQ("any[string]", d2.ToString());
-  ASSERT_EQ("scalar[string]", d3.ToString());
-  ASSERT_EQ("array[string]", d4.ToString());
+  ASSERT_EQ(4, arr_datum.TotalBufferSize());
+  ASSERT_EQ(4, chunked_datum.TotalBufferSize());
+  ASSERT_EQ(4, rb_datum.TotalBufferSize());
+  ASSERT_EQ(4, tab_datum.TotalBufferSize());
 }
 
 }  // namespace arrow

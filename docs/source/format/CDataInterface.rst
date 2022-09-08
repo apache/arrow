@@ -187,6 +187,9 @@ Temporal types have multi-character format strings starting with ``t``:
 +-----------------+---------------------------------------------------+------------+
 | ``tiD``         | interval [days, time]                             |            |
 +-----------------+---------------------------------------------------+------------+
+| ``tin``         | interval [month, day, nanoseconds]                |            |
++-----------------+---------------------------------------------------+------------+
+
 
 Dictionary-encoded types do not have a specific format string.  Instead, the
 format string of the base array represents the dictionary index type, and the
@@ -252,6 +255,9 @@ are available under the Apache License 2.0.
 
 .. code-block:: c
 
+   #ifndef ARROW_C_DATA_INTERFACE
+   #define ARROW_C_DATA_INTERFACE
+
    #define ARROW_FLAG_DICTIONARY_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2
    #define ARROW_FLAG_MAP_KEYS_SORTED 4
@@ -288,6 +294,15 @@ are available under the Apache License 2.0.
      // Opaque producer-specific data
      void* private_data;
    };
+
+   #endif  // ARROW_C_DATA_INTERFACE
+
+.. note::
+   The canonical guard ``ARROW_C_DATA_INTERFACE`` is meant to avoid
+   duplicate definitions if two projects copy the C data interface
+   definitions in their own headers, and a third-party project
+   includes from these two projects.  It is therefore important that
+   this guard is kept exactly as-is when these definitions are copied.
 
 The ArrowSchema structure
 -------------------------
@@ -508,8 +523,7 @@ For extension arrays, the :c:member:`ArrowSchema.format` string encodes the
 metadata key ``ARROW:extension:name``  encodes the extension type name,
 and the metadata key ``ARROW:extension:metadata`` encodes the
 implementation-specific serialization of the extension type (for
-parameterized extension types).  The base64 encoding of metadata values
-ensures that any possible serialization is representable.
+parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
@@ -587,7 +601,7 @@ TODO area must be filled with producer-specific deallocation code:
 
    static void ReleaseExportedArray(struct ArrowArray* array) {
      // This should not be called on already released array
-     assert(array->format != NULL);
+     assert(array->release != NULL);
 
      // Release children
      for (int64_t i = 0; i < array->n_children; ++i) {
@@ -649,8 +663,9 @@ while releasing the others.
 Record batches
 --------------
 
-A record batch can be trivially considered as an equivalent struct array with
-additional top-level metadata.
+A record batch can be trivially considered as an equivalent struct array. In
+this case the metadata of the top-level ``ArrowSchema`` can be used for the
+schema-level metadata of the record batch.
 
 Example use case
 ================

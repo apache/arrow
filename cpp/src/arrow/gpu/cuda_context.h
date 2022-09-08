@@ -76,7 +76,7 @@ class ARROW_EXPORT CudaDeviceManager {
   static std::unique_ptr<CudaDeviceManager> instance_;
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 
   friend class CudaContext;
   friend class CudaDevice;
@@ -146,7 +146,7 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// \endcond
 
   explicit CudaDevice(Impl);
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 };
 
 /// \brief Return whether a device instance is a CudaDevice
@@ -167,7 +167,7 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
       std::shared_ptr<Buffer> buf) override;
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override;
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override;
 
   /// \brief The CudaDevice instance tied to this MemoryManager
   ///
@@ -185,6 +185,10 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   Result<std::shared_ptr<Buffer>> CopyBufferTo(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& to) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to) override;
   Result<std::shared_ptr<Buffer>> ViewBufferFrom(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& from) override;
@@ -217,7 +221,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Allocate CUDA memory on GPU device for this context
   /// \param[in] nbytes number of bytes
   /// \return the allocated buffer
-  Result<std::shared_ptr<CudaBuffer>> Allocate(int64_t nbytes);
+  Result<std::unique_ptr<CudaBuffer>> Allocate(int64_t nbytes);
 
   /// \brief Release CUDA memory on GPU device for this context
   /// \param[in] device_ptr the buffer address
@@ -293,7 +297,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
                                    uintptr_t dst, uintptr_t src, int64_t nbytes);
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 
   friend class CudaBuffer;
   friend class CudaBufferReader;

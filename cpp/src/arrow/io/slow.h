@@ -48,7 +48,7 @@ class ARROW_EXPORT LatencyGenerator {
 // XXX use ConcurrencyWrapper?  It could increase chances of finding a race.
 
 template <class StreamType>
-class ARROW_EXPORT SlowInputStreamBase : public StreamType {
+class SlowInputStreamBase : public StreamType {
  public:
   SlowInputStreamBase(std::shared_ptr<StreamType> stream,
                       std::shared_ptr<LatencyGenerator> latencies)

@@ -15,13 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_installed("duckdb", minimum_version = "0.2.8")
-skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
-# when we remove this, we should also remove the FALSE in run_duckdb_examples
-skip("These tests are flaking: https://github.com/duckdb/duckdb/issues/2100")
-library(duckdb)
-library(dplyr)
+skip_on_cran()
+
+# this test needs to be the first one since all other test blocks are skipped
+# if duckdb is not installed
+test_that("meaningful error message when duckdb is not installed", {
+  # skipping if duckdb is installed since we're testing the to_duckdb function's
+  # complaint when a user tries to call it, but duckdb isn't available
+  skip_if(requireNamespace("duckdb", quietly = TRUE))
+  ds <- InMemoryDataset$create(example_data)
+  expect_error(
+    to_duckdb(ds),
+    regexp = "Please install the `duckdb` package to pass data with `to_duckdb()`.",
+    fixed = TRUE
+  )
+})
+
+skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("dbplyr")
+
+library(duckdb, quietly = TRUE)
+library(dplyr, warn.conflicts = FALSE)
 
 test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
@@ -30,9 +45,12 @@ test_that("to_duckdb", {
     ds %>%
       to_duckdb() %>%
       collect() %>%
-      # factors don't roundtrip
-      select(!fct),
-    select(example_data, !fct)
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+      select(!fct) %>%
+      arrange(int),
+    example_data %>%
+      select(!fct) %>%
+      arrange(int)
   )
 
   expect_identical(
@@ -41,7 +59,8 @@ test_that("to_duckdb", {
       to_duckdb() %>%
       group_by(lgl) %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -56,7 +75,8 @@ test_that("to_duckdb", {
       group_by(lgl) %>%
       to_duckdb() %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -65,24 +85,112 @@ test_that("to_duckdb", {
   )
 })
 
-test_that("summarise(..., .engine)", {
+test_that("to_duckdb then to_arrow", {
   ds <- InMemoryDataset$create(example_data)
+
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow()
+
+  expect_identical(
+    collect(ds_rt),
+    ds %>%
+      select(-fct) %>%
+      collect()
+  )
+
+  # And we can continue the pipeline
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct) %>%
+    to_arrow() %>%
+    filter(int > 5)
+
+  expect_identical(
+    ds_rt %>%
+      collect() %>%
+      arrange(int),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5) %>%
+      collect() %>%
+      arrange(int)
+  )
+
+  # Now check errors
+  ds_rt <- ds %>%
+    to_duckdb() %>%
+    # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+    select(-fct)
+
+  # alter the class of ds_rt's connection to simulate some other database
+  class(ds_rt$src$con) <- "some_other_connection"
+
+  expect_error(
+    to_arrow(ds_rt),
+    "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
+  )
+})
+
+test_that("to_arrow roundtrip, with dataset", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  ds <- open_dataset(tf)
+
   expect_identical(
     ds %>%
-      select(int, lgl, dbl) %>%
-      group_by(lgl) %>%
-      summarise(
-        mean_int = mean(int, na.rm = TRUE),
-        mean_dbl = mean(dbl, na.rm = TRUE),
-        .engine = "duckdb"
-      ) %>%
-      collect(),
-    tibble::tibble(
-      lgl = c(TRUE, NA, FALSE),
-      mean_int = c(3, 6.25, 8.5),
-      mean_dbl = c(3.1, 6.35, 6.1)
-    )
+      to_duckdb() %>%
+      select(-fct) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      to_arrow() %>%
+      filter(int > 5 & part > 1) %>%
+      collect() %>%
+      arrange(part, int) %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5 & part > 1) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      collect() %>%
+      arrange(part, int)
   )
+})
+
+test_that("to_arrow roundtrip, with dataset (without wrapping)", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  out <- open_dataset(tf) %>%
+    to_duckdb() %>%
+    select(-fct) %>%
+    mutate(dbl_plus = dbl + 1) %>%
+    to_arrow()
+
+  expect_r6_class(out, "RecordBatchReader")
 })
 
 # The next set of tests use an already-extant connection to test features of
@@ -93,10 +201,7 @@ con <- dbConnect(duckdb::duckdb())
 dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-# write one table to the connection so it is kept open
-DBI::dbWriteTable(con, "mtcars", mtcars)
-
-test_that("Joining, auto-cleanup", {
+test_that("Joining, auto-cleanup enabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
@@ -115,24 +220,24 @@ test_that("Joining, auto-cleanup", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
-  expect_true(all(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_true(all(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
   rm(table_one, table_two)
   gc()
-  expect_false(any(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
+  expect_false(any(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
 })
 
-test_that("Joining, auto-cleanup disabling", {
+test_that("Joining, auto-cleanup disabled", {
   ds <- InMemoryDataset$create(example_data)
 
   table_three_name <- "my_arrow_table_3"
   table_three <- to_duckdb(ds, con = con, table_name = table_three_name, auto_disconnect = FALSE)
 
   # clean up does *not* clean these tables
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
   rm(table_three)
   gc()
   # but because we aren't auto_disconnecting then we still have this table.
-  expect_true(table_three_name %in% DBI::dbListTables(con))
+  expect_true(table_three_name %in% duckdb::duckdb_list_arrow(con))
 })
 
 test_that("to_duckdb with a table", {
@@ -166,14 +271,16 @@ test_that("to_duckdb passing a connection", {
   # create a table to join to that we know is in our con_separate
   new_df <- data.frame(
     int = 1:10,
-    char = letters[26:17]
+    char = letters[26:17],
+    stringsAsFactors = FALSE
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
-  table_four_name <- table_four$ops$x
+  # dbplyr 2.2.0 renames this internal attribute to lazy_query
+  table_four_name <- table_four$ops$x %||% table_four$lazy_query$x
 
   result <- DBI::dbGetQuery(
     con_separate,

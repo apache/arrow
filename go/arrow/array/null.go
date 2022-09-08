@@ -17,12 +17,16 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Null represents an immutable, degenerate array with no physical storage.
@@ -47,10 +51,10 @@ func NewNull(n int) *Null {
 }
 
 // NewNullData returns a new Null array value, from data.
-func NewNullData(data *Data) *Null {
+func NewNullData(data arrow.ArrayData) *Null {
 	a := &Null{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -73,6 +77,14 @@ func (a *Null) setData(data *Data) {
 	a.array.data.nulls = a.array.data.length
 }
 
+func (a *Null) getOneForMarshal(i int) interface{} {
+	return nil
+}
+
+func (a *Null) MarshalJSON() ([]byte, error) {
+	return json.Marshal(make([]interface{}, a.Len()))
+}
+
 type NullBuilder struct {
 	builder
 }
@@ -81,6 +93,8 @@ type NullBuilder struct {
 func NewNullBuilder(mem memory.Allocator) *NullBuilder {
 	return &NullBuilder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *NullBuilder) Type() arrow.DataType { return arrow.Null }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -100,6 +114,8 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.nulls++
 }
 
+func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
+
 func (*NullBuilder) Reserve(size int) {}
 func (*NullBuilder) Resize(size int)  {}
 
@@ -108,7 +124,7 @@ func (*NullBuilder) resize(newBits int, init func(int)) {}
 
 // NewArray creates a Null array from the memory buffers used by the builder and resets the NullBuilder
 // so it can be used to build a new array.
-func (b *NullBuilder) NewArray() Interface {
+func (b *NullBuilder) NewArray() arrow.Array {
 	return b.NewNullArray()
 }
 
@@ -134,7 +150,49 @@ func (b *NullBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t.(type) {
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(nil),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *NullBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *NullBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("null builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 var (
-	_ Interface = (*Null)(nil)
-	_ Builder   = (*NullBuilder)(nil)
+	_ arrow.Array = (*Null)(nil)
+	_ Builder     = (*NullBuilder)(nil)
 )

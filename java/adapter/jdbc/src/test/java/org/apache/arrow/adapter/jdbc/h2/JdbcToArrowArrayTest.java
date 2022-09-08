@@ -17,7 +17,10 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
-import static org.junit.Assert.*;
+import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import java.sql.Array;
 import java.sql.Connection;
@@ -32,7 +35,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
-import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
@@ -160,7 +162,7 @@ public class JdbcToArrowArrayTest {
     final JdbcToArrowConfig config = builder.build();
 
     try (ResultSet resultSet = conn.createStatement().executeQuery(QUERY)) {
-      final VectorSchemaRoot vector = JdbcToArrow.sqlToArrow(resultSet, config);
+      final VectorSchemaRoot vector = sqlToArrow(resultSet, config);
 
       assertEquals(rowCount, vector.getRowCount());
 
@@ -204,7 +206,7 @@ public class JdbcToArrowArrayTest {
     final JdbcToArrowConfig config = builder.build();
 
     try (ResultSet resultSet = conn.createStatement().executeQuery(QUERY)) {
-      final VectorSchemaRoot vector = JdbcToArrow.sqlToArrow(resultSet, config);
+      final VectorSchemaRoot vector = sqlToArrow(resultSet, config);
 
       assertEquals(rowCount, vector.getRowCount());
 

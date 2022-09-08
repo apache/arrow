@@ -19,4 +19,4 @@
 from pyarrow._csv import (  # noqa
     ReadOptions, ParseOptions, ConvertOptions, ISO8601,
     open_csv, read_csv, CSVStreamingReader, write_csv,
-    WriteOptions, CSVWriter)
+    WriteOptions, CSVWriter, InvalidRow)

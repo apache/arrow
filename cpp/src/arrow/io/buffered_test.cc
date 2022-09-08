@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
@@ -289,6 +290,14 @@ TEST_F(TestBufferedOutputStream, Tell) {
   AssertTell(100100);
   WriteChunkwise(std::string(90, 'x'), {1, 1, 2, 3, 5, 8});
   AssertTell(100190);
+
+  ASSERT_OK(buffered_->Close());
+
+  // write long bytes after raw_pos is cached
+  OpenBuffered(/*buffer_size=*/3);
+  AssertTell(0);
+  ASSERT_OK(buffered_->Write("1234568790", 5));
+  AssertTell(5);
 
   ASSERT_OK(buffered_->Close());
 

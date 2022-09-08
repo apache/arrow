@@ -29,7 +29,7 @@ RUN apt-get update -y -q && \
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-RUN pip install -U pip setuptools
+RUN pip install -U pip setuptools wheel
 
 COPY python/requirements-build.txt \
      python/requirements-test.txt \
@@ -38,6 +38,12 @@ COPY python/requirements-build.txt \
 RUN pip install \
     -r arrow/python/requirements-build.txt \
     -r arrow/python/requirements-test.txt
+
+ARG numba
+COPY ci/scripts/install_numba.sh /arrow/ci/scripts/
+RUN if [ "${numba}" != "" ]; then \
+        /arrow/ci/scripts/install_numba.sh ${numba} \
+    ; fi
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \

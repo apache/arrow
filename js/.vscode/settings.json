@@ -2,6 +2,21 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.trimAutoWhitespace": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  }
+    "source.fixAll.eslint": false
+  },
+  "[javascript]": {
+    "editor.tabSize": 4,
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[typescript]": {
+    "editor.tabSize": 4,
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "jest.jestCommandLine": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js",
+  "jest.autoRun": {"watch": false, "onSave": "test-src-file"},
+  "typescript.preferences.importModuleSpecifierEnding": "js"
 }

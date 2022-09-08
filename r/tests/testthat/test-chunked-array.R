@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("ChunkedArray")
+int_types <- c(int8(), int16(), int32(), int64())
+uint_types <- c(uint8(), uint16(), uint32(), uint64())
+float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+all_numeric_types <- c(int_types, uint_types, float_types)
 
 expect_chunked_roundtrip <- function(x, type) {
   a <- ChunkedArray$create(!!!x)
@@ -30,8 +33,8 @@ expect_chunked_roundtrip <- function(x, type) {
     # Is there some vctrs thing we should do on the roundtrip back to R?
     expect_identical(as.vector(is.na(a)), is.na(flat_x))
   }
-  expect_equal(as.vector(a), flat_x)
-  expect_equal(as.vector(a$chunk(0)), x[[1]])
+  expect_as_vector(a, flat_x)
+  expect_as_vector(a$chunk(0), x[[1]])
 
   if (length(flat_x)) {
     a_sliced <- a$Slice(1)
@@ -41,7 +44,7 @@ expect_chunked_roundtrip <- function(x, type) {
     if (!inherits(type, "ListType")) {
       expect_identical(as.vector(is.na(a_sliced)), is.na(x_sliced))
     }
-    expect_equal(as.vector(a_sliced), x_sliced)
+    expect_as_vector(a_sliced, x_sliced)
   }
   invisible(a)
 }
@@ -53,7 +56,7 @@ test_that("ChunkedArray", {
   expect_equal(y$type, int32())
   expect_equal(y$num_chunks, 3L)
   expect_equal(length(y), 17L)
-  expect_equal(as.vector(y), c(9:10, 1:10, 1:5))
+  expect_as_vector(y, c(9:10, 1:10, 1:5))
 
   z <- x$Slice(8, 5)
   expect_equal(z$type, int32())
@@ -92,6 +95,27 @@ test_that("ChunkedArray", {
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 })
 
+test_that("ChunkedArray can be constructed from Array and ChunkedArrays", {
+  expect_equal(
+    chunked_array(Array$create(1:2), Array$create(3:4)),
+    chunked_array(1:2, 3:4),
+  )
+  expect_equal(
+    chunked_array(chunked_array(1:2, 3:4), chunked_array(5:6)),
+    chunked_array(1:2, 3:4, 5:6),
+  )
+
+  # Cannot mix array types
+  expect_error(
+    chunked_array(Array$create(1:2), Array$create(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+  expect_error(
+    chunked_array(chunked_array(1:2), chunked_array(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+})
+
 test_that("print ChunkedArray", {
   verify_output(test_path("test-chunked-array.txt"), {
     chunked_array(c(1, 2, 3), c(4, 5, 6))
@@ -99,6 +123,18 @@ test_that("print ChunkedArray", {
     chunked_array(1:30)
     chunked_array(factor(c("a", "b")), factor(c("c", "d")))
   })
+})
+
+test_that("ChunkedArray can be concatenated with c()", {
+  a <- chunked_array(c(1, 2), 3)
+  b <- chunked_array(c(4, 5), 6)
+  expected <- chunked_array(c(1, 2), 3, c(4, 5), 6)
+  expect_equal(c(a, b), expected)
+
+  # Can handle Arrays and base vectors
+  vectors <- list(chunked_array(1:10), Array$create(1:10), 1:10)
+  expected <- chunked_array(1:10, 1:10, 1:10)
+  expect_equal(do.call(c, vectors), expected)
 })
 
 test_that("ChunkedArray handles !!! splicing", {
@@ -114,10 +150,10 @@ test_that("ChunkedArray handles Inf", {
   expect_equal(x$type, float64())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(c(Inf, 2:10), c(1:3, Inf, 5), 1:10))
+  expect_as_vector(x, c(c(Inf, 2:10), c(1:3, Inf, 5), 1:10))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.infinite(chunks[[2]])), is.infinite(data[[2]]))
+  expect_as_vector(is.infinite(chunks[[2]]), is.infinite(data[[2]]))
   expect_equal(
     as.vector(is.infinite(x)),
     c(is.infinite(data[[1]]), is.infinite(data[[2]]), is.infinite(data[[3]]))
@@ -130,11 +166,11 @@ test_that("ChunkedArray handles NA", {
   expect_equal(x$type, int32())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
+  expect_as_vector(x, c(1:10, c(NA, 2:10), c(1:3, NA, 5)))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.na(chunks[[2]])), is.na(data[[2]]))
-  expect_equal(as.vector(is.na(x)), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
+  expect_as_vector(is.na(chunks[[2]]), is.na(data[[2]]))
+  expect_as_vector(is.na(x), c(is.na(data[[1]]), is.na(data[[2]]), is.na(data[[3]])))
 })
 
 test_that("ChunkedArray handles NaN", {
@@ -144,11 +180,11 @@ test_that("ChunkedArray handles NaN", {
   expect_equal(x$type, float64())
   expect_equal(x$num_chunks, 3L)
   expect_equal(length(x), 25L)
-  expect_equal(as.vector(x), c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
+  expect_as_vector(x, c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
 
   chunks <- x$chunks
-  expect_equal(as.vector(is.nan(chunks[[2]])), is.nan(data[[2]]))
-  expect_equal(as.vector(is.nan(x)), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
+  expect_as_vector(is.nan(chunks[[2]]), is.nan(data[[2]]))
+  expect_as_vector(is.nan(x), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
 })
 
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
@@ -197,21 +233,47 @@ test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
-test_that("ChunkedArray supports difftime", {
+test_that("ChunkedArray supports hms", {
   time <- hms::hms(56, 34, 12)
   expect_chunked_roundtrip(list(time, time), time32("s"))
 })
 
-test_that("integer types casts for ChunkedArray (ARROW-3741)", {
-  int_types <- c(int8(), int16(), int32(), int64())
-  uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
-  all_types <- c(
-    int_types,
-    uint_types,
-    float_types
+test_that("ChunkedArray supports difftime", {
+  dur <- as.difftime(123, units = "secs")
+  expect_chunked_roundtrip(list(dur, dur), duration(unit = "s"))
+})
+
+test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
+  types <- c(
+    int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+    uint64(), float32(), float64(), timestamp("ns"), binary(),
+    large_binary(), fixed_size_binary(32), date32(), date64(),
+    decimal128(4, 2), decimal256(4, 2),
+    dictionary(), struct(x = int32())
   )
 
+  empty_filter <- ChunkedArray$create(type = bool())
+  for (type in types) {
+    one_empty_chunk <- ChunkedArray$create(type = type)
+    expect_type_equal(one_empty_chunk$type, type)
+    if (type != struct(x = int32())) {
+      expect_identical(length(one_empty_chunk), length(as.vector(one_empty_chunk)))
+    } else {
+      # struct -> tbl and length(tbl) is num_columns instead of num_rows
+      expect_identical(length(as.vector(one_empty_chunk)), 1L)
+    }
+    zero_empty_chunks <- one_empty_chunk$Filter(empty_filter)
+    expect_equal(zero_empty_chunks$num_chunks, 0)
+    expect_type_equal(zero_empty_chunks$type, type)
+    if (type != struct(x = int32())) {
+      expect_identical(length(zero_empty_chunks), length(as.vector(zero_empty_chunks)))
+    } else {
+      expect_identical(length(as.vector(zero_empty_chunks)), 1L)
+    }
+  }
+})
+
+test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a <- chunked_array(1:10, 1:10)
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
@@ -227,7 +289,7 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
 test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     expect_type_equal(chunked_array(num_int32, type = type)$type, type)
     expect_type_equal(chunked_array(num_int64, type = type)$type, type)
   }
@@ -275,7 +337,7 @@ test_that("chunked_array() uses the first ... to infer type", {
 test_that("chunked_array() handles downcasting", {
   a <- chunked_array(10L, 10)
   expect_type_equal(a$type, int32())
-  expect_equal(as.vector(a), c(10L, 10L))
+  expect_as_vector(a, c(10L, 10L))
 })
 
 test_that("chunked_array() makes chunks of the same type", {
@@ -286,7 +348,7 @@ test_that("chunked_array() makes chunks of the same type", {
 })
 
 test_that("chunked_array() handles 0 chunks if given a type", {
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     a <- chunked_array(type = type)
     expect_type_equal(a$type, as_type(type))
     expect_equal(length(a), 0L)
@@ -304,7 +366,7 @@ test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- chunked_array(df, df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(a$as_vector(), rbind(df, df))
+  expect_equal(a$as_vector(), rbind(df, df), ignore_attr = TRUE)
 })
 
 test_that("ChunkedArray$View() (ARROW-6542)", {
@@ -412,8 +474,16 @@ test_that("Handling string data with embedded nuls", {
   class = c("arrow_binary", "vctrs_vctr", "list")
   )
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_on_r_older_than("3.6")
+
+  v <- expect_error(as.vector(chunked_array_with_nul), NA)
+
   expect_error(
-    as.vector(chunked_array_with_nul),
+    v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
       "set options(arrow.skip_nul = TRUE)"
@@ -422,13 +492,52 @@ test_that("Handling string data with embedded nuls", {
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    v <- expect_warning(as.vector(chunked_array_with_nul), NA)
     expect_warning(
-      expect_identical(
-        as.vector(chunked_array_with_nul),
-        c("person", "woman", "man", "fan", "camera", "tv")
-      ),
+      expect_identical(v[3], "man"),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
   })
+})
+
+test_that("as_chunked_array() default method calls chunked_array()", {
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5)),
+    chunked_array(1:3, 4:5)
+  )
+
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5), type = float64()),
+    chunked_array(
+      Array$create(1:3, type = float64()),
+      Array$create(4:5, type = float64())
+    )
+  )
+})
+
+test_that("as_chunked_array() works for ChunkedArray", {
+  array <- chunked_array(type = null())
+  expect_identical(as_chunked_array(array), array)
+  expect_equal(
+    as_chunked_array(array, type = int32()),
+    chunked_array(type = int32())
+  )
+})
+
+test_that("as_chunked_array() works for Array", {
+  expect_equal(
+    as_chunked_array(Array$create(logical(), type = null())),
+    chunked_array(type = null())
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6)),
+    chunked_array(Array$create(1:6))
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6), type = float64()),
+    chunked_array(Array$create(1:6, type = float64()))
+  )
 })

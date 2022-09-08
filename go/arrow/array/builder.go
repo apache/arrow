@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -31,6 +32,12 @@ const (
 
 // Builder provides an interface to build arrow arrays.
 type Builder interface {
+	// you can unmarshal a json array to add the values to a builder
+	json.Unmarshaler
+
+	// Type returns the datatype that this is building
+	Type() arrow.DataType
+
 	// Retain increases the reference count by 1.
 	// Retain may be called simultaneously from multiple goroutines.
 	Retain()
@@ -51,6 +58,9 @@ type Builder interface {
 	// AppendNull adds a new null value to the array being built.
 	AppendNull()
 
+	// AppendEmptyValue adds a new zero value of the appropriate type
+	AppendEmptyValue()
+
 	// Reserve ensures there is enough space for appending n elements
 	// by checking the capacity and calling Resize if necessary.
 	Reserve(n int)
@@ -62,10 +72,15 @@ type Builder interface {
 	// NewArray creates a new array from the memory buffers used
 	// by the builder and resets the Builder so it can be used to build
 	// a new array.
-	NewArray() Interface
+	NewArray() arrow.Array
 
 	init(capacity int)
 	resize(newBits int, init func(int))
+
+	unmarshalOne(*json.Decoder) error
+	unmarshal(*json.Decoder) error
+
+	newData() *Data
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
@@ -133,6 +148,9 @@ func (b *builder) resize(newBits int, init func(int)) {
 }
 
 func (b *builder) reserve(elements int, resize func(int)) {
+	if b.nullBitmap == nil {
+		b.nullBitmap = memory.NewResizableBuffer(b.mem)
+	}
 	if b.length+elements > b.capacity {
 		newCap := bitutil.NextPowerOf2(b.length + elements)
 		resize(newCap)
@@ -239,8 +257,12 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewFloat64Builder(mem)
 	case arrow.STRING:
 		return NewStringBuilder(mem)
+	case arrow.LARGE_STRING:
+		return NewLargeStringBuilder(mem)
 	case arrow.BINARY:
 		return NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	case arrow.LARGE_BINARY:
+		return NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
 	case arrow.FIXED_SIZE_BINARY:
 		typ := dtype.(*arrow.FixedSizeBinaryType)
 		return NewFixedSizeBinaryBuilder(mem, typ)
@@ -263,19 +285,41 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 			return NewDayTimeIntervalBuilder(mem)
 		case *arrow.MonthIntervalType:
 			return NewMonthIntervalBuilder(mem)
+		case *arrow.MonthDayNanoIntervalType:
+			return NewMonthDayNanoIntervalBuilder(mem)
 		}
-	case arrow.DECIMAL:
+	case arrow.INTERVAL_MONTHS:
+		return NewMonthIntervalBuilder(mem)
+	case arrow.INTERVAL_DAY_TIME:
+		return NewDayTimeIntervalBuilder(mem)
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		return NewMonthDayNanoIntervalBuilder(mem)
+	case arrow.DECIMAL128:
 		if typ, ok := dtype.(*arrow.Decimal128Type); ok {
 			return NewDecimal128Builder(mem, typ)
 		}
+	case arrow.DECIMAL256:
+		if typ, ok := dtype.(*arrow.Decimal256Type); ok {
+			return NewDecimal256Builder(mem, typ)
+		}
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
-		return NewListBuilder(mem, typ.Elem())
+		return NewListBuilderWithField(mem, typ.ElemField())
 	case arrow.STRUCT:
 		typ := dtype.(*arrow.StructType)
 		return NewStructBuilder(mem, typ)
-	case arrow.UNION:
+	case arrow.SPARSE_UNION:
+		typ := dtype.(*arrow.SparseUnionType)
+		return NewSparseUnionBuilder(mem, typ)
+	case arrow.DENSE_UNION:
+		typ := dtype.(*arrow.DenseUnionType)
+		return NewDenseUnionBuilder(mem, typ)
 	case arrow.DICTIONARY:
+		typ := dtype.(*arrow.DictionaryType)
+		return NewDictionaryBuilder(mem, typ)
+	case arrow.LARGE_LIST:
+		typ := dtype.(*arrow.LargeListType)
+		return NewLargeListBuilderWithField(mem, typ.ElemField())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

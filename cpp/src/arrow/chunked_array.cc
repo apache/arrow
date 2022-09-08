@@ -25,6 +25,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -41,24 +42,19 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // ChunkedArray methods
 
-ChunkedArray::ChunkedArray(ArrayVector chunks) : chunks_(std::move(chunks)) {
-  length_ = 0;
-  null_count_ = 0;
-
-  ARROW_CHECK_GT(chunks_.size(), 0)
-      << "cannot construct ChunkedArray from empty vector and omitted type";
-  type_ = chunks_[0]->type();
-  for (const std::shared_ptr<Array>& chunk : chunks_) {
-    length_ += chunk->length();
-    null_count_ += chunk->null_count();
-  }
-}
-
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)), type_(std::move(type)) {
-  length_ = 0;
-  null_count_ = 0;
-  for (const std::shared_ptr<Array>& chunk : chunks_) {
+    : chunks_(std::move(chunks)),
+      type_(std::move(type)),
+      length_(0),
+      null_count_(0),
+      chunk_resolver_{chunks_} {
+  if (type_ == nullptr) {
+    ARROW_CHECK_GT(chunks_.size(), 0)
+        << "cannot construct ChunkedArray from empty vector and omitted type";
+    type_ = chunks_[0]->type();
+  }
+
+  for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
@@ -74,12 +70,19 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
     }
     type = chunks[0]->type();
   }
-  for (size_t i = 0; i < chunks.size(); ++i) {
-    if (!chunks[i]->type()->Equals(*type)) {
-      return Status::Invalid("Array chunks must all be same type");
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*type)) {
+      return Status::TypeError("Array chunks must all be same type");
     }
   }
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
+}
+
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Array>> new_chunks(1);
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
 bool ChunkedArray::Equals(const ChunkedArray& other) const {
@@ -143,6 +146,15 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
                return Status::OK();
              })
       .ok();
+}
+
+Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
+  const auto loc = chunk_resolver_.Resolve(index);
+  if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
+    return Status::IndexError("index with value of ", index,
+                              " is out-of-bounds for chunked array of length ", length_);
+  }
+  return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
@@ -217,24 +229,27 @@ std::string ChunkedArray::ToString() const {
   return ss.str();
 }
 
-Status ChunkedArray::Validate() const {
-  if (chunks_.size() == 0) {
+namespace {
+
+Status ValidateChunks(const ArrayVector& chunks, bool full_validation) {
+  if (chunks.size() == 0) {
     return Status::OK();
   }
 
-  const auto& type = *chunks_[0]->type();
+  const auto& type = *chunks[0]->type();
   // Make sure chunks all have the same type
-  for (size_t i = 1; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
+  for (size_t i = 1; i < chunks.size(); ++i) {
+    const Array& chunk = *chunks[i];
     if (!chunk.type()->Equals(type)) {
       return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
                              " but saw ", chunk.type()->ToString());
     }
   }
   // Validate the chunks themselves
-  for (size_t i = 0; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
-    const Status st = internal::ValidateArray(chunk);
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    const Array& chunk = *chunks[i];
+    const Status st = full_validation ? internal::ValidateArrayFull(chunk)
+                                      : internal::ValidateArray(chunk);
     if (!st.ok()) {
       return Status::Invalid("In chunk ", i, ": ", st.ToString());
     }
@@ -242,16 +257,14 @@ Status ChunkedArray::Validate() const {
   return Status::OK();
 }
 
+}  // namespace
+
+Status ChunkedArray::Validate() const {
+  return ValidateChunks(chunks_, /*full_validation=*/false);
+}
+
 Status ChunkedArray::ValidateFull() const {
-  RETURN_NOT_OK(Validate());
-  for (size_t i = 0; i < chunks_.size(); ++i) {
-    const Array& chunk = *chunks_[i];
-    const Status st = internal::ValidateArrayFull(chunk);
-    if (!st.ok()) {
-      return Status::Invalid("In chunk ", i, ": ", st.ToString());
-    }
-  }
-  return Status::OK();
+  return ValidateChunks(chunks_, /*full_validation=*/true);
 }
 
 namespace internal {

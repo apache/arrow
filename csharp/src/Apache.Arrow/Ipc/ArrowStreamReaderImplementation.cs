@@ -26,12 +26,10 @@ namespace Apache.Arrow.Ipc
     {
         public Stream BaseStream { get; }
         private readonly bool _leaveOpen;
-        private readonly MemoryAllocator _allocator;
 
-        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
+        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen) : base(allocator)
         {
             BaseStream = stream;
-            _allocator = allocator ?? MemoryAllocator.Default.Value;
             _leaveOpen = leaveOpen;
         }
 

@@ -101,6 +101,15 @@ public final class TimeStampSecTZVector extends TimeStampVector {
     return MinorType.TIMESTAMPSECTZ;
   }
 
+  /**
+   * Get the time zone of the timestamps stored in this vector.
+   *
+   * @return the time zone of the timestamps stored in this vector.
+   */
+  public String getTimeZone() {
+    return this.timeZone;
+  }
+
 
   /*----------------------------------------------------------------*
    |                                                                |

@@ -19,10 +19,9 @@ package flight
 import (
 	"bytes"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // DataStreamWriter is an interface that represents an Arrow Flight stream
@@ -58,23 +57,26 @@ func (f *flightPayloadWriter) Close() error { return nil }
 // are written.
 type Writer struct {
 	*ipc.Writer
-	pw   *flightPayloadWriter
-	desc *FlightDescriptor
+	pw *flightPayloadWriter
+}
+
+// WriteMetadata writes a payload message to the stream containing only
+// the specified app metadata.
+func (w *Writer) WriteMetadata(appMetadata []byte) error {
+	return w.pw.w.Send(&FlightData{AppMetadata: appMetadata})
 }
 
 // SetFlightDescriptor sets the flight descriptor into the next payload that will
 // be written by the flight writer. It will only be put into the very next payload
 // and afterwards the writer will no longer keep it's pointer to the descriptor.
 func (w *Writer) SetFlightDescriptor(descr *FlightDescriptor) {
-	w.desc = descr
+	w.pw.fd.FlightDescriptor = descr
 }
 
 // Write writes a recordbatch payload and returns any error, implementing the arrio.Writer interface
-func (w *Writer) Write(rec array.Record) error {
-	if w.desc != nil {
-		w.pw.fd.FlightDescriptor = w.desc
+func (w *Writer) Write(rec arrow.Record) error {
+	if w.pw.fd.FlightDescriptor != nil {
 		defer func() {
-			w.desc = nil
 			w.pw.fd.FlightDescriptor = nil
 		}()
 	}
@@ -83,7 +85,7 @@ func (w *Writer) Write(rec array.Record) error {
 
 // WriteWithAppMetadata will write this record with the supplied application
 // metadata attached in the flightData message.
-func (w *Writer) WriteWithAppMetadata(rec array.Record, appMeta []byte) error {
+func (w *Writer) WriteWithAppMetadata(rec arrow.Record, appMeta []byte) error {
 	w.pw.fd.AppMetadata = appMeta
 	defer func() {
 		w.pw.fd.AppMetadata = nil
@@ -110,4 +112,8 @@ func SerializeSchema(rec *arrow.Schema, mem memory.Allocator) []byte {
 	w := ipc.NewWriter(&buf, ipc.WithSchema(rec), ipc.WithAllocator(mem))
 	w.Close()
 	return buf.Bytes()
+}
+
+type MetadataWriter interface {
+	WriteMetadata([]byte) error
 }

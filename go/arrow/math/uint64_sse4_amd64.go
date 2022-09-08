@@ -16,6 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package math
@@ -23,7 +24,7 @@ package math
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/array"
 )
 
 //go:noescape

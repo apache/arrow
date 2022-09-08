@@ -17,12 +17,16 @@
 package array
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // A FixedSizeBinaryBuilder is used to build a FixedSizeBinary array using the Append methods.
@@ -41,6 +45,8 @@ func NewFixedSizeBinaryBuilder(mem memory.Allocator, dtype *arrow.FixedSizeBinar
 	}
 	return b
 }
+
+func (b *FixedSizeBinaryBuilder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -75,6 +81,12 @@ func (b *FixedSizeBinaryBuilder) AppendNull() {
 	b.Reserve(1)
 	b.values.Advance(b.dtype.ByteWidth)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.values.Advance(b.dtype.ByteWidth)
+	b.UnsafeAppendBoolToBitmap(true)
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values
@@ -123,7 +135,7 @@ func (b *FixedSizeBinaryBuilder) Resize(n int) {
 
 // NewArray creates a FixedSizeBinary array from the memory buffers used by the
 // builder and resets the FixedSizeBinaryBuilder so it can be used to build a new array.
-func (b *FixedSizeBinaryBuilder) NewArray() Interface {
+func (b *FixedSizeBinaryBuilder) NewArray() arrow.Array {
 	return b.NewFixedSizeBinaryArray()
 }
 
@@ -147,6 +159,69 @@ func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
 	b.builder.reset()
 
 	return
+}
+
+func (b *FixedSizeBinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	var val []byte
+	switch v := t.(type) {
+	case string:
+		data, err := base64.RawStdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+		val = data
+	case []byte:
+		val = v
+	case nil:
+		b.AppendNull()
+		return nil
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+			Struct: fmt.Sprintf("FixedSizeBinary[%d]", b.dtype.ByteWidth),
+		}
+	}
+
+	if len(val) != b.dtype.ByteWidth {
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(val),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+			Struct: fmt.Sprintf("FixedSizeBinary[%d]", b.dtype.ByteWidth),
+		}
+	}
+	b.Append(val)
+	return nil
+}
+
+func (b *FixedSizeBinaryBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *FixedSizeBinaryBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("fixed size binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

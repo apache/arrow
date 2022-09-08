@@ -89,6 +89,7 @@ import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 public class TestArrowReaderWriter {
 
@@ -241,7 +242,7 @@ public class TestArrowReaderWriter {
 
     int valueCount = 3;
 
-    NullVector nullVector = new NullVector();
+    NullVector nullVector = new NullVector("vector");
     nullVector.setValueCount(valueCount);
 
     Schema schema = new Schema(asList(nullVector.getField()));
@@ -878,5 +879,37 @@ public class TestArrowReaderWriter {
         assertEquals("value2", readMeta.get("key2"));
       }
     }
+  }
+
+  /**
+   * This test case covers the case for which the footer size is extremely large
+   * (much larger than the file size).
+   * Due to integer overflow, our implementation fails detect the problem, which
+   * leads to extremely large memory allocation and eventually causing an OutOfMemoryError.
+   */
+  @Test
+  public void testFileFooterSizeOverflow() {
+    // copy of org.apache.arrow.vector.ipc.ArrowMagic#MAGIC
+    final byte[] magicBytes = "ARROW1".getBytes(StandardCharsets.UTF_8);
+
+    // prepare input data
+    byte[] data = new byte[30];
+    System.arraycopy(magicBytes, 0, data, 0, ArrowMagic.MAGIC_LENGTH);
+    int footerLength = Integer.MAX_VALUE;
+    byte[] footerLengthBytes =
+            ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(footerLength).array();
+    int footerOffset = data.length - ArrowMagic.MAGIC_LENGTH - 4;
+    System.arraycopy(footerLengthBytes, 0, data, footerOffset, 4);
+    System.arraycopy(magicBytes, 0, data, footerOffset + 4, ArrowMagic.MAGIC_LENGTH);
+
+    // test file reader
+    InvalidArrowFileException e = Assertions.assertThrows(InvalidArrowFileException.class, () -> {
+      try (SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(data));
+           ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+        reader.getVectorSchemaRoot().getSchema();
+      }
+    });
+
+    assertEquals("invalid footer length: " + footerLength, e.getMessage());
   }
 }

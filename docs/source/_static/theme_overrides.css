@@ -54,6 +54,40 @@ a.navbar-brand img {
   max-width: 100%;
 }
 
+/* Contibuting landing page overview cards */
+
+.contrib-card {
+  background: #fff;
+  border-radius: 0;
+  padding: 30px 10px 20px 10px;
+  margin: 10px 0px;
+}
+
+.contrib-card p.card-text {
+  margin: 0px;
+}
+
+.contrib-card .sd-card-img-top {
+  margin: 2px;
+  height: 75px;
+}
+
+.contrib-card .sd-card-title {
+  /* color: rgb(var(--pst-color-h1)) !important; */
+  font-size: var(--pst-font-size-h3);
+  /* font-weight: bold; */
+  padding: 1rem 0rem 0.5rem 0rem;
+}
+
+.contrib-card .sd-card-footer {
+  border: none;
+}
+
+.contib-card .sd-card-footer p.sd-card-text{
+  max-width: 220px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
 not yet provide an easy way to configure this globaly, it easier to simply
@@ -64,6 +98,20 @@ add ":class: table-striped" */
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Iprove the vertical spacing in the C++ API docs
+(ideally this should be upstreamed to the pydata-sphinx-theme */
+
+dl.cpp dd p {
+  margin-bottom:.4rem;
+}
+ 
+dl.cpp.enumerator {
+  margin-bottom: 0.2rem;
+}
+
+p.breathe-sectiondef-title {
+  margin-top: 1rem;
+}
 
 /* Limit the max height of the sidebar navigation section. Because in our
 custimized template, there is more content above the navigation, i.e.
@@ -79,6 +127,24 @@ Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
   }
 }
 
+/* Styling to get the version dropdown and search box side-by-side on wide screens */
+
+#version-search-wrapper {
+  width: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: left;
+  align-items: center;
+}
+
+#version-button {
+  padding-left: 0.5rem;
+  padding-right: 1rem;
+}
+
+#search-box {
+  flex: 1 0 12em;
+}
 
 /* Fix table text wrapping in RTD theme,
  * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html

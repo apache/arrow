@@ -20,11 +20,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/csv"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/csv"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func Example() {
@@ -59,6 +60,13 @@ func Example() {
 			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
+	}
+
+	// check for reader errors indicating issues converting csv values
+	// to the arrow schema types
+	err := r.Err()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Output:
@@ -147,6 +155,74 @@ func Example_withChunk() {
 	// rec[3]["str"]: ["str-9"]
 }
 
+func TestCSVReaderParseError(t *testing.T) {
+	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
+0;0;str-0
+1;1;str-1
+2;2;str-2
+3;3;str-3
+4;BADDATA;str-4
+5;5;str-5
+6;6;str-6
+7;7;str-7
+8;8;str-8
+9;9;str-9
+`)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
+		},
+		nil,
+	)
+	r := csv.NewReader(
+		f, schema,
+		csv.WithComment('#'), csv.WithComma(';'),
+		csv.WithChunk(3),
+	)
+	defer r.Release()
+
+	n := 0
+	lines := 0
+	var rec arrow.Record
+	for r.Next() {
+		if rec != nil {
+			rec.Release()
+		}
+		rec = r.Record()
+		rec.Retain()
+
+		if n == 1 && r.Err() == nil {
+			t.Fatal("Expected error on second chunk, but none found")
+		}
+
+		for i, col := range rec.Columns() {
+			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
+			lines++
+		}
+		n++
+	}
+
+	if r.Err() == nil {
+		t.Fatal("Expected any chunk with error to leave reader in an error state.")
+	}
+
+	if got, want := n, 2; got != want {
+		t.Fatalf("invalid number of chunks: got=%d, want=%d", got, want)
+	}
+
+	if got, want := lines, 6; got != want {
+		t.Fatalf("invalid number of lines: got=%d, want=%d", got, want)
+	}
+
+	if !rec.Columns()[1].IsNull(1) {
+		t.Fatalf("expected bad data to be null, found: %v", rec.Columns()[1].Data())
+	}
+	rec.Release()
+}
+
 func TestCSVReader(t *testing.T) {
 	tests := []struct {
 		Name   string
@@ -193,6 +269,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			arrow.Field{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
 		},
 		nil,
 	)
@@ -238,6 +315,7 @@ rec[0]["u64"]: [1]
 rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
+rec[0]["ts"]: [1652054461000]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -250,6 +328,7 @@ rec[1]["u64"]: [2]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
+rec[1]["ts"]: [1652140799000]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -262,6 +341,7 @@ rec[2]["u64"]: [(null)]
 rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
 rec[2]["str"]: [(null)]
+rec[2]["ts"]: [(null)]
 `
 
 	if got, want := out.String(), want; got != want {

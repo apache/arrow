@@ -22,14 +22,7 @@
 jobs:
   package:
     name: Package
-    # We can't use Ubuntu 20.04 because it doesn't ship neither
-    # createrepo nor createrepo_c. We'll be able to use Ubuntu
-    # 22.04. It will ship createrepo_c. Or we can build createrepo_c
-    # from source like we do in travis.linux.arm64.yml.
-    #
-    # Note that createrepo or createrepo_c is only needed to test Yum
-    # repository.
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
@@ -37,10 +30,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.0'
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
+          ruby-version: '3.1'
       - name: Cache ccache
         uses: actions/cache@v2
         with:
@@ -78,10 +68,11 @@ jobs:
           sudo apt update
           sudo apt install -y \
             apt-utils \
-            createrepo \
+            createrepo-c \
             devscripts \
             gpg \
             rpm
+          gem install apt-dists-merge
           (echo "Key-Type: RSA"; \
            echo "Key-Length: 4096"; \
            echo "Name-Real: Test"; \
@@ -90,7 +81,16 @@ jobs:
             gpg --full-generate-key --batch
           GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
           echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
-          gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
+          case "{{ target }}" in
+            almalinux-*|amazon-linux-*|centos-*)
+              repositories_dir=arrow/dev/tasks/linux-packages/apache-arrow-release/yum/repositories
+              rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
+                cpio -id
+              mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
+                arrow/dev/tasks/linux-packages/KEYS
+              ;;
+          esac
+          gpg --export --armor test@example.com >> arrow/dev/tasks/linux-packages/KEYS
       - name: Test
         run: |
           set -e

@@ -18,11 +18,14 @@
  */
 
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/file-system.hpp>
 #include <arrow-glib/table.hpp>
 
 #include <arrow-dataset-glib/dataset-factory.hpp>
 #include <arrow-dataset-glib/dataset.hpp>
-#include <arrow-dataset-glib/scanner.h>
+#include <arrow-dataset-glib/file-format.hpp>
+#include <arrow-dataset-glib/partitioning.hpp>
+#include <arrow-dataset-glib/scanner.hpp>
 
 G_BEGIN_DECLS
 
@@ -36,13 +39,8 @@ G_BEGIN_DECLS
  *
  * #GADatasetFileSystemDataset is a class for file system dataset.
  *
- * #GADatasetFileFormat is a base class for file formats.
- *
- * #GADatasetCSVFileFormat is a class for CSV file format.
- *
- * #GADatasetIPCFileFormat is a class for IPC file format.
- *
- * #GADatasetParquetFileFormat is a class for Apache Parquet file format.
+ * #GADatasetFileSystemDatasetWriteOptions is a class for options to
+ * write a dataset to file system dataset.
  *
  * Since: 5.0.0
  */
@@ -190,14 +188,326 @@ gadataset_dataset_get_type_name(GADatasetDataset *dataset)
 }
 
 
+typedef struct GADatasetFileSystemDatasetWriteOptionsPrivate_ {
+  arrow::dataset::FileSystemDatasetWriteOptions options;
+  GADatasetFileWriteOptions *file_write_options;
+  GArrowFileSystem *file_system;
+  GADatasetPartitioning *partitioning;
+} GADatasetFileSystemDatasetWriteOptionsPrivate;
+
+enum {
+  PROP_FILE_WRITE_OPTIONS = 1,
+  PROP_FILE_SYSTEM,
+  PROP_BASE_DIR,
+  PROP_PARTITIONING,
+  PROP_MAX_PARTITIONS,
+  PROP_BASE_NAME_TEMPLATE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileSystemDatasetWriteOptions,
+                           gadataset_file_system_dataset_write_options,
+                           G_TYPE_OBJECT)
+
+#define GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(obj)    \
+  static_cast<GADatasetFileSystemDatasetWriteOptionsPrivate *>(         \
+    gadataset_file_system_dataset_write_options_get_instance_private(   \
+      GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS(obj)))
+
+static void
+gadataset_file_system_dataset_write_options_finalize(GObject *object)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
+  priv->options.~FileSystemDatasetWriteOptions();
+  G_OBJECT_CLASS(gadataset_file_system_dataset_write_options_parent_class)->
+    finalize(object);
+}
+
+static void
+gadataset_file_system_dataset_write_options_dispose(GObject *object)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->file_write_options) {
+    g_object_unref(priv->file_write_options);
+    priv->file_write_options = NULL;
+  }
+
+  if (priv->file_system) {
+    g_object_unref(priv->file_system);
+    priv->file_system = NULL;
+  }
+
+  if (priv->partitioning) {
+    g_object_unref(priv->partitioning);
+    priv->partitioning = NULL;
+  }
+
+  G_OBJECT_CLASS(gadataset_file_system_dataset_write_options_parent_class)->
+    dispose(object);
+}
+
+static void
+gadataset_file_system_dataset_write_options_set_property(GObject *object,
+                                                         guint prop_id,
+                                                         const GValue *value,
+                                                         GParamSpec *pspec)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_WRITE_OPTIONS:
+    {
+      auto file_write_options = g_value_get_object(value);
+      if (file_write_options == priv->file_write_options) {
+        break;
+      }
+      auto old_file_write_options = priv->file_write_options;
+      if (file_write_options) {
+        g_object_ref(file_write_options);
+        priv->file_write_options =
+          GADATASET_FILE_WRITE_OPTIONS(file_write_options);
+        priv->options.file_write_options =
+          gadataset_file_write_options_get_raw(priv->file_write_options);
+      } else {
+        priv->options.file_write_options = nullptr;
+      }
+      if (old_file_write_options) {
+        g_object_unref(old_file_write_options);
+      }
+    }
+    break;
+  case PROP_FILE_SYSTEM:
+    {
+      auto file_system = g_value_get_object(value);
+      if (file_system == priv->file_system) {
+        break;
+      }
+      auto old_file_system = priv->file_system;
+      if (file_system) {
+        g_object_ref(file_system);
+        priv->file_system = GARROW_FILE_SYSTEM(file_system);
+        priv->options.filesystem = garrow_file_system_get_raw(priv->file_system);
+      } else {
+        priv->options.filesystem = nullptr;
+      }
+      if (old_file_system) {
+        g_object_unref(old_file_system);
+      }
+    }
+    break;
+  case PROP_BASE_DIR:
+    priv->options.base_dir = g_value_get_string(value);
+    break;
+  case PROP_PARTITIONING:
+    {
+      auto partitioning = g_value_get_object(value);
+      if (partitioning == priv->partitioning) {
+        break;
+      }
+      auto old_partitioning = priv->partitioning;
+      if (partitioning) {
+        g_object_ref(partitioning);
+        priv->partitioning = GADATASET_PARTITIONING(partitioning);
+        priv->options.partitioning =
+          gadataset_partitioning_get_raw(priv->partitioning);
+      } else {
+        priv->options.partitioning = arrow::dataset::Partitioning::Default();
+      }
+      if (old_partitioning) {
+        g_object_unref(old_partitioning);
+      }
+    }
+    break;
+  case PROP_MAX_PARTITIONS:
+    priv->options.max_partitions = g_value_get_uint(value);
+    break;
+  case PROP_BASE_NAME_TEMPLATE:
+    priv->options.basename_template = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gadataset_file_system_dataset_write_options_get_property(GObject *object,
+                                                         guint prop_id,
+                                                         GValue *value,
+                                                         GParamSpec *pspec)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FILE_WRITE_OPTIONS:
+    g_value_set_object(value, priv->file_write_options);
+    break;
+  case PROP_FILE_SYSTEM:
+    g_value_set_object(value, priv->file_system);
+    break;
+  case PROP_BASE_DIR:
+    g_value_set_string(value, priv->options.base_dir.c_str());
+    break;
+  case PROP_PARTITIONING:
+    g_value_set_object(value, priv->partitioning);
+    break;
+  case PROP_MAX_PARTITIONS:
+    g_value_set_uint(value, priv->options.max_partitions);
+    break;
+  case PROP_BASE_NAME_TEMPLATE:
+    g_value_set_string(value, priv->options.basename_template.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gadataset_file_system_dataset_write_options_init(
+  GADatasetFileSystemDatasetWriteOptions *object)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(object);
+  new(&(priv->options)) arrow::dataset::FileSystemDatasetWriteOptions;
+  priv->options.partitioning = arrow::dataset::Partitioning::Default();
+}
+
+static void
+gadataset_file_system_dataset_write_options_class_init(
+  GADatasetFileSystemDatasetWriteOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize =
+    gadataset_file_system_dataset_write_options_finalize;
+  gobject_class->dispose =
+    gadataset_file_system_dataset_write_options_dispose;
+  gobject_class->set_property =
+    gadataset_file_system_dataset_write_options_set_property;
+  gobject_class->get_property =
+    gadataset_file_system_dataset_write_options_get_property;
+
+  arrow::dataset::FileSystemDatasetWriteOptions default_options;
+  GParamSpec *spec;
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:file_write_options:
+   *
+   * Options for individual fragment writing.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_object("file-write-options",
+                             "File write options",
+                             "Options for individual fragment writing",
+                             GADATASET_TYPE_FILE_WRITE_OPTIONS,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_WRITE_OPTIONS, spec);
+
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:file_system:
+   *
+   * #GArrowFileSystem into which a dataset will be written.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_object("file-system",
+                             "File system",
+                             "GArrowFileSystem into which "
+                             "a dataset will be written",
+                             GARROW_TYPE_FILE_SYSTEM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_FILE_SYSTEM, spec);
+
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:base_dir:
+   *
+   * Root directory into which the dataset will be written.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_string("base-dir",
+                             "Base directory",
+                             "Root directory into which "
+                             "the dataset will be written",
+                             NULL,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_BASE_DIR, spec);
+
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:partitioning:
+   *
+   * #GADatasetPartitioning used to generate fragment paths.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_object("partitioning",
+                             "Partitioning",
+                             "GADatasetPartitioning used to "
+                             "generate fragment paths",
+                             GADATASET_TYPE_PARTITIONING,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PARTITIONING, spec);
+
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:max-partitions:
+   *
+   * Maximum number of partitions any batch may be written into.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_uint("max-partitions",
+                           "Max partitions",
+                           "Maximum number of partitions "
+                           "any batch may be written into",
+                           0,
+                           G_MAXINT,
+                           default_options.max_partitions,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MAX_PARTITIONS, spec);
+
+  /**
+   * GADatasetFileSystemDatasetWriteOptions:base-name-template:
+   *
+   * Template string used to generate fragment base names. {i} will be
+   * replaced by an auto incremented integer.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_string("base-name-template",
+                             "Base name template",
+                             "Template string used to generate fragment "
+                             "base names. {i} will be replaced by "
+                             "an auto incremented integer",
+                             NULL,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_BASE_NAME_TEMPLATE, spec);
+}
+
+/**
+ * gadataset_file_system_dataset_write_options_new:
+ *
+ * Returns: The newly created #GADatasetFileSystemDatasetWriteOptions.
+ *
+ * Since: 6.0.0
+ */
+GADatasetFileSystemDatasetWriteOptions *
+gadataset_file_system_dataset_write_options_new(void)
+{
+  return GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS(
+    g_object_new(GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS,
+                 NULL));
+}
+
+
 typedef struct GADatasetFileSystemDatasetPrivate_ {
   GADatasetFileFormat *format;
   GArrowFileSystem *file_system;
+  GADatasetPartitioning *partitioning;
 } GADatasetFileSystemDatasetPrivate;
 
 enum {
-  PROP_FORMAT = 1,
-  PROP_FILE_SYSTEM,
+  PROP_FILE_SYSTEM_DATASET_FORMAT = 1,
+  PROP_FILE_SYSTEM_DATASET_FILE_SYSTEM,
+  PROP_FILE_SYSTEM_DATASET_PARTITIONING,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileSystemDataset,
@@ -236,11 +546,14 @@ gadataset_file_system_dataset_set_property(GObject *object,
   auto priv = GADATASET_FILE_SYSTEM_DATASET_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_FORMAT:
+  case PROP_FILE_SYSTEM_DATASET_FORMAT:
     priv->format = GADATASET_FILE_FORMAT(g_value_dup_object(value));
     break;
-  case PROP_FILE_SYSTEM:
+  case PROP_FILE_SYSTEM_DATASET_FILE_SYSTEM:
     priv->file_system = GARROW_FILE_SYSTEM(g_value_dup_object(value));
+    break;
+  case PROP_FILE_SYSTEM_DATASET_PARTITIONING:
+    priv->partitioning = GADATASET_PARTITIONING(g_value_dup_object(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -257,11 +570,14 @@ gadataset_file_system_dataset_get_property(GObject *object,
   auto priv = GADATASET_FILE_SYSTEM_DATASET_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_FORMAT:
+  case PROP_FILE_SYSTEM_DATASET_FORMAT:
     g_value_set_object(value, priv->format);
     break;
-  case PROP_FILE_SYSTEM:
+  case PROP_FILE_SYSTEM_DATASET_FILE_SYSTEM:
     g_value_set_object(value, priv->file_system);
+    break;
+  case PROP_FILE_SYSTEM_DATASET_PARTITIONING:
+    g_value_set_object(value, priv->partitioning);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -296,7 +612,9 @@ gadataset_file_system_dataset_class_init(GADatasetFileSystemDatasetClass *klass)
                              GADATASET_TYPE_FILE_FORMAT,
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FORMAT, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SYSTEM_DATASET_FORMAT,
+                                  spec);
 
   /**
    * GADatasetFileSystemDataset:file-system:
@@ -311,7 +629,52 @@ gadataset_file_system_dataset_class_init(GADatasetFileSystemDatasetClass *klass)
                              GARROW_TYPE_FILE_SYSTEM,
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FILE_SYSTEM, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SYSTEM_DATASET_FILE_SYSTEM,
+                                  spec);
+
+  /**
+   * GADatasetFileSystemDataset:partitioning:
+   *
+   * Partitioning of the dataset.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_object("partitioning",
+                             "Partitioning",
+                             "Partitioning of the dataset",
+                             GADATASET_TYPE_PARTITIONING,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class,
+                                  PROP_FILE_SYSTEM_DATASET_PARTITIONING,
+                                  spec);
+}
+
+/**
+ * gadataset_file_system_dataset_write_scanner:
+ * @scanner: A #GADatasetScanner that produces data to be written.
+ * @options: A #GADatasetFileSystemDatasetWriteOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+gadataset_file_system_dataset_write_scanner(
+  GADatasetScanner *scanner,
+  GADatasetFileSystemDatasetWriteOptions *options,
+  GError **error)
+{
+  auto arrow_scanner = gadataset_scanner_get_raw(scanner);
+  auto arrow_options =
+    gadataset_file_system_dataset_write_options_get_raw(options);
+  auto status =
+    arrow::dataset::FileSystemDataset::Write(*arrow_options, arrow_scanner);
+  return garrow::check(error,
+                       status,
+                       "[file-system-dataset][write-scanner]");
 }
 
 
@@ -362,4 +725,12 @@ gadataset_dataset_get_raw(GADatasetDataset *dataset)
 {
   auto priv = GADATASET_DATASET_GET_PRIVATE(dataset);
   return priv->dataset;
+}
+
+arrow::dataset::FileSystemDatasetWriteOptions *
+gadataset_file_system_dataset_write_options_get_raw(
+  GADatasetFileSystemDatasetWriteOptions *options)
+{
+  auto priv = GADATASET_FILE_SYSTEM_DATASET_WRITE_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
 }

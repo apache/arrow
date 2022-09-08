@@ -210,6 +210,29 @@ static void BinaryJoinElementWiseArrayArray(benchmark::State& state) {
   });
 }
 
+static void BinaryRepeat(benchmark::State& state) {
+  const int64_t array_length = 1 << 20;
+  const int64_t value_min_size = 0;
+  const int64_t value_max_size = 32;
+  const double null_probability = 0.01;
+  const int64_t repeat_min_size = 0;
+  const int64_t repeat_max_size = 8;
+  random::RandomArrayGenerator rng(kSeed);
+
+  // NOTE: this produces only-Ascii data
+  auto values =
+      rng.String(array_length, value_min_size, value_max_size, null_probability);
+  auto num_repeats = rng.Int64(array_length, repeat_min_size, repeat_max_size, 0);
+  // Make sure lookup tables are initialized before measuring
+  ABORT_NOT_OK(CallFunction("binary_repeat", {values, num_repeats}));
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("binary_repeat", {values, num_repeats}));
+  }
+  state.SetItemsProcessed(state.iterations() * array_length);
+  state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
+}
+
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
@@ -235,6 +258,8 @@ BENCHMARK(BinaryJoinArrayScalar);
 BENCHMARK(BinaryJoinArrayArray);
 BENCHMARK(BinaryJoinElementWiseArrayScalar)->RangeMultiplier(8)->Range(2, 128);
 BENCHMARK(BinaryJoinElementWiseArrayArray)->RangeMultiplier(8)->Range(2, 128);
+
+BENCHMARK(BinaryRepeat);
 
 }  // namespace compute
 }  // namespace arrow

@@ -81,6 +81,30 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* bitmap,
                                              int64_t offset, int64_t length);
 
+/// Reverse a bit range of an existing bitmap into an existing bitmap
+///
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to reverse
+/// \param[in] dest_offset bit offset into the destination
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
+ARROW_EXPORT
+void ReverseBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
+                   int64_t dest_offset);
+
+/// Reverse a bit range of an existing bitmap
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to reverse
+///
+/// \return Status message
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* bitmap,
+                                              int64_t offset, int64_t length);
+
 /// Compute the number of 1's in the given data array
 ///
 /// \param[in] data a packed LSB-ordered bitmap as a byte array
@@ -91,6 +115,20 @@ Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* bi
 /// \return The number of set (1) bits in the range
 ARROW_EXPORT
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
+
+/// Compute the number of 1's in the result of an "and" (&) of two bitmaps
+///
+/// \param[in] left_bitmap a packed LSB-ordered bitmap as a byte array
+/// \param[in] left_offset a bitwise offset into the left bitmap
+/// \param[in] right_bitmap a packed LSB-ordered bitmap as a byte array
+/// \param[in] right_offset a bitwise offset into the right bitmap
+/// \param[in] length the length of the bitmaps (must be the same)
+///
+/// \return The number of set (1) bits in the "and" of the two bitmaps
+ARROW_EXPORT
+int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
+                        const uint8_t* right_bitmap, int64_t right_offset,
+                        int64_t length);
 
 ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,

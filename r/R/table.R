@@ -24,16 +24,6 @@
 #' @format NULL
 #' @docType class
 #'
-#' @section Factory:
-#'
-#' The `Table$create()` function takes the following arguments:
-#'
-#' * `...` arrays, chunked arrays, or R vectors, with names; alternatively,
-#'    an unnamed series of [record batches][RecordBatch] may also be provided,
-#'    which will be stacked as rows in the table.
-#' * `schema` a [Schema], or `NULL` (the default) to infer the schema from
-#'    the data in `...`
-#'
 #' @section S3 Methods and Usage:
 #' Tables are data-frame-like, and many methods you expect to work on
 #' a `data.frame` are implemented for `Table`. This includes `[`, `[[`,
@@ -53,6 +43,7 @@
 #'
 #' - `$column(i)`: Extract a `ChunkedArray` by integer position from the table
 #' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the table
 #' - `$RenameColumns(value)`: Set all column names (called by `names(tab) <- value`)
 #' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
 #' - `$field(i)`: Extract a `Field` from the table schema by integer position
@@ -85,20 +76,13 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
-#' @examplesIf arrow_available()
-#' tab <- Table$create(name = rownames(mtcars), mtcars)
-#' dim(tab)
-#' dim(head(tab))
-#' names(tab)
-#' tab$mpg
-#' tab[["cyl"]]
-#' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' @export
 Table <- R6Class("Table",
   inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
+    nbytes = function() Table__ReferencedBufferSize(self),
     RenameColumns = function(value) Table__RenameColumns(self, value),
     GetColumnByName = function(name) {
       assert_is(name, "character")
@@ -108,6 +92,9 @@ Table <- R6Class("Table",
     RemoveColumn = function(i) Table__RemoveColumn(self, i),
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
+    ReplaceSchemaMetadata = function(new) {
+      Table__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
+    },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
     to_data_frame = function() {
@@ -131,30 +118,12 @@ Table <- R6Class("Table",
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
     },
     Validate = function() Table__Validate(self),
-    ValidateFull = function() Table__ValidateFull(self),
-    invalidate = function() {
-      .Call(`_arrow_Table__Reset`, self)
-      super$invalidate()
-    }
+    ValidateFull = function() Table__ValidateFull(self)
   ),
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() Table__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- Table__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() Table__columns(self)
   )
 )
@@ -170,18 +139,204 @@ Table$create <- function(..., schema = NULL) {
   if (all_record_batches(dots)) {
     return(Table__from_record_batches(dots, schema))
   }
+  if (length(dots) == 1 && inherits(dots[[1]], c("RecordBatchReader", "RecordBatchFileReader"))) {
+    tab <- dots[[1]]$read_table()
+    if (!is.null(schema)) {
+      tab <- tab$cast(schema)
+    }
+    return(tab)
+  }
 
   # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)
 
-  out <- Table__from_dots(dots, schema, option_use_threads())
-
-  # Preserve any grouping
-  if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
-    out <- dplyr::group_by(out, !!!dplyr::groups(dots[[1]]))
-  }
-  out
+  Table__from_dots(dots, schema, option_use_threads())
 }
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' Concatenate one or more Tables
+#'
+#' Concatenate one or more [Table] objects into a single table. This operation
+#' does not copy array data, but instead creates new chunked arrays for each
+#' column that point at existing array data.
+#'
+#' @param ... A [Table]
+#' @param unify_schemas If TRUE, the schemas of the tables will be first unified
+#' with fields of the same name being merged, then each table will be promoted
+#' to the unified schema before being concatenated. Otherwise, all tables should
+#' have the same schema.
+#' @examples
+#' tbl <- arrow_table(name = rownames(mtcars), mtcars)
+#' prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
+#' combined <- concat_tables(tbl, prius)
+#' tail(combined)$to_data_frame()
+#' @export
+concat_tables <- function(..., unify_schemas = TRUE) {
+  tables <- list2(...)
+
+  if (length(tables) == 0) {
+    abort("Must pass at least one Table.")
+  }
+
+  if (!unify_schemas) {
+    # assert they have same schema
+    schema <- tables[[1]]$schema
+    unequal_schema_idx <- which.min(lapply(tables, function(x) x$schema == schema))
+    if (unequal_schema_idx != 1) {
+      abort(c(
+        sprintf("Schema at index %i does not match the first schema.", unequal_schema_idx),
+        i = paste0("Schema 1:\n", schema$ToString()),
+        i = paste0(
+          sprintf("Schema %d:\n", unequal_schema_idx),
+          tables[[unequal_schema_idx]]$schema$ToString()
+        )
+      ))
+    }
+  }
+
+  Table__ConcatenateTables(tables, unify_schemas)
+}
+
+#' @export
+rbind.Table <- function(...) {
+  concat_tables(..., unify_schemas = FALSE)
+}
+
+#' @export
+cbind.Table <- function(...) {
+  call <- sys.call()
+  inputs <- list(...)
+  arg_names <- if (is.null(names(inputs))) {
+    rep("", length(inputs))
+  } else {
+    names(inputs)
+  }
+
+  cbind_check_length(inputs, call)
+
+  columns <- flatten(map(seq_along(inputs), function(i) {
+    input <- inputs[[i]]
+    name <- arg_names[i]
+
+    if (inherits(input, "ArrowTabular")) {
+      set_names(input$columns, names(input))
+    } else if (inherits(input, "data.frame")) {
+      as.list(input)
+    } else {
+      if (name == "") {
+        abort("Vector and array arguments must have names",
+          i = sprintf("Argument ..%d is missing a name", i)
+        )
+      }
+      list2("{name}" := input)
+    }
+  }))
+
+  Table$create(!!!columns)
+}
+
+#' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
+#' mixture of data.frames and named vectors, the inputs will be autospliced together
+#' (see examples). Alternatively, you can provide a single Arrow IPC
+#' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
+#' @param schema a [Schema], or `NULL` (the default) to infer the schema from
+#' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
+#' @rdname Table
+#' @examples
+#' tbl <- arrow_table(name = rownames(mtcars), mtcars)
+#' dim(tbl)
+#' dim(head(tbl))
+#' names(tbl)
+#' tbl$mpg
+#' tbl[["cyl"]]
+#' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
+#' @export
+arrow_table <- Table$create
+
+
+#' Convert an object to an Arrow Table
+#'
+#' Whereas [arrow_table()] constructs a table from one or more columns,
+#' `as_arrow_table()` converts a single object to an Arrow [Table].
+#'
+#' @param x An object to convert to an Arrow Table
+#' @param ... Passed to S3 methods
+#' @inheritParams arrow_table
+#'
+#' @return A [Table]
+#' @export
+#'
+#' @examples
+#' # use as_arrow_table() for a single object
+#' as_arrow_table(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use arrow_table() to create from columns
+#' arrow_table(col1 = 1, col2 = "two")
+#'
+as_arrow_table <- function(x, ..., schema = NULL) {
+  UseMethod("as_arrow_table")
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.default <- function(x, ...) {
+  # throw a classed error here so that we can customize the error message
+  # in as_writable_table()
+  abort(
+    sprintf(
+      "No method for `as_arrow_table()` for object of class %s",
+      paste(class(x), collapse = " / ")
+    ),
+    class = "arrow_no_method_as_arrow_table"
+  )
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.Table <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    x
+  } else {
+    x$cast(schema)
+  }
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    Table$create(x)
+  } else {
+    Table$create(x$cast(schema))
+  }
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
+  Table$create(x, schema = schema)
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatchReader <- function(x, ...) {
+  x$read_table()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.arrow_dplyr_query <- function(x, ...) {
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+
+  run_with_event_loop <- identical(
+    Sys.getenv("R_ARROW_COLLECT_WITH_UDF", ""),
+    "true"
+  )
+
+  result <- plan$Run(final_node, as_table = run_with_event_loop)
+  as_arrow_table(result)
+}

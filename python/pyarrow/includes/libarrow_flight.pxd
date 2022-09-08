@@ -45,8 +45,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string username
         c_string password
 
+        CResult[c_string] SerializeToString()
+
+        @staticmethod
+        CResult[CBasicAuth] Deserialize(const c_string& serialized)
+
     cdef cppclass CResultStream" arrow::flight::ResultStream":
-        CStatus Next(unique_ptr[CFlightResult]* result)
+        CResult[unique_ptr[CFlightResult]] Next()
 
     cdef cppclass CDescriptorType \
             " arrow::flight::FlightDescriptor::DescriptorType":
@@ -63,21 +68,20 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CDescriptorType type
         c_string cmd
         vector[c_string] path
-        CStatus SerializeToString(c_string* out)
+        CResult[c_string] SerializeToString()
 
         @staticmethod
-        CStatus Deserialize(const c_string& serialized,
-                            CFlightDescriptor* out)
+        CResult[CFlightDescriptor] Deserialize(const c_string& serialized)
         bint operator==(CFlightDescriptor)
 
     cdef cppclass CTicket" arrow::flight::Ticket":
         CTicket()
         c_string ticket
         bint operator==(CTicket)
-        CStatus SerializeToString(c_string* out)
+        CResult[c_string] SerializeToString()
 
         @staticmethod
-        CStatus Deserialize(const c_string& serialized, CTicket* out)
+        CResult[CTicket] Deserialize(const c_string& serialized)
 
     cdef cppclass CCriteria" arrow::flight::Criteria":
         CCriteria()
@@ -89,16 +93,16 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_bool Equals(const CLocation& other)
 
         @staticmethod
-        CStatus Parse(c_string& uri_string, CLocation* location)
+        CResult[CLocation] Parse(c_string& uri_string)
 
         @staticmethod
-        CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTcp(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+        CResult[CLocation] ForGrpcTls(c_string& host, int port)
 
         @staticmethod
-        CStatus ForGrpcUnix(c_string& path, CLocation* location)
+        CResult[CLocation] ForGrpcUnix(c_string& path)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()
@@ -112,21 +116,21 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
-        CStatus SerializeToString(c_string* out)
+        CResult[c_string] SerializeToString()
 
         @staticmethod
-        CStatus Deserialize(const c_string& serialized,
-                            unique_ptr[CFlightInfo]* out)
+        CResult[unique_ptr[CFlightInfo]] Deserialize(
+            const c_string& serialized)
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
         CSchemaResult(CSchemaResult result)
-        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
-        CStatus Next(unique_ptr[CFlightInfo]* info)
+        CResult[unique_ptr[CFlightInfo]] Next()
 
     cdef cppclass CSimpleFlightListing" arrow::flight::SimpleFlightListing":
         CSimpleFlightListing(vector[CFlightInfo]&& info)
@@ -138,7 +142,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightDataStream" arrow::flight::FlightDataStream":
         shared_ptr[CSchema] schema()
-        CStatus Next(CFlightPayload*)
+        CResult[CFlightPayload] Next()
 
     cdef cppclass CFlightStreamChunk" arrow::flight::FlightStreamChunk":
         CFlightStreamChunk()
@@ -148,8 +152,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CMetadataRecordBatchReader \
             " arrow::flight::MetadataRecordBatchReader":
         CResult[shared_ptr[CSchema]] GetSchema()
-        CStatus Next(CFlightStreamChunk* out)
-        CStatus ReadAll(shared_ptr[CTable]* table)
+        CResult[CFlightStreamChunk] Next()
+        CResult[shared_ptr[CTable]] ToTable()
 
     CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
         " arrow::flight::MakeRecordBatchReader"(
@@ -166,8 +170,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
         void Cancel()
-        CStatus ReadAllWithStopToken" ReadAll"\
-            (shared_ptr[CTable]* table, const CStopToken& stop_token)
+        CResult[shared_ptr[CTable]] ToTableWithStopToken" ToTable"\
+            (const CStopToken& stop_token)
 
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):
@@ -223,6 +227,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightCallOptions()
         CTimeoutDuration timeout
         CIpcWriteOptions write_options
+        CIpcReadOptions read_options
         vector[pair[c_string, c_string]] headers
         CStopToken stop_token
 
@@ -309,11 +314,18 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         @staticmethod
         CFlightClientOptions Defaults()
 
+    cdef cppclass CDoPutResult" arrow::flight::FlightClient::DoPutResult":
+        unique_ptr[CFlightStreamWriter] writer
+        unique_ptr[CFlightMetadataReader] reader
+
+    cdef cppclass CDoExchangeResult" arrow::flight::FlightClient::DoExchangeResult":
+        unique_ptr[CFlightStreamWriter] writer
+        unique_ptr[CFlightStreamReader] reader
+
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
-        CStatus Connect(const CLocation& location,
-                        const CFlightClientOptions& options,
-                        unique_ptr[CFlightClient]* client)
+        CResult[unique_ptr[CFlightClient]] Connect(const CLocation& location,
+                                                   const CFlightClientOptions& options)
 
         CStatus Authenticate(CFlightCallOptions& options,
                              unique_ptr[CClientAuthHandler] auth_handler)
@@ -323,30 +335,21 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             const c_string& username,
             const c_string& password)
 
-        CStatus DoAction(CFlightCallOptions& options, CAction& action,
-                         unique_ptr[CResultStream]* results)
-        CStatus ListActions(CFlightCallOptions& options,
-                            vector[CActionType]* actions)
+        CResult[unique_ptr[CResultStream]] DoAction(CFlightCallOptions& options, CAction& action)
+        CResult[vector[CActionType]] ListActions(CFlightCallOptions& options)
 
-        CStatus ListFlights(CFlightCallOptions& options, CCriteria criteria,
-                            unique_ptr[CFlightListing]* listing)
-        CStatus GetFlightInfo(CFlightCallOptions& options,
-                              CFlightDescriptor& descriptor,
-                              unique_ptr[CFlightInfo]* info)
-        CStatus GetSchema(CFlightCallOptions& options,
-                          CFlightDescriptor& descriptor,
-                          unique_ptr[CSchemaResult]* result)
-        CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
-                      unique_ptr[CFlightStreamReader]* stream)
-        CStatus DoPut(CFlightCallOptions& options,
-                      CFlightDescriptor& descriptor,
-                      shared_ptr[CSchema]& schema,
-                      unique_ptr[CFlightStreamWriter]* stream,
-                      unique_ptr[CFlightMetadataReader]* reader)
-        CStatus DoExchange(CFlightCallOptions& options,
-                           CFlightDescriptor& descriptor,
-                           unique_ptr[CFlightStreamWriter]* writer,
-                           unique_ptr[CFlightStreamReader]* reader)
+        CResult[unique_ptr[CFlightListing]] ListFlights(CFlightCallOptions& options, CCriteria criteria)
+        CResult[unique_ptr[CFlightInfo]] GetFlightInfo(CFlightCallOptions& options,
+                                                       CFlightDescriptor& descriptor)
+        CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
+                                                     CFlightDescriptor& descriptor)
+        CResult[unique_ptr[CFlightStreamReader]] DoGet(CFlightCallOptions& options, CTicket& ticket)
+        CResult[CDoPutResult] DoPut(CFlightCallOptions& options,
+                                    CFlightDescriptor& descriptor,
+                                    shared_ptr[CSchema]& schema)
+        CResult[CDoExchangeResult] DoExchange(CFlightCallOptions& options,
+                                              CFlightDescriptor& descriptor)
+        CStatus Close()
 
     cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
         bint operator==(CFlightStatusCode)
@@ -542,15 +545,6 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
-
-    cdef CStatus DeserializeBasicAuth\
-        " arrow::py::flight::DeserializeBasicAuth"(
-            c_string buf,
-            unique_ptr[CBasicAuth]* out)
-
-    cdef CStatus SerializeBasicAuth" arrow::py::flight::SerializeBasicAuth"(
-        CBasicAuth basic_auth,
-        c_string* out)
 
 
 cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:

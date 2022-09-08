@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/exp/rand"
@@ -492,7 +492,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 	return res
 }
 
-func (r *RLERandomSuite) checkRoundTripSpaced(vals array.Interface, width int) {
+func (r *RLERandomSuite) checkRoundTripSpaced(vals arrow.Array, width int) {
 	nvalues := vals.Len()
 	bufsize := utils.MaxBufferSize(width, nvalues)
 
@@ -587,7 +587,7 @@ func (r *RandomArrayGenerator) generateBitmap(buffer []byte, n int64, prob float
 	return count
 }
 
-func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) arrow.Array {
 	buffers := make([]*memory.Buffer, 2)
 	nullCount := int64(0)
 

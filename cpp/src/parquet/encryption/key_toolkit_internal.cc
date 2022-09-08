@@ -31,7 +31,8 @@ static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& master_key,
                               const std::string& aad) {
   AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
-                             static_cast<int>(master_key.size()), false);
+                             static_cast<int>(master_key.size()), false,
+                             false /*write_length*/);
 
   int encrypted_key_len =
       static_cast<int>(key_bytes.size()) + key_encryptor.CiphertextSizeDelta();
@@ -43,8 +44,8 @@ std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& m
       static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
       static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
 
-  return ::arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(&encrypted_key[0]),
-                                      encrypted_key_len);
+  return ::arrow::util::base64_encode(
+      ::arrow::util::string_view(encrypted_key.data(), encrypted_key_len));
 }
 
 std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
@@ -52,7 +53,8 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
   std::string encrypted_key = ::arrow::util::base64_decode(encoded_encrypted_key);
 
   AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
-                             static_cast<int>(master_key.size()), false);
+                             static_cast<int>(master_key.size()), false,
+                             false /*contains_length*/);
 
   int decrypted_key_len =
       static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();

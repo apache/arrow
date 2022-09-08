@@ -18,6 +18,17 @@
 class TestDecimal128 < Test::Unit::TestCase
   include Helper::Omittable
 
+  def test_new_string_invalid
+    message =
+      "[decimal128][new][string]: Invalid: " +
+      "The string '1,1' is not a valid decimal128 number"
+    error = assert_raise(Arrow::Error::Invalid) do
+      Arrow::Decimal128.new("1,1")
+    end
+    assert_equal(message,
+                 error.message.lines.first.chomp)
+  end
+
   def test_copy
     decimal = Arrow::Decimal128.new("234.23445")
     assert_equal(decimal, decimal.copy)

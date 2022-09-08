@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/arrow/internal/flight_integration"
+	"github.com/apache/arrow/go/v10/arrow/internal/flight_integration"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -41,7 +42,7 @@ func main() {
 	c := flight_integration.GetScenario(*scenario, *path)
 	var err error
 	for i := 0; i < retries; i++ {
-		err = c.RunClient(fmt.Sprintf("%s:%d", *host, *port), grpc.WithInsecure())
+		err = c.RunClient(fmt.Sprintf("%s:%d", *host, *port), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err == nil {
 			break
 		}

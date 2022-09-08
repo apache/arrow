@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -52,6 +53,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
@@ -112,6 +114,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
 
     return dictionaries.get(id);
+  }
+
+  @Override
+  public Set<Long> getDictionaryIds() {
+    return dictionaries.keySet();
   }
 
   /** Reads the beginning (schema section) of the json file and returns it. */
@@ -277,6 +284,25 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         return buf;
       }
     };
+
+    BufferReader MONTH_DAY_NANOS = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final long size = (long) count * IntervalMonthDayNanoVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          readToken(START_OBJECT);
+          buf.writeInt(readNextField("months", Integer.class));
+          buf.writeInt(readNextField("days", Integer.class));
+          buf.writeLong(readNextField("nanoseconds", Long.class));
+          readToken(END_OBJECT);
+        }
+
+        return buf;
+      }
+    };
+
 
     BufferReader INT1 = new BufferReader() {
       @Override
@@ -646,6 +672,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case INTERVALDAY:
           reader = helper.DAY_MILLIS;
           break;
+        case INTERVALMONTHDAYNANO:
+          reader = helper.MONTH_DAY_NANOS;
+          break;
         case DURATION:
           reader = helper.INT8;
           break;
@@ -755,8 +784,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   @Override
   public void close() throws IOException {
     parser.close();
-    for (Dictionary dictionary : dictionaries.values()) {
-      dictionary.getVector().close();
+    if (dictionaries != null) {
+      for (Dictionary dictionary : dictionaries.values()) {
+        dictionary.getVector().close();
+      }
     }
   }
 

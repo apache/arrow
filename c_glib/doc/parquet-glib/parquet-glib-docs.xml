@@ -45,11 +45,12 @@
     </chapter>
   </part>
 
-  <part id="misc">
-    <title>Misc</title>
-    <chapter id="version">
-      <title>Version</title>
-      <xi:include href="xml/version.xml"></xi:include>
+  <part id="data">
+    <title>Data</title>
+    <chapter id="meta">
+      <title>Meta</title>
+      <xi:include href="xml/metadata.xml"/>
+      <xi:include href="xml/statistics.xml"/>
     </chapter>
   </part>
 
@@ -65,6 +66,14 @@
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
   </index>
+  <index id="api-index-8-0-0" role="8.0.0">
+    <title>Index of new symbols in 8.0.0</title>
+    <xi:include href="xml/api-index-8.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-6-0-0" role="6.0.0">
+    <title>Index of new symbols in 6.0.0</title>
+    <xi:include href="xml/api-index-6.0.0.xml"><xi:fallback /></xi:include>
+  </index>
   <index id="api-index-1-0-0" role="1.0.0">
     <title>Index of new symbols in 1.0.0</title>
     <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
@@ -72,10 +81,6 @@
   <index id="api-index-0-17-0" role="0.17.0">
     <title>Index of new symbols in 0.17.0</title>
     <xi:include href="xml/api-index-0.17.0.xml"><xi:fallback /></xi:include>
-  </index>
-  <index id="api-index-0-16-0" role="0.16.0">
-    <title>Index of new symbols in 0.16.0</title>
-    <xi:include href="xml/api-index-0.16.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-15-0" role="0.15.0">
     <title>Index of new symbols in 0.15.0</title>

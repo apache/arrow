@@ -17,6 +17,7 @@
 
 import io
 import os
+from unittest import mock
 
 import pytest
 
@@ -36,6 +37,9 @@ try:
 except ImportError:
     pd = tm = None
 
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -47,7 +51,7 @@ def test_pass_separate_metadata():
     a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(a_table, buf, compression='snappy', version='2.0')
+    _write_table(a_table, buf, compression='snappy', version='2.6')
 
     buf.seek(0)
     metadata = pq.read_metadata(buf)
@@ -69,7 +73,7 @@ def test_read_single_row_group():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
 
@@ -90,7 +94,7 @@ def test_read_single_row_group_with_column_subset():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -116,7 +120,7 @@ def test_read_multiple_row_groups():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
 
@@ -136,7 +140,7 @@ def test_read_multiple_row_groups_with_column_subset():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -159,7 +163,7 @@ def test_scan_contents():
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf)
@@ -200,7 +204,7 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
-    _write_table(arrow_table, filename, version="2.0",
+    _write_table(arrow_table, filename, version='2.6',
                  coerce_timestamps='ms', chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
@@ -224,7 +228,7 @@ def test_iter_batches_reader(tempdir, chunk_size):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version="2.0",
+    _write_table(arrow_table, filename, version='2.6',
                  coerce_timestamps='ms', chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
@@ -269,8 +273,59 @@ def test_pre_buffer(pre_buffer):
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
+                 compression='snappy', version='2.6')
 
     buf.seek(0)
     pf = pq.ParquetFile(buf, pre_buffer=pre_buffer)
     assert pf.read().num_rows == N
+
+
+def test_parquet_file_explicitly_closed(tempdir):
+    """
+    Unopened files should be closed explicitly after use,
+    and previously opened files should be left open.
+    Applies to read_table, ParquetDataset, and ParquetFile
+    """
+    # create test parquet file
+    fn = tempdir.joinpath('file.parquet')
+    table = pa.table({'col1': [0, 1], 'col2': [0, 1]})
+    pq.write_table(table, fn)
+
+    # read_table (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        pq.read_table(f, use_legacy_dataset=True)
+        assert not f.closed  # Didn't close it internally after read_table
+
+    # read_table (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.read_table(fn, use_legacy_dataset=True)
+        mock_close.assert_called()
+
+    # ParquetDataset test (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.ParquetDataset(fn, use_legacy_dataset=True).read()
+        mock_close.assert_called()
+
+    # ParquetDataset test (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        # ARROW-8075: support ParquetDataset from file-like, not just path-like
+        with pytest.raises(TypeError, match='not a path-like object'):
+            pq.ParquetDataset(f, use_legacy_dataset=True).read()
+            assert not f.closed
+
+    # ParquetFile with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        with pq.ParquetFile(f) as p:
+            p.read()
+            assert not f.closed
+            assert not p.closed
+        assert not f.closed  # opened input file was not closed
+        assert not p.closed  # parquet file obj reports as not closed
+    assert f.closed
+    assert p.closed  # parquet file being closed reflects underlying file
+
+    # ParquetFile with unopened file (will close)
+    with pq.ParquetFile(fn) as p:
+        p.read()
+        assert not p.closed
+    assert p.closed  # parquet file obj reports as closed

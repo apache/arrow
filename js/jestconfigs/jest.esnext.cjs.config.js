@@ -15,18 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
-  ...require("../jest.config"),
-  rootDir: "../",
-  preset: "ts-jest",
-  moduleFileExtensions: ["js", "ts"],
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "<rootDir>/test/tsconfig/tsconfig.esnext.cjs.json",
+import config from "../jest.config.js";
+
+export default {
+    ...config,
+    rootDir: "../",
+    preset: "ts-jest",
+    moduleFileExtensions: ["js", "ts"],
+    globals: {
+        "ts-jest": {
+            diagnostics: false,
+            tsconfig: "<rootDir>/test/tsconfig/tsconfig.esnext.cjs.json",
+        },
     },
-  },
-  moduleNameMapper: {
-    "^apache-arrow(.*)": "<rootDir>/targets/esnext/cjs$1",
-  },
+    moduleNameMapper: {
+        "^apache-arrow(.*)": "<rootDir>/targets/esnext/cjs$1",
+        "^(\\.{1,2}/.*)\\.js$": "$1",
+    },
 };

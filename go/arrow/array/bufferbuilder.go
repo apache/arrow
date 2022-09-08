@@ -19,10 +19,23 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
+
+type bufBuilder interface {
+	Retain()
+	Release()
+	Len() int
+	Cap() int
+	Bytes() []byte
+	resize(int)
+	Advance(int)
+	Append([]byte)
+	Reset()
+	Finish() *memory.Buffer
+}
 
 // A bufferBuilder provides common functionality for populating memory with a sequence of type-specific values.
 // Specialized implementations provide type-safe APIs for appending and accessing the memory.
@@ -73,7 +86,7 @@ func (b *bufferBuilder) resize(elements int) {
 		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
 
-	b.buffer.Resize(elements)
+	b.buffer.ResizeNoShrink(elements)
 	oldCapacity := b.capacity
 	b.capacity = b.buffer.Cap()
 	b.bytes = b.buffer.Buf()

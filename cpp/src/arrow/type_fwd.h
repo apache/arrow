@@ -81,7 +81,7 @@ class RecordBatchReader;
 class Table;
 
 struct Datum;
-struct ValueDescr;
+struct TypeHolder;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -222,9 +222,12 @@ using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
 struct Date64Scalar;
 
-struct TimeUnit {
+struct ARROW_EXPORT TimeUnit {
   /// The unit for a time or timestamp DataType
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+
+  /// Iterate over all valid time units
+  static const std::vector<TimeUnit::type>& values();
 };
 
 class TimeType;
@@ -252,6 +255,11 @@ class DayTimeIntervalType;
 class DayTimeIntervalArray;
 class DayTimeIntervalBuilder;
 struct DayTimeIntervalScalar;
+
+class MonthDayNanoIntervalType;
+class MonthDayNanoIntervalArray;
+class MonthDayNanoIntervalBuilder;
+struct MonthDayNanoIntervalScalar;
 
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
@@ -394,6 +402,9 @@ struct Type {
     /// Like LIST, but with 64-bit offsets
     LARGE_LIST,
 
+    /// Calendar interval type with three fields.
+    INTERVAL_MONTH_DAY_NANO,
+
     // Leave this at the end
     MAX_ID
   };
@@ -405,43 +416,43 @@ struct Type {
 /// @{
 
 /// \brief Return a NullType instance
-std::shared_ptr<DataType> ARROW_EXPORT null();
+ARROW_EXPORT const std::shared_ptr<DataType>& null();
 /// \brief Return a BooleanType instance
-std::shared_ptr<DataType> ARROW_EXPORT boolean();
+ARROW_EXPORT const std::shared_ptr<DataType>& boolean();
 /// \brief Return a Int8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int8();
+ARROW_EXPORT const std::shared_ptr<DataType>& int8();
 /// \brief Return a Int16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int16();
+ARROW_EXPORT const std::shared_ptr<DataType>& int16();
 /// \brief Return a Int32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int32();
+ARROW_EXPORT const std::shared_ptr<DataType>& int32();
 /// \brief Return a Int64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int64();
+ARROW_EXPORT const std::shared_ptr<DataType>& int64();
 /// \brief Return a UInt8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint8();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint8();
 /// \brief Return a UInt16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint16();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint16();
 /// \brief Return a UInt32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint32();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint32();
 /// \brief Return a UInt64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint64();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint64();
 /// \brief Return a HalfFloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float16();
+ARROW_EXPORT const std::shared_ptr<DataType>& float16();
 /// \brief Return a FloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float32();
+ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 /// \brief Return a DoubleType instance
-std::shared_ptr<DataType> ARROW_EXPORT float64();
+ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
-std::shared_ptr<DataType> ARROW_EXPORT utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
 /// \brief Return a LargeStringType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& binary();
 /// \brief Return a LargeBinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date32();
+ARROW_EXPORT const std::shared_ptr<DataType>& date32();
 /// \brief Return a Date64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date64();
+ARROW_EXPORT const std::shared_ptr<DataType>& date64();
 
 /// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT
@@ -510,6 +521,9 @@ std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
 
 /// \brief Return a MonthIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_interval();
+
+/// \brief Return a MonthDayNanoIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT month_day_nano_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT

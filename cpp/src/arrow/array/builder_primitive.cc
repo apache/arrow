@@ -86,6 +86,14 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 }
 
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
+                                    const uint8_t* validity, int64_t offset) {
+  RETURN_NOT_OK(Reserve(length));
+  data_builder_.UnsafeAppend(values, offset, length);
+  ArrayBuilder::UnsafeAppendToBitmap(validity, offset, length);
+  return Status::OK();
+}
+
+Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));

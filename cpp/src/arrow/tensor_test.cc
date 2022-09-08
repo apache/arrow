@@ -568,6 +568,12 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   EXPECT_TRUE(tf1.Equals(tnc));
   EXPECT_FALSE(tf3.Equals(tnc));
 
+  // signed zeros
+  c_values[0] = -0.0;
+  c_values_2[0] = 0.0;
+  EXPECT_TRUE(tc1.Equals(tc2));
+  EXPECT_FALSE(tc1.Equals(tc2, EqualOptions().signed_zeros_equal(false)));
+
   // tensors with NaNs
   const c_data_type nan_value = static_cast<c_data_type>(NAN);
   c_values[0] = nan_value;

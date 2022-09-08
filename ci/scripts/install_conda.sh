@@ -19,48 +19,30 @@
 
 set -e
 
-declare -A archs
-archs=([amd64]=x86_64
-       [arm32v7]=armv7l
-       [ppc64le]=ppc64le
-       [i386]=x86)
-
-declare -A platforms
-platforms=([windows]=Windows
-           [macos]=MacOSX
-           [linux]=Linux)
-
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
-  exit 1
-elif [[ -z ${archs[$1]} ]]; then
-  echo "Unexpected architecture: ${1}"
-  exit 1
-elif [[ -z ${platforms[$2]} ]]; then
-  echo "Unexpected platform: ${2}"
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <installer: miniforge or mambaforge> <version> <prefix>"
   exit 1
 fi
 
-arch=${archs[$1]}
-platform=${platforms[$2]}
-version=$3
-prefix=$4
+arch=$(uname -m)
+platform=$(uname)
+installer=$1
+version=$2
+prefix=$3
 
 echo "Downloading Miniconda installer..."
-wget -nv https://repo.continuum.io/miniconda/Miniconda3-${version}-${platform}-${arch}.sh -O /tmp/miniconda.sh
-bash /tmp/miniconda.sh -b -p ${prefix}
-rm /tmp/miniconda.sh
+wget -nv https://github.com/conda-forge/miniforge/releases/latest/download/${installer^}-${platform}-${arch}.sh -O /tmp/installer.sh
+bash /tmp/installer.sh -b -p ${prefix}
+rm /tmp/installer.sh
 
 # Like "conda init", but for POSIX sh rather than bash
 ln -s ${prefix}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 
+export PATH=/opt/conda/bin:$PATH
+
 # Configure
-source /etc/profile.d/conda.sh
-conda config --add channels conda-forge
-conda config --set channel_priority strict
 conda config --set show_channel_urls True
 conda config --set remote_connect_timeout_secs 12
 
 # Update and clean
-conda update --all -y
 conda clean --all -y

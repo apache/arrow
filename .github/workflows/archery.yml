@@ -32,7 +32,7 @@ on:
       - 'docker-compose.yml'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
@@ -44,18 +44,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Git Fixup
         shell: bash
-        run: git branch master origin/master || true
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
+        run: |
+          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
+          git branch $DEFAULT_BRANCH origin/$DEFAULT_BRANCH || true
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.6'
+          python-version: '3.8'
+      - name: Install pygit2 binary wheel
+        run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests

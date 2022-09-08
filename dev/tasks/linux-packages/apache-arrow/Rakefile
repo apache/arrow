@@ -96,16 +96,6 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
   end
 
-  def apt_prepare_debian_control_grpc(control, target)
-    case target
-    when /\Adebian-buster/, /\Aubuntu-(?:bionic|focal)/
-      use_system_grpc = "#"
-    else
-      use_system_grpc = ""
-    end
-    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
-  end
-
   def apt_prepare_debian_control_c_ares(control, target)
     case target
     when /\Aubuntu-bionic/
@@ -114,6 +104,36 @@ class ApacheArrowPackageTask < PackageTask
       use_system_c_ares = ""
     end
     control.gsub(/@USE_SYSTEM_C_ARES@/, use_system_c_ares)
+  end
+
+  def apt_prepare_debian_control_grpc(control, target)
+    case target
+    when /\Aubuntu-(?:bionic|focal)/
+      use_system_grpc = "#"
+    else
+      use_system_grpc = ""
+    end
+    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
+  end
+
+  def apt_prepare_debian_control_python(control, target)
+    case target
+    when /\Aubuntu-bionic/
+      enable_python = "#"
+    else
+      enable_python = ""
+    end
+    control.gsub(/@ENABLE_PYTHON@/, enable_python)
+  end
+
+  def apt_prepare_debian_control_thrift(control, target)
+    case target
+    when /\Aubuntu-bionic/
+      use_system_thrift = "#"
+    else
+      use_system_thrift = ""
+    end
+    control.gsub(/@USE_SYSTEM_THRIFT@/, use_system_thrift)
   end
 
   def apt_prepare_debian_control_utf8proc(control, target)
@@ -128,7 +148,7 @@ class ApacheArrowPackageTask < PackageTask
 
   def apt_prepare_debian_control_zstd(control, target)
     case target
-    when /\Adebian-buster/, /\Aubuntu-bionic/
+    when /\Aubuntu-bionic/
       use_system_zstd = "#"
     else
       use_system_zstd = ""
@@ -139,8 +159,10 @@ class ApacheArrowPackageTask < PackageTask
   def apt_prepare_debian_control(control_in, target)
     control = control_in.dup
     control = apt_prepare_debian_control_cuda_architecture(control, target)
-    control = apt_prepare_debian_control_grpc(control, target)
     control = apt_prepare_debian_control_c_ares(control, target)
+    control = apt_prepare_debian_control_grpc(control, target)
+    control = apt_prepare_debian_control_python(control, target)
+    control = apt_prepare_debian_control_thrift(control, target)
     control = apt_prepare_debian_control_utf8proc(control, target)
     control = apt_prepare_debian_control_zstd(control, target)
     control

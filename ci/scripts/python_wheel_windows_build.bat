@@ -36,7 +36,9 @@ set ARROW_GANDIVA=OFF
 set ARROW_HDFS=ON
 set ARROW_ORC=OFF
 set ARROW_PARQUET=ON
+set PARQUET_REQUIRE_ENCRYPTION=ON
 set ARROW_MIMALLOC=ON
+set ARROW_SUBSTRAIT=ON
 set ARROW_S3=ON
 set ARROW_TENSORFLOW=ON
 set ARROW_WITH_BROTLI=ON
@@ -45,9 +47,14 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
+@rem Workaround for https://github.com/aws/aws-sdk-cpp/issues/1809 .
+@rem Use (old) bundled AWS SDK C++ instead of (newer) AWS SDK C++.
+set AWSSDK_SOURCE=BUNDLED
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
+set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -66,7 +73,9 @@ cmake ^
     -DARROW_ORC=%ARROW_ORC% ^
     -DARROW_PACKAGE_KIND="python-wheel-windows" ^
     -DARROW_PARQUET=%ARROW_PARQUET% ^
+    -DPARQUET_REQUIRE_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION% ^
     -DARROW_PYTHON=ON ^
+    -DARROW_SUBSTRAIT=%ARROW_SUBSTRAIT% ^
     -DARROW_S3=%ARROW_S3% ^
     -DARROW_TENSORFLOW=%ARROW_TENSORFLOW% ^
     -DARROW_WITH_BROTLI=%ARROW_WITH_BROTLI% ^
@@ -75,16 +84,17 @@ cmake ^
     -DARROW_WITH_SNAPPY=%ARROW_WITH_SNAPPY% ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
+    -DAWSSDK_SOURCE=%AWSSDK_SOURCE% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DVCPKG_MANIFEST_MODE=OFF ^
-    -DVCPKG_TARGET_TRIPLET=x64-windows-static-md-%CMAKE_BUILD_TYPE% ^
+    -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
-    C:\arrow\cpp || exit /B
-cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B
+    C:\arrow\cpp || exit /B 1
+cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
 echo "=== (%PYTHON_VERSION%) Building wheel ==="
@@ -99,11 +109,14 @@ set PYARROW_WITH_GANDIVA=%ARROW_GANDIVA%
 set PYARROW_WITH_HDFS=%ARROW_HDFS%
 set PYARROW_WITH_ORC=%ARROW_ORC%
 set PYARROW_WITH_PARQUET=%ARROW_PARQUET%
+set PYARROW_WITH_PARQUET_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION%
+set PYARROW_WITH_SUBSTRAIT=%ARROW_SUBSTRAIT%
 set PYARROW_WITH_S3=%ARROW_S3%
 set ARROW_HOME=C:\arrow-dist
+set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
 @REM bundle the msvc runtime
 cp "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Redist\MSVC\14.16.27012\x64\Microsoft.VC141.CRT\msvcp140.dll" pyarrow\
-python setup.py bdist_wheel || exit /B
+python setup.py bdist_wheel || exit /B 1
 popd

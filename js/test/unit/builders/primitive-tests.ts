@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import 'web-streams-polyfill';
+
 import {
     Vector, DataType,
     Bool, Int8, Int16, Int32, Uint8, Uint16, Uint32, Float16, Float32, Float64
@@ -33,7 +35,7 @@ import {
     float16sNoNulls, float16sWithNulls, float16sWithNaNs,
     float32sNoNulls, float32sWithNulls, float64sWithNaNs,
     float64sNoNulls, float64sWithNulls, float32sWithNaNs,
-} from './utils';
+} from './utils.js';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -68,14 +70,14 @@ type PrimitiveTypeOpts<T extends DataType> = [
     (count: number) => (T['TValue'] | null)[]
 ];
 
-[
+for (const [TypeCtor, noNulls, withNulls, withNaNs] of [
     [Int8, int8sNoNulls, int8sWithNulls, int8sWithMaxInts] as PrimitiveTypeOpts<Int8>,
     [Int16, int16sNoNulls, int16sWithNulls, int16sWithMaxInts] as PrimitiveTypeOpts<Int16>,
     [Int32, int32sNoNulls, int32sWithNulls, int32sWithMaxInts] as PrimitiveTypeOpts<Int32>,
     [Uint8, uint8sNoNulls, uint8sWithNulls, uint8sWithMaxInts] as PrimitiveTypeOpts<Uint8>,
     [Uint16, uint16sNoNulls, uint16sWithNulls, uint16sWithMaxInts] as PrimitiveTypeOpts<Uint16>,
     [Uint32, uint32sNoNulls, uint32sWithNulls, uint32sWithMaxInts] as PrimitiveTypeOpts<Uint32>,
-].forEach(([TypeCtor, noNulls, withNulls, withNaNs]) => {
+]) {
 
     describe(`${TypeCtor.name}Builder`, () => {
 
@@ -90,7 +92,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${name}`, () => {
+            describe(name, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);
@@ -101,18 +103,18 @@ type PrimitiveTypeOpts<T extends DataType> = [
                 });
                 it(`encodes ${valueName} with MAX_INT`, async () => {
                     const vals = withNaNs(20);
-                    validateVector(vals, await encode(vals, [0x7fffffff]), [0x7fffffff]);
+                    validateVector(vals, await encode(vals, [0x7FFFFFFF]), [0x7FFFFFFF]);
                 });
             });
         }
     });
-});
+}
 
-[
+for (const [TypeCtor, noNulls, withNulls, withNaNs] of [
     [Float16, float16sNoNulls, float16sWithNulls, float16sWithNaNs] as PrimitiveTypeOpts<Float16>,
     [Float32, float32sNoNulls, float32sWithNulls, float32sWithNaNs] as PrimitiveTypeOpts<Float32>,
     [Float64, float64sNoNulls, float64sWithNulls, float64sWithNaNs] as PrimitiveTypeOpts<Float64>,
-].forEach(([TypeCtor, noNulls, withNulls, withNaNs]) => {
+]) {
 
     describe(`${TypeCtor.name}Builder`, () => {
 
@@ -127,7 +129,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${name}`, () => {
+            describe(name, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);
@@ -138,17 +140,17 @@ type PrimitiveTypeOpts<T extends DataType> = [
                 });
                 it(`encodes ${valueName} with NaNs`, async () => {
                     const vals = withNaNs(20);
-                    validateVector(vals, await encode(vals, [NaN]), [NaN]);
+                    validateVector(vals, await encode(vals, [Number.NaN]), [Number.NaN]);
                 });
             });
         }
     });
-});
+}
 
 describe('Float16Builder', () => {
     const encode = encodeAll(() => new Float16());
     it(`encodes the weird values`, async () => {
-        const vals = [0, 5.960464477539063e-8, NaN, 65504, 2, -0];
+        const vals = [0, 5.960464477539063e-8, Number.NaN, 65504, 2, -0];
         validateVector(vals, await encode(vals, []), []);
     });
 });

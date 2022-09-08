@@ -34,7 +34,7 @@ from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
 from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
-    CCondition, CExpression,
+    CCondition, CGandivaExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
     CSelectionVector_Mode,
@@ -78,6 +78,7 @@ from pyarrow.includes.libgandiva cimport (
     CFunctionSignature,
     GetRegisteredFunctionSignatures)
 
+
 cdef class Node(_Weakrefable):
     cdef:
         shared_ptr[CNode] node
@@ -103,11 +104,12 @@ cdef class Node(_Weakrefable):
     def return_type(self):
         return pyarrow_wrap_data_type(self.node.get().return_type())
 
+
 cdef class Expression(_Weakrefable):
     cdef:
-        shared_ptr[CExpression] expression
+        shared_ptr[CGandivaExpression] expression
 
-    cdef void init(self, shared_ptr[CExpression] expression):
+    cdef void init(self, shared_ptr[CGandivaExpression] expression):
         self.expression = expression
 
     def __str__(self):
@@ -122,6 +124,7 @@ cdef class Expression(_Weakrefable):
 
     def result(self):
         return pyarrow_wrap_field(self.expression.get().result())
+
 
 cdef class Condition(_Weakrefable):
     cdef:
@@ -151,6 +154,7 @@ cdef class Condition(_Weakrefable):
     def result(self):
         return pyarrow_wrap_field(self.condition.get().result())
 
+
 cdef class SelectionVector(_Weakrefable):
     cdef:
         shared_ptr[CSelectionVector] selection_vector
@@ -168,6 +172,7 @@ cdef class SelectionVector(_Weakrefable):
     def to_array(self):
         cdef shared_ptr[CArray] result = self.selection_vector.get().ToArray()
         return pyarrow_wrap_array(result)
+
 
 cdef class Projector(_Weakrefable):
     cdef:
@@ -205,6 +210,7 @@ cdef class Projector(_Weakrefable):
         for result in results:
             arrays.append(pyarrow_wrap_array(result))
         return arrays
+
 
 cdef class Filter(_Weakrefable):
     cdef:
@@ -286,8 +292,9 @@ cdef class TreeExprBuilder(_Weakrefable):
 
         return Node.create(r)
 
-    def make_expression(self, Node root_node, Field return_field):
-        cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(
+    def make_expression(self, Node root_node not None,
+                        Field return_field not None):
+        cdef shared_ptr[CGandivaExpression] r = TreeExprBuilder_MakeExpression(
             root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
         expression.init(r)
@@ -297,17 +304,19 @@ cdef class TreeExprBuilder(_Weakrefable):
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
+            if child is None:
+                raise TypeError("Child nodes must not be None")
             c_children.push_back(child.node)
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeFunction(
             name.encode(), c_children, return_type.sp_type)
         return Node.create(r)
 
-    def make_field(self, Field field):
+    def make_field(self, Field field not None):
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeField(field.sp_field)
         return Node.create(r)
 
-    def make_if(self, Node condition, Node this_node,
-                Node else_node, DataType return_type):
+    def make_if(self, Node condition not None, Node this_node not None,
+                Node else_node not None, DataType return_type not None):
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(
             condition.node, this_node.node, else_node.node,
             return_type.sp_type)
@@ -317,6 +326,8 @@ cdef class TreeExprBuilder(_Weakrefable):
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
+            if child is None:
+                raise TypeError("Child nodes must not be None")
             c_children.push_back(child.node)
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeAnd(c_children)
         return Node.create(r)
@@ -325,11 +336,13 @@ cdef class TreeExprBuilder(_Weakrefable):
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
+            if child is None:
+                raise TypeError("Child nodes must not be None")
             c_children.push_back(child.node)
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeOr(c_children)
         return Node.create(r)
 
-    def _make_in_expression_int32(self, Node node, values):
+    def _make_in_expression_int32(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int32_t] c_values
         cdef int32_t v
@@ -338,7 +351,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionInt32(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_int64(self, Node node, values):
+    def _make_in_expression_int64(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int64_t] c_values
         cdef int64_t v
@@ -347,7 +360,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionInt64(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_time32(self, Node node, values):
+    def _make_in_expression_time32(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int32_t] c_values
         cdef int32_t v
@@ -356,7 +369,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionTime32(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_time64(self, Node node, values):
+    def _make_in_expression_time64(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int64_t] c_values
         cdef int64_t v
@@ -365,7 +378,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionTime64(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_date32(self, Node node, values):
+    def _make_in_expression_date32(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int32_t] c_values
         cdef int32_t v
@@ -374,7 +387,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionDate32(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_date64(self, Node node, values):
+    def _make_in_expression_date64(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int64_t] c_values
         cdef int64_t v
@@ -383,7 +396,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionDate64(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_timestamp(self, Node node, values):
+    def _make_in_expression_timestamp(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[int64_t] c_values
         cdef int64_t v
@@ -392,7 +405,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionTimeStamp(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_binary(self, Node node, values):
+    def _make_in_expression_binary(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
         cdef c_string v
@@ -401,7 +414,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
         return Node.create(r)
 
-    def _make_in_expression_string(self, Node node, values):
+    def _make_in_expression_string(self, Node node not None, values):
         cdef shared_ptr[CNode] r
         cdef c_unordered_set[c_string] c_values
         cdef c_string _v
@@ -411,7 +424,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         r = TreeExprBuilder_MakeInExpressionString(node.node, c_values)
         return Node.create(r)
 
-    def make_in_expression(self, Node node, values, dtype):
+    def make_in_expression(self, Node node not None, values, dtype):
         cdef DataType type = ensure_type(dtype)
 
         if type.id == _Type_INT32:
@@ -435,18 +448,45 @@ cdef class TreeExprBuilder(_Weakrefable):
         else:
             raise TypeError("Data type " + str(dtype) + " not supported.")
 
-    def make_condition(self, Node condition):
+    def make_condition(self, Node condition not None):
         cdef shared_ptr[CCondition] r = TreeExprBuilder_MakeCondition(
             condition.node)
         return Condition.create(r)
 
+
 cpdef make_projector(Schema schema, children, MemoryPool pool,
                      str selection_mode="NONE"):
-    cdef c_vector[shared_ptr[CExpression]] c_children
-    cdef Expression child
+    """
+    Construct a projection using expressions.
+
+    A projector is built for a specific schema and vector of expressions.
+    Once the projector is built, it can be used to evaluate many row batches.
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+        Schema for the record batches, and the expressions.
+    children : list[pyarrow.gandiva.Expression]
+        List of projectable expression objects.
+    pool : pyarrow.MemoryPool
+        Memory pool used to allocate output arrays.
+    selection_mode : str, default "NONE"
+        Possible values are NONE, UINT16, UINT32, UINT64.
+
+    Returns
+    -------
+    Projector instance
+    """
+    cdef:
+        Expression child
+        c_vector[shared_ptr[CGandivaExpression]] c_children
+        shared_ptr[CProjector] result
+
     for child in children:
+        if child is None:
+            raise TypeError("Expressions must not be None")
         c_children.push_back(child.expression)
-    cdef shared_ptr[CProjector] result
+
     check_status(
         Projector_Make(schema.sp_schema, c_children,
                        _ensure_selection_mode(selection_mode),
@@ -454,11 +494,32 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
                        &result))
     return Projector.create(result, pool)
 
+
 cpdef make_filter(Schema schema, Condition condition):
+    """
+    Construct a filter based on a condition.
+
+    A filter is built for a specific schema and condition. Once the filter is
+    built, it can be used to evaluate many row batches.
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+        Schema for the record batches, and the condition.
+    condition : pyarrow.gandiva.Condition
+        Filter condition.
+
+    Returns
+    -------
+    Filter instance
+    """
     cdef shared_ptr[CFilter] result
+    if condition is None:
+        raise TypeError("Condition must not be None")
     check_status(
         Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
+
 
 cdef class FunctionSignature(_Weakrefable):
     """

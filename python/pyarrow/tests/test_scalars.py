@@ -26,49 +26,46 @@ import numpy as np
 import pyarrow as pa
 
 
-@pytest.mark.parametrize(['value', 'ty', 'klass', 'deprecated'], [
-    (False, None, pa.BooleanScalar, pa.BooleanValue),
-    (True, None, pa.BooleanScalar, pa.BooleanValue),
-    (1, None, pa.Int64Scalar, pa.Int64Value),
-    (-1, None, pa.Int64Scalar, pa.Int64Value),
-    (1, pa.int8(), pa.Int8Scalar, pa.Int8Value),
-    (1, pa.uint8(), pa.UInt8Scalar, pa.UInt8Value),
-    (1, pa.int16(), pa.Int16Scalar, pa.Int16Value),
-    (1, pa.uint16(), pa.UInt16Scalar, pa.UInt16Value),
-    (1, pa.int32(), pa.Int32Scalar, pa.Int32Value),
-    (1, pa.uint32(), pa.UInt32Scalar, pa.UInt32Value),
-    (1, pa.int64(), pa.Int64Scalar, pa.Int64Value),
-    (1, pa.uint64(), pa.UInt64Scalar, pa.UInt64Value),
-    (1.0, None, pa.DoubleScalar, pa.DoubleValue),
-    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar, pa.HalfFloatValue),
-    (1.0, pa.float32(), pa.FloatScalar, pa.FloatValue),
-    (decimal.Decimal("1.123"), None, pa.Decimal128Scalar, pa.Decimal128Value),
+@pytest.mark.parametrize(['value', 'ty', 'klass'], [
+    (False, None, pa.BooleanScalar),
+    (True, None, pa.BooleanScalar),
+    (1, None, pa.Int64Scalar),
+    (-1, None, pa.Int64Scalar),
+    (1, pa.int8(), pa.Int8Scalar),
+    (1, pa.uint8(), pa.UInt8Scalar),
+    (1, pa.int16(), pa.Int16Scalar),
+    (1, pa.uint16(), pa.UInt16Scalar),
+    (1, pa.int32(), pa.Int32Scalar),
+    (1, pa.uint32(), pa.UInt32Scalar),
+    (1, pa.int64(), pa.Int64Scalar),
+    (1, pa.uint64(), pa.UInt64Scalar),
+    (1.0, None, pa.DoubleScalar),
+    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
+    (1.0, pa.float32(), pa.FloatScalar),
+    (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
     (decimal.Decimal("1.1234567890123456789012345678901234567890"),
-     None, pa.Decimal256Scalar, pa.Decimal256Value),
-    ("string", None, pa.StringScalar, pa.StringValue),
-    (b"bytes", None, pa.BinaryScalar, pa.BinaryValue),
-    ("largestring", pa.large_string(), pa.LargeStringScalar,
-     pa.LargeStringValue),
-    (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar,
-     pa.LargeBinaryValue),
-    (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar, pa.FixedSizeBinaryValue),
-    ([1, 2, 3], None, pa.ListScalar, pa.ListValue),
-    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar,
-     pa.LargeListValue),
-    ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar,
-     pa.FixedSizeListValue),
-    (datetime.date.today(), None, pa.Date32Scalar, pa.Date32Value),
-    (datetime.date.today(), pa.date64(), pa.Date64Scalar, pa.Date64Value),
-    (datetime.datetime.now(), None, pa.TimestampScalar, pa.TimestampValue),
+     None, pa.Decimal256Scalar),
+    ("string", None, pa.StringScalar),
+    (b"bytes", None, pa.BinaryScalar),
+    ("largestring", pa.large_string(), pa.LargeStringScalar),
+    (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar),
+    (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar),
+    ([1, 2, 3], None, pa.ListScalar),
+    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
+    ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
+    (datetime.date.today(), None, pa.Date32Scalar),
+    (datetime.date.today(), pa.date64(), pa.Date64Scalar),
+    (datetime.datetime.now(), None, pa.TimestampScalar),
     (datetime.datetime.now().time().replace(microsecond=0), pa.time32('s'),
-     pa.Time32Scalar, pa.Time32Value),
-    (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
-    (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
-    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
-    ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
-     pa.MapValue),
+     pa.Time32Scalar),
+    (datetime.datetime.now().time(), None, pa.Time64Scalar),
+    (datetime.timedelta(days=1), None, pa.DurationScalar),
+    (pa.MonthDayNano([1, -1, -10100]), None,
+     pa.MonthDayNanoIntervalScalar),
+    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
+    ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass, deprecated):
+def test_basics(value, ty, klass):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
     assert s.as_py() == value
@@ -78,8 +75,6 @@ def test_basics(value, ty, klass, deprecated):
     assert hash(s) == hash(s)
     assert s.is_valid is True
     assert s != None  # noqa: E711
-    with pytest.warns(FutureWarning):
-        assert isinstance(s, deprecated)
 
     s = pa.scalar(None, type=s.type)
     assert s.is_valid is False
@@ -286,6 +281,7 @@ def test_timestamp():
 @pytest.mark.nopandas
 def test_timestamp_nanos_nopandas():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
     tz = 'America/New_York'
     ty = pa.timestamp('ns', tz=tz)
@@ -309,6 +305,7 @@ def test_timestamp_nanos_nopandas():
 
 def test_timestamp_no_overflow():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
 
     timestamps = [
@@ -319,6 +316,13 @@ def test_timestamp_no_overflow():
     for ts in timestamps:
         s = pa.scalar(ts, type=pa.timestamp("us", tz="UTC"))
         assert s.as_py() == ts
+
+
+def test_timestamp_fixed_offset_print():
+    # ARROW-13896
+    pytest.importorskip("pytz")
+    arr = pa.array([0], pa.timestamp('s', tz='+02:00'))
+    assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
 
 
 def test_duration():
@@ -362,6 +366,14 @@ def test_duration_nanos_nopandas():
     arr = pa.array([946684800000000001], type=pa.duration('ns'))
     with pytest.raises(ValueError):
         arr[0].as_py()
+
+
+def test_month_day_nano_interval():
+    triple = pa.MonthDayNano([-3600, 1800, -50])
+    arr = pa.array([triple])
+    assert isinstance(arr[0].as_py(), pa.MonthDayNano)
+    assert arr[0].as_py() == triple
+    assert arr[0].value == triple
 
 
 @pytest.mark.parametrize('value', ['foo', 'mañana'])

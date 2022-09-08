@@ -17,7 +17,8 @@
 
 from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 
-from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
+from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow_python cimport IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
 
 from contextlib import contextmanager
@@ -163,7 +164,7 @@ def enable_signal_handlers(c_bool enable):
 
     Parameters
     ----------
-    enable: bool
+    enable : bool
         Whether to enable user interruption by setting a temporary
         signal handler.
     """
@@ -175,7 +176,8 @@ def enable_signal_handlers(c_bool enable):
 
 # Whether we need a workaround for https://bugs.python.org/issue42248
 have_signal_refcycle = (sys.version_info < (3, 8, 10) or
-                        (3, 9) <= sys.version_info < (3, 9, 5))
+                        (3, 9) <= sys.version_info < (3, 9, 5) or
+                        sys.version_info[:2] == (3, 10))
 
 cdef class SignalStopHandler:
     cdef:
@@ -212,6 +214,12 @@ cdef class SignalStopHandler:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if self._enabled:
             UnregisterCancellingSignalHandler()
+        if exc_value is None:
+            # Make sure we didn't lose a signal
+            try:
+                check_status(self._stop_token.stop_token.Poll())
+            except ArrowCancelled as e:
+                exc_value = e
         if isinstance(exc_value, ArrowCancelled):
             if exc_value.signum:
                 # Re-emit the exact same signal. We restored the Python signal
@@ -219,7 +227,8 @@ cdef class SignalStopHandler:
                 if os.name == 'nt':
                     SendSignal(exc_value.signum)
                 else:
-                    SendSignalToThread(exc_value.signum, threading.get_ident())
+                    SendSignalToThread(exc_value.signum,
+                                       threading.main_thread().ident)
             else:
                 # Simulate Python receiving a SIGINT
                 # (see https://bugs.python.org/issue43356 for why we can't

@@ -27,8 +27,6 @@ namespace Apache.Arrow.Ipc
     {
         private long _currentRecordBatchOffset = -1;
 
-        private bool HasWrittenHeader { get; set; }
-
         private List<Block> RecordBatchBlocks { get; }
 
         public ArrowFileWriter(Stream stream, Schema schema)
@@ -56,8 +54,6 @@ namespace Apache.Arrow.Ipc
                 throw new ArgumentException("stream must be seekable", nameof(stream));
             }
 
-            HasWrittenHeader = false;
-
             RecordBatchBlocks = new List<Block>();
         }
 
@@ -65,11 +61,7 @@ namespace Apache.Arrow.Ipc
         {
             // TODO: Compare record batch schema
 
-            if (!HasWrittenHeader)
-            {
-                WriteHeader();
-                HasWrittenHeader = true;
-            }
+            WriteStart();
 
             WriteRecordBatchInternal(recordBatch);
         }
@@ -78,11 +70,7 @@ namespace Apache.Arrow.Ipc
         {
             // TODO: Compare record batch schema
 
-            if (!HasWrittenHeader)
-            {
-                await WriteHeaderAsync(cancellationToken).ConfigureAwait(false);
-                HasWrittenHeader = true;
-            }
+            await WriteStartAsync(cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -131,7 +119,7 @@ namespace Apache.Arrow.Ipc
             await WriteFooterAsync(Schema, cancellationToken);
         }
 
-        private void WriteHeader()
+        private protected override void WriteStartInternal()
         {
             // Write magic number and empty padding up to the 8-byte boundary
 
@@ -139,7 +127,7 @@ namespace Apache.Arrow.Ipc
             WritePadding(CalculatePadding(ArrowFileConstants.Magic.Length));
         }
 
-        private async Task WriteHeaderAsync(CancellationToken cancellationToken)
+        private protected async override ValueTask WriteStartInternalAsync(CancellationToken cancellationToken)
         {
             // Write magic number and empty padding up to the 8-byte boundary
 
@@ -162,8 +150,10 @@ namespace Apache.Arrow.Ipc
 
             Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
 
-            foreach (Block recordBatch in RecordBatchBlocks)
+            // flatbuffer struct vectors have to be created in reverse order
+            for (int i = RecordBatchBlocks.Count - 1; i >= 0; i--)
             {
+                Block recordBatch = RecordBatchBlocks[i];
                 Flatbuf.Block.CreateBlock(
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
@@ -220,8 +210,10 @@ namespace Apache.Arrow.Ipc
 
             Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
 
-            foreach (Block recordBatch in RecordBatchBlocks)
+            // flatbuffer struct vectors have to be created in reverse order
+            for (int i = RecordBatchBlocks.Count - 1; i >= 0; i--)
             {
+                Block recordBatch = RecordBatchBlocks[i];
                 Flatbuf.Block.CreateBlock(
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }

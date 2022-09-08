@@ -19,19 +19,28 @@ ARG base
 FROM ${base}
 
 # Install the libaries required by the Gandiva to run
-RUN vcpkg install --clean-after-build \
-        llvm \
-        boost-system \
-        boost-date-time \
-        boost-regex \
-        boost-predef \
-        boost-algorithm \
-        boost-locale \
-        boost-format \
-        boost-variant \
-        boost-multiprecision
+# Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=dev \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet \
+        --x-feature=gandiva \
+        --x-feature=s3
 
 # Install Java
 ARG java=1.8.0
-RUN yum install -y java-$java-openjdk-devel && yum clean all
+RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
+
+# For ci/scripts/{cpp,java}_*.sh
+ENV ARROW_GANDIVA_JAVA=ON \
+    ARROW_HOME=/tmp/local \
+    ARROW_JAVA_CDATA=ON \
+    ARROW_JNI=ON \
+    ARROW_PLASMA=ON \
+    ARROW_USE_CCACHE=ON

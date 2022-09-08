@@ -28,14 +28,15 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/range.h"
 
 namespace arrow {
+
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -56,17 +57,21 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(compute::Expression expr, const std::string& expected) {
+  void AssertFormat(compute::Expression expr, const std::string& expected_directory,
+                    const std::string& expected_filename = "") {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
-    ASSERT_EQ(formatted, expected);
+    ASSERT_EQ(formatted.directory, expected_directory);
+    ASSERT_EQ(formatted.filename, expected_filename);
 
+    // if ((formatted.filename).empty()){
+    //   formatted.filename = "format.parquet";
+    // }
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted));
-
+                         partitioning_->Parse(formatted.directory + formatted.filename));
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
     ASSERT_EQ(simplified, literal(true));
@@ -185,20 +190,66 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
 
-  AssertParse("/0/hello", and_(equal(field_ref("alpha"), literal(0)),
-                               equal(field_ref("beta"), literal("hello"))));
-  AssertParse("/3", equal(field_ref("alpha"), literal(3)));
-  AssertParseError("/world/0");    // reversed order
-  AssertParseError("/0.0/foo");    // invalid alpha
-  AssertParseError("/3.25");       // invalid alpha with missing beta
+  AssertParse("/0/hello/", and_(equal(field_ref("alpha"), literal(0)),
+                                equal(field_ref("beta"), literal("hello"))));
+  AssertParse("/3/", equal(field_ref("alpha"), literal(3)));
+  AssertParseError("/world/0/");   // reversed order
+  AssertParseError("/0.0/foo/");   // invalid alpha
+  AssertParseError("/3.25/");      // invalid alpha with missing beta
   AssertParse("", literal(true));  // no segments to parse
 
   // gotcha someday:
-  AssertParse("/0/dat.parquet", and_(equal(field_ref("alpha"), literal(0)),
-                                     equal(field_ref("beta"), literal("dat.parquet"))));
+  AssertParse("/0/dat.parquet/", and_(equal(field_ref("alpha"), literal(0)),
+                                      equal(field_ref("beta"), literal("dat.parquet"))));
 
   AssertParse("/0/foo/ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
                                           equal(field_ref("beta"), literal("foo"))));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
+  auto part = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto other = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("gamma", utf8())}));
+  auto another = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto some_other = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other));
+  EXPECT_TRUE(part->Equals(*another));
+  EXPECT_TRUE(another->Equals(*some_other));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioning) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  AssertParse("0_hello_", and_(equal(field_ref("alpha"), literal(0)),
+                               equal(field_ref("beta"), literal("hello"))));
+  AssertParse("0_", equal(field_ref("alpha"), literal(0)));
+  AssertParseError("world_0_");    // reversed order
+  AssertParseError("0.0_foo_");    // invalid alpha
+  AssertParseError("3.25_");       // invalid alpha with missing beta
+  AssertParse("", literal(true));  // no segments to parse
+
+  AssertParse("0_foo_ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
+                                         equal(field_ref("beta"), literal("foo"))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningEquals) {
+  auto part = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto other_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int32()), field("beta", utf8())}));
+  auto another_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int64()), field("beta", utf8())}));
+  auto some_other_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int64()), field("beta", utf8())}));
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other_part));
+  EXPECT_FALSE(other_part->Equals(*another_part));
+  EXPECT_TRUE(another_part->Equals(*some_other_part));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
@@ -264,14 +315,14 @@ TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
         schema({field("year", int32()), field("month", int8()), field("day", temporal)}));
 
     ASSERT_OK_AND_ASSIGN(auto day, StringScalar("2020-06-08").CastTo(temporal));
-    AssertParse("/2020/06/2020-06-08",
+    AssertParse("/2020/06/2020-06-08/",
                 and_({equal(field_ref("year"), literal(2020)),
                       equal(field_ref("month"), literal<int8_t>(6)),
                       equal(field_ref("day"), literal(day))}));
   }
 }
 
-TEST_F(TestPartitioning, DiscoverSchema) {
+TEST_F(TestPartitioning, DiscoverSchemaDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
@@ -290,7 +341,27 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
-TEST_F(TestPartitioning, DictionaryInference) {
+TEST_F(TestPartitioning, DiscoverSchemaFilename) {
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"});
+
+  // type is int32 if possible
+  AssertInspect({"0_1_"}, {Int("alpha"), Int("beta")});
+
+  // extra segments are ignored
+  AssertInspect({"0_1_what_"}, {Int("alpha"), Int("beta")});
+
+  // fall back to string if any segment for field alpha is not parseable as int
+  AssertInspect({"0_1_", "hello_1_"}, {Str("alpha"), Int("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
+
+  // Invalid syntax
+  AssertInspectError({"234-12"});
+  AssertInspectError({"hello"});
+}
+
+TEST_F(TestPartitioning, DirectoryDictionaryInference) {
   PartitioningFactoryOptions options;
   options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
@@ -310,6 +381,23 @@ TEST_F(TestPartitioning, DictionaryInference) {
   AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
 }
 
+TEST_F(TestPartitioning, FilenameDictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.infer_dictionary = true;
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // type is still int32 if possible
+  AssertInspect({"0_1_"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {DictStr("alpha"), DictInt("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"a_0_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "a_1_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "b_0_", "a_1_", "b_1_"}, {DictStr("alpha"), DictInt("beta")});
+}
+
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   PartitioningFactoryOptions options;
   options.infer_dictionary = true;
@@ -319,8 +407,8 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
@@ -328,11 +416,11 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
     auto dictionary_scalar =
         std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
 
-    auto path = "/" + expected_dictionary->GetString(i);
+    auto path = "/" + expected_dictionary->GetString(i) + "/";
     AssertParse(path, equal(field_ref("alpha"), literal(dictionary_scalar)));
   }
 
-  AssertParseError("/yosemite");  // not in inspected dictionary
+  AssertParseError("/yosemite/");  // not in inspected dictionary
 }
 
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
@@ -345,27 +433,62 @@ TEST_F(TestPartitioning, HivePartitioning) {
   partitioning_ = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
-  AssertParse("/alpha=0/beta=3.25", and_(equal(field_ref("alpha"), literal(0)),
-                                         equal(field_ref("beta"), literal(3.25f))));
-  AssertParse("/beta=3.25/alpha=0", and_(equal(field_ref("beta"), literal(3.25f)),
-                                         equal(field_ref("alpha"), literal(0))));
-  AssertParse("/alpha=0", equal(field_ref("alpha"), literal(0)));
-  AssertParse("/alpha=xyz/beta=3.25", and_(is_null(field_ref("alpha")),
-                                           equal(field_ref("beta"), literal(3.25f))));
-  AssertParse("/beta=3.25", equal(field_ref("beta"), literal(3.25f)));
+  AssertParse("/alpha=0/beta=3.25/", and_(equal(field_ref("alpha"), literal(0)),
+                                          equal(field_ref("beta"), literal(3.25f))));
+  AssertParse("/beta=3.25/alpha=0/", and_(equal(field_ref("beta"), literal(3.25f)),
+                                          equal(field_ref("alpha"), literal(0))));
+  AssertParse("/alpha=0/", equal(field_ref("alpha"), literal(0)));
+  AssertParse("/alpha=xyz/beta=3.25/", and_(is_null(field_ref("alpha")),
+                                            equal(field_ref("beta"), literal(3.25f))));
+  AssertParse("/beta=3.25/", equal(field_ref("beta"), literal(3.25f)));
   AssertParse("", literal(true));
 
-  AssertParse("/alpha=0/unexpected/beta=3.25",
+  AssertParse("/alpha=0/beta=3.25/ignored=2341/",
               and_(equal(field_ref("alpha"), literal(0)),
                    equal(field_ref("beta"), literal(3.25f))));
 
-  AssertParse("/alpha=0/beta=3.25/ignored=2341",
+  AssertParse("/alpha=0/beta=3.25/ignored=2341/",
               and_(equal(field_ref("alpha"), literal(0)),
                    equal(field_ref("beta"), literal(3.25f))));
 
-  AssertParse("/ignored=2341", literal(true));
+  AssertParse("/ignored=2341/", literal(true));
 
-  AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
+  AssertParseError("/alpha=0.0/beta=3.25/");  // conversion of "0.0" to int32 fails
+}
+
+TEST_F(TestPartitioning, HivePartitioningEquals) {
+  const auto& array_vector = ArrayVector();
+  ArrayVector other_vector(2);
+  other_vector[0] = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
+  other_vector[1] = ArrayFromJSON(utf8(), R"(["bar", "foo", "baz"])");
+  auto part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
+  auto other_part = std::make_shared<HivePartitioning>(
+      schema({field("sigma", int32()), field("beta", float32())}), array_vector, "xyz");
+  auto another_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), other_vector, "xyz");
+  auto some_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "abc");
+  auto match_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other_part));
+  EXPECT_FALSE(part->Equals(*another_part));
+  EXPECT_FALSE(part->Equals(*some_part));
+  EXPECT_TRUE(part->Equals(*match_part));
+}
+
+TEST_F(TestPartitioning, CrossCheckPartitioningEquals) {
+  auto file_part = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto dir_part = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto hive_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
+  EXPECT_FALSE(file_part->Equals(*dir_part));
+  EXPECT_FALSE(dir_part->Equals(*file_part));
+  EXPECT_FALSE(dir_part->Equals(*hive_part));
+  EXPECT_FALSE(hive_part->Equals(*dir_part));
 }
 
 TEST_F(TestPartitioning, HivePartitioningFormat) {
@@ -403,6 +526,18 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningFormat) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
+                    equal(field_ref("beta"), literal("hello"))),
+               "", "0_hello_");
+  AssertFormat(equal(field_ref("alpha"), literal(0)), "", "0_");
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
@@ -481,8 +616,8 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
                 {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
@@ -490,11 +625,11 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
     auto dictionary_scalar =
         std::make_shared<DictionaryScalar>(index_and_dictionary, alpha->type());
 
-    auto path = "/alpha=" + expected_dictionary->GetString(i);
+    auto path = "/alpha=" + expected_dictionary->GetString(i) + "/";
     AssertParse(path, equal(field_ref("alpha"), literal(dictionary_scalar)));
   }
 
-  AssertParseError("/alpha=yosemite");  // not in inspected dictionary
+  AssertParseError("/alpha=yosemite/");  // not in inspected dictionary
 }
 
 TEST_F(TestPartitioning, ExistingSchemaDirectory) {
@@ -558,6 +693,31 @@ TEST_F(TestPartitioning, ExistingSchemaHive) {
   AssertInspect({"/a=0/b=1", "/b=2"}, options.schema->fields());
 }
 
+TEST_F(TestPartitioning, ExistingSchemaFilename) {
+  // Infer dictionary values but with a given schema
+  auto dict_type = dictionary(int8(), utf8());
+  PartitioningFactoryOptions options;
+  options.schema = schema({field("alpha", int64()), field("beta", dict_type)});
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"0_1_"}, options.schema->fields());
+  AssertInspect({"0_1_what_"}, options.schema->fields());
+
+  // fail if any segment is not parseable as schema type
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"0_1_", "hello_1_"}));
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // Now we don't fail since our type is large enough
+  AssertInspect({"3760212050_1_"}, options.schema->fields());
+  // If there are still too many digits, fail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"1038581385102940193760212050_1_"}));
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"0_1_", "2_"}, options.schema->fields());
+}
+
 TEST_F(TestPartitioning, UrlEncodedDirectory) {
   PartitioningFactoryOptions options;
   auto ts = timestamp(TimeUnit::type::SECOND);
@@ -570,7 +730,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
   auto time = std::make_shared<TimestampScalar>(1620113220, ts);
   partitioning_ = std::make_shared<DirectoryPartitioning>(options.schema, ArrayVector());
-  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
+  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24/",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)),
                     equal(field_ref("str"), literal("$"))}));
@@ -579,7 +739,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/%AF/%BF/%CF"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  partitioning_->Parse({"/%AF/%BF/%CF"}));
+                                  partitioning_->Parse("/%AF/%BF/%CF"));
 
   options.segment_encoding = SegmentEncoding::None;
   options.schema =
@@ -590,7 +750,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
                 options.schema->fields());
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       options.schema, ArrayVector(), options.AsPartitioningOptions());
-  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
+  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24/",
               and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
                     equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
                     equal(field_ref("str"), literal("%24"))}));
@@ -613,15 +773,16 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   auto time = std::make_shared<TimestampScalar>(1620113220, ts);
   partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
                                                      options.AsHivePartitioningOptions());
-  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
+  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$/",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
-  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
-              and_({equal(field_ref("date"), literal(date)),
-                    equal(field_ref("time"), literal(time)),
-                    equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  AssertParse(
+      "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE/",
+      and_({equal(field_ref("date"), literal(date)),
+            equal(field_ref("time"), literal(time)),
+            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
   // URL-encoded null fallback value
-  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
+  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24/",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
 
@@ -629,7 +790,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-                                  partitioning_->Parse({"/date=%AF/time=%BF/str=%CF"}));
+                                  partitioning_->Parse("/date=%AF/time=%BF/str=%CF"));
 
   options.segment_encoding = SegmentEncoding::None;
   options.schema =
@@ -642,7 +803,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
       options.schema->fields());
   partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
                                                      options.AsHivePartitioningOptions());
-  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
+  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24/",
               and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
                     equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
                     equal(field_ref("str"), literal("%24"))}));
@@ -650,9 +811,55 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse("/date=\xAF/time=\xBF/str=\xCF"));
+}
+
+TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
+  HivePartitioningFactoryOptions options;
+  auto ts = timestamp(TimeUnit::type::SECOND);
+  options.schema =
+      schema({field("test'; date", ts), field("test'; time", ts), field("str", utf8())});
+  options.null_fallback = "$";
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect({"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=$",
+                 "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=%E3%81%8F%E3%81%BE",
+                 "/test%27%3B%20date=2021-05-04 "
+                 "00%3A00%3A00/test%27%3B%20time=2021-05-04 07%3A27%3A00/str=%24"},
+                options.schema->fields());
+
+  auto date = std::make_shared<TimestampScalar>(1620086400, ts);
+  auto time = std::make_shared<TimestampScalar>(1620113220, ts);
+  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+                                                     options.AsHivePartitioningOptions());
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=$/",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=%E3%81%8F%E3%81%BE/",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)),
+            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  // URL-encoded null fallback value
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00%3A00%3A00/test%27%3B%20time=2021-05-04 "
+      "07%3A27%3A00/str=%24/",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+
+  // Invalid UTF-8
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
-      partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
+      factory_->Inspect({"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      partitioning_->Parse("/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24/"));
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
@@ -677,17 +884,17 @@ TEST_F(TestPartitioning, EtlThenHive) {
         auto etl_segments_end = segments.begin() + etl_fields.size();
         auto etl_path =
             fs::internal::JoinAbstractPath(segments.begin(), etl_segments_end);
-        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_part.Parse(etl_path));
+        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_part.Parse(etl_path + "/"));
 
         auto alphabeta_segments_end = etl_segments_end + alphabeta_fields.size();
         auto alphabeta_path =
             fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
-        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
-
+        ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr,
+                              alphabeta_part.Parse(alphabeta_path + "/"));
         return and_(etl_expr, alphabeta_expr);
       });
 
-  AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
+  AssertParse("/1999/12/31/00/alpha=0/beta=3.25/",
               and_({equal(field_ref("year"), literal<int16_t>(1999)),
                     equal(field_ref("month"), literal<int8_t>(12)),
                     equal(field_ref("day"), literal<int8_t>(31)),
@@ -695,7 +902,7 @@ TEST_F(TestPartitioning, EtlThenHive) {
                     and_(equal(field_ref("alpha"), literal<int32_t>(0)),
                          equal(field_ref("beta"), literal<float>(3.25f)))}));
 
-  AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25");
+  AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25/");
 }
 
 TEST_F(TestPartitioning, Set) {
@@ -749,6 +956,14 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
+  bool Equals(const Partitioning& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    return checked_cast<const RangePartitioning&>(other).type_name() == type_name() &&
+           Partitioning::Equals(other);
+  }
+
   Result<compute::Expression> Parse(const std::string& path) const override {
     std::vector<compute::Expression> ranges;
 
@@ -795,7 +1010,9 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::string> Format(const compute::Expression&) const override { return ""; }
+  Result<PartitionPathFormat> Format(const compute::Expression&) const override {
+    return PartitionPathFormat{"", ""};
+  }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();
@@ -826,9 +1043,9 @@ TEST(TestStripPrefixAndFilename, Basic) {
   std::vector<std::string> input{"/data/year=2019/file.parquet",
                                  "/data/year=2019/month=12/file.parquet",
                                  "/data/year=2019/month=12/day=01/file.parquet"};
-  EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
-              testing::ElementsAre("year=2019", "year=2019/month=12",
-                                   "year=2019/month=12/day=01"));
+  auto paths = StripPrefixAndFilename(input, "/data");
+  EXPECT_THAT(paths, testing::ElementsAre("year=2019", "year=2019/month=12",
+                                          "year=2019/month=12/day=01"));
 }
 
 }  // namespace dataset

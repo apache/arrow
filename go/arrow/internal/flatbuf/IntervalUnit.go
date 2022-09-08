@@ -23,18 +23,21 @@ import "strconv"
 type IntervalUnit int16
 
 const (
-	IntervalUnitYEAR_MONTH IntervalUnit = 0
-	IntervalUnitDAY_TIME   IntervalUnit = 1
+	IntervalUnitYEAR_MONTH     IntervalUnit = 0
+	IntervalUnitDAY_TIME       IntervalUnit = 1
+	IntervalUnitMONTH_DAY_NANO IntervalUnit = 2
 )
 
 var EnumNamesIntervalUnit = map[IntervalUnit]string{
-	IntervalUnitYEAR_MONTH: "YEAR_MONTH",
-	IntervalUnitDAY_TIME:   "DAY_TIME",
+	IntervalUnitYEAR_MONTH:     "YEAR_MONTH",
+	IntervalUnitDAY_TIME:       "DAY_TIME",
+	IntervalUnitMONTH_DAY_NANO: "MONTH_DAY_NANO",
 }
 
 var EnumValuesIntervalUnit = map[string]IntervalUnit{
-	"YEAR_MONTH": IntervalUnitYEAR_MONTH,
-	"DAY_TIME":   IntervalUnitDAY_TIME,
+	"YEAR_MONTH":     IntervalUnitYEAR_MONTH,
+	"DAY_TIME":       IntervalUnitDAY_TIME,
+	"MONTH_DAY_NANO": IntervalUnitMONTH_DAY_NANO,
 }
 
 func (v IntervalUnit) String() string {

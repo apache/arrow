@@ -58,18 +58,9 @@ int64_t BooleanArray::false_count() const {
 int64_t BooleanArray::true_count() const {
   if (data_->null_count.load() != 0) {
     DCHECK(data_->buffers[0]);
-    internal::BinaryBitBlockCounter bit_counter(data_->buffers[0]->data(), data_->offset,
-                                                data_->buffers[1]->data(), data_->offset,
-                                                data_->length);
-    int64_t count = 0;
-    while (true) {
-      internal::BitBlockCount block = bit_counter.NextAndWord();
-      if (block.length == 0) {
-        break;
-      }
-      count += block.popcount;
-    }
-    return count;
+    return internal::CountAndSetBits(data_->buffers[0]->data(), data_->offset,
+                                     data_->buffers[1]->data(), data_->offset,
+                                     data_->length);
   } else {
     return internal::CountSetBits(data_->buffers[1]->data(), data_->offset,
                                   data_->length);
@@ -90,9 +81,43 @@ DayTimeIntervalArray::DayTimeIntervalArray(const std::shared_ptr<DataType>& type
                                            int64_t null_count, int64_t offset)
     : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {}
 
+DayTimeIntervalArray::DayTimeIntervalArray(int64_t length,
+                                           const std::shared_ptr<Buffer>& data,
+                                           const std::shared_ptr<Buffer>& null_bitmap,
+                                           int64_t null_count, int64_t offset)
+    : PrimitiveArray(day_time_interval(), length, data, null_bitmap, null_count, offset) {
+}
+
 DayTimeIntervalType::DayMilliseconds DayTimeIntervalArray::GetValue(int64_t i) const {
   DCHECK(i < length());
   return *reinterpret_cast<const DayTimeIntervalType::DayMilliseconds*>(
+      raw_values_ + (i + data_->offset) * byte_width());
+}
+
+// ----------------------------------------------------------------------
+// Month, day and Nanos interval
+
+MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
+    const std::shared_ptr<ArrayData>& data) {
+  SetData(data);
+}
+
+MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int64_t null_count, int64_t offset)
+    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {}
+
+MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
+    int64_t length, const std::shared_ptr<Buffer>& data,
+    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
+    : PrimitiveArray(month_day_nano_interval(), length, data, null_bitmap, null_count,
+                     offset) {}
+
+MonthDayNanoIntervalType::MonthDayNanos MonthDayNanoIntervalArray::GetValue(
+    int64_t i) const {
+  DCHECK(i < length());
+  return *reinterpret_cast<const MonthDayNanoIntervalType::MonthDayNanos*>(
       raw_values_ + (i + data_->offset) * byte_width());
 }
 

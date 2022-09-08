@@ -190,11 +190,30 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \return the read batch
   virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
 
+  /// \brief Read a particular record batch along with its custom metadada from the file.
+  /// Does not copy memory if the input source supports zero-copy.
+  ///
+  /// \param[in] i the index of the record batch to return
+  /// \return a struct containing the read batch and its custom metadata
+  virtual Result<RecordBatchWithMetadata> ReadRecordBatchWithCustomMetadata(int i) = 0;
+
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
 
   /// \brief Computes the total number of rows in the file.
   virtual Result<int64_t> CountRows() = 0;
+
+  /// \brief Begin loading metadata for the desired batches into memory.
+  ///
+  /// This method will also begin loading all dictionaries messages into memory.
+  ///
+  /// For a regular file this will immediately begin disk I/O in the background on a
+  /// thread on the IOContext's thread pool.  If the file is memory mapped this will
+  /// ensure the memory needed for the metadata is paged from disk into memory
+  ///
+  /// \param indices Indices of the batches to prefetch
+  ///                If empty then all batches will be prefetched.
+  virtual Status PreBufferMetadata(const std::vector<int>& indices) = 0;
 
   /// \brief Get a reentrant generator of record batches.
   ///

@@ -29,6 +29,7 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 \itemize{
 \item \verb{$length()}: Size in the number of elements this array contains
 \item \verb{$chunk(i)}: Extract an \code{Array} chunk by integer position
+\item `$nbytes() : Total number of bytes consumed by the elements of the array
 \item \verb{$as_vector()}: convert to an R vector
 \item \verb{$Slice(offset, length = NULL)}: Construct a zero-copy slice of the array
 with the indicated offset and length. If length is \code{NULL}, the slice goes
@@ -54,7 +55,6 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Pass items into chunked_array as separate objects to create chunks
 class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 class_scores$num_chunks
@@ -73,7 +73,11 @@ list_scores$num_chunks
 # When constructing a ChunkedArray, the first chunk is used to infer type.
 doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 doubles$type
-\dontshow{\}) # examplesIf}
+
+# Concatenating chunked arrays returns a new chunked array containing all chunks
+a <- chunked_array(c(1, 2), 3)
+b <- chunked_array(c(4, 5), 6)
+c(a, b)
 }
 \seealso{
 \link{Array}

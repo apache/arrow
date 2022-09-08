@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/exec/expression.h>
 
@@ -27,6 +25,11 @@ namespace compute = ::arrow::compute;
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
                                                                cpp11::list options);
 
+// [[arrow::export]]
+bool compute___expr__equals(const std::shared_ptr<compute::Expression>& lhs,
+                            const std::shared_ptr<compute::Expression>& rhs) {
+  return lhs->Equals(*rhs);
+}
 // [[arrow::export]]
 std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
                                                           cpp11::list argument_list,
@@ -84,7 +87,7 @@ std::shared_ptr<arrow::DataType> compute___expr__type(
     const std::shared_ptr<compute::Expression>& x,
     const std::shared_ptr<arrow::Schema>& schema) {
   auto bound = ValueOrStop(x->Bind(*schema));
-  return bound.type();
+  return bound.type()->GetSharedPtr();
 }
 
 // [[arrow::export]]
@@ -93,5 +96,3 @@ arrow::Type::type compute___expr__type_id(const std::shared_ptr<compute::Express
   auto bound = ValueOrStop(x->Bind(*schema));
   return bound.type()->id();
 }
-
-#endif

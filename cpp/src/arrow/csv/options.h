@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/invalid_row.h"
 #include "arrow/csv/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -58,6 +59,8 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// A handler function for rows which do not have the correct number of columns
+  InvalidRowHandler invalid_row_handler;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();
@@ -85,11 +88,11 @@ struct ARROW_EXPORT ConvertOptions {
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
-  /// Whether string / binary columns can have quoted null values.
+
+  /// Whether quoted values can be null.
   ///
-  /// If true *and* `strings_can_be_null` is true, then quoted strings in
-  /// "null_values" are also considered null for string columns.  Otherwise,
-  /// quoted strings are never considered null.
+  /// If true, then strings in "null_values" are also considered null when they
+  /// appear quoted in the CSV file. Otherwise, quoted values are never considered null.
   bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.
@@ -167,6 +170,20 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
+/// \brief Quoting style for CSV writing
+enum class ARROW_EXPORT QuotingStyle {
+  /// Only enclose values in quotes which need them, because their CSV rendering can
+  /// contain quotes itself (e.g. strings or binary values)
+  Needed,
+  /// Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+  /// interpret all values as strings if schema is inferred.
+  AllValid,
+  /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
+  /// cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
+  /// contain these characters, an error is caused when attempting to write.
+  None
+};
+
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;
@@ -177,8 +194,20 @@ struct ARROW_EXPORT WriteOptions {
   /// This number can impact performance.
   int32_t batch_size = 1024;
 
+  /// Field delimiter
+  char delimiter = ',';
+
+  /// \brief The string to write for null values. Quotes are not allowed in this string.
+  std::string null_string;
+
   /// \brief IO context for writing.
   io::IOContext io_context;
+
+  /// \brief The end of line character to use for ending rows
+  std::string eol = "\n";
+
+  /// \brief Quoting style
+  QuotingStyle quoting_style = QuotingStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();

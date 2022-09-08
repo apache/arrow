@@ -21,25 +21,30 @@ FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
 ARG maven=3.5
-ARG node=14
+ARG node=16
 ARG jdk=8
 ARG go=1.15
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
-RUN conda install -q \
+
+# Pin zlib to 1.2.11 due to ARROW-17410 until the patch is released
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
+        "python>=3.7" \
         numpy \
         compilers \
         maven=${maven} \
         nodejs=${node} \
         yarn \
-        openjdk=${jdk} && \
-    conda clean --all --force-pkgs-dirs
+        openjdk=${jdk} \
+        zlib=1.2.11 && \
+    mamba clean --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
+    $HOME/.cargo/bin/rustup toolchain install stable && \
     $HOME/.cargo/bin/rustup component add rustfmt
 
 ENV GOROOT=/opt/go \
@@ -47,6 +52,10 @@ ENV GOROOT=/opt/go \
     GOPATH=/go \
     PATH=/opt/go/bin:$PATH
 RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
+
+ENV DOTNET_ROOT=/opt/dotnet \
+    PATH=/opt/dotnet:$PATH
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 6.0 -InstallDir /opt/dotnet
 
 ENV ARROW_BUILD_INTEGRATION=ON \
     ARROW_BUILD_STATIC=OFF \

@@ -22,14 +22,22 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.dataset.OrcWriteSupport;
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
 import org.apache.arrow.dataset.jni.NativeInstanceReleasedException;
@@ -38,21 +46,30 @@ import org.apache.arrow.dataset.jni.NativeScanTask;
 import org.apache.arrow.dataset.jni.NativeScanner;
 import org.apache.arrow.dataset.jni.TestNativeDataset;
 import org.apache.arrow.dataset.scanner.ScanOptions;
-import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowFileWriter;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.hadoop.fs.Path;
+import org.apache.orc.TypeDescription;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.rules.TemporaryFolder;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.primitives.Primitives;
 
 public class TestFileSystemDataset extends TestNativeDataset {
 
@@ -62,12 +79,12 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
-  public void testParquetRead() throws Exception {
+  public void testBaseParquetRead() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
@@ -81,15 +98,16 @@ public class TestFileSystemDataset extends TestNativeDataset {
     checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testParquetProjector() throws Exception {
+  public void testParquetProjectSingleColumn() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[]{"id"}, 100);
+    ScanOptions options = new ScanOptions(100, Optional.of(new String[]{"id"}));
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     org.apache.avro.Schema expectedSchema = truncateAvroSchema(writeSupport.getAvroSchema(), 0, 1);
@@ -107,6 +125,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
                 .build()), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -114,7 +133,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(),
         1, "a", 2, "b", 3, "c");
 
-    ScanOptions options = new ScanOptions(new String[0], 1);
+    ScanOptions options = new ScanOptions(1);
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     Schema schema = inferResultSchemaFromFactory(factory, options);
@@ -126,10 +145,79 @@ public class TestFileSystemDataset extends TestNativeDataset {
     checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testCloseAgain() throws Exception {
+  public void testParquetDirectoryRead() throws Exception {
+    final File outputFolder = TMP.newFolder();
+    ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, outputFolder,
+        1, "a", 2, "b", 3, "c");
+    ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, outputFolder,
+        4, "e", 5, "f", 6, "g", 7, "h");
+    String expectedJsonUnordered = "[[1,\"a\"],[2,\"b\"],[3,\"c\"],[4,\"e\"],[5,\"f\"],[6,\"g\"],[7,\"h\"]]";
+
+    ScanOptions options = new ScanOptions(new String[0], 1);
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+        FileFormat.PARQUET, outputFolder.toURI().toString());
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(7, datum.size());
+    datum.forEach(batch -> assertEquals(1, batch.getLength()));
+    checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
+    AutoCloseables.close(datum);
+  }
+
+  @Test
+  public void testEmptyProjectSelectsZeroColumns() throws Exception {
+    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+        FileFormat.PARQUET, writeSupport.getOutputURI());
+    ScanOptions options = new ScanOptions(100, Optional.of(new String[0]));
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+    org.apache.avro.Schema expectedSchema = org.apache.avro.Schema.createRecord(Collections.emptyList());
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(0, schema.getFields().size());
+    assertEquals(1, datum.size());
+    checkParquetReadResult(schema,
+        Collections.singletonList(
+            new GenericRecordBuilder(
+                expectedSchema)
+                .build()), datum);
+
+    AutoCloseables.close(datum);
+  }
+
+  @Test
+  public void testNullProjectSelectsAllColumns() throws Exception {
+    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+        FileFormat.PARQUET, writeSupport.getOutputURI());
+    ScanOptions options = new ScanOptions(100, Optional.empty());
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(1, datum.size());
+    assertEquals(2, schema.getFields().size());
+    assertEquals("id", schema.getFields().get(0).getName());
+    assertEquals("name", schema.getFields().get(1).getName());
+    assertEquals(Types.MinorType.INT.getType(), schema.getFields().get(0).getType());
+    assertEquals(Types.MinorType.VARCHAR.getType(), schema.getFields().get(1).getType());
+    checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
+
+    AutoCloseables.close(datum);
+  }
+
+  @Test
+  public void testNoErrorWhenCloseAgain() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -140,28 +228,31 @@ public class TestFileSystemDataset extends TestNativeDataset {
       dataset.close();
       dataset.close();
     });
+
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testScanAgain() throws Exception {
+  public void testErrorThrownWhenScanAgain() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     NativeDataset dataset = factory.finish();
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     List<? extends NativeScanTask> taskList1 = collect(scanner.scan());
     List<? extends NativeScanTask> taskList2 = collect(scanner.scan());
     NativeScanTask task1 = taskList1.get(0);
     NativeScanTask task2 = taskList2.get(0);
-    List<ArrowRecordBatch> datum = collect(task1.execute());
+    List<ArrowRecordBatch> datum = collectTaskData(task1);
+
+    AutoCloseables.close(datum);
 
     UnsupportedOperationException uoe = assertThrows(UnsupportedOperationException.class, task2::execute);
     Assertions.assertEquals("NativeScanner cannot be executed more than once. Consider creating new scanner instead",
         uoe.getMessage());
 
-    AutoCloseables.close(datum);
     AutoCloseables.close(taskList1);
     AutoCloseables.close(taskList2);
     AutoCloseables.close(scanner, dataset, factory);
@@ -175,11 +266,11 @@ public class TestFileSystemDataset extends TestNativeDataset {
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     NativeDataset dataset = factory.finish();
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     List<? extends NativeScanTask> taskList = collect(scanner.scan());
     NativeScanTask task = taskList.get(0);
-    List<ArrowRecordBatch> datum = executor.submit(() -> collect(task.execute())).get();
+    List<ArrowRecordBatch> datum = executor.submit(() -> collectTaskData(task)).get();
 
     AutoCloseables.close(datum);
     AutoCloseables.close(taskList);
@@ -187,66 +278,143 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testScanAfterClose1() throws Exception {
+  public void testErrorThrownWhenScanAfterScannerClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     NativeDataset dataset = factory.finish();
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     scanner.close();
     assertThrows(NativeInstanceReleasedException.class, scanner::scan);
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testScanAfterClose2() throws Exception {
+  public void testErrorThrownWhenExecuteTaskAfterTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     NativeDataset dataset = factory.finish();
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     List<? extends NativeScanTask> tasks = collect(scanner.scan());
     NativeScanTask task = tasks.get(0);
     task.close();
     assertThrows(NativeInstanceReleasedException.class, task::execute);
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testScanAfterClose3() throws Exception {
+  public void testErrorThrownWhenIterateOnIteratorAfterTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, writeSupport.getOutputURI());
     NativeDataset dataset = factory.finish();
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     List<? extends NativeScanTask> tasks = collect(scanner.scan());
     NativeScanTask task = tasks.get(0);
-    ScanTask.BatchIterator iterator = task.execute();
+    ArrowReader reader = task.execute();
     task.close();
-    assertThrows(NativeInstanceReleasedException.class, iterator::hasNext);
+    assertThrows(NativeInstanceReleasedException.class, reader::loadNextBatch);
+    AutoCloseables.close(factory);
   }
 
   @Test
-  public void testMemoryAllocation() throws Exception {
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+  public void testBaseArrowIpcRead() throws Exception {
+    File dataFile = TMP.newFile();
+    Schema sourceSchema = new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
+    try (VectorSchemaRoot root = VectorSchemaRoot.create(sourceSchema, rootAllocator());
+         FileOutputStream sink = new FileOutputStream(dataFile);
+         ArrowFileWriter writer = new ArrowFileWriter(root, /*dictionaryProvider=*/null, sink.getChannel())) {
+      IntVector ints = (IntVector) root.getVector(0);
+      ints.setSafe(0, 0);
+      ints.setSafe(1, 1024);
+      ints.setSafe(2, Integer.MAX_VALUE);
+      root.setRowCount(3);
+      writer.start();
+      writer.writeBatch();
+      writer.end();
+    }
+
+    String arrowDataURI = dataFile.toURI().toString();
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
-            FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
-    long initReservation = rootAllocator().getAllocatedMemory();
+            FileFormat.ARROW_IPC, arrowDataURI);
+    ScanOptions options = new ScanOptions(100);
+    Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
-    final long expected_diff = datum.stream()
-            .flatMapToLong(batch -> batch.getBuffers()
-                    .stream()
-                    .mapToLong(buf -> buf.getReferenceManager().getAccountedSize())).sum();
-    long reservation = rootAllocator().getAllocatedMemory();
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(1, datum.size());
+    assertEquals(1, schema.getFields().size());
+    assertEquals("ints", schema.getFields().get(0).getName());
+
+    String expectedJsonUnordered = String.format("[[0],[1024],[%d]]", Integer.MAX_VALUE);
+    checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
     AutoCloseables.close(datum);
-    long finalReservation = rootAllocator().getAllocatedMemory();
-    Assert.assertEquals(expected_diff, reservation - initReservation);
-    Assert.assertEquals(-expected_diff, finalReservation - reservation);
+    AutoCloseables.close(factory);
+  }
+
+  @Test
+  public void testBaseOrcRead() throws Exception {
+    String dataName = "test-orc";
+    String basePath = TMP.getRoot().getAbsolutePath();
+
+    TypeDescription orcSchema = TypeDescription.fromString("struct<ints:int>");
+    Path path = new Path(basePath, dataName);
+    OrcWriteSupport.writeTempFile(orcSchema, path, new Integer[]{Integer.MIN_VALUE, Integer.MAX_VALUE});
+
+    String orcDatasetUri = new File(basePath, dataName).toURI().toString();
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.ORC, orcDatasetUri);
+    ScanOptions options = new ScanOptions(100);
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(1, datum.size());
+    assertEquals(1, schema.getFields().size());
+    assertEquals("ints", schema.getFields().get(0).getName());
+
+    String expectedJsonUnordered = "[[2147483647], [-2147483648]]";
+    checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
+    AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
+  }
+
+  private void checkParquetReadResult(Schema schema, String expectedJson, List<ArrowRecordBatch> actual)
+      throws IOException {
+    final ObjectMapper json = new ObjectMapper();
+    final Set<?> expectedSet = json.readValue(expectedJson, Set.class);
+    final Set<List<Object>> actualSet = new HashSet<>();
+    final int fieldCount = schema.getFields().size();
+    try (VectorSchemaRoot vsr = VectorSchemaRoot.create(schema, rootAllocator())) {
+      VectorLoader loader = new VectorLoader(vsr);
+      for (ArrowRecordBatch batch : actual) {
+        loader.load(batch);
+        int batchRowCount = vsr.getRowCount();
+        for (int i = 0; i < batchRowCount; i++) {
+          List<Object> row = new ArrayList<>();
+          for (int j = 0; j < fieldCount; j++) {
+            Object object = vsr.getVector(j).getObject(i);
+            if (Primitives.isWrapperType(object.getClass())) {
+              row.add(object);
+            } else {
+              row.add(object.toString());
+            }
+          }
+          actualSet.add(row);
+        }
+      }
+    }
+    Assert.assertEquals("Mismatched data read from Parquet, actual: " + json.writeValueAsString(actualSet) + ";",
+        expectedSet, actualSet);
   }
 
   private void checkParquetReadResult(Schema schema, List<GenericRecord> expected, List<ArrowRecordBatch> actual) {
@@ -258,24 +426,20 @@ public class TestFileSystemDataset extends TestNativeDataset {
     try (VectorSchemaRoot vsr = VectorSchemaRoot.create(schema, rootAllocator())) {
       VectorLoader loader = new VectorLoader(vsr);
       for (ArrowRecordBatch batch : actual) {
-        try {
-          assertEquals(fieldCount, batch.getNodes().size());
-          loader.load(batch);
-          int batchRowCount = vsr.getRowCount();
-          for (int i = 0; i < fieldCount; i++) {
-            FieldVector vector = vsr.getVector(i);
-            for (int j = 0; j < batchRowCount; j++) {
-              Object object = vector.getObject(j);
-              Object expectedObject = expectedRemovable.get(j).get(i);
-              assertEquals(Objects.toString(expectedObject),
-                  Objects.toString(object));
-            }
+        assertEquals(fieldCount, batch.getNodes().size());
+        loader.load(batch);
+        int batchRowCount = vsr.getRowCount();
+        for (int i = 0; i < fieldCount; i++) {
+          FieldVector vector = vsr.getVector(i);
+          for (int j = 0; j < batchRowCount; j++) {
+            Object object = vector.getObject(j);
+            Object expectedObject = expectedRemovable.get(j).get(i);
+            assertEquals(Objects.toString(expectedObject),
+                Objects.toString(object));
           }
-          for (int i = 0; i < batchRowCount; i++) {
-            expectedRemovable.poll();
-          }
-        } finally {
-          batch.close();
+        }
+        for (int i = 0; i < batchRowCount; i++) {
+          expectedRemovable.poll();
         }
       }
       assertTrue(expectedRemovable.isEmpty());

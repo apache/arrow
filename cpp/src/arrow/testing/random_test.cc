@@ -23,6 +23,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/pcg_random.h"
 
@@ -35,9 +36,16 @@ namespace random {
 // Use short arrays since especially in debug mode, generating list(list()) is slow
 constexpr int64_t kExpectedLength = 24;
 
-class RandomArrayTest : public ::testing::TestWithParam<std::shared_ptr<Field>> {
+struct RandomTestParam {
+  RandomTestParam(std::shared_ptr<Field> field)  // NOLINT runtime/explicit
+      : field(std::move(field)) {}
+
+  std::shared_ptr<Field> field;
+};
+
+class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
  protected:
-  std::shared_ptr<Field> GetField() { return GetParam(); }
+  std::shared_ptr<Field> GetField() { return GetParam().field; }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -59,9 +67,6 @@ TEST_P(RandomArrayTest, GenerateBatch) {
 
 TEST_P(RandomArrayTest, GenerateZeroLengthArray) {
   auto field = GetField();
-  if (field->type()->id() == Type::type::DENSE_UNION) {
-    GTEST_SKIP() << "Cannot generate zero-length dense union arrays";
-  }
   auto array = GenerateArray(*field, 0, 0xDEADBEEF);
   AssertTypeEqual(field->type(), array->type());
   ASSERT_EQ(0, array->length());
@@ -108,8 +113,9 @@ auto values = ::testing::Values(
     field("time32ms", time32(TimeUnit::MILLI)), field("time64ns", time64(TimeUnit::NANO)),
     field("time32s", time32(TimeUnit::SECOND)),
     field("time64us", time64(TimeUnit::MICRO)), field("month_interval", month_interval()),
-    field("daytime_interval", day_time_interval()), field("listint8", list(int8())),
-    field("listlistint8", list(list(int8()))),
+    field("daytime_interval", day_time_interval()),
+    field("month_day_nano_interval", month_day_nano_interval()),
+    field("listint8", list(int8())), field("listlistint8", list(list(int8()))),
     field("listint8emptynulls", list(int8()), true,
           key_value_metadata({{"force_empty_nulls", "true"}})),
     field("listint81024values", list(int8()), true,
@@ -143,7 +149,7 @@ auto values = ::testing::Values(
 INSTANTIATE_TEST_SUITE_P(
     TestRandomArrayGeneration, RandomArrayTest, values,
     [](const ::testing::TestParamInfo<RandomArrayTest::ParamType>& info) {
-      return std::to_string(info.index) + info.param->name();
+      return std::to_string(info.index) + info.param.field->name();
     });
 
 template <typename T>

@@ -20,18 +20,19 @@ import gzip
 import os
 import pathlib
 import pickle
-import sys
 
 import pytest
 import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.vendored.version import Version
+from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
+                                _configure_s3_limited_user)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
-                        FileSystemHandler, PyFileSystem, FSSpecHandler)
+                        FileSystemHandler, PyFileSystem, FSSpecHandler,
+                        copy_files)
 
 
 class DummyHandler(FileSystemHandler):
@@ -97,7 +98,7 @@ class DummyHandler(FileSystemHandler):
     def delete_dir(self, path):
         assert path == "delete_dir"
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok):
         if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"
@@ -137,67 +138,6 @@ class DummyHandler(FileSystemHandler):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
-
-
-class ProxyHandler(FileSystemHandler):
-
-    def __init__(self, fs):
-        self._fs = fs
-
-    def __eq__(self, other):
-        if isinstance(other, ProxyHandler):
-            return self._fs == other._fs
-        return NotImplemented
-
-    def __ne__(self, other):
-        if isinstance(other, ProxyHandler):
-            return self._fs != other._fs
-        return NotImplemented
-
-    def get_type_name(self):
-        return "proxy::" + self._fs.type_name
-
-    def normalize_path(self, path):
-        return self._fs.normalize_path(path)
-
-    def get_file_info(self, paths):
-        return self._fs.get_file_info(paths)
-
-    def get_file_info_selector(self, selector):
-        return self._fs.get_file_info(selector)
-
-    def create_dir(self, path, recursive):
-        return self._fs.create_dir(path, recursive=recursive)
-
-    def delete_dir(self, path):
-        return self._fs.delete_dir(path)
-
-    def delete_dir_contents(self, path):
-        return self._fs.delete_dir_contents(path)
-
-    def delete_root_dir_contents(self):
-        return self._fs.delete_dir_contents("", accept_root_dir=True)
-
-    def delete_file(self, path):
-        return self._fs.delete_file(path)
-
-    def move(self, src, dest):
-        return self._fs.move(src, dest)
-
-    def copy_file(self, src, dest):
-        return self._fs.copy_file(src, dest)
-
-    def open_input_stream(self, path):
-        return self._fs.open_input_stream(path)
-
-    def open_input_file(self, path):
-        return self._fs.open_input_file(path)
-
-    def open_output_stream(self, path, metadata):
-        return self._fs.open_output_stream(path, metadata=metadata)
-
-    def open_append_stream(self, path, metadata):
-        return self._fs.open_append_stream(path, metadata=metadata)
 
 
 @pytest.fixture
@@ -261,18 +201,48 @@ def subtree_localfs(request, tempdir, localfs):
 
 
 @pytest.fixture
-def s3fs(request, s3_connection, s3_server):
+def gcsfs(request, gcs_server):
+    request.config.pyarrow.requires('gcs')
+    from pyarrow.fs import GcsFileSystem
+
+    host, port = gcs_server['connection']
+    bucket = 'pyarrow-filesystem/'
+    # Make sure the server is alive.
+    assert gcs_server['process'].poll() is None
+
+    fs = GcsFileSystem(
+        endpoint_override=f'{host}:{port}',
+        scheme='http',
+        # Mock endpoint doesn't check credentials.
+        anonymous=True,
+        retry_time_limit=timedelta(seconds=45)
+    )
+    fs.create_dir(bucket)
+
+    yield dict(
+        fs=fs,
+        pathfn=bucket.__add__,
+        allow_move_dir=False,
+        allow_append_to_file=False,
+    )
+    fs.delete_dir(bucket)
+
+
+@pytest.fixture
+def s3fs(request, s3_server):
     request.config.pyarrow.requires('s3')
     from pyarrow.fs import S3FileSystem
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     bucket = 'pyarrow-filesystem/'
 
     fs = S3FileSystem(
         access_key=access_key,
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
+        scheme='http',
+        allow_bucket_creation=True,
+        allow_bucket_deletion=True
     )
     fs.create_dir(bucket)
 
@@ -294,6 +264,28 @@ def subtree_s3fs(request, s3fs):
         allow_move_dir=False,
         allow_append_to_file=False,
     )
+
+
+_minio_limited_policy = """{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListAllMyBuckets",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:PutObjectTagging",
+                "s3:DeleteObject",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*"
+            ]
+        }
+    ]
+}"""
 
 
 @pytest.fixture
@@ -343,13 +335,9 @@ def py_fsspec_memoryfs(request, tempdir):
 
 
 @pytest.fixture
-def py_fsspec_s3fs(request, s3_connection, s3_server):
+def py_fsspec_s3fs(request, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if (sys.version_info < (3, 7) and
-            Version(s3fs.__version__) >= Version("0.5")):
-        pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
-
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     bucket = 'pyarrow-filesystem/'
 
     fs = s3fs.S3FileSystem(
@@ -386,6 +374,11 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
         pytest.lazy_fixture('s3fs'),
         id='S3FileSystem',
         marks=pytest.mark.s3
+    ),
+    pytest.param(
+        pytest.lazy_fixture('gcsfs'),
+        id='GcsFileSystem',
+        marks=pytest.mark.gcs
     ),
     pytest.param(
         pytest.lazy_fixture('hdfs'),
@@ -471,6 +464,27 @@ def skip_fsspec_s3fs(fs):
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
+@pytest.mark.s3
+def test_s3fs_limited_permissions_create_bucket(s3_server):
+    from pyarrow.fs import S3FileSystem
+    _configure_s3_limited_user(s3_server, _minio_limited_policy)
+    host, port, _, _ = s3_server['connection']
+
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
+    )
+    fs.create_dir('existing-bucket/test')
+
+    with pytest.raises(pa.ArrowIOError, match="Bucket 'new-bucket' not found"):
+        fs.create_dir('new-bucket')
+
+    with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
+        fs.delete_dir('existing-bucket')
+
+
 def test_file_info_constructor():
     dt = datetime.fromtimestamp(1568799826, timezone.utc)
 
@@ -531,10 +545,14 @@ def test_subtree_filesystem():
     subfs = SubTreeFileSystem('/base', localfs)
     assert subfs.base_path == '/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/base/, '
+                                  'base_fs=<pyarrow._fs.LocalFileSystem')
 
     subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
     assert subfs.base_path == '/another/base/'
     assert subfs.base_fs == localfs
+    assert repr(subfs).startswith('SubTreeFileSystem(base_path=/another/base/,'
+                                  ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
 def test_filesystem_pickling(fs):
@@ -758,6 +776,9 @@ def test_delete_dir_contents(fs, pathfn):
     fs.delete_dir_contents(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(nd)
+    fs.delete_dir_contents(nd, missing_dir_ok=True)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir_contents(nd)
     fs.delete_dir(d)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
@@ -890,10 +911,21 @@ def test_open_input_file(fs, pathfn):
 
     read_from = len(b'some data') * 512
     with fs.open_input_file(p) as f:
+        result = f.read()
+    assert result == data
+
+    with fs.open_input_file(p) as f:
         f.seek(read_from)
         result = f.read()
 
     assert result == data[read_from:]
+
+
+def test_open_input_stream_not_found(fs, pathfn):
+    # The proper exception should be raised for this common case (ARROW-15896)
+    p = pathfn('open-input-stream-not-found')
+    with pytest.raises(FileNotFoundError):
+        fs.open_input_stream(p)
 
 
 @pytest.mark.gzip
@@ -928,7 +960,6 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                             decompressor, allow_append_to_file):
     p = pathfn('open-append-stream')
@@ -965,7 +996,7 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert f.read() == data
         got_metadata = f.metadata()
 
-    if fs.type_name == 's3' or 'mock' in fs.type_name:
+    if fs.type_name in ['s3', 'gcs'] or 'mock' in fs.type_name:
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
@@ -1024,9 +1055,47 @@ def test_mockfs_mtime_roundtrip(mockfs):
     assert info.mtime == dt
 
 
+@pytest.mark.gcs
+def test_gcs_options():
+    from pyarrow.fs import GcsFileSystem
+    dt = datetime.now()
+    fs = GcsFileSystem(access_token='abc',
+                       target_service_account='service_account@apache',
+                       credential_token_expiration=dt,
+                       default_bucket_location='us-west2',
+                       scheme='https', endpoint_override='localhost:8999')
+    assert isinstance(fs, GcsFileSystem)
+    assert fs.default_bucket_location == 'us-west2'
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem()
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem(anonymous=True)
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem(default_metadata={"ACL": "authenticated-read",
+                                         "Content-Type": "text/plain"})
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    with pytest.raises(ValueError):
+        GcsFileSystem(access_token='access')
+    with pytest.raises(ValueError):
+        GcsFileSystem(anonymous=True, access_token='secret')
+    with pytest.raises(ValueError):
+        GcsFileSystem(anonymous=True, target_service_account='acct')
+    with pytest.raises(ValueError):
+        GcsFileSystem(credential_token_expiration=datetime.now())
+
+
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import (AwsDefaultS3RetryStrategy,
+                            AwsStandardS3RetryStrategy, S3FileSystem,
+                            S3RetryStrategy)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1040,15 +1109,47 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    # Note that the retry strategy won't survive pickling for now
+    fs = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs = S3FileSystem(
+        retry_strategy=AwsDefaultS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs2 = S3FileSystem(role_arn='role')
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     fs = S3FileSystem(anonymous=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
-    fs = S3FileSystem(background_writes=True,
-                      default_metadata={"ACL": "authenticated-read",
-                                        "Content-Type": "text/plain"})
+    fs = S3FileSystem(background_writes=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(background_writes=True,
+                       default_metadata={"ACL": "authenticated-read",
+                                         "Content-Type": "text/plain"})
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(request_timeout=0.25, connect_timeout=0.5)
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
 
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
@@ -1070,6 +1171,8 @@ def test_s3_options():
         S3FileSystem(role_arn="arn", anonymous=True)
     with pytest.raises(ValueError):
         S3FileSystem(default_metadata=["foo", "bar"])
+    with pytest.raises(ValueError):
+        S3FileSystem(retry_strategy=S3RetryStrategy())
 
 
 @pytest.mark.s3
@@ -1317,16 +1420,37 @@ def test_filesystem_from_path_object(path):
 
 
 @pytest.mark.s3
-def test_filesystem_from_uri_s3(s3_connection, s3_server):
+def test_filesystem_from_uri_s3(s3_server):
     from pyarrow.fs import S3FileSystem
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, host, port)
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}"\
+          "&allow_bucket_creation=True" \
+          .format(access_key, secret_key, host, port)
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
+    assert path == "mybucket/foo/bar"
+
+    fs.create_dir(path)
+    [info] = fs.get_file_info([path])
+    assert info.path == path
+    assert info.type == FileType.Directory
+
+
+@pytest.mark.gcs
+def test_filesystem_from_uri_gcs(gcs_server):
+    from pyarrow.fs import GcsFileSystem
+
+    host, port = gcs_server['connection']
+
+    uri = ("gs://anonymous@" +
+           f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
+           "retry_limit_seconds=5")
+
+    fs, path = FileSystem.from_uri(uri)
+    assert isinstance(fs, GcsFileSystem)
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
@@ -1496,7 +1620,6 @@ def test_py_open_output_stream():
         f.write(b"data")
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_py_open_append_stream():
     fs = PyFileSystem(DummyHandler())
 
@@ -1515,15 +1638,17 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
-    entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
+    entries = fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi'))
     assert len(entries) > 0
-    with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
+    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
+        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
-        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
+        assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
 
 
 @pytest.mark.s3
@@ -1547,3 +1672,120 @@ def test_s3_real_aws_region_selection():
     fs, path = FileSystem.from_uri(
         's3://x-arrow-non-existent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+
+@pytest.mark.s3
+def test_resolve_s3_region():
+    from pyarrow.fs import resolve_s3_region
+    assert resolve_s3_region('voltrondata-labs-datasets') == 'us-east-2'
+    assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
+
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('foo/bar')
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('s3:bucket')
+
+
+@pytest.mark.s3
+def test_copy_files(s3_connection, s3fs, tempdir):
+    fs = s3fs["fs"]
+    pathfn = s3fs["pathfn"]
+
+    # create test file on S3 filesystem
+    path = pathfn('c.txt')
+    with fs.open_output_stream(path) as f:
+        f.write(b'test')
+
+    # create URI for created file
+    host, port, access_key, secret_key = s3_connection
+    source_uri = (
+        f"s3://{access_key}:{secret_key}@{path}"
+        f"?scheme=http&endpoint_override={host}:{port}"
+    )
+    # copy from S3 URI to local file
+    local_path1 = str(tempdir / "c_copied1.txt")
+    copy_files(source_uri, local_path1)
+
+    localfs = LocalFileSystem()
+    with localfs.open_input_stream(local_path1) as f:
+        assert f.read() == b"test"
+
+    # copy from S3 path+filesystem to local file
+    local_path2 = str(tempdir / "c_copied2.txt")
+    copy_files(path, local_path2, source_filesystem=fs)
+    with localfs.open_input_stream(local_path2) as f:
+        assert f.read() == b"test"
+
+    # copy to local file with URI
+    local_path3 = str(tempdir / "c_copied3.txt")
+    destination_uri = _filesystem_uri(local_path3)  # file://
+    copy_files(source_uri, destination_uri)
+
+    with localfs.open_input_stream(local_path3) as f:
+        assert f.read() == b"test"
+
+    # copy to local file with path+filesystem
+    local_path4 = str(tempdir / "c_copied4.txt")
+    copy_files(source_uri, local_path4, destination_filesystem=localfs)
+
+    with localfs.open_input_stream(local_path4) as f:
+        assert f.read() == b"test"
+
+    # copy with additional options
+    local_path5 = str(tempdir / "c_copied5.txt")
+    copy_files(source_uri, local_path5, chunk_size=1, use_threads=False)
+
+    with localfs.open_input_stream(local_path5) as f:
+        assert f.read() == b"test"
+
+
+def test_copy_files_directory(tempdir):
+    localfs = LocalFileSystem()
+
+    # create source directory with 2 files
+    source_dir = tempdir / "source"
+    source_dir.mkdir()
+    with localfs.open_output_stream(str(source_dir / "file1")) as f:
+        f.write(b'test1')
+    with localfs.open_output_stream(str(source_dir / "file2")) as f:
+        f.write(b'test2')
+
+    def check_copied_files(destination_dir):
+        with localfs.open_input_stream(str(destination_dir / "file1")) as f:
+            assert f.read() == b"test1"
+        with localfs.open_input_stream(str(destination_dir / "file2")) as f:
+            assert f.read() == b"test2"
+
+    # Copy directory with local file paths
+    destination_dir1 = tempdir / "destination1"
+    # TODO need to create?
+    destination_dir1.mkdir()
+    copy_files(str(source_dir), str(destination_dir1))
+    check_copied_files(destination_dir1)
+
+    # Copy directory with path+filesystem
+    destination_dir2 = tempdir / "destination2"
+    destination_dir2.mkdir()
+    copy_files(str(source_dir), str(destination_dir2),
+               source_filesystem=localfs, destination_filesystem=localfs)
+    check_copied_files(destination_dir2)
+
+    # Copy directory with URI
+    destination_dir3 = tempdir / "destination3"
+    destination_dir3.mkdir()
+    source_uri = _filesystem_uri(str(source_dir))  # file://
+    destination_uri = _filesystem_uri(str(destination_dir3))
+    copy_files(source_uri, destination_uri)
+    check_copied_files(destination_dir3)
+
+    # Copy directory with Path objects
+    destination_dir4 = tempdir / "destination4"
+    destination_dir4.mkdir()
+    copy_files(source_dir, destination_dir4)
+    check_copied_files(destination_dir4)
+
+    # copy with additional non-default options
+    destination_dir5 = tempdir / "destination5"
+    destination_dir5.mkdir()
+    copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
+    check_copied_files(destination_dir5)

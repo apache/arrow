@@ -26,6 +26,8 @@ using pcg32 = ::arrow_vendored::pcg32;
 using pcg64 = ::arrow_vendored::pcg64;
 using pcg32_fast = ::arrow_vendored::pcg32_fast;
 using pcg64_fast = ::arrow_vendored::pcg64_fast;
+using pcg32_oneseq = ::arrow_vendored::pcg32_oneseq;
+using pcg64_oneseq = ::arrow_vendored::pcg64_oneseq;
 
 }  // namespace random
 }  // namespace arrow

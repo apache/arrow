@@ -17,7 +17,7 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/parquet"
+  "github.com/apache/arrow/go/v10/parquet"
 )
 
 // standard map based implementation of memo tables which can be more efficient
@@ -96,6 +96,14 @@ func (m *{{.lower}}MemoTableImpl) GetOrInsert(val interface{}) (idx int, found b
     found = true
   }
   return
+}
+
+func (m *{{.lower}}MemoTableImpl) WriteOut(out []byte) {
+  m.CopyValuesSubset(0, out)
+}
+
+func (m *{{.lower}}MemoTableImpl) WriteOutSubset(start int, out []byte) {
+  m.CopyValuesSubset(start, out)
 }
 
 func (m *{{.lower}}MemoTableImpl) CopyValues(out interface{}) {

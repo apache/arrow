@@ -83,6 +83,7 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
+        rsync \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -97,7 +98,10 @@ RUN apt-get update -y -q && \
 # - thrift is too old
 # - utf8proc is too old(v2.1.0)
 # - s3 tests would require boost-asio that is included since Boost 1.66.0
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
@@ -116,6 +120,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
@@ -127,4 +132,5 @@ ENV ARROW_BUILD_TESTS=ON \
     PATH=/usr/lib/ccache/:$PATH \
     Thrift_SOURCE=BUNDLED \
     utf8proc_SOURCE=BUNDLED \
+    xsimd_SOURCE=BUNDLED \
     zstd_SOURCE=BUNDLED

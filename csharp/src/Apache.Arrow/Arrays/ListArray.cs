@@ -77,7 +77,7 @@ namespace Apache.Arrow
 
             public ListArray Build(MemoryAllocator allocator = default)
             {
-                Append();
+                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
 
                 ArrowBuffer validityBuffer = NullCount > 0
                                         ? ValidityBufferBuilder.Build(allocator)

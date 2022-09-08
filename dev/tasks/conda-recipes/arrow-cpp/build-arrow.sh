@@ -36,11 +36,21 @@ fi
 
 if [[ "${target_platform}" == "osx-arm64" ]]; then
     # We need llvm 11+ support in Arrow for this
-    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=OFF"
+    # Tell jemalloc to support 16K page size on apple arm64 silicon
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=OFF -DARROW_JEMALLOC_LG_PAGE=14"
     sed -ie "s;protoc-gen-grpc.*$;protoc-gen-grpc=${BUILD_PREFIX}/bin/grpc_cpp_plugin\";g" ../src/arrow/flight/CMakeLists.txt
-    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=14";g' ../cmake_modules/ThirdpartyToolchain.cmake
+elif [[ "${target_platform}" == "linux-aarch64" ]]; then
+    # Tell jemalloc to support both 4k and 64k page arm64 systems
+    # See https://github.com/apache/arrow/pull/10940
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON -DARROW_JEMALLOC_LG_PAGE=16"
 else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON"
+fi
+
+if [[ "${target_platform}" == osx-* ]]; then
+   EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=14"
+else
+   EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=17"
 fi
 
 cmake \
@@ -54,12 +64,14 @@ cmake \
     -DARROW_DEPENDENCY_SOURCE=SYSTEM \
     -DARROW_FLIGHT=ON \
     -DARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=ON \
+    -DARROW_GCS=ON \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_MIMALLOC=ON \
     -DARROW_ORC=ON \
     -DARROW_PACKAGE_PREFIX=$PREFIX \
     -DARROW_PARQUET=ON \
+    -DPARQUET_REQUIRE_ENCRYPTION=ON \
     -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \
     -DARROW_S3=ON \

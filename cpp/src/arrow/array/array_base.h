@@ -57,7 +57,7 @@ class ARROW_EXPORT Array {
   /// \brief Return true if value at index is null. Does not boundscheck
   bool IsNull(int64_t i) const {
     return null_bitmap_data_ != NULLPTR
-               ? !BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               ? !bit_util::GetBit(null_bitmap_data_, i + data_->offset)
                : data_->null_count == data_->length;
   }
 
@@ -65,7 +65,7 @@ class ARROW_EXPORT Array {
   /// boundscheck
   bool IsValid(int64_t i) const {
     return null_bitmap_data_ != NULLPTR
-               ? BitUtil::GetBit(null_bitmap_data_, i + data_->offset)
+               ? bit_util::GetBit(null_bitmap_data_, i + data_->offset)
                : data_->null_count != data_->length;
   }
 
@@ -133,6 +133,7 @@ class ARROW_EXPORT Array {
                    int64_t end_idx, int64_t other_start_idx,
                    const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Apply the ArrayVisitor::Visit() method specialized to the array type
   Status Accept(ArrayVisitor* visitor) const;
 
   /// Construct a zero-copy view of this array with the given type.
@@ -187,10 +188,11 @@ class ARROW_EXPORT Array {
   Status ValidateFull() const;
 
  protected:
-  Array() : null_bitmap_data_(NULLPTR) {}
+  Array() = default;
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
 
   std::shared_ptr<ArrayData> data_;
-  const uint8_t* null_bitmap_data_;
+  const uint8_t* null_bitmap_data_ = NULLPTR;
 
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {
@@ -204,6 +206,8 @@ class ARROW_EXPORT Array {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
+
+  ARROW_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {

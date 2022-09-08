@@ -40,18 +40,24 @@ extern "C" {
   INNER(date64)           \
   INNER(timestamp)
 
-// Expand inner macro for all base numeric types.
-#define NUMERIC_TYPES(INNER) \
-  INNER(int8)                \
-  INNER(int16)               \
-  INNER(int32)               \
-  INNER(int64)               \
-  INNER(uint8)               \
-  INNER(uint16)              \
-  INNER(uint32)              \
-  INNER(uint64)              \
-  INNER(float32)             \
+#define INTEGER_NUMERIC_TYPES(INNER) \
+  INNER(int8)                        \
+  INNER(int16)                       \
+  INNER(int32)                       \
+  INNER(int64)                       \
+  INNER(uint8)                       \
+  INNER(uint16)                      \
+  INNER(uint32)                      \
+  INNER(uint64)
+
+#define REAL_NUMERIC_TYPES(INNER) \
+  INNER(float32)                  \
   INNER(float64)
+
+// Expand inner macro for all base numeric types.
+#define NUMERIC_TYPES(INNER)   \
+  INTEGER_NUMERIC_TYPES(INNER) \
+  REAL_NUMERIC_TYPES(INNER)
 
 // Extract millennium
 #define EXTRACT_MILLENNIUM(TYPE)                            \
@@ -240,6 +246,44 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
   // return 52 (no extra week)
   return 52;
 }
+
+static const char* WEEK[] = {"SUNDAY",   "MONDAY", "TUESDAY", "WEDNESDAY",
+                             "THURSDAY", "FRIDAY", "SATURDAY"};
+
+static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
+
+#define NEXT_DAY_FUNC(TYPE)                                                              \
+  FORCE_INLINE                                                                           \
+  gdv_date64 next_day_from_##TYPE(gdv_int64 context, gdv_##TYPE millis, const char* in,  \
+                                  int32_t in_len) {                                      \
+    EpochTimePoint tp(millis);                                                           \
+    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();                             \
+    const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());               \
+                                                                                         \
+    int dateSearch = 0;                                                                  \
+    for (int n = 0; n < 7; n++) {                                                        \
+      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                       \
+        dateSearch = n + 1;                                                              \
+        break;                                                                           \
+      }                                                                                  \
+    }                                                                                    \
+    if (dateSearch == 0) {                                                               \
+      gdv_fn_context_set_error_msg(context, "The weekday in this entry is invalid");     \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    int64_t distanceDay = dateSearch - presentDate;                                      \
+    if (distanceDay <= 0) {                                                              \
+      distanceDay = 7 + distanceDay;                                                     \
+    }                                                                                    \
+                                                                                         \
+    int64_t nextDate =                                                                   \
+        date_add_int64_timestamp(distanceDay, dayWithoutHoursAndSec.MillisSinceEpoch()); \
+                                                                                         \
+    return nextDate;                                                                     \
+  }
+
+DATE_TYPES(NEXT_DAY_FUNC)
 
 // Dec 29-31
 int getDecWeekOfYear(const EpochTimePoint& tp) {
@@ -764,6 +808,92 @@ gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   return tp.ClearTimeOfDay().MillisSinceEpoch();
 }
 
+/*
+ * Input consists of mandatory and optional fields.
+ * Mandatory fields are hours, minutes.
+ * The seconds and subseconds are optional.
+ * Format is hours:minutes[:seconds.millis]
+ */
+gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
+  using gandiva::TimeFields;
+  using std::chrono::hours;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  using std::chrono::seconds;
+
+  const int32_t kDisplacementHours = 4;
+  int32_t time_fields[kDisplacementHours] = {0, 0, 0, 0};
+  int32_t sub_seconds_len = 0;
+  int32_t time_field_idx = TimeFields::kHours, index = 0, value = 0;
+
+  bool has_invalid_digit = false;
+  while (time_field_idx < TimeFields::kDisplacementHours && index < length) {
+    if (isdigit(input[index])) {
+      value = (value * 10) + (input[index] - '0');
+
+      if (time_field_idx == TimeFields::kSubSeconds) {
+        sub_seconds_len++;
+      }
+    } else {
+      time_fields[time_field_idx - TimeFields::kHours] = value;
+      value = 0;
+
+      switch (input[index]) {
+        case '.':
+        case ':':
+          time_field_idx++;
+          break;
+        default:
+          has_invalid_digit = true;
+          break;
+      }
+    }
+
+    index++;
+  }
+
+  if (has_invalid_digit) {
+    const char* msg = "Invalid character in time ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  // Check if the hours and minutes were defined and store the last value
+  if (time_field_idx < TimeFields::kDisplacementHours) {
+    time_fields[time_field_idx - TimeFields::kHours] = value;
+  }
+
+  // adjust the milliseconds
+  if (sub_seconds_len > 0) {
+    if (sub_seconds_len > 3) {
+      const char* msg = "Invalid millis for time value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+
+    while (sub_seconds_len < 3) {
+      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] *= 10;
+      sub_seconds_len++;
+    }
+  }
+
+  int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
+  int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
+  int32_t input_seconds = time_fields[TimeFields::kSeconds - TimeFields::kHours];
+  int32_t input_subseconds = time_fields[TimeFields::kSubSeconds - TimeFields::kHours];
+
+  if (!is_valid_time(input_hours, input_minutes, input_seconds)) {
+    const char* msg = "Not a valid time value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  auto time_info = hours(input_hours) + minutes(input_minutes) + seconds(input_seconds) +
+                   milliseconds(input_subseconds);
+
+  return static_cast<gdv_time32>(time_info.count());
+}
+
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
   // Retrieves a timestamp and returns the number of milliseconds since the midnight
   EpochTimePoint tp(timestamp_in_millis);
@@ -773,6 +903,17 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
       tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch();
 
   return static_cast<int32_t>(millis_since_midnight);
+}
+
+// Gets an arbitrary number and return the number of milliseconds since midnight
+gdv_time32 castTIME_int32(int32_t int_val) {
+  if (int_val < 0) {
+    return 0;
+  }
+
+  auto millis_since_midnight = static_cast<gdv_time32>(int_val % MILLIS_IN_DAY);
+
+  return millis_since_midnight;
 }
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
@@ -823,6 +964,12 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
   return ret;
 }
 
+#define IS_NULL(TYPE) \
+  FORCE_INLINE        \
+  bool isnull_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { return !is_valid; }
+IS_NULL(day_time_interval)
+IS_NULL(month_interval)
+
 FORCE_INLINE
 gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in) {
   gdv_int32 days = static_cast<gdv_int32>(in & 0x00000000FFFFFFFF);
@@ -842,13 +989,23 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 }
 
 // Convert the seconds since epoch argument to timestamp
-#define TO_TIMESTAMP(TYPE)                                      \
+#define TO_TIMESTAMP_INTEGER(TYPE)                              \
+  FORCE_INLINE                                                  \
+  gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
+    return static_cast<gdv_timestamp>(seconds) * MILLIS_IN_SEC; \
+  }
+
+#define TO_TIMESTAMP_REAL(TYPE)                                 \
   FORCE_INLINE                                                  \
   gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
     return static_cast<gdv_timestamp>(seconds * MILLIS_IN_SEC); \
   }
 
-NUMERIC_TYPES(TO_TIMESTAMP)
+INTEGER_NUMERIC_TYPES(TO_TIMESTAMP_INTEGER)
+REAL_NUMERIC_TYPES(TO_TIMESTAMP_REAL)
+
+#undef TO_TIMESTAMP_INTEGER
+#undef TO_TIMESTAMP_REAL
 
 // Convert the seconds since epoch argument to time
 #define TO_TIME(TYPE)                                                     \
@@ -887,6 +1044,13 @@ CAST_NULLABLE_INTERVAL_DAY(int64)
     }                                                                                  \
     return value;                                                                      \
   }
+
+FORCE_INLINE
+gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
+                                       gdv_timestamp end_millis) {
+  return static_cast<int32_t>(
+      ((start_millis - end_millis) / (24 * (60 * (60 * (1000))))));
+}
 
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)

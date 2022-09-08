@@ -169,7 +169,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
     // Get next power of 2 if bits is not power of 2.
     if ((num_bits & (num_bits - 1)) != 0) {
-      num_bits = static_cast<uint32_t>(::arrow::BitUtil::NextPower2(num_bits));
+      num_bits = static_cast<uint32_t>(::arrow::bit_util::NextPower2(num_bits));
     }
 
     // Round down to upper bound

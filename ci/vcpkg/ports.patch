@@ -1,63 +1,125 @@
-diff --git a/ports/aws-c-common/portfile.cmake b/ports/aws-c-common/portfile.cmake
-index f3704ef05b..3af543058d 100644
---- a/ports/aws-c-common/portfile.cmake
-+++ b/ports/aws-c-common/portfile.cmake
-@@ -1,8 +1,8 @@
- vcpkg_from_github(
-     OUT_SOURCE_PATH SOURCE_PATH
-     REPO awslabs/aws-c-common
--    REF 4a21a1c0757083a16497fea27886f5f20ccdf334 # v0.4.56
--    SHA512 68898a8ac15d5490f45676eabfbe0df9e45370a74c543a28909fd0d85fed48dfcf4bcd6ea2d01d1a036dd352e2e4e0b08c48c63ab2a2b477fe150b46a827136e
-+    REF 13adef72b7813ec878817c6d50a7a3f241015d8a # v0.4.57
-+    SHA512 28256522ac6af544d7464e3e7dcd4dc802ae2b09728bf8f167f86a6487bb756d0cad5eb4a2480610b2967b9c24c4a7f70621894517aa2828ffdeb0479453803b
-     HEAD_REF master
-     PATCHES
-         disable-error-4068.patch # This patch fixes dependency port compilation failure
+diff --git a/ports/abseil/fix-universal2.patch b/ports/abseil/fix-universal2.patch
+new file mode 100644
+index 0000000000..c729e7ae48
+--- /dev/null
++++ b/ports/abseil/fix-universal2.patch
+@@ -0,0 +1,55 @@
++diff --git a/absl/copts/AbseilConfigureCopts.cmake b/absl/copts/AbseilConfigureCopts.cmake
++index 942ce90a4..15d6c895f 100644
++--- a/absl/copts/AbseilConfigureCopts.cmake
+++++ b/absl/copts/AbseilConfigureCopts.cmake
++@@ -12,7 +12,49 @@ else()
++   set(ABSL_BUILD_DLL FALSE)
++ endif()
++
++-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+++if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES [[Clang]])
+++  # Some CMake targets (not known at the moment of processing) could be set to
+++  # compile for multiple architectures as specified by the OSX_ARCHITECTURES
+++  # property, which is target-specific.  We should neither inspect nor rely on
+++  # any CMake property or variable to detect an architecture, in particular:
+++  #
+++  #   - CMAKE_OSX_ARCHITECTURES
+++  #     is just an initial value for OSX_ARCHITECTURES; set too early.
+++  #
+++  #   - OSX_ARCHITECTURES
+++  #     is a per-target property; targets could be defined later, and their
+++  #     properties could be modified any time later.
+++  #
+++  #   - CMAKE_SYSTEM_PROCESSOR
+++  #     does not reflect multiple architectures at all.
+++  #
+++  # When compiling for multiple architectures, a build system can invoke a
+++  # compiler either
+++  #
+++  #   - once: a single command line for multiple architectures (Ninja build)
+++  #   - twice: two command lines per each architecture (Xcode build system)
+++  #
+++  # If case of Xcode, it would be possible to set an Xcode-specific attributes
+++  # like XCODE_ATTRIBUTE_OTHER_CPLUSPLUSFLAGS[arch=arm64] or similar.
+++  #
+++  # In both cases, the viable strategy is to pass all arguments at once, allowing
+++  # the compiler to dispatch arch-specific arguments to a designated backend.
+++  set(ABSL_RANDOM_RANDEN_COPTS "")
+++  foreach(_arch IN ITEMS "x86_64" "arm64")
+++    string(TOUPPER "${_arch}" _arch_uppercase)
+++    string(REPLACE "X86_64" "X64" _arch_uppercase ${_arch_uppercase})
+++    foreach(_flag IN LISTS ABSL_RANDOM_HWAES_${_arch_uppercase}_FLAGS)
+++      list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Xarch_${_arch}" "${_flag}")
+++    endforeach()
+++  endforeach()
+++  # If a compiler happens to deal with an argument for a currently unused
+++  # architecture, it will warn about an unused command line argument.
+++  option(ABSL_RANDOM_RANDEN_COPTS_WARNING OFF
+++         "Warn if one of ABSL_RANDOM_RANDEN_COPTS is unused")
+++  if(ABSL_RANDOM_RANDEN_COPTS AND NOT ABSL_RANDOM_RANDEN_COPTS_WARNING)
+++    list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Wno-unused-command-line-argument")
+++  endif()
+++elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
++   if (MSVC)
++     set(ABSL_RANDOM_RANDEN_COPTS "${ABSL_RANDOM_HWAES_MSVC_X64_FLAGS}")
++   else()
+diff --git a/ports/abseil/portfile.cmake b/ports/abseil/portfile.cmake
+index 1289eed36a..b010a69f13 100644
+--- a/ports/abseil/portfile.cmake
++++ b/ports/abseil/portfile.cmake
+@@ -15,6 +15,7 @@ vcpkg_from_github(
+         # detection can cause ABI issues depending on which compiler options
+         # are enabled for consuming user code
+ 	    fix-cxx-standard.patch
++        fix-universal2.patch
+ )
+ 
+ vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index be66d452be..a5ce325e9d 100644
+index f81d0c491d..e5ea9cef57 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -94,6 +94,8 @@ vcpkg_configure_cmake(
+@@ -88,6 +88,10 @@ vcpkg_cmake_configure(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
-     OPTIONS_DEBUG
-         ${EXTRA_ARGS_DEBUG}
++    OPTIONS_DEBUG
++        ${EXTRA_ARGS_DEBUG}
      OPTIONS_RELEASE
+         ${OPTIONS_RELEASE}
+     OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 75dd133027..84345c7caa 100644
+index 45b8c706db..b409d8a7be 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
-     REF 537f4ad6240e586970fe554614542e9717df7902 # 1.1.8
-     SHA512 555d3b69a6759592736cbaae8f41654f0cf14e8be693b5dde37640191e53daec189f895872557b173e905d10681ef502f3e6ed8566811add963ffef96ce4016d
+     REF 1.1.9
+     SHA512 f1f8a90f5f7f23310423574b1d8c9acb84c66ea620f3999d1060395205e5760883476837aba02f0aa913af60819e34c625d8308c18a5d7a9c4e190f35968b024
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
-
- vcpkg_configure_cmake(
+ 
+ vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000000..2cbb1533a8
+index 0000000000..a57ce0c22f
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
-@@ -0,0 +1,17 @@
-+--- snappy.cc  2020-06-27 17:38:49.718993748 -0500
-++++ snappy.cc  2020-06-27 17:37:57.543268213 -0500
-+@@ -717,14 +717,10 @@
-+ static inline uint32 ExtractLowBytes(uint32 v, int n) {
+@@ -0,0 +1,19 @@
++diff --git a/snappy.cc b/snappy.cc
++index 79dc0e8..f3153ea 100644
++--- a/snappy.cc
+++++ b/snappy.cc
++@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
 +   assert(n >= 0);
 +   assert(n <= 4);
 +-#if SNAPPY_HAVE_BMI2
 +-  return _bzhi_u32(v, 8 * n);
 +-#else
-+   // This needs to be wider than uint32 otherwise `mask << 32` will be
++   // This needs to be wider than uint32_t otherwise `mask << 32` will be
 +   // undefined.
-+   uint64 mask = 0xffffffff;
++   uint64_t mask = 0xffffffff;
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
-+ static inline bool LeftShiftOverflows(uint8 value, uint32 shift) {
++ 
++ static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {

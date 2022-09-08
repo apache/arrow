@@ -44,7 +44,7 @@ on:
       - 'ruby/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -58,7 +58,7 @@ jobs:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -68,15 +68,10 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
+          submodules: recursive
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -84,7 +79,7 @@ jobs:
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -95,6 +90,8 @@ jobs:
           ulimit -c unlimited
           archery docker run \
             -e ARROW_FLIGHT=ON \
+            -e ARROW_FLIGHT_SQL=ON \
+            -e ARROW_GCS=ON \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby
@@ -105,18 +102,22 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 MacOS 10.15 GLib & Ruby
+    name: AMD64 macOS 11 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
     env:
+      ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
-      ARROW_GLIB_DEVELOPMENT_MODE: true
+      ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
+      ARROW_GLIB_WERROR: true
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: OFF
       ARROW_ORC: OFF
@@ -129,17 +130,16 @@ jobs:
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
+          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
@@ -178,25 +178,27 @@ jobs:
 
   windows:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         mingw-n-bits:
           - 64
         ruby-version:
-          - "3.0"
+          - "3.1"
     env:
-      ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: OFF
@@ -212,7 +214,7 @@ jobs:
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
       CMAKE_ARGS: >-
-        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_UNITY_BUILD: ON
     steps:
@@ -225,12 +227,10 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -249,8 +249,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-
+          key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-
       - name: Build C++
         run: |
           $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
@@ -273,8 +273,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
-          key: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
-          restore-keys: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-
+          key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
+          restore-keys: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-
       - name: Install test dependencies
         run: |
           bundle install --gemfile c_glib\Gemfile

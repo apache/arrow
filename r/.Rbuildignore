@@ -27,3 +27,4 @@ clang_format.sh
 STYLE.md
 ^.lintr
 ^.styler_excludes.R
+^cheatsheet$

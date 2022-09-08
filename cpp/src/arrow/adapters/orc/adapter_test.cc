@@ -15,14 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/orc/adapter.h"
-
 #include <gtest/gtest.h>
 
 #include <orc/OrcFile.hh>
 #include <string>
 
-#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/adapters/orc/adapter.h"
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -119,38 +117,38 @@ std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
 
 Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
                                                          double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   return CastInt64ArrayToTemporalArray<Date64Array>(
       date64(), rand.Int64(size, kMilliMin, kMilliMax, null_probability));
 }
 
 Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
-                                                            arrow::TimeUnit::type type,
+                                                            TimeUnit::type type,
                                                             double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   switch (type) {
-    case arrow::TimeUnit::type::SECOND: {
+    case TimeUnit::type::SECOND: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::SECOND),
           rand.Int64(size, kSecondMin, kSecondMax, null_probability));
     }
-    case arrow::TimeUnit::type::MILLI: {
+    case TimeUnit::type::MILLI: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::MILLI),
           rand.Int64(size, kMilliMin, kMilliMax, null_probability));
     }
-    case arrow::TimeUnit::type::MICRO: {
+    case TimeUnit::type::MICRO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::MICRO),
           rand.Int64(size, kMicroMin, kMicroMax, null_probability));
     }
-    case arrow::TimeUnit::type::NANO: {
+    case TimeUnit::type::NANO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::NANO),
           rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
-      return arrow::Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
+      return Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
     }
   }
 }
@@ -175,33 +173,32 @@ void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
     return static_cast<U>(res);
   });
   (*out)[n - 1] += remaining_sum;
-  std::random_shuffle(out->begin(), out->end());
+  std::shuffle(out->begin(), out->end(), gen);
 }
 
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
     const std::shared_ptr<DataType>& data_type, int64_t size, int64_t min_num_chunks,
     int64_t max_num_chunks, double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   std::vector<int64_t> num_chunks(1, 0);
   std::vector<int64_t> current_size_chunks;
-  arrow::randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
+  randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
   int64_t current_num_chunks = num_chunks[0];
   ArrayVector arrays(current_num_chunks, nullptr);
-  arrow::RandWeakComposition(current_num_chunks, size, &current_size_chunks);
+  RandWeakComposition(current_num_chunks, size, &current_size_chunks);
   for (int j = 0; j < current_num_chunks; j++) {
     switch (data_type->id()) {
-      case arrow::Type::type::DATE64: {
+      case Type::DATE64: {
         EXPECT_OK_AND_ASSIGN(arrays[j], GenerateRandomDate64Array(current_size_chunks[j],
                                                                   null_probability));
         break;
       }
-      case arrow::Type::type::TIMESTAMP: {
+      case Type::TIMESTAMP: {
         EXPECT_OK_AND_ASSIGN(
             arrays[j],
             GenerateRandomTimestampArray(
                 current_size_chunks[j],
-                arrow::internal::checked_pointer_cast<arrow::TimestampType>(data_type)
-                    ->unit(),
+                internal::checked_pointer_cast<TimestampType>(data_type)->unit(),
                 null_probability));
         break;
       }
@@ -231,19 +228,31 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
-  EXPECT_OK_AND_ASSIGN(auto writer,
-                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
-  std::unique_ptr<adapters::orc::ORCFileReader> reader;
-  ARROW_EXPECT_OK(
-      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader));
-  std::shared_ptr<Table> actual_output_table;
-  ARROW_EXPECT_OK(reader->Read(&actual_output_table));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(reader->GetFileVersion(), write_options.file_version);
+  ASSERT_EQ(reader->GetCompression(), write_options.compression);
+  ASSERT_EQ(reader->GetCompressionSize(), write_options.compression_block_size);
+  ASSERT_EQ(reader->GetRowIndexStride(), write_options.row_index_stride);
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
+
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
@@ -323,9 +332,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
                                static_cast<int64_t>(mem_stream.getLength()))));
 
-  std::unique_ptr<adapters::orc::ORCFileReader> reader;
-  ASSERT_TRUE(
-      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
   auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
@@ -334,8 +342,7 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
   accumulated = 0;
-  std::shared_ptr<RecordBatchReader> stripe_reader;
-  EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+  EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(reader_batch_size));
   while (stripe_reader) {
     std::shared_ptr<RecordBatch> record_batch;
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
@@ -350,14 +357,14 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       }
       EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
     }
-    EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+    EXPECT_OK_AND_ASSIGN(stripe_reader, reader->NextStripeReader(reader_batch_size));
   }
 
   // test seek operation
   int64_t start_offset = 830;
   EXPECT_TRUE(reader->Seek(stripe_row_count + start_offset).ok());
 
-  EXPECT_TRUE(reader->NextStripeReader(reader_batch_size, &stripe_reader).ok());
+  EXPECT_OK_AND_ASSIGN(stripe_reader, reader->NextStripeReader(reader_batch_size));
   std::shared_ptr<RecordBatch> record_batch;
   EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
   while (record_batch) {
@@ -372,11 +379,50 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
     }
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
   }
+
+  // test GetRecordBatchReader interface
+  EXPECT_TRUE(reader->Seek(0).ok());
+  accumulated = 0;
+  EXPECT_OK_AND_ASSIGN(auto record_batch_reader,
+                       reader->GetRecordBatchReader(reader_batch_size, {"col1", "col2"}));
+  int64_t batches = 0;
+  int64_t num_rows = 0;
+  for (const auto maybe_batch : *record_batch_reader) {
+    ASSERT_OK_AND_ASSIGN(record_batch, maybe_batch);
+    auto int32_array = checked_pointer_cast<Int32Array>(record_batch->column(0));
+    auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
+    for (int j = 0; j < record_batch->num_rows(); ++j) {
+      EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
+      EXPECT_EQ(std::to_string(accumulated % stripe_row_count), str_array->GetString(j));
+      accumulated++;
+    }
+    EXPECT_LE(record_batch->num_rows(), reader_batch_size);
+    num_rows += record_batch->num_rows();
+    batches++;
+  }
+  EXPECT_EQ(num_rows, stripe_row_count * stripe_count);
+  EXPECT_EQ(num_rows / reader_batch_size, batches);
 }
 
-// WriteORC tests
 // Trivial
 
+class TestORCWriterTrivialNoWrite : public ::testing::Test {};
+TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize / 16));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  ARROW_EXPECT_OK(writer->Close());
+}
 class TestORCWriterTrivialNoConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialNoConversion() {
@@ -494,11 +540,10 @@ class TestORCWriterWithConversion : public ::testing::Test {
         GenerateRandomTable(input_schema, num_rows, 1, 1, null_possibility);
     ArrayVector av(num_cols);
     for (int i = 0; i < num_cols - 2; i++) {
-      EXPECT_OK_AND_ASSIGN(av[i],
-                           arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
+      EXPECT_OK_AND_ASSIGN(av[i], compute::Cast(*(input_table->column(i)->chunk(0)),
                                                 output_schema->field(i)->type()));
     }
-    for (int i = num_cols - 2; i < num_cols; i++) {
+    for (int i = static_cast<int>(num_cols - 2); i < static_cast<int>(num_cols); i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
     }
     std::shared_ptr<Table> expected_output_table = Table::Make(output_schema, av);
@@ -517,16 +562,16 @@ class TestORCWriterSingleArray : public ::testing::Test {
   TestORCWriterSingleArray() : rand(kRandomSeed) {}
 
  protected:
-  arrow::random::RandomArrayGenerator rand;
+  random::RandomArrayGenerator rand;
 };
 
 // Nested types
 TEST_F(TestORCWriterSingleArray, WriteStruct) {
   std::vector<std::shared_ptr<Field>> subfields{field("int32", boolean())};
   const int64_t num_rows = 1234;
-  int num_subcols = subfields.size();
+  std::size_t num_subcols = subfields.size();
   ArrayVector av0(num_subcols);
-  for (int i = 0; i < num_subcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subcols); i++) {
     av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.4);
   }
   std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.5);
@@ -547,9 +592,9 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
       field("string", utf8()),
       field("binary", binary())};
   const int64_t num_rows = 1234;
-  int num_subsubcols = subsubfields.size();
+  std::size_t num_subsubcols = subsubfields.size();
   ArrayVector av00(num_subsubcols), av0(1);
-  for (int i = 0; i < num_subsubcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subsubcols); i++) {
     av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0);
   }
   std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0);
@@ -571,12 +616,11 @@ TEST_F(TestORCWriterSingleArray, WriteLargeList) {
   const int64_t num_rows = 1234;
   auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.5);
   auto output_offsets = rand.Offsets(num_rows + 1, 0, 5 * num_rows, 0.6, false);
-  EXPECT_OK_AND_ASSIGN(auto input_offsets,
-                       arrow::compute::Cast(*output_offsets, int64()));
+  EXPECT_OK_AND_ASSIGN(auto input_offsets, compute::Cast(*output_offsets, int64()));
   EXPECT_OK_AND_ASSIGN(auto input_array,
-                       arrow::LargeListArray::FromArrays(*input_offsets, *value_array));
+                       LargeListArray::FromArrays(*input_offsets, *value_array));
   EXPECT_OK_AND_ASSIGN(auto output_array,
-                       arrow::ListArray::FromArrays(*output_offsets, *value_array));
+                       ListArray::FromArrays(*output_offsets, *value_array));
   AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
 }
 

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
@@ -26,6 +26,16 @@ ArrowDatum <- R6Class("ArrowDatum",
       opts <- cast_options(safe, ...)
       opts$to_type <- as_type(target_type)
       call_function("cast", self, options = opts)
+    },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      call_function(
+        "sort_indices",
+        self,
+        options = list(names = "", orders = as.integer(descending))
+      )
     }
   )
 )
@@ -49,20 +59,14 @@ is.infinite.ArrowDatum <- function(x) {
 
 #' @export
 is.na.ArrowDatum <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (x$type_id() %in% TYPES_WITH_NAN) {
-    call_function("is_nan", x) | call_function("is_null", x)
-  } else {
-    call_function("is_null", x)
-  }
+  call_function("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 #' @export
 is.nan.ArrowDatum <- function(x) {
   if (x$type_id() %in% TYPES_WITH_NAN) {
-    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
-    # use that to simplify the code here (ARROW-13366)
+    # TODO(ARROW-13366): if an option is added to the is_nan kernel to treat NA
+    # as NaN, use that to simplify the code here
     call_function("is_nan", x) & call_function("is_valid", x)
   } else {
     Scalar$create(FALSE)$as_array(length(x))
@@ -71,21 +75,88 @@ is.nan.ArrowDatum <- function(x) {
 
 #' @export
 as.vector.ArrowDatum <- function(x, mode) {
-  tryCatch(
-    x$as_vector(),
-    error = handle_embedded_nul_error
-  )
+  x$as_vector()
 }
 
 #' @export
 Ops.ArrowDatum <- function(e1, e2) {
-  if (.Generic == "!") {
-    eval_array_expression(.Generic, e1)
-  } else if (.Generic %in% names(.array_function_map)) {
-    eval_array_expression(.Generic, e1, e2)
-  } else {
-    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  if (missing(e2)) {
+    switch(.Generic,
+      "!" = return(eval_array_expression(.Generic, e1)),
+      "+" = return(eval_array_expression(.Generic, 0L, e1)),
+      "-" = return(eval_array_expression("negate_checked", e1)),
+    )
   }
+
+  switch(.Generic,
+    "+" = ,
+    "-" = ,
+    "*" = ,
+    "/" = ,
+    "^" = ,
+    "%%" = ,
+    "%/%" = ,
+    "==" = ,
+    "!=" = ,
+    "<" = ,
+    "<=" = ,
+    ">=" = ,
+    ">" = ,
+    "&" = ,
+    "|" = {
+      eval_array_expression(.Generic, e1, e2)
+    },
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  )
+}
+
+#' @export
+Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
+  switch(.Generic,
+    abs = eval_array_expression("abs_checked", x),
+    ceiling = eval_array_expression("ceil", x),
+    sign = ,
+    floor = ,
+    trunc = ,
+    acos = ,
+    asin = ,
+    atan = ,
+    cos = ,
+    sin = ,
+    tan = {
+      eval_array_expression(.Generic, x)
+    },
+    log = eval_array_expression("logb_checked", x, base),
+    log10 = eval_array_expression("log10_checked", x),
+    round = eval_array_expression(
+      "round",
+      x,
+      options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
+    ),
+    sqrt = eval_array_expression("sqrt_checked", x),
+    exp = eval_array_expression("power_checked", exp(1), x),
+    signif = ,
+    expm1 = ,
+    log1p = ,
+    cospi = ,
+    sinpi = ,
+    tanpi = ,
+    cosh = ,
+    sinh = ,
+    tanh = ,
+    acosh = ,
+    asinh = ,
+    atanh = ,
+    lgamma = ,
+    gamma = ,
+    digamma = ,
+    trigamma = ,
+    cumsum = ,
+    cumprod = ,
+    cummax = ,
+    cummin = ,
+    stop(paste0("Unsupported operation on `", class(x)[1L], "` : "), .Generic, call. = FALSE)
+  )
 }
 
 # Wrapper around call_function that:
@@ -111,8 +182,24 @@ eval_array_expression <- function(FUN,
     args <- map(args, ~ .$cast(float64()))
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
-    out <- eval_array_expression("/", args = args, options = options)
-    return(out$cast(int32(), allow_float_truncate = TRUE))
+    out <- eval_array_expression("/", args = args)
+
+    # integer output only for all integer input
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+    if (numerator_is_int && denominator_is_int) {
+      out_float <- eval_array_expression(
+        "if_else",
+        eval_array_expression("equal", args[[2]], 0L),
+        Scalar$create(NA_integer_),
+        eval_array_expression("floor", out)
+      )
+      return(out_float$cast(args[[1]]$type))
+    } else {
+      return(eval_array_expression("floor", out))
+    }
   } else if (FUN == "%%") {
     # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
     # eagerly, but we can build that up
@@ -241,6 +328,7 @@ is.sliceable <- function(i) {
   is.numeric(i) &&
     length(i) > 0 &&
     all(i > 0) &&
+    i[1] <= i[length(i)] &&
     identical(as.integer(i), i[1]:i[length(i)])
 }
 
@@ -258,7 +346,7 @@ sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
   # Arrow always sorts nulls at the end of the array. This corresponds to
   # sort(na.last = TRUE). For the other two cases (na.last = NA and
   # na.last = FALSE) we need to use workarounds.
-  # TODO: Implement this more cleanly after ARROW-12063
+  # TODO(ARROW-14085): use NullPlacement ArraySortOptions instead of this workaround
   if (is.na(na.last)) {
     # Filter out NAs before sorting
     x <- x$Filter(!is.na(x))

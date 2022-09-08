@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("DataType")
-
 test_that("null type works as expected", {
   x <- null()
   expect_equal(x$id, 0L)
@@ -289,6 +287,30 @@ test_that("time64 types work as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$NANO))
 })
 
+test_that("duration types work as expected", {
+  x <- duration(TimeUnit$MICRO)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[us]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$MICRO))
+
+  x <- duration(TimeUnit$SECOND)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[s]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$SECOND))
+})
+
 test_that("time type unit validation", {
   expect_equal(time32(TimeUnit$SECOND), time32("s"))
   expect_equal(time32(TimeUnit$MILLI), time32("ms"))
@@ -303,6 +325,13 @@ test_that("time type unit validation", {
   expect_error(time64(4), '"unit" should be one of 3 or 2')
   expect_error(time64(NULL), '"unit" should be one of "ns" or "us"')
   expect_match_arg_error(time64("years"))
+
+  expect_equal(duration(TimeUnit$NANO), duration("n"))
+  expect_equal(duration(TimeUnit$MICRO), duration("us"))
+  expect_equal(duration(), duration(TimeUnit$SECOND))
+  expect_error(duration(4), '"unit" should be one of 0, 1, 2, or 3')
+  expect_error(duration(NULL), '"unit" should be one of "s", "ms", "us", or "ns"')
+  expect_match_arg_error(duration("years"))
 })
 
 test_that("timestamp type input validation", {
@@ -331,11 +360,53 @@ test_that("list type works as expected", {
   expect_false(x == null())
   expect_equal(x$num_fields, 1L)
   expect_equal(
-    x$fields(),
-    list(field("item", int32()))
+    x$fields()[[1]],
+    field("item", int32())
   )
   expect_equal(x$value_type, int32())
   expect_equal(x$value_field, field("item", int32()))
+})
+
+test_that("map type works as expected", {
+  x <- map_of(int32(), utf8())
+  expect_equal(x$id, Type$MAP)
+  expect_equal(x$name, "map")
+  expect_equal(x$ToString(), "map<int32, string>")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(
+    x$key_field,
+    field("key", int32(), nullable = FALSE)
+  )
+  expect_equal(
+    x$item_field,
+    field("value", utf8())
+  )
+  expect_equal(x$key_type, int32())
+  expect_equal(x$item_type, string())
+  # TODO: (ARROW-15102): Enable constructing StructTypes with non-nullable fields, so
+  # we can make this comparison:
+  # expect_equal(x$value_type, struct(key = x$key_field, value = x$item_field)) # nolint
+  expect_false(x$keys_sorted)
+})
+
+test_that("map type validates arguments", {
+  expect_error(
+    map_of(field("key", int32(), nullable = TRUE), utf8()),
+    "cannot be nullable"
+  )
+  expect_error(map_of(1L, utf8()), "must be a DataType or Field")
+  expect_error(map_of(int32(), 1L), "must be a DataType or Field")
+
+  # field construction
+  ty <- map_of(
+    field("the_keys", int32(), nullable = FALSE),
+    field("my_values", utf8(), nullable = FALSE)
+  )
+  expect_equal(ty$key_field$name, "the_keys")
+  expect_equal(ty$item_field$name, "my_values")
+  expect_equal(ty$key_field$nullable, FALSE)
+  expect_equal(ty$item_field$nullable, FALSE)
 })
 
 test_that("struct type works as expected", {
@@ -347,8 +418,12 @@ test_that("struct type works as expected", {
   expect_false(x == null())
   expect_equal(x$num_fields, 2L)
   expect_equal(
-    x$fields(),
-    list(field("x", int32()), field("y", boolean()))
+    x$fields()[[1]],
+    field("x", int32())
+  )
+  expect_equal(
+    x$fields()[[2]],
+    field("y", boolean())
   )
   expect_equal(x$GetFieldIndex("x"), 0L)
   expect_equal(x$GetFieldIndex("y"), 1L)
@@ -383,16 +458,45 @@ test_that("DictionaryType validation", {
 })
 
 test_that("decimal type and validation", {
-  expect_error(decimal())
-  expect_error(decimal("four"), '"precision" must be an integer')
-  expect_error(decimal(4))
-  expect_error(decimal(4, "two"), '"scale" must be an integer')
-  expect_error(decimal(NA, 2), '"precision" must be an integer')
-  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range: 0")
-  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range: 100")
-  expect_error(decimal(4, NA), '"scale" must be an integer')
-
   expect_r6_class(decimal(4, 2), "Decimal128Type")
+  expect_r6_class(decimal(39, 2), "Decimal256Type")
+
+  expect_error(decimal("four"), "`precision` must be an integer")
+  expect_error(decimal(4, "two"), "`scale` must be an integer")
+  expect_error(decimal(NA, 2), "`precision` must be an integer")
+  expect_error(decimal(4, NA), "`scale` must be an integer")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
+  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
+
+  # decimal() creates either decimal128 or decimal256 based on precision
+  expect_identical(class(decimal(38, 2)), class(decimal128(38, 2)))
+  expect_identical(class(decimal(39, 2)), class(decimal256(38, 2)))
+
+  expect_r6_class(decimal128(4, 2), "Decimal128Type")
+
+  expect_error(decimal128("four"), "`precision` must be an integer")
+  expect_error(decimal128(4, "two"), "`scale` must be an integer")
+  expect_error(decimal128(NA, 2), "`precision` must be an integer")
+  expect_error(decimal128(4, NA), "`scale` must be an integer")
+  expect_error(decimal128(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal128(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal128(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
+  expect_error(decimal128(100, 2), "Invalid: Decimal precision out of range [1, 38]: 100", fixed = TRUE)
+
+
+  expect_r6_class(decimal256(4, 2), "Decimal256Type")
+
+  expect_error(decimal256("four"), "`precision` must be an integer")
+  expect_error(decimal256(4, "two"), "`scale` must be an integer")
+  expect_error(decimal256(NA, 2), "`precision` must be an integer")
+  expect_error(decimal256(4, NA), "`scale` must be an integer")
+  expect_error(decimal256(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal256(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal256(0, 2), "Invalid: Decimal precision out of range [1, 76]: 0", fixed = TRUE)
+  expect_error(decimal256(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
 })
 
 test_that("Binary", {
@@ -424,4 +528,94 @@ test_that("DataType to C-interface", {
 
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
+})
+
+test_that("DataType$code()", {
+  expect_code_roundtrip(int8())
+  expect_code_roundtrip(uint8())
+  expect_code_roundtrip(int16())
+  expect_code_roundtrip(uint16())
+  expect_code_roundtrip(int32())
+  expect_code_roundtrip(uint32())
+  expect_code_roundtrip(int64())
+  expect_code_roundtrip(uint64())
+
+  expect_code_roundtrip(float16())
+  expect_code_roundtrip(float32())
+  expect_code_roundtrip(float64())
+
+  expect_code_roundtrip(null())
+
+  expect_code_roundtrip(boolean())
+  expect_code_roundtrip(utf8())
+  expect_code_roundtrip(large_utf8())
+
+  expect_code_roundtrip(binary())
+  expect_code_roundtrip(large_binary())
+  expect_code_roundtrip(fixed_size_binary(byte_width = 91))
+
+  expect_code_roundtrip(date32())
+  expect_code_roundtrip(date64())
+
+  expect_code_roundtrip(time32())
+  expect_code_roundtrip(time32(unit = "ms"))
+  expect_code_roundtrip(time32(unit = "s"))
+
+  expect_code_roundtrip(time64())
+  expect_code_roundtrip(time64(unit = "ns"))
+  expect_code_roundtrip(time64(unit = "us"))
+
+  expect_code_roundtrip(timestamp())
+  expect_code_roundtrip(timestamp(unit = "s"))
+  expect_code_roundtrip(timestamp(unit = "ms"))
+  expect_code_roundtrip(timestamp(unit = "ns"))
+  expect_code_roundtrip(timestamp(unit = "us"))
+
+  expect_code_roundtrip(timestamp(unit = "s", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ms", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ns", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "us", timezone = "CET"))
+
+  expect_code_roundtrip(decimal(precision = 3, scale = 5))
+
+  expect_code_roundtrip(
+    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())
+  )
+
+  expect_code_roundtrip(list_of(int32()))
+  expect_code_roundtrip(large_list_of(int32()))
+  expect_code_roundtrip(
+    fixed_size_list_of(int32(), list_size = 7L)
+  )
+
+  expect_code_roundtrip(dictionary())
+  expect_code_roundtrip(dictionary(index_type = int8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
+
+  skip_if(packageVersion("rlang") < 1)
+  # Are these unsupported for a reason?
+  expect_error(
+    eval(DayTimeInterval__initialize()$code()),
+    "Unsupported type"
+  )
+  expect_error(
+    eval(struct(a = DayTimeInterval__initialize())$code()),
+    "Unsupported type"
+  )
+})
+
+test_that("as_data_type() works for DataType", {
+  expect_equal(as_data_type(int32()), int32())
+})
+
+test_that("as_data_type() works for Field", {
+  expect_equal(as_data_type(field("a field", int32())), int32())
+})
+
+test_that("as_data_type() works for Schema", {
+  expect_equal(
+    as_data_type(schema(col1 = int32(), col2 = string())),
+    struct(col1 = int32(), col2 = string())
+  )
 })

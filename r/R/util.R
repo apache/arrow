@@ -22,9 +22,19 @@ if (!exists("deparse1")) {
   }
 }
 
-oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
+# for compatibility with R versions earlier than 3.6.0
+if (!exists("str2lang")) {
+  str2lang <- function(s) {
+    parse(text = s, keep.source = FALSE)[[1]]
+  }
+}
+
+oxford_paste <- function(x,
+                         conjunction = "and",
+                         quote = TRUE,
+                         quote_symbol = '"') {
   if (quote && is.character(x)) {
-    x <- paste0('"', x, '"')
+    x <- paste0(quote_symbol, x, quote_symbol)
   }
   if (length(x) < 2) {
     return(x)
@@ -59,20 +69,40 @@ r_symbolic_constants <- c(
 )
 
 is_function <- function(expr, name) {
+  # We could have a quosure here if we have an expression like `sum({{ var }})`
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
   if (!is.call(expr)) {
     return(FALSE)
   } else {
-    if (deparse1(expr[[1]]) == name) {
+    if (deparse(expr[[1]]) == name) {
       return(TRUE)
     }
     out <- lapply(expr, is_function, name)
   }
-  any(vapply(out, isTRUE, TRUE))
+  any(map_lgl(out, isTRUE))
 }
 
 all_funs <- function(expr) {
-  names <- all_names(expr)
-  names[vapply(names, function(name) is_function(expr, name), TRUE)]
+  # It is not sufficient to simply do: setdiff(all.names, all.vars)
+  # here because that would fail to return the names of functions that
+  # share names with variables.
+  # To preserve duplicates, call `all.names()` not `all_names()` here.
+  if (is_quosure(expr)) {
+    expr <- quo_get_expr(expr)
+  }
+  names <- all.names(expr)
+  # if we have namespace-qualified functions, we rebuild the function name with
+  # the `pkg::` prefix
+  if ("::" %in% names) {
+    for (i in seq_along(names)) {
+      if (names[i] == "::") {
+        names[i] <- paste0(names[i + 1], names[i], names[i + 2])
+      }
+    }
+  }
+  names[map_lgl(names, ~ is_function(expr, .))]
 }
 
 all_vars <- function(expr) {
@@ -95,47 +125,42 @@ read_compressed_error <- function(e) {
       msg,
       "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
       "\nSet one of these environment variables before installing:",
-      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
-      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") ",
+      sprintf("(for all optional features, including '%s')", compression),
+      sprintf("\n * Sys.setenv(ARROW_WITH_%s = \"ON\") (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
   }
   stop(e)
 }
 
-handle_embedded_nul_error <- function(e) {
-  msg <- conditionMessage(e)
-  if (grepl(" nul ", msg)) {
-    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
-  }
-  stop(e)
-}
-
-handle_parquet_io_error <- function(e, format) {
+# This function was refactored in ARROW-15260 to only raise an error if
+# the appropriate string was found and so errors must be raised manually after
+# calling this if matching error not found
+# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
+handle_parquet_io_error <- function(e, format, call) {
   msg <- conditionMessage(e)
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
-    abort(c(
+    msg <- c(
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
-    ))
+    )
+    abort(msg, call = call)
   }
-  stop(e)
 }
 
-is_writable_table <- function(x) {
-  inherits(x, c("data.frame", "ArrowTabular"))
-}
-
-# This attribute is used when is_writable is passed into assert_that, and allows
-# the call to form part of the error message when is_writable is FALSE
-attr(is_writable_table, "fail") <- function(call, env) {
-  paste0(
-    deparse(call$x),
-    " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
-    class(env[[deparse(call$x)]])[[1]],
-    "'."
+as_writable_table <- function(x) {
+  tryCatch(
+    as_arrow_table(x),
+    arrow_no_method_as_arrow_table = function(e) {
+      abort(
+        "Object must be coercible to an Arrow Table using `as_arrow_table()`",
+        parent = e,
+        call = rlang::caller_env(2)
+      )
+    }
   )
 }
 
@@ -146,7 +171,7 @@ attr(is_writable_table, "fail") <- function(call, env) {
 #' @keywords internal
 recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
-  arr_lens <- map_int(arrays, NROW)
+  arr_lens <- map_dbl(arrays, NROW)
 
   is_scalar <- arr_lens == 1
 
@@ -182,4 +207,47 @@ repeat_value_as_array <- function(object, n) {
     return(Scalar$create(object$chunks[[1]])$as_array(n))
   }
   return(Scalar$create(object)$as_array(n))
+}
+
+# This function was refactored in ARROW-15260 to only raise an error if
+# the appropriate string was found and so errors must be raised manually after
+# calling this if matching error not found
+# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
+handle_csv_read_error <- function(e, schema, call) {
+  msg <- conditionMessage(e)
+
+  if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
+    msg <- c(
+      msg,
+      i = paste(
+        "If you have supplied a schema and your data contains a header",
+        "row, you should supply the argument `skip = 1` to prevent the",
+        "header being read in as data."
+      )
+    )
+    abort(msg, call = call)
+  }
+}
+
+# This function only raises an error if
+# the appropriate string was found and so errors must be raised manually after
+# calling this if matching error not found
+# TODO: Refactor as part of ARROW-17355 to prevent potential missed errors
+handle_augmented_field_misuse <- function(e, call) {
+  msg <- conditionMessage(e)
+  if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "`add_filename()` or use of the `__filename` augmented field can only",
+        "be used with with Dataset objects, and can only be added before doing",
+        "an aggregation or a join."
+      )
+    )
+    abort(msg, call = call)
+  }
+}
+
+is_compressed <- function(compression) {
+  !identical(compression, "uncompressed")
 }

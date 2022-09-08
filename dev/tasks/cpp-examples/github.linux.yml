@@ -15,30 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   test:
     name: C++ Example
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Arrow
-        shell: bash
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
+      {{ macros.github_checkout_arrow()|indent }}
+
       - name: Run
         shell: bash
         run: |

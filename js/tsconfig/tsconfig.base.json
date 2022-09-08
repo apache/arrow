@@ -4,13 +4,15 @@
   "compileOnSave": false,
   "compilerOptions": {
     "baseUrl": "./",
+    "rootDir": "../src",
     "paths": {
       "apache-arrow/*": ["src/*"]
     },
 
     /* Basic stuff */
-    "moduleResolution": "node",
-    "lib": ["dom", "esnext", "esnext.asynciterable"],
+    "moduleResolution": "Node",
+    "lib": ["DOM", "ESNext", "ESNext.AsyncIterable"],
+    "esModuleInterop": true,
 
     /* Control what is emitted */
     "declaration": true,

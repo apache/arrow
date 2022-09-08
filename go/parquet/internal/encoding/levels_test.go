@@ -21,10 +21,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,7 +63,7 @@ func encodeLevels(t *testing.T, enc parquet.Encoding, maxLvl int16, numLevels in
 		encoder.Init(enc, maxLvl, buf)
 		lvlCount, _ = encoder.Encode(input)
 		buf.SetOffset(0)
-		arrow.Int32Traits.CastFromBytes(buf.Bytes())[0] = int32(encoder.Len())
+		arrow.Int32Traits.CastFromBytes(buf.Bytes())[0] = utils.ToLEInt32(int32(encoder.Len()))
 	} else {
 		encoder.Init(enc, maxLvl, buf)
 		lvlCount, _ = encoder.Encode(input)

@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -35,6 +36,10 @@ namespace arrow {
 class Array;
 class DataType;
 class MemoryPool;
+namespace stl {
+template <typename T, typename V>
+class ChunkedArrayIterator;
+}  // namespace stl
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
@@ -67,12 +72,6 @@ class MemoryPool;
 /// inputs should not expect the chunk layout to be the same in each input.
 class ARROW_EXPORT ChunkedArray {
  public:
-  /// \brief Construct a chunked array from a vector of arrays
-  ///
-  /// The vector must be non-empty and all its elements must have the same
-  /// data type.
-  explicit ChunkedArray(ArrayVector chunks);
-
   ChunkedArray(ChunkedArray&&) = default;
   ChunkedArray& operator=(ChunkedArray&&) = default;
 
@@ -80,14 +79,27 @@ class ARROW_EXPORT ChunkedArray {
   explicit ChunkedArray(std::shared_ptr<Array> chunk)
       : ChunkedArray(ArrayVector{std::move(chunk)}) {}
 
-  /// \brief Construct a chunked array from a vector of arrays and a data type
+  /// \brief Construct a chunked array from a vector of arrays and an optional data type
   ///
-  /// As the data type is passed explicitly, the vector may be empty.
-  ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type);
+  /// The vector elements must have the same data type.
+  /// If the data type is passed explicitly, the vector may be empty.
+  /// If the data type is omitted, the vector must be non-empty.
+  explicit ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
 
   // \brief Constructor with basic input validation.
   static Result<std::shared_ptr<ChunkedArray>> Make(
       ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
+
+  /// \brief Create an empty ChunkedArray of a given type
+  ///
+  /// The output ChunkedArray will have one chunk with an empty
+  /// array of the given type.
+  ///
+  /// \param[in] type the data type of the empty ChunkedArray
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the resulting ChunkedArray
+  static Result<std::shared_ptr<ChunkedArray>> MakeEmpty(
+      std::shared_ptr<DataType> type, MemoryPool* pool = default_memory_pool());
 
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
@@ -95,11 +107,13 @@ class ARROW_EXPORT ChunkedArray {
   /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
+  /// \return the total number of chunks in the chunked array
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
-  std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
+  const std::shared_ptr<Array>& chunk(int i) const { return chunks_[i]; }
 
+  /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
 
   /// \brief Construct a zero-copy slice of the chunked array with the
@@ -128,7 +142,11 @@ class ARROW_EXPORT ChunkedArray {
   /// there are zero chunks
   Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return the type of the chunked array
   const std::shared_ptr<DataType>& type() const { return type_; }
+
+  /// \brief Return a Scalar containing the value of this array at index
+  Result<std::shared_ptr<Scalar>> GetScalar(int64_t index) const;
 
   /// \brief Determine if two chunked arrays are equal.
   ///
@@ -164,11 +182,14 @@ class ARROW_EXPORT ChunkedArray {
 
  protected:
   ArrayVector chunks_;
+  std::shared_ptr<DataType> type_;
   int64_t length_;
   int64_t null_count_;
-  std::shared_ptr<DataType> type_;
 
  private:
+  template <typename T, typename V>
+  friend class ::arrow::stl::ChunkedArrayIterator;
+  internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

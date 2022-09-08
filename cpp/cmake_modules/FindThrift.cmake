@@ -22,22 +22,27 @@
 #                The environment variable THRIFT_HOME overrides this variable.
 #
 # This module defines
-#  THRIFT_VERSION, version string of ant if found
-#  THRIFT_INCLUDE_DIR, where to find THRIFT headers
-#  THRIFT_LIB, THRIFT library
-#  THRIFT_FOUND, If false, do not try to use ant
+#  Thrift_FOUND, whether Thrift is found or not
+#  Thrift_COMPILER_FOUND, whether Thrift compiler is found or not
+#
+#  thrift::thrift, a library target to use Thrift
+#  thrift::compiler, a executable target to use Thrift compiler
+
+if(Thrift_FOUND)
+  return()
+endif()
 
 function(EXTRACT_THRIFT_VERSION)
   if(THRIFT_INCLUDE_DIR)
     file(READ "${THRIFT_INCLUDE_DIR}/thrift/config.h" THRIFT_CONFIG_H_CONTENT)
     string(REGEX MATCH "#define PACKAGE_VERSION \"[0-9.]+\"" THRIFT_VERSION_DEFINITION
                  "${THRIFT_CONFIG_H_CONTENT}")
-    string(REGEX MATCH "[0-9.]+" THRIFT_VERSION "${THRIFT_VERSION_DEFINITION}")
-    set(THRIFT_VERSION
-        "${THRIFT_VERSION}"
+    string(REGEX MATCH "[0-9.]+" Thrift_VERSION "${THRIFT_VERSION_DEFINITION}")
+    set(Thrift_VERSION
+        "${Thrift_VERSION}"
         PARENT_SCOPE)
   else()
-    set(THRIFT_VERSION
+    set(Thrift_VERSION
         ""
         PARENT_SCOPE)
   endif()
@@ -46,9 +51,17 @@ endfunction(EXTRACT_THRIFT_VERSION)
 if(MSVC_TOOLCHAIN AND NOT DEFINED THRIFT_MSVC_LIB_SUFFIX)
   if(NOT ARROW_THRIFT_USE_SHARED)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_MSVC_LIB_SUFFIX "mt")
+      if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+        set(THRIFT_MSVC_LIB_SUFFIX "mtd")
+      else()
+        set(THRIFT_MSVC_LIB_SUFFIX "mt")
+      endif()
     else()
-      set(THRIFT_MSVC_LIB_SUFFIX "md")
+      if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+        set(THRIFT_MSVC_LIB_SUFFIX "mdd")
+      else()
+        set(THRIFT_MSVC_LIB_SUFFIX "md")
+      endif()
     endif()
   endif()
 endif()
@@ -102,7 +115,7 @@ else()
                  HINTS ${THRIFT_PC_PREFIX}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES "bin")
-    set(THRIFT_VERSION ${THRIFT_PC_VERSION})
+    set(Thrift_VERSION ${THRIFT_PC_VERSION})
   else()
     find_library(THRIFT_LIB
                  NAMES ${THRIFT_LIB_NAMES}
@@ -122,11 +135,10 @@ endif()
 find_package_handle_standard_args(
   Thrift
   REQUIRED_VARS THRIFT_LIB THRIFT_INCLUDE_DIR
-  VERSION_VAR THRIFT_VERSION
+  VERSION_VAR Thrift_VERSION
   HANDLE_COMPONENTS)
 
-if(Thrift_FOUND OR THRIFT_FOUND)
-  set(Thrift_FOUND TRUE)
+if(Thrift_FOUND)
   if(ARROW_THRIFT_USE_SHARED)
     add_library(thrift::thrift SHARED IMPORTED)
   else()
@@ -140,5 +152,11 @@ if(Thrift_FOUND OR THRIFT_FOUND)
     # "#pragma comment(lib, "Ws2_32.lib")" in
     # thrift/windows/config.h for Visual C++.
     set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
+  endif()
+
+  if(Thrift_COMPILER_FOUND)
+    add_executable(thrift::compiler IMPORTED)
+    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
+                                                      "${THRIFT_COMPILER}")
   endif()
 endif()

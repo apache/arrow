@@ -33,7 +33,6 @@
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -162,42 +161,95 @@ TYPED_TEST_SUITE(TestHashKernelPrimitive, PrimitiveDictionaries);
 TYPED_TEST(TestHashKernelPrimitive, Unique) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
-  CheckUnique<TypeParam, T>(type, {2, 1, 2, 1}, {true, false, true, true}, {2, 0, 1},
-                            {1, 0, 1});
-  CheckUnique<TypeParam, T>(type, {2, 1, 3, 1}, {false, false, true, true}, {0, 3, 1},
-                            {0, 1, 1});
 
-  // Sliced
-  CheckUnique(ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
-              ArrayFromJSON(type, "[2, null, 3]"));
+  if (type->id() == Type::DATE64) {
+    CheckUnique<Date64Type, int64_t>(
+        type, {172800000LL, 86400000LL, 172800000LL, 86400000LL},
+        {true, false, true, true}, {172800000LL, 0, 86400000LL}, {1, 0, 1});
+    CheckUnique<Date64Type, int64_t>(
+        type, {172800000LL, 86400000LL, 259200000LL, 86400000LL},
+        {false, false, true, true}, {0, 259200000LL, 86400000LL}, {0, 1, 1});
+
+    // Sliced
+    CheckUnique(
+        ArrayFromJSON(type, "[86400000, 172800000, null, 259200000, 172800000, null]")
+            ->Slice(1, 4),
+        ArrayFromJSON(type, "[172800000, null, 259200000]"));
+  } else {
+    CheckUnique<TypeParam, T>(type, {2, 1, 2, 1}, {true, false, true, true}, {2, 0, 1},
+                              {1, 0, 1});
+    CheckUnique<TypeParam, T>(type, {2, 1, 3, 1}, {false, false, true, true}, {0, 3, 1},
+                              {0, 1, 1});
+
+    // Sliced
+    CheckUnique(ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
+                ArrayFromJSON(type, "[2, null, 3]"));
+  }
 }
 
 TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
-  CheckValueCounts<TypeParam, T>(type, {2, 1, 2, 1, 2, 3, 4},
-                                 {true, false, true, true, true, true, false},
-                                 {2, 0, 1, 3}, {1, 0, 1, 1}, {3, 2, 1, 1});
-  CheckValueCounts<TypeParam, T>(type, {}, {}, {}, {}, {});
-  CheckValueCountsNull(type);
 
-  // Sliced
-  CheckValueCounts(ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
-                   ArrayFromJSON(type, "[2, null, 3]"),
-                   ArrayFromJSON(int64(), "[2, 1, 1]"));
+  if (type->id() == Type::DATE64) {
+    CheckValueCounts<Date64Type, int64_t>(
+        type,
+        {172800000LL, 86400000LL, 172800000LL, 86400000LL, 172800000LL, 259200000LL,
+         345600000LL},
+        {true, false, true, true, true, true, false},
+        {172800000LL, 0, 86400000LL, 259200000LL}, {1, 0, 1, 1}, {3, 2, 1, 1});
+    CheckValueCounts<Date64Type, int64_t>(type, {}, {}, {}, {}, {});
+    CheckValueCountsNull(type);
+
+    // Sliced
+    CheckValueCounts(
+        ArrayFromJSON(type, "[86400000, 172800000, null, 259200000, 172800000, null]")
+            ->Slice(1, 4),
+        ArrayFromJSON(type, "[172800000, null, 259200000]"),
+        ArrayFromJSON(int64(), "[2, 1, 1]"));
+  } else {
+    CheckValueCounts<TypeParam, T>(type, {2, 1, 2, 1, 2, 3, 4},
+                                   {true, false, true, true, true, true, false},
+                                   {2, 0, 1, 3}, {1, 0, 1, 1}, {3, 2, 1, 1});
+    CheckValueCounts<TypeParam, T>(type, {}, {}, {}, {}, {});
+    CheckValueCountsNull(type);
+
+    // Sliced
+    CheckValueCounts(ArrayFromJSON(type, "[1, 2, null, 3, 2, null]")->Slice(1, 4),
+                     ArrayFromJSON(type, "[2, null, 3]"),
+                     ArrayFromJSON(int64(), "[2, 1, 1]"));
+  }
 }
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
-  CheckDictEncode<TypeParam, T>(type, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true}, {2, 1, 3},
-                                {1, 1, 1}, {0, 0, 0, 1, 0, 2});
 
-  // Sliced
-  CheckDictEncode(ArrayFromJSON(type, "[2, 1, null, 4, 3, 1, 42]")->Slice(1, 5),
-                  ArrayFromJSON(type, "[1, 4, 3]"),
-                  ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
+  if (type->id() == Type::DATE64) {
+    CheckDictEncode<Date64Type, int64_t>(
+        type,
+        {172800000LL, 86400000LL, 172800000LL, 86400000LL, 172800000LL, 345600000LL},
+        {true, false, true, true, true, true}, {172800000LL, 86400000LL, 345600000LL},
+        {1, 1, 1}, {0, 0, 0, 1, 0, 2});
+
+    // Sliced
+    CheckDictEncode(
+        ArrayFromJSON(
+            type,
+            "[172800000, 86400000, null, 345600000, 259200000, 86400000, 172800000]")
+            ->Slice(1, 5),
+        ArrayFromJSON(type, "[86400000, 345600000, 259200000]"),
+        ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
+  } else {
+    CheckDictEncode<TypeParam, T>(type, {2, 1, 2, 1, 2, 3},
+                                  {true, false, true, true, true, true}, {2, 1, 3},
+                                  {1, 1, 1}, {0, 0, 0, 1, 0, 2});
+
+    // Sliced
+    CheckDictEncode(ArrayFromJSON(type, "[2, 1, null, 4, 3, 1, 42]")->Slice(1, 5),
+                    ArrayFromJSON(type, "[1, 4, 3]"),
+                    ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
+  }
 }
 
 TYPED_TEST(TestHashKernelPrimitive, ZeroChunks) {
@@ -213,26 +265,42 @@ TYPED_TEST(TestHashKernelPrimitive, ZeroChunks) {
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
   using T = typename TypeParam::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
 
   const int64_t kTotalValues = std::min<int64_t>(INT16_MAX, 1UL << sizeof(T) / 2);
   const int64_t kRepeats = 5;
+  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
+  const int64_t kTotalDate64Values = kFullDayMillis * kTotalValues;
 
   std::vector<T> values;
   std::vector<T> uniques;
   std::vector<int32_t> indices;
   std::vector<int64_t> counts;
-  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
-    const auto val = static_cast<T>(i % kTotalValues);
-    values.push_back(val);
 
-    if (i < kTotalValues) {
-      uniques.push_back(val);
-      counts.push_back(kRepeats);
+  if (type->id() == Type::DATE64) {
+    for (int64_t i = 0; i < kTotalDate64Values * kRepeats; i += kFullDayMillis) {
+      const auto val = static_cast<T>(i % kTotalDate64Values);
+      values.push_back(val);
+
+      if (i < kTotalDate64Values) {
+        uniques.push_back(val);
+        counts.push_back(kRepeats);
+      }
+      indices.push_back(static_cast<int32_t>(i % kTotalDate64Values / kFullDayMillis));
     }
-    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+  } else {
+    for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
+      const auto val = static_cast<T>(i % kTotalValues);
+      values.push_back(val);
+
+      if (i < kTotalValues) {
+        uniques.push_back(val);
+        counts.push_back(kRepeats);
+      }
+      indices.push_back(static_cast<int32_t>(i % kTotalValues));
+    }
   }
 
-  auto type = TypeTraits<TypeParam>::type_singleton();
   CheckUnique<TypeParam, T>(type, values, {}, uniques, {});
   CheckValueCounts<TypeParam, T>(type, values, {}, uniques, {}, counts);
   CheckDictEncode<TypeParam, T>(type, values, {}, uniques, {}, indices);
@@ -364,7 +432,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BinaryArrowTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();
@@ -570,10 +638,55 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {}, {0, 0, 1, 0, 2});
 }
 
+TEST_F(TestHashKernel, UniqueIntervalMonth) {
+  CheckUnique<MonthIntervalType, int32_t>(month_interval(), {2, 1, 2, 1},
+                                          {true, false, true, true}, {2, 0, 1},
+                                          {true, false, true});
+
+  CheckUnique<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+      day_time_interval(), {{2, 1}, {3, 2}, {2, 1}, {1, 2}}, {true, false, true, true},
+      {{2, 1}, {1, 1}, {1, 2}}, {true, false, true});
+
+  CheckUnique<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+      month_day_nano_interval(), {{2, 1, 1}, {3, 2, 1}, {2, 1, 1}, {1, 2, 1}},
+      {true, false, true, true}, {{2, 1, 1}, {1, 1, 1}, {1, 2, 1}}, {true, false, true});
+}
+
+TEST_F(TestHashKernel, ValueCountsIntervalMonth) {
+  CheckValueCounts<MonthIntervalType, int32_t>(month_interval(), {2, 1, 2, 1},
+                                               {true, false, true, true}, {2, 0, 1},
+                                               {true, false, true}, {2, 1, 1});
+
+  CheckValueCounts<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+      day_time_interval(), {{2, 1}, {3, 2}, {2, 1}, {1, 2}}, {true, false, true, true},
+      {{2, 1}, {1, 1}, {1, 2}}, {true, false, true}, {2, 1, 1});
+
+  CheckValueCounts<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+      month_day_nano_interval(), {{2, 1, 1}, {3, 2, 1}, {2, 1, 1}, {1, 2, 1}},
+      {true, false, true, true}, {{2, 1, 1}, {1, 1, 1}, {1, 2, 1}}, {true, false, true},
+      {2, 1, 1});
+}
+
+TEST_F(TestHashKernel, DictEncodeIntervalMonth) {
+  CheckDictEncode<MonthIntervalType, int32_t>(month_interval(), {2, 2, 1, 2, 3},
+                                              {true, false, true, true, true}, {2, 1, 3},
+                                              {}, {0, 0, 1, 0, 2});
+
+  CheckDictEncode<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+      day_time_interval(), {{2, 1}, {2, 1}, {3, 2}, {2, 1}, {1, 2}},
+      {true, false, true, true, true}, {{2, 1}, {3, 2}, {1, 2}}, {}, {0, 0, 1, 0, 2});
+
+  CheckDictEncode<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+      month_day_nano_interval(), {{2, 1, 1}, {2, 1, 1}, {3, 2, 1}, {2, 1, 1}, {1, 2, 1}},
+      {true, false, true, true, true}, {{2, 1, 1}, {3, 2, 1}, {1, 2, 1}}, {},
+      {0, 0, 1, 0, 2});
+}
+
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
-  for (auto index_ty : {int8(), int16(), int32(), int64()}) {
+  auto dict_json = "[10, 20, 30, 40]";
+  auto dict = ArrayFromJSON(int64(), dict_json);
+  for (auto index_ty : IntTypes()) {
     auto indices = ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]");
-    auto dict = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
 
     auto dict_ty = dictionary(index_ty, int64());
 
@@ -585,6 +698,14 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
 
     auto ex_counts = ArrayFromJSON(int64(), "[3, 5, 4]");
     CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Empty array - executor never gives the kernel any batches,
+    // so result dictionary is empty
+    CheckUnique(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                DictArrayFromJSON(dict_ty, "[]", "[]"));
+    CheckValueCounts(DictArrayFromJSON(dict_ty, "[]", dict_json),
+                     DictArrayFromJSON(dict_ty, "[]", "[]"),
+                     ArrayFromJSON(int64(), "[]"));
 
     // Check chunked array
     auto chunked = *ChunkedArray::Make({input->Slice(0, 2), input->Slice(2)});

@@ -23,7 +23,8 @@ Using Arrow C++ in your own project
 ===================================
 
 This section assumes you already have the Arrow C++ libraries on your
-system, either after installing them using a package manager or after
+system, either after `installing them using a package manager
+<https://arrow.apache.org/install/>`_ or after
 :ref:`building them yourself <building-arrow-cpp>`.
 
 The recommended way to integrate the Arrow C++ libraries in your own
@@ -134,3 +135,55 @@ all available packages:
   * ``gandiva``
   * ``parquet``
   * ``plasma``
+
+A Note on Linking
+=================
+
+Some Arrow components have dependencies that you may want to use in your own
+project. Care must be taken to ensure that your project links the same version
+of these dependencies in the same way (statically or dynamically) as Arrow,
+else `ODR <https://en.wikipedia.org/wiki/One_Definition_Rule>`_ violations may
+result and your program may crash or silently corrupt data.
+
+In particular, Arrow Flight and its dependencies `Protocol Buffers (Protobuf)
+<https://developers.google.com/protocol-buffers/>`_ and `gRPC
+<https://grpc.io/>`_ are likely to cause issues. When using Arrow Flight, note
+the following guidelines:
+
+* If statically linking Arrow Flight, Protobuf and gRPC must also be statically
+  linked, and the same goes for dynamic linking.
+* Some platforms (e.g. Ubuntu 20.04 at the time of this writing) may ship a
+  version of Protobuf and/or gRPC that is not recent enough for Arrow
+  Flight. In that case, Arrow Flight bundles these dependencies, so care must
+  be taken not to mix the Arrow Flight library with the platform Protobuf/gRPC
+  libraries (as then you will have two versions of Protobuf and/or gRPC linked
+  into your application).
+
+It may be easiest to depend on a version of Arrow built from source, where you
+can control the source of each dependency and whether it is statically or
+dynamically linked. See :doc:`/developers/cpp/building` for instructions. Or
+alternatively, use Arrow from a package manager such as Conda or vcpkg which
+will manage consistent versions of Arrow and its dependencies.
+
+
+.. _download-timezone-database:
+
+Runtime Dependencies
+====================
+
+While Arrow uses the OS-provided timezone database on Linux and macOS, it
+requires a user-provided database on Windows. You must download and extract the
+text version of the IANA timezone database and add the Windows timezone mapping
+XML. To download, you can use the following batch script:
+
+.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
+   :language: batch
+   :start-after: @rem (Doc section: Download timezone database)
+   :end-before: @rem (Doc section: Download timezone database)
+
+By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
+but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
+
+   arrow::GlobalOptions options;
+   options.timezone_db_path = "path/to/tzdata";
+   ARROW_RETURN_NOT_OK(arrow::Initialize(options));

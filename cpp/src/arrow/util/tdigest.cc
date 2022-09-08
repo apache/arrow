@@ -26,10 +26,7 @@
 #include <vector>
 
 #include "arrow/status.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "arrow/util/math_constants.h"
 
 namespace arrow {
 namespace internal {

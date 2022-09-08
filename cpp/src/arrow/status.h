@@ -58,6 +58,15 @@
     ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
   } while (false)
 
+/// \brief Given `expr` and `warn_msg`; log `warn_msg` if `expr` is a non-ok status
+#define ARROW_WARN_NOT_OK(expr, warn_msg) \
+  do {                                    \
+    ::arrow::Status _s = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
+      _s.Warn(warn_msg);                  \
+    }                                     \
+  } while (false)
+
 #define RETURN_NOT_OK_ELSE(s, else_)                            \
   do {                                                          \
     ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
@@ -335,6 +344,9 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   Status WithMessage(Args&&... args) const {
     return FromArgs(code(), std::forward<Args>(args)...).WithDetail(detail());
   }
+
+  void Warn() const;
+  void Warn(const std::string& message) const;
 
   [[noreturn]] void Abort() const;
   [[noreturn]] void Abort(const std::string& message) const;

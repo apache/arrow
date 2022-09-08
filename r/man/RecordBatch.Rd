@@ -46,6 +46,7 @@ the following R6 methods that map onto the underlying C++ methods:
 \item \verb{$column(i)}: Extract an \code{Array} by integer position from the batch
 \item \verb{$column_name(i)}: Get a column's name by integer position
 \item \verb{$names()}: Get all column names (called by \code{names(batch)})
+\item \verb{$nbytes()}: Total number of bytes consumed by the elements of the record batch
 \item \verb{$RenameColumns(value)}: Set all column names (called by \code{names(batch) <- value})
 \item \verb{$GetColumnByName(name)}: Extract an \code{Array} by string name
 \item \verb{$RemoveColumn(i)}: Drops a column from the batch by integer position
@@ -80,7 +81,6 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 batch <- record_batch(name = rownames(mtcars), mtcars)
 dim(batch)
 dim(head(batch))
@@ -88,5 +88,4 @@ names(batch)
 batch$mpg
 batch[["cyl"]]
 as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-\dontshow{\}) # examplesIf}
 }

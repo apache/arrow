@@ -117,11 +117,8 @@ make_random_string_of_size <- function(size = 1) {
 }
 
 make_string_of_size <- function(size = 1) {
-  paste(rep(letters, length = 1000 * size), collapse = "")
+  paste(rep(letters, length.out = 1000 * size), collapse = "")
 }
-
-example_with_extra_metadata <- example_with_metadata
-attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
 
 example_with_logical_factors <- tibble::tibble(
   starting_a_fight = factor(c(FALSE, TRUE, TRUE, TRUE)),
@@ -134,6 +131,9 @@ example_with_logical_factors <- tibble::tibble(
     "hey buddy"
   )
 )
+
+example_with_extra_metadata <- example_with_metadata
+attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
 
 # The values in each column of this tibble are in ascending order. There are
 # some ties, so tests should use two or more columns to ensure deterministic
@@ -167,4 +167,25 @@ example_data_for_sorting <- tibble::tibble(
     "9999-12-31 23:59:59"
   )),
   grp = c(rep("A", 5), rep("B", 5))
+)
+
+# For Dataset tests
+first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+df1 <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[1:10],
+  fct = factor(LETTERS[1:10]),
+  ts = first_date + lubridate::days(1:10)
+)
+
+second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+df2 <- tibble::tibble(
+  int = 101:110,
+  dbl = c(as.numeric(51:59), NaN),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[10:1],
+  fct = factor(LETTERS[10:1]),
+  ts = second_date + lubridate::days(10:1)
 )

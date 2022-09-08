@@ -35,18 +35,66 @@
 #define IS_ASCII(x) (LEVELS(x) & ASCII_MASK)
 #define IS_UTF8(x) (LEVELS(x) & UTF8_MASK)
 
+// For context, see:
+// https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
+#define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
+#define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
+
+#if (R_VERSION < R_Version(3, 5, 0))
+#define LOGICAL_RO(x) ((const int*)LOGICAL(x))
+#define INTEGER_RO(x) ((const int*)INTEGER(x))
+#define REAL_RO(x) ((const double*)REAL(x))
+#define COMPLEX_RO(x) ((const Rcomplex*)COMPLEX(x))
+#define STRING_PTR_RO(x) ((const SEXP*)STRING_PTR(x))
+#define RAW_RO(x) ((const Rbyte*)RAW(x))
+#define DATAPTR_RO(x) ((const void*)STRING_PTR(x))
+#define DATAPTR(x) (void*)STRING_PTR(x)
+#endif
+
 namespace arrow {
 namespace r {
 
 template <typename T>
 struct Pointer {
   Pointer() : ptr_(new T()) {}
-  explicit Pointer(SEXP x)
-      : ptr_(reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]))) {}
+  explicit Pointer(SEXP x) {
+    if (TYPEOF(x) == EXTPTRSXP) {
+      ptr_ = (T*)R_ExternalPtrAddr(x);
+    } else if (TYPEOF(x) == STRSXP && Rf_length(x) == 1) {
+      // User passed a character representation of the pointer address
+      SEXP char0 = STRING_ELT(x, 0);
+      if (char0 == NA_STRING) {
+        cpp11::stop("Can't convert NA_character_ to pointer");
+      }
 
-  inline operator SEXP() const {
-    return Rf_ScalarReal(static_cast<double>(reinterpret_cast<uintptr_t>(ptr_)));
+      const char* input_chars = CHAR(char0);
+      char* endptr;
+      uint64_t ptr_value = strtoull(input_chars, &endptr, 0);
+      if (endptr != (input_chars + strlen(input_chars))) {
+        cpp11::stop("Can't parse '%s' as a 64-bit integer address", input_chars);
+      }
+
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
+    } else if (Rf_inherits(x, "integer64") && Rf_length(x) == 1) {
+      // User passed an integer64(1) of the pointer address
+      // an integer64 is a REALSXP under the hood, with the bytes
+      // of each double reinterpreted as an int64.
+      uint64_t ptr_value;
+      memcpy(&ptr_value, REAL(x), sizeof(uint64_t));
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(ptr_value));
+    } else if (TYPEOF(x) == RAWSXP && Rf_length(x) == sizeof(T*)) {
+      // User passed a raw(<pointer size>) with the literal bytes of the
+      // pointer.
+      memcpy(&ptr_, RAW(x), sizeof(T*));
+    } else if (TYPEOF(x) == REALSXP && Rf_length(x) == 1) {
+      // User passed a double(1) of the static-casted pointer address.
+      ptr_ = reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]));
+    } else {
+      cpp11::stop("Can't convert input object to pointer");
+    }
   }
+
+  inline operator SEXP() const { return R_MakeExternalPtr(ptr_, R_NilValue, R_NilValue); }
 
   inline operator T*() const { return ptr_; }
 
@@ -96,8 +144,14 @@ inline R_xlen_t r_string_size(SEXP s) {
 inline SEXP utf8_strings(SEXP x) {
   return cpp11::unwind_protect([x] {
     R_xlen_t n = XLENGTH(x);
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
+
+    // if `x` is an altrep of some sort, this will
+    // materialize upfront. That's usually better because
+    // the loop touches all strings
+    const SEXP* p_x = STRING_PTR_RO(x);
+
+    for (R_xlen_t i = 0; i < n; i++, ++p_x) {
+      SEXP s = *p_x;
       if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }
@@ -121,6 +175,7 @@ struct symbols {
   static SEXP arrow_attributes;
   static SEXP new_;
   static SEXP create;
+  static SEXP arrow;
 };
 
 struct data {
@@ -352,6 +407,12 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 }  // namespace r
 }  // namespace arrow
 
+struct r_vec_size {
+  explicit r_vec_size(R_xlen_t x) : value(x) {}
+
+  R_xlen_t value;
+};
+
 namespace cpp11 {
 
 template <typename T>
@@ -371,6 +432,15 @@ enable_if_enum<E, SEXP> as_sexp(E e) {
 template <typename T>
 SEXP as_sexp(const std::shared_ptr<T>& ptr) {
   return cpp11::to_r6<T>(ptr);
+}
+
+inline SEXP as_sexp(r_vec_size size) {
+  R_xlen_t x = size.value;
+  if (x > std::numeric_limits<int>::max()) {
+    return Rf_ScalarReal(x);
+  } else {
+    return Rf_ScalarInteger(x);
+  }
 }
 
 }  // namespace cpp11

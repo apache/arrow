@@ -23,11 +23,6 @@
 The Arrow C stream interface
 ============================
 
-.. warning::
-   This interface is experimental and may evolve based on feedback from
-   early users.  ABI stability is not guaranteed yet.  Feel free to
-   `contact us <https://arrow.apache.org/community/>`__.
-
 The C stream interface builds on the structures defined in the
 :ref:`C data interface <c-data-interface>` and combines them into a higher-level
 specification so as to ease the communication of streaming data within a single
@@ -45,6 +40,9 @@ Structure definition
 
 The C stream interface is defined by a single ``struct`` definition::
 
+   #ifndef ARROW_C_STREAM_INTERFACE
+   #define ARROW_C_STREAM_INTERFACE
+
    struct ArrowArrayStream {
      // Callbacks providing stream functionality
      int (*get_schema)(struct ArrowArrayStream*, struct ArrowSchema* out);
@@ -57,6 +55,15 @@ The C stream interface is defined by a single ``struct`` definition::
      // Opaque producer-specific data
      void* private_data;
    };
+
+   #endif  // ARROW_C_STREAM_INTERFACE
+
+.. note::
+   The canonical guard ``ARROW_C_STREAM_INTERFACE`` is meant to avoid
+   duplicate definitions if two projects copy the C data interface
+   definitions in their own headers, and a third-party project
+   includes from these two projects.  It is therefore important that
+   this guard is kept exactly as-is when these definitions are copied.
 
 The ArrowArrayStream structure
 ------------------------------
@@ -154,6 +161,12 @@ Stream lifetime
 Lifetime of the C stream is managed using a release callback with similar
 usage as in the :ref:`C data interface <c-data-interface-released>`.
 
+Thread safety
+-------------
+
+The stream source is not assumed to be thread-safe.  Consumers wanting to
+call ``get_next`` from several threads should ensure those calls are
+serialized.
 
 C consumer example
 ==================

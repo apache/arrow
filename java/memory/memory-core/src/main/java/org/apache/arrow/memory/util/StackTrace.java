@@ -30,9 +30,9 @@ public class StackTrace {
    * Constructor. Captures the current stack trace.
    */
   public StackTrace() {
-    // skip over the first element so that we don't include this constructor call
     final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-    stackTraceElements = Arrays.copyOfRange(stack, 1, stack.length - 1);
+    // Skip first two elements to remove getStackTrace/StackTrace.<init>
+    stackTraceElements = Arrays.copyOfRange(stack, 2, stack.length);
   }
 
   /**

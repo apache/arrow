@@ -17,9 +17,11 @@
 
 #include "arrow/testing/util.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <random>
+#include <sstream>
 
 #ifdef _WIN32
 // clang-format off
@@ -37,9 +39,10 @@
 #include <unistd.h>      // IWYU pragma: keep
 #endif
 
+#include "arrow/config.h"
 #include "arrow/table.h"
-#include "arrow/type.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
@@ -82,25 +85,6 @@ std::string random_string(int64_t n, uint32_t seed) {
   return s;
 }
 
-void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  pcg32_fast gen(seed);
-  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
-  const int32_t required_bytes = DecimalType::DecimalSize(precision);
-  constexpr int32_t byte_width = 16;
-  std::fill(out, out + byte_width * n, '\0');
-
-  for (int64_t i = 0; i < n; ++i, out += byte_width) {
-    std::generate(out, out + required_bytes,
-                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
-
-    // sign extend if the sign bit is set for the last byte generated
-    // 0b10000000 == 0x80 == 128
-    if ((out[required_bytes - 1] & '\x80') != 0) {
-      std::fill(out + required_bytes, out + byte_width, '\xFF');
-    }
-  }
-}
-
 void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }
@@ -124,6 +108,25 @@ Status GetTestResourceRoot(std::string* out) {
         "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
   *out = std::string(c_root);
+  return Status::OK();
+}
+
+util::optional<std::string> GetTestTimezoneDatabaseRoot() {
+  const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
+  if (!c_root) {
+    return util::optional<std::string>();
+  }
+  return util::make_optional(std::string(c_root));
+}
+
+Status InitTestTimezoneDatabase() {
+  auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
+  // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
+  if (!maybe_tzdata.has_value()) return Status::OK();
+
+  auto tzdata_path = std::string(maybe_tzdata.value());
+  arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
+  ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
 
@@ -177,6 +180,29 @@ int GetListenPort() {
 #endif
 
   return port;
+}
+
+std::string GetListenAddress() {
+  // Using GetListenPort() alone may still suffer from race conditions,
+  // so this function maximizes the chances of finding an available address
+  // by using a different loopback address every time (there are 2**24 of them).
+  std::stringstream ss;
+#ifndef __APPLE__
+  static std::atomic<uint32_t> next_addr{1U};     // start at "127.0.0.1"
+  const uint32_t addr = next_addr++ & 0xffffffU;  // keep bottom 24 bits
+  // Format loopback IPv4 address
+  ss << "127";
+  for (int shift = 16; shift >= 0; shift -= 8) {
+    const auto byte = (addr >> shift) & 0xFFU;
+    ss << "." << byte;
+  }
+#else
+  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  ss << "127.0.0.1";
+#endif
+  // Append port number
+  ss << ":" << GetListenPort();
+  return ss.str();
 }
 
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {

@@ -31,11 +31,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -45,6 +45,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
@@ -54,6 +55,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using compute::call;
@@ -74,14 +80,19 @@ using compute::or_;
 using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::TemporaryDir;
+
+/// \brief Assert a dataset produces data with the schema
+void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema> schema) {
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, ds->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(*table->schema(), *schema);
+}
 
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return internal::make_unique<FileSource>(std::move(buffer));
+    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -103,7 +114,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+      schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -126,16 +138,16 @@ class DatasetFixtureMixin : public ::testing::Test {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
-  void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
+  void AssertScanTaskEquals(RecordBatchReader* expected, RecordBatchGenerator batch_gen,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, task->Execute());
-    ARROW_EXPECT_OK(it.Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
-      std::shared_ptr<RecordBatch> lhs;
-      RETURN_NOT_OK(expected->ReadNext(&lhs));
-      EXPECT_NE(lhs, nullptr);
-      AssertBatchesEqual(*lhs, *rhs);
-      return Status::OK();
-    }));
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(
+        batch_gen, [expected](std::shared_ptr<RecordBatch> rhs) -> Status {
+          std::shared_ptr<RecordBatch> lhs;
+          RETURN_NOT_OK(expected->ReadNext(&lhs));
+          EXPECT_NE(lhs, nullptr);
+          AssertBatchesEqual(*lhs, *rhs);
+          return Status::OK();
+        }));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -154,12 +166,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_));
-
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
-      AssertScanTaskEquals(expected, task.get(), false);
-      return Status::OK();
-    }));
+    ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(options_));
+    AssertScanTaskEquals(expected, batch_gen);
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -225,10 +233,30 @@ class DatasetFixtureMixin : public ::testing::Test {
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
+    // ToVector does not work since EnumeratedRecordBatch is not comparable
+    std::vector<EnumeratedRecordBatch> batches;
+    for (;;) {
+      ASSERT_OK_AND_ASSIGN(auto batch, it.Next());
+      if (IsIterationEnd(batch)) break;
+      batches.push_back(std::move(batch));
+    }
+    std::sort(batches.begin(), batches.end(),
+              [](const EnumeratedRecordBatch& left,
+                 const EnumeratedRecordBatch& right) -> bool {
+                if (left.fragment.index < right.fragment.index) {
+                  return true;
+                }
+                if (left.fragment.index > right.fragment.index) {
+                  return false;
+                }
+                return left.record_batch.index < right.record_batch.index;
+              });
+
     int fragment_counter = 0;
     bool saw_last_fragment = false;
     int batch_counter = 0;
-    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+
+    for (const auto& batch : batches) {
       if (batch_counter == 0) {
         EXPECT_FALSE(saw_last_fragment);
       }
@@ -242,9 +270,7 @@ class DatasetFixtureMixin : public ::testing::Test {
       }
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
-      return Status::OK();
-    };
-    ARROW_EXPECT_OK(it.Visit(visitor));
+    }
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -269,7 +295,9 @@ class DatasetFixtureMixin : public ::testing::Test {
     schema_ = schema(std::move(fields));
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema_;
-    ASSERT_OK(SetProjection(options_.get(), schema_->field_names()));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::FromNames(schema_->field_names(), *schema_));
+    SetProjection(options_.get(), std::move(projection));
     SetFilter(literal(true));
   }
 
@@ -278,7 +306,10 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetProjectedColumns(std::vector<std::string> column_names) {
-    ASSERT_OK(SetProjection(options_.get(), std::move(column_names)));
+    ASSERT_OK_AND_ASSIGN(
+        auto projection,
+        ProjectionDescr::FromNames(std::move(column_names), *options_->dataset_schema));
+    SetProjection(options_.get(), std::move(projection));
   }
 
   std::shared_ptr<Schema> schema_;
@@ -290,7 +321,6 @@ class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
                                      public ::testing::WithParamInterface<P> {};
 
 struct TestFormatParams {
-  bool use_async;
   bool use_threads;
   int num_batches;
   int items_per_batch;
@@ -300,8 +330,8 @@ struct TestFormatParams {
   std::string ToString() const {
     // GTest requires this to be alphanumeric
     std::stringstream ss;
-    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
-       << num_batches << "b" << items_per_batch << "r";
+    ss << (use_threads ? "Threaded" : "Serial") << num_batches << "b" << items_per_batch
+       << "r";
     return ss.str();
   }
 
@@ -312,10 +342,8 @@ struct TestFormatParams {
 
   static std::vector<TestFormatParams> Values() {
     std::vector<TestFormatParams> values;
-    for (const bool async : std::vector<bool>{true, false}) {
-      for (const bool use_threads : std::vector<bool>{true, false}) {
-        values.push_back(TestFormatParams{async, use_threads, 16, 1024});
-      }
+    for (const bool use_threads : std::vector<bool>{true, false}) {
+      values.push_back(TestFormatParams{use_threads, 16, 1024});
     }
     return values;
   }
@@ -376,7 +404,9 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::Default(*opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
   }
 
   void SetFilter(compute::Expression filter) {
@@ -384,7 +414,21 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   void Project(std::vector<std::string> names) {
-    ASSERT_OK(SetProjection(opts_.get(), std::move(names)));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
+                                              std::move(names), *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
+  }
+
+  void ProjectNested(std::vector<std::string> names) {
+    std::vector<compute::Expression> exprs;
+    for (const auto& name : names) {
+      ASSERT_OK_AND_ASSIGN(auto ref, FieldRef::FromDotPath(name));
+      exprs.push_back(field_ref(ref));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto descr, ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
+                                                     *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(descr));
   }
 
   // Shared test cases
@@ -465,11 +509,15 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto format = format_;
     SetSchema(schema->fields());
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
-
     if (!options) options = format->DefaultWriteOptions();
-    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options, {}));
+
+    EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+    EXPECT_OK_AND_ASSIGN(auto writer,
+                         format->MakeWriter(sink, schema, options, {fs, "<buffer>"}));
     ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
-    ARROW_EXPECT_OK(writer->Finish());
+    auto fut = writer->Finish();
+    EXPECT_FINISHES(fut);
+    ARROW_EXPECT_OK(fut.status());
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
     return written;
   }
@@ -507,6 +555,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
     ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
+  void TestFragmentEquals() {
+    auto options = std::make_shared<ScanOptions>();
+    auto this_schema = schema({field("f64", float64())});
+    auto other_schema = schema({field("f32", float32())});
+    auto reader = this->GetRecordBatchReader(this_schema);
+    auto other_reader = this->GetRecordBatchReader(other_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto other_source = this->GetFileSource(other_reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    EXPECT_TRUE(fragment->Equals(*fragment));
+    auto other = this->MakeFragment(*other_source);
+    EXPECT_FALSE(fragment->Equals(*other));
+  }
 
  protected:
   std::shared_ptr<typename FormatHelper::FormatType> format_;
@@ -531,7 +593,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
                                                      FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
-    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
@@ -542,15 +603,9 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
     opts_->use_threads = GetParam().use_threads;
-    if (GetParam().use_async) {
-      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-      auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
-      return batch_it;
-    }
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
+    return batch_it;
   }
 
   // Shared test cases
@@ -564,6 +619,24 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     int64_t row_count = 0;
     for (auto maybe_batch : Batches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
+  // Ensure batch_size is respected
+  void TestScanBatchSize() {
+    constexpr int kBatchSize = 17;
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+    opts_->batch_size = kBatchSize;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      ASSERT_LE(batch->num_rows(), kBatchSize);
       row_count += batch->num_rows();
     }
     ASSERT_EQ(row_count, GetParam().expected_rows());
@@ -592,11 +665,109 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     for (auto maybe_batch : PhysicalBatches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
+      ASSERT_THAT(
+          batch->schema()->fields(),
+          ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
+          << "EXPECTED:\n"
+          << expected_schema->ToString() << "\nACTUAL:\n"
+          << batch->schema()->ToString();
     }
 
     ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanProjectedNested(bool fine_grained_selection = false) {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    auto struct1 = field("struct1", struct_({f32, i32}));
+    auto struct2 = field("struct2", struct_({f64, i64, struct1}));
+    this->SetSchema({struct1, struct2, f32, f64, i32, i64});
+    this->ProjectNested({".struct1.f32", ".struct2.struct1", ".struct2.struct1.f32"});
+    this->SetFilter(greater_equal(field_ref(FieldRef("struct2", "i64")), literal(0)));
+
+    std::shared_ptr<Schema> physical_schema;
+    if (fine_grained_selection) {
+      // Some formats, like Parquet, let you pluck only a part of a complex type
+      physical_schema = schema(
+          {field("struct1", struct_({f32})), field("struct2", struct_({i64, struct1}))});
+    } else {
+      // Otherwise, the entire top-level field is returned
+      physical_schema = schema({struct1, struct2});
+    }
+    std::shared_ptr<Schema> projected_schema = schema({
+        field(".struct1.f32", float32()),
+        field(".struct2.struct1", struct1->type()),
+        field(".struct2.struct1.f32", float32()),
+    });
+
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : Batches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        AssertSchemaEqual(*batch->schema(), *projected_schema, /*check_metadata=*/false);
+      }
+      ASSERT_LE(row_count, expected_rows());
+      ASSERT_GT(row_count, 0);
+    }
+    {
+      // File includes a duplicated name in struct2
+      auto struct2_physical = field("struct2", struct_({f64, i64, struct1, i64}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1, struct2_physical, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      auto iterator = PhysicalBatches(fragment);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("i64"),
+                                      iterator.Next().status());
+    }
+    {
+      // File is missing a child in struct1
+      auto struct1_physical = field("struct1", struct_({i32}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1_physical, struct2, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      physical_schema = schema({physical_schema->field(1)});
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
   }
   void TestScanProjectedMissingCols() {
     auto f32 = field("f32", float32());
@@ -636,8 +807,12 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       for (auto maybe_batch : PhysicalBatches(fragment)) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         row_count += batch->num_rows();
-        AssertSchemaEqual(*batch->schema(), *expected_schema,
-                          /*check_metadata=*/false);
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
+            << "EXPECTED:\n"
+            << expected_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
       }
       ASSERT_EQ(row_count, expected_rows());
     }
@@ -670,6 +845,57 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       ASSERT_EQ(row_count, expected_rows());
     }
   }
+  void TestScanWithDuplicateColumn() {
+    // A duplicate column is ignored if not requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    this->Project({"i64"});
+    auto expected_schema = schema({i64});
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanWithDuplicateColumnError() {
+    // A duplicate column leads to an error if requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    ASSERT_RAISES(Invalid,
+                  ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
+  }
+  void TestScanWithPushdownNulls() {
+    // Regression test for ARROW-15312
+    auto i64 = field("i64", int64());
+    this->SetSchema({i64});
+    this->SetFilter(is_null(field_ref("i64")));
+
+    auto rb = RecordBatchFromJSON(schema({i64}), R"([
+      [null],
+      [32]
+    ])");
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({rb}));
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, 1);
+  }
 
  protected:
   using FileFormatFixtureMixin<FormatHelper>::opts_;
@@ -694,11 +920,11 @@ class DummyFileFormat : public FileFormat {
     return schema_;
   }
 
-  /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(
+  /// \brief Open a file for scanning (always returns an empty generator)
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
-    return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -735,8 +961,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     return resolver_(source);
   }
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
@@ -745,8 +970,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
 
     RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
-    return std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches))
-        ->Scan(std::move(options));
+    return MakeVectorGenerator(std::move(batches));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -821,13 +1045,11 @@ struct MakeFileSystemDatasetMixin {
         continue;
       }
 
-      ASSERT_OK_AND_ASSIGN(partitions[i], partitions[i].Bind(*s));
       ASSERT_OK_AND_ASSIGN(auto fragment,
                            format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 
-    ASSERT_OK_AND_ASSIGN(root_partition, root_partition.Bind(*s));
     ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format, fs_,
                                                            std::move(fragments)));
   }
@@ -840,7 +1062,7 @@ struct MakeFileSystemDatasetMixin {
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
   EXPECT_THAT(fragment->type_name(), "dummy");
-  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+  return checked_cast<const FileFragment&>(*fragment).source().path();
 }
 
 class TestFileSystemDataset : public ::testing::Test,
@@ -854,7 +1076,7 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
 
 void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
@@ -878,9 +1100,6 @@ static std::vector<compute::Expression> PartitionExpressionsOf(
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
                                              std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
-  for (auto& expr : expected) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
-  }
   // Ordering is not guaranteed.
   EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
               testing::UnorderedElementsAreArray(expected));
@@ -1030,7 +1249,10 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
     scan_options_ = std::make_shared<ScanOptions>();
     scan_options_->dataset_schema = dataset_->schema();
-    ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
+    ASSERT_OK_AND_ASSIGN(
+        auto projection,
+        ProjectionDescr::FromNames(source_schema_->field_names(), *dataset_->schema()));
+    SetProjection(scan_options_.get(), std::move(projection));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
@@ -1067,24 +1289,24 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {"year", "month"})));
 
     expected_files_["/new_root/2018/1/dat_0"] = R"([
-        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
-        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
-        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
-        {"region": "QC", "model": "S", "sales": 978, "country": "CA"},
-        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
         {"region": "QC", "model": "X", "sales": 1.0, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"}
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
+        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 978, "country": "CA"}
       ])";
-    expected_files_["/new_root/2019/1/dat_1"] = R"([
-        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"},
-        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
-        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+    expected_files_["/new_root/2019/1/dat_0"] = R"([
         {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
         {"region": "CA", "model": "Y", "sales": 21, "country": "US"},
-        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"},
         {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
-        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"}
       ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"region", "model", "sales", "country"});
@@ -1099,27 +1321,27 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/US/NY/dat_0"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
         {"year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"year": 2018, "month": 1, "model": "X", "sales": 136.25}
-  ])";
-    expected_files_["/new_root/CA/QC/dat_1"] = R"([
-        {"year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"year": 2018, "month": 1, "model": "S", "sales": 978},
+        {"year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"year": 2018, "month": 1, "model": "3", "sales": 742.0}
+    ])";
+    expected_files_["/new_root/CA/QC/dat_0"] = R"([
         {"year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
         {"year": 2019, "month": 1, "model": "S", "sales": 10},
-        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
-    expected_files_["/new_root/US/CA/dat_2"] = R"([
-        {"year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
+    expected_files_["/new_root/US/CA/dat_0"] = R"([
         {"year": 2019, "month": 1, "model": "S", "sales": 13},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 21},
         {"year": 2019, "month": 1, "model": "X", "sales": 54},
-        {"year": 2019, "month": 1, "model": "Y", "sales": 21}
-  ])";
+        {"year": 2019, "month": 1, "model": "3", "sales": 273.5}
+    ])";
     expected_physical_schema_ =
         SchemaFromColumnNames(source_schema_, {"model", "sales", "year", "month"});
 
@@ -1133,29 +1355,29 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
     expected_files_["/new_root/2018/1/US/NY/dat_0"] = R"([
-        {"model": "3", "sales": 742.0},
-        {"model": "S", "sales": 304.125},
         {"model": "Y", "sales": 27.5},
-        {"model": "X", "sales": 136.25}
-  ])";
-    expected_files_["/new_root/2018/1/CA/QC/dat_1"] = R"([
-        {"model": "3", "sales": 512},
-        {"model": "S", "sales": 978},
+        {"model": "X", "sales": 136.25},
+        {"model": "S", "sales": 304.125},
+        {"model": "3", "sales": 742.0}
+    ])";
+    expected_files_["/new_root/2018/1/CA/QC/dat_0"] = R"([
         {"model": "X", "sales": 1.0},
-        {"model": "Y", "sales": 69}
-  ])";
-    expected_files_["/new_root/2019/1/US/CA/dat_2"] = R"([
-        {"model": "3", "sales": 273.5},
+        {"model": "Y", "sales": 69},
+        {"model": "3", "sales": 512},
+        {"model": "S", "sales": 978}
+    ])";
+    expected_files_["/new_root/2019/1/US/CA/dat_0"] = R"([
         {"model": "S", "sales": 13},
+        {"model": "Y", "sales": 21},
         {"model": "X", "sales": 54},
-        {"model": "Y", "sales": 21}
-  ])";
-    expected_files_["/new_root/2019/1/CA/QC/dat_3"] = R"([
+        {"model": "3", "sales": 273.5}
+    ])";
+    expected_files_["/new_root/2019/1/CA/QC/dat_0"] = R"([
         {"model": "S", "sales": 10},
-        {"model": "3", "sales": 152.25},
+        {"model": "Y", "sales": 37},
         {"model": "X", "sales": 42},
-        {"model": "Y", "sales": 37}
-  ])";
+        {"model": "3", "sales": 152.25}
+    ])";
     expected_physical_schema_ = SchemaFromColumnNames(source_schema_, {"model", "sales"});
 
     AssertWrittenAsExpected();
@@ -1166,23 +1388,23 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         SchemaFromColumnNames(source_schema_, {})));
 
     expected_files_["/new_root/dat_0"] = R"([
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978},
-        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
         {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "X", "sales": 1.0},
-        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
-        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "S", "sales": 10},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
         {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "Y", "sales": 21},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37},
         {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "X", "sales": 42},
-        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37}
-  ])";
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978}
+    ])";
     expected_physical_schema_ = source_schema_;
 
     AssertWrittenAsExpected();
@@ -1230,7 +1452,14 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       for (auto maybe_batch :
            MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
+        ASSERT_OK_AND_ASSIGN(
+            auto sort_indices,
+            compute::SortIndices(batch->GetColumnByName("sales"),
+                                 compute::SortOptions({compute::SortKey{"sales"}})));
+        ASSERT_OK_AND_ASSIGN(Datum sorted_batch, compute::Take(batch, sort_indices));
+        ASSERT_OK_AND_ASSIGN(auto struct_array,
+                             sorted_batch.record_batch()->ToStructArray());
+        actual_struct = std::dynamic_pointer_cast<Array>(struct_array);
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),

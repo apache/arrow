@@ -35,9 +35,11 @@ Status ConvertToFile() {
   io::StdinStream input;
   io::StdoutStream sink;
 
+  IpcWriteOptions write_options;
+  write_options.emit_dictionary_deltas = true;
   ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(&input));
-  ARROW_ASSIGN_OR_RAISE(
-      auto writer, MakeFileWriter(&sink, reader->schema(), IpcWriteOptions::Defaults()));
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        MakeFileWriter(&sink, reader->schema(), write_options));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
     ARROW_ASSIGN_OR_RAISE(batch, reader->Next());

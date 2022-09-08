@@ -27,17 +27,18 @@ public class JniWrapper {
   private static final JniWrapper INSTANCE = new JniWrapper();
   
   public static JniWrapper get() {
+    JniLoader.get().ensureLoaded();
     return INSTANCE;
   }
 
   private JniWrapper() {
-    JniLoader.get().ensureLoaded();
   }
 
   /**
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
    * intermediate shared_ptr of the factory instance.
-   * @param uri file uri to read
+   *
+   * @param uri file uri to read, either a file or a directory
    * @param fileFormat file format ID
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
    * @see FileFormat

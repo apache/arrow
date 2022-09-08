@@ -14,48 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array // import "github.com/apache/arrow/go/arrow/array"
+package array
 
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
-// A type which satisfies array.Interface represents an immutable sequence of values.
-type Interface interface {
-	// DataType returns the type metadata for this instance.
-	DataType() arrow.DataType
+type arraymarshal interface {
+	arrow.Array
 
-	// NullN returns the number of null values in the array.
-	NullN() int
-
-	// NullBitmapBytes returns a byte slice of the validity bitmap.
-	NullBitmapBytes() []byte
-
-	// IsNull returns true if value at index is null.
-	// NOTE: IsNull will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
-	IsNull(i int) bool
-
-	// IsValid returns true if value at index is not null.
-	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
-	IsValid(i int) bool
-
-	Data() *Data
-
-	// Len returns the number of elements in the array.
-	Len() int
-
-	// Retain increases the reference count by 1.
-	// Retain may be called simultaneously from multiple goroutines.
-	Retain()
-
-	// Release decreases the reference count by 1.
-	// Release may be called simultaneously from multiple goroutines.
-	// When the reference count goes to zero, the memory is freed.
-	Release()
+	getOneForMarshal(i int) interface{}
 }
 
 const (
@@ -101,7 +73,7 @@ func (a *array) NullN() int {
 // NullBitmapBytes returns a byte slice of the validity bitmap.
 func (a *array) NullBitmapBytes() []byte { return a.nullBitmapBytes }
 
-func (a *array) Data() *Data { return a.data }
+func (a *array) Data() arrow.ArrayData { return a.data }
 
 // Len returns the number of elements in the array.
 func (a *array) Len() int { return a.data.length }
@@ -136,23 +108,19 @@ func (a *array) Offset() int {
 	return a.data.Offset()
 }
 
-type arrayConstructorFn func(*Data) Interface
+type arrayConstructorFn func(arrow.ArrayData) arrow.Array
 
 var (
-	makeArrayFn [32]arrayConstructorFn
+	makeArrayFn [64]arrayConstructorFn
 )
 
-func unsupportedArrayType(data *Data) Interface {
-	panic("unsupported data type: " + data.dtype.ID().String())
-}
-
-func invalidDataType(data *Data) Interface {
-	panic("invalid data type: " + data.dtype.ID().String())
+func invalidDataType(data arrow.ArrayData) arrow.Array {
+	panic("invalid data type: " + data.DataType().ID().String())
 }
 
 // MakeFromData constructs a strongly-typed array instance from generic Data.
-func MakeFromData(data *Data) Interface {
-	return makeArrayFn[byte(data.dtype.ID()&0x1f)](data)
+func MakeFromData(data arrow.ArrayData) arrow.Array {
+	return makeArrayFn[byte(data.DataType().ID()&0x3f)](data)
 }
 
 // NewSlice constructs a zero-copy slice of the array with the indicated
@@ -161,7 +129,7 @@ func MakeFromData(data *Data) Interface {
 //
 // NewSlice panics if the slice is outside the valid range of the input array.
 // NewSlice panics if j < i.
-func NewSlice(arr Interface, i, j int64) Interface {
+func NewSlice(arr arrow.Array, i, j int64) arrow.Array {
 	data := NewSliceData(arr.Data(), i, j)
 	slice := MakeFromData(data)
 	data.Release()
@@ -170,39 +138,47 @@ func NewSlice(arr Interface, i, j int64) Interface {
 
 func init() {
 	makeArrayFn = [...]arrayConstructorFn{
-		arrow.NULL:              func(data *Data) Interface { return NewNullData(data) },
-		arrow.BOOL:              func(data *Data) Interface { return NewBooleanData(data) },
-		arrow.UINT8:             func(data *Data) Interface { return NewUint8Data(data) },
-		arrow.INT8:              func(data *Data) Interface { return NewInt8Data(data) },
-		arrow.UINT16:            func(data *Data) Interface { return NewUint16Data(data) },
-		arrow.INT16:             func(data *Data) Interface { return NewInt16Data(data) },
-		arrow.UINT32:            func(data *Data) Interface { return NewUint32Data(data) },
-		arrow.INT32:             func(data *Data) Interface { return NewInt32Data(data) },
-		arrow.UINT64:            func(data *Data) Interface { return NewUint64Data(data) },
-		arrow.INT64:             func(data *Data) Interface { return NewInt64Data(data) },
-		arrow.FLOAT16:           func(data *Data) Interface { return NewFloat16Data(data) },
-		arrow.FLOAT32:           func(data *Data) Interface { return NewFloat32Data(data) },
-		arrow.FLOAT64:           func(data *Data) Interface { return NewFloat64Data(data) },
-		arrow.STRING:            func(data *Data) Interface { return NewStringData(data) },
-		arrow.BINARY:            func(data *Data) Interface { return NewBinaryData(data) },
-		arrow.FIXED_SIZE_BINARY: func(data *Data) Interface { return NewFixedSizeBinaryData(data) },
-		arrow.DATE32:            func(data *Data) Interface { return NewDate32Data(data) },
-		arrow.DATE64:            func(data *Data) Interface { return NewDate64Data(data) },
-		arrow.TIMESTAMP:         func(data *Data) Interface { return NewTimestampData(data) },
-		arrow.TIME32:            func(data *Data) Interface { return NewTime32Data(data) },
-		arrow.TIME64:            func(data *Data) Interface { return NewTime64Data(data) },
-		arrow.INTERVAL:          func(data *Data) Interface { return NewIntervalData(data) },
-		arrow.DECIMAL:           func(data *Data) Interface { return NewDecimal128Data(data) },
-		arrow.LIST:              func(data *Data) Interface { return NewListData(data) },
-		arrow.STRUCT:            func(data *Data) Interface { return NewStructData(data) },
-		arrow.UNION:             unsupportedArrayType,
-		arrow.DICTIONARY:        unsupportedArrayType,
-		arrow.MAP:               func(data *Data) Interface { return NewMapData(data) },
-		arrow.EXTENSION:         func(data *Data) Interface { return NewExtensionData(data) },
-		arrow.FIXED_SIZE_LIST:   func(data *Data) Interface { return NewFixedSizeListData(data) },
-		arrow.DURATION:          func(data *Data) Interface { return NewDurationData(data) },
+		arrow.NULL:                    func(data arrow.ArrayData) arrow.Array { return NewNullData(data) },
+		arrow.BOOL:                    func(data arrow.ArrayData) arrow.Array { return NewBooleanData(data) },
+		arrow.UINT8:                   func(data arrow.ArrayData) arrow.Array { return NewUint8Data(data) },
+		arrow.INT8:                    func(data arrow.ArrayData) arrow.Array { return NewInt8Data(data) },
+		arrow.UINT16:                  func(data arrow.ArrayData) arrow.Array { return NewUint16Data(data) },
+		arrow.INT16:                   func(data arrow.ArrayData) arrow.Array { return NewInt16Data(data) },
+		arrow.UINT32:                  func(data arrow.ArrayData) arrow.Array { return NewUint32Data(data) },
+		arrow.INT32:                   func(data arrow.ArrayData) arrow.Array { return NewInt32Data(data) },
+		arrow.UINT64:                  func(data arrow.ArrayData) arrow.Array { return NewUint64Data(data) },
+		arrow.INT64:                   func(data arrow.ArrayData) arrow.Array { return NewInt64Data(data) },
+		arrow.FLOAT16:                 func(data arrow.ArrayData) arrow.Array { return NewFloat16Data(data) },
+		arrow.FLOAT32:                 func(data arrow.ArrayData) arrow.Array { return NewFloat32Data(data) },
+		arrow.FLOAT64:                 func(data arrow.ArrayData) arrow.Array { return NewFloat64Data(data) },
+		arrow.STRING:                  func(data arrow.ArrayData) arrow.Array { return NewStringData(data) },
+		arrow.BINARY:                  func(data arrow.ArrayData) arrow.Array { return NewBinaryData(data) },
+		arrow.FIXED_SIZE_BINARY:       func(data arrow.ArrayData) arrow.Array { return NewFixedSizeBinaryData(data) },
+		arrow.DATE32:                  func(data arrow.ArrayData) arrow.Array { return NewDate32Data(data) },
+		arrow.DATE64:                  func(data arrow.ArrayData) arrow.Array { return NewDate64Data(data) },
+		arrow.TIMESTAMP:               func(data arrow.ArrayData) arrow.Array { return NewTimestampData(data) },
+		arrow.TIME32:                  func(data arrow.ArrayData) arrow.Array { return NewTime32Data(data) },
+		arrow.TIME64:                  func(data arrow.ArrayData) arrow.Array { return NewTime64Data(data) },
+		arrow.INTERVAL_MONTHS:         func(data arrow.ArrayData) arrow.Array { return NewMonthIntervalData(data) },
+		arrow.INTERVAL_DAY_TIME:       func(data arrow.ArrayData) arrow.Array { return NewDayTimeIntervalData(data) },
+		arrow.DECIMAL128:              func(data arrow.ArrayData) arrow.Array { return NewDecimal128Data(data) },
+		arrow.DECIMAL256:              func(data arrow.ArrayData) arrow.Array { return NewDecimal256Data(data) },
+		arrow.LIST:                    func(data arrow.ArrayData) arrow.Array { return NewListData(data) },
+		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
+		arrow.SPARSE_UNION:            func(data arrow.ArrayData) arrow.Array { return NewSparseUnionData(data) },
+		arrow.DENSE_UNION:             func(data arrow.ArrayData) arrow.Array { return NewDenseUnionData(data) },
+		arrow.DICTIONARY:              func(data arrow.ArrayData) arrow.Array { return NewDictionaryData(data) },
+		arrow.MAP:                     func(data arrow.ArrayData) arrow.Array { return NewMapData(data) },
+		arrow.EXTENSION:               func(data arrow.ArrayData) arrow.Array { return NewExtensionData(data) },
+		arrow.FIXED_SIZE_LIST:         func(data arrow.ArrayData) arrow.Array { return NewFixedSizeListData(data) },
+		arrow.DURATION:                func(data arrow.ArrayData) arrow.Array { return NewDurationData(data) },
+		arrow.LARGE_STRING:            func(data arrow.ArrayData) arrow.Array { return NewLargeStringData(data) },
+		arrow.LARGE_BINARY:            func(data arrow.ArrayData) arrow.Array { return NewLargeBinaryData(data) },
+		arrow.LARGE_LIST:              func(data arrow.ArrayData) arrow.Array { return NewLargeListData(data) },
+		arrow.INTERVAL:                func(data arrow.ArrayData) arrow.Array { return NewIntervalData(data) },
+		arrow.INTERVAL_MONTH_DAY_NANO: func(data arrow.ArrayData) arrow.Array { return NewMonthDayNanoIntervalData(data) },
 
-		// invalid data types to fill out array size 2⁵-1
-		31: invalidDataType,
+		// invalid data types to fill out array to size 2^6 - 1
+		63: invalidDataType,
 	}
 }

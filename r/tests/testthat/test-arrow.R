@@ -15,14 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("General checks")
-
-if (identical(tolower(Sys.getenv("TEST_R_WITH_ARROW")), "true")) {
-  testthat::test_that("Arrow C++ is available", {
-    expect_true(arrow_available())
-  })
-}
-
 test_that("Can't $new() an object with anything other than a pointer", {
   expect_error(
     Array$new(1:5),
@@ -31,21 +23,19 @@ test_that("Can't $new() an object with anything other than a pointer", {
   )
 })
 
-r_only({
-  test_that("assert_is", {
-    x <- 42
-    expect_true(assert_is(x, "numeric"))
-    expect_true(assert_is(x, c("numeric", "character")))
-    expect_error(assert_is(x, "factor"), 'x must be a "factor"')
-    expect_error(
-      assert_is(x, c("factor", "list")),
-      'x must be a "factor" or "list"'
-    )
-    expect_error(
-      assert_is(x, c("factor", "character", "list")),
-      'x must be a "factor", "character", or "list"'
-    )
-  })
+test_that("assert_is", {
+  x <- 42
+  expect_true(assert_is(x, "numeric"))
+  expect_true(assert_is(x, c("numeric", "character")))
+  expect_error(assert_is(x, "factor"), 'x must be a "factor"')
+  expect_error(
+    assert_is(x, c("factor", "list")),
+    'x must be a "factor" or "list"'
+  )
+  expect_error(
+    assert_is(x, c("factor", "character", "list")),
+    'x must be a "factor", "character", or "list"'
+  )
 })
 
 test_that("arrow gracefully fails to load objects from other sessions (ARROW-10071)", {
@@ -65,13 +55,13 @@ test_that("check for an ArrowObject in functions use std::shared_ptr", {
 test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-10080)", {
   # There is a valgrind error on this test because there cannot be memory allocated
   # which is exactly what this test is checking, but we quiet this
-  skip_on_valgrind()
+  skip_on_linux_devel()
 
   env <- new.env()
-  trace(gc, print = FALSE, tracer = function() {
+  suppressMessages(trace(gc, print = FALSE, tracer = function() {
     env$gc_was_called <- TRUE
-  })
-  on.exit(untrace(gc))
+  }))
+  on.exit(suppressMessages(untrace(gc)))
   # We expect this should fail because we don't have this much memory,
   # but it should gc() and retry (and fail again)
   expect_error(BufferOutputStream$create(2**60))

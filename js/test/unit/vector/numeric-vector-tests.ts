@@ -19,71 +19,52 @@
 
 import {
     util,
-    Data, Vector,
+    Vector, makeVector, vectorFromArray, makeData,
     Float, Float16, Float32, Float64,
-    Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
-    FloatVector, Float16Vector, Float32Vector, Float64Vector,
-    IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector,
-    Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
+    Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, DataType
 } from 'apache-arrow';
+import type {
+    TypedArray,
+    TypedArrayConstructor,
+    BigIntArray,
+    BigIntArrayConstructor
+} from 'apache-arrow/interfaces';
 
-const { float64ToUint16, uint16ToFloat64 } = util;
-import { VectorType as V } from 'apache-arrow/interfaces';
-import { TypedArray, TypedArrayConstructor } from 'apache-arrow/interfaces';
-import { BigIntArray, BigIntArrayConstructor } from 'apache-arrow/interfaces';
+const { joinUint8Arrays, float64ToUint16, uint16ToFloat64 } = util;
 
-const { joinUint8Arrays, BN } = util;
-const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(uint16ToFloat64));
+const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(x => uint16ToFloat64(x)));
 const randomBytes = (n: number) => new Uint16Array([
-    ...Uint16Array.from([0, 65535]),
-    ...Uint16Array.from({ length: (n / 2) - 2 }, () => (Math.random() * 65536) | 0),
+    ...Uint16Array.from([0, 65_535]),
+    ...Uint16Array.from({ length: (n / 2) - 2 }, () => Math.trunc(Math.random() * 65_536)),
 ]).buffer;
-const toBigNumsArray = (values: Int32Array | Uint32Array) => {
-    const array = new Array(values.length * 0.5);
-    for (let i = -1, n = values.length * 0.5; ++i < n;) {
-        array[i] = BN.new(values.subarray(i * 2, i * 2 + 2))[Symbol.toPrimitive]();
-    }
-    return array;
-};
 
 const testValueBuffers = Array.from({ length: 5 }, () => randomBytes(64));
 const testValuesBuffer = joinUint8Arrays(testValueBuffers.map((b) => new Uint8Array(b)))[0].buffer;
 
-const checkType = <T, R extends T>(Ctor: new (...args: any) => T, inst: R) => expect(inst).toBeInstanceOf(Ctor);
+const checkDtype = <T extends DataType>(Ctor: new (...args: any) => T, v: Vector<T>) => expect(v.type).toBeInstanceOf(Ctor);
 const valuesArray = <T extends TypedArray>(ArrayType: TypedArrayConstructor<T>) => [...valuesTyped<T>(ArrayType)];
-const valuesArray64 = <T extends TypedArray>(ArrayType: TypedArrayConstructor<T>) => {
-    const typed = valuesTyped<T>(ArrayType);
-    const array = new Array(typed.length * 0.5);
-    for (let i = -1, n = array.length; ++i < n;) {
-        // Interleave regular Arrays and TypedArrays to cover more surface area
-        array[i] = i % 2 === 0
-            ? [...typed.subarray(i * 2, (i + 1) * 2)]
-            : typed.subarray(i * 2, (i + 1) * 2);
-    }
-    return array;
-};
 const valuesTyped = <T extends TypedArray>(ArrayType: TypedArrayConstructor<T>) => new ArrayType(testValuesBuffer);
 const bigIntValuesTyped = <T extends BigIntArray>(ArrayType: BigIntArrayConstructor<T>) => new ArrayType(testValuesBuffer);
 const bigIntValuesArray = <T extends BigIntArray>(ArrayType: BigIntArrayConstructor<T>) => [...bigIntValuesTyped<T>(ArrayType)];
 
 describe(`FloatVector`, () => {
 
-    describe(`FloatVector.from infers the type from the input TypedArray`, () => {
+    describe(`makeVector infers the type from the input TypedArray`, () => {
 
         const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-        const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
+        const f16s = valuesArray(Uint16Array).map(x => uint16ToFloat64(x));
         const f32s = valuesTyped(Float32Array);
         const f64s = valuesTyped(Float64Array);
-        const f16Vec = FloatVector.from(u16s);
-        const f32Vec = FloatVector.from(valuesTyped(Float32Array));
-        const f64Vec = FloatVector.from(valuesTyped(Float64Array));
+        const f16Vec = new Vector([makeData({ type: new Float16, data: u16s })]);
+        const f32Vec = makeVector(valuesTyped(Float32Array));
+        const f64Vec = makeVector(valuesTyped(Float64Array));
 
         // test strong typing at compile-time
-        test(`return type is correct`, () => checkType(Float16Vector, f16Vec));
-        test(`return type is correct`, () => checkType(Float32Vector, f32Vec));
-        test(`return type is correct`, () => checkType(Float64Vector, f64Vec));
+        test(`return type is correct`, () => checkDtype(Float16, f16Vec));
+        test(`return type is correct`, () => checkDtype(Float32, f32Vec));
+        test(`return type is correct`, () => checkDtype(Float64, f64Vec));
         test(`throws on bad input`, () => {
-            expect(() => FloatVector.from(<any> {})).toThrow('Unrecognized FloatVector input');
+            expect(() => makeVector(<any>{})).toThrow('Unrecognized input');
         });
 
         testAndValidateVector(f16Vec, u16s, f16s);
@@ -91,248 +72,163 @@ describe(`FloatVector`, () => {
         testAndValidateVector(f64Vec, f64s);
     });
 
-    describe(`FloatVector.from casts the input values to the correct float type`, () => {
-
-        const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-        const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
-        const f16Vec_ = FloatVector.from(u16s);
-
-        const f16Vec = Float16Vector.from(f16Vec_);
-        const f32Vec = Float32Vector.from(f16Vec_);
-        const f64Vec = Float64Vector.from(f16Vec_);
-
-        // test strong typing at compile-time
-        test(`return type is correct`, () => checkType(Float16Vector, f16Vec));
-        test(`return type is correct`, () => checkType(Float32Vector, f32Vec));
-        test(`return type is correct`, () => checkType(Float64Vector, f64Vec));
-
-        testAndValidateVector(f16Vec, u16s, f16s);
-        testAndValidateVector(f32Vec, Float32Array.from(f16s));
-        testAndValidateVector(f64Vec, Float64Array.from(f16s));
-    });
-
-    describe(`Float16Vector`, () => {
-        testFloatVector(Float16, valuesArray(Uint16Array).map(uint16ToFloat64));
-        describe(`Float16Vector.from accepts regular Arrays`, () => {
+    describe(`Vector<Float16>`, () => {
+        testFloatVector(Float16, valuesArray(Uint16Array).map(x => uint16ToFloat64(x)));
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Float16>`, () => {
             const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-            const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
-            const vector = Float16Vector.from(f16s);
-            test(`return type is correct`, () => checkType(Float16Vector, vector));
+            const f16s = valuesArray(Uint16Array).map(x => uint16ToFloat64(x));
+            const vector = vectorFromArray(f16s, new Float16);
             testAndValidateVector(vector, u16s, f16s);
-        });
-        describe(`Float16Vector.from accepts Uint16Arrays`, () => {
-            const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-            const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
-            const vector = Float16Vector.from(u16s);
-            test(`return type is correct`, () => checkType(Float16Vector, vector));
-            testAndValidateVector(vector, u16s, f16s);
+            test(`return type is correct`, () => checkDtype(Float16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
-    describe(`Float32Vector`, () => {
+    describe(`Vector<Float32>`, () => {
         testFloatVector(Float32);
-        describe(`Float32Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Float32>`, () => {
             const values = valuesArray(Float32Array);
-            const vector = Float32Vector.from(values);
+            const vector = vectorFromArray(values, new Float32);
             testAndValidateVector(vector, valuesTyped(Float32Array), values);
-            test(`return type is correct`, () => checkType(Float32Vector, vector));
+            test(`return type is correct`, () => checkDtype(Float32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
-    describe(`Float64Vector`, () => {
+    describe(`Vector<Float64>`, () => {
         testFloatVector(Float64);
-        describe(`Float64Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Float64>`, () => {
             const values = valuesArray(Float64Array);
-            const vector = Float64Vector.from(values);
+            const vector = vectorFromArray(values);
             testAndValidateVector(vector, valuesTyped(Float64Array), values);
-            test(`return type is correct`, () => checkType(Float64Vector, vector));
+            test(`return type is correct`, () => checkDtype(Float64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
 });
 
 describe(`IntVector`, () => {
 
-    describe(`IntVector.from infers the type from the input TypedArray`, () => {
+    describe(`makeVector infers the type from the input TypedArray`, () => {
 
         const i8s = valuesTyped(Int8Array);
         const i16s = valuesTyped(Int16Array);
         const i32s = valuesTyped(Int32Array);
-        const i64s = valuesTyped(Int32Array);
+        const i64s = bigIntValuesTyped(BigInt64Array);
         const u8s = valuesTyped(Uint8Array);
         const u16s = valuesTyped(Uint16Array);
         const u32s = valuesTyped(Uint32Array);
-        const u64s = valuesTyped(Uint32Array);
-        const i8Vec = IntVector.from(i8s);
-        const i16Vec = IntVector.from(i16s);
-        const i32Vec = IntVector.from(i32s);
-        const i64Vec = IntVector.from(i64s, true);
-        const u8Vec = IntVector.from(u8s);
-        const u16Vec = IntVector.from(u16s);
-        const u32Vec = IntVector.from(u32s);
-        const u64Vec = IntVector.from(u64s, true);
+        const u64s = bigIntValuesTyped(BigUint64Array);
+        const i8Vec = makeVector(i8s);
+        const i16Vec = makeVector(i16s);
+        const i32Vec = makeVector(i32s);
+        const i64Vec = makeVector(i64s);
+        const u8Vec = makeVector(u8s);
+        const u16Vec = makeVector(u16s);
+        const u32Vec = makeVector(u32s);
+        const u64Vec = makeVector(u64s);
 
         // test strong typing at compile-time
-        test(`return type is correct`, () => checkType(Int8Vector, i8Vec));
-        test(`return type is correct`, () => checkType(Int16Vector, i16Vec));
-        test(`return type is correct`, () => checkType(Int32Vector, i32Vec));
-        test(`return type is correct`, () => checkType(Int64Vector, i64Vec));
-        test(`return type is correct`, () => checkType(Uint8Vector, u8Vec));
-        test(`return type is correct`, () => checkType(Uint16Vector, u16Vec));
-        test(`return type is correct`, () => checkType(Uint32Vector, u32Vec));
-        test(`return type is correct`, () => checkType(Uint64Vector, u64Vec));
+        test(`return type is correct`, () => checkDtype(Int8, i8Vec));
+        test(`return type is correct`, () => checkDtype(Int16, i16Vec));
+        test(`return type is correct`, () => checkDtype(Int32, i32Vec));
+        test(`return type is correct`, () => checkDtype(Int64, i64Vec));
+        test(`return type is correct`, () => checkDtype(Uint8, u8Vec));
+        test(`return type is correct`, () => checkDtype(Uint16, u16Vec));
+        test(`return type is correct`, () => checkDtype(Uint32, u32Vec));
+        test(`return type is correct`, () => checkDtype(Uint64, u64Vec));
         test(`throws on bad input`, () => {
-            expect(() => IntVector.from(<any> {})).toThrow('Unrecognized IntVector input');
+            expect(() => makeVector(<any>{})).toThrow('Unrecognized input');
         });
-
-        const bigI64s = BigInt64Array.from(toBigNumsArray(i64s));
-        const bigU64s = BigUint64Array.from(toBigNumsArray(u64s));
 
         testAndValidateVector(i8Vec, i8s);
         testAndValidateVector(i16Vec, i16s);
         testAndValidateVector(i32Vec, i32s);
-        // This tests when values are represented as pairs of lo, hi
         testAndValidateVector(i64Vec, i64s);
-        // This tests when values are represented as native JS bigints
-        testAndValidateVector(i64Vec, i64s, [...bigI64s]);
         testAndValidateVector(u8Vec, u8s);
         testAndValidateVector(u16Vec, u16s);
         testAndValidateVector(u32Vec, u32s);
-        // This tests when values are represented as pairs of lo, hi
         testAndValidateVector(u64Vec, u64s);
-        // This tests when values are represented as native JS bigints
-        testAndValidateVector(u64Vec, u64s, [...bigU64s]);
     });
 
-    describe('IntVector.from casts the input values to the correct integer type', () => {
-
-        const i8s = valuesTyped(Int8Array);
-        const i16s = valuesTyped(Int16Array);
-        const i32s = valuesTyped(Int32Array);
-        const i64s = valuesTyped(Int32Array);
-        const u8s = valuesTyped(Uint8Array);
-        const u16s = valuesTyped(Uint16Array);
-        const u32s = valuesTyped(Uint32Array);
-        const u64s = valuesTyped(Uint32Array);
-        const i8Vec_ = IntVector.from(i8s);
-        const i16Vec_ = IntVector.from(i16s);
-        const i32Vec_ = IntVector.from(i32s);
-        const i64Vec_ = IntVector.from(i64s, true);
-        const u8Vec_ = IntVector.from(u8s);
-        const u16Vec_ = IntVector.from(u16s);
-        const u32Vec_ = IntVector.from(u32s);
-        const u64Vec_ = IntVector.from(u64s, true);
-
-        // Convert from a Vector of the opposite sign
-        const i8Vec = Int8Vector.from(u8Vec_);
-        const i16Vec = Int16Vector.from(u16Vec_);
-        const i32Vec = Int32Vector.from(u32Vec_);
-        const i64Vec = Int64Vector.from(u64Vec_);
-        const u8Vec = Uint8Vector.from(i8Vec_);
-        const u16Vec = Uint16Vector.from(i16Vec_);
-        const u32Vec = Uint32Vector.from(i32Vec_);
-        const u64Vec = Uint64Vector.from(i64Vec_);
-
-        // test strong typing at compile-time
-        test(`return type is correct`, () => checkType(Int8Vector, i8Vec));
-        test(`return type is correct`, () => checkType(Int16Vector, i16Vec));
-        test(`return type is correct`, () => checkType(Int32Vector, i32Vec));
-        test(`return type is correct`, () => checkType(Int64Vector, i64Vec));
-        test(`return type is correct`, () => checkType(Uint8Vector, u8Vec));
-        test(`return type is correct`, () => checkType(Uint16Vector, u16Vec));
-        test(`return type is correct`, () => checkType(Uint32Vector, u32Vec));
-        test(`return type is correct`, () => checkType(Uint64Vector, u64Vec));
-
-        const bigI64s = BigInt64Array.from(toBigNumsArray(u64s));
-        const bigU64s = BigUint64Array.from(toBigNumsArray(i64s));
-
-        testAndValidateVector(i8Vec, Int8Array.from(u8s));
-        testAndValidateVector(i16Vec, Int16Array.from(u16s));
-        testAndValidateVector(i32Vec, Int32Array.from(u32s));
-        // This tests when values are represented as pairs of lo, hi
-        testAndValidateVector(i64Vec, new Int32Array(bigI64s.buffer));
-        // This tests when values are represented as native JS bigints
-        testAndValidateVector(i64Vec, new Int32Array(bigI64s.buffer), [...bigI64s]);
-        testAndValidateVector(u8Vec, Uint8Array.from(i8s));
-        testAndValidateVector(u16Vec, Uint16Array.from(i16s));
-        testAndValidateVector(u32Vec, Uint32Array.from(i32s));
-        // This tests when values are represented as pairs of lo, hi
-        testAndValidateVector(u64Vec, new Uint32Array(bigU64s.buffer));
-        // This tests when values are represented as native JS bigints
-        testAndValidateVector(u64Vec, new Uint32Array(bigU64s.buffer), [...bigU64s]);
-    });
-
-    describe(`Int8Vector`, () => {
+    describe(`Vector<Int8>`, () => {
         testIntVector(Int8);
-        describe(`Int8Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Int8>`, () => {
             const values = valuesArray(Int8Array);
-            const vector = Int8Vector.from(values);
+            const vector = vectorFromArray(values, new Int8);
             testAndValidateVector(vector, valuesTyped(Int8Array), values);
-            test(`return type is correct`, () => checkType(Int8Vector, vector));
+            test(`return type is correct`, () => checkDtype(Int8, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length); });
         });
     });
-    describe(`Int16Vector`, () => {
+    describe(`Vector<Int16>`, () => {
         testIntVector(Int16);
-        describe(`Int16Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Int16>`, () => {
             const values = valuesArray(Int16Array);
-            const vector = Int16Vector.from(values);
+            const vector = vectorFromArray(values, new Int16);
             testAndValidateVector(vector, valuesTyped(Int16Array), values);
-            test(`return type is correct`, () => checkType(Int16Vector, vector));
+            test(`return type is correct`, () => checkDtype(Int16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
-    describe(`Int32Vector`, () => {
+    describe(`Vector<Int32>`, () => {
         testIntVector(Int32);
-        describe(`Int32Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Int32>`, () => {
             const values = valuesArray(Int32Array);
-            const vector = Int32Vector.from(values);
+            const vector = vectorFromArray(values, new Int32);
             testAndValidateVector(vector, valuesTyped(Int32Array), values);
-            test(`return type is correct`, () => checkType(Int32Vector, vector));
+            test(`return type is correct`, () => checkDtype(Int32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
-    describe(`Int64Vector`, () => {
+    describe(`Vector<Int64>`, () => {
         testIntVector(Int64);
         testIntVector(Int64, bigIntValuesArray(BigInt64Array));
-        describe(`Int64Vector.from accepts regular Arrays`, () => {
-            const values = valuesArray64(Int32Array);
-            const vector = Int64Vector.from(values);
-            testAndValidateVector(vector, valuesTyped(Int32Array), values);
-            testAndValidateVector(vector, valuesTyped(Int32Array), bigIntValuesArray(BigInt64Array));
-            test(`return type is correct`, () => checkType(Int64Vector, vector));
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Int64>`, () => {
+            const values = bigIntValuesArray(BigInt64Array);
+            const vector = vectorFromArray(values);
+            testAndValidateVector(vector, bigIntValuesTyped(BigInt64Array), values);
+            test(`return type is correct`, () => checkDtype(Int64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
-    describe(`Uint8Vector`, () => {
+    describe(`Vector<Uint8>`, () => {
         testIntVector(Uint8);
-        describe(`Uint8Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Uint8>`, () => {
             const values = valuesArray(Uint8Array);
-            const vector = Uint8Vector.from(values);
+            const vector = vectorFromArray(values, new Uint8);
             testAndValidateVector(vector, valuesTyped(Uint8Array), values);
-            test(`return type is correct`, () => checkType(Uint8Vector, vector));
+            test(`return type is correct`, () => checkDtype(Uint8, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length); });
         });
     });
-    describe(`Uint16Vector`, () => {
+    describe(`Vector<Uint16>`, () => {
         testIntVector(Uint16);
-        describe(`Uint16Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Uint16>`, () => {
             const values = valuesArray(Uint16Array);
-            const vector = Uint16Vector.from(values);
+            const vector = vectorFromArray(values, new Uint16);
             testAndValidateVector(vector, valuesTyped(Uint16Array), values);
-            test(`return type is correct`, () => checkType(Uint16Vector, vector));
+            test(`return type is correct`, () => checkDtype(Uint16, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 2); });
         });
     });
-    describe(`Uint32Vector`, () => {
+    describe(`Vector<Uint32>`, () => {
         testIntVector(Uint32);
-        describe(`Uint32Vector.from accepts regular Arrays`, () => {
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Uint32>`, () => {
             const values = valuesArray(Uint32Array);
-            const vector = Uint32Vector.from(values);
+            const vector = vectorFromArray(values, new Uint32);
             testAndValidateVector(vector, valuesTyped(Uint32Array), values);
-            test(`return type is correct`, () => checkType(Uint32Vector, vector));
+            test(`return type is correct`, () => checkDtype(Uint32, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 4); });
         });
     });
-    describe(`Uint64Vector`, () => {
+    describe(`Vector<Uint64>`, () => {
         testIntVector(Uint64);
         testIntVector(Uint64, bigIntValuesArray(BigUint64Array));
-        describe(`Uint64Vector.from accepts regular Arrays`, () => {
-            const values = valuesArray64(Uint32Array);
-            const vector = Uint64Vector.from(values);
-            testAndValidateVector(vector, valuesTyped(Uint32Array), values);
-            testAndValidateVector(vector, valuesTyped(Uint32Array), bigIntValuesArray(BigUint64Array));
-            test(`return type is correct`, () => checkType(Uint64Vector, vector));
+        describe(`vectorFromArray accepts regular Arrays to construct Vector<Uint64>`, () => {
+            const values = bigIntValuesArray(BigUint64Array);
+            const vector = vectorFromArray(values, new Uint64);
+            testAndValidateVector(vector, bigIntValuesTyped(BigUint64Array), values);
+            test(`return type is correct`, () => checkDtype(Uint64, vector));
+            test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
     });
 });
@@ -341,24 +237,23 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
 
     const type = new DataType();
     const ArrayType = type.ArrayType;
-    const stride = type.bitWidth < 64 ? 1 : 2;
 
-    const typed = valuesTyped(ArrayType);
+    const typed: TypedArray | BigIntArray = new ArrayType(testValuesBuffer);
     const jsArray = values || [...typed];
-    const vector = Vector.new(Data.Int(type, 0, typed.length / stride, 0, null, typed));
+    const vector = new Vector([makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed })]);
     const chunked = testValueBuffers.map((b) => new ArrayType(b))
-        .map((b) => Vector.new(Data.Int(type, 0, b.length / stride, 0, null, b)))
+        .map((b) => new Vector([makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })]))
         .reduce((v: any, v2) => v.concat(v2));
 
-    const vectorBegin = (vector.length * .25) | 0;
-    const vectorEnd = (vector.length * .75) | 0;
+    const vectorBegin = Math.trunc(vector.length * .25);
+    const vectorEnd = Math.trunc(vector.length * .75);
     const typedBegin = vectorBegin * (typed.length / vector.length);
     const typedEnd = vectorEnd * (typed.length / vector.length);
     const jsArrayBegin = vectorBegin * (jsArray.length / vector.length);
     const jsArrayEnd = vectorEnd * (jsArray.length / vector.length);
 
-    const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, V<T>][];
-    combos.forEach(([chunksType, vector]) => {
+    const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, Vector<T>][];
+    for (const [chunksType, vector] of combos) {
         describe(chunksType, () => {
             // test base case no slicing
             describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
@@ -372,16 +267,17 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
                     jsArray.slice(jsArrayBegin, jsArrayEnd)
                 );
             });
+
             // test splicing out the middle half
             describe(`splicing out the middle half`, () => {
                 testAndValidateVector(
                     vector.slice(0, vectorBegin).concat(vector.slice(vectorEnd)),
-                    new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)]),
+                    new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)] as any[]),
                     [...jsArray.slice(0, jsArrayBegin), ...jsArray.slice(jsArrayEnd)]
                 );
             });
         });
-    });
+    }
 }
 
 function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<any>) {
@@ -391,16 +287,16 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
 
     const typed = valuesTyped(ArrayType);
     const jsArray = values || [...typed];
-    const vector = Vector.new(Data.Float(type, 0, typed.length, 0, null, typed));
+    const vector = new Vector([makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed })]);
     const chunked = testValueBuffers.map((b) => new ArrayType(b))
-        .map((b) => Vector.new(Data.Float(type, 0, b.length, 0, null, b)))
+        .map((b) => new Vector([makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })]))
         .reduce((v: any, v2) => v.concat(v2));
 
-    const begin = (vector.length * .25) | 0;
-    const end = (vector.length * .75) | 0;
-    const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, V<T>][];
+    const begin = Math.trunc(vector.length * .25);
+    const end = Math.trunc(vector.length * .75);
+    const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, Vector<T>][];
 
-    combos.forEach(([chunksType, vector]) => {
+    for (const [chunksType, vector] of combos) {
         describe(chunksType, () => {
             // test base case no slicing
             describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
@@ -408,7 +304,7 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
             describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
             describe(`slice the middle half`, () => {
-                    testAndValidateVector(
+                testAndValidateVector(
                     vector.slice(begin, end),
                     typed.slice(begin, end),
                     jsArray.slice(begin, end)
@@ -423,7 +319,7 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
                 );
             });
         });
-    });
+    }
 }
 
 function testAndValidateVector<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
@@ -442,23 +338,9 @@ function gets_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T
     test(`gets expected values`, () => {
         expect.hasAssertions();
         let i = -1, n = vector.length;
-        let stride = vector.stride;
         try {
-            if (stride === 1) {
-                while (++i < n) {
-                    expect(vector.get(i)).toEqual(values[i]);
-                }
-            } else if (typeof values[0] === 'bigint') {
-                while (++i < n) {
-                    const x: any = vector.get(i)!;
-                    expect(0n + x).toEqual(values[i]);
-                }
-            } else {
-                const vector64 = vector as Vector<Int64 | Uint64>;
-                const i64 = (() => typed.subarray(stride * i, stride * (i + 1)));
-                while (++i < n) {
-                    expect((vector64.get(i) as any).subarray(0, stride)).toEqual(i64());
-                }
+            while (++i < n) {
+                expect(vector.get(i)).toEqual(values[i]);
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });
@@ -468,27 +350,10 @@ function iterates_expected_values<T extends Int | Float>(vector: Vector<T>, type
     test(`iterates expected values`, () => {
         expect.hasAssertions();
         let i = -1, n = vector.length;
-        let stride = vector.stride;
         try {
-            if (stride === 1) {
-                for (let v of vector) {
-                    expect(++i).toBeLessThan(n);
-                    expect(v).toEqual(values[i]);
-                }
-            } else if (typeof values[0] === 'bigint') {
-                let x: any;
-                for (let v of vector) {
-                    x = v;
-                    expect(++i).toBeLessThan(n);
-                    expect(0n + x).toEqual(values[i]);
-                }
-            } else {
-                const vector64 = vector as Vector<Int64 | Uint64>;
-                const i64 = (() => typed.subarray(stride * i, stride * (i + 1)));
-                for (let v of vector64) {
-                    expect(++i).toBeLessThan(n);
-                    expect((v as any).subarray(0, stride)).toEqual(i64());
-                }
+            for (const v of vector) {
+                expect(++i).toBeLessThan(n);
+                expect(v).toEqual(values[i]);
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });
@@ -499,10 +364,7 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
 
         expect.hasAssertions();
 
-        const stride = vector.stride;
         const BPE = vector.ArrayType.BYTES_PER_ELEMENT;
-        const isBigInt = typeof values[0] === 'bigint';
-        const isInt64 = util.compareTypes(vector.type, new Int64());
         const isFloat16 = util.compareTypes(vector.type, new Float16());
 
         // Create a few random values
@@ -513,15 +375,6 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
 
         if (isFloat16) {
             missing = uint16ToFloat64Array(missing);
-        } else if (isBigInt) {
-            const BigIntArray = isInt64 ? BigInt64Array : BigUint64Array;
-            missing = Array.from({ length: missing.length / stride },
-                (_, i) => new BigIntArray(missing.buffer, BPE * stride * i, 1)[0]);
-        } else if (stride !== 1) {
-            values = Array.from({ length: typed.length / stride },
-                (_, i) => typed.slice(stride * i, stride * (i + 1)));
-            missing = Array.from({ length: missing.length / stride },
-                (_, i) => missing.slice(stride * i, stride * (i + 1)));
         }
 
         const original = values.slice();
@@ -530,31 +383,15 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
         let i = -1, j: number, k: number, n = shuffled.length;
 
         try {
-            if (!isBigInt) {
-                while (++i < n) {
-                    const search = shuffled[i];
-                    if (typeof search !== 'number' || !isNaN(search)) {
-                        expect(vector.indexOf(search)).toEqual(original.indexOf(search));
-                    } else {
-                        for (j = -1, k = original.length; ++j < k;) {
-                            if (isNaN(original[j])) { break; }
-                        }
-                        expect(vector.indexOf(search)).toEqual(j < k ? j : -1);
-                    }
-                }
-            } else {
-                // Distinguish the bigint comparisons to ensure the indexOf type signature accepts bigints
-                let shuffled64 = shuffled as bigint[];
-                if (isInt64) {
-                    let vector64 = (<unknown> vector) as Int64Vector;
-                    while (++i < n) {
-                        expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
-                    }
+            while (++i < n) {
+                const search = shuffled[i];
+                if (typeof search !== 'number' || !Number.isNaN(search)) {
+                    expect(vector.indexOf(search)).toEqual(original.indexOf(search));
                 } else {
-                    let vector64 = (<unknown> vector) as Uint64Vector;
-                    while (++i < n) {
-                        expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
+                    for (j = -1, k = original.length; ++j < k;) {
+                        if (Number.isNaN(original[j])) { break; }
                     }
+                    expect(vector.indexOf(search)).toEqual(j < k ? j : -1);
                 }
             }
         } catch (e) { throw new Error(`${i} (${shuffled[i]}): ${e}`); }
@@ -564,7 +401,7 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
 function slice_returns_a_typedarray<T extends Int | Float>(vector: Vector<T>) {
     test(`slice returns a TypedArray`, () => {
         expect.hasAssertions();
-        expect(vector.slice().toArray()).toBeInstanceOf(vector.ArrayType);
+        expect((vector.slice().toArray())).toBeInstanceOf(vector.ArrayType);
     });
 }
 
@@ -578,28 +415,28 @@ function slices_the_entire_array<T extends Int | Float>(vector: Vector<T>, value
 function slices_from_minus_20_to_length<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices from -20 to length`, () => {
         expect.hasAssertions();
-        expect(vector.slice(-20).toArray()).toEqual(values.slice(-(20 * vector.stride)));
+        expect(vector.slice(-20).toArray()).toEqual(values.slice(-(20)));
     });
 }
 
 function slices_from_0_to_minus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices from 0 to -20`, () => {
         expect.hasAssertions();
-        expect(vector.slice(0, -20).toArray()).toEqual(values.slice(0, -(20 * vector.stride)));
+        expect(vector.slice(0, -20).toArray()).toEqual(values.slice(0, -(20)));
     });
 }
 
-function slices_the_array_from_0_to_length_minus_20 <T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
+function slices_the_array_from_0_to_length_minus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length - 20`, () => {
         expect.hasAssertions();
-        expect(vector.slice(0, vector.length - 20).toArray()).toEqual(values.slice(0, values.length - (20 * vector.stride)));
+        expect(vector.slice(0, - 20).toArray()).toEqual(values.slice(0, - 20));
     });
 }
 
 function slices_the_array_from_0_to_length_plus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length + 20`, () => {
         expect.hasAssertions();
-        expect(vector.slice(0, vector.length + 20).toArray()).toEqual(values.slice(0, values.length + (20 * vector.stride)));
+        expect(vector.slice(0, vector.length + 20).toArray()).toEqual(values.slice(0, values.length + (20)));
     });
 }
 
@@ -607,7 +444,7 @@ function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

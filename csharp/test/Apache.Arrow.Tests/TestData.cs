@@ -13,9 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow.Tests
 {
@@ -26,7 +28,7 @@ namespace Apache.Arrow.Tests
             return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
         }
 
-        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createDictionaryArray)
+        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createAdvancedTypeArrays)
         {
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < columnSetCount; i++)
@@ -45,22 +47,22 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(DoubleType.Default, i));
                 builder.Field(CreateField(Date32Type.Default, i));
                 builder.Field(CreateField(Date64Type.Default, i));
+                builder.Field(CreateField(Time32Type.Default, i));
+                builder.Field(CreateField(Time64Type.Default, i));
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
                 builder.Field(CreateField(new Decimal128Type(10, 6), i));
                 builder.Field(CreateField(new Decimal256Type(16, 8), i));
 
-                if (createDictionaryArray)
+                if (createAdvancedTypeArrays)
                 {
                     builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
+                    builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 }
 
-                //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
-                //builder.Field(CreateField(Time32Type.Default));
-                //builder.Field(CreateField(Time64Type.Default));
             }
 
             Schema schema = builder.Build();
@@ -105,6 +107,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<Time32Type>,
+            IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,
@@ -121,7 +125,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
-            IArrowTypeVisitor<DictionaryType>
+            IArrowTypeVisitor<DictionaryType>,
+            IArrowTypeVisitor<FixedSizeBinaryType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -191,6 +196,30 @@ namespace Apache.Arrow.Tests
                 for (var i = 0; i < Length; i++)
                 {
                     builder.Append(basis.AddSeconds(i));
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Time32Type type)
+            {
+                var builder = new Time32Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Time64Type type)
+            {
+                var builder = new Time64Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
                 }
 
                 Array = builder.Build();
@@ -269,6 +298,23 @@ namespace Apache.Arrow.Tests
                 }
 
                 Array = new DictionaryArray(type, indicesBuilder.Build(), valueBuilder.Build());
+            }
+
+            public void Visit(FixedSizeBinaryType type)
+            {
+                ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
+
+                int valueSize = type.BitWidth;
+                for (int i = 0; i < Length; i++)
+                {
+                    valueBuilder.Append(Enumerable.Repeat((byte)i, valueSize).ToArray());
+                }
+
+                ArrowBuffer validityBuffer = ArrowBuffer.Empty;
+                ArrowBuffer valueBuffer = valueBuilder.Build(default);
+
+                ArrayData arrayData = new ArrayData(type, Length, 0, 0, new[] { validityBuffer, valueBuffer });
+                Array = new FixedSizeBinaryArray(arrayData);
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

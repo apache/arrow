@@ -184,6 +184,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Float64(int64_t size, double min, double max,
                                  double null_probability = 0, double nan_probability = 0);
 
+  /// \brief Generate a random Date64Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min the lower bound of the uniform distribution
+  /// \param[in] max the upper bound of the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Date64(int64_t size, int64_t min, int64_t max,
+                                double null_probability = 0);
+
   template <typename ArrowType, typename CType = typename ArrowType::c_type>
   std::shared_ptr<Array> Numeric(int64_t size, CType min, CType max,
                                  double null_probability = 0) {
@@ -221,6 +232,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
       case Type::DOUBLE:
         return Float64(size, static_cast<double>(min), static_cast<double>(max),
                        null_probability);
+      case Type::DATE64:
+        return Date64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
+                      null_probability);
       default:
         return nullptr;
     }
@@ -330,7 +344,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] force_empty_nulls if true, null list entries must have 0 length
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
+  std::shared_ptr<Array> List(const Array& values, int64_t size,
+                              double null_probability = 0,
                               bool force_empty_nulls = false);
 
   /// \brief Generate a random MapArray
@@ -344,7 +359,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \return a generated Array
   std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
                              const std::shared_ptr<Array>& items, int64_t size,
-                             double null_probability, bool force_empty_nulls = false);
+                             double null_probability = 0, bool force_empty_nulls = false);
 
   /// \brief Generate a random SparseUnionArray
   ///
@@ -378,7 +393,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] null_probability the probability of a slot being null
   /// \return a generated Array
   std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
-                                 double null_probability);
+                                 double null_probability = 0);
 
   /// \brief Generate an array with random data based on the given field. See BatchOf
   /// for usage info.
@@ -453,6 +468,12 @@ std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
 //
 // Assorted functions
 //
+
+ARROW_TESTING_EXPORT
+void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out);
+ARROW_TESTING_EXPORT
+void rand_month_day_nanos(int64_t N,
+                          std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
 
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {

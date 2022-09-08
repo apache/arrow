@@ -41,9 +41,10 @@ class TestLLVMGenerator : public ::testing::Test {
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), &generator));
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
 
   llvm::Module* module = generator->module();
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
   for (auto& iter : registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
@@ -52,7 +53,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), &generator));
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
   Annotator annotator;
 
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
@@ -75,22 +76,23 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       generator->function_registry_.LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
-  auto func_dex = std::make_shared<NonNullableFuncDex>(func_desc, native_func,
-                                                       FunctionHolderPtr(nullptr), pairs);
+  auto func_dex = std::make_shared<NonNullableFuncDex>(
+      func_desc, native_func, FunctionHolderPtr(nullptr), -1, pairs);
 
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
 
-  llvm::Function* ir_func = nullptr;
+  std::string fn_name = "codegen";
 
-  ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, &ir_func,
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
+  ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, fn_name,
                                         SelectionVector::MODE_NONE));
 
   ASSERT_OK(generator->engine_->FinalizeModule());
   auto ir = generator->engine_->DumpIR();
   EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
-  EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(ir_func);
+  EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(fn_name);
 
   constexpr size_t kNumRecords = 4;
   std::array<uint32_t, kNumRecords> a0{1, 2, 3, 4};
@@ -106,7 +108,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(out.data()), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   std::array<int64_t, 6> addr_offsets{0, 0, 0, 0, 0, 0};
-  eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr,
+  eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr, nullptr,
             0 /* dummy context ptr */, kNumRecords);
 
   EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));

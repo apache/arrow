@@ -30,13 +30,26 @@ Dir.glob("#{base_dir}/*/*.gemspec") do |gemspec|
 end
 
 packages.each do |package|
-  desc "Run test for #{package}"
-  task package do
-    cd(File.join(base_dir, package)) do
-      if ENV["USE_BUNDLER"]
-        sh("bundle", "exec", "rake")
-      else
-        ruby("-S", "rake")
+  namespace package do
+    desc "Run test for #{package}"
+    task :test do
+      cd(File.join(base_dir, package)) do
+        if ENV["USE_BUNDLER"]
+          sh("bundle", "exec", "rake", "test")
+        else
+          ruby("-S", "rake", "test")
+        end
+      end
+    end
+
+    desc "Install #{package}"
+    task :install do
+      cd(File.join(base_dir, package)) do
+        if ENV["USE_BUNDLER"]
+          sh("bundle", "exec", "rake", "install")
+        else
+          ruby("-S", "rake", "install")
+        end
       end
     end
   end
@@ -51,6 +64,9 @@ sorted_packages = packages.sort_by do |package|
 end
 
 desc "Run test for all packages"
-task all: sorted_packages
+task test: sorted_packages.collect {|package| "#{package}:test"}
 
-task default: :all
+desc "Install all packages"
+task install: sorted_packages.collect {|package| "#{package}:install"}
+
+task default: :test

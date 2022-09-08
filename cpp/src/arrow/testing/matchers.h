@@ -17,15 +17,110 @@
 
 #pragma once
 
+#include <utility>
+
 #include <gmock/gmock-matchers.h>
 
+#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/stl_iterator.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/future.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
+
+class PointeesEqualMatcher {
+ public:
+  template <typename PtrPair>
+  operator testing::Matcher<PtrPair>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const PtrPair&> {
+      void DescribeTo(::std::ostream* os) const override { *os << "pointees are equal"; }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "pointees are not equal";
+      }
+
+      bool MatchAndExplain(const PtrPair& pair,
+                           testing::MatchResultListener* listener) const override {
+        const auto& first = *std::get<0>(pair);
+        const auto& second = *std::get<1>(pair);
+        const bool match = first.Equals(second);
+        *listener << "whose pointees " << testing::PrintToString(first) << " and "
+                  << testing::PrintToString(second)
+                  << (match ? " are equal" : " are not equal");
+        return match;
+      }
+    };
+
+    return testing::Matcher<PtrPair>(new Impl());
+  }
+};
+
+// A matcher that checks that the values pointed to are Equals().
+// Useful in conjunction with other googletest matchers.
+inline PointeesEqualMatcher PointeesEqual() { return {}; }
+
+class AnyOfJSONMatcher {
+ public:
+  AnyOfJSONMatcher(std::shared_ptr<DataType> type, std::string array_json)
+      : type_(std::move(type)), array_json_(std::move(array_json)) {}
+
+  template <typename arg_type>
+  operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const arg_type&> {
+      Impl(std::shared_ptr<DataType> type, std::string array_json)
+          : type_(std::move(type)), array_json_(std::move(array_json)) {
+        array = ArrayFromJSON(type_, array_json_);
+      }
+      void DescribeTo(std::ostream* os) const override {
+        *os << "matches at least one scalar from ";
+        *os << array->ToString();
+      }
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "matches no scalar from ";
+        *os << array->ToString();
+      }
+      bool MatchAndExplain(
+          const arg_type& arg,
+          ::testing::MatchResultListener* result_listener) const override {
+        for (int64_t i = 0; i < array->length(); ++i) {
+          std::shared_ptr<Scalar> scalar;
+          auto maybe_scalar = array->GetScalar(i);
+          if (maybe_scalar.ok()) {
+            scalar = maybe_scalar.ValueOrDie();
+          } else {
+            *result_listener << "GetScalar() had status "
+                             << maybe_scalar.status().ToString() << "at index " << i
+                             << " in the input JSON Array";
+            return false;
+          }
+
+          if (scalar->Equals(arg)) return true;
+        }
+        *result_listener << "Argument scalar: '" << arg->ToString()
+                         << "' matches no scalar from " << array->ToString();
+        return false;
+      }
+      const std::shared_ptr<DataType> type_;
+      const std::string array_json_;
+      std::shared_ptr<Array> array;
+    };
+
+    return testing::Matcher<arg_type>(new Impl(type_, array_json_));
+  }
+
+ private:
+  const std::shared_ptr<DataType> type_;
+  const std::string array_json_;
+};
+
+inline AnyOfJSONMatcher AnyOfJSON(std::shared_ptr<DataType> type,
+                                  std::string array_json) {
+  return {std::move(type), std::move(array_json)};
+}
 
 template <typename ResultMatcher>
 class FutureMatcher {
@@ -162,8 +257,14 @@ class ErrorMatcher {
                   message_matcher_->MatchAndExplain(status.message(), &value_listener);
         }
 
-        *listener << "whose value " << testing::PrintToString(status.ToString())
-                  << (match ? " matches" : " doesn't match");
+        if (match) {
+          *listener << "whose error matches";
+        } else if (status.ok()) {
+          *listener << "whose non-error doesn't match";
+        } else {
+          *listener << "whose error doesn't match";
+        }
+
         testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
         return match;
       }
@@ -192,12 +293,9 @@ class OkMatcher {
       bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
         const Status& status = internal::GenericToStatus(maybe_value);
-        testing::StringMatchResultListener value_listener;
 
         const bool match = status.ok();
-        *listener << "whose value " << testing::PrintToString(status.ToString())
-                  << (match ? " matches" : " doesn't match");
-        testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
+        *listener << "whose " << (match ? "non-error matches" : "error doesn't match");
         return match;
       }
     };
@@ -233,5 +331,139 @@ template <typename MessageMatcher>
 ErrorMatcher Raises(StatusCode code, const MessageMatcher& message_matcher) {
   return ErrorMatcher(code, testing::MatcherCast<std::string>(message_matcher));
 }
+
+class DataEqMatcher {
+ public:
+  // TODO(bkietz) support EqualOptions, ApproxEquals, etc
+  // Probably it's better to use something like config-through-key_value_metadata
+  // as with the random generators to decouple this from EqualOptions etc.
+  explicit DataEqMatcher(Datum expected) : expected_(std::move(expected)) {}
+
+  template <typename Data>
+  operator testing::Matcher<Data>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const Data&> {
+      explicit Impl(Datum expected) : expected_(std::move(expected)) {}
+
+      void DescribeTo(::std::ostream* os) const override {
+        *os << "has data ";
+        PrintTo(expected_, os);
+      }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "doesn't have data ";
+        PrintTo(expected_, os);
+      }
+
+      bool MatchAndExplain(const Data& data,
+                           testing::MatchResultListener* listener) const override {
+        Datum boxed(data);
+
+        if (boxed.kind() != expected_.kind()) {
+          *listener << "whose Datum::kind " << boxed.ToString() << " doesn't match "
+                    << expected_.ToString();
+          return false;
+        }
+
+        if (const auto& boxed_type = boxed.type()) {
+          if (*boxed_type != *expected_.type()) {
+            *listener << "whose DataType " << boxed_type->ToString() << " doesn't match "
+                      << expected_.type()->ToString();
+            return false;
+          }
+        } else if (const auto& boxed_schema = boxed.schema()) {
+          if (*boxed_schema != *expected_.schema()) {
+            *listener << "whose Schema " << boxed_schema->ToString() << " doesn't match "
+                      << expected_.schema()->ToString();
+            return false;
+          }
+        } else {
+          Unreachable();
+        }
+
+        if (boxed == expected_) {
+          *listener << "whose value matches";
+          return true;
+        }
+
+        if (listener->IsInterested() && boxed.kind() == Datum::ARRAY) {
+          *listener << "whose value differs from the expected value by "
+                    << boxed.make_array()->Diff(*expected_.make_array());
+        } else {
+          *listener << "whose value doesn't match";
+        }
+        return false;
+      }
+
+      Datum expected_;
+    };
+
+    return testing::Matcher<Data>(new Impl(expected_));
+  }
+
+ private:
+  Datum expected_;
+};
+
+/// Constructs a datum against which arguments are matched
+template <typename Data>
+DataEqMatcher DataEq(Data&& dat) {
+  return DataEqMatcher(Datum(std::forward<Data>(dat)));
+}
+
+/// Constructs an array with ArrayFromJSON against which arguments are matched
+inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
+                                 util::string_view json) {
+  return DataEq(ArrayFromJSON(type, json));
+}
+
+/// Constructs an array from a vector of optionals against which arguments are matched
+template <typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
+          typename BuilderType = typename TypeTraits<T>::BuilderType,
+          typename ValueType =
+              typename ::arrow::stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
+DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
+  // FIXME(bkietz) broken until DataType is move constructible
+  BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
+  DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
+
+  // pseudo constexpr:
+  static const bool need_safe_append = !is_fixed_width(T::type_id);
+
+  for (auto value : values) {
+    if (value) {
+      if (need_safe_append) {
+        builder.UnsafeAppend(*value);
+      } else {
+        DCHECK_OK(builder.Append(*value));
+      }
+    } else {
+      builder.UnsafeAppendNull();
+    }
+  }
+
+  return DataEq(builder.Finish().ValueOrDie());
+}
+
+/// Constructs a scalar with ScalarFromJSON against which arguments are matched
+inline DataEqMatcher DataEqScalar(const std::shared_ptr<DataType>& type,
+                                  util::string_view json) {
+  return DataEq(ScalarFromJSON(type, json));
+}
+
+/// Constructs a scalar against which arguments are matched
+template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+          typename ValueType = typename ScalarType::ValueType>
+DataEqMatcher DataEqScalar(T type, util::optional<ValueType> value) {
+  ScalarType expected(std::make_shared<T>(std::move(type)));
+
+  if (value) {
+    expected.is_valid = true;
+    expected.value = std::move(*value);
+  }
+
+  return DataEq(std::move(expected));
+}
+
+// HasType, HasSchema matchers
 
 }  // namespace arrow

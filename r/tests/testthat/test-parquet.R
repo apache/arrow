@@ -17,8 +17,6 @@
 
 skip_if_not_available("parquet")
 
-context("Parquet file reading/writing")
-
 pq_file <- system.file("v0.7.1.parquet", package = "arrow")
 
 test_that("reading a known Parquet file to tibble", {
@@ -35,7 +33,7 @@ test_that("simple int column roundtrip", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read)
   # Make sure file connection is cleaned up
   expect_error(file.remove(pq_tmp_file), NA)
   expect_false(file.exists(pq_tmp_file))
@@ -103,15 +101,19 @@ test_that("write_parquet() handles various write_statistics= specs", {
 test_that("write_parquet() accepts RecordBatch too", {
   batch <- RecordBatch$create(x1 = 1:5, x2 = 1:5, y = 1:5)
   tab <- parquet_roundtrip(batch)
-  expect_equivalent(tab, Table$create(batch))
+  expect_equal(tab, Table$create(batch))
+})
+
+test_that("write_parquet() handles grouped_df", {
+  library(dplyr, warn.conflicts = FALSE)
+  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
+  expect_parquet_roundtrip(df, as_data_frame = TRUE)
 })
 
 test_that("write_parquet() with invalid input type", {
   bad_input <- Array$create(1:5)
-  expect_error(
-    write_parquet(bad_input, tempfile()),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-  )
+  expect_snapshot_error(write_parquet(bad_input, tempfile()))
 })
 
 test_that("write_parquet() can truncate timestamps", {
@@ -124,18 +126,54 @@ test_that("write_parquet() can truncate timestamps", {
   write_parquet(tab, tf, coerce_timestamps = "ms", allow_truncated_timestamps = TRUE)
   new <- read_parquet(tf, as_data_frame = FALSE)
   expect_type_equal(new$x1, timestamp("ms", "UTC"))
-  expect_equivalent(as.data.frame(tab), as.data.frame(new))
+  expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
-test_that("make_valid_version()", {
-  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version()", {
+  expect_equal(
+    make_valid_parquet_version("1.0"),
+    ParquetVersionType$PARQUET_1_0
+  )
+  expect_deprecated(
+    expect_equal(
+      make_valid_parquet_version("2.0"),
+      ParquetVersionType$PARQUET_2_0
+    )
+  )
+  expect_equal(
+    make_valid_parquet_version("2.4"),
+    ParquetVersionType$PARQUET_2_4
+  )
+  expect_equal(
+    make_valid_parquet_version("2.6"),
+    ParquetVersionType$PARQUET_2_6
+  )
+  expect_equal(
+    make_valid_parquet_version("latest"),
+    ParquetVersionType$PARQUET_2_6
+  )
 
-  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+  expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_deprecated(
+    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
+  )
+  expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
+})
 
-  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version() input validation", {
+  expect_error(
+    make_valid_parquet_version("0.3.14"),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(NULL),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(c("2", "4")),
+    "`version` must be one of"
+  )
 })
 
 test_that("write_parquet() defaults to snappy compression", {
@@ -145,6 +183,22 @@ test_that("write_parquet() defaults to snappy compression", {
   write_parquet(mtcars, tmp1)
   write_parquet(mtcars, tmp2, compression = "snappy")
   expect_equal(file.size(tmp1), file.size(tmp2))
+})
+
+test_that("write_parquet() does not detect compression from filename", {
+  # TODO(ARROW-17221): should this be supported?
+  without <- tempfile(fileext = ".parquet")
+  with_gz <- tempfile(fileext = ".parquet.gz")
+  write_parquet(mtcars, without)
+  write_parquet(mtcars, with_gz)
+  expect_equal(file.size(with_gz), file.size(without))
+})
+
+test_that("read_parquet() handles (ignores) compression in filename", {
+  df <- tibble::tibble(x = 1:5)
+  f <- tempfile(fileext = ".parquet.gz")
+  write_parquet(df, f)
+  expect_equal(read_parquet(f), df)
 })
 
 test_that("Factors are preserved when writing/reading from Parquet", {
@@ -158,7 +212,7 @@ test_that("Factors are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read)
 })
 
 test_that("Lists are preserved when writing/reading from Parquet", {
@@ -173,7 +227,45 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
-  expect_equivalent(df, df_read)
+  expect_equal(df, df_read, ignore_attr = TRUE)
+})
+
+test_that("Maps are preserved when writing/reading from Parquet", {
+  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
+    type = map_of(utf8(), boolean())
+  )
+  int_struct <- Array$create(
+    list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b"), stringsAsFactors = FALSE))),
+    type = map_of(int64(), struct(x = int64(), y = utf8()))
+  )
+
+  df <- arrow_table(string_bool = string_bool, int_struct = int_struct)
+
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, as_data_frame = FALSE)
+  expect_equal(df, df_read, ignore_attr = TRUE)
+})
+
+test_that("read_parquet() and write_parquet() accept connection objects", {
+  skip_if_not_available("snappy")
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_parquet(test_tbl, file(tf))
+  expect_identical(read_parquet(tf), test_tbl)
+  expect_identical(read_parquet(file(tf)), read_parquet(tf))
 })
 
 test_that("write_parquet() to stream", {
@@ -191,7 +283,7 @@ test_that("write_parquet() returns its input", {
   tf <- tempfile()
   on.exit(unlink(tf))
   df_out <- write_parquet(df, tf)
-  expect_equivalent(df, df_out)
+  expect_equal(df, df_out)
 })
 
 test_that("write_parquet() handles version argument", {
@@ -199,7 +291,7 @@ test_that("write_parquet() handles version argument", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.0", 1.0, 2.0, 1L, 2L), ~ {
+  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
     write_parquet(df, tf, version = .x)
     expect_identical(read_parquet(tf), df)
   })
@@ -208,12 +300,20 @@ test_that("write_parquet() handles version argument", {
   })
 })
 
+test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
+  skip_if_not_available("gzip")
+  expect_error(
+    ParquetFileReader$create(CompressedInputStream$create(pq_file)),
+    'file must be a "RandomAccessFile"'
+  )
+})
+
 test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
   sch <- schema(a = float32())
   # ARROW-9946
   expect_error(
     ParquetFileWriter$create(schema = sch, sink = tempfile()),
-    regex = "OutputStream"
+    regexp = "OutputStream"
   )
 })
 
@@ -246,18 +346,20 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
   msg <- paste0(
-    "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
+    ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
-    "environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional ",
-    "features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\n",
+    "environment variables before installing:",
+    "\n\n \\* Sys\\.setenv\\(LIBARROW_MINIMAL = \"false\"\\) ",
+    "\\(for all optional features, including 'snappy'\\)",
+    "\n \\* Sys\\.setenv\\(ARROW_WITH_SNAPPY = \"ON\"\\) \\(for just 'snappy')\n\n",
     "See https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)
-    expect_is(d, "data.frame")
+    expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_parquet(pq_file), msg, fixed = TRUE)
+    expect_error(read_parquet(pq_file), msg)
   }
 })
 
@@ -266,4 +368,98 @@ test_that("Error is created when parquet reads a feather file", {
     read_parquet(test_path("golden-files/data-arrow_2.0.0_lz4.feather")),
     "Parquet magic bytes not found in footer"
   )
+})
+
+test_that("ParquetFileWrite chunk_size defaults", {
+  tab <- Table$create(x = 1:101)
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # we can alter our default cells per group
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25
+    ),
+    {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:26))
+      expect_true(reader$ReadRowGroup(3) == Table$create(x = 79:101))
+      expect_error(reader$ReadRowGroup(4), "Some index in row_group_indices")
+    }
+  )
+
+  # but we always have no more than max_chunks (even if cells_per_group is low!)
+  # use a new tempfile so that windows doesn't complain about the file being over-written
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  withr::with_options(
+    list(
+      arrow.parquet_cells_per_group = 25,
+      arrow.parquet_max_chunks = 2
+    ),
+    {
+      # this will be 4 chunks
+      write_parquet(tab, tf)
+      reader <- ParquetFileReader$create(tf)
+
+      expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:51))
+      expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
+      expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
+    }
+  )
+})
+
+test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {
+  expect_equal(calculate_chunk_size(31869547, 108, 2.5e8, 200), 2451504)
+
+  # we can set the target cells per group, and it rounds appropriately
+  expect_equal(calculate_chunk_size(100, 1, 25), 25)
+  expect_equal(calculate_chunk_size(101, 1, 25), 26)
+
+  # but our max_chunks is respected
+  expect_equal(calculate_chunk_size(101, 1, 25, 2), 51)
+})
+
+test_that("deprecated int96 timestamp unit can be specified when reading Parquet files", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  table <- Table$create(
+    some_datetime = as.POSIXct("2001-01-01 12:34:56.789")
+  )
+
+  write_parquet(
+    table,
+    tf,
+    use_deprecated_int96_timestamps = TRUE
+  )
+
+  props <- ParquetArrowReaderProperties$create()
+  props$set_coerce_int96_timestamp_unit(TimeUnit$MILLI)
+  expect_identical(props$coerce_int96_timestamp_unit(), TimeUnit$MILLI)
+
+  result <- read_parquet(
+    tf,
+    as_data_frame = FALSE,
+    props = props
+  )
+
+  expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
+  expect_true(result$some_datetime == table$some_datetime)
+})
+
+test_that("Can read parquet with nested lists and maps", {
+  parquet_test_data <- test_path("../../../cpp/submodules/parquet-testing/data")
+  skip_if_not(dir.exists(parquet_test_data), "Parquet test data missing")
+
+  pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
+  # value name is "element" from parquet reader, but type default is "item"
+  expect_equal(pq$a$type, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
+
+  pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
+  expect_equal(pq$a$type, map_of(utf8(), map_of(int32(), boolean())))
 })

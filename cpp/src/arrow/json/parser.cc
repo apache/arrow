@@ -38,7 +38,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/trie.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -753,7 +753,13 @@ class HandlerBase : public BlockParser,
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
       return false;
     }
-    *duplicate_keys = !absent_fields_stack_[field_index_];
+    if (field_index_ < absent_fields_stack_.TopSize()) {
+      *duplicate_keys = !absent_fields_stack_[field_index_];
+    } else {
+      // When field_index is beyond the range of absent_fields_stack_ we have a duplicated
+      // field that wasn't declared in schema or previous records.
+      *duplicate_keys = true;
+    }
     if (*duplicate_keys) {
       status_ = ParseError("Column(", Path(), ") was specified twice in row ", num_rows_);
       return false;

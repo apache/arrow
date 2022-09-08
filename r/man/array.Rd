@@ -9,6 +9,7 @@
 \alias{ListArray}
 \alias{LargeListArray}
 \alias{FixedSizeListArray}
+\alias{MapArray}
 \alias{StructScalar}
 \title{Arrow Arrays}
 \description{
@@ -40,12 +41,14 @@ but not limited to strings only)
 }
 
 \section{Usage}{
-\preformatted{a <- Array$create(x)
+
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{a <- Array$create(x)
 length(a)
 
 print(a)
 a == a
-}
+}\if{html}{\out{</div>}}
 }
 
 \section{Methods}{
@@ -54,6 +57,7 @@ a == a
 \item \verb{$IsNull(i)}: Return true if value at index is null. Does not boundscheck
 \item \verb{$IsValid(i)}: Return true if value at index is valid. Does not boundscheck
 \item \verb{$length()}: Size in the number of elements this array contains
+\item \verb{$nbytes()}: Total number of bytes consumed by the elements of the array
 \item \verb{$offset}: A relative position into another array's data, to enable zero-copy slicing
 \item \verb{$null_count}: The number of null entries in the array
 \item \verb{$type}: logical type of data
@@ -83,7 +87,6 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 my_array <- Array$create(1:10)
 my_array$type
 my_array$cast(int8())
@@ -103,5 +106,4 @@ new_array$offset
 na_array2 <- na_array
 na_array2 == na_array # element-wise comparison
 na_array2$Equals(na_array) # overall comparison
-\dontshow{\}) # examplesIf}
 }

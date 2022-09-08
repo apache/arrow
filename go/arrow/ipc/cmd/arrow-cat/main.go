@@ -52,19 +52,19 @@
 //  record 2...
 //    col[0] "bools": [true (null) (null) false true]
 //  [...]
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-cat"
+package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func main() {
@@ -90,8 +90,8 @@ func processStream(w io.Writer, rin io.Reader) error {
 	for {
 		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
 		if err != nil {
-			if xerrors.Is(err, io.EOF) {
-				return nil
+			if errors.Is(err, io.EOF) {
+				break
 			}
 			return err
 		}
@@ -131,7 +131,7 @@ func processFile(w io.Writer, fname string) error {
 	hdr := make([]byte, len(ipc.Magic))
 	_, err = io.ReadFull(f, hdr)
 	if err != nil {
-		return xerrors.Errorf("could not read file header: %w", err)
+		return fmt.Errorf("could not read file header: %w", err)
 	}
 	f.Seek(0, io.SeekStart)
 
@@ -144,7 +144,7 @@ func processFile(w io.Writer, fname string) error {
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
-		if xerrors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -162,7 +162,6 @@ func processFile(w io.Writer, fname string) error {
 		for i, col := range rec.Columns() {
 			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
-		rec.Release()
 	}
 
 	return nil

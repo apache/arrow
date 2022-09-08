@@ -58,6 +58,7 @@ cmake $ARROW_DIR/cpp \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
     -DORC_SOURCE=BUNDLED \
+    -Dxsimd_SOURCE=BUNDLED \
     $ARROW_CMAKE_OPTIONS
 
 make -j$NPROC
@@ -90,7 +91,7 @@ echo
 
 pushd $EXAMPLE_DIR
 
-$EXAMPLE_BUILD_DIR/arrow_example
+$EXAMPLE_BUILD_DIR/arrow-example
 
 echo
 echo "=="
@@ -102,7 +103,7 @@ echo
 rm -rf $EXAMPLE_BUILD_DIR
 mkdir -p $EXAMPLE_BUILD_DIR
 ${CXX:-c++} \
-  -o $EXAMPLE_BUILD_DIR/arrow_example \
+  -o $EXAMPLE_BUILD_DIR/arrow-example \
   $EXAMPLE_DIR/example.cc \
   $(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \
      pkg-config --cflags --libs --static arrow)
@@ -118,4 +119,4 @@ echo
 
 pushd $EXAMPLE_DIR
 
-$EXAMPLE_BUILD_DIR/arrow_example
+$EXAMPLE_BUILD_DIR/arrow-example

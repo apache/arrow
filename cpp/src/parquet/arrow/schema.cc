@@ -34,6 +34,7 @@
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -169,6 +170,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   const bool coerce = arrow_properties.coerce_timestamps_enabled();
   const auto target_unit =
       coerce ? arrow_properties.coerce_timestamps_unit() : type.unit();
+  const auto version = properties.version();
 
   // The user is explicitly asking for Impala int96 encoding, there is no
   // logical type.
@@ -183,16 +185,18 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
   if (coerce) {
-    if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
+    if (version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+        version == ::parquet::ParquetVersion::PARQUET_2_4) {
       switch (target_unit) {
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO:
           break;
         case ::arrow::TimeUnit::NANO:
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet version 1.0 files, can only coerce Arrow timestamps to "
-              "milliseconds or microseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds or microseconds");
       }
     } else {
       switch (target_unit) {
@@ -201,9 +205,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
         case ::arrow::TimeUnit::NANO:
           break;
         case ::arrow::TimeUnit::SECOND:
-          return Status::NotImplemented(
-              "For Parquet files, can only coerce Arrow timestamps to milliseconds, "
-              "microseconds, or nanoseconds");
+          return Status::NotImplemented("For Parquet version ",
+                                        ::parquet::ParquetVersionToString(version),
+                                        ", can only coerce Arrow timestamps to "
+                                        "milliseconds, microseconds, or nanoseconds");
       }
     }
     return Status::OK();
@@ -211,9 +216,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
 
   // The user implicitly wants timestamp data to retain its original time units,
   // however the ConvertedType field used to indicate logical types for Parquet
-  // version 1.0 fields does not allow for nanosecond time units and so nanoseconds
+  // version <= 2.4 fields does not allow for nanosecond time units and so nanoseconds
   // must be coerced to microseconds.
-  if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
+  if ((version == ::parquet::ParquetVersion::PARQUET_1_0 ||
+       version == ::parquet::ParquetVersion::PARQUET_2_4) &&
       type.unit() == ::arrow::TimeUnit::NANO) {
     *logical_type =
         TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
@@ -381,6 +387,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
             LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MICROS);
       }
     } break;
+    case ArrowTypeId::DURATION:
+      type = ParquetType::INT64;
+      break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, name, field->nullable(), properties,
@@ -587,7 +596,7 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
   key_value_field->level_info = current_levels;
 
   out->field = ::arrow::field(group.name(),
-                              ::arrow::map(key_field->field->type(), value_field->field),
+                              std::make_shared<::arrow::MapType>(key_value_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
@@ -907,6 +916,13 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
         inferred->field = inferred->field->WithType(ts_type_new);
       }
     }
+    modified = true;
+  }
+
+  if (origin_type->id() == ::arrow::Type::DURATION &&
+      inferred_type->id() == ::arrow::Type::INT64) {
+    // Read back int64 arrays as duration.
+    inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
 

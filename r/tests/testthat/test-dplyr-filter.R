@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -29,8 +27,8 @@ tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, si
 tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl)) # nolint
 
 test_that("filter() on is.na()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(is.na(lgl)) %>%
       select(chr, int, lgl) %>%
       collect(),
@@ -39,8 +37,8 @@ test_that("filter() on is.na()", {
 })
 
 test_that("filter() with NAs in selection", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(lgl) %>%
       select(chr, int, lgl) %>%
       collect(),
@@ -49,8 +47,8 @@ test_that("filter() with NAs in selection", {
 })
 
 test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(false) %>%
       select(chr, int, lgl) %>%
       collect(),
@@ -60,8 +58,8 @@ test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
 
 test_that("filtering with expression", {
   char_sym <- "b"
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(chr == char_sym) %>%
       select(string = chr, int) %>%
       collect(),
@@ -70,56 +68,56 @@ test_that("filtering with expression", {
 })
 
 test_that("filtering with arithmetic", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl + 1 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl / 2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl / 2L > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int / 2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int / 2L > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl %/% 2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl^2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
@@ -128,24 +126,24 @@ test_that("filtering with arithmetic", {
 })
 
 test_that("filtering with expression + autocasting", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl + 1 > 3L) %>% # test autocasting with comparison to 3L
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int + 1 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int^2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
@@ -154,8 +152,8 @@ test_that("filtering with expression + autocasting", {
 })
 
 test_that("More complex select/filter", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       filter(int < 5) %>%
@@ -166,8 +164,8 @@ test_that("More complex select/filter", {
 })
 
 test_that("filter() with %in%", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, chr %in% c("d", "f")) %>%
       collect(),
     tbl
@@ -175,20 +173,20 @@ test_that("filter() with %in%", {
 })
 
 test_that("Negative scalar values", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(some_negative > -2) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(some_negative %in% -1) %>%
       collect(),
     tbl
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int == -some_negative) %>%
       collect(),
     tbl
@@ -196,15 +194,15 @@ test_that("Negative scalar values", {
 })
 
 test_that("filter() with between()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, 2)) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 0.5, 2)) %>%
       collect(),
     tbl
@@ -243,15 +241,15 @@ test_that("filter() with between()", {
 
 test_that("filter() with string ops", {
   skip_if_not_available("utf8proc")
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, str_length(verses) > 25) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(dbl > 2, str_length(str_trim(padded_strings, "left")) > 5) %>%
       collect(),
     tbl
@@ -260,29 +258,42 @@ test_that("filter() with string ops", {
 
 test_that("filter environment scope", {
   # "object 'b_var' not found"
-  expect_dplyr_error(input %>% filter(chr == b_var), tbl)
+  compare_dplyr_error(.input %>% filter(chr == b_var), tbl)
 
   b_var <- "b"
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(chr == b_var) %>%
       collect(),
     tbl
   )
   # Also for functions
   # 'could not find function "isEqualTo"' because we haven't defined it yet
-  expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
+  compare_dplyr_error(.input %>% filter(isEqualTo(int, 4)), tbl)
 
-  skip("Need to substitute in user defined function too")
-  # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
-  # instead yield Expressions. Probably bc the parent env of the function
-  # has the Ops.Expression methods defined; we need to move it so that the
-  # parent env is the data mask we use in the dplyr eval
+  # This works but only because there are S3 methods for those operations
   isEqualTo <- function(x, y) x == y & !is.na(x)
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(-fct) %>% # factor levels aren't identical
       filter(isEqualTo(int, 4)) %>%
+      collect(),
+    tbl
+  )
+  # Try something that needs to call another nse_func
+  compare_dplyr_binding(
+    .input %>%
+      select(-fct) %>%
+      filter(nchar(padded_strings) < 10) %>%
+      collect(),
+    tbl
+  )
+  isShortString <- function(x) nchar(x) < 10
+  skip("TODO: 14071")
+  compare_dplyr_binding(
+    .input %>%
+      select(-fct) %>%
+      filter(isShortString(padded_strings)) %>%
       collect(),
     tbl
   )
@@ -314,15 +325,15 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
 })
 
 test_that("Filtering with unsupported functions", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 2, pnorm(dbl) > .99) %>%
       collect(),
     tbl,
     warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
   )
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(
         nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
         int > 2, # good
@@ -330,7 +341,7 @@ test_that("Filtering with unsupported functions", {
       ) %>%
       collect(),
     tbl,
-    warning = '\\* In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported by Arrow
+    warning = '\\* In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported in Arrow
 \\* Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow
 pulling data into R'
   )
@@ -348,7 +359,7 @@ test_that("Calling Arrow compute functions 'directly'", {
       select(string = chr, int, dbl)
   )
 
-  expect_dplyr_equal(
+  compare_dplyr_binding(
     tbl %>%
       record_batch() %>%
       filter(arrow_greater(arrow_add(dbl, 1), 3L)) %>%
@@ -361,16 +372,16 @@ test_that("Calling Arrow compute functions 'directly'", {
 })
 
 test_that("filter() with .data pronoun", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(.data$dbl > 4) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
       collect(),
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(is.na(.data$lgl)) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
       collect(),
@@ -379,20 +390,27 @@ test_that("filter() with .data pronoun", {
 
   # and the .env pronoun too!
   chr <- 4
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(.data$dbl > .env$chr) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
       collect(),
     tbl
   )
+})
 
-  skip("test now faulty - code no longer gives error & outputs a empty tibble")
-  # but there is an error if we don't override the masking with `.env`
-  expect_dplyr_error(
-    input %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+test_that("filter() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  skip_if_not_available("utf8proc")
+  compare_dplyr_binding(
+    .input %>%
+      filter(dbl > 2, stringr::str_length(verses) > 25) %>%
       collect(),
     tbl
   )

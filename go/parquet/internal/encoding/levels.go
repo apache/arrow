@@ -19,14 +19,16 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -225,7 +227,7 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 		}
 		return int(nbytes), nil
 	default:
-		return 0, xerrors.Errorf("parquet: unknown encoding type for levels '%s'", encoding)
+		return 0, fmt.Errorf("parquet: unknown encoding type for levels '%s'", encoding)
 	}
 }
 
@@ -261,9 +263,9 @@ func (l *LevelDecoder) Decode(levels []int16) (int, int64) {
 		valsToRead   int64
 	)
 
-	n := utils.Min(int64(l.remaining), int64(len(levels)))
+	n := shared_utils.Min(int64(l.remaining), int64(len(levels)))
 	for n > 0 {
-		batch := utils.Min(1024, n)
+		batch := shared_utils.Min(1024, n)
 		switch l.encoding {
 		case format.Encoding_RLE:
 			decoded = l.rle.GetBatch(buf[:batch])

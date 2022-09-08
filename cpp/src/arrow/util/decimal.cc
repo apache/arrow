@@ -33,7 +33,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/value_parsing.h"
@@ -267,7 +267,7 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
       // *elem = dividend / 1e9;
       // remainder = dividend % 1e9.
       uint32_t hi = static_cast<uint32_t>(*elem >> 32);
-      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignificantBitMask(32));
+      uint32_t lo = static_cast<uint32_t>(*elem & bit_util::LeastSignificantBitMask(32));
       uint64_t dividend_hi = (static_cast<uint64_t>(remainder) << 32) | hi;
       uint64_t quotient_hi = dividend_hi / k1e9;
       remainder = static_cast<uint32_t>(dividend_hi % k1e9);
@@ -320,7 +320,7 @@ std::string Decimal128::ToIntegerString() const {
 Decimal128::operator int64_t() const {
   DCHECK(high_bits() == 0 || high_bits() == -1)
       << "Trying to cast a Decimal128 greater than the value range of a "
-         "int64_t. high_bits_ must be equal to 0 or -1, got: "
+         "int64_t; high_bits() must be equal to 0 or -1, got: "
       << high_bits();
   return static_cast<int64_t>(low_bits());
 }
@@ -386,6 +386,9 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 }
 
 std::string Decimal128::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal128 value>";
+  }
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;
@@ -539,7 +542,7 @@ Status DecimalFromString(const char* type_name, const util::string_view& s, Deci
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
-    *out = Decimal(BitUtil::LittleEndianArray::ToNative(little_endian_array));
+    *out = Decimal(bit_util::little_endian::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
     }
@@ -610,7 +613,7 @@ static inline uint64_t UInt64FromBigEndian(const uint8_t* bytes, int32_t length)
   // and doing the conversion in 16, 32 parts, which could
   // possibly create unaligned memory access on certain platforms
   memcpy(reinterpret_cast<uint8_t*>(&result) + 8 - length, bytes, length);
-  return ::arrow::BitUtil::FromBigEndian(result);
+  return ::arrow::bit_util::FromBigEndian(result);
 }
 
 Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length) {
@@ -686,15 +689,18 @@ std::string Decimal256::ToIntegerString() const {
     Decimal256 abs = *this;
     abs.Negate();
     AppendLittleEndianArrayToString(
-        BitUtil::LittleEndianArray::FromNative(abs.native_endian_array()), &result);
+        bit_util::little_endian::FromNative(abs.native_endian_array()), &result);
   } else {
     AppendLittleEndianArrayToString(
-        BitUtil::LittleEndianArray::FromNative(native_endian_array()), &result);
+        bit_util::little_endian::FromNative(native_endian_array()), &result);
   }
   return result;
 }
 
 std::string Decimal256::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal256 value>";
+  }
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;
@@ -768,7 +774,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
     length -= word_length;
   }
 
-  return Decimal256(BitUtil::LittleEndianArray::ToNative(little_endian_array));
+  return Decimal256(bit_util::little_endian::ToNative(little_endian_array));
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
@@ -811,7 +817,7 @@ struct Decimal256RealConversion {
     DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part0, 0);
     DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
-    return Decimal256(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
+    return Decimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
         {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
          static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)}));
   }
@@ -835,7 +841,7 @@ struct Decimal256RealConversion {
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
-    const auto parts_le = BitUtil::LittleEndianArray::Make(decimal.native_endian_array());
+    const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
     x += Derived::two_to_192(static_cast<Real>(parts_le[3]));
     x += Derived::two_to_128(static_cast<Real>(parts_le[2]));
     x += Derived::two_to_64(static_cast<Real>(parts_le[1]));

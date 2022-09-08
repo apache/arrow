@@ -113,6 +113,13 @@ class ARROW_EXPORT FileInterface {
   /// available for further operations.
   virtual Status Close() = 0;
 
+  /// \brief Close the stream asynchronously
+  ///
+  /// By default, this will just submit the synchronous Close() to the
+  /// default I/O thread pool. Subclasses may implement this in a more
+  /// efficient manner.
+  virtual Future<> CloseAsync();
+
   /// \brief Close the stream abruptly
   ///
   /// This method does not guarantee that any pending data is flushed.
@@ -255,8 +262,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] file_offset the starting position in the file
   /// \param[in] nbytes the extent of bytes to read. The file should have
   /// sufficient bytes available
-  static std::shared_ptr<InputStream> GetStream(std::shared_ptr<RandomAccessFile> file,
-                                                int64_t file_offset, int64_t nbytes);
+  static Result<std::shared_ptr<InputStream>> GetStream(
+      std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes);
 
   /// \brief Return the total file size in bytes.
   ///

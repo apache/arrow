@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, Bool, Vector, BoolVector } from 'apache-arrow';
+import { Bool, makeVector, vectorFromArray } from 'apache-arrow';
 
-const newBoolVector = (length: number, data: Uint8Array) => Vector.new(Data.Bool(new Bool(), 0, length, 0, null, data));
+const newBoolVector = (length: number, data: Uint8Array) => makeVector({ type: new Bool(), length, data });
+
 
 describe(`BoolVector`, () => {
     const values = [true, true, false, true, true, false, false, false];
@@ -31,13 +32,13 @@ describe(`BoolVector`, () => {
     });
     test(`iterates expected values`, () => {
         let i = -1;
-        for (let v of vector) {
+        for (const v of vector) {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
     });
     test(`indexOf returns expected values`, () => {
-        for (let test_value of [true, false]) {
+        for (const test_value of [true, false]) {
             const expected = values.indexOf(test_value);
             expect(vector.indexOf(test_value)).toEqual(expected);
         }
@@ -49,7 +50,7 @@ describe(`BoolVector`, () => {
     test(`can set values to true and false`, () => {
         const v = newBoolVector(n, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
         const expected1 = [true, true, false, true, true, false, false, false];
-        const expected2 = [true, true,  true, true, true, false, false, false];
+        const expected2 = [true, true, true, true, true, false, false, false];
         const expected3 = [true, true, false, false, false, false, true, true];
         function validate(expected: boolean[]) {
             for (let i = -1; ++i < n;) {
@@ -74,38 +75,37 @@ describe(`BoolVector`, () => {
     });
     test(`packs 0 values`, () => {
         const expected = new Uint8Array(64);
-        expect(BoolVector.from([]).values).toEqual(expected);
+        expect(vectorFromArray([], new Bool()).data[0].values).toEqual(expected);
     });
     test(`packs 3 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 5;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, false, true
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`packs 8 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 27;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, true, false, true, true, false, false, false
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`packs 25 values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 27;
         expected[1] = 216;
-        expect(BoolVector.from([
+        expect(vectorFromArray([
             true, true, false, true, true, false, false, false,
             false, false, false, true, true, false, true, true,
             false
-        ]).values).toEqual(expected);
+        ]).data[0].values).toEqual(expected);
     });
     test(`from with boolean Array packs values`, () => {
         const expected = new Uint8Array(64);
         expected[0] = 5;
-        expect(BoolVector
-            .from([true, false, true])
-            .slice().values
+        expect(vectorFromArray([true, false, true])
+            .slice().data[0].values
         ).toEqual(expected);
     });
 });

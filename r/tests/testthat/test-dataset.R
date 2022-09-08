@@ -17,45 +17,11 @@
 
 skip_if_not_available("dataset")
 
-context("Dataset")
-
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()
-csv_dir <- make_temp_dir()
-tsv_dir <- make_temp_dir()
-
-skip_if_multithreading_disabled <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
-    skip("Multithreading does not work properly on this system")
-  }
-}
-
-
-first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
-df1 <- tibble(
-  int = 1:10,
-  dbl = as.numeric(1:10),
-  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-  chr = letters[1:10],
-  fct = factor(LETTERS[1:10]),
-  ts = first_date + lubridate::days(1:10)
-)
-
-second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
-df2 <- tibble(
-  int = 101:110,
-  dbl = c(as.numeric(51:59), NaN),
-  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-  chr = letters[10:1],
-  fct = factor(LETTERS[10:1]),
-  ts = second_date + lubridate::days(10:1)
-)
 
 test_that("Setup (putting data in the dir)", {
   if (arrow_with_parquet()) {
@@ -78,253 +44,6 @@ test_that("Setup (putting data in the dir)", {
   write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
   write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
-
-  # Now, CSV
-  dir.create(file.path(csv_dir, 5))
-  dir.create(file.path(csv_dir, 6))
-  write.csv(df1, file.path(csv_dir, 5, "file1.csv"), row.names = FALSE)
-  write.csv(df2, file.path(csv_dir, 6, "file2.csv"), row.names = FALSE)
-  expect_length(dir(csv_dir, recursive = TRUE), 2)
-
-  # Now, tab-delimited
-  dir.create(file.path(tsv_dir, 5))
-  dir.create(file.path(tsv_dir, 6))
-  write.table(df1, file.path(tsv_dir, 5, "file1.tsv"), row.names = FALSE, sep = "\t")
-  write.table(df2, file.path(tsv_dir, 6, "file2.tsv"), row.names = FALSE, sep = "\t")
-  expect_length(dir(tsv_dir, recursive = TRUE), 2)
-})
-
-if (arrow_with_parquet()) {
-  files <- c(
-    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
-  )
-}
-
-test_that("Simple interface for datasets", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_r6_class(ds$format, "ParquetFileFormat")
-  expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_r6_class(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-
-  # Collecting virtual partition column works
-  expect_equal(
-    collect(ds) %>% pull(part),
-    c(rep(1, 10), rep(2, 10))
-  )
-})
-
-test_that("dim method returns the correct number of rows and columns", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_identical(dim(ds), c(20L, 7L))
-})
-
-
-test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-
-  expect_identical(
-    ds %>%
-      filter(chr == "a") %>%
-      dim(),
-    c(2L, 7L)
-  )
-  expect_equal(
-    ds %>%
-      select(chr, fct, int) %>%
-      dim(),
-    c(20L, 3L)
-  )
-  expect_identical(
-    ds %>%
-      select(chr, fct, int) %>%
-      filter(chr == "a") %>%
-      dim(),
-    c(2L, 3L)
-  )
-})
-
-test_that("dataset from single local file path", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  ds <- open_dataset(files[1])
-  expect_is(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7) %>%
-      collect() %>%
-      arrange(dbl),
-    df1[8:10, c("chr", "dbl")]
-  )
-})
-
-test_that("dataset from vector of file paths", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  ds <- open_dataset(files)
-  expect_is(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-})
-
-test_that("dataset from directory URI", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  uri <- paste0("file://", dataset_dir)
-  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
-  expect_r6_class(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-})
-
-test_that("dataset from single file URI", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  uri <- paste0("file://", files[1])
-  ds <- open_dataset(uri)
-  expect_is(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7) %>%
-      collect() %>%
-      arrange(dbl),
-    df1[8:10, c("chr", "dbl")]
-  )
-})
-
-test_that("dataset from vector of file URIs", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  uris <- paste0("file://", files)
-  ds <- open_dataset(uris)
-  expect_is(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-})
-
-test_that("open_dataset errors on mixed paths and URIs", {
-  skip_on_os("windows")
-  skip_if_not_available("parquet")
-  expect_error(
-    open_dataset(c(files[1], paste0("file://", files[2]))),
-    "Vectors of mixed paths and URIs are not supported"
-  )
-})
-
-test_that("Simple interface for datasets (custom ParquetFileFormat)", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir,
-    partitioning = schema(part = uint8()),
-    format = FileFormat$create("parquet", dict_columns = c("chr"))
-  )
-  expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
-})
-
-test_that("Hive partitioning", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
-  expect_r6_class(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      filter(group == 2) %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    df2[1:2, c("chr", "dbl")]
-  )
-})
-
-test_that("input validation", {
-  skip_if_not_available("parquet")
-  expect_error(
-    open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
-  )
-})
-
-test_that("Partitioning inference", {
-  skip_if_not_available("parquet")
-  # These are the same tests as above, just using the *PartitioningFactory
-  ds1 <- open_dataset(dataset_dir, partitioning = "part")
-  expect_identical(names(ds1), c(names(df1), "part"))
-  expect_equivalent(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 1) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-
-  ds2 <- open_dataset(hive_dir)
-  expect_identical(names(ds2), c(names(df1), "group", "other"))
-  expect_equivalent(
-    ds2 %>%
-      filter(group == 2) %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    df2[1:2, c("chr", "dbl")]
-  )
 })
 
 test_that("IPC/Feather format data", {
@@ -334,7 +53,7 @@ test_that("IPC/Feather format data", {
   expect_identical(names(ds), c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
-  expect_equivalent(
+  expect_equal(
     ds %>%
       select(string = chr, integer = int, part) %>%
       filter(integer > 6 & part == 3) %>%
@@ -348,726 +67,8 @@ test_that("IPC/Feather format data", {
 
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part),
     c(rep(3, 10), rep(4, 10))
-  )
-})
-
-test_that("CSV dataset", {
-  skip_if_multithreading_disabled()
-  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  expect_r6_class(ds$format, "CsvFileFormat")
-  expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
-  if (getRversion() >= "4.0.0") {
-    # CountRows segfaults on RTools35/R 3.6, so don't test it there
-    expect_identical(dim(ds), c(20L, 7L))
-  }
-  expect_equivalent(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
-      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-  # Collecting virtual partition column works
-  expect_equal(
-    collect(ds) %>% pull(part),
-    c(rep(5, 10), rep(6, 10))
-  )
-})
-
-test_that("CSV scan options", {
-  skip_if_multithreading_disabled()
-  options <- FragmentScanOptions$create("text")
-  expect_equal(options$type, "csv")
-  options <- FragmentScanOptions$create("csv",
-    null_values = c("mynull"),
-    strings_can_be_null = TRUE
-  )
-  expect_equal(options$type, "csv")
-
-  dst_dir <- make_temp_dir()
-  dst_file <- file.path(dst_dir, "data.csv")
-  df <- tibble(chr = c("foo", "mynull"))
-  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
-
-  ds <- open_dataset(dst_dir, format = "csv")
-  expect_equivalent(ds %>% collect(), df)
-
-  sb <- ds$NewScan()
-  sb$FragmentScanOptions(options)
-
-  tab <- sb$Finish()$ToTable()
-  expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
-
-  # Set default convert options in CsvFileFormat
-  csv_format <- CsvFileFormat$create(
-    null_values = c("mynull"),
-    strings_can_be_null = TRUE
-  )
-  ds <- open_dataset(dst_dir, format = csv_format)
-  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
-
-  # Set both parse and convert options
-  df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
-  write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
-  ds <- open_dataset(dst_dir,
-    format = "csv",
-    delimiter = "\t",
-    null_values = c("mynull"),
-    strings_can_be_null = TRUE
-  )
-  expect_equivalent(ds %>% collect(), tibble(
-    chr = c("foo", NA),
-    chr2 = c("bar", "baz")
-  ))
-})
-
-test_that("compressed CSV dataset", {
-  skip_if_multithreading_disabled()
-  skip_if_not_available("gzip")
-  dst_dir <- make_temp_dir()
-  dst_file <- file.path(dst_dir, "data.csv.gz")
-  write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
-  format <- FileFormat$create("csv")
-  ds <- open_dataset(dst_dir, format = format)
-  expect_r6_class(ds$format, "CsvFileFormat")
-  expect_r6_class(ds$filesystem, "LocalFileSystem")
-
-  expect_equivalent(
-    ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("CSV dataset options", {
-  skip_if_multithreading_disabled()
-  dst_dir <- make_temp_dir()
-  dst_file <- file.path(dst_dir, "data.csv")
-  df <- tibble(chr = letters[1:10])
-  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
-
-  format <- FileFormat$create("csv", skip_rows = 1)
-  ds <- open_dataset(dst_dir, format = format)
-
-  expect_equivalent(
-    ds %>%
-      select(string = a) %>%
-      collect(),
-    df1[-1, ] %>%
-      select(string = chr)
-  )
-
-  ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
-
-  expect_equivalent(
-    ds %>%
-      select(string = foo) %>%
-      collect(),
-    tibble(foo = c(c("chr"), letters[1:10]))
-  )
-})
-
-test_that("Other text delimited dataset", {
-  skip_if_multithreading_disabled()
-  ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
-  expect_equivalent(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
-      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-
-  ds2 <- open_dataset(tsv_dir, partitioning = "part", format = "text", delimiter = "\t")
-  expect_equivalent(
-    ds2 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
-      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("readr parse options", {
-  skip_if_multithreading_disabled()
-  arrow_opts <- names(formals(CsvParseOptions$create))
-  readr_opts <- names(formals(readr_to_csv_parse_options))
-
-  # Arrow and readr parse options must be mutually exclusive, or else the code
-  # in `csv_file_format_parse_options()` will error or behave incorrectly. A
-  # failure of this test indicates that these two sets of option names are not
-  # mutually exclusive.
-  expect_equal(
-    intersect(arrow_opts, readr_opts),
-    character(0)
-  )
-
-  # With not yet supported readr parse options (ARROW-8631)
-  expect_error(
-    open_dataset(tsv_dir, partitioning = "part", delim = "\t", na = "\\N"),
-    "supported"
-  )
-
-  # With unrecognized (garbage) parse options
-  expect_error(
-    open_dataset(
-      tsv_dir,
-      partitioning = "part",
-      format = "text",
-      asdfg = "\\"
-    ),
-    "Unrecognized"
-  )
-
-  # With both Arrow and readr parse options (disallowed)
-  expect_error(
-    open_dataset(
-      tsv_dir,
-      partitioning = "part",
-      format = "text",
-      quote = "\"",
-      quoting = TRUE
-    ),
-    "either"
-  )
-
-  # With ambiguous partial option names (disallowed)
-  expect_error(
-    open_dataset(
-      tsv_dir,
-      partitioning = "part",
-      format = "text",
-      quo = "\"",
-    ),
-    "Ambiguous"
-  )
-
-  # With only readr parse options (and omitting format = "text")
-  ds1 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
-  expect_equivalent(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
-      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Dataset with multiple file formats", {
-  skip("https://issues.apache.org/jira/browse/ARROW-7653")
-  skip_if_not_available("parquet")
-  ds <- open_dataset(list(
-    open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
-    open_dataset(ipc_dir, format = "arrow", partitioning = "part")
-  ))
-  expect_identical(names(ds), c(names(df1), "part"))
-  expect_equivalent(
-    ds %>%
-      filter(int > 6 & part %in% c(1, 3)) %>%
-      select(string = chr, integer = int) %>%
-      collect(),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      rbind(., .) # Stack it twice
-  )
-})
-
-test_that("Creating UnionDataset", {
-  skip_if_not_available("parquet")
-  ds1 <- open_dataset(file.path(dataset_dir, 1))
-  ds2 <- open_dataset(file.path(dataset_dir, 2))
-  union1 <- open_dataset(list(ds1, ds2))
-  expect_r6_class(union1, "UnionDataset")
-  expect_equivalent(
-    union1 %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  # Now with the c() method
-  union2 <- c(ds1, ds2)
-  expect_r6_class(union2, "UnionDataset")
-  expect_equivalent(
-    union2 %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  # Confirm c() method error handling
-  expect_error(c(ds1, 42), "character")
-})
-
-test_that("map_batches", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = "part")
-  expect_warning(
-    expect_equivalent(
-      ds %>%
-        filter(int > 5) %>%
-        select(int, lgl) %>%
-        map_batches(~ summarize(., min_int = min(int))),
-      tibble(min_int = c(6L, 101L))
-    ),
-    "pulling data into R" # ARROW-13502
-  )
-})
-
-test_that("partitioning = NULL to ignore partition information (but why?)", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
-})
-
-test_that("filter() with is.nan()", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(part, dbl) %>%
-      filter(!is.nan(dbl), part == 2) %>%
-      collect(),
-    tibble(part = 2L, dbl = df2$dbl[!is.nan(df2$dbl)])
-  )
-})
-
-test_that("filter() with %in%", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(int, part) %>%
-      filter(int %in% c(6, 4, 3, 103, 107), part == 1) %>%
-      collect(),
-    tibble(int = df1$int[c(3, 4, 6)], part = 1)
-  )
-
-  # ARROW-9606: bug in %in% filter on partition column with >1 partition columns
-  ds <- open_dataset(hive_dir)
-  expect_equivalent(
-    ds %>%
-      filter(group %in% 2) %>%
-      select(names(df2)) %>%
-      collect(),
-    df2
-  )
-})
-
-test_that("filter() on timestamp columns", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      filter(ts >= lubridate::ymd_hms("2015-05-04 03:12:39")) %>%
-      filter(part == 1) %>%
-      select(ts) %>%
-      collect(),
-    df1[5:10, c("ts")],
-  )
-
-  # Now with Date
-  expect_equivalent(
-    ds %>%
-      filter(ts >= as.Date("2015-05-04")) %>%
-      filter(part == 1) %>%
-      select(ts) %>%
-      collect(),
-    df1[5:10, c("ts")],
-  )
-
-  # Now with bare string date
-  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
-  expect_equivalent(
-    ds %>%
-      filter(ts >= "2015-05-04") %>%
-      filter(part == 1) %>%
-      select(ts) %>%
-      collect(),
-    df1[5:10, c("ts")],
-  )
-})
-
-test_that("filter() on date32 columns", {
-  skip_if_not_available("parquet")
-  tmp <- tempfile()
-  dir.create(tmp)
-  df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
-  write_parquet(df, file.path(tmp, "file.parquet"))
-
-  expect_equal(
-    open_dataset(tmp) %>%
-      filter(date > as.Date("2020-02-02")) %>%
-      collect() %>%
-      nrow(),
-    1L
-  )
-
-  # Also with timestamp scalar
-  expect_equal(
-    open_dataset(tmp) %>%
-      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
-      collect() %>%
-      nrow(),
-    1L
-  )
-})
-
-
-test_that("mutate()", {
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  mutated <- ds %>%
-    select(chr, dbl, int) %>%
-    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
-    mutate(twice = int * 2)
-  expect_output(
-    print(mutated),
-    "FileSystemDataset (query)
-chr: string
-dbl: double
-int: int32
-twice: double (multiply_checked(int, 2))
-
-* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
-  expect_equivalent(
-    mutated %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl", "int")],
-      df2[1:2, c("chr", "dbl", "int")]
-    ) %>%
-      mutate(
-        twice = int * 2
-      )
-  )
-})
-
-test_that("mutate() features not yet implemented", {
-  expect_error(
-    ds %>%
-      group_by(int) %>%
-      mutate(avg = mean(int)),
-    "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
-    fixed = TRUE
-  )
-})
-
-test_that("filter scalar validation doesn't crash (ARROW-7772)", {
-  expect_error(
-    ds %>%
-      filter(int == "fff", part == 1) %>%
-      collect(),
-    "equal has no kernel matching input types .array.int32., scalar.string.."
-  )
-})
-
-test_that("collect() on Dataset works (if fits in memory)", {
-  skip_if_not_available("parquet")
-  expect_equal(
-    collect(open_dataset(dataset_dir)),
-    rbind(df1, df2)
-  )
-})
-
-test_that("count()", {
-  skip_if_not_available("parquet")
-  skip("count() is not a generic so we have to get here through summarize()")
-  ds <- open_dataset(dataset_dir)
-  df <- rbind(df1, df2)
-  expect_equal(
-    ds %>%
-      filter(int > 6, int < 108) %>%
-      count(chr),
-    df %>%
-      filter(int > 6, int < 108) %>%
-      count(chr)
-  )
-})
-
-test_that("arrange()", {
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  arranged <- ds %>%
-    select(chr, dbl, int) %>%
-    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
-    mutate(twice = int * 2) %>%
-    arrange(chr, desc(twice), dbl + int)
-  expect_output(
-    print(arranged),
-    "FileSystemDataset (query)
-chr: string
-dbl: double
-int: int32
-twice: double (multiply_checked(int, 2))
-
-* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
-* Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
-  expect_equivalent(
-    arranged %>%
-      collect(),
-    rbind(
-      df1[8, c("chr", "dbl", "int")],
-      df2[2, c("chr", "dbl", "int")],
-      df1[9, c("chr", "dbl", "int")],
-      df2[1, c("chr", "dbl", "int")],
-      df1[10, c("chr", "dbl", "int")]
-    ) %>%
-      mutate(
-        twice = int * 2
-      )
-  )
-})
-
-test_that("compute()/collect(as_data_frame=FALSE)", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir)
-
-  tab1 <- ds %>% compute()
-  expect_is(tab1, "Table")
-
-  tab2 <- ds %>% collect(as_data_frame = FALSE)
-  expect_is(tab2, "Table")
-
-  tab3 <- ds %>%
-    mutate(negint = -int) %>%
-    filter(negint > -100) %>%
-    arrange(chr) %>%
-    select(negint) %>%
-    compute()
-
-  expect_is(tab3, "Table")
-
-  expect_equal(
-    tab3 %>% collect(),
-    tibble(negint = -1:-10)
-  )
-
-  tab4 <- ds %>%
-    mutate(negint = -int) %>%
-    filter(negint > -100) %>%
-    arrange(chr) %>%
-    select(negint) %>%
-    collect(as_data_frame = FALSE)
-
-  expect_is(tab3, "Table")
-
-  expect_equal(
-    tab4 %>% collect(),
-    tibble(negint = -1:-10)
-  )
-
-  tab5 <- ds %>%
-    mutate(negint = -int) %>%
-    group_by(fct) %>%
-    compute()
-
-  # the group_by() prevents compute() from returning a Table...
-  expect_is(tab5, "arrow_dplyr_query")
-
-  # ... but $.data is a Table (InMemoryDataset)...
-  expect_r6_class(tab5$.data, "InMemoryDataset")
-  # ... and the mutate() was evaluated
-  expect_true("negint" %in% names(tab5$.data))
-})
-
-test_that("head/tail", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(
-    as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2, ])
-  )
-  expect_equal(
-    ds %>%
-      filter(int > 6) %>%
-      head() %>%
-      as.data.frame(),
-    rbind(df1[7:10, ], df2[1:2, ])
-  )
-
-  expect_equal(as.data.frame(tail(ds)), tail(df2))
-  expect_equal(
-    as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10, ], df2)
-  )
-  expect_equal(
-    ds %>%
-      filter(int < 105) %>%
-      tail() %>%
-      as.data.frame(),
-    rbind(df1[9:10, ], df2[1:4, ])
-  )
-})
-
-test_that("Dataset [ (take by index)", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir)
-  # Taking only from one file
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9), 3:4]),
-    df1[c(4, 5, 9), 3:4]
-  )
-  # Taking from more than one
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
-    rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
-  )
-  # Taking out of order
-  expect_equal(
-    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
-    rbind(
-      df1[4, ],
-      df2[3, ],
-      df1[9, ],
-      df2[2, ],
-      df1[5, ]
-    )
-  )
-
-  # Take from a query
-  ds2 <- ds %>%
-    filter(int > 6) %>%
-    select(int, lgl)
-  expect_equal(
-    as.data.frame(ds2[c(2, 5), ]),
-    rbind(
-      df1[8, c("int", "lgl")],
-      df2[1, c("int", "lgl")]
-    )
-  )
-})
-
-test_that("dplyr method not implemented messages", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir)
-  # This one is more nuanced
-  expect_error(
-    ds %>% filter(int > 6, dbl > max(dbl)),
-    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
-    fixed = TRUE
-  )
-})
-
-test_that("Dataset and query print methods", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(hive_dir)
-  expect_output(
-    print(ds),
-    paste(
-      "FileSystemDataset with 2 Parquet files",
-      "int: int32",
-      "dbl: double",
-      "lgl: bool",
-      "chr: string",
-      "fct: dictionary<values=string, indices=int32>",
-      "ts: timestamp[us, tz=UTC]",
-      "group: int32",
-      "other: string",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  expect_type(ds$metadata, "list")
-  q <- select(ds, string = chr, lgl, integer = int)
-  expect_output(
-    print(q),
-    paste(
-      "Dataset (query)",
-      "string: string",
-      "lgl: bool",
-      "integer: int32",
-      "",
-      "See $.data for the source Arrow object",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-  expect_output(
-    print(q %>% filter(integer == 6) %>% group_by(lgl)),
-    paste(
-      "Dataset (query)",
-      "string: string",
-      "lgl: bool",
-      "integer: int32",
-      "",
-      "* Filter: (int == 6)",
-      "* Grouped by lgl",
-      "See $.data for the source Arrow object",
-      sep = "\n"
-    ),
-    fixed = TRUE
-  )
-})
-
-test_that("Scanner$ScanBatches", {
-  ds <- open_dataset(ipc_dir, format = "feather")
-  batches <- ds$NewScan()$Finish()$ScanBatches()
-  table <- Table$create(!!!batches)
-  expect_equivalent(as.data.frame(table), rbind(df1, df2))
-
-  # use_async will always use the thread pool (even if it only uses
-  # one thread) and RTools 3.5 on Windows doesn't support this
-  skip_on_os("windows")
-  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
-  table <- Table$create(!!!batches)
-  expect_equivalent(as.data.frame(table), rbind(df1, df2))
-})
-
-test_that("Scanner$ToRecordBatchReader()", {
-  ds <- open_dataset(dataset_dir, partitioning = "part")
-  scan <- ds %>%
-    filter(part == 1) %>%
-    select(int, lgl) %>%
-    filter(int > 6) %>%
-    Scanner$create()
-  reader <- scan$ToRecordBatchReader()
-  expect_r6_class(reader, "RecordBatchReader")
-  expect_identical(
-    as.data.frame(reader$read_table()),
-    df1[df1$int > 6, c("int", "lgl")]
   )
 })
 
@@ -1084,39 +85,11 @@ expect_scan_result <- function(ds, schm) {
   tab <- scn$ToTable()
   expect_r6_class(tab, "Table")
 
-  expect_equivalent(
+  expect_equal(
     as.data.frame(tab),
     df1[8, c("chr", "lgl")]
   )
 }
-
-test_that("Assembling a Dataset manually and getting a Table", {
-  skip_if_not_available("parquet")
-  fs <- LocalFileSystem$create()
-  selector <- FileSelector$create(dataset_dir, recursive = TRUE)
-  partitioning <- DirectoryPartitioning$create(schema(part = double()))
-
-  fmt <- FileFormat$create("parquet")
-  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
-  expect_r6_class(factory, "FileSystemDatasetFactory")
-
-  schm <- factory$Inspect()
-  expect_r6_class(schm, "Schema")
-
-  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
-  expect_equal(names(phys_schm), names(df1))
-  expect_equal(names(schm), c(names(phys_schm), "part"))
-
-  child <- factory$Finish(schm)
-  expect_r6_class(child, "FileSystemDataset")
-  expect_r6_class(child$schema, "Schema")
-  expect_r6_class(child$format, "ParquetFileFormat")
-  expect_equal(names(schm), names(child$schema))
-  expect_equivalent(child$files, files)
-
-  ds <- Dataset$create(list(child), schm)
-  expect_scan_result(ds, schm)
-})
 
 test_that("URI-decoding with directory partitioning", {
   root <- make_temp_dir()
@@ -1200,6 +173,7 @@ test_that("URI-decoding with hive partitioning", {
     fs, selector, NULL, fmt,
     partitioning = partitioning
   )
+  schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_scan_result(ds, schm)
 
@@ -1242,8 +216,819 @@ test_that("URI-decoding with hive partitioning", {
   )
 })
 
+test_that("URI-decoding with hive partitioning with key encoded", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "test%20key=2021-05-04 00%3A00%3A00", "test%20key1=%24")
+  dir.create(dir1, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+
+  partitioning <- hive_partition(
+    `test key` = timestamp(unit = "s"), `test key1` = utf8(), segment_encoding = "uri"
+  )
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  # segment encoding for both key and values
+  partitioning_factory <- hive_partition(segment_encoding = "uri")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test key` == "2021-05-04 00:00:00", `test key1` == "$") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  # no segment encoding
+  partitioning_factory <- hive_partition(segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test%20key` == "2021-05-04 00%3A00%3A00", `test%20key1` == "%24") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
+# Everything else below here is using parquet files
+skip_if_not_available("parquet")
+
+files <- c(
+  file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+  file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+)
+
+test_that("Simple interface for datasets", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_r6_class(ds$format, "ParquetFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds, "Dataset")
+  expect_equal(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  expect_equal(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  # Collecting virtual partition column works
+  expect_equal(
+    ds %>% arrange(part) %>% pull(part),
+    c(rep(1, 10), rep(2, 10))
+  )
+})
+
+test_that("Can set schema on dataset", {
+  ds <- open_dataset(dataset_dir)
+  expected_schema <- schema(x = int32(), y = utf8())
+  expect_false(ds$schema == expected_schema)
+
+  ds_new <- ds$WithSchema(expected_schema)
+  expect_equal(ds_new$schema, expected_schema)
+  expect_false(ds$schema == expected_schema)
+
+  ds$schema <- expected_schema
+  expect_equal(ds$schema, expected_schema)
+})
+
+test_that("dim method returns the correct number of rows and columns", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(ds), c(20L, 7L))
+})
+
+
+test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  expect_identical(
+    ds %>%
+      filter(chr == "a") %>%
+      dim(),
+    c(2L, 7L)
+  )
+  expect_equal(
+    ds %>%
+      select(chr, fct, int) %>%
+      dim(),
+    c(20L, 3L)
+  )
+  expect_identical(
+    ds %>%
+      select(chr, fct, int) %>%
+      filter(chr == "a") %>%
+      dim(),
+    c(2L, 3L)
+  )
+})
+
+test_that("Simple interface for datasets (custom ParquetFileFormat)", {
+  ds <- open_dataset(dataset_dir,
+    partitioning = schema(part = uint8()),
+    format = FileFormat$create("parquet", dict_columns = c("chr"))
+  )
+  expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
+})
+
+test_that("Hive partitioning", {
+  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
+  expect_r6_class(ds, "Dataset")
+  expect_equal(
+    ds %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
+  )
+})
+
+test_that("input validation", {
+  expect_error(
+    open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+  )
+})
+
+test_that("Partitioning inference", {
+  # These are the same tests as above, just using the *PartitioningFactory
+  ds1 <- open_dataset(dataset_dir, partitioning = "part")
+  expect_identical(names(ds1), c(names(df1), "part"))
+  expect_equal(
+    ds1 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 1) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  ds2 <- open_dataset(hive_dir)
+  expect_identical(names(ds2), c(names(df1), "group", "other"))
+  expect_equal(
+    ds2 %>%
+      filter(group == 2) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
+  )
+})
+
+test_that("Specifying partitioning when hive_style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+
+  # If string and names match hive partition names, it's accepted silently
+  ds_with_chr <- open_dataset(hive_dir, partitioning = c("group", "other"))
+  expect_equal(ds_with_chr$schema, expected_schema)
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = c("asdf", "zxcv")),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # If schema and names match, the schema is used to specify the types
+  ds_with_sch <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int32(), other = utf8())
+  )
+  expect_equal(ds_with_sch$schema, expected_schema)
+
+  ds_with_int8 <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int8(), other = utf8())
+  )
+  expect_equal(ds_with_int8$schema[["group"]]$type, int8())
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = schema(a = int32(), b = utf8())),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # This can be disabled with hive_style = FALSE
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    partitioning = c("group", "other"),
+    hive_style = FALSE
+  )
+  # Since it's DirectoryPartitioning, the column values are all strings
+  # like "group=1"
+  expect_equal(ds_not_hive$schema[["group"]]$type, utf8())
+
+  # And if no partitioning is specified and hive_style = FALSE, we don't parse at all
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    hive_style = FALSE
+  )
+  expect_null(ds_not_hive$schema[["group"]])
+  expect_null(ds_not_hive$schema[["other"]])
+})
+
+test_that("Including partition columns in schema, hive style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+  # Specify a different type than what is autodetected
+  expected_schema$group <- float32()
+
+  ds <- open_dataset(hive_dir, schema = expected_schema)
+  expect_equal(ds$schema, expected_schema)
+
+  # Now also with specifying `partitioning`
+  ds2 <- open_dataset(hive_dir, schema = expected_schema, partitioning = c("group", "other"))
+  expect_equal(ds2$schema, expected_schema)
+})
+
+test_that("Including partition columns in schema and partitioning, hive style CSV (ARROW-14743)", {
+  mtcars_dir <- tempfile()
+  on.exit(unlink(mtcars_dir))
+
+  tab <- Table$create(mtcars)
+  # Writing is hive-style by default
+  write_dataset(tab, mtcars_dir, format = "csv", partitioning = "cyl")
+
+  mtcars_ds <- open_dataset(
+    mtcars_dir,
+    schema = tab$schema,
+    format = "csv",
+    partitioning = "cyl"
+  )
+  expect_equal(mtcars_ds$schema, tab$schema)
+})
+
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+})
+
+test_that("Dataset with multiple file formats", {
+  skip("https://issues.apache.org/jira/browse/ARROW-7653")
+  ds <- open_dataset(list(
+    open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
+    open_dataset(ipc_dir, format = "arrow", partitioning = "part")
+  ))
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_equal(
+    ds %>%
+      filter(int > 6 & part %in% c(1, 3)) %>%
+      select(string = chr, integer = int) %>%
+      collect(),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      rbind(., .) # Stack it twice
+  )
+})
+
+test_that("Creating UnionDataset", {
+  ds1 <- open_dataset(file.path(dataset_dir, 1))
+  ds2 <- open_dataset(file.path(dataset_dir, 2))
+  union1 <- open_dataset(list(ds1, ds2))
+  expect_r6_class(union1, "UnionDataset")
+  expect_equal(
+    union1 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Now with the c() method
+  union2 <- c(ds1, ds2)
+  expect_r6_class(union2, "UnionDataset")
+  expect_equal(
+    union2 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Confirm c() method error handling
+  expect_error(c(ds1, 42), "character")
+})
+
+test_that("UnionDataset can merge schemas", {
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
+
+  path1 <- make_temp_dir()
+  path2 <- make_temp_dir()
+  write_dataset(sub_df1, path1, format = "parquet")
+  write_dataset(sub_df2, path2, format = "parquet")
+
+  ds1 <- open_dataset(path1, format = "parquet")
+  ds2 <- open_dataset(path2, format = "parquet")
+
+  ds <- c(ds1, ds2)
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
+  expect_equal(colnames(actual), c("x", "y", "z"))
+  expect_equal(
+    actual,
+    union_all(as_tibble(sub_df1), as_tibble(sub_df2))
+  )
+
+  # without unifying schemas, takes the first schema and discards any columns
+  # in the second which aren't in the first
+  ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
+  expected <- as_tibble(sub_df1) %>%
+    union_all(sub_df2 %>% as_tibble() %>% select(x))
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
+  expect_equal(colnames(actual), c("x", "y"))
+  expect_equal(actual, expected)
+})
+
+test_that("UnionDataset handles InMemoryDatasets", {
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
+
+  ds1 <- InMemoryDataset$create(sub_df1)
+  ds2 <- InMemoryDataset$create(sub_df2)
+  ds <- c(ds1, ds2)
+  actual <- ds %>%
+    arrange(x) %>%
+    compute()
+  expected <- concat_tables(sub_df1, sub_df2)
+  expect_equal(actual, expected)
+})
+
+test_that("scalar aggregates with many batches (ARROW-16904)", {
+  tf <- tempfile()
+  write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  replicate(100, ds %>% summarize(min(x)) %>% pull())
+
+  expect_true(all(replicate(100, ds %>% summarize(min(x)) %>% pull()) == 1))
+  expect_true(all(replicate(100, ds %>% summarize(max(x)) %>% pull()) == 100))
+})
+
+test_that("map_batches", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # summarize returns arrow_dplyr_query, which gets collected into a tibble
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ summarize(., min_int = min(int))) %>%
+      arrange(min_int) %>%
+      collect(),
+    tibble(min_int = c(6L, 101L))
+  )
+
+  # $num_rows returns integer vector, so we need to wrap it in a RecordBatch
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ record_batch(nrows = .$num_rows)) %>%
+      pull(nrows) %>%
+      sort(),
+    c(5, 10)
+  )
+
+  # Can take a raw dataset as X argument
+  expect_equal(
+    ds %>%
+      map_batches(~ count(., part)) %>%
+      arrange(part) %>%
+      collect(),
+    tibble(part = c(1, 2), n = c(10, 10))
+  )
+
+  # $Take returns RecordBatch
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$Take(0)) %>%
+      arrange(int) %>%
+      collect(),
+    tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
+  )
+
+  # Do things in R and put back into Arrow
+  expect_equal(
+    ds %>%
+      filter(int < 5) %>%
+      select(int) %>%
+      map_batches(
+        # as_mapper() can't handle %>%?
+        ~ mutate(as.data.frame(.), lets = letters[int])
+      ) %>%
+      arrange(int) %>%
+      collect(),
+    tibble(int = 1:4, lets = letters[1:4])
+  )
+})
+
+test_that("map_batches with explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_equal(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(first_col_name = character(), b = double())
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
+test_that("map_batches without explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_error(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    "Can't infer schema"
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
+test_that("head/tail", {
+  # head/tail with no query are still deterministic order
+  ds <- open_dataset(dataset_dir)
+  big_df <- rbind(df1, df2)
+
+  # No n provided (default is 6, all from one batch)
+  expect_equal(as.data.frame(head(ds)), head(df1))
+  expect_equal(as.data.frame(tail(ds)), tail(df2))
+
+  # n = 0: have to drop `fct` because factor levels don't come through from
+  # arrow when there are 0 rows
+  zero_df <- big_df[FALSE, names(big_df) != "fct"]
+  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+
+  # Two more cases: more than 1 batch, and more than nrow
+  for (n in c(12, 1000)) {
+    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
+    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+  }
+  expect_error(head(ds, -1)) # Not yet implemented
+  expect_error(tail(ds, -1)) # Not yet implemented
+})
+
+
+test_that("unique()", {
+  ds <- open_dataset(dataset_dir)
+  in_r_mem <- rbind(df1, df2)
+  at <- arrow_table(in_r_mem)
+  rbr <- as_record_batch_reader(in_r_mem)
+
+  expect_s3_class(unique(ds), "arrow_dplyr_query")
+  expect_s3_class(unique(at), "arrow_dplyr_query")
+  expect_s3_class(unique(rbr), "arrow_dplyr_query")
+
+  # on a arrow_dplyr_query
+  adq_eg <- ds %>%
+    select(fct) %>%
+    unique()
+  expect_s3_class(adq_eg, "arrow_dplyr_query")
+
+  # order not set by distinct so some sorting required
+  expect_equal(sort(collect(unique(ds))$int), sort(unique(in_r_mem)$int))
+
+  # on a arrow table
+  expect_equal(
+    at %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
+  expect_equal(
+    rbr %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
+  expect_snapshot_error(unique(arrow_table(in_r_mem), incomparables = TRUE))
+})
+
+
+test_that("Dataset [ (take by index)", {
+  ds <- open_dataset(dataset_dir)
+  # Taking only from one file
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9), 3:4]),
+    df1[c(4, 5, 9), 3:4]
+  )
+  # Taking from more than one
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+    rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
+  )
+  # Taking out of order
+  expect_equal(
+    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+    rbind(
+      df1[4, ],
+      df2[3, ],
+      df1[9, ],
+      df2[2, ],
+      df1[5, ]
+    )
+  )
+
+  # Take from a query
+  ds2 <- ds %>%
+    filter(int > 6) %>%
+    select(int, lgl)
+  expect_equal(
+    as.data.frame(ds2[c(2, 5), ]),
+    rbind(
+      df1[8, c("int", "lgl")],
+      df2[1, c("int", "lgl")]
+    )
+  )
+})
+
+test_that("Dataset and query print methods", {
+  ds <- open_dataset(hive_dir)
+  expect_output(
+    print(ds),
+    paste(
+      "FileSystemDataset with 2 Parquet files",
+      "int: int32",
+      "dbl: double",
+      "lgl: bool",
+      "chr: string",
+      "fct: dictionary<values=string, indices=int32>",
+      "ts: timestamp[us, tz=UTC]",
+      "group: int32",
+      "other: string",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  expect_type(ds$metadata, "list")
+  q <- select(ds, string = chr, lgl, integer = int)
+  expect_output(
+    print(q),
+    paste(
+      "Dataset (query)",
+      "string: string",
+      "lgl: bool",
+      "integer: int32",
+      "",
+      "See $.data for the source Arrow object",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  expect_output(
+    print(q %>% filter(integer == 6) %>% group_by(lgl)),
+    paste(
+      "Dataset (query)",
+      "string: string",
+      "lgl: bool",
+      "integer: int32",
+      "",
+      "* Filter: (int == 6)",
+      "* Grouped by lgl",
+      "See $.data for the source Arrow object",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
+test_that("Scanner$ScanBatches", {
+  ds <- open_dataset(ipc_dir, format = "feather")
+  batches <- ds$NewScan()$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equal(as.data.frame(table), rbind(df1, df2))
+
+  batches <- ds$NewScan()$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equal(as.data.frame(table), rbind(df1, df2))
+})
+
+test_that("Scanner$ToRecordBatchReader()", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  scan <- ds %>%
+    filter(part == 1) %>%
+    select(int, lgl) %>%
+    filter(int > 6) %>%
+    Scanner$create()
+  reader <- scan$ToRecordBatchReader()
+  expect_r6_class(reader, "RecordBatchReader")
+  expect_identical(
+    as.data.frame(reader$read_table()),
+    df1[df1$int > 6, c("int", "lgl")]
+  )
+})
+
+test_that("Scanner$create() filter/projection pushdown", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # the standard to compare all Scanner$create()s against
+  scan_one <- ds %>%
+    filter(int > 7 & dbl < 57) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create()
+
+  # select a column in projection
+  scan_two <- ds %>%
+    filter(int > 7 & dbl < 57) %>%
+    # select an extra column, since we are going to
+    select(int, dbl, lgl, chr) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(projection = c("int", "dbl", "lgl", "int_plus", "dbl_minus"))
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
+  )
+
+  # adding filters to Scanner$create
+  scan_three <- ds %>%
+    filter(int > 7) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(
+      filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
+    )
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_three$ToRecordBatchReader()$read_table())
+  )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(projection = "not_a_col"),
+    # Full message is "attempting to project with unknown columns" >= 4.0.0, but
+    # prior versions have a less nice "all(projection %in% names(proj)) is not TRUE"
+    "project"
+  )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(filter = list("foo", "bar")),
+    "filter expressions must be either an expression or a list of expressions"
+  )
+})
+
+test_that("Assembling a Dataset manually and getting a Table", {
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(dataset_dir, recursive = TRUE)
+  partitioning <- DirectoryPartitioning$create(schema(part = double()))
+
+  fmt <- FileFormat$create("parquet")
+  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
+  expect_r6_class(factory, "FileSystemDatasetFactory")
+
+  schm <- factory$Inspect()
+  expect_r6_class(schm, "Schema")
+
+  phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
+  expect_equal(names(phys_schm), names(df1))
+  expect_equal(names(schm), c(names(phys_schm), "part"))
+
+  child <- factory$Finish(schm)
+  expect_r6_class(child, "FileSystemDataset")
+  expect_r6_class(child$schema, "Schema")
+  expect_r6_class(child$format, "ParquetFileFormat")
+  expect_equal(names(schm), names(child$schema))
+  expect_equal(child$files, files)
+
+  ds <- Dataset$create(list(child), schm)
+  expect_scan_result(ds, schm)
+})
+
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
-  skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
   expect_r6_class(factory1, "FileSystemDatasetFactory")
   factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
@@ -1262,398 +1047,17 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_r6_class(ds, "UnionDataset")
   expect_r6_class(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
-  expect_equivalent(map(ds$children, ~ .$files), files)
+  expect_equal(unlist(map(ds$children, ~ .$files)), files)
 
   expect_scan_result(ds, schm)
 })
 
-test_that("Writing a dataset: CSV->IPC", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-
-  # Check whether "int" is present in the files or just in the dirs
-  first <- read_feather(
-    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
-    as_data_frame = FALSE
-  )
-  # It shouldn't be there
-  expect_false("int" %in% names(first))
-})
-
-test_that("Writing a dataset: Parquet->IPC", {
-  skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(hive_dir)
-  dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int, group) %>%
-      filter(integer > 6 & group == 1) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: CSV->Parquet", {
-  skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "parquet", partitioning = "int")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir)
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: Parquet->Parquet (default)", {
-  skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(hive_dir)
-  dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, partitioning = "int")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir)
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int, group) %>%
-      filter(integer > 6 & group == 1) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: no format specified", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  dst_dir <- make_temp_dir()
-  write_dataset(mtcars, dst_dir)
-  new_ds <- open_dataset(dst_dir)
-  expect_equal(
-    list.files(dst_dir, pattern = "parquet"),
-    "part-0.parquet"
-  )
-  expect_true(
-    inherits(new_ds$format, "ParquetFileFormat")
-  )
-  expect_equivalent(
-    new_ds %>% collect(),
-    mtcars
-  )
-})
-
-test_that("Dataset writing: dplyr methods", {
-  skip_if_not_available("parquet")
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(hive_dir)
-  dst_dir <- tempfile()
-  # Specify partition vars by group_by
-  ds %>%
-    group_by(int) %>%
-    write_dataset(dst_dir, format = "feather")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  # select to specify schema (and rename)
-  dst_dir2 <- tempfile()
-  ds %>%
-    group_by(int) %>%
-    select(chr, dubs = dbl) %>%
-    write_dataset(dst_dir2, format = "feather")
-  new_ds <- open_dataset(dst_dir2, format = "feather")
-
-  expect_equivalent(
-    collect(new_ds) %>% arrange(int),
-    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")]) %>% rename(dubs = dbl)
-  )
-
-  # filter to restrict written rows
-  dst_dir3 <- tempfile()
-  ds %>%
-    filter(int == 4) %>%
-    write_dataset(dst_dir3, format = "feather")
-  new_ds <- open_dataset(dst_dir3, format = "feather")
-
-  expect_equivalent(
-    new_ds %>% select(names(df1)) %>% collect(),
-    df1 %>% filter(int == 4)
-  )
-
-  # mutate
-  dst_dir3 <- tempfile()
-  ds %>%
-    filter(int == 4) %>%
-    mutate(twice = int * 2) %>%
-    write_dataset(dst_dir3, format = "feather")
-  new_ds <- open_dataset(dst_dir3, format = "feather")
-
-  expect_equivalent(
-    new_ds %>% select(c(names(df1), "twice")) %>% collect(),
-    df1 %>% filter(int == 4) %>% mutate(twice = int * 2)
-  )
-})
-
-test_that("Dataset writing: non-hive", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  skip_if_not_available("parquet")
-  ds <- open_dataset(hive_dir)
-  dst_dir <- tempfile()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(as.character(c(1:10, 101:110))))
-})
-
-test_that("Dataset writing: no partitioning", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  skip_if_not_available("parquet")
-  ds <- open_dataset(hive_dir)
-  dst_dir <- tempfile()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
-  expect_true(dir.exists(dst_dir))
-  expect_true(length(dir(dst_dir)) > 0)
-})
-
-test_that("Dataset writing: partition on null", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(hive_dir)
-
-  dst_dir <- tempfile()
-  partitioning <- hive_partition(lgl = boolean())
-  write_dataset(ds, dst_dir, partitioning = partitioning)
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), c("lgl=__HIVE_DEFAULT_PARTITION__", "lgl=false", "lgl=true"))
-
-  dst_dir <- tempfile()
-  partitioning <- hive_partition(lgl = boolean(), null_fallback = "xyz")
-  write_dataset(ds, dst_dir, partitioning = partitioning)
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
-
-  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback = "xyz"))
-
-  expect_identical(
-    ds %>%
-      select(int, lgl) %>%
-      collect() %>%
-      arrange(lgl, int),
-    ds_readback %>%
-      select(int, lgl) %>%
-      collect() %>%
-      arrange(lgl, int)
-  )
-})
-
-test_that("Dataset writing: from data.frame", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  dst_dir <- tempfile()
-  stacked <- rbind(df1, df2)
-  stacked %>%
-    group_by(int) %>%
-    write_dataset(dst_dir, format = "feather")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Dataset writing: from RecordBatch", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  dst_dir <- tempfile()
-  stacked <- record_batch(rbind(df1, df2))
-  stacked %>%
-    group_by(int) %>%
-    write_dataset(dst_dir, format = "feather")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: Ipc format options & compression", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  dst_dir <- make_temp_dir()
-
-  codec <- NULL
-  if (codec_is_available("zstd")) {
-    codec <- Codec$create("zstd")
-  }
-
-  write_dataset(ds, dst_dir, format = "feather", codec = codec)
-  expect_true(dir.exists(dst_dir))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: Parquet format options", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  skip_if_not_available("parquet")
-  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  dst_dir <- make_temp_dir()
-  dst_dir_no_truncated_timestamps <- make_temp_dir()
-
-  # Use trace() to confirm that options are passed in
-  trace(
-    "parquet___ArrowWriterProperties___create",
-    tracer = quote(warning("allow_truncated_timestamps == ", allow_truncated_timestamps)),
-    print = FALSE,
-    where = write_dataset
-  )
-  expect_warning(
-    write_dataset(ds, dst_dir_no_truncated_timestamps, format = "parquet", partitioning = "int"),
-    "allow_truncated_timestamps == FALSE"
-  )
-  expect_warning(
-    write_dataset(ds, dst_dir, format = "parquet", partitioning = "int", allow_truncated_timestamps = TRUE),
-    "allow_truncated_timestamps == TRUE"
-  )
-  untrace("parquet___ArrowWriterProperties___create", where = write_dataset)
-
-  # Now confirm we can read back what we sent
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir)
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-test_that("Writing a dataset: CSV format options", {
-  skip_if_multithreading_disabled()
-  df <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[1:10],
-  )
-
-  dst_dir <- make_temp_dir()
-  write_dataset(df, dst_dir, format = "csv")
-  expect_true(dir.exists(dst_dir))
-  new_ds <- open_dataset(dst_dir, format = "csv")
-  expect_equivalent(new_ds %>% collect(), df)
-
-  dst_dir <- make_temp_dir()
-  write_dataset(df, dst_dir, format = "csv", include_header = FALSE)
-  expect_true(dir.exists(dst_dir))
-  new_ds <- open_dataset(dst_dir,
-    format = "csv",
-    column_names = c("int", "dbl", "lgl", "chr")
-  )
-  expect_equivalent(new_ds %>% collect(), df)
-})
-
-test_that("Dataset writing: unsupported features/input validation", {
-  skip_if_not_available("parquet")
-  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
-
-  ds <- open_dataset(hive_dir)
-  expect_error(
-    write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
-    'Invalid field name: "NOTACOLUMN"'
-  )
-  expect_error(
-    write_dataset(ds, tempfile(), basename_template = "something_without_i")
-  )
-  expect_error(
-    write_dataset(ds, tempfile(), basename_template = NULL)
-  )
-})
+# By default, snappy encoding will be used, and
+# Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
+skip_on_linux_devel()
 
 # see https://issues.apache.org/jira/browse/ARROW-11328
 test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
-  skip_if_not_available("parquet")
   tmp <- tempfile()
   write_dataset(mtcars, tmp, format = "parquet")
   expect_equal(
@@ -1662,18 +1066,378 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   )
 })
 
-# see https://issues.apache.org/jira/browse/ARROW-12791
-test_that("Error if no format specified and files are not parquet", {
-  skip_if_not_available("parquet")
+test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
+  ds <- open_dataset(hive_dir)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(ds)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  expect_equal(
+    RecordBatchStreamReader$import_from_c(stream_ptr) %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
+    ds %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
+  )
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+})
+
+test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
+  ds <- open_dataset(hive_dir)
+
+  # filter the dataset
+  ds <- ds %>%
+    filter(int > 2)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(
+    ds,
+    projection = names(ds),
+    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L))
+  )
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+
+  # create an arrow_dplyr_query() from the recordbatch reader
+  reader_adq <- arrow_dplyr_query(circle)
+
+  expect_equal(
+    reader_adq %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
+    ds %>%
+      filter(int < 8, int > 2) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
+  )
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+})
+
+test_that("Filter parquet dataset with is.na ARROW-15312", {
+  ds_path <- make_temp_dir()
+
+  df <- tibble(x = 1:3, y = c(0L, 0L, NA_integer_), z = c(0L, 1L, NA_integer_))
+  write_dataset(df, ds_path)
+
+  # OK: Collect then filter: returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% collect() %>% filter(is.na(y)),
+    df %>% collect() %>% filter(is.na(y))
+  )
+
+  # Before the fix: Filter then collect on y returned a 0-row tibble
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(y)) %>% collect(),
+    df %>% filter(is.na(y)) %>% collect()
+  )
+
+  # OK: Filter then collect (on z) returns row 3, as expected
+  expect_identical(
+    open_dataset(ds_path) %>% filter(is.na(z)) %>% collect(),
+    df %>% filter(is.na(z)) %>% collect()
+  )
+})
+
+test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
+  parent_path <- make_temp_dir()
+  ds_path <- file.path(parent_path, "a_subdir")
+  write_dataset(mtcars, ds_path, partitioning = "cyl", hive = FALSE)
+  expect_equal(dir(parent_path), "a_subdir")
+  expect_equal(dir(ds_path), c("4", "6", "8"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(partition_base_dir = ds_path)
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add an invalid file
+  file.create(file.path(ds_path, "ASDFnotdata.pq"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # open_dataset() fails if we don't exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # We can also ignore by prefix
+      selector_ignore_prefixes = "ASDF"
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add a _$folder$ file (which Hadoop may write)
+  file.create(file.path(ds_path, "cyl_$folder$"))
+  ds <- open_dataset(
+    parent_path,
+    partitioning = "cyl",
+    factory_options = list(
+      partition_base_dir = ds_path,
+      # we can't ignore suffixes but we can exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Now with a list of files
+  ds <- open_dataset(
+    dir(ds_path, recursive = TRUE, full.names = TRUE),
+    factory_options = list(
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      summarize(sum(gear)) %>%
+      collect() %>%
+      as.data.frame(),
+    mtcars %>%
+      summarize(sum(gear))
+  )
+})
+
+test_that("FileSystemFactoryOptions with HivePartitioning", {
+  parent_path <- make_temp_dir()
+  ds_path <- file.path(parent_path, "a_subdir")
+  write_dataset(mtcars, ds_path, partitioning = "cyl")
+  expect_equal(dir(parent_path), "a_subdir")
+  expect_equal(dir(ds_path), c("cyl=4", "cyl=6", "cyl=8"))
+  ds <- open_dataset(parent_path)
+
+  # With Hive partitioning, partition_base_dir isn't needed
+  expect_setequal(names(ds), names(mtcars))
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add an invalid file
+  file.create(file.path(ds_path, "ASDFnotdata.pq"))
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # open_dataset() fails if we don't exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # We can also ignore by prefix
+      selector_ignore_prefixes = "ASDF"
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+
+  # Add a _$folder$ file (which Hadoop may write)
+  file.create(file.path(ds_path, "cyl_$folder$"))
+  ds <- open_dataset(
+    parent_path,
+    factory_options = list(
+      # we can't ignore suffixes but we can exclude invalid
+      exclude_invalid_files = TRUE
+    )
+  )
+  expect_equal(
+    ds %>%
+      arrange(cyl) %>%
+      pull(cyl),
+    sort(mtcars$cyl)
+  )
+})
+
+test_that("FileSystemFactoryOptions input validation", {
   expect_error(
-    open_dataset(csv_dir, partitioning = "part"),
-    "Did you mean to specify a 'format' other than the default (parquet)?",
+    open_dataset(dataset_dir, factory_options = list(other = TRUE)),
+    'Invalid factory_options: "other"'
+  )
+  expect_error(
+    open_dataset(
+      dataset_dir,
+      partitioning = "part",
+      factory_options = list(partition_base_dir = 42)
+    ),
+    "factory_options$partition_base_dir is not a string",
     fixed = TRUE
   )
-  expect_failure(
-    expect_error(
-      open_dataset(csv_dir, partitioning = "part", format = "parquet"),
-      "Did you mean to specify a 'format'"
-    )
+  expect_error(
+    open_dataset(dataset_dir, factory_options = list(selector_ignore_prefixes = 42)),
+    "factory_options$selector_ignore_prefixes must be a character vector",
+    fixed = TRUE
+  )
+  expect_error(
+    open_dataset(dataset_dir, factory_options = list(exclude_invalid_files = 42)),
+    "factory_options$exclude_invalid_files must be TRUE/FALSE",
+    fixed = TRUE
+  )
+
+  expect_warning(
+    open_dataset(hive_dir, factory_options = list(partition_base_dir = hive_dir)),
+    "factory_options$partition_base_dir is not meaningful for Hive partitioning",
+    fixed = TRUE
+  )
+
+  files <- dir(dataset_dir, full.names = TRUE, recursive = TRUE)
+  expect_error(
+    open_dataset(files, factory_options = list(selector_ignore_prefixes = "__")),
+    paste(
+      "Invalid factory_options for creating a Dataset from a vector",
+      'of file paths: "selector_ignore_prefixes"'
+    ),
+    fixed = TRUE
+  )
+})
+
+test_that("can add in augmented fields", {
+  ds <- open_dataset(hive_dir)
+
+  observed <- ds %>%
+    mutate(file_name = add_filename()) %>%
+    collect()
+
+  expect_named(
+    observed,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
+  )
+
+  expect_equal(
+    sort(unique(observed$file_name)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  error_regex <- paste(
+    "`add_filename()` or use of the `__filename` augmented field can only",
+    "be used with with Dataset objects, and can only be added before doing",
+    "an aggregation or a join."
+  )
+
+  # errors appropriately with ArrowTabular objects
+  expect_error(
+    arrow_table(mtcars) %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # errors appropriately with aggregation
+  expect_error(
+    ds %>%
+      summarise(max_int = max(int)) %>%
+      mutate(file_name = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # joins to tables
+  another_table <- select(example_data, int, dbl2)
+  expect_error(
+    ds %>%
+      left_join(another_table, by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # and on joins to datasets
+  another_dataset <- write_dataset(another_table, "another_dataset")
+  expect_error(
+    ds %>%
+      left_join(open_dataset("another_dataset"), by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # this hits the implicit_schema path by joining afterwards
+  join_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    left_join(open_dataset("another_dataset"), by = "int") %>%
+    collect()
+
+  expect_named(
+    join_after,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file", "dbl2")
+  )
+
+  expect_equal(
+    sort(unique(join_after$file)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  # another test on the explicit_schema path
+  summarise_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    group_by(file) %>%
+    summarise(max_int = max(int)) %>%
+    collect()
+
+  expect_equal(
+    sort(summarise_after$file),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
 })

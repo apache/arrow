@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of Float16 values.
@@ -30,10 +31,10 @@ type Float16 struct {
 	values []float16.Num
 }
 
-func NewFloat16Data(data *Data) *Float16 {
+func NewFloat16Data(data arrow.ArrayData) *Float16 {
 	a := &Float16{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -70,6 +71,25 @@ func (a *Float16) setData(data *Data) {
 	}
 }
 
+func (a *Float16) getOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.values[i].Float32()
+	}
+	return nil
+}
+
+func (a *Float16) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i, v := range a.values {
+		if a.IsValid(i) {
+			vals[i] = v.Float32()
+		} else {
+			vals[i] = nil
+		}
+	}
+	return json.Marshal(vals)
+}
+
 func arrayEqualFloat16(left, right *Float16) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -83,5 +103,5 @@ func arrayEqualFloat16(left, right *Float16) bool {
 }
 
 var (
-	_ Interface = (*Float16)(nil)
+	_ arrow.Array = (*Float16)(nil)
 )

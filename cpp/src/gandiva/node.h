@@ -72,7 +72,12 @@ class GANDIVA_EXPORT LiteralNode : public Node {
       return ss.str();
     }
 
-    ss << gandiva::ToString(holder_);
+    if (return_type()->id() == arrow::Type::STRING ||
+        return_type()->id() == arrow::Type::LARGE_STRING) {
+      ss << "'" << gandiva::ToString(holder_) << "'";
+    } else {
+      ss << gandiva::ToString(holder_);
+    }
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
@@ -222,12 +227,18 @@ class GANDIVA_EXPORT BooleanNode : public Node {
 template <typename Type>
 class InExpressionNode : public Node {
  public:
-  InExpressionNode(NodePtr eval_expr, const std::unordered_set<Type>& values)
-      : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values) {}
+  InExpressionNode(NodePtr eval_expr, const std::unordered_set<Type>& values,
+                   DataTypePtr type = NULLPTR)
+      : Node(arrow::boolean()),
+        eval_expr_(std::move(eval_expr)),
+        values_(values),
+        type_(std::move(type)) {}
 
   const NodePtr& eval_expr() const { return eval_expr_; }
 
   const std::unordered_set<Type>& values() const { return values_; }
+
+  const DataTypePtr& type() const { return type_; }
 
   Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
 
@@ -250,6 +261,7 @@ class InExpressionNode : public Node {
  private:
   NodePtr eval_expr_;
   std::unordered_set<Type> values_;
+  DataTypePtr type_;
 };
 
 template <>

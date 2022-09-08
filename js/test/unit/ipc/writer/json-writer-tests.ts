@@ -16,12 +16,16 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    generateDictionaryTables
-} from '../../../data/tables';
+    generateDictionaryTables, generateRandomTables
+} from '../../../data/tables.js';
+import { validateRecordBatchIterator } from '../validate.js';
 
-import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchJSONWriter } from 'apache-arrow';
+import {
+    ArrowJSONLike,
+    RecordBatchJSONWriter,
+    RecordBatchReader,
+    Table
+} from 'apache-arrow';
 
 describe('RecordBatchJSONWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -40,7 +44,9 @@ function testJSONWriter(table: Table, name: string) {
 
 async function validateTable(source: Table) {
     const writer = RecordBatchJSONWriter.writeAll(source);
-    const result = Table.from(JSON.parse(await writer.toString()));
-    validateRecordBatchIterator(3, source.chunks);
+    const string = await writer.toString();
+    const json = JSON.parse(string) as ArrowJSONLike;
+    const result = new Table(RecordBatchReader.from(json));
+    validateRecordBatchIterator(3, source.batches);
     expect(result).toEqualTable(source);
 }

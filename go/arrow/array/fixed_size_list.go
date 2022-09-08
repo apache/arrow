@@ -17,32 +17,34 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // FixedSizeList represents an immutable sequence of N array values.
 type FixedSizeList struct {
 	array
 	n      int32
-	values Interface
+	values arrow.Array
 }
 
 // NewFixedSizeListData returns a new List array value, from data.
-func NewFixedSizeListData(data *Data) *FixedSizeList {
+func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 	a := &FixedSizeList{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *FixedSizeList) ListValues() Interface { return a.values }
+func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
@@ -63,7 +65,7 @@ func (a *FixedSizeList) String() string {
 	return o.String()
 }
 
-func (a *FixedSizeList) newListValue(i int) Interface {
+func (a *FixedSizeList) newListValue(i int) arrow.Array {
 	n := int64(a.n)
 	off := int64(a.array.data.offset)
 	beg := (off + int64(i)) * n
@@ -88,7 +90,7 @@ func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEqual(l, r)
+			return Equal(l, r)
 		}()
 		if !o {
 			return false
@@ -110,6 +112,44 @@ func (a *FixedSizeList) Release() {
 	a.values.Release()
 }
 
+func (a *FixedSizeList) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+
+	return json.RawMessage(v)
+}
+
+func (a *FixedSizeList) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if a.IsNull(i) {
+			enc.Encode(nil)
+			continue
+		}
+
+		slice := a.newListValue(i)
+		if err := enc.Encode(slice); err != nil {
+			return nil, err
+		}
+		slice.Release()
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
 type FixedSizeListBuilder struct {
 	builder
 
@@ -128,6 +168,8 @@ func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType
 		values:  NewBuilder(mem, etype),
 	}
 }
+
+func (b *FixedSizeListBuilder) Type() arrow.DataType { return arrow.FixedSizeListOf(b.n, b.etype) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -156,14 +198,16 @@ func (b *FixedSizeListBuilder) AppendNull() {
 	b.unsafeAppendBoolToBitmap(false)
 }
 
+func (b *FixedSizeListBuilder) AppendEmptyValue() {
+	b.Append(true)
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendEmptyValue()
+	}
+}
+
 func (b *FixedSizeListBuilder) AppendValues(valid []bool) {
 	b.Reserve(len(valid))
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
-}
-
-func (b *FixedSizeListBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
 }
 
 func (b *FixedSizeListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
@@ -205,7 +249,7 @@ func (b *FixedSizeListBuilder) ValueBuilder() Builder {
 
 // NewArray creates a List array from the memory buffers used by the builder and resets the FixedSizeListBuilder
 // so it can be used to build a new array.
-func (b *FixedSizeListBuilder) NewArray() Interface {
+func (b *FixedSizeListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
 }
 
@@ -225,7 +269,7 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	data = NewData(
 		arrow.FixedSizeListOf(b.n, b.etype), b.length,
 		[]*memory.Buffer{b.nullBitmap},
-		[]*Data{values.Data()},
+		[]arrow.ArrayData{values.Data()},
 		b.nulls,
 		0,
 	)
@@ -234,7 +278,60 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t {
+	case json.Delim('['):
+		b.Append(true)
+		if err := b.values.unmarshal(dec); err != nil {
+			return err
+		}
+		// consume ']'
+		_, err := dec.Token()
+		return err
+	case nil:
+		b.AppendNull()
+		for i := int32(0); i < b.n; i++ {
+			b.values.AppendNull()
+		}
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Struct: arrow.FixedSizeListOf(b.n, b.etype).String(),
+		}
+	}
+
+	return nil
+}
+
+func (b *FixedSizeListBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("fixed size list builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
 var (
-	_ Interface = (*FixedSizeList)(nil)
-	_ Builder   = (*FixedSizeListBuilder)(nil)
+	_ arrow.Array = (*FixedSizeList)(nil)
+	_ Builder     = (*FixedSizeListBuilder)(nil)
 )

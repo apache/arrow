@@ -17,8 +17,8 @@
 package parquet
 
 import (
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet/compress"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet/compress"
 )
 
 // Constants for default property values used for the default reader, writer and column props.
@@ -46,7 +46,8 @@ const (
 	DefaultStatsEnabled = true
 	// If the stats are larger than 4K the writer will skip writing them out anyways.
 	DefaultMaxStatsSize int64 = 4096
-	DefaultCreatedBy          = "parquet-go version 1.0.0"
+	DefaultCreatedBy          = "parquet-go version 10.0.0-SNAPSHOT"
+	DefaultRootName           = "schema"
 )
 
 // ColumnProperties defines the encoding, codec, and so on for a given column.
@@ -108,7 +109,7 @@ func WithDictionaryDefault(dict bool) WriterProperty {
 // WithDictionaryFor allows enabling or disabling dictionary encoding for a given column path string
 func WithDictionaryFor(path string, dict bool) WriterProperty {
 	return func(cfg *writerPropConfig) {
-		cfg.dictEnabled[path] = true
+		cfg.dictEnabled[path] = dict
 	}
 }
 
@@ -164,6 +165,22 @@ func WithVersion(version Version) WriterProperty {
 func WithCreatedBy(createdby string) WriterProperty {
 	return func(cfg *writerPropConfig) {
 		cfg.wr.createdBy = createdby
+	}
+}
+
+// WithRootName enables customization of the name used for the root schema node. This is required
+// to maintain compatibility with other tools.
+func WithRootName(name string) WriterProperty {
+	return func(cfg *writerPropConfig) {
+		cfg.wr.rootName = name
+	}
+}
+
+// WithRootRepetition enables customization of the repetition used for the root schema node.
+// This is required to maintain compatibility with other tools.
+func WithRootRepetition(repetition Repetition) WriterProperty {
+	return func(cfg *writerPropConfig) {
+		cfg.wr.rootRepetition = repetition
 	}
 }
 
@@ -284,6 +301,8 @@ type WriterProperties struct {
 	parquetVersion  Version
 	createdBy       string
 	dataPageVersion DataPageVersion
+	rootName        string
+	rootRepetition  Repetition
 
 	defColumnProps  ColumnProperties
 	columnProps     map[string]*ColumnProperties
@@ -297,9 +316,11 @@ func defaultWriterProperties() *WriterProperties {
 		batchSize:       DefaultWriteBatchSize,
 		maxRowGroupLen:  DefaultMaxRowGroupLen,
 		pageSize:        DefaultDataPageSize,
-		parquetVersion:  V1,
+		parquetVersion:  V2_LATEST,
 		dataPageVersion: DataPageV1,
 		createdBy:       DefaultCreatedBy,
+		rootName:        DefaultRootName,
+		rootRepetition:  Repetitions.Repeated,
 		defColumnProps:  DefaultColumnProperties(),
 	}
 }
@@ -370,6 +391,8 @@ func (w *WriterProperties) FileEncryptionProperties() *FileEncryptionProperties 
 
 func (w *WriterProperties) Allocator() memory.Allocator      { return w.mem }
 func (w *WriterProperties) CreatedBy() string                { return w.createdBy }
+func (w *WriterProperties) RootName() string                 { return w.rootName }
+func (w *WriterProperties) RootRepetition() Repetition       { return w.rootRepetition }
 func (w *WriterProperties) WriteBatchSize() int64            { return w.batchSize }
 func (w *WriterProperties) DataPageSize() int64              { return w.pageSize }
 func (w *WriterProperties) DictionaryPageSizeLimit() int64   { return w.dictPagesize }
@@ -434,7 +457,7 @@ func (w *WriterProperties) EncodingPath(path ColumnPath) Encoding {
 // DictionaryIndexEncoding returns which encoding will be used for the Dictionary Index values based on the
 // parquet version. V1 uses PlainDict and V2 uses RLEDict
 func (w *WriterProperties) DictionaryIndexEncoding() Encoding {
-	if w.parquetVersion == V1 {
+	if w.parquetVersion == V1_0 {
 		return Encodings.PlainDict
 	}
 	return Encodings.RLEDict
@@ -443,7 +466,7 @@ func (w *WriterProperties) DictionaryIndexEncoding() Encoding {
 // DictionaryPageEncoding returns the encoding that will be utilized for the DictionaryPage itself based on the parquet
 // version. V1 uses PlainDict, v2 uses Plain
 func (w *WriterProperties) DictionaryPageEncoding() Encoding {
-	if w.parquetVersion == V1 {
+	if w.parquetVersion == V1_0 {
 		return Encodings.PlainDict
 	}
 	return Encodings.Plain

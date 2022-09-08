@@ -15,22 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <memory>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <vector>
+
+#include <gmock/gmock-matchers.h>
 
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/result.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -39,31 +45,21 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-// Convert arrow::Type to arrow::DataType. If arrow::Type isn't
-// parameter free, this returns an arrow::DataType with the default
-// parameter.
-template <typename ArrowType>
-enable_if_t<TypeTraits<ArrowType>::is_parameter_free, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return TypeTraits<ArrowType>::type_singleton();
+std::vector<SortOrder> AllOrders() {
+  return {SortOrder::Ascending, SortOrder::Descending};
 }
 
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, TimestampType>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return timestamp(TimeUnit::MILLI);
+std::vector<NullPlacement> AllNullPlacements() {
+  return {NullPlacement::AtEnd, NullPlacement::AtStart};
 }
 
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time32Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time32(TimeUnit::MILLI);
+std::vector<RankOptions::Tiebreaker> AllTiebreakers() {
+  return {RankOptions::Min, RankOptions::Max, RankOptions::First, RankOptions::Dense};
 }
 
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time64Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time64(TimeUnit::NANO);
+std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
+  os << (null_placement == NullPlacement::AtEnd ? "AtEnd" : "AtStart");
+  return os;
 }
 
 // ----------------------------------------------------------------------
@@ -84,59 +80,89 @@ Decimal256 GetLogicalValue(const Decimal256Array& array, uint64_t index) {
 }
 
 template <typename ArrayType>
-class NthComparator {
- public:
-  bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
-    const auto lval = GetLogicalValue(array, lhs);
-    const auto rval = GetLogicalValue(array, rhs);
-    if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      // NaNs ordered after non-NaNs
-      if (rval != rval) return true;
-      if (lval != lval) return false;
+struct ThreeWayComparator {
+  SortOrder order;
+  NullPlacement null_placement;
+
+  int operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) const {
+    return (*this)(array, array, lhs, rhs);
+  }
+
+  // Return -1 if L < R, 0 if L == R, 1 if L > R
+  int operator()(const ArrayType& left, const ArrayType& right, uint64_t lhs,
+                 uint64_t rhs) const {
+    const bool lhs_is_null = left.IsNull(lhs);
+    const bool rhs_is_null = right.IsNull(rhs);
+    if (lhs_is_null && rhs_is_null) return 0;
+    if (lhs_is_null) {
+      return null_placement == NullPlacement::AtStart ? -1 : 1;
     }
-    return lval <= rval;
+    if (rhs_is_null) {
+      return null_placement == NullPlacement::AtStart ? 1 : -1;
+    }
+    const auto lval = GetLogicalValue(left, lhs);
+    const auto rval = GetLogicalValue(right, rhs);
+    if (is_floating_type<typename ArrayType::TypeClass>::value) {
+      const bool lhs_isnan = lval != lval;
+      const bool rhs_isnan = rval != rval;
+      if (lhs_isnan && rhs_isnan) return 0;
+      if (lhs_isnan) {
+        return null_placement == NullPlacement::AtStart ? -1 : 1;
+      }
+      if (rhs_isnan) {
+        return null_placement == NullPlacement::AtStart ? 1 : -1;
+      }
+    }
+    if (lval == rval) return 0;
+    if (lval < rval) {
+      return order == SortOrder::Ascending ? -1 : 1;
+    } else {
+      return order == SortOrder::Ascending ? 1 : -1;
+    }
   }
 };
 
 template <typename ArrayType>
-class SortComparator {
- public:
-  bool operator()(const ArrayType& array, SortOrder order, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
-    const auto lval = GetLogicalValue(array, lhs);
-    const auto rval = GetLogicalValue(array, rhs);
-    if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      const bool lhs_isnan = lval != lval;
-      const bool rhs_isnan = rval != rval;
-      if (lhs_isnan && rhs_isnan) return lhs < rhs;
-      if (rhs_isnan) return true;
-      if (lhs_isnan) return false;
-    }
-    if (lval == rval) return lhs < rhs;
-    if (order == SortOrder::Ascending) {
-      return lval < rval;
-    } else {
-      return lval > rval;
-    }
+struct NthComparator {
+  ThreeWayComparator<ArrayType> three_way;
+
+  explicit NthComparator(NullPlacement null_placement)
+      : three_way({SortOrder::Ascending, null_placement}) {}
+
+  // Return true iff L <= R
+  bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) const {
+    // lhs <= rhs
+    return three_way(array, lhs, rhs) <= 0;
+  }
+};
+
+template <typename ArrayType>
+struct SortComparator {
+  ThreeWayComparator<ArrayType> three_way;
+
+  explicit SortComparator(SortOrder order, NullPlacement null_placement)
+      : three_way({order, null_placement}) {}
+
+  bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) const {
+    const int r = three_way(array, lhs, rhs);
+    if (r != 0) return r < 0;
+    return lhs < rhs;
   }
 };
 
 template <typename ArrowType>
-class TestNthToIndicesBase : public TestBase {
+class TestNthToIndicesBase : public ::testing::Test {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  protected:
-  void Validate(const ArrayType& array, int n, UInt64Array& offsets) {
+  void Validate(const ArrayType& array, int n, NullPlacement null_placement,
+                UInt64Array& offsets) {
     if (n >= array.length()) {
       for (int i = 0; i < array.length(); ++i) {
-        ASSERT_TRUE(offsets.Value(i) == (uint64_t)i);
+        ASSERT_TRUE(offsets.Value(i) == static_cast<uint64_t>(i));
       }
     } else {
-      NthComparator<ArrayType> compare;
+      NthComparator<ArrayType> compare{null_placement};
       uint64_t nth = offsets.Value(n);
 
       for (int i = 0; i < n; ++i) {
@@ -150,13 +176,22 @@ class TestNthToIndicesBase : public TestBase {
     }
   }
 
-  void AssertNthToIndicesArray(const std::shared_ptr<Array> values, int n) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, NthToIndices(*values, n));
+  void AssertNthToIndicesArray(const std::shared_ptr<Array>& values, int n,
+                               NullPlacement null_placement) {
+    ARROW_SCOPED_TRACE("n = ", n, ", null_placement = ", null_placement);
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets,
+                         NthToIndices(*values, PartitionNthOptions(n, null_placement)));
     // null_count field should have been initialized to 0, for convenience
     ASSERT_EQ(offsets->data()->null_count, 0);
     ValidateOutput(*offsets);
-    Validate(*checked_pointer_cast<ArrayType>(values), n,
+    Validate(*checked_pointer_cast<ArrayType>(values), n, null_placement,
              *checked_pointer_cast<UInt64Array>(offsets));
+  }
+
+  void AssertNthToIndicesArray(const std::shared_ptr<Array>& values, int n) {
+    for (auto null_placement : AllNullPlacements()) {
+      AssertNthToIndicesArray(values, n, null_placement);
+    }
   }
 
   void AssertNthToIndicesJson(const std::string& values, int n) {
@@ -169,7 +204,9 @@ class TestNthToIndicesBase : public TestBase {
 template <typename ArrowType>
 class TestNthToIndices : public TestNthToIndicesBase<ArrowType> {
  protected:
-  std::shared_ptr<DataType> GetType() override { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() override {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 template <typename ArrowType>
@@ -218,6 +255,12 @@ TYPED_TEST(TestNthToIndicesForReal, Real) {
   this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 4);
   this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 3);
   this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 4);
+
+  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 0);
+  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 1);
+  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 2);
+  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 3);
+  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 4);
 }
 
 TYPED_TEST(TestNthToIndicesForIntegral, Integral) {
@@ -256,6 +299,18 @@ TYPED_TEST(TestNthToIndicesForStrings, Strings) {
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 6);
 }
 
+TEST(TestNthToIndices, Null) {
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(null(), 6));
+  auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3, 4, 5]");
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto n : {0, 1, 2, 3, 4, 5, 6}) {
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           NthToIndices(*arr, PartitionNthOptions(n, null_placement)));
+      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
  public:
@@ -269,79 +324,6 @@ using NthToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
                      StringType>;
-
-class RandomImpl {
- protected:
-  random::RandomArrayGenerator generator_;
-  std::shared_ptr<DataType> type_;
-
-  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
-      : generator_(seed), type_(std::move(type)) {}
-
- public:
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
-    return generator_.ArrayOf(type_, count, null_prob);
-  }
-};
-
-template <typename ArrowType>
-class Random : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-};
-
-template <>
-class Random<FloatType> : public RandomImpl {
-  using CType = float;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float32(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<DoubleType> : public RandomImpl {
-  using CType = double;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float64(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<Decimal128Type> : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed,
-                  std::shared_ptr<DataType> type = decimal128(18, 5))
-      : RandomImpl(seed, std::move(type)) {}
-};
-
-template <typename ArrowType>
-class RandomRange : public RandomImpl {
-  using CType = typename TypeTraits<ArrowType>::CType;
-
- public:
-  explicit RandomRange(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
-    CType min = std::numeric_limits<CType>::min();
-    CType max = min + range;
-    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
-      max = std::numeric_limits<CType>::max();
-    }
-    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
-  }
-};
 
 TYPED_TEST_SUITE(TestNthToIndicesRandom, NthToIndicesableTypes);
 
@@ -358,12 +340,41 @@ TYPED_TEST(TestNthToIndicesRandom, RandomValues) {
 }
 
 // ----------------------------------------------------------------------
+// Basic tests for the "array_sort_indices" function
+
+TEST(ArraySortIndicesFunction, Array) {
+  auto arr = ArrayFromJSON(int16(), "[0, 1, null, -3, null, -42, 5]");
+  auto expected = ArrayFromJSON(uint64(), "[5, 3, 0, 1, 6, 2, 4]");
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ArrayFromJSON(uint64(), "[2, 4, 6, 1, 0, 3, 5]");
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST(ArraySortIndicesFunction, ChunkedArray) {
+  auto arr = ChunkedArrayFromJSON(int16(), {"[0, 1]", "[null, -3, null, -42, 5]"});
+  auto expected = ChunkedArrayFromJSON(uint64(), {"[5, 3, 0, 1, 6, 2, 4]"});
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ChunkedArrayFromJSON(uint64(), {"[2, 4, 6, 1, 0, 3, 5]"});
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+// ----------------------------------------------------------------------
 // Tests for SortToIndices
 
 template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
+                       NullPlacement null_placement,
                        const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, order));
+  ArraySortOptions options(order, null_placement);
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, options));
   ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
@@ -376,27 +387,38 @@ void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& optio
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
-// `Options` may be both SortOptions or SortOrder
-template <typename T, typename Options>
-void AssertSortIndices(const std::shared_ptr<T>& input, Options&& options,
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
                        const std::string& expected) {
-  AssertSortIndices(input, std::forward<Options>(options),
+  AssertSortIndices(input, options, ArrayFromJSON(uint64(), expected));
+}
+
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
+                       NullPlacement null_placement, const std::string& expected) {
+  AssertSortIndices(input, order, null_placement, ArrayFromJSON(uint64(), expected));
+}
+
+void AssertSortIndices(const std::shared_ptr<DataType>& type, const std::string& values,
+                       SortOrder order, NullPlacement null_placement,
+                       const std::string& expected) {
+  AssertSortIndices(ArrayFromJSON(type, values), order, null_placement,
                     ArrayFromJSON(uint64(), expected));
 }
 
-class TestArraySortIndicesBase : public TestBase {
+class TestArraySortIndicesBase : public ::testing::Test {
  public:
   virtual std::shared_ptr<DataType> type() = 0;
 
   virtual void AssertSortIndices(const std::string& values, SortOrder order,
+                                 NullPlacement null_placement,
                                  const std::string& expected) {
-    auto type = this->type();
-    arrow::compute::AssertSortIndices(ArrayFromJSON(type, values), order,
-                                      ArrayFromJSON(uint64(), expected));
+    arrow::compute::AssertSortIndices(this->type(), values, order, null_placement,
+                                      expected);
   }
 
   virtual void AssertSortIndices(const std::string& values, const std::string& expected) {
-    AssertSortIndices(values, SortOrder::Ascending, expected);
+    AssertSortIndices(values, SortOrder::Ascending, NullPlacement::AtEnd, expected);
   }
 };
 
@@ -437,104 +459,194 @@ class TestArraySortIndicesForFixedSizeBinary : public TestArraySortIndicesBase {
 };
 
 TYPED_TEST(TestArraySortIndicesForReal, SortReal) {
-  this->AssertSortIndices("[]", "[]");
-
-  this->AssertSortIndices("[3.4, 2.6, 6.3]", "[1, 0, 2]");
-  this->AssertSortIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0, 1, 2, 3, 4, 5, 6]");
-  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
-  this->AssertSortIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices("[3.4, 2.6, 6.3]", SortOrder::Ascending, null_placement,
+                            "[1, 0, 2]");
+    this->AssertSortIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", SortOrder::Ascending,
+                            null_placement, "[0, 1, 2, 3, 4, 5, 6]");
+    this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", SortOrder::Ascending, null_placement,
+                            "[6, 5, 4, 3, 2, 1, 0]");
+    this->AssertSortIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", SortOrder::Ascending,
+                            null_placement, "[2, 0, 6, 1, 5, 3, 4]");
+  }
 
   this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Ascending,
-                          "[1, 4, 2, 5, 0, 3]");
+                          NullPlacement::AtEnd, "[1, 4, 2, 5, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 3, 1, 4, 2, 5]");
   this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Descending,
-                          "[5, 2, 4, 1, 0, 3]");
+                          NullPlacement::AtEnd, "[5, 2, 4, 1, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 3, 5, 2, 4, 1]");
 
   this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Ascending,
-                          "[3, 4, 0, 1, 2, 5]");
+                          NullPlacement::AtEnd, "[3, 4, 0, 1, 2, 5]");
+  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[5, 2, 3, 4, 0, 1]");
   this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Descending,
-                          "[1, 0, 4, 3, 2, 5]");
-  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending, "[4, 1, 3, 0, 2]");
+                          NullPlacement::AtEnd, "[1, 0, 4, 3, 2, 5]");
+  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[5, 2, 1, 0, 4, 3]");
+
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending,
+                          NullPlacement::AtEnd, "[4, 1, 3, 0, 2]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 2, 4, 1, 3]");
   this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Descending,
-                          "[3, 1, 4, 0, 2]");
-  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending, "[1, 2, 0, 3]");
+                          NullPlacement::AtEnd, "[3, 1, 4, 0, 2]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 2, 3, 1, 4]");
+
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending,
+                          NullPlacement::AtEnd, "[1, 2, 0, 3]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 3, 1, 2]");
   this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Descending,
-                          "[1, 2, 0, 3]");
+                          NullPlacement::AtEnd, "[1, 2, 0, 3]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 3, 1, 2]");
 }
 
 TYPED_TEST(TestArraySortIndicesForIntegral, SortIntegral) {
-  this->AssertSortIndices("[]", "[]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", SortOrder::Ascending, null_placement,
+                            "[0, 1, 2, 3, 4, 5, 6]");
+    this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", SortOrder::Ascending, null_placement,
+                            "[6, 5, 4, 3, 2, 1, 0]");
 
-  this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
-  this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]");
-  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
+    this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
+                            null_placement, "[2, 0, 6, 1, 5, 3, 4]");
+    this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
+                            null_placement, "[3, 4, 5, 1, 6, 0, 2]");
+  }
 
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
-                          "[2, 0, 6, 1, 5, 3, 4]");
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
-                          "[3, 4, 5, 1, 6, 0, 2]");
-
+  // Values with a small range (use a counting sort)
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
-                          "[1, 4, 2, 5, 0, 3]");
+                          NullPlacement::AtEnd, "[1, 4, 2, 5, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 3, 1, 4, 2, 5]");
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
-                          "[5, 2, 4, 1, 0, 3]");
+                          NullPlacement::AtEnd, "[5, 2, 4, 1, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 3, 5, 2, 4, 1]");
 }
 
 TYPED_TEST(TestArraySortIndicesForBool, SortBool) {
-  this->AssertSortIndices("[]", "[]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices("[true, true, false]", SortOrder::Ascending, null_placement,
+                            "[2, 0, 1]");
+    this->AssertSortIndices("[false, false,  false, true, true, true, true]",
+                            SortOrder::Ascending, null_placement,
+                            "[0, 1, 2, 3, 4, 5, 6]");
+    this->AssertSortIndices("[true, true, true, true, false, false, false]",
+                            SortOrder::Ascending, null_placement,
+                            "[4, 5, 6, 0, 1, 2, 3]");
 
-  this->AssertSortIndices("[true, true, false]", "[2, 0, 1]");
-  this->AssertSortIndices("[false, false,  false, true, true, true, true]",
-                          "[0, 1, 2, 3, 4, 5, 6]");
-  this->AssertSortIndices("[true, true, true, true, false, false, false]",
-                          "[4, 5, 6, 0, 1, 2, 3]");
-
-  this->AssertSortIndices("[false, true, false, true, true, false, false]",
-                          SortOrder::Ascending, "[0, 2, 5, 6, 1, 3, 4]");
-  this->AssertSortIndices("[false, true, false, true, true, false, false]",
-                          SortOrder::Descending, "[1, 3, 4, 0, 2, 5, 6]");
+    this->AssertSortIndices("[false, true, false, true, true, false, false]",
+                            SortOrder::Ascending, null_placement,
+                            "[0, 2, 5, 6, 1, 3, 4]");
+    this->AssertSortIndices("[false, true, false, true, true, false, false]",
+                            SortOrder::Descending, null_placement,
+                            "[1, 3, 4, 0, 2, 5, 6]");
+  }
 
   this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Ascending,
-                          "[2, 4, 1, 5, 0, 3]");
+                          NullPlacement::AtEnd, "[2, 4, 1, 5, 0, 3]");
+  this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 3, 2, 4, 1, 5]");
   this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Descending,
-                          "[1, 5, 2, 4, 0, 3]");
+                          NullPlacement::AtEnd, "[1, 5, 2, 4, 0, 3]");
+  this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 3, 1, 5, 2, 4]");
 }
 
 TYPED_TEST(TestArraySortIndicesForTemporal, SortTemporal) {
-  this->AssertSortIndices("[]", "[]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices("[3, 2, 6]", SortOrder::Ascending, null_placement,
+                            "[1, 0, 2]");
+    this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", SortOrder::Ascending, null_placement,
+                            "[0, 1, 2, 3, 4, 5, 6]");
+    this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", SortOrder::Ascending, null_placement,
+                            "[6, 5, 4, 3, 2, 1, 0]");
 
-  this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
-  this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]");
-  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
-
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
-                          "[2, 0, 6, 1, 5, 3, 4]");
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
-                          "[3, 4, 5, 1, 6, 0, 2]");
+    this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
+                            null_placement, "[2, 0, 6, 1, 5, 3, 4]");
+    this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
+                            null_placement, "[3, 4, 5, 1, 6, 0, 2]");
+  }
 
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
-                          "[1, 4, 2, 5, 0, 3]");
+                          NullPlacement::AtEnd, "[1, 4, 2, 5, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
+                          NullPlacement::AtStart, "[0, 3, 1, 4, 2, 5]");
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
-                          "[5, 2, 4, 1, 0, 3]");
+                          NullPlacement::AtEnd, "[5, 2, 4, 1, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
+                          NullPlacement::AtStart, "[0, 3, 5, 2, 4, 1]");
 }
 
 TYPED_TEST(TestArraySortIndicesForStrings, SortStrings) {
-  this->AssertSortIndices("[]", "[]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices(R"(["a", "b", "c"])", SortOrder::Ascending, null_placement,
+                            "[0, 1, 2]");
+    this->AssertSortIndices(R"(["foo", "bar", "baz"])", SortOrder::Ascending,
+                            null_placement, "[1, 2, 0]");
+    this->AssertSortIndices(R"(["testing", "sort", "for", "strings"])",
+                            SortOrder::Ascending, null_placement, "[2, 1, 3, 0]");
+  }
 
-  this->AssertSortIndices(R"(["a", "b", "c"])", "[0, 1, 2]");
-  this->AssertSortIndices(R"(["foo", "bar", "baz"])", "[1,2,0]");
-  this->AssertSortIndices(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
-
-  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::Ascending,
-                          "[2, 1, 3, 0]");
-  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::Descending,
-                          "[0, 1, 3, 2]");
+  const char* input = R"([null, "c", "b", null, "a", "b"])";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
+                          "[4, 2, 5, 1, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[0, 3, 4, 2, 5, 1]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[1, 2, 5, 4, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[0, 3, 1, 2, 5, 4]");
 }
 
 TEST_F(TestArraySortIndicesForFixedSizeBinary, SortFixedSizeBinary) {
-  this->AssertSortIndices("[]", "[]");
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto order : AllOrders()) {
+      this->AssertSortIndices("[]", order, null_placement, "[]");
+      this->AssertSortIndices("[null, null]", order, null_placement, "[0, 1]");
+    }
+    this->AssertSortIndices(R"(["def", "abc", "ghi"])", SortOrder::Ascending,
+                            null_placement, "[1, 0, 2]");
+    this->AssertSortIndices(R"(["def", "abc", "ghi"])", SortOrder::Descending,
+                            null_placement, "[2, 0, 1]");
+  }
 
-  this->AssertSortIndices(R"(["def", "abc", "ghi"])", "[1, 0, 2]");
-  this->AssertSortIndices(R"(["def", "abc", "ghi"])", SortOrder::Descending, "[2, 0, 1]");
+  const char* input = R"([null, "ccc", "bbb", null, "aaa", "bbb"])";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
+                          "[4, 2, 5, 1, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[0, 3, 4, 2, 5, 1]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[1, 2, 5, 4, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[0, 3, 1, 2, 5, 4]");
 }
 
 template <typename ArrowType>
@@ -546,13 +658,46 @@ class TestArraySortIndicesForInt8 : public TestArraySortIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestArraySortIndicesForInt8, Int8Type);
 
 TYPED_TEST(TestArraySortIndicesForUInt8, SortUInt8) {
-  this->AssertSortIndices("[255, null, 0, 255, 10, null, 128, 0]",
+  const char* input = "[255, null, 0, 255, 10, null, 128, 0]";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
                           "[2, 7, 4, 6, 0, 3, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[1, 5, 2, 7, 4, 6, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[0, 3, 6, 4, 2, 7, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[1, 5, 0, 3, 6, 4, 2, 7]");
 }
 
 TYPED_TEST(TestArraySortIndicesForInt8, SortInt8) {
-  this->AssertSortIndices("[null, 10, 127, 0, -128, -128, null]",
-                          "[4, 5, 3, 1, 2, 0, 6]");
+  const char* input = "[127, null, -128, 127, 0, null, 10, -128]";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
+                          "[2, 7, 4, 6, 0, 3, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[1, 5, 2, 7, 4, 6, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[0, 3, 6, 4, 2, 7, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[1, 5, 0, 3, 6, 4, 2, 7]");
+}
+
+template <typename ArrowType>
+class TestArraySortIndicesForInt64 : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForInt64, Int64Type);
+
+TYPED_TEST(TestArraySortIndicesForInt64, SortInt64) {
+  // Values with a large range (use a comparison-based sort)
+  const char* input =
+      "[null, -2000000000000000, 3000000000000000,"
+      " null, -1000000000000000, 5000000000000000]";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
+                          "[1, 4, 2, 5, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[0, 3, 1, 4, 2, 5]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[5, 2, 4, 1, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[0, 3, 5, 2, 4, 1]");
 }
 
 template <typename ArrowType>
@@ -563,20 +708,76 @@ class TestArraySortIndicesForDecimal : public TestArraySortIndicesBase {
 TYPED_TEST_SUITE(TestArraySortIndicesForDecimal, DecimalArrowTypes);
 
 TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
-  this->AssertSortIndices(R"(["123.45", null, "-123.45", "456.78", "-456.78"])",
-                          "[4, 2, 0, 3, 1]");
-  this->AssertSortIndices(R"(["123.45", null, "-123.45", "456.78", "-456.78"])",
-                          SortOrder::Descending, "[3, 0, 2, 4, 1]");
+  const char* input = R"(["123.45", null, "-123.45", "456.78", "-456.78", null])";
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtEnd,
+                          "[4, 2, 0, 3, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Ascending, NullPlacement::AtStart,
+                          "[1, 5, 4, 2, 0, 3]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtEnd,
+                          "[3, 0, 2, 4, 1, 5]");
+  this->AssertSortIndices(input, SortOrder::Descending, NullPlacement::AtStart,
+                          "[1, 5, 3, 0, 2, 4]");
+}
+
+TEST(TestArraySortIndices, NullType) {
+  auto chunked = ChunkedArrayFromJSON(null(), {"[null, null]", "[]", "[null]", "[null]"});
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      AssertSortIndices(null(), "[null, null, null, null]", order, null_placement,
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(chunked, order, null_placement, "[0, 1, 2, 3]");
+    }
+  }
+}
+
+TEST(TestArraySortIndices, TemporalTypeParameters) {
+  std::vector<std::shared_ptr<DataType>> types;
+  for (auto unit : {TimeUnit::NANO, TimeUnit::MICRO, TimeUnit::MILLI, TimeUnit::SECOND}) {
+    types.push_back(duration(unit));
+    types.push_back(timestamp(unit));
+    types.push_back(timestamp(unit, "America/Phoenix"));
+  }
+  types.push_back(time64(TimeUnit::NANO));
+  types.push_back(time64(TimeUnit::MICRO));
+  types.push_back(time32(TimeUnit::MILLI));
+  types.push_back(time32(TimeUnit::SECOND));
+  for (const auto& ty : types) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto order : AllOrders()) {
+        AssertSortIndices(ty, "[]", order, null_placement, "[]");
+        AssertSortIndices(ty, "[null, null]", order, null_placement, "[0, 1]");
+      }
+      AssertSortIndices(ty, "[3, 2, 6]", SortOrder::Ascending, null_placement,
+                        "[1, 0, 2]");
+      AssertSortIndices(ty, "[1, 2, 3, 4, 5, 6, 7]", SortOrder::Ascending, null_placement,
+                        "[0, 1, 2, 3, 4, 5, 6]");
+      AssertSortIndices(ty, "[7, 6, 5, 4, 3, 2, 1]", SortOrder::Ascending, null_placement,
+                        "[6, 5, 4, 3, 2, 1, 0]");
+
+      AssertSortIndices(ty, "[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
+                        null_placement, "[2, 0, 6, 1, 5, 3, 4]");
+      AssertSortIndices(ty, "[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
+                        null_placement, "[3, 4, 5, 1, 6, 0, 2]");
+    }
+    AssertSortIndices(ty, "[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
+                      NullPlacement::AtEnd, "[1, 4, 2, 5, 0, 3]");
+    AssertSortIndices(ty, "[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
+                      NullPlacement::AtStart, "[0, 3, 1, 4, 2, 5]");
+    AssertSortIndices(ty, "[null, 1, 3, null, 2, 5]", SortOrder::Descending,
+                      NullPlacement::AtEnd, "[5, 2, 4, 1, 0, 3]");
+    AssertSortIndices(ty, "[null, 1, 3, null, 2, 5]", SortOrder::Descending,
+                      NullPlacement::AtStart, "[0, 3, 5, 2, 4, 1]");
+  }
 }
 
 template <typename ArrowType>
-class TestArraySortIndicesRandom : public TestBase {};
+class TestArraySortIndicesRandom : public ::testing::Test {};
 
 template <typename ArrowType>
-class TestArraySortIndicesRandomCount : public TestBase {};
+class TestArraySortIndicesRandomCount : public ::testing::Test {};
 
 template <typename ArrowType>
-class TestArraySortIndicesRandomCompare : public TestBase {};
+class TestArraySortIndicesRandomCompare : public ::testing::Test {};
 
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
@@ -584,13 +785,14 @@ using SortIndicesableTypes =
                      Decimal128Type, BooleanType>;
 
 template <typename ArrayType>
-void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order) {
+void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order,
+                    NullPlacement null_placement) {
   ValidateOutput(array);
-  SortComparator<ArrayType> compare;
+  SortComparator<ArrayType> compare{order, null_placement};
   for (int i = 1; i < array.length(); i++) {
     uint64_t lhs = offsets.Value(i - 1);
     uint64_t rhs = offsets.Value(i);
-    ASSERT_TRUE(compare(array, order, lhs, rhs));
+    ASSERT_TRUE(compare(array, lhs, rhs));
   }
 }
 
@@ -604,11 +806,16 @@ TYPED_TEST(TestArraySortIndicesRandom, SortRandomValues) {
   int length = 100;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        auto array = rand.Generate(length, null_probability);
-        ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
-        ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
-                                  *checked_pointer_cast<UInt64Array>(offsets), order);
+      auto array = rand.Generate(length, null_probability);
+      for (auto order : AllOrders()) {
+        for (auto null_placement : AllNullPlacements()) {
+          ArraySortOptions options(order, null_placement);
+          ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets,
+                               SortIndices(*array, options));
+          ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                    *checked_pointer_cast<UInt64Array>(offsets), order,
+                                    null_placement);
+        }
       }
     }
   }
@@ -628,11 +835,16 @@ TYPED_TEST(TestArraySortIndicesRandomCount, SortRandomValuesCount) {
   int range = 2000;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        auto array = rand.Generate(length, range, null_probability);
-        ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
-        ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
-                                  *checked_pointer_cast<UInt64Array>(offsets), order);
+      auto array = rand.Generate(length, range, null_probability);
+      for (auto order : AllOrders()) {
+        for (auto null_placement : AllNullPlacements()) {
+          ArraySortOptions options(order, null_placement);
+          ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets,
+                               SortIndices(*array, options));
+          ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                    *checked_pointer_cast<UInt64Array>(offsets), order,
+                                    null_placement);
+        }
       }
     }
   }
@@ -649,11 +861,16 @@ TYPED_TEST(TestArraySortIndicesRandomCompare, SortRandomValuesCompare) {
   int length = 100;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        auto array = rand.Generate(length, null_probability);
-        ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
-        ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
-                                  *checked_pointer_cast<UInt64Array>(offsets), order);
+      auto array = rand.Generate(length, null_probability);
+      for (auto order : AllOrders()) {
+        for (auto null_placement : AllNullPlacements()) {
+          ArraySortOptions options(order, null_placement);
+          ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets,
+                               SortIndices(*array, options));
+          ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                    *checked_pointer_cast<UInt64Array>(offsets), order,
+                                    null_placement);
+        }
       }
     }
   }
@@ -668,8 +885,14 @@ TEST_F(TestChunkedArraySortIndices, Null) {
                                                          "[3, null, 2]",
                                                          "[1]",
                                                      });
-  AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 5, 4, 2, 0, 3]");
-  AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 4, 1, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[1, 5, 4, 2, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[0, 3, 1, 5, 4, 2]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[2, 4, 1, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[0, 3, 2, 4, 1, 5]");
 }
 
 TEST_F(TestChunkedArraySortIndices, NaN) {
@@ -678,15 +901,21 @@ TEST_F(TestChunkedArraySortIndices, NaN) {
                                                            "[3, null, NaN]",
                                                            "[NaN, 1]",
                                                        });
-  AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
-  AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 1, 6, 4, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[1, 6, 2, 4, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[0, 3, 4, 5, 1, 6, 2]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[2, 1, 6, 4, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[0, 3, 4, 5, 2, 1, 6]");
 }
 
 // Tests for temporal types
 template <typename ArrowType>
 class TestChunkedArraySortIndicesForTemporal : public TestChunkedArraySortIndices {
  protected:
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() { return default_type_instance<ArrowType>(); }
 };
 TYPED_TEST_SUITE(TestChunkedArraySortIndicesForTemporal, TemporalArrowTypes);
 
@@ -697,8 +926,12 @@ TYPED_TEST(TestChunkedArraySortIndicesForTemporal, NoNull) {
                                                       "[3, 2, 1]",
                                                       "[5, 0]",
                                                   });
-  AssertSortIndices(chunked_array, SortOrder::Ascending, "[0, 6, 1, 4, 3, 2, 5]");
-  AssertSortIndices(chunked_array, SortOrder::Descending, "[5, 2, 3, 1, 4, 0, 6]");
+  for (auto null_placement : AllNullPlacements()) {
+    AssertSortIndices(chunked_array, SortOrder::Ascending, null_placement,
+                      "[0, 6, 1, 4, 3, 2, 5]");
+    AssertSortIndices(chunked_array, SortOrder::Descending, null_placement,
+                      "[5, 2, 3, 1, 4, 0, 6]");
+  }
 }
 
 // Tests for decimal types
@@ -713,13 +946,19 @@ TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
   auto type = this->GetType();
   auto chunked_array = ChunkedArrayFromJSON(
       type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78", null])"});
-  AssertSortIndices(chunked_array, SortOrder::Ascending, "[4, 1, 0, 3, 2, 5]");
-  AssertSortIndices(chunked_array, SortOrder::Descending, "[3, 0, 1, 4, 2, 5]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[4, 1, 0, 3, 2, 5]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[2, 5, 4, 1, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[3, 0, 1, 4, 2, 5]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[2, 5, 3, 0, 1, 4]");
 }
 
 // Base class for testing against random chunked array.
 template <typename Type>
-class TestChunkedArrayRandomBase : public TestBase {
+class TestChunkedArrayRandomBase : public ::testing::Test {
  protected:
   // Generates a chunk. This should be implemented in subclasses.
   virtual std::shared_ptr<Array> GenerateArray(int length, double null_probability) = 0;
@@ -727,21 +966,26 @@ class TestChunkedArrayRandomBase : public TestBase {
   // All tests uses this.
   void TestSortIndices(int length) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
-    // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
+
     for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
-      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        for (auto num_chunks : {1, 2, 5, 10, 40}) {
-          std::vector<std::shared_ptr<Array>> arrays;
-          for (int i = 0; i < num_chunks; ++i) {
-            auto array = this->GenerateArray(length / num_chunks, null_probability);
-            arrays.push_back(array);
+      for (auto num_chunks : {1, 2, 5, 10, 40}) {
+        std::vector<std::shared_ptr<Array>> arrays;
+        for (int i = 0; i < num_chunks; ++i) {
+          auto array = this->GenerateArray(length / num_chunks, null_probability);
+          arrays.push_back(array);
+        }
+        ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
+        // Concatenate chunks to use existing ValidateSorted() for array.
+        ASSERT_OK_AND_ASSIGN(auto concatenated_array, Concatenate(arrays));
+
+        for (auto order : AllOrders()) {
+          for (auto null_placement : AllNullPlacements()) {
+            ArraySortOptions options(order, null_placement);
+            ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_array, options));
+            ValidateSorted<ArrayType>(
+                *checked_pointer_cast<ArrayType>(concatenated_array),
+                *checked_pointer_cast<UInt64Array>(offsets), order, null_placement);
           }
-          ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
-          ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_array, order));
-          // Concatenates chunks to use existing ValidateSorted() for array.
-          ASSERT_OK_AND_ASSIGN(auto concatenated_array, Concatenate(arrays));
-          ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(concatenated_array),
-                                    *checked_pointer_cast<UInt64Array>(offsets), order);
         }
       }
     }
@@ -801,9 +1045,6 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
       {field("a", uint8())},
       {field("b", uint32())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": 3,    "b": 5},
                                        {"a": 1,    "b": 3},
@@ -813,7 +1054,14 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
                                        {"a": 1,    "b": 5},
                                        {"a": 1,    "b": 3}
                                        ])");
-  AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+
+  for (auto null_placement : AllNullPlacements()) {
+    SortOptions options(
+        {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)},
+        null_placement);
+
+    AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+  }
 }
 
 TEST_F(TestRecordBatchSortIndices, Null) {
@@ -821,18 +1069,22 @@ TEST_F(TestRecordBatchSortIndices, Null) {
       {field("a", uint8())},
       {field("b", uint32())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": null, "b": 5},
                                        {"a": 1,    "b": 3},
                                        {"a": 3,    "b": null},
                                        {"a": null, "b": null},
                                        {"a": 2,    "b": 5},
-                                       {"a": 1,    "b": 5}
+                                       {"a": 1,    "b": 5},
+                                       {"a": 3,    "b": 5}
                                        ])");
-  AssertSortIndices(batch, options, "[5, 1, 4, 2, 0, 3]");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
 TEST_F(TestRecordBatchSortIndices, NaN) {
@@ -840,9 +1092,6 @@ TEST_F(TestRecordBatchSortIndices, NaN) {
       {field("a", float32())},
       {field("b", float64())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": 3,    "b": 5},
                                        {"a": 1,    "b": NaN},
@@ -853,7 +1102,13 @@ TEST_F(TestRecordBatchSortIndices, NaN) {
                                        {"a": NaN,  "b": 5},
                                        {"a": 1,    "b": 5}
                                       ])");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(batch, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 }
 
 TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
@@ -861,9 +1116,6 @@ TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
       {field("a", float32())},
       {field("b", float64())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": null, "b": 5},
                                        {"a": 1,    "b": 3},
@@ -874,7 +1126,13 @@ TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
                                        {"a": NaN,  "b": 5},
                                        {"a": 1,    "b": 5}
                                       ])");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
 TEST_F(TestRecordBatchSortIndices, Boolean) {
@@ -882,9 +1140,6 @@ TEST_F(TestRecordBatchSortIndices, Boolean) {
       {field("a", boolean())},
       {field("b", boolean())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": true,    "b": null},
                                        {"a": false,   "b": null},
@@ -895,7 +1150,13 @@ TEST_F(TestRecordBatchSortIndices, Boolean) {
                                        {"a": false,   "b": null},
                                        {"a": null,    "b": true}
                                        ])");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(batch, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[7, 5, 1, 6, 3, 0, 2, 4]");
 }
 
 TEST_F(TestRecordBatchSortIndices, MoreTypes) {
@@ -904,10 +1165,6 @@ TEST_F(TestRecordBatchSortIndices, MoreTypes) {
       {field("b", large_utf8())},
       {field("c", fixed_size_binary(3))},
   });
-  SortOptions options({SortKey("a", SortOrder::Ascending),
-                       SortKey("b", SortOrder::Descending),
-                       SortKey("c", SortOrder::Ascending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": 3, "b": "05",   "c": "aaa"},
                                        {"a": 1, "b": "031",  "c": "bbb"},
@@ -916,7 +1173,14 @@ TEST_F(TestRecordBatchSortIndices, MoreTypes) {
                                        {"a": 2, "b": "05",   "c": "aaa"},
                                        {"a": 1, "b": "05",   "c": "bbb"}
                                        ])");
-  AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending),
+                                       SortKey("c", SortOrder::Ascending)};
+
+  for (auto null_placement : AllNullPlacements()) {
+    SortOptions options(sort_keys, null_placement);
+    AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+  }
 }
 
 TEST_F(TestRecordBatchSortIndices, Decimal) {
@@ -924,9 +1188,6 @@ TEST_F(TestRecordBatchSortIndices, Decimal) {
       {field("a", decimal128(3, 1))},
       {field("b", decimal256(4, 2))},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": "12.3", "b": "12.34"},
                                        {"a": "45.6", "b": "12.34"},
@@ -934,19 +1195,150 @@ TEST_F(TestRecordBatchSortIndices, Decimal) {
                                        {"a": "-12.3", "b": null},
                                        {"a": "-12.3", "b": "-45.67"}
                                        ])");
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(batch, options, "[4, 3, 0, 2, 1]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 4, 0, 2, 1]");
+}
+
+TEST_F(TestRecordBatchSortIndices, NullType) {
+  auto schema = arrow::schema({
+      field("a", null()),
+      field("b", int32()),
+      field("c", int32()),
+      field("d", int32()),
+      field("e", int32()),
+      field("f", int32()),
+      field("g", int32()),
+      field("h", int32()),
+      field("i", null()),
+  });
+  auto batch = RecordBatchFromJSON(schema, R"([
+    {"a": null, "b": 5, "c": 0, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 5, "c": 1, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 2, "c": 2, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null},
+    {"a": null, "b": 4, "c": 3, "d": 0, "e": 1, "f": 2, "g": 3, "h": 4, "i": null}
+])");
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      // Uses radix sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("i", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                                SortKey("i", order),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+      // Uses multiple-key sorter
+      AssertSortIndices(batch,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                                SortKey("c", SortOrder::Ascending),
+                                SortKey("d", SortOrder::Ascending),
+                                SortKey("e", SortOrder::Ascending),
+                                SortKey("f", SortOrder::Ascending),
+                                SortKey("g", SortOrder::Ascending),
+                                SortKey("h", SortOrder::Ascending),
+                                SortKey("i", order),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+    }
+  }
+}
+
+TEST_F(TestRecordBatchSortIndices, DuplicateSortKeys) {
+  // ARROW-14073: only the first occurrence of a given sort column is taken
+  // into account.
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": NaN,  "b": null},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  const std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending),
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Ascending),
+      SortKey("a", SortOrder::Descending)};
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(batch, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {};
+
+TEST_F(TestTableSortIndices, EmptyTable) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
+  auto table = TableFromJSON(schema, {"[]"});
+  auto chunked_table = TableFromJSON(schema, {"[]", "[]"});
+
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(table, options, "[]");
+  AssertSortIndices(chunked_table, options, "[]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[]");
+  AssertSortIndices(chunked_table, options, "[]");
+}
+
+TEST_F(TestTableSortIndices, EmptySortKeys) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  const std::vector<SortKey> sort_keys{};
+  const SortOptions options(sort_keys, NullPlacement::AtEnd);
+
+  auto table = TableFromJSON(schema, {R"([{"a": null, "b": 5}])"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Must specify one or more sort keys"),
+      CallFunction("sort_indices", {table}, &options));
+
+  // Several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5}])", R"([{"a": 0, "b": 6}])"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Must specify one or more sort keys"),
+      CallFunction("sort_indices", {table}, &options));
+}
 
 TEST_F(TestTableSortIndices, Null) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
   std::shared_ptr<Table> table;
 
   table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
@@ -954,9 +1346,13 @@ TEST_F(TestTableSortIndices, Null) {
                                      {"a": 3,    "b": null},
                                      {"a": null, "b": null},
                                      {"a": 2,    "b": 5},
-                                     {"a": 1,    "b": 5}
+                                     {"a": 1,    "b": 5},
+                                     {"a": 3,    "b": 5}
                                     ])"});
-  AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(table, options, "[5, 1, 4, 6, 2, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 5, 1, 4, 2, 6]");
 
   // Same data, several chunks
   table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
@@ -965,9 +1361,13 @@ TEST_F(TestTableSortIndices, Null) {
                                     ])",
                                  R"([{"a": null, "b": null},
                                      {"a": 2,    "b": 5},
-                                     {"a": 1,    "b": 5}
+                                     {"a": 1,    "b": 5},
+                                     {"a": 3,    "b": 5}
                                     ])"});
-  AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+  options.null_placement = NullPlacement::AtEnd;
+  AssertSortIndices(table, options, "[5, 1, 4, 6, 2, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
 TEST_F(TestTableSortIndices, NaN) {
@@ -975,9 +1375,10 @@ TEST_F(TestTableSortIndices, NaN) {
       {field("a", float32())},
       {field("b", float64())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
   std::shared_ptr<Table> table;
+
   table = TableFromJSON(schema, {R"([{"a": 3,    "b": 5},
                                      {"a": 1,    "b": NaN},
                                      {"a": 3,    "b": 4},
@@ -987,7 +1388,10 @@ TEST_F(TestTableSortIndices, NaN) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 
   // Same data, several chunks
   table = TableFromJSON(schema, {R"([{"a": 3,    "b": 5},
@@ -1000,7 +1404,10 @@ TEST_F(TestTableSortIndices, NaN) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
+  options.null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[5, 4, 6, 3, 1, 7, 0, 2]");
 }
 
 TEST_F(TestTableSortIndices, NaNAndNull) {
@@ -1008,9 +1415,10 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
       {field("a", float32())},
       {field("b", float64())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
   std::shared_ptr<Table> table;
+
   table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
                                      {"a": 1,    "b": 3},
                                      {"a": 3,    "b": null},
@@ -1020,7 +1428,10 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 
   // Same data, several chunks
   table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
@@ -1033,7 +1444,10 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                      {"a": NaN,  "b": 5},
                                      {"a": 1,    "b": 5}
                                     ])"});
+  options.null_placement = NullPlacement::AtEnd;
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
 }
 
 TEST_F(TestTableSortIndices, Boolean) {
@@ -1041,18 +1455,23 @@ TEST_F(TestTableSortIndices, Boolean) {
       {field("a", boolean())},
       {field("b", boolean())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
+
   auto table = TableFromJSON(schema, {R"([{"a": true,    "b": null},
-                                       {"a": false,   "b": null},
-                                       {"a": true,    "b": true},
-                                       {"a": false,   "b": true}])",
+                                          {"a": false,   "b": null},
+                                          {"a": true,    "b": true},
+                                          {"a": false,   "b": true}
+                                         ])",
                                       R"([{"a": true,    "b": false},
-                                       {"a": null,    "b": false},
-                                       {"a": false,   "b": null},
-                                       {"a": null,    "b": true}
-                                       ])"});
+                                          {"a": null,    "b": false},
+                                          {"a": false,   "b": null},
+                                          {"a": null,    "b": true}
+                                         ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(table, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[7, 5, 1, 6, 3, 0, 2, 4]");
 }
 
 TEST_F(TestTableSortIndices, BinaryLike) {
@@ -1060,8 +1479,9 @@ TEST_F(TestTableSortIndices, BinaryLike) {
       {field("a", large_utf8())},
       {field("b", fixed_size_binary(3))},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Descending), SortKey("b", SortOrder::Ascending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending),
+                                       SortKey("b", SortOrder::Ascending)};
+
   auto table = TableFromJSON(schema, {R"([{"a": "one", "b": null},
                                           {"a": "two", "b": "aaa"},
                                           {"a": "three", "b": "bbb"},
@@ -1072,7 +1492,10 @@ TEST_F(TestTableSortIndices, BinaryLike) {
                                           {"a": "three", "b": "bbb"},
                                           {"a": "four", "b": "aaa"}
                                          ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(table, options, "[1, 5, 2, 6, 4, 0, 7, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[1, 5, 2, 6, 0, 4, 7, 3]");
 }
 
 TEST_F(TestTableSortIndices, Decimal) {
@@ -1080,8 +1503,8 @@ TEST_F(TestTableSortIndices, Decimal) {
       {field("a", decimal128(3, 1))},
       {field("b", decimal256(4, 2))},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
 
   auto table = TableFromJSON(schema, {R"([{"a": "12.3", "b": "12.34"},
                                           {"a": "45.6", "b": "12.34"},
@@ -1090,78 +1513,155 @@ TEST_F(TestTableSortIndices, Decimal) {
                                       R"([{"a": "-12.3", "b": null},
                                           {"a": "-12.3", "b": "-45.67"}
                                           ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
   AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 4, 0, 2, 1]");
+}
+
+TEST_F(TestTableSortIndices, NullType) {
+  auto schema = arrow::schema({
+      field("a", null()),
+      field("b", int32()),
+      field("c", int32()),
+      field("d", null()),
+  });
+  auto table = TableFromJSON(schema, {
+                                         R"([
+                                             {"a": null, "b": 5, "c": 0, "d": null},
+                                             {"a": null, "b": 5, "c": 1, "d": null},
+                                             {"a": null, "b": 2, "c": 2, "d": null}
+                                         ])",
+                                         R"([])",
+                                         R"([{"a": null, "b": 4, "c": 3, "d": null}])",
+                                     });
+  for (const auto null_placement : AllNullPlacements()) {
+    for (const auto order : AllOrders()) {
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("d", order),
+                            },
+                            null_placement),
+                        "[0, 1, 2, 3]");
+      AssertSortIndices(table,
+                        SortOptions(
+                            {
+                                SortKey("a", order),
+                                SortKey("b", SortOrder::Ascending),
+                                SortKey("d", order),
+                            },
+                            null_placement),
+                        "[2, 3, 0, 1]");
+    }
+  }
+}
+
+TEST_F(TestTableSortIndices, DuplicateSortKeys) {
+  // ARROW-14073: only the first occurrence of a given sort column is taken
+  // into account.
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  const std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending),
+      SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Ascending),
+      SortKey("a", SortOrder::Descending)};
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null}
+                                    ])",
+                                 R"([{"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  SortOptions options(sort_keys, NullPlacement::AtEnd);
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
+}
+
+TEST_F(TestTableSortIndices, HeterogenousChunking) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+
+  // Same logical data as in "NaNAndNull" test above
+  auto col_a =
+      ChunkedArrayFromJSON(float32(), {"[null, 1]", "[]", "[3, null, NaN, NaN, NaN, 1]"});
+  auto col_b = ChunkedArrayFromJSON(float64(),
+                                    {"[5]", "[3, null, null]", "[null, NaN, 5]", "[5]"});
+  auto table = Table::Make(schema, {col_a, col_b});
+
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 0, 4, 5, 6, 7, 1, 2]");
+
+  options = SortOptions(
+      {SortKey("b", SortOrder::Ascending), SortKey("a", SortOrder::Descending)});
+  AssertSortIndices(table, options, "[1, 7, 6, 0, 5, 2, 4, 3]");
+  options.null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[3, 4, 2, 5, 1, 0, 6, 7]");
 }
 
 // Tests for temporal types
 template <typename ArrowType>
 class TestTableSortIndicesForTemporal : public TestTableSortIndices {
  protected:
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> GetType() { return default_type_instance<ArrowType>(); }
 };
 TYPED_TEST_SUITE(TestTableSortIndicesForTemporal, TemporalArrowTypes);
 
 TYPED_TEST(TestTableSortIndicesForTemporal, NoNull) {
   auto type = this->GetType();
+  const std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                       SortKey("b", SortOrder::Descending)};
   auto table = TableFromJSON(schema({
                                  {field("a", type)},
                                  {field("b", type)},
                              }),
-                             {"["
-                              "{\"a\": 0, \"b\": 5},"
-                              "{\"a\": 1, \"b\": 3},"
-                              "{\"a\": 3, \"b\": 0},"
-                              "{\"a\": 2, \"b\": 1},"
-                              "{\"a\": 1, \"b\": 3},"
-                              "{\"a\": 5, \"b\": 0},"
-                              "{\"a\": 0, \"b\": 4},"
-                              "{\"a\": 1, \"b\": 2}"
-                              "]"});
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
+                             {R"([{"a": 0, "b": 5},
+                                  {"a": 1, "b": 3},
+                                  {"a": 3, "b": 0},
+                                  {"a": 2, "b": 1},
+                                  {"a": 1, "b": 3},
+                                  {"a": 5, "b": 0},
+                                  {"a": 0, "b": 4},
+                                  {"a": 1, "b": 2}
+                                 ])"});
+  for (auto null_placement : AllNullPlacements()) {
+    SortOptions options(sort_keys, null_placement);
+    AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
+  }
 }
 
 // For random table tests.
-using RandomParam = std::tuple<std::string, double>;
-class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
-  // Compares two records in the same table.
-  class Comparator : public TypeVisitor {
-   public:
-    Comparator(const Table& table, const SortOptions& options) : options_(options) {
-      for (const auto& sort_key : options_.sort_keys) {
-        sort_columns_.emplace_back(table.GetColumnByName(sort_key.name).get(),
-                                   sort_key.order);
-      }
-    }
+using RandomParam = std::tuple<std::string, int, double>;
 
-    // Returns true if the left record is less or equals to the right
-    // record, false otherwise.
-    //
-    // This supports null and NaN.
-    bool operator()(uint64_t lhs, uint64_t rhs) {
+class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
+  // Compares two records in a column
+  class ColumnComparator : public TypeVisitor {
+   public:
+    ColumnComparator(SortOrder order, NullPlacement null_placement)
+        : order_(order), null_placement_(null_placement) {}
+
+    int operator()(const Array& left, const Array& right, uint64_t lhs, uint64_t rhs) {
+      left_ = &left;
+      right_ = &right;
       lhs_ = lhs;
       rhs_ = rhs;
-      for (const auto& pair : sort_columns_) {
-        const auto& chunked_array = *pair.first;
-        lhs_array_ = FindTargetArray(chunked_array, lhs, &lhs_index_);
-        rhs_array_ = FindTargetArray(chunked_array, rhs, &rhs_index_);
-        if (rhs_array_->IsNull(rhs_index_) && lhs_array_->IsNull(lhs_index_)) continue;
-        if (rhs_array_->IsNull(rhs_index_)) return true;
-        if (lhs_array_->IsNull(lhs_index_)) return false;
-        status_ = lhs_array_->type()->Accept(this);
-        if (compared_ == 0) continue;
-        // If either value is NaN, it must sort after the other regardless of order
-        if (pair.second == SortOrder::Ascending || lhs_isnan_ || rhs_isnan_) {
-          return compared_ < 0;
-        } else {
-          return compared_ > 0;
-        }
-      }
-      return lhs < rhs;
+      ARROW_CHECK_OK(left.type()->Accept(this));
+      return compared_;
     }
-
-    Status status() const { return status_; }
 
 #define VISIT(TYPE)                               \
   Status Visit(const TYPE##Type& type) override { \
@@ -1169,6 +1669,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     return Status::OK();                          \
   }
 
+    VISIT(Boolean)
     VISIT(Int8)
     VISIT(Int16)
     VISIT(Int32)
@@ -1180,12 +1681,64 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     VISIT(Float)
     VISIT(Double)
     VISIT(String)
+    VISIT(LargeString)
     VISIT(Decimal128)
+    VISIT(Decimal256)
 
 #undef VISIT
 
-   private:
-    // Finds the target chunk and index in the target chunk from an
+    template <typename Type>
+    int CompareType() {
+      using ArrayType = typename TypeTraits<Type>::ArrayType;
+      ThreeWayComparator<ArrayType> three_way{order_, null_placement_};
+      return three_way(checked_cast<const ArrayType&>(*left_),
+                       checked_cast<const ArrayType&>(*right_), lhs_, rhs_);
+    }
+
+    const SortOrder order_;
+    const NullPlacement null_placement_;
+    const Array* left_;
+    const Array* right_;
+    uint64_t lhs_;
+    uint64_t rhs_;
+    int compared_;
+  };
+
+  // Compares two records in the same table.
+  class Comparator {
+   public:
+    Comparator(const Table& table, const SortOptions& options) : options_(options) {
+      for (const auto& sort_key : options_.sort_keys) {
+        DCHECK(!sort_key.target.IsNested());
+
+        if (auto name = sort_key.target.name()) {
+          sort_columns_.emplace_back(table.GetColumnByName(*name).get(), sort_key.order);
+          continue;
+        }
+
+        auto index = sort_key.target.field_path()->indices()[0];
+        sort_columns_.emplace_back(table.column(index).get(), sort_key.order);
+      }
+    }
+
+    // Return true if the left record is less or equals to the right record,
+    // false otherwise.
+    bool operator()(uint64_t lhs, uint64_t rhs) {
+      for (const auto& pair : sort_columns_) {
+        ColumnComparator comparator(pair.second, options_.null_placement);
+        const auto& chunked_array = *pair.first;
+        int64_t lhs_index = 0, rhs_index = 0;
+        const Array* lhs_array = FindTargetArray(chunked_array, lhs, &lhs_index);
+        const Array* rhs_array = FindTargetArray(chunked_array, rhs, &rhs_index);
+        int compared = comparator(*lhs_array, *rhs_array, lhs_index, rhs_index);
+        if (compared != 0) {
+          return compared < 0;
+        }
+      }
+      return lhs < rhs;
+    }
+
+    // Find the target chunk and index in the target chunk from an
     // index in chunked array.
     const Array* FindTargetArray(const ChunkedArray& chunked_array, int64_t i,
                                  int64_t* chunk_index) {
@@ -1200,140 +1753,434 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       return nullptr;
     }
 
-    // Compares two values in the same chunked array. Values are never
-    // null but may be NaN.
-    //
-    // Returns true if the left value is less or equals to the right
-    // value, false otherwise.
-    template <typename Type>
-    int CompareType() {
-      using ArrayType = typename TypeTraits<Type>::ArrayType;
-      auto lhs_value =
-          GetLogicalValue(checked_cast<const ArrayType&>(*lhs_array_), lhs_index_);
-      auto rhs_value =
-          GetLogicalValue(checked_cast<const ArrayType&>(*rhs_array_), rhs_index_);
-      if (is_floating_type<Type>::value) {
-        lhs_isnan_ = lhs_value != lhs_value;
-        rhs_isnan_ = rhs_value != rhs_value;
-        if (lhs_isnan_ && rhs_isnan_) return 0;
-        // NaN is considered greater than non-NaN
-        if (rhs_isnan_) return -1;
-        if (lhs_isnan_) return 1;
-      } else {
-        lhs_isnan_ = rhs_isnan_ = false;
-      }
-      if (lhs_value == rhs_value) {
-        return 0;
-      } else if (lhs_value > rhs_value) {
-        return 1;
-      } else {
-        return -1;
-      }
-    }
-
     const SortOptions& options_;
     std::vector<std::pair<const ChunkedArray*, SortOrder>> sort_columns_;
-    int64_t lhs_;
-    const Array* lhs_array_;
-    int64_t lhs_index_;
-    int64_t rhs_;
-    const Array* rhs_array_;
-    int64_t rhs_index_;
-    bool lhs_isnan_, rhs_isnan_;
-    int compared_;
-    Status status_;
   };
 
  public:
-  // Validates the sorted indexes are really sorted.
+  // Validates the sorted indices are really sorted.
   void Validate(const Table& table, const SortOptions& options, UInt64Array& offsets) {
     ValidateOutput(offsets);
     Comparator comparator{table, options};
     for (int i = 1; i < table.num_rows(); i++) {
       uint64_t lhs = offsets.Value(i - 1);
       uint64_t rhs = offsets.Value(i);
-      ASSERT_OK(comparator.status());
-      ASSERT_TRUE(comparator(lhs, rhs)) << "lhs = " << lhs << ", rhs = " << rhs;
+      if (!comparator(lhs, rhs)) {
+        std::stringstream ss;
+        ss << "Rows not ordered at consecutive sort indices:";
+        ss << "\nFirst row (index = " << lhs << "): ";
+        PrintRow(table, lhs, &ss);
+        ss << "\nSecond row (index = " << rhs << "): ";
+        PrintRow(table, rhs, &ss);
+        FAIL() << ss.str();
+      }
     }
+  }
+
+  void PrintRow(const Table& table, uint64_t index, std::ostream* os) {
+    *os << "{";
+    const auto& columns = table.columns();
+    for (size_t i = 0; i < columns.size(); ++i) {
+      if (i != 0) {
+        *os << ", ";
+      }
+      ASSERT_OK_AND_ASSIGN(auto scal, columns[i]->GetScalar(index));
+      *os << scal->ToString();
+    }
+    *os << "}";
   }
 };
 
 TEST_P(TestTableSortIndicesRandom, Sort) {
   const auto first_sort_key_name = std::get<0>(GetParam());
-  const auto null_probability = std::get<1>(GetParam());
+  const auto n_sort_keys = std::get<1>(GetParam());
+  const auto null_probability = std::get<2>(GetParam());
+  const auto nan_probability = (1.0 - null_probability) / 4;
   const auto seed = 0x61549225;
 
-  const FieldVector fields = {
-      {field("uint8", uint8())},   {field("uint16", uint16())},
-      {field("uint32", uint32())}, {field("uint64", uint64())},
-      {field("int8", int8())},     {field("int16", int16())},
-      {field("int32", int32())},   {field("int64", int64())},
-      {field("float", float32())}, {field("double", float64())},
-      {field("string", utf8())},   {field("decimal128", decimal128(18, 3))},
-  };
-  const auto length = 200;
-  ArrayVector columns = {
-      Random<UInt8Type>(seed).Generate(length, null_probability),
-      Random<UInt16Type>(seed).Generate(length, 0.0),
-      Random<UInt32Type>(seed).Generate(length, null_probability),
-      Random<UInt64Type>(seed).Generate(length, 0.0),
-      Random<Int8Type>(seed).Generate(length, 0.0),
-      Random<Int16Type>(seed).Generate(length, null_probability),
-      Random<Int32Type>(seed).Generate(length, 0.0),
-      Random<Int64Type>(seed).Generate(length, null_probability),
-      Random<FloatType>(seed).Generate(length, null_probability, 1 - null_probability),
-      Random<DoubleType>(seed).Generate(length, 0.0, null_probability),
-      Random<StringType>(seed).Generate(length, null_probability),
-      Random<Decimal128Type>(seed, fields[11]->type()).Generate(length, null_probability),
-  };
-  const auto table = Table::Make(schema(fields), columns, length);
+  ARROW_SCOPED_TRACE("n_sort_keys = ", n_sort_keys);
+  ARROW_SCOPED_TRACE("null_probability = ", null_probability);
 
-  // Generate random sort keys
+  ::arrow::random::RandomArrayGenerator rng(seed);
+
+  // Of these, "uint8", "boolean" and "string" should have many duplicates
+  const FieldVector fields = {
+      {field("uint8", uint8())},
+      {field("int16", int16())},
+      {field("int32", int32())},
+      {field("uint64", uint64())},
+      {field("float", float32())},
+      {field("boolean", boolean())},
+      {field("string", utf8())},
+      {field("large_string", large_utf8())},
+      {field("decimal128", decimal128(25, 3))},
+      {field("decimal256", decimal256(42, 6))},
+  };
+  const auto schema = ::arrow::schema(fields);
+  const int64_t length = 80;
+
+  using ArrayFactory = std::function<std::shared_ptr<Array>(int64_t length)>;
+
+  std::vector<ArrayFactory> column_factories{
+      [&](int64_t length) { return rng.UInt8(length, 0, 10, null_probability); },
+      [&](int64_t length) {
+        return rng.Int16(length, -1000, 12000, /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Int32(length, -123456789, 987654321, null_probability);
+      },
+      [&](int64_t length) {
+        return rng.UInt64(length, 1, 1234567890123456789ULL, /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Float32(length, -1.0f, 1.0f, null_probability, nan_probability);
+      },
+      [&](int64_t length) {
+        return rng.Boolean(length, /*true_probability=*/0.3, null_probability);
+      },
+      [&](int64_t length) {
+        if (length > 0) {
+          return rng.StringWithRepeats(length, /*unique=*/1 + length / 10,
+                                       /*min_length=*/5,
+                                       /*max_length=*/15, null_probability);
+        } else {
+          return *MakeArrayOfNull(utf8(), 0);
+        }
+      },
+      [&](int64_t length) {
+        return rng.LargeString(length, /*min_length=*/5, /*max_length=*/15,
+                               /*null_probability=*/0.0);
+      },
+      [&](int64_t length) {
+        return rng.Decimal128(fields[8]->type(), length, null_probability);
+      },
+      [&](int64_t length) {
+        return rng.Decimal256(fields[9]->type(), length, /*null_probability=*/0.0);
+      },
+  };
+
+  // Generate random sort keys, making sure no column is included twice
   std::default_random_engine engine(seed);
   std::uniform_int_distribution<> distribution(0);
-  const auto n_sort_keys = 7;
+
+  auto generate_order = [&]() {
+    return (distribution(engine) & 1) ? SortOrder::Ascending : SortOrder::Descending;
+  };
+
   std::vector<SortKey> sort_keys;
-  const auto first_sort_key_order =
-      (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
-  sort_keys.emplace_back(first_sort_key_name, first_sort_key_order);
-  for (int i = 1; i < n_sort_keys; ++i) {
-    const auto& field = *fields[distribution(engine) % fields.size()];
-    const auto order =
-        (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
-    sort_keys.emplace_back(field.name(), order);
+  sort_keys.reserve(fields.size());
+  for (const auto& field : fields) {
+    if (field->name() != first_sort_key_name) {
+      sort_keys.emplace_back(field->name(), generate_order());
+    }
   }
+  std::shuffle(sort_keys.begin(), sort_keys.end(), engine);
+  sort_keys.emplace(sort_keys.begin(), first_sort_key_name, generate_order());
+  sort_keys.erase(sort_keys.begin() + n_sort_keys, sort_keys.end());
+  ASSERT_EQ(sort_keys.size(), n_sort_keys);
+
+  std::stringstream ss;
+  for (const auto& sort_key : sort_keys) {
+    ss << sort_key.target.ToString()
+       << (sort_key.order == SortOrder::Ascending ? " ASC" : " DESC");
+    ss << ", ";
+  }
+  ARROW_SCOPED_TRACE("sort_keys = ", ss.str());
+
   SortOptions options(sort_keys);
 
-  // Test with different table chunkings
-  for (const int64_t num_chunks : {1, 2, 20}) {
-    TableBatchReader reader(*table);
-    reader.set_chunksize((length + num_chunks - 1) / num_chunks);
-    ASSERT_OK_AND_ASSIGN(auto chunked_table, Table::FromRecordBatchReader(&reader));
-    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*chunked_table), options));
-    Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  // Test with different, heterogenous table chunkings
+  for (const int64_t max_num_chunks : {1, 3, 15}) {
+    ARROW_SCOPED_TRACE("Table sorting: max chunks per column = ", max_num_chunks);
+    std::uniform_int_distribution<int64_t> num_chunk_dist(1 + max_num_chunks / 2,
+                                                          max_num_chunks);
+    ChunkedArrayVector columns;
+    columns.reserve(fields.size());
+
+    // Chunk each column independently, and make sure they consist of
+    // physically non-contiguous chunks.
+    for (const auto& factory : column_factories) {
+      const int64_t num_chunks = num_chunk_dist(engine);
+      ArrayVector chunks(num_chunks);
+      const auto offsets =
+          checked_pointer_cast<Int32Array>(rng.Offsets(num_chunks + 1, 0, length));
+      for (int64_t i = 0; i < num_chunks; ++i) {
+        const auto chunk_len = offsets->Value(i + 1) - offsets->Value(i);
+        chunks[i] = factory(chunk_len);
+      }
+      columns.push_back(std::make_shared<ChunkedArray>(std::move(chunks)));
+      ASSERT_EQ(columns.back()->length(), length);
+    }
+
+    auto table = Table::Make(schema, std::move(columns));
+    for (auto null_placement : AllNullPlacements()) {
+      ARROW_SCOPED_TRACE("null_placement = ", null_placement);
+      options.null_placement = null_placement;
+      ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*table), options));
+      Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+    }
   }
 
   // Also validate RecordBatch sorting
-  TableBatchReader reader(*table);
-  RecordBatchVector batches;
-  ASSERT_OK(reader.ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 1);
-  ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*batches[0]), options));
-  Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  ARROW_SCOPED_TRACE("Record batch sorting");
+  ArrayVector columns;
+  columns.reserve(fields.size());
+  for (const auto& factory : column_factories) {
+    columns.push_back(factory(length));
+  }
+  auto batch = RecordBatch::Make(schema, length, std::move(columns));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(schema, {batch}));
+
+  for (auto null_placement : AllNullPlacements()) {
+    ARROW_SCOPED_TRACE("null_placement = ", null_placement);
+    options.null_placement = null_placement;
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(batch), options));
+    Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  }
 }
 
-static const auto first_sort_keys =
-    testing::Values("uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32",
-                    "int64", "float", "double", "string", "decimal128");
+// Some first keys will have duplicates, others not
+static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
+                                                    "boolean", "string", "decimal128");
+
+// Different numbers of sort keys may trigger different algorithms
+static const auto num_sort_keys = testing::Values(1, 3, 7, 9);
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, testing::Values(0.0)));
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(0.0)));
 
-INSTANTIATE_TEST_SUITE_P(MayNull, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, testing::Values(0.1, 0.5)));
+INSTANTIATE_TEST_SUITE_P(SomeNulls, TestTableSortIndicesRandom,
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(0.1, 0.5)));
 
 INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
-                         testing::Combine(first_sort_keys, testing::Values(1.0)));
+                         testing::Combine(first_sort_keys, num_sort_keys,
+                                          testing::Values(1.0)));
+
+// ----------------------------------------------------------------------
+// Tests for Rank
+
+void AssertRank(const std::shared_ptr<Array>& input, SortOrder order,
+                NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
+                const std::shared_ptr<Array>& expected) {
+  const std::vector<SortKey> sort_keys{SortKey("foo", order)};
+  RankOptions options(sort_keys, null_placement, tiebreaker);
+  ARROW_SCOPED_TRACE("options = ", options.ToString());
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+void AssertRankEmpty(std::shared_ptr<DataType> type, SortOrder order,
+                     NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker) {
+  AssertRank(ArrayFromJSON(type, "[]"), order, null_placement, tiebreaker,
+             ArrayFromJSON(uint64(), "[]"));
+  AssertRank(ArrayFromJSON(type, "[null]"), order, null_placement, tiebreaker,
+             ArrayFromJSON(uint64(), "[1]"));
+}
+
+void AssertRankSimple(const std::shared_ptr<Array>& input, NullPlacement null_placement,
+                      RankOptions::Tiebreaker tiebreaker) {
+  auto expected_asc = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
+  AssertRank(input, SortOrder::Ascending, null_placement, tiebreaker, expected_asc);
+
+  auto expected_desc = ArrayFromJSON(uint64(), "[3, 2, 4, 5, 1]");
+  AssertRank(input, SortOrder::Descending, null_placement, tiebreaker, expected_desc);
+}
+
+void AssertRankAllTiebreakers(const std::shared_ptr<Array>& input) {
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 1, 4, 6, 4, 6, 1]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[3, 2, 5, 7, 5, 7, 2]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 1, 3, 4, 3, 4, 1]"));
+
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[5, 3, 6, 1, 6, 1, 3]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 4, 7, 2, 7, 2, 4]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[3, 2, 4, 1, 4, 1, 2]"));
+
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 4, 1, 6, 1, 6, 4]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[3, 5, 2, 7, 2, 7, 5]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 4, 1, 6, 2, 7, 5]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 3, 1, 4, 1, 4, 3]"));
+
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[5, 6, 3, 1, 3, 1, 6]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 7, 4, 2, 4, 2, 7]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[5, 6, 3, 1, 4, 2, 7]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[3, 4, 2, 1, 2, 1, 4]"));
+}
+
+TEST(TestRankForReal, RankReal) {
+  for (auto real_type : ::arrow::FloatingPointTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(real_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"),
+                         null_placement, tiebreaker);
+      }
+    }
+
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
+  }
+}
+
+TEST(TestRankForIntegral, RankIntegral) {
+  for (auto integer_type : ::arrow::IntTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(integer_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(integer_type, "[2, 3, 1, 0, 5]"), null_placement,
+                         tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(ArrayFromJSON(integer_type, "[1, 0, 5, null, 5, null, 0]"));
+  }
+}
+
+TEST(TestRankForBool, RankBool) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(boolean(), order, null_placement, tiebreaker);
+      }
+
+      auto simple_bool = ArrayFromJSON(boolean(), "[false, true]");
+      AssertRank(simple_bool, SortOrder::Ascending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[1, 2]"));
+      AssertRank(simple_bool, SortOrder::Descending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[2, 1]"));
+
+      auto array =
+          ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]");
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[3, 1, 3, 6, 3, 6, 1]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[5, 2, 5, 7, 5, 7, 2]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[2, 1, 2, 3, 2, 3, 1]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[5, 3, 5, 1, 5, 1, 3]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[7, 4, 7, 2, 7, 2, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[3, 2, 3, 1, 3, 1, 2]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[1, 4, 1, 6, 1, 6, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[3, 5, 3, 7, 3, 7, 5]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[1, 4, 2, 6, 3, 7, 5]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[1, 2, 1, 3, 1, 3, 2]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[3, 6, 3, 1, 3, 1, 6]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[5, 7, 5, 2, 5, 2, 7]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[3, 6, 4, 1, 5, 2, 7]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[2, 3, 2, 1, 2, 1, 3]"));
+    }
+  }
+}
+
+TEST(TestRankForTemporal, RankTemporal) {
+  for (auto temporal_type : ::arrow::TemporalTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(temporal_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(temporal_type, "[2, 3, 1, 0, 5]"), null_placement,
+                         tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(ArrayFromJSON(temporal_type, "[1, 0, 5, null, 5, null, 0]"));
+  }
+}
+
+TEST(TestRankForStrings, RankStrings) {
+  for (auto string_type : ::arrow::StringTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(string_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(string_type, R"(["b", "c", "a", "", "d"])"),
+                         null_placement, tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(string_type, R"(["a", "", "e", null, "e", null, ""])"));
+  }
+}
+
+TEST(TestRankForFixedSizeBinary, RankFixedSizeBinary) {
+  auto binary_type = fixed_size_binary(3);
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(binary_type, order, null_placement, tiebreaker);
+      }
+
+      AssertRankSimple(
+          ArrayFromJSON(binary_type, R"(["bbb", "ccc", "aaa", "   ", "ddd"])"),
+          null_placement, tiebreaker);
+    }
+  }
+  AssertRankAllTiebreakers(
+      ArrayFromJSON(binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
+}
 
 }  // namespace compute
 }  // namespace arrow

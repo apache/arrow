@@ -15,16 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
-  ...require("../jest.config"),
-  rootDir: "../",
-  collectCoverage: true,
-  reporters: undefined,
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "<rootDir>/test/tsconfig/tsconfig.coverage.json",
-      useESM: true,
+import config from "../jest.config.js";
+
+export default {
+    ...config,
+    rootDir: "../",
+    collectCoverage: true,
+    reporters: undefined,
+    globals: {
+        "ts-jest": {
+            diagnostics: false,
+            tsconfig: "<rootDir>/test/tsconfig/tsconfig.coverage.json",
+            useESM: true,
+        },
     },
-  },
 };

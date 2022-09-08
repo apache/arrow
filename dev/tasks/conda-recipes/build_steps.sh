@@ -25,7 +25,8 @@ conda-build:
 
 CONDARC
 
-conda install --yes --quiet conda-forge-ci-setup=3 conda-build pip -c conda-forge
+mamba install --update-specs --yes --quiet "conda-forge-ci-setup=3" conda-build pip boa -c conda-forge
+mamba update --update-specs --yes --quiet "conda-forge-ci-setup=3" conda-build pip boa -c conda-forge
 
 # set up the condarc
 setup_conda_rc "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
@@ -37,7 +38,7 @@ make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
 export CONDA_BLD_PATH="${output_dir}"
 
-conda build \
+conda mambabuild \
     "${FEEDSTOCK_ROOT}/arrow-cpp" \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
@@ -45,7 +46,7 @@ conda build \
     --output-folder "${output_dir}"
 
 if [ ! -z "${R_CONFIG:-}" ]; then
-  conda build \
+  conda mambabuild \
       "${FEEDSTOCK_ROOT}/r-arrow" \
       -m "${CI_SUPPORT}/r/${R_CONFIG}.yaml" \
       --output-folder "${output_dir}"

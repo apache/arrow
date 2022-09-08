@@ -19,7 +19,7 @@ package memory_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,4 +54,18 @@ func TestBufferReset(t *testing.T) {
 	buf.Reset(newBytes)
 	assert.Equal(t, newBytes, buf.Bytes())
 	assert.Equal(t, len(newBytes), buf.Len())
+}
+
+func TestBufferSlice(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(1024)
+	assert.Equal(t, 1024, mem.CurrentAlloc())
+
+	slice := memory.SliceBuffer(buf, 512, 256)
+	buf.Release()
+	assert.Equal(t, 1024, mem.CurrentAlloc())
+	slice.Release()
 }

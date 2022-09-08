@@ -15,53 +15,57 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions';
+import 'web-streams-polyfill';
+
+import '../../jest-extensions.js';
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
-import { validateVector } from './utils';
-import * as generate from '../../generate-test-data';
-import { Type, DataType, Chunked, util, Builder, UnionVector } from 'apache-arrow';
+
+import { validateVector } from './utils.js';
+import * as generate from '../../generate-test-data.js';
+
+import { Type, DataType, util, Builder, makeBuilder, builderThroughIterable } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
 
 describe('Generated Test Data', () => {
-    describe('NullBuilder',                 () => { validateBuilder(generate.null_); });
-    describe('BoolBuilder',                 () => { validateBuilder(generate.bool); });
-    describe('Int8Builder',                 () => { validateBuilder(generate.int8); });
-    describe('Int16Builder',                () => { validateBuilder(generate.int16); });
-    describe('Int32Builder',                () => { validateBuilder(generate.int32); });
-    describe('Int64Builder',                () => { validateBuilder(generate.int64); });
-    describe('Uint8Builder',                () => { validateBuilder(generate.uint8); });
-    describe('Uint16Builder',               () => { validateBuilder(generate.uint16); });
-    describe('Uint32Builder',               () => { validateBuilder(generate.uint32); });
-    describe('Uint64Builder',               () => { validateBuilder(generate.uint64); });
-    describe('Float16Builder',              () => { validateBuilder(generate.float16); });
-    describe('Float32Builder',              () => { validateBuilder(generate.float32); });
-    describe('Float64Builder',              () => { validateBuilder(generate.float64); });
-    describe('Utf8Builder',                 () => { validateBuilder(generate.utf8); });
-    describe('BinaryBuilder',               () => { validateBuilder(generate.binary); });
-    describe('FixedSizeBinaryBuilder',      () => { validateBuilder(generate.fixedSizeBinary); });
-    describe('DateDayBuilder',              () => { validateBuilder(generate.dateDay); });
-    describe('DateMillisecondBuilder',      () => { validateBuilder(generate.dateMillisecond); });
-    describe('TimestampSecondBuilder',      () => { validateBuilder(generate.timestampSecond); });
+    describe('NullBuilder', () => { validateBuilder(generate.null_); });
+    describe('BoolBuilder', () => { validateBuilder(generate.bool); });
+    describe('Int8Builder', () => { validateBuilder(generate.int8); });
+    describe('Int16Builder', () => { validateBuilder(generate.int16); });
+    describe('Int32Builder', () => { validateBuilder(generate.int32); });
+    describe('Int64Builder', () => { validateBuilder(generate.int64); });
+    describe('Uint8Builder', () => { validateBuilder(generate.uint8); });
+    describe('Uint16Builder', () => { validateBuilder(generate.uint16); });
+    describe('Uint32Builder', () => { validateBuilder(generate.uint32); });
+    describe('Uint64Builder', () => { validateBuilder(generate.uint64); });
+    describe('Float16Builder', () => { validateBuilder(generate.float16); });
+    describe('Float32Builder', () => { validateBuilder(generate.float32); });
+    describe('Float64Builder', () => { validateBuilder(generate.float64); });
+    describe('Utf8Builder', () => { validateBuilder(generate.utf8); });
+    describe('BinaryBuilder', () => { validateBuilder(generate.binary); });
+    describe('FixedSizeBinaryBuilder', () => { validateBuilder(generate.fixedSizeBinary); });
+    describe('DateDayBuilder', () => { validateBuilder(generate.dateDay); });
+    describe('DateMillisecondBuilder', () => { validateBuilder(generate.dateMillisecond); });
+    describe('TimestampSecondBuilder', () => { validateBuilder(generate.timestampSecond); });
     describe('TimestampMillisecondBuilder', () => { validateBuilder(generate.timestampMillisecond); });
     describe('TimestampMicrosecondBuilder', () => { validateBuilder(generate.timestampMicrosecond); });
-    describe('TimestampNanosecondBuilder',  () => { validateBuilder(generate.timestampNanosecond); });
-    describe('TimeSecondBuilder',           () => { validateBuilder(generate.timeSecond); });
-    describe('TimeMillisecondBuilder',      () => { validateBuilder(generate.timeMillisecond); });
-    describe('TimeMicrosecondBuilder',      () => { validateBuilder(generate.timeMicrosecond); });
-    describe('TimeNanosecondBuilder',       () => { validateBuilder(generate.timeNanosecond); });
-    describe('DecimalBuilder',              () => { validateBuilder(generate.decimal); });
-    describe('ListBuilder',                 () => { validateBuilder(generate.list); });
-    describe('StructBuilder',               () => { validateBuilder(generate.struct); });
-    describe('DenseUnionBuilder',           () => { validateBuilder(generate.denseUnion); });
-    describe('SparseUnionBuilder',          () => { validateBuilder(generate.sparseUnion); });
-    describe('DictionaryBuilder',           () => { validateBuilder(generate.dictionary); });
-    describe('IntervalDayTimeBuilder',      () => { validateBuilder(generate.intervalDayTime); });
-    describe('IntervalYearMonthBuilder',    () => { validateBuilder(generate.intervalYearMonth); });
-    describe('FixedSizeListBuilder',        () => { validateBuilder(generate.fixedSizeList); });
-    describe('MapBuilder',                  () => { validateBuilder(generate.map); });
+    describe('TimestampNanosecondBuilder', () => { validateBuilder(generate.timestampNanosecond); });
+    describe('TimeSecondBuilder', () => { validateBuilder(generate.timeSecond); });
+    describe('TimeMillisecondBuilder', () => { validateBuilder(generate.timeMillisecond); });
+    describe('TimeMicrosecondBuilder', () => { validateBuilder(generate.timeMicrosecond); });
+    describe('TimeNanosecondBuilder', () => { validateBuilder(generate.timeNanosecond); });
+    describe('DecimalBuilder', () => { validateBuilder(generate.decimal); });
+    describe('ListBuilder', () => { validateBuilder(generate.list); });
+    describe('StructBuilder', () => { validateBuilder(generate.struct); });
+    describe('DenseUnionBuilder', () => { validateBuilder(generate.denseUnion); });
+    describe('SparseUnionBuilder', () => { validateBuilder(generate.sparseUnion); });
+    describe('DictionaryBuilder', () => { validateBuilder(generate.dictionary); });
+    describe('IntervalDayTimeBuilder', () => { validateBuilder(generate.intervalDayTime); });
+    describe('IntervalYearMonthBuilder', () => { validateBuilder(generate.intervalYearMonth); });
+    describe('FixedSizeListBuilder', () => { validateBuilder(generate.fixedSizeList); });
+    describe('MapBuilder', () => { validateBuilder(generate.map); });
 });
 
 function validateBuilder(generate: (length?: number, nullCount?: number, ...args: any[]) => generate.GeneratedVector) {
@@ -75,11 +79,11 @@ function validateBuilder(generate: (length?: number, nullCount?: number, ...args
             validateBuilderWithNullValues(`with \\0`, ['\0'], generate(100));
             validateBuilderWithNullValues(`with n/a`, ['n/a'], generate(100));
         } else if (DataType.isFloat(type)) {
-            validateBuilderWithNullValues(`with NaNs`, [NaN], generate(100));
+            validateBuilderWithNullValues(`with NaNs`, [Number.NaN], generate(100));
         } else if (DataType.isInt(type)) {
             validateBuilderWithNullValues(`with MAX_INT`, [
-                type.bitWidth < 64 ? 0x7fffffff :
-                    new Uint32Array([0x7fffffff, 0x7fffffff])], generate(100));
+                type.bitWidth < 64 ? 0x7FFFFFFF : 9223372034707292159n
+            ], generate(100));
         }
     }
 }
@@ -90,7 +94,7 @@ const byteLengthQueueingStrategy = { highWaterMark: 64 };
 const iterableBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, ...opts }: BuilderOptions<T>) => ({
     ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
-        let { typeIds } = vector as UnionVector;
+        let { typeIds } = vector.data[0];
         let lastChunkLength = 0, chunksLength = 0;
         return (builder: Builder<T>, _value: any, index: number) => {
             if (index === 0) {
@@ -105,7 +109,7 @@ const iterableBuilderOptions = <T extends DataType = any>({ vector }: generate.G
 const domStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, queueingStrategy, ...opts }: Partial<BuilderTransformOptions<T>>) => ({
     ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
-        let { typeIds } = vector as UnionVector;
+        let { typeIds } = vector.data[0];
         let lastChunkLength = 0, chunksLength = 0;
         return (builder: Builder<T>, _value: any, index: number) => {
             if (index === 0) {
@@ -123,7 +127,7 @@ const domStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.
 const nodeStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, queueingStrategy, ...opts }: Partial<BuilderDuplexOptions<T>>) => ({
     ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
-        let { typeIds } = vector as UnionVector;
+        let { typeIds } = vector.data[0];
         let lastChunkLength = 0, chunksLength = 0;
         return (builder: Builder<T>, _value: any, index: number) => {
             if (index === 0) {
@@ -160,21 +164,21 @@ function validateBuilderWithNullValues(suiteName: string, nullValues: any[], gen
     }
 
     describe(suiteName, () => {
-        it(`encodes ${typeName} single`, async () => {
+        it(`encodes ${typeName} single`, () => {
             const opts_ = iterableBuilderOptions(generated, { ...opts });
-            const vector = await encodeSingle(values.slice(), opts_);
+            const vector = encodeSingle(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
         });
-        it(`encodes ${typeName} chunks by count`, async () => {
-            const highWaterMark = Math.max(5, (Math.random() * values.length - 5) | 0);
+        it(`encodes ${typeName} chunks by count`, () => {
+            const highWaterMark = Math.max(5, Math.trunc(Math.random() * values.length - 5));
             const opts_ = iterableBuilderOptions(generated, { ...opts, highWaterMark, queueingStrategy: 'count' });
-            const vector = await encodeChunks(values.slice(), opts_);
+            const vector = encodeChunks(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
         });
-        it(`encodes ${typeName} chunks by bytes`, async () => {
+        it(`encodes ${typeName} chunks by bytes`, () => {
             const highWaterMark = 64;
             const opts_ = iterableBuilderOptions(generated, { ...opts, highWaterMark, queueingStrategy: 'bytes' });
-            const vector = await encodeChunks(values.slice(), opts_);
+            const vector = encodeChunks(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
         });
         if (testDOMStreams) {
@@ -232,14 +236,14 @@ type BuilderOptions<T extends DataType = any, TNull = any> = import('apache-arro
 type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/node/builder').BuilderDuplexOptions<T, TNull>;
 type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
 
-async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    const builder = Builder.new(options);
-    values.forEach((x) => builder.append(x));
+function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
+    const builder = makeBuilder(options);
+    for (const x of values) builder.append(x);
     return builder.finish().toVector();
 }
 
-async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    return Chunked.concat(...Builder.throughIterable(options)(values));
+function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
+    return [...builderThroughIterable(options)(values)].reduce((a, b) => a.concat(b));
 }
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {
@@ -249,13 +253,13 @@ async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TVal
 
     const chunks = await fromDOMStream(stream).pipe(toArray);
 
-    return Chunked.concat(...chunks);
+    return chunks.reduce((a, b) => a.concat(b));
 }
 
 async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderDuplexOptions<T, TNull>) {
 
     if (options.nullValues) {
-        options.nullValues =  [...options.nullValues, undefined] as TNull[];
+        options.nullValues = [...options.nullValues, undefined] as TNull[];
     }
 
     const stream = from(fillNA(values, [undefined]))
@@ -264,5 +268,5 @@ async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TVa
 
     const chunks: any[] = await fromNodeStream(stream, options.highWaterMark).pipe(toArray);
 
-    return Chunked.concat(...chunks);
+    return chunks.reduce((a, b) => a.concat(b));
 }

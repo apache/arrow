@@ -18,11 +18,9 @@
 #include "gandiva/projector.h"
 
 #include <memory>
-#include <thread>
 #include <utility>
 #include <vector>
 
-#include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
 
 #include "gandiva/cache.h"
@@ -30,96 +28,6 @@
 #include "gandiva/llvm_generator.h"
 
 namespace gandiva {
-
-class ProjectorCacheKey {
- public:
-  ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                    ExpressionVector expression_vector, SelectionVector::Mode mode)
-      : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
-    static const int kSeedValue = 4;
-    size_t result = kSeedValue;
-    for (auto& expr : expression_vector) {
-      std::string expr_as_string = expr->ToString();
-      expressions_as_strings_.push_back(expr_as_string);
-      arrow::internal::hash_combine(result, expr_as_string);
-      UpdateUniqifier(expr_as_string);
-    }
-    arrow::internal::hash_combine(result, static_cast<size_t>(mode));
-    arrow::internal::hash_combine(result, configuration->Hash());
-    arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniqifier_);
-    hash_code_ = result;
-  }
-
-  std::size_t Hash() const { return hash_code_; }
-
-  bool operator==(const ProjectorCacheKey& other) const {
-    // arrow schema does not overload equality operators.
-    if (!(schema_->Equals(*other.schema().get(), true))) {
-      return false;
-    }
-
-    if (*configuration_ != *other.configuration_) {
-      return false;
-    }
-
-    if (expressions_as_strings_ != other.expressions_as_strings_) {
-      return false;
-    }
-
-    if (mode_ != other.mode_) {
-      return false;
-    }
-
-    if (uniqifier_ != other.uniqifier_) {
-      return false;
-    }
-    return true;
-  }
-
-  bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
-
-  SchemaPtr schema() const { return schema_; }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    // indent, window, indent_size, null_rep and skip new lines.
-    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-    DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
-
-    ss << "Expressions: [";
-    bool first = true;
-    for (auto& expr : expressions_as_strings_) {
-      if (first) {
-        first = false;
-      } else {
-        ss << ", ";
-      }
-
-      ss << expr;
-    }
-    ss << "]";
-    return ss.str();
-  }
-
- private:
-  void UpdateUniqifier(const std::string& expr) {
-    if (uniqifier_ == 0) {
-      // caching of expressions with re2 patterns causes lock contention. So, use
-      // multiple instances to reduce contention.
-      if (expr.find(" like(") != std::string::npos) {
-        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
-      }
-    }
-  }
-
-  const SchemaPtr schema_;
-  const std::shared_ptr<Configuration> configuration_;
-  SelectionVector::Mode mode_;
-  std::vector<std::string> expressions_as_strings_;
-  size_t hash_code_;
-  uint32_t uniqifier_;
-};
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,
@@ -154,33 +62,41 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                   Status::Invalid("Configuration cannot be null"));
 
   // see if equivalent projector was already built
-  static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
-  ProjectorCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
-  std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
-  if (cached_projector != nullptr) {
-    *projector = cached_projector;
-    return Status::OK();
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
+
+  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
+
+  bool is_cached = false;
+
+  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
+  prev_cached_obj = cache->GetObjectCode(cache_key);
+
+  // Verify if previous projector obj code was cached
+  if (prev_cached_obj != nullptr) {
+    is_cached = true;
   }
+
+  GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, &llvm_gen));
+  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
   // we will not be able to process further.
-  ExprValidator expr_validator(llvm_gen->types(), schema);
-  for (auto& expr : exprs) {
-    ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
+  if (!is_cached) {
+    ExprValidator expr_validator(llvm_gen->types(), schema);
+    for (auto& expr : exprs) {
+      ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
+    }
   }
 
-  // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
+  // Set the object cache for LLVM
+  llvm_gen->SetLLVMObjectCache(obj_cache);
+
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
-  // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -192,8 +108,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  ValueCacheObject<std::shared_ptr<Projector>> value_cache(*projector, elapsed);
-  cache.PutModule(cache_key, value_cache);
+  projector->get()->SetBuiltFromCache(is_cached);
 
   return Status::OK();
 }
@@ -275,14 +190,14 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
   // The output vector always has a null bitmap.
-  int64_t size = arrow::BitUtil::BytesForBits(num_records);
+  int64_t size = arrow::bit_util::BytesForBits(num_records);
   ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, arrow::AllocateBuffer(size, pool));
   buffers.push_back(std::move(bitmap_buffer));
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
   if (arrow::is_binary_like(type_id)) {
-    auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+    auto offsets_len = arrow::bit_util::BytesForBits((num_records + 1) * 32);
 
     ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
     buffers.push_back(std::move(offsets_buffer));
@@ -292,7 +207,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   int64_t data_len;
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
-    data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+    data_len = arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
   } else if (arrow::is_binary_like(type_id)) {
     // we don't know the expected size for varlen output vectors.
     data_len = 0;
@@ -327,7 +242,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   ARROW_RETURN_IF(array_data.buffers.size() < 2,
                   Status::Invalid("ArrayData must have at least 2 buffers"));
 
-  int64_t min_bitmap_len = arrow::BitUtil::BytesForBits(num_records);
+  int64_t min_bitmap_len = arrow::bit_util::BytesForBits(num_records);
   int64_t bitmap_len = array_data.buffers[0]->capacity();
   ARROW_RETURN_IF(
       bitmap_len < min_bitmap_len,
@@ -337,7 +252,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   auto type_id = field.type()->id();
   if (arrow::is_binary_like(type_id)) {
     // validate size of offsets buffer.
-    int64_t min_offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
+    int64_t min_offsets_len = arrow::bit_util::BytesForBits((num_records + 1) * 32);
     int64_t offsets_len = array_data.buffers[1]->capacity();
     ARROW_RETURN_IF(
         offsets_len < min_offsets_len,
@@ -353,7 +268,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
     // verify size of data buffer.
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
     int64_t min_data_len =
-        arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
+        arrow::bit_util::BytesForBits(num_records * fw_type.bit_width());
     int64_t data_len = array_data.buffers[1]->capacity();
     ARROW_RETURN_IF(data_len < min_data_len,
                     Status::Invalid("Data buffer too small for ", field.name()));
@@ -365,5 +280,9 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 }
 
 std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
+
+void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
+
+bool Projector::GetBuiltFromCache() { return built_from_cache_; }
 
 }  // namespace gandiva

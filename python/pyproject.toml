@@ -17,10 +17,9 @@
 
 [build-system]
 requires = [
-    "cython >= 0.29",
-    "numpy==1.16.6; python_version<'3.9'",
-    "numpy==1.19.4; python_version>='3.9'",
-    "setuptools",
+    "cython >= 0.29.22",
+    "oldest-supported-numpy>=0.14",
     "setuptools_scm",
+    "setuptools >= 40.1.0",
     "wheel"
 ]

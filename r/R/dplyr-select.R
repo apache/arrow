@@ -22,15 +22,22 @@ tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(arrow_dplyr_query(.data), !!!enquos(...))
+  column_select(as_adq(.data), !!!enquos(...))
 }
-select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
+select.Dataset <- select.ArrowTabular <- select.RecordBatchReader <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
-  column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
+  column_select(as_adq(.data), !!!enquos(...), .FUN = vars_rename)
 }
-rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
+rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
+
+rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...) {
+  .fn <- as_function(.fn)
+  old_names <- names(dplyr::select(.data, {{ .cols }}))
+  dplyr::rename(.data, !!set_names(old_names, .fn(old_names)))
+}
+rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
   # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
@@ -60,7 +67,7 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
   # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
 
   # Assign the schema to the expressions
   map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
@@ -106,7 +113,7 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   }
   .data
 }
-relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+relocate.Dataset <- relocate.ArrowTabular <- relocate.RecordBatchReader <- relocate.arrow_dplyr_query
 
 check_select_helpers <- function(exprs) {
   # Throw an error if unsupported tidyselect selection helpers in `exprs`

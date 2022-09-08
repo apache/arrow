@@ -15,22 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../../data/tables';
-import { ArrowIOTestHelper } from '../helpers';
 import { toArray } from 'ix/asynciterable/toarray';
+import { generateRandomTables } from '../../../data/tables.js';
+import { ArrowIOTestHelper } from '../helpers.js';
+import {
+    validateAsyncRecordBatchReader, validateRecordBatchReader
+} from '../validate.js';
 
 import {
-    validateRecordBatchReader,
-    validateAsyncRecordBatchReader
-} from '../validate';
-
-import {
-    RecordBatchReader,
+    AsyncRecordBatchFileReader,
     RecordBatchFileReader,
-    AsyncRecordBatchFileReader
+    RecordBatchReader
 } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
@@ -108,7 +103,7 @@ function validateRandomAccess(source: any) {
 
 async function validateRandomAccessAsync(source: any) {
     const reader = (await RecordBatchReader.from(source)) as AsyncRecordBatchFileReader;
-    const schema = (await reader.open({ autoDestroy: false })).schema;
+    const {schema} = await reader.open({ autoDestroy: false });
     const batches = await toArray(reader);
     expect(reader.closed).toBe(false);
     expect(reader.schema).toBe(schema);

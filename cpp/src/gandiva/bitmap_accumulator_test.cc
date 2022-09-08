@@ -45,7 +45,7 @@ void TestBitMapAccumulator::ByteWiseIntersectBitMaps(
     uint8_t* dst, const std::vector<uint8_t*>& srcs,
     const std::vector<int64_t>& srcOffsets, int nrecords) {
   if (srcs.empty()) {
-    arrow::BitUtil::SetBitsTo(dst, 0, nrecords, true);
+    arrow::bit_util::SetBitsTo(dst, 0, nrecords, true);
     return;
   }
 

@@ -114,5 +114,55 @@ namespace Apache.Arrow.Tests
             RecordBatch readBatch = await reader.ReadRecordBatchAsync(0);
             ArrowReaderVerifier.CompareBatches(recordBatch, readBatch);
         }
+
+        /// <summary>
+        /// Tests that writing an arrow file with no RecordBatches produces the correct
+        /// file.
+        /// </summary>
+        [Fact]
+        public async Task WritesEmptyFile()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 1);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(stream, originalBatch.Schema);
+
+            writer.WriteStart();
+            writer.WriteEnd();
+
+            stream.Position = 0;
+
+            var reader = new ArrowFileReader(stream);
+            int count = await reader.RecordBatchCountAsync();
+            Assert.Equal(0, count);
+            RecordBatch readBatch = reader.ReadNextRecordBatch();
+            Assert.Null(readBatch);
+            SchemaComparer.Compare(originalBatch.Schema, reader.Schema);
+        }
+
+        /// <summary>
+        /// Tests that writing an arrow file with no RecordBatches produces the correct
+        /// file when using WriteStartAsync and WriteEndAsync.
+        /// </summary>
+        [Fact]
+        public async Task WritesEmptyFileAsync()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 1);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(stream, originalBatch.Schema);
+
+            await writer.WriteStartAsync();
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            var reader = new ArrowFileReader(stream);
+            int count = await reader.RecordBatchCountAsync();
+            Assert.Equal(0, count);
+            RecordBatch readBatch = reader.ReadNextRecordBatch();
+            Assert.Null(readBatch);
+            SchemaComparer.Compare(originalBatch.Schema, reader.Schema);
+        }
     }
 }

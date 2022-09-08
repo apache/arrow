@@ -34,7 +34,7 @@ class BitmapWriter {
   BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     byte_offset_ = start_offset / 8;
-    bit_mask_ = BitUtil::kBitmask[start_offset % 8];
+    bit_mask_ = bit_util::kBitmask[start_offset % 8];
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
     } else {
@@ -88,9 +88,10 @@ class FirstTimeBitmapWriter {
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
     byte_offset_ = start_offset / 8;
-    bit_mask_ = BitUtil::kBitmask[start_offset % 8];
+    bit_mask_ = bit_util::kBitmask[start_offset % 8];
     if (length > 0) {
-      current_byte_ = bitmap[byte_offset_] & BitUtil::kPrecedingBitmask[start_offset % 8];
+      current_byte_ =
+          bitmap[byte_offset_] & bit_util::kPrecedingBitmask[start_offset % 8];
     } else {
       current_byte_ = 0;
     }
@@ -111,8 +112,8 @@ class FirstTimeBitmapWriter {
 
     // Update state variables except for current_byte_ here.
     position_ += number_of_bits;
-    int64_t bit_offset = BitUtil::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
-    bit_mask_ = BitUtil::kBitmask[(bit_offset + number_of_bits) % 8];
+    int64_t bit_offset = bit_util::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
+    bit_mask_ = bit_util::kBitmask[(bit_offset + number_of_bits) % 8];
     byte_offset_ += (bit_offset + number_of_bits) / 8;
 
     if (bit_offset != 0) {
@@ -122,7 +123,7 @@ class FirstTimeBitmapWriter {
       // Carry over bits from word to current_byte_. We assume any extra bits in word
       // unset so no additional accounting is needed for when number_of_bits <
       // bits_to_carry.
-      current_byte_ |= (word & BitUtil::kPrecedingBitmask[bits_to_carry]) << bit_offset;
+      current_byte_ |= (word & bit_util::kPrecedingBitmask[bits_to_carry]) << bit_offset;
       // Check if everything is transfered into current_byte_.
       if (ARROW_PREDICT_FALSE(number_of_bits < bits_to_carry)) {
         return;
@@ -133,8 +134,8 @@ class FirstTimeBitmapWriter {
       word = word >> bits_to_carry;
       number_of_bits -= bits_to_carry;
     }
-    word = BitUtil::ToLittleEndian(word);
-    int64_t bytes_for_word = ::arrow::BitUtil::BytesForBits(number_of_bits);
+    word = bit_util::ToLittleEndian(word);
+    int64_t bytes_for_word = ::arrow::bit_util::BytesForBits(number_of_bits);
     std::memcpy(append_position, &word, bytes_for_word);
     // At this point, the previous current_byte_ has been written to bitmap_.
     // The new current_byte_ is either the last relevant byte in 'word'
@@ -187,7 +188,7 @@ class BitmapWordWriter {
   BitmapWordWriter(uint8_t* bitmap, int64_t offset, int64_t length)
       : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
         bitmap_(bitmap + offset / 8),
-        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)),
+        bitmap_end_(bitmap_ + bit_util::BytesForBits(offset_ + length)),
         mask_((1U << offset_) - 1) {
     if (offset_) {
       if (length >= static_cast<int>(sizeof(Word) * 8)) {
@@ -241,7 +242,7 @@ class BitmapWordWriter {
     } else {
       assert(valid_bits > 0);
       assert(valid_bits < 8);
-      assert(bitmap_ + BitUtil::BytesForBits(offset_ + valid_bits) <= bitmap_end_);
+      assert(bitmap_ + bit_util::BytesForBits(offset_ + valid_bits) <= bitmap_end_);
       internal::BitmapWriter writer(bitmap_, offset_, valid_bits);
       for (int i = 0; i < valid_bits; ++i) {
         (byte & 0x01) ? writer.Set() : writer.Clear();
@@ -271,13 +272,13 @@ class BitmapWordWriter {
   template <typename DType>
   DType load(const uint8_t* bitmap) {
     assert(bitmap + sizeof(DType) <= bitmap_end_);
-    return BitUtil::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
+    return bit_util::ToLittleEndian(util::SafeLoadAs<DType>(bitmap));
   }
 
   template <typename DType>
   void store(uint8_t* bitmap, DType data) {
     assert(bitmap + sizeof(DType) <= bitmap_end_);
-    util::SafeStore(bitmap, BitUtil::FromLittleEndian(data));
+    util::SafeStore(bitmap, bit_util::FromLittleEndian(data));
   }
 };
 

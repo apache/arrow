@@ -17,9 +17,9 @@
 package main
 
 import (
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/math"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/math"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func main() {

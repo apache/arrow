@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 using FlatBuffers;
 
@@ -43,9 +44,12 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<TimestampArray>,
             IArrowArrayVisitor<Date32Array>,
             IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<Time32Array>,
+            IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
@@ -89,6 +93,8 @@ namespace Apache.Arrow.Ipc
             public void Visit(BooleanArray array) => CreateBuffers(array);
             public void Visit(Date32Array array) => CreateBuffers(array);
             public void Visit(Date64Array array) => CreateBuffers(array);
+            public void Visit(Time32Array array) => CreateBuffers(array);
+            public void Visit(Time64Array array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {
@@ -106,6 +112,12 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
+
+            public void Visit(FixedSizeBinaryArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }  
 
             public void Visit(Decimal128Array array)
             {
@@ -176,6 +188,8 @@ namespace Apache.Arrow.Ipc
         protected bool HasWrittenSchema { get; set; }
 
         private bool HasWrittenDictionaryBatch { get; set; }
+
+        private bool HasWrittenStart { get; set; }
 
         private bool HasWrittenEnd { get; set; }
 
@@ -528,6 +542,24 @@ namespace Apache.Arrow.Ipc
             return Tuple.Create(recordBatchBuilder, dictionaryBatchOffset);
         }
 
+        private protected virtual void WriteStartInternal()
+        {
+            if (!HasWrittenSchema)
+            {
+                WriteSchema(Schema);
+                HasWrittenSchema = true;
+            }
+        }
+
+        private protected async virtual ValueTask WriteStartInternalAsync(CancellationToken cancellationToken)
+        {
+            if (!HasWrittenSchema)
+            {
+                await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
+                HasWrittenSchema = true;
+            }
+        }
+
         private protected virtual void WriteEndInternal()
         {
             WriteIpcMessageLength(length: 0);
@@ -554,6 +586,24 @@ namespace Apache.Arrow.Ipc
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+        }
+
+        public void WriteStart()
+        {
+            if (!HasWrittenStart)
+            {
+                WriteStartInternal();
+                HasWrittenStart = true;
+            }
+        }
+
+        public async Task WriteStartAsync(CancellationToken cancellationToken = default)
+        {
+            if (!HasWrittenStart)
+            {
+                await WriteStartInternalAsync(cancellationToken);
+                HasWrittenStart = true;
+            }
         }
 
         public void WriteEnd()

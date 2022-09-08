@@ -20,18 +20,27 @@ ARG arch
 FROM ${repo}:${arch}-conda-cpp
 
 # install python specific packages
-ARG python=3.6
-COPY ci/conda_env_python.txt /arrow/ci/
-RUN conda install -q \
+ARG python=3.8
+COPY ci/conda_env_python.txt \
+     ci/conda_env_sphinx.txt \
+     /arrow/ci/
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        $([ "$python" == "3.6" -o "$python" == "3.7" ] && echo "pickle5") \
+        --file arrow/ci/conda_env_sphinx.txt \
+        $([ "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
-    conda clean --all
+    mamba clean --all
+
+# XXX The GCS testbench was already installed in conda-cpp.dockerfile,
+# but we changed the installed Python version above, so we need to reinstall it.
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_TENSORFLOW=ON \
-    ARROW_USE_GLOG=OFF
+    ARROW_USE_GLOG=OFF \
+    ARROW_HDFS=ON

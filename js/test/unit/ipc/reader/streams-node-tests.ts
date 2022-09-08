@@ -15,23 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables
-} from '../../../data/tables';
+import { generateRandomTables } from '../../../data/tables.js';
+import { ArrowIOTestHelper } from '../helpers.js';
+import { validateRecordBatchAsyncIterator } from '../validate.js';
 
 import {
-    Table,
     RecordBatchReader,
-    RecordBatchStreamWriter
+    RecordBatchStreamWriter,
+    Table
 } from 'apache-arrow';
 
-import { ArrowIOTestHelper } from '../helpers';
-import { validateRecordBatchAsyncIterator } from '../validate';
-
 (() => {
-
     if (process.env.TEST_NODE_STREAMS !== 'true') {
-        return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
+        return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => { });
     }
 
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -130,7 +126,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
             validateStreamState(reader, output, false);
 
             const sourceTable = tables[++tableIndex];
-            const streamTable = await Table.from(output);
+            const streamReader = await RecordBatchReader.from(output);
+            const streamTable = new Table(await streamReader.readAll());
             expect(streamTable).toEqualTable(sourceTable);
             expect(Boolean(output.readableFlowing)).toBe(false);
         }
@@ -162,7 +159,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
             validateStreamState(reader, stream, false);
 
             const sourceTable = tables[++tableIndex];
-            const streamTable = await Table.from(reader);
+            const streamTable = new Table(await reader.readAll());
             expect(streamTable).toEqualTable(sourceTable);
         }
 
@@ -193,10 +190,10 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
             let batchIndex = -1;
             const sourceTable = tables[++tableIndex];
-            const breakEarly = tableIndex === (tables.length / 2 | 0);
+            const breakEarly = tableIndex === (Math.trunc(tables.length / 2));
 
             for await (const streamBatch of reader) {
-                expect(streamBatch).toEqualRecordBatch(sourceTable.chunks[++batchIndex]);
+                expect(streamBatch).toEqualRecordBatch(sourceTable.batches[++batchIndex]);
                 if (breakEarly && batchIndex === 1) { break; }
             }
             if (breakEarly) {
@@ -207,7 +204,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         }
 
         validateStreamState(reader, stream, true, true);
-        expect(tableIndex).toBe(tables.length / 2 | 0);
+        expect(tableIndex).toBe(Math.trunc(tables.length / 2));
     });
 })();
 

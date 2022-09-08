@@ -21,6 +21,7 @@ from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
 import gzip
+import math
 import os
 import pathlib
 import pickle
@@ -123,6 +124,50 @@ def test_python_file_read():
 
     with pytest.raises(TypeError, match="binary file expected"):
         pa.PythonFile(StringIO(), mode='r')
+
+
+@pytest.mark.parametrize("nbytes", (-1, 0, 1, 5, 100))
+@pytest.mark.parametrize("file_offset", (-1, 0, 5, 100))
+def test_python_file_get_stream(nbytes, file_offset):
+
+    data = b'data1data2data3data4data5'
+
+    f = pa.PythonFile(BytesIO(data), mode='r')
+
+    # negative nbytes or offsets don't make sense here, raise ValueError
+    if nbytes < 0 or file_offset < 0:
+        with pytest.raises(pa.ArrowInvalid,
+                           match="should be a positive value"):
+            f.get_stream(file_offset=file_offset, nbytes=nbytes)
+        f.close()
+        return
+    else:
+        stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
+
+    # Subsequent calls to 'read' should match behavior if same
+    # data passed to BytesIO where get_stream should handle if
+    # nbytes/file_offset results in no bytes b/c out of bounds.
+    start = min(file_offset, len(data))
+    end = min(file_offset + nbytes, len(data))
+    buf = BytesIO(data[start:end])
+
+    # read some chunks
+    assert stream.read(nbytes=4) == buf.read(4)
+    assert stream.read(nbytes=6) == buf.read(6)
+
+    # Read to end of each stream
+    assert stream.read() == buf.read()
+
+    # Try reading past the stream
+    n = len(data) * 2
+    assert stream.read(n) == buf.read(n)
+
+    # NativeFile[CInputStream] is not seekable
+    with pytest.raises(OSError, match="seekable"):
+        stream.seek(0)
+
+    stream.close()
+    assert stream.closed
 
 
 def test_python_file_read_at():
@@ -327,6 +372,16 @@ def test_python_file_closing():
 # Buffers
 
 
+def check_buffer_pickling(buf):
+    # Check that buffer survives a pickle roundtrip
+    for protocol in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        result = pickle.loads(pickle.dumps(buf, protocol=protocol))
+        assert len(result) == len(buf)
+        assert memoryview(result) == memoryview(buf)
+        assert result.to_pybytes() == buf.to_pybytes()
+        assert result.is_mutable == buf.is_mutable
+
+
 def test_buffer_bytes():
     val = b'some data'
 
@@ -336,13 +391,22 @@ def test_buffer_bytes():
     assert buf.is_cpu
 
     result = buf.to_pybytes()
-
     assert result == val
 
-    # Check that buffers survive a pickle roundtrip
-    result_buf = pickle.loads(pickle.dumps(buf))
-    result = result_buf.to_pybytes()
-    assert result == val
+    check_buffer_pickling(buf)
+
+
+def test_buffer_null_data():
+    null_buff = pa.foreign_buffer(address=0, size=0)
+    assert null_buff.to_pybytes() == b""
+    assert null_buff.address == 0
+    # ARROW-16048: we shouldn't expose a NULL address through the Python
+    # buffer protocol.
+    m = memoryview(null_buff)
+    assert m.tobytes() == b""
+    assert pa.py_buffer(m).address != 0
+
+    check_buffer_pickling(null_buff)
 
 
 def test_buffer_memoryview():
@@ -354,8 +418,9 @@ def test_buffer_memoryview():
     assert buf.is_cpu
 
     result = memoryview(buf)
-
     assert result == val
+
+    check_buffer_pickling(buf)
 
 
 def test_buffer_bytearray():
@@ -367,8 +432,9 @@ def test_buffer_bytearray():
     assert buf.is_cpu
 
     result = bytearray(buf)
-
     assert result == val
+
+    check_buffer_pickling(buf)
 
 
 def test_buffer_invalid():
@@ -518,10 +584,25 @@ def test_buffer_slicing():
     with pytest.raises(IndexError):
         buf.slice(-1)
 
+    with pytest.raises(IndexError):
+        buf.slice(len(buf) + 1)
+    assert buf[11:].to_pybytes() == b""
+
+    # Slice stop exceeds buffer length
+    with pytest.raises(IndexError):
+        buf.slice(1, len(buf))
+    assert buf[1:11].to_pybytes() == buf.to_pybytes()[1:]
+
+    # Negative length
+    with pytest.raises(IndexError):
+        buf.slice(1, -1)
+
     # Test slice notation
     assert buf[2:].equals(buf.slice(2))
     assert buf[2:5].equals(buf.slice(2, 3))
     assert buf[-5:].equals(buf.slice(len(buf) - 5))
+    assert buf[-5:-2].equals(buf.slice(len(buf) - 5, 3))
+
     with pytest.raises(IndexError):
         buf[::-1]
     with pytest.raises(IndexError):
@@ -638,8 +719,14 @@ def test_compression_level(compression):
     if not Codec.is_available(compression):
         pytest.skip("{} support is not built".format(compression))
 
+    codec = Codec(compression)
+    if codec.name == "snappy":
+        assert codec.compression_level is None
+    else:
+        assert isinstance(codec.compression_level, int)
+
     # These codecs do not support a compression level
-    no_level = ['snappy', 'lz4']
+    no_level = ['snappy']
     if compression in no_level:
         assert not Codec.supports_compression_level(compression)
         with pytest.raises(ValueError):
@@ -686,7 +773,7 @@ def test_compression_level(compression):
     # The ability to set a seed this way is not present on older versions of
     # numpy (currently in our python 3.6 CI build).  Some inputs might just
     # happen to compress the same between the two levels so using seeded
-    # random numbers is neccesary to help get more reliable results
+    # random numbers is necessary to help get more reliable results
     #
     # The goal of this part is to ensure the compression_level is being
     # passed down to the C++ layer, not to verify the compression algs
@@ -1165,6 +1252,65 @@ def test_native_file_TextIOWrapper(tmpdir):
         assert res == data
 
 
+def test_native_file_TextIOWrapper_perf(tmpdir):
+    # ARROW-16272: TextIOWrapper.readline() shouldn't exhaust a large
+    # Arrow input stream.
+    data = b'foo\nquux\n'
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data * 100_000)
+
+    binary_file = pa.OSFile(path, mode='rb')
+    with TextIOWrapper(binary_file) as f:
+        assert binary_file.tell() == 0
+        nbytes = 20_000
+        lines = f.readlines(nbytes)
+        assert len(lines) == math.ceil(2 * nbytes / len(data))
+        assert nbytes <= binary_file.tell() <= nbytes * 2
+
+
+def test_native_file_read1(tmpdir):
+    # ARROW-16272: read1() should not exhaust the input stream if there
+    # is a large amount of data remaining.
+    data = b'123\n' * 1_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    chunks = []
+    with pa.OSFile(path, mode='rb') as f:
+        while True:
+            b = f.read1()
+            assert len(b) < len(data)
+            chunks.append(b)
+            b = f.read1(30_000)
+            assert len(b) <= 30_000
+            chunks.append(b)
+            if not b:
+                break
+
+    assert b"".join(chunks) == data
+
+
+@pytest.mark.pandas
+def test_native_file_pandas_text_reader(tmpdir):
+    # ARROW-16272: Pandas' read_csv() should not exhaust an Arrow
+    # input stream when a small nrows is passed.
+    import pandas as pd
+    import pandas.testing as tm
+    data = b'a,b\n' * 10_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    with pa.OSFile(path, mode='rb') as f:
+        df = pd.read_csv(f, nrows=10)
+        expected = pd.DataFrame({'a': ['a'] * 10, 'b': ['b'] * 10})
+        tm.assert_frame_equal(df, expected)
+        # Some readahead occurred, but not up to the end of file
+        assert f.tell() <= 256 * 1024
+
+
 def test_native_file_open_error():
     with assert_file_not_found():
         pa.OSFile('non_existent_file', 'rb')
@@ -1284,6 +1430,33 @@ def test_compressed_input_bz2(tmpdir):
         check_compressed_input(data, fn, "bz2")
     except NotImplementedError as e:
         pytest.skip(str(e))
+
+
+@pytest.mark.gzip
+def test_compressed_input_openfile(tmpdir):
+    if not Codec.is_available("gzip"):
+        pytest.skip("gzip support is not built")
+
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "test_compressed_input_openfile.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data)
+
+    with pa.CompressedInputStream(fn, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    with pa.CompressedInputStream(pathlib.Path(fn), "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    f = open(fn, "rb")
+    with pa.CompressedInputStream(f, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert f.closed
 
 
 def check_compressed_concatenated(data, fn, compression):

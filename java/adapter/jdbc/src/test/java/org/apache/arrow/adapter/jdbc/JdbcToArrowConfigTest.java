@@ -116,13 +116,15 @@ public class JdbcToArrowConfigTest {
     config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, true, null,
-        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ true,
+        /* reuse vector schema root */ true, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
     assertTrue(config.shouldIncludeMetadata());
+    assertTrue(config.isReuseVectorSchemaRoot());
 
-    config = new JdbcToArrowConfig(allocator, calendar, false, null,
-        null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ false,
+        /* reuse vector schema root */ false, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
     assertFalse(config.shouldIncludeMetadata());
+    assertFalse(config.isReuseVectorSchemaRoot());
   }
 
   @Test

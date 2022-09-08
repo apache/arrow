@@ -20,8 +20,8 @@
 #include "./arrow_types.h"
 #include "./arrow_vctrs.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
+#include <arrow/chunked_array.h>
 
 namespace arrow {
 namespace r {
@@ -71,7 +71,8 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<INTSXP>(SEXP x) {
   } else if (Rf_inherits(x, "POSIXct")) {
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
     if (Rf_isNull(tzone_sexp)) {
-      return timestamp(TimeUnit::MICRO);
+      auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
+      return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
     } else {
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
@@ -87,7 +88,8 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   if (Rf_inherits(x, "POSIXct")) {
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
     if (Rf_isNull(tzone_sexp)) {
-      return timestamp(TimeUnit::MICRO);
+      auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
+      return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
     } else {
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
@@ -95,8 +97,11 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   if (Rf_inherits(x, "integer64")) {
     return int64();
   }
-  if (Rf_inherits(x, "difftime")) {
+  if (Rf_inherits(x, "hms")) {
     return time32(TimeUnit::SECOND);
+  }
+  if (Rf_inherits(x, "difftime")) {
+    return duration(TimeUnit::SECOND);
   }
   return float64();
 }
@@ -169,26 +174,42 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
 }
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
-  switch (TYPEOF(x)) {
-    case ENVSXP:
-      return InferArrowTypeFromVector<ENVSXP>(x);
-    case LGLSXP:
-      return InferArrowTypeFromVector<LGLSXP>(x);
-    case INTSXP:
-      return InferArrowTypeFromVector<INTSXP>(x);
-    case REALSXP:
-      return InferArrowTypeFromVector<REALSXP>(x);
-    case RAWSXP:
-      return uint8();
-    case STRSXP:
-      return InferArrowTypeFromVector<STRSXP>(x);
-    case VECSXP:
-      return InferArrowTypeFromVector<VECSXP>(x);
-    default:
-      break;
+  if (arrow::r::altrep::is_arrow_altrep(x)) {
+    return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
   }
 
-  cpp11::stop("Cannot infer type from vector");
+  // If we handle the conversion in C++ we do so here; otherwise we call
+  // the type() S3 generic to infer the type of the object. For data.frame,
+  // this code is sufficiently recursive such that it correctly calls into
+  // R to infer column types where can_convert_native() is false.
+  if (can_convert_native(x) || Rf_inherits(x, "data.frame")) {
+    switch (TYPEOF(x)) {
+      case ENVSXP:
+        return InferArrowTypeFromVector<ENVSXP>(x);
+      case LGLSXP:
+        return InferArrowTypeFromVector<LGLSXP>(x);
+      case INTSXP:
+        return InferArrowTypeFromVector<INTSXP>(x);
+      case REALSXP:
+        return InferArrowTypeFromVector<REALSXP>(x);
+      case RAWSXP:
+        return uint8();
+      case STRSXP:
+        return InferArrowTypeFromVector<STRSXP>(x);
+      case VECSXP:
+        return InferArrowTypeFromVector<VECSXP>(x);
+      default:
+        cpp11::stop("Cannot infer type from vector");
+    }
+  } else {
+    cpp11::sexp type_result = cpp11::package("arrow")["infer_type"](
+        x, cpp11::named_arg("from_array_infer_type") = true);
+    if (!Rf_inherits(type_result, "DataType")) {
+      cpp11::stop("type() did not return an object of type DataType");
+    }
+
+    return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);
+  }
 }
 
 }  // namespace r
@@ -198,5 +219,3 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
   return arrow::r::InferArrowType(x);
 }
-
-#endif

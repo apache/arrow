@@ -19,10 +19,10 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,7 +77,9 @@ func TestNewDecimal128Builder(t *testing.T) {
 
 	assert.Equal(t, want, a.Values(), "unexpected Decimal128Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
+	assert.Equal(t, 4, a.Data().Buffers()[0].Len(), "should be 4 bytes due to minBuilderCapacity")
 	assert.Len(t, a.Values(), 10, "unexpected length of Decimal128Values")
+	assert.Equal(t, 10*arrow.Decimal128SizeBytes, a.Data().Buffers()[1].Len())
 
 	a.Release()
 	ab.Append(decimal128.FromI64(7))
@@ -88,6 +90,7 @@ func TestNewDecimal128Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []decimal128.Num{decimal128.FromI64(7), decimal128.FromI64(8)}, a.Values())
 	assert.Len(t, a.Values(), 2)
+	assert.Equal(t, 2*arrow.Decimal128SizeBytes, a.Data().Buffers()[1].Len())
 
 	a.Release()
 }

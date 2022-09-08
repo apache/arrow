@@ -62,4 +62,8 @@ b: int32
                    @reader.read_column_data(-1),
                  ])
   end
+
+  def test_n_rows
+    assert_equal(2, @reader.n_rows)
+  end
 end

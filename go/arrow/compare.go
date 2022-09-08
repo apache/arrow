@@ -59,9 +59,17 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			return false
 		}
 		if cfg.metadata {
-			return l.Meta.Equal(right.(*ListType).Meta)
+			return l.elem.Metadata.Equal(right.(*ListType).elem.Metadata)
 		}
-		return true
+		return l.elem.Nullable == right.(*ListType).elem.Nullable
+	case *FixedSizeListType:
+		if !TypeEqual(l.Elem(), right.(*FixedSizeListType).Elem(), opts...) {
+			return false
+		}
+		if cfg.metadata {
+			return l.elem.Metadata.Equal(right.(*FixedSizeListType).elem.Metadata)
+		}
+		return l.n == right.(*FixedSizeListType).n && l.elem.Nullable == right.(*FixedSizeListType).elem.Nullable
 	case *StructType:
 		r := right.(*StructType)
 		switch {
@@ -80,6 +88,32 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			case !TypeEqual(leftField.Type, rightField.Type, opts...):
 				return false
 			case cfg.metadata && !leftField.Metadata.Equal(rightField.Metadata):
+				return false
+			}
+		}
+		return true
+	case UnionType:
+		r := right.(UnionType)
+		if l.Mode() != r.Mode() {
+			return false
+		}
+
+		if !reflect.DeepEqual(l.ChildIDs(), r.ChildIDs()) {
+			return false
+		}
+
+		for i := range l.Fields() {
+			leftField, rightField := l.Fields()[i], r.Fields()[i]
+			switch {
+			case leftField.Name != rightField.Name:
+				return false
+			case leftField.Nullable != rightField.Nullable:
+				return false
+			case !TypeEqual(leftField.Type, rightField.Type, opts...):
+				return false
+			case cfg.metadata && !leftField.Metadata.Equal(rightField.Metadata):
+				return false
+			case l.TypeCodes()[i] != r.TypeCodes()[i]:
 				return false
 			}
 		}

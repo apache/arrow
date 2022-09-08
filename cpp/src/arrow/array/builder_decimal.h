@@ -29,6 +29,10 @@
 
 namespace arrow {
 
+/// \addtogroup numeric-builders
+///
+/// @{
+
 class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
  public:
   using TypeClass = Decimal128Type;
@@ -90,5 +94,7 @@ class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
 };
 
 using DecimalBuilder = Decimal128Builder;
+
+/// @}
 
 }  // namespace arrow

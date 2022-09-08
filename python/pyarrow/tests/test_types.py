@@ -23,10 +23,12 @@ import sys
 
 import pickle
 import pytest
-import pytz
 import hypothesis as h
 import hypothesis.strategies as st
-import hypothesis.extra.pytz as tzst
+try:
+    import hypothesis.extra.pytz as tzst
+except ImportError:
+    tzst = None
 import weakref
 
 import numpy as np
@@ -64,6 +66,8 @@ def get_many_types():
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
+        pa.map_(pa.field('key', pa.int32(), nullable=False),
+                pa.field('value', pa.int32())),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -167,6 +171,10 @@ def test_is_map():
     assert types.is_map(m)
     assert not types.is_map(pa.int32())
 
+    fields = pa.map_(pa.field('key_name', pa.utf8(), nullable=False),
+                     pa.field('value_name', pa.int32()))
+    assert types.is_map(fields)
+
     entries_type = pa.struct([pa.field('key', pa.int8()),
                               pa.field('value', pa.int8())])
     list_type = pa.list_(entries_type)
@@ -235,8 +243,10 @@ def test_is_temporal_date_time_timestamp():
     time_types = [pa.time32('s'), pa.time64('ns')]
     timestamp_types = [pa.timestamp('ms')]
     duration_types = [pa.duration('ms')]
+    interval_types = [pa.month_day_nano_interval()]
 
-    for case in date_types + time_types + timestamp_types + duration_types:
+    for case in (date_types + time_types + timestamp_types + duration_types +
+                 interval_types):
         assert types.is_temporal(case)
 
     for case in date_types:
@@ -244,21 +254,31 @@ def test_is_temporal_date_time_timestamp():
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in time_types:
         assert types.is_time(case)
         assert not types.is_date(case)
         assert not types.is_timestamp(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in timestamp_types:
         assert types.is_timestamp(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in duration_types:
         assert types.is_duration(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
+        assert not types.is_interval(case)
+
+    for case in interval_types:
+        assert types.is_interval(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
@@ -272,17 +292,48 @@ def test_is_primitive():
 
 
 @pytest.mark.parametrize(('tz', 'expected'), [
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
-    # StaticTzInfo.tzname returns with '-09' so we need to infer the timezone's
-    # name from the tzinfo.zone attribute
-    (pytz.timezone('Etc/GMT-9'), 'Etc/GMT-9'),
-    (pytz.FixedOffset(180), '+03:00'),
     (datetime.timezone.utc, 'UTC'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
 ])
 def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
+
+
+def test_pytz_tzinfo_to_string():
+    pytz = pytest.importorskip("pytz")
+
+    tz = [pytz.utc, pytz.timezone('Europe/Paris')]
+    expected = ['UTC', 'Europe/Paris']
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
+
+    # StaticTzInfo.tzname returns with '-09' so we need to infer the timezone's
+    # name from the tzinfo.zone attribute
+    tz = [pytz.timezone('Etc/GMT-9'), pytz.FixedOffset(180)]
+    expected = ['Etc/GMT-9', '+03:00']
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
+
+
+def test_dateutil_tzinfo_to_string():
+    pytest.importorskip("dateutil")
+    import dateutil.tz
+
+    tz = dateutil.tz.UTC
+    assert pa.lib.tzinfo_to_string(tz) == 'UTC'
+    tz = dateutil.tz.gettz('Europe/Paris')
+    assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
+
+
+def test_zoneinfo_tzinfo_to_string():
+    zoneinfo = pytest.importorskip('zoneinfo')
+    if sys.platform == 'win32':
+        # zoneinfo requires an additional dependency On Windows
+        # tzdata provides IANA time zone data
+        pytest.importorskip('tzdata')
+
+    tz = zoneinfo.ZoneInfo('UTC')
+    assert pa.lib.tzinfo_to_string(tz) == 'UTC'
+    tz = zoneinfo.ZoneInfo('Europe/Paris')
+    assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
 def test_tzinfo_to_string_errors():
@@ -299,8 +350,16 @@ def test_tzinfo_to_string_errors():
             pa.lib.tzinfo_to_string(tz)
 
 
-@h.given(tzst.timezones())
+if tzst:
+    timezones = tzst.timezones()
+else:
+    timezones = st.none()
+
+
+@h.given(timezones)
 def test_pytz_timezone_roundtrip(tz):
+    if tz is None:
+        pytest.skip('requires timezone not None')
     timezone_string = pa.lib.tzinfo_to_string(tz)
     timezone_tzinfo = pa.lib.string_to_tzinfo(timezone_string)
     assert timezone_tzinfo == tz
@@ -372,27 +431,41 @@ def test_convert_custom_tzinfo_objects_to_string():
             pa.lib.tzinfo_to_string(wrong)
 
 
-@pytest.mark.parametrize(('string', 'expected'), [
-    ('UTC', pytz.utc),
-    ('Europe/Paris', pytz.timezone('Europe/Paris')),
-    ('+03:00', pytz.FixedOffset(180)),
-    ('+01:30', pytz.FixedOffset(90)),
-    ('-02:00', pytz.FixedOffset(-120))
-])
-def test_string_to_tzinfo(string, expected):
-    result = pa.lib.string_to_tzinfo(string)
-    assert result == expected
+def test_string_to_tzinfo():
+    string = ['UTC', 'Europe/Paris', '+03:00', '+01:30', '-02:00']
+    try:
+        import pytz
+        expected = [pytz.utc, pytz.timezone('Europe/Paris'),
+                    pytz.FixedOffset(180), pytz.FixedOffset(90),
+                    pytz.FixedOffset(-120)]
+        result = [pa.lib.string_to_tzinfo(i) for i in string]
+        assert result == expected
+
+    except ImportError:
+        try:
+            import zoneinfo
+            expected = [zoneinfo.ZoneInfo(key='UTC'),
+                        zoneinfo.ZoneInfo(key='Europe/Paris'),
+                        datetime.timezone(datetime.timedelta(hours=3)),
+                        datetime.timezone(
+                            datetime.timedelta(hours=1, minutes=30)),
+                        datetime.timezone(-datetime.timedelta(hours=2))]
+            result = [pa.lib.string_to_tzinfo(i) for i in string]
+            assert result == expected
+
+        except ImportError:
+            pytest.skip('requires pytz or zoneinfo to be installed')
 
 
-@pytest.mark.parametrize('tz,name', [
-    (pytz.FixedOffset(90), '+01:30'),
-    (pytz.FixedOffset(-90), '-01:30'),
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('America/New_York'), 'America/New_York')
-])
-def test_timezone_string_roundtrip(tz, name):
-    assert pa.lib.tzinfo_to_string(tz) == name
-    assert pa.lib.string_to_tzinfo(name) == tz
+def test_timezone_string_roundtrip_pytz():
+    pytz = pytest.importorskip("pytz")
+
+    tz = [pytz.FixedOffset(90), pytz.FixedOffset(-90),
+          pytz.utc, pytz.timezone('America/New_York')]
+    name = ['+01:30', '-01:30', 'UTC', 'America/New_York']
+
+    assert [pa.lib.tzinfo_to_string(i) for i in tz] == name
+    assert [pa.lib.string_to_tzinfo(i)for i in name] == tz
 
 
 def test_timestamp():
@@ -463,12 +536,16 @@ def test_map_type():
     ty = pa.map_(pa.utf8(), pa.int32())
     assert isinstance(ty, pa.MapType)
     assert ty.key_type == pa.utf8()
+    assert ty.key_field == pa.field("key", pa.utf8(), nullable=False)
     assert ty.item_type == pa.int32()
+    assert ty.item_field == pa.field("value", pa.int32(), nullable=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
     with pytest.raises(TypeError):
         pa.map_(pa.int32(), None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.field("name", pa.string(), nullable=True), pa.int64())
 
 
 def test_fixed_size_list_type():
@@ -500,13 +577,23 @@ def test_struct_type():
 
     assert ty['b'] == ty[2]
 
+    assert ty['b'] == ty.field('b')
+
+    assert ty[2] == ty.field(2)
+
     # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    with pytest.raises(KeyError):
+        ty.field('c')
+
     # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
+
+    with pytest.raises(TypeError):
+        ty.field(None)
 
     for a, b in zip(ty, fields):
         a == b
@@ -557,6 +644,7 @@ def test_union_type():
     def check_fields(ty, fields):
         assert ty.num_fields == len(fields)
         assert [ty[i] for i in range(ty.num_fields)] == fields
+        assert [ty.field(i) for i in range(ty.num_fields)] == fields
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]
@@ -624,11 +712,15 @@ def test_dictionary_type():
     assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
+    # allow unsigned integers for index type
+    ty3 = pa.dictionary(pa.uint32(), pa.string())
+    assert ty3.index_type == pa.uint32()
+    assert ty3.value_type == pa.string()
+    assert ty3.ordered is False
+
     # invalid index type raises
     with pytest.raises(TypeError):
         pa.dictionary(pa.string(), pa.int64())
-    with pytest.raises(TypeError):
-        pa.dictionary(pa.uint32(), pa.string())
 
 
 def test_dictionary_ordered_equals():

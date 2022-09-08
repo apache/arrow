@@ -76,7 +76,7 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;

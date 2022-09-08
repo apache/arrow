@@ -17,13 +17,18 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
+	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/float16"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 type Float16Builder struct {
@@ -36,6 +41,8 @@ type Float16Builder struct {
 func NewFloat16Builder(mem memory.Allocator) *Float16Builder {
 	return &Float16Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Float16Builder) Type() arrow.DataType { return arrow.FixedWidthTypes.Float16 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -69,6 +76,11 @@ func (b *Float16Builder) UnsafeAppend(v float16.Num) {
 func (b *Float16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float16Builder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.UnsafeAppend(float16.Num{})
 }
 
 func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
@@ -133,7 +145,7 @@ func (b *Float16Builder) Resize(n int) {
 
 // NewArray creates a Float16 array from the memory buffers used by the builder and resets the Float16Builder
 // so it can be used to build a new array.
-func (b *Float16Builder) NewArray() Interface {
+func (b *Float16Builder) NewArray() arrow.Array {
 	return b.NewFloat16Array()
 }
 
@@ -162,4 +174,64 @@ func (b *Float16Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case float64:
+		b.Append(float16.New(float32(v)))
+	case string:
+		f, err := strconv.ParseFloat(v, 32)
+		if err != nil {
+			return err
+		}
+		// this will currently silently truncate if it is too large
+		b.Append(float16.New(float32(f)))
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return err
+		}
+		b.Append(float16.New(float32(f)))
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(float16.Num{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *Float16Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON will add values to this builder from unmarshalling the
+// array of values. Currently values that are larger than a float16 will
+// be silently truncated.
+func (b *Float16Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("float16 builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }

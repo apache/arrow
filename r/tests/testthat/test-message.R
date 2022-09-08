@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Message")
 
 test_that("read_message can read from input stream", {
   batch <- record_batch(x = 1:10)

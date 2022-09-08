@@ -19,23 +19,32 @@ ARG repo
 ARG arch
 FROM ${repo}:${arch}-conda
 
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
+
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-RUN conda install \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
         valgrind && \
-    conda clean --all
+    mamba clean --all
+
+# We want to install the GCS testbench using the same Python binary that the Conda code will use.
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
+    ARROW_GCS=ON \
     ARROW_HOME=$CONDA_PREFIX \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
@@ -45,9 +54,13 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    # Blocked on https://issues.apache.org/jira/browse/ARROW-15066
+    ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    CMAKE_CXX_STANDARD=17 \
+    GTest_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_HOME=$CONDA_PREFIX

@@ -17,7 +17,6 @@
 
 ARG arch=amd64
 FROM ${arch}/debian:10
-ARG arch
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -63,19 +62,22 @@ RUN apt-get update -y -q && \
         llvm-${llvm}-dev \
         make \
         ninja-build \
+        nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
+        python3-pip \
         rapidjson-dev \
+        rsync \
         tzdata \
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV absl_SOURCE=BUNDLED \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=ON \
@@ -89,6 +91,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
@@ -101,4 +104,5 @@ ENV ARROW_BUILD_TESTS=ON \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
+    xsimd_SOURCE=BUNDLED \
     zstd_SOURCE=BUNDLED

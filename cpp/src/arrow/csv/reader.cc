@@ -49,14 +49,16 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
-namespace csv {
 
 using internal::Executor;
+using internal::TaskGroup;
+using internal::UnwrapOrRaise;
 
+namespace csv {
 namespace {
 
 struct ConversionSchema {
@@ -426,7 +428,7 @@ class BlockParsingOperator {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
     if (count_rows_) {
-      num_rows_seen_ += parser->num_rows();
+      num_rows_seen_ += parser->total_num_rows();
     }
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
@@ -459,7 +461,7 @@ class BlockDecodingOperator {
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
             -> Result<DecodedBlock> {
           ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
-                                internal::UnwrapOrRaise(maybe_decoded_arrays));
+                                arrow::internal::UnwrapOrRaise(maybe_decoded_arrays));
 
           ARROW_ASSIGN_OR_RAISE(auto batch,
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
@@ -490,14 +492,23 @@ class BlockDecodingOperator {
 
     Result<std::shared_ptr<RecordBatch>> DecodedArraysToBatch(
         std::vector<std::shared_ptr<Array>> arrays) {
+      const auto n_rows = arrays[0]->length();
+
       if (schema == nullptr) {
         FieldVector fields(arrays.size());
         for (size_t i = 0; i < arrays.size(); ++i) {
           fields[i] = field(conversion_schema.columns[i].name, arrays[i]->type());
         }
+
+        if (n_rows == 0) {
+          // No rows so schema is not reliable. return RecordBatch but do not set schema
+          return RecordBatch::Make(arrow::schema(std::move(fields)), n_rows,
+                                   std::move(arrays));
+        }
+
         schema = arrow::schema(std::move(fields));
       }
-      const auto n_rows = arrays[0]->length();
+
       return RecordBatch::Make(schema, n_rows, std::move(arrays));
     }
 
@@ -728,7 +739,7 @@ class ReaderMixin {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
     if (count_rows_) {
-      num_rows_seen_ += parser->num_rows();
+      num_rows_seen_ += parser->total_num_rows();
     }
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
   }
@@ -749,7 +760,7 @@ class ReaderMixin {
   ConversionSchema conversion_schema_;
 
   std::shared_ptr<io::InputStream> input_;
-  std::shared_ptr<internal::TaskGroup> task_group_;
+  std::shared_ptr<TaskGroup> task_group_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -901,13 +912,31 @@ class StreamingReaderImpl : public ReaderMixin,
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
-      return self->InitAfterFirstBatch(first_block, std::move(rb_gen), max_readahead);
+      return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
     });
   }
 
-  Status InitAfterFirstBatch(const DecodedBlock& first_block,
-                             AsyncGenerator<DecodedBlock> batch_gen, int max_readahead) {
-    schema_ = first_block.record_batch->schema();
+  Future<> InitFromBlock(const DecodedBlock& block,
+                         AsyncGenerator<DecodedBlock> batch_gen, int max_readahead,
+                         int64_t prev_bytes_processed) {
+    if (!block.record_batch) {
+      // End of file just return null batches
+      record_batch_gen_ = MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
+      return Status::OK();
+    }
+
+    schema_ = block.record_batch->schema();
+
+    if (block.record_batch->num_rows() == 0) {
+      // Keep consuming blocks until the first non empty block is found
+      auto self = shared_from_this();
+      prev_bytes_processed += block.bytes_processed;
+      return batch_gen().Then([self, batch_gen, max_readahead,
+                               prev_bytes_processed](const DecodedBlock& next_block) {
+        return self->InitFromBlock(next_block, std::move(batch_gen), max_readahead,
+                                   prev_bytes_processed);
+      });
+    }
 
     AsyncGenerator<DecodedBlock> readahead_gen;
     if (read_options_.use_threads) {
@@ -916,19 +945,15 @@ class StreamingReaderImpl : public ReaderMixin,
       readahead_gen = std::move(batch_gen);
     }
 
-    AsyncGenerator<DecodedBlock> restarted_gen;
-    // Streaming reader should not emit empty record batches
-    if (first_block.record_batch->num_rows() > 0) {
-      restarted_gen = MakeGeneratorStartsWith({first_block}, std::move(readahead_gen));
-    } else {
-      restarted_gen = std::move(readahead_gen);
-    }
+    AsyncGenerator<DecodedBlock> restarted_gen =
+        MakeGeneratorStartsWith({block}, std::move(readahead_gen));
 
     auto bytes_decoded = bytes_decoded_;
     auto unwrap_and_record_bytes =
-        [bytes_decoded](
-            const DecodedBlock& block) -> Result<std::shared_ptr<RecordBatch>> {
-      bytes_decoded->fetch_add(block.bytes_processed);
+        [bytes_decoded, prev_bytes_processed](
+            const DecodedBlock& block) mutable -> Result<std::shared_ptr<RecordBatch>> {
+      bytes_decoded->fetch_add(block.bytes_processed + prev_bytes_processed);
+      prev_bytes_processed = 0;
       return block.record_batch;
     };
 
@@ -965,7 +990,7 @@ class SerialTableReader : public BaseTableReader {
   }
 
   Result<std::shared_ptr<Table>> Read() override {
-    task_group_ = internal::TaskGroup::MakeSerial(io_context_.stop_token());
+    task_group_ = TaskGroup::MakeSerial(io_context_.stop_token());
 
     // First block
     ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
@@ -1044,8 +1069,7 @@ class AsyncThreadedTableReader
   Result<std::shared_ptr<Table>> Read() override { return ReadAsync().result(); }
 
   Future<std::shared_ptr<Table>> ReadAsync() override {
-    task_group_ =
-        internal::TaskGroup::MakeThreaded(cpu_executor_, io_context_.stop_token());
+    task_group_ = TaskGroup::MakeThreaded(cpu_executor_, io_context_.stop_token());
 
     auto self = shared_from_this();
     return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
@@ -1114,7 +1138,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
   RETURN_NOT_OK(convert_options.Validate());
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    auto cpu_executor = internal::GetCpuThreadPool();
+    auto cpu_executor = arrow::internal::GetCpuThreadPool();
     reader = std::make_shared<AsyncThreadedTableReader>(
         io_context, input, read_options, parse_options, convert_options, cpu_executor);
   } else {
@@ -1128,7 +1152,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
 
 Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
@@ -1195,8 +1219,9 @@ class CSVRowCounter : public ReaderMixin,
           self->Parse(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
                       maybe_block.block_index, maybe_block.is_final));
       RETURN_NOT_OK(maybe_block.consume_bytes(parser.parsed_bytes));
-      self->row_count_ += parser.parser->num_rows();
-      return parser.parser->num_rows();
+      int32_t total_row_count = parser.parser->total_num_rows();
+      self->row_count_ += total_row_count;
+      return total_row_count;
     };
     auto count_gen = MakeMappedGenerator(block_generator_, std::move(count_cb));
     return DiscardAllFromAsyncGenerator(count_gen).Then(
@@ -1234,7 +1259,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   auto io_context = io::IOContext(pool);
-  auto cpu_executor = internal::GetCpuThreadPool();
+  auto cpu_executor = arrow::internal::GetCpuThreadPool();
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
@@ -1246,7 +1271,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
-  auto cpu_executor = internal::GetCpuThreadPool();
+  auto cpu_executor = arrow::internal::GetCpuThreadPool();
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
@@ -1256,7 +1281,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
                              parse_options, convert_options);
@@ -1264,8 +1289,7 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
 
 Future<int64_t> CountRowsAsync(io::IOContext io_context,
                                std::shared_ptr<io::InputStream> input,
-                               internal::Executor* cpu_executor,
-                               const ReadOptions& read_options,
+                               Executor* cpu_executor, const ReadOptions& read_options,
                                const ParseOptions& parse_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());

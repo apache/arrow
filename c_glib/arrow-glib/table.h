@@ -27,6 +27,23 @@
 
 G_BEGIN_DECLS
 
+#define GARROW_TYPE_TABLE_CONCATENATE_OPTIONS   \
+  (garrow_table_concatenate_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTableConcatenateOptions,
+                         garrow_table_concatenate_options,
+                         GARROW,
+                         TABLE_CONCATENATE_OPTIONS,
+                         GObject)
+struct _GArrowTableConcatenateOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowTableConcatenateOptions *
+garrow_table_concatenate_options_new(void);
+
+
 #define GARROW_TYPE_TABLE (garrow_table_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTable,
                          garrow_table,
@@ -100,6 +117,7 @@ GARROW_AVAILABLE_IN_0_14
 GArrowTable *
 garrow_table_concatenate(GArrowTable *table,
                          GList *other_tables,
+                         GArrowTableConcatenateOptions *options,
                          GError **error);
 GARROW_AVAILABLE_IN_0_14
 GArrowTable *

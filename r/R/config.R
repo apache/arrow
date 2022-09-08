@@ -26,7 +26,9 @@ cpu_count <- function() {
 #' @param num_threads integer: New number of threads for thread pool
 #' @export
 set_cpu_count <- function(num_threads) {
+  current_cpu_count <- cpu_count()
   SetCpuThreadPoolCapacity(as.integer(num_threads))
+  invisible(current_cpu_count)
 }
 
 #' Manage the global I/O thread pool in libarrow
@@ -40,5 +42,7 @@ io_thread_count <- function() {
 #' @param num_threads integer: New number of threads for thread pool
 #' @export
 set_io_thread_count <- function(num_threads) {
+  current_io_thread_count <- io_thread_count()
   SetIOThreadPoolCapacity(as.integer(num_threads))
+  invisible(current_io_thread_count)
 }

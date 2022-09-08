@@ -21,10 +21,14 @@ module Arrow
       # @api private
       def try_convert(value)
         case value
+        when Table
+          TableDatum.new(value)
         when Array
           ArrayDatum.new(value)
         when ChunkedArray
           ChunkedArrayDatum.new(value)
+        when Column
+          ChunkedArrayDatum.new(value.data)
         when Scalar
           ScalarDatum.new(value)
         when ::Array

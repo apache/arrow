@@ -405,6 +405,26 @@ TEST(BlockParser, FinalTruncatedData) {
   ASSERT_RAISES(Invalid, st);
 }
 
+TEST(BlockParser, FinalBulkFilterNoEol) {
+  // Last field processed by bulk filter. No EOL at last line.
+  auto csv = MakeCSVData({"12345678901,12345678\n", "10987654321,87654321"});
+
+  BlockParser parser(ParseOptions::Defaults());
+  AssertParseFinal(parser, csv);
+  AssertColumnsEq(parser, {{"12345678901", "10987654321"}, {"12345678", "87654321"}});
+}
+
+TEST(BlockParser, FinalTruncatedBulkFilterNoEol) {
+  // Not enough fields at last line. Processed by bulk filter. No EOL at last line.
+  auto csv = MakeCSVData({"12345678901,12345678\n", "87654321"});
+  const char* err_msg = "Expected 2 columns, got 1: 87654321";
+
+  uint32_t out_size;
+  BlockParser parser(ParseOptions::Defaults());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg),
+                                  ParseFinal(parser, csv, &out_size));
+}
+
 TEST(BlockParser, QuotingSimple) {
   auto csv = MakeCSVData({"1,\",3,\",5\n"});
 
@@ -571,6 +591,109 @@ TEST(BlockParser, MismatchingNumColumns) {
   }
 }
 
+TEST(BlockParser, MismatchingNumColumnsHandler) {
+  struct CustomHandler {
+    operator InvalidRowHandler() {
+      return [this](const InvalidRow& row) {
+        // Copy the row to a string since the array behind the string_view can go away
+        rows.emplace_back(row, row.text.to_string());
+        return InvalidRowResult::Skip;
+      };
+    }
+
+    std::vector<std::pair<InvalidRow, std::string>> rows;
+  };
+
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b\nc\nd,e\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_EQ(3, parser.total_num_rows());
+    ASSERT_EQ(1, handler.rows.size());
+    ASSERT_EQ(2, handler.rows[0].first.expected_columns);
+    ASSERT_EQ(1, handler.rows[0].first.actual_columns);
+    ASSERT_EQ("c", handler.rows[0].second);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
+  }
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a\nb,c\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_EQ(2, parser.total_num_rows());
+    ASSERT_EQ(1, handler.rows.size());
+    ASSERT_EQ(2, handler.rows[0].first.expected_columns);
+    ASSERT_EQ(1, handler.rows[0].first.actual_columns);
+    ASSERT_EQ("a", handler.rows[0].second);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"b", "c"}, {false, false}));
+  }
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_EQ(2, parser.total_num_rows());
+    ASSERT_EQ(1, handler.rows.size());
+    ASSERT_EQ(2, handler.rows[0].first.expected_columns);
+    ASSERT_EQ(3, handler.rows[0].first.actual_columns);
+    ASSERT_EQ("a,b,c", handler.rows[0].second);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
+  }
+
+  // Skip multiple bad lines are skipped
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts, /*num_col=*/2, /*first_row=*/1);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\nf,g\nh\ni\nj,k\nl\n"));
+    ASSERT_EQ(3, parser.num_rows());
+    ASSERT_EQ(7, parser.total_num_rows());
+    ASSERT_EQ(4, handler.rows.size());
+
+    {
+      auto row = handler.rows[0];
+      ASSERT_EQ(2, row.first.expected_columns);
+      ASSERT_EQ(3, row.first.actual_columns);
+      ASSERT_EQ(1, row.first.number);
+      ASSERT_EQ("a,b,c", row.second);
+    }
+
+    {
+      auto row = handler.rows[1];
+      ASSERT_EQ(2, row.first.expected_columns);
+      ASSERT_EQ(1, row.first.actual_columns);
+      ASSERT_EQ(4, row.first.number);
+      ASSERT_EQ("h", row.second);
+    }
+
+    {
+      auto row = handler.rows[2];
+      ASSERT_EQ(2, row.first.expected_columns);
+      ASSERT_EQ(1, row.first.actual_columns);
+      ASSERT_EQ(5, row.first.number);
+      ASSERT_EQ("i", row.second);
+    }
+
+    {
+      auto row = handler.rows[3];
+      ASSERT_EQ(2, row.first.expected_columns);
+      ASSERT_EQ(1, row.first.actual_columns);
+      ASSERT_EQ(7, row.first.number);
+      ASSERT_EQ("l", row.second);
+    }
+
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"j", "k"}, {false, false}));
+  }
+}
+
 TEST(BlockParser, Escaping) {
   auto options = ParseOptions::Defaults();
   options.escaping = true;
@@ -676,6 +799,24 @@ TEST(BlockParser, RowNumberAppendedToError) {
           return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
         });
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::Not(testing::HasSubstr("Row")),
+                                    status);
+  }
+
+  // Error message is correct even with skipped parsed rows
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    opts.invalid_row_handler = [](const InvalidRow& row) {
+      return InvalidRowResult::Skip;
+    };
+    BlockParser parser(opts, /*num_cols=*/2, /*first_row=*/1);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\nf,g\nh\ni\nj,k\nl\n"));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
+        });
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #6: Bad value"),
                                     status);
   }
 }

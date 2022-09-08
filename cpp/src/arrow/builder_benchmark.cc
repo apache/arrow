@@ -36,6 +36,7 @@ namespace arrow {
 
 using ValueType = int64_t;
 using VectorType = std::vector<ValueType>;
+
 constexpr int64_t kNumberOfElements = 256 * 512;
 
 static VectorType AlmostU8CompressibleVector() {
@@ -227,7 +228,7 @@ static std::vector<Integer> MakeSimilarIntDictFodder() {
     std::uniform_int_distribution<Integer> values_dist(0, kDistinctElements - 1);
     auto max_int = std::numeric_limits<Integer>::max();
     auto multiplier =
-        static_cast<Integer>(BitUtil::NextPower2(max_int / kDistinctElements / 2));
+        static_cast<Integer>(bit_util::NextPower2(max_int / kDistinctElements / 2));
     std::generate(values.begin(), values.end(),
                   [&]() { return multiplier * values_dist(gen); });
   }

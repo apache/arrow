@@ -21,14 +21,14 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/encoding"
-	"github.com/apache/arrow/go/parquet/internal/hashing"
-	"github.com/apache/arrow/go/parquet/internal/testutils"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/hashing"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 )
 
 const (
@@ -314,7 +314,7 @@ func BenchmarkMemoTable(b *testing.B) {
 
 			b.Run("xxh3", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					tbl := hashing.NewBinaryMemoTable(memory.DefaultAllocator, 0, -1)
+					tbl := hashing.NewBinaryMemoTable(0, -1, array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary))
 					for _, v := range values {
 						tbl.GetOrInsert(v)
 					}
@@ -381,7 +381,7 @@ func BenchmarkMemoTableAllUnique(b *testing.B) {
 
 			b.Run("xxh3", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					tbl := hashing.NewBinaryMemoTable(memory.DefaultAllocator, 0, -1)
+					tbl := hashing.NewBinaryMemoTable(0, -1, array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary))
 					for _, v := range values {
 						tbl.GetOrInsert(v)
 					}

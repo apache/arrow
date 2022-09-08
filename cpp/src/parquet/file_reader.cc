@@ -30,7 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -146,6 +146,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 
   int64_t col_length = column_metadata->total_compressed_size();
   int64_t col_end;
+  if (col_start < 0 || col_length < 0) {
+    throw ParquetException("Invalid column metadata (corrupt file?)");
+  }
+
   if (AddWithOverflow(col_start, col_length, &col_end) || col_end > source_size) {
     throw ParquetException("Invalid column metadata (corrupt file?)");
   }
@@ -204,10 +208,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
+    // Prior to Arrow 3.0.0, is_compressed was always set to false in column headers,
+    // even if compression was used. See ARROW-17100.
+    bool always_compressed = file_metadata_->writer_version().VersionLt(
+        ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION());
+
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool());
+                              always_compressed, properties_.memory_pool());
     }
 
     if (file_decryptor_ == nullptr) {
@@ -229,7 +238,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool(), &ctx);
+                              always_compressed, properties_.memory_pool(), &ctx);
     }
 
     // The column is encrypted with its own key
@@ -244,7 +253,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(),
-                            properties_.memory_pool(), &ctx);
+                            always_compressed, properties_.memory_pool(), &ctx);
   }
 
  private:
@@ -539,8 +548,8 @@ uint32_t SerializedFile::ParseUnencryptedFileMetadata(
   }
   uint32_t read_metadata_len = metadata_len;
   // The encrypted read path falls through to here, so pass in the decryptor
-  file_metadata_ =
-      FileMetaData::Make(metadata_buffer->data(), &read_metadata_len, file_decryptor_);
+  file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len,
+                                      properties_, file_decryptor_);
   return read_metadata_len;
 }
 
@@ -825,6 +834,11 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
     for (int i = 0; i < num_columns; i++) {
       columns[i] = i;
     }
+  }
+  if (num_columns == 0) {
+    // If we still have no columns(none in file), return early. The remainder of function
+    // expects there to be at least one column.
+    return 0;
   }
 
   std::vector<int64_t> total_rows(num_columns, 0);

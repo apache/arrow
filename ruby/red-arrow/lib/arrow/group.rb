@@ -38,8 +38,12 @@ module Arrow
       aggregate(*build_aggregations("hash_mean", target_names))
     end
 
-    def min_max(*target_names)
-      aggregate(*build_aggregations("hash_min_max", target_names))
+    def min(*target_names)
+      aggregate(*build_aggregations("hash_min", target_names))
+    end
+
+    def max(*target_names)
+      aggregate(*build_aggregations("hash_max", target_names))
     end
 
     def stddev(*target_names)
@@ -94,7 +98,8 @@ module Arrow
             "hash_stddev",
             "hash_variance",
             # "hash_tdigest",
-            "hash_min_max",
+            "hash_min",
+            "hash_max",
             "hash_any",
             "hash_all",
           ]

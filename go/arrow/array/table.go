@@ -22,148 +22,30 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
-// Table represents a logical sequence of chunked arrays.
-type Table interface {
-	Schema() *arrow.Schema
-	NumRows() int64
-	NumCols() int64
-	Column(i int) *Column
-
-	Retain()
-	Release()
-}
-
-// Column is an immutable column data structure consisting of
-// a field (type metadata) and a chunked data array.
-type Column struct {
-	field arrow.Field
-	data  *Chunked
-}
-
-// NewColumn returns a column from a field and a chunked data array.
-//
-// NewColumn panics if the field's data type is inconsistent with the data type
-// of the chunked data array.
-func NewColumn(field arrow.Field, chunks *Chunked) *Column {
-	col := Column{
-		field: field,
-		data:  chunks,
-	}
-	col.data.Retain()
-
-	if !arrow.TypeEqual(col.data.DataType(), col.field.Type) {
-		col.data.Release()
-		panic("arrow/array: inconsistent data type")
-	}
-
-	return &col
-}
-
-// Retain increases the reference count by 1.
-// Retain may be called simultaneously from multiple goroutines.
-func (col *Column) Retain() {
-	col.data.Retain()
-}
-
-// Release decreases the reference count by 1.
-// When the reference count goes to zero, the memory is freed.
-// Release may be called simultaneously from multiple goroutines.
-func (col *Column) Release() {
-	col.data.Release()
-}
-
-func (col *Column) Len() int                 { return col.data.Len() }
-func (col *Column) NullN() int               { return col.data.NullN() }
-func (col *Column) Data() *Chunked           { return col.data }
-func (col *Column) Field() arrow.Field       { return col.field }
-func (col *Column) Name() string             { return col.field.Name }
-func (col *Column) DataType() arrow.DataType { return col.field.Type }
-
-// NewSlice returns a new zero-copy slice of the column with the indicated
+// NewColumnSlice returns a new zero-copy slice of the column with the indicated
 // indices i and j, corresponding to the column's array[i:j].
 // The returned column must be Release()'d after use.
 //
-// NewSlice panics if the slice is outside the valid range of the column's array.
-// NewSlice panics if j < i.
-func (col *Column) NewSlice(i, j int64) *Column {
-	return &Column{
-		field: col.field,
-		data:  col.data.NewSlice(i, j),
-	}
+// NewColSlice panics if the slice is outside the valid range of the column's array.
+// NewColSlice panics if j < i.
+func NewColumnSlice(col *arrow.Column, i, j int64) *arrow.Column {
+	slice := NewChunkedSlice(col.Data(), i, j)
+	defer slice.Release()
+	return arrow.NewColumn(col.Field(), slice)
 }
 
-// Chunked manages a collection of primitives arrays as one logical large array.
-type Chunked struct {
-	refCount int64 // refCount must be first in the struct for 64 bit alignment and sync/atomic (https://github.com/golang/go/issues/37262)
-	
-	chunks []Interface
-
-	length int
-	nulls  int
-	dtype  arrow.DataType
-}
-
-// NewChunked returns a new chunked array from the slice of arrays.
-//
-// NewChunked panics if the chunks do not have the same data type.
-func NewChunked(dtype arrow.DataType, chunks []Interface) *Chunked {
-	arr := &Chunked{
-		chunks:   make([]Interface, len(chunks)),
-		refCount: 1,
-		dtype:    dtype,
-	}
-	for i, chunk := range chunks {
-		if !arrow.TypeEqual(chunk.DataType(), dtype) {
-			panic("arrow/array: mismatch data type")
-		}
-		chunk.Retain()
-		arr.chunks[i] = chunk
-		arr.length += chunk.Len()
-		arr.nulls += chunk.NullN()
-	}
-	return arr
-}
-
-// Retain increases the reference count by 1.
-// Retain may be called simultaneously from multiple goroutines.
-func (a *Chunked) Retain() {
-	atomic.AddInt64(&a.refCount, 1)
-}
-
-// Release decreases the reference count by 1.
-// When the reference count goes to zero, the memory is freed.
-// Release may be called simultaneously from multiple goroutines.
-func (a *Chunked) Release() {
-	debug.Assert(atomic.LoadInt64(&a.refCount) > 0, "too many releases")
-
-	if atomic.AddInt64(&a.refCount, -1) == 0 {
-		for _, arr := range a.chunks {
-			arr.Release()
-		}
-		a.chunks = nil
-		a.length = 0
-		a.nulls = 0
-	}
-}
-
-func (a *Chunked) Len() int                 { return a.length }
-func (a *Chunked) NullN() int               { return a.nulls }
-func (a *Chunked) DataType() arrow.DataType { return a.dtype }
-func (a *Chunked) Chunks() []Interface      { return a.chunks }
-func (a *Chunked) Chunk(i int) Interface    { return a.chunks[i] }
-
-// NewSlice constructs a zero-copy slice of the chunked array with the indicated
+// NewChunkedSlice constructs a zero-copy slice of the chunked array with the indicated
 // indices i and j, corresponding to array[i:j].
 // The returned chunked array must be Release()'d after use.
 //
 // NewSlice panics if the slice is outside the valid range of the input array.
 // NewSlice panics if j < i.
-func (a *Chunked) NewSlice(i, j int64) *Chunked {
-	if j > int64(a.length) || i > j || i > int64(a.length) {
+func NewChunkedSlice(a *arrow.Chunked, i, j int64) *arrow.Chunked {
+	if j > int64(a.Len()) || i > j || i > int64(a.Len()) {
 		panic("arrow/array: index out of range")
 	}
 
@@ -171,16 +53,16 @@ func (a *Chunked) NewSlice(i, j int64) *Chunked {
 		cur    = 0
 		beg    = i
 		sz     = j - i
-		chunks = make([]Interface, 0, len(a.chunks))
+		chunks = make([]arrow.Array, 0, len(a.Chunks()))
 	)
 
-	for cur < len(a.chunks) && beg >= int64(a.chunks[cur].Len()) {
-		beg -= int64(a.chunks[cur].Len())
+	for cur < len(a.Chunks()) && beg >= int64(a.Chunks()[cur].Len()) {
+		beg -= int64(a.Chunks()[cur].Len())
 		cur++
 	}
 
-	for cur < len(a.chunks) && sz > 0 {
-		arr := a.chunks[cur]
+	for cur < len(a.Chunks()) && sz > 0 {
+		arr := a.Chunks()[cur]
 		end := beg + sz
 		if end > int64(arr.Len()) {
 			end = int64(arr.Len())
@@ -197,7 +79,7 @@ func (a *Chunked) NewSlice(i, j int64) *Chunked {
 		}
 	}()
 
-	return NewChunked(a.dtype, chunks)
+	return arrow.NewChunked(a.DataType(), chunks)
 }
 
 // simpleTable is a basic, non-lazy in-memory table.
@@ -205,7 +87,7 @@ type simpleTable struct {
 	refCount int64
 
 	rows int64
-	cols []Column
+	cols []arrow.Column
 
 	schema *arrow.Schema
 }
@@ -216,7 +98,7 @@ type simpleTable struct {
 //
 // NewTable panics if the columns and schema are inconsistent.
 // NewTable panics if rows is larger than the height of the columns.
-func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
+func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTable {
 	tbl := simpleTable{
 		refCount: 1,
 		rows:     rows,
@@ -249,11 +131,11 @@ func NewTable(schema *arrow.Schema, cols []Column, rows int64) *simpleTable {
 // NewTableFromRecords returns a new basic, non-lazy in-memory table.
 //
 // NewTableFromRecords panics if the records and schema are inconsistent.
-func NewTableFromRecords(schema *arrow.Schema, recs []Record) *simpleTable {
-	arrs := make([]Interface, len(recs))
-	cols := make([]Column, len(schema.Fields()))
+func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable {
+	arrs := make([]arrow.Array, len(recs))
+	cols := make([]arrow.Column, len(schema.Fields()))
 
-	defer func(cols []Column) {
+	defer func(cols []arrow.Column) {
 		for i := range cols {
 			cols[i].Release()
 		}
@@ -264,25 +146,25 @@ func NewTableFromRecords(schema *arrow.Schema, recs []Record) *simpleTable {
 		for j, rec := range recs {
 			arrs[j] = rec.Column(i)
 		}
-		chunk := NewChunked(field.Type, arrs)
-		cols[i] = *NewColumn(field, chunk)
+		chunk := arrow.NewChunked(field.Type, arrs)
+		cols[i] = *arrow.NewColumn(field, chunk)
 		chunk.Release()
 	}
 
 	return NewTable(schema, cols, -1)
 }
 
-func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
-func (tbl *simpleTable) NumRows() int64        { return tbl.rows }
-func (tbl *simpleTable) NumCols() int64        { return int64(len(tbl.cols)) }
-func (tbl *simpleTable) Column(i int) *Column  { return &tbl.cols[i] }
+func (tbl *simpleTable) Schema() *arrow.Schema      { return tbl.schema }
+func (tbl *simpleTable) NumRows() int64             { return tbl.rows }
+func (tbl *simpleTable) NumCols() int64             { return int64(len(tbl.cols)) }
+func (tbl *simpleTable) Column(i int) *arrow.Column { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
 	if len(tbl.cols) != len(tbl.schema.Fields()) {
 		panic(errors.New("arrow/array: table schema mismatch"))
 	}
 	for i, col := range tbl.cols {
-		if !col.field.Equal(tbl.schema.Field(i)) {
+		if !col.Field().Equal(tbl.schema.Field(i)) {
 			panic(fmt.Errorf("arrow/array: column field %q is inconsistent with schema", col.Name()))
 		}
 
@@ -316,20 +198,20 @@ func (tbl *simpleTable) Release() {
 type TableReader struct {
 	refCount int64
 
-	tbl   Table
-	cur   int64  // current row
-	max   int64  // total number of rows
-	rec   Record // current Record
-	chksz int64  // chunk size
+	tbl   arrow.Table
+	cur   int64        // current row
+	max   int64        // total number of rows
+	rec   arrow.Record // current Record
+	chksz int64        // chunk size
 
-	chunks  []*Chunked
+	chunks  []*arrow.Chunked
 	slots   []int   // chunk indices
 	offsets []int64 // chunk offsets
 }
 
 // NewTableReader returns a new TableReader to iterate over the (possibly chunked) Table.
 // if chunkSize is <= 0, the biggest possible chunk will be selected.
-func NewTableReader(tbl Table, chunkSize int64) *TableReader {
+func NewTableReader(tbl arrow.Table, chunkSize int64) *TableReader {
 	ncols := tbl.NumCols()
 	tr := &TableReader{
 		refCount: 1,
@@ -337,7 +219,7 @@ func NewTableReader(tbl Table, chunkSize int64) *TableReader {
 		cur:      0,
 		max:      int64(tbl.NumRows()),
 		chksz:    chunkSize,
-		chunks:   make([]*Chunked, ncols),
+		chunks:   make([]*arrow.Chunked, ncols),
 		slots:    make([]int, ncols),
 		offsets:  make([]int64, ncols),
 	}
@@ -356,7 +238,7 @@ func NewTableReader(tbl Table, chunkSize int64) *TableReader {
 }
 
 func (tr *TableReader) Schema() *arrow.Schema { return tr.tbl.Schema() }
-func (tr *TableReader) Record() Record        { return tr.rec }
+func (tr *TableReader) Record() arrow.Record  { return tr.rec }
 
 func (tr *TableReader) Next() bool {
 	if tr.cur >= tr.max {
@@ -369,7 +251,7 @@ func (tr *TableReader) Next() bool {
 
 	// determine the minimum contiguous slice across all columns
 	chunksz := imin64(tr.max, tr.chksz)
-	chunks := make([]Interface, len(tr.chunks))
+	chunks := make([]arrow.Array, len(tr.chunks))
 	for i := range chunks {
 		j := tr.slots[i]
 		chunk := tr.chunks[i].Chunk(j)
@@ -382,9 +264,9 @@ func (tr *TableReader) Next() bool {
 	}
 
 	// slice the chunks, advance each chunk slot as appropriate.
-	batch := make([]Interface, len(tr.chunks))
+	batch := make([]arrow.Array, len(tr.chunks))
 	for i, chunk := range chunks {
-		var slice Interface
+		var slice arrow.Array
 		offset := tr.offsets[i]
 		switch int64(chunk.Len()) - offset {
 		case chunksz:
@@ -450,6 +332,6 @@ func imin64(a, b int64) int64 {
 }
 
 var (
-	_ Table        = (*simpleTable)(nil)
+	_ arrow.Table  = (*simpleTable)(nil)
 	_ RecordReader = (*TableReader)(nil)
 )

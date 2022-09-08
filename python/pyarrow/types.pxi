@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
+
 import atexit
 from collections.abc import Mapping
 import re
@@ -80,6 +82,32 @@ cdef bytes _datatype_to_pep3118(CDataType* type):
             return b'=' + char
         else:
             return char
+
+
+cdef void* _as_c_pointer(v, allow_null=False) except *:
+    """
+    Convert a Python object to a raw C pointer.
+
+    Used mainly for the C data interface.
+    Integers are accepted as well as capsule objects with a NULL name.
+    (the latter for compatibility with raw pointers exported by reticulate)
+    """
+    cdef void* c_ptr
+    if isinstance(v, int):
+        c_ptr = <void*> <uintptr_t > v
+    elif isinstance(v, float):
+        warnings.warn(
+            "Passing a pointer value as a float is unsafe and only "
+            "supported for compatibility with older versions of the R "
+            "Arrow library", UserWarning, stacklevel=2)
+        c_ptr = <void*> <uintptr_t > v
+    elif PyCapsule_CheckExact(v):
+        c_ptr = PyCapsule_GetPointer(v, NULL)
+    else:
+        raise TypeError(f"Expected a pointer value, got {type(v)!r}")
+    if not allow_null and c_ptr == NULL:
+        raise ValueError(f"Null pointer (value before cast = {v!r})")
+    return c_ptr
 
 
 def _is_primitive(Type type):
@@ -199,7 +227,7 @@ cdef class DataType(_Weakrefable):
         else:
             raise NotImplementedError(str(self))
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -207,16 +235,18 @@ cdef class DataType(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportType(deref(self.type), <ArrowSchema*> out_ptr))
+        check_status(ExportType(deref(self.type),
+                                <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import DataType from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
-        result = GetResultValue(ImportType(<ArrowSchema*> in_ptr))
+        result = GetResultValue(ImportType(<ArrowSchema*>
+                                           _as_c_pointer(in_ptr)))
         return pyarrow_wrap_data_type(result)
 
 
@@ -326,7 +356,14 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.key_type, self.item_type)
+        return map_, (self.key_field, self.item_field)
+
+    @property
+    def key_field(self):
+        """
+        The field for keys in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.key_field())
 
     @property
     def key_type(self):
@@ -334,6 +371,13 @@ cdef class MapType(DataType):
         The data type of keys in the map entries.
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_field(self):
+        """
+        The field for items in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.item_field())
 
     @property
     def item_type(self):
@@ -377,6 +421,34 @@ cdef class FixedSizeListType(DataType):
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
+
+    ``StructType`` supports direct indexing using ``[...]`` (implemented via
+    ``__getitem__``) to access its fields.
+    It will return the struct field with the given index or name.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+
+    Accessing fields using direct indexing:
+
+    >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+    >>> struct_type[0]
+    pyarrow.Field<x: int32>
+    >>> struct_type['y']
+    pyarrow.Field<y: string>
+
+    Accessing fields using ``field()``:
+
+    >>> struct_type.field(1)
+    pyarrow.Field<y: string>
+    >>> struct_type.field('x')
+    pyarrow.Field<x: int32>
+
+    # Creating a schema from the struct type's fields:
+    >>> pa.schema(list(struct_type))
+    x: int32
+    y: string
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -385,7 +457,23 @@ cdef class StructType(DataType):
 
     cdef Field field_by_name(self, name):
         """
-        Return a child field by its name rather than its index.
+        Return a child field by its name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        field : Field
+            The child field with the given name.
+
+        Raises
+        ------
+        KeyError
+            If the name isn't found, or if several fields have the given
+            name.
         """
         cdef vector[shared_ptr[CField]] fields
 
@@ -401,14 +489,69 @@ cdef class StructType(DataType):
 
     def get_field_index(self, name):
         """
-        Return index of field with given unique name. Returns -1 if not found
-        or if duplicated
+        Return index of the unique field with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        index : int
+            The index of the field with the given name; -1 if the
+            name isn't found or there are several fields with the given
+            name.
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
+    def field(self, i):
+        """
+        Select a field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or str
+
+        Returns
+        -------
+        pyarrow.Field
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+
+        Select the second field:
+
+        >>> struct_type.field(1)
+        pyarrow.Field<y: string>
+
+        Select the field named 'x':
+
+        >>> struct_type.field('x')
+        pyarrow.Field<x: int32>
+        """
+        if isinstance(i, (bytes, str)):
+            return self.field_by_name(i)
+        elif isinstance(i, int):
+            return DataType.field(self, i)
+        else:
+            raise TypeError('Expected integer or string index')
+
     def get_all_field_indices(self, name):
         """
-        Return sorted list of indices for fields with the given name
+        Return sorted list of indices for the fields with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        indices : List[int]
         """
         return self.struct_type.GetAllFieldIndices(tobytes(name))
 
@@ -428,13 +571,10 @@ cdef class StructType(DataType):
     def __getitem__(self, i):
         """
         Return the struct field with the given index or name.
+
+        Alias of ``field``.
         """
-        if isinstance(i, (bytes, str)):
-            return self.field_by_name(i)
-        elif isinstance(i, int):
-            return self.field(i)
-        else:
-            raise TypeError('Expected integer or string index')
+        return self.field(i)
 
     def __reduce__(self):
         return struct, (list(self),)
@@ -482,9 +622,28 @@ cdef class UnionType(DataType):
         for i in range(len(self)):
             yield self[i]
 
+    def field(self, i):
+        """
+        Return a child field by its numeric index.
+
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        if isinstance(i, int):
+            return DataType.field(self, i)
+        else:
+            raise TypeError('Expected integer')
+
     def __getitem__(self, i):
         """
         Return a child field by its index.
+
+        Alias of ``field``.
         """
         return self.field(i)
 
@@ -694,10 +853,54 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    def wrap_array(self, storage):
+        """
+        Wrap the given storage array as an extension array.
+
+        Parameters
+        ----------
+        storage : Array or ChunkedArray
+
+        Returns
+        -------
+        array : Array or ChunkedArray
+            Extension array wrapping the storage array
+        """
+        cdef:
+            shared_ptr[CDataType] c_storage_type
+
+        if isinstance(storage, Array):
+            c_storage_type = (<Array> storage).ap.type()
+        elif isinstance(storage, ChunkedArray):
+            c_storage_type = (<ChunkedArray> storage).chunked_array.type()
+        else:
+            raise TypeError(
+                f"Expected array or chunked array, got {storage.__class__}")
+
+        if not c_storage_type.get().Equals(deref(self.ext_type)
+                                           .storage_type()):
+            raise TypeError(
+                f"Incompatible storage type for {self}: "
+                f"expected {self.storage_type}, got {storage.type}")
+
+        if isinstance(storage, Array):
+            return pyarrow_wrap_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<Array> storage).sp_array))
+        else:
+            return pyarrow_wrap_chunked_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<ChunkedArray> storage).sp_chunked_array))
+
 
 cdef class ExtensionType(BaseExtensionType):
     """
     Concrete base class for Python-defined extension types.
+
+    Parameters
+    ----------
+    storage_type : DataType
+    extension_name : str
     """
 
     def __cinit__(self):
@@ -711,11 +914,6 @@ cdef class ExtensionType(BaseExtensionType):
 
         This should be called at the end of the subclass'
         ``__init__`` method.
-
-        Parameters
-        ----------
-        storage_type : DataType
-        extension_name : str
         """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
@@ -783,11 +981,26 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionArray
 
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
+
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        return ExtensionScalar
+
 
 cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
     """
 
     def __cinit__(self):
@@ -827,6 +1040,13 @@ cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
+    serialized : bytes
+        The serialised output.
     """
 
     cdef:
@@ -888,6 +1108,16 @@ def unregister_extension_type(type_name):
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
+    """
+    KeyValueMetadata
+
+    Parameters
+    ----------
+    __arg0__ : dict
+        A dict of the key-value metadata
+    **kwargs : optional
+        additional key-value metadata
+    """
 
     def __init__(self, __arg0__=None, **kwargs):
         cdef:
@@ -1004,7 +1234,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return result
 
 
-cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
+cpdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
     if allow_none and meta is None:
         return None
     elif isinstance(meta, KeyValueMetadata):
@@ -1201,7 +1431,7 @@ cdef class Field(_Weakrefable):
             flattened = self.field.Flatten()
         return [pyarrow_wrap_field(f) for f in flattened]
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1209,21 +1439,59 @@ cdef class Field(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportField(deref(self.field), <ArrowSchema*> out_ptr))
+        check_status(ExportField(deref(self.field),
+                                 <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Field from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportField(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportField(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_field(result)
 
 
 cdef class Schema(_Weakrefable):
+    """
+    A named collection of types a.k.a schema. A schema defines the
+    column names and types in a record batch or table data structure.
+    They also contain metadata about the columns. For example, schemas 
+    converted from Pandas contain metadata about their original Pandas 
+    types so they can be converted back to the same types.
+
+    Warnings
+    --------
+    Do not call this class's constructor directly. Instead use
+    :func:`pyarrow.schema` factory function which makes a new Arrow
+    Schema object.
+
+    Examples
+    --------
+    Create a new Arrow Schema object:
+
+    >>> import pyarrow as pa
+    >>> pa.schema([
+    ...     ('some_int', pa.int32()),
+    ...     ('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+
+    Create Arrow Schema with metadata:
+
+    >>> pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+    """
 
     def __cinit__(self):
         pass
@@ -1270,6 +1538,19 @@ cdef class Schema(_Weakrefable):
     def pandas_metadata(self):
         """
         Return deserialized-from-JSON pandas metadata field (if it exists)
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> schema = pa.Table.from_pandas(df).schema
+
+        Select pandas metadata field from Arrow Schema:
+
+        >>> schema.pandas_metadata
+        {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, 'stop': 4, 'step': 1}], ...
         """
         metadata = self.metadata
         key = b'pandas'
@@ -1287,6 +1568,18 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         list of str
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Get the names of the schema's fields:
+
+        >>> schema.names
+        ['n_legs', 'animals']
         """
         cdef int i
         result = []
@@ -1303,11 +1596,43 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         list of DataType
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Get the types of the schema's fields:
+
+        >>> schema.types
+        [DataType(int64), DataType(string)]
         """
         return [field.type for field in self]
 
     @property
     def metadata(self):
+        """
+        The schema's metadata.
+
+        Returns
+        -------
+        metadata: dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+
+        Get the metadata of the schema's fields:
+
+        >>> schema.metadata
+        {b'n_legs': b'Number of legs per animal'}
+        """
         wrapped = pyarrow_wrap_metadata(self.schema.metadata())
         if wrapped is not None:
             return wrapped.to_dict()
@@ -1327,6 +1652,23 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         table: pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Create an empty table with schema's fields:
+
+        >>> schema.empty_table()
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[]]
+        animals: [[]]
         """
         arrays = [_empty_array(field.type) for field in self]
         return Table.from_arrays(arrays, schema=self)
@@ -1344,6 +1686,28 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         is_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema1 = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema2 = pa.schema([
+        ...     ('some_int', pa.int32()),
+        ...     ('some_string', pa.string())
+        ... ])
+
+        Test two equal schemas:
+
+        >>> schema1.equals(schema1)
+        True
+
+        Test two unequal schemas:
+
+        >>> schema1.equals(schema2)
+        False
         """
         return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
@@ -1369,17 +1733,20 @@ cdef class Schema(_Weakrefable):
 
         Examples
         --------
-
         >>> import pandas as pd
         >>> import pyarrow as pa
         >>> df = pd.DataFrame({
-            ...     'int': [1, 2],
-            ...     'str': ['a', 'b']
-            ... })
+        ...     'int': [1, 2],
+        ...     'str': ['a', 'b']
+        ... })
+
+        Create an Arrow Schema from the schema of a pandas dataframe:
+
         >>> pa.Schema.from_pandas(df)
         int: int64
         str: string
-        __index_level_0__: int64
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """
         from pyarrow.pandas_compat import dataframe_to_types
         names, types, metadata = dataframe_to_types(
@@ -1402,6 +1769,23 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         pyarrow.Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Select the second field:
+
+        >>> schema.field(1)
+        pyarrow.Field<animals: string>
+
+        Select the field of the column named 'n_legs':
+
+        >>> schema.field('n_legs')
+        pyarrow.Field<n_legs: int64>
         """
         if isinstance(i, (bytes, str)):
             field_index = self.get_field_index(i)
@@ -1415,17 +1799,27 @@ cdef class Schema(_Weakrefable):
             raise TypeError("Index must either be string or integer")
 
     def _field(self, int i):
-        """Select a field by its numeric index."""
+        """
+        Select a field by its numeric index.
+
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
         cdef int index = <int> _normalize_index(i, self.schema.num_fields())
         return pyarrow_wrap_field(self.schema.field(index))
 
     def field_by_name(self, name):
         """
-        Access a field by its name rather than the column index.
+        DEPRECATED
 
         Parameters
         ----------
-        name: str
+        name : str
 
         Returns
         -------
@@ -1450,14 +1844,69 @@ cdef class Schema(_Weakrefable):
 
     def get_field_index(self, name):
         """
-        Return index of field with given unique name. Returns -1 if not found
-        or if duplicated
+        Return index of the unique field with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        index : int
+            The index of the field with the given name; -1 if the
+            name isn't found or there are several fields with the given
+            name.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Get the index of the field named 'animals':
+
+        >>> schema.get_field_index("animals")
+        1
+
+        Index in case of several fields with the given name:
+
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string()),
+        ...     pa.field('animals', pa.bool_())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema.get_field_index("animals")
+        -1
         """
         return self.schema.GetFieldIndex(tobytes(name))
 
     def get_all_field_indices(self, name):
         """
-        Return sorted list of indices for fields with the given name
+        Return sorted list of indices for the fields with the given name.
+
+        Parameters
+        ----------
+        name : str
+            The name of the field to look up.
+
+        Returns
+        -------
+        indices : List[int]
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string()),
+        ...     pa.field('animals', pa.bool_())])
+
+        Get the indexes of the fields named 'animals':
+
+        >>> schema.get_all_field_indices("animals")
+        [1, 2]
         """
         return self.schema.GetAllFieldIndices(tobytes(name))
 
@@ -1470,12 +1919,33 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        field: Field
+        field : Field
 
         Returns
         -------
         schema: Schema
             New object with appended field.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Append a field 'extra' at the end of the schema:
+
+        >>> schema_new = schema.append(pa.field('extra', pa.bool_()))
+        >>> schema_new
+        n_legs: int64
+        animals: string
+        extra: bool
+
+        Original schema is unmodified:
+
+        >>> schema
+        n_legs: int64
+        animals: string
         """
         return self.insert(self.schema.num_fields(), field)
 
@@ -1485,12 +1955,26 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
-        field: Field
+        i : int
+        field : Field
 
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Insert a new field on the second position:
+
+        >>> schema.insert(1, pa.field('extra', pa.bool_()))
+        n_legs: int64
+        extra: bool
+        animals: string
         """
         cdef:
             shared_ptr[CSchema] new_schema
@@ -1509,11 +1993,23 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
+        i : int
 
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Remove the second field of the schema:
+
+        >>> schema.remove(1)
+        n_legs: int64
         """
         cdef shared_ptr[CSchema] new_schema
 
@@ -1528,12 +2024,25 @@ cdef class Schema(_Weakrefable):
 
         Parameters
         ----------
-        i: int
-        field: Field
+        i : int
+        field : Field
 
         Returns
         -------
         schema: Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Replace the second field of the schema with a new field 'extra':
+
+        >>> schema.set(1, pa.field('replaced', pa.bool_()))
+        n_legs: int64
+        replaced: bool
         """
         cdef:
             shared_ptr[CSchema] new_schema
@@ -1547,6 +2056,14 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(new_schema)
 
     def add_metadata(self, metadata):
+        """
+        DEPRECATED
+
+        Parameters
+        ----------
+        metadata : dict
+            Keys and values must be string-like / coercible to bytes
+        """
         warnings.warn("The 'add_metadata' method is deprecated, use "
                       "'with_metadata' instead", FutureWarning, stacklevel=2)
         return self.with_metadata(metadata)
@@ -1563,6 +2080,21 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema : pyarrow.Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Add metadata to existing schema field:
+
+        >>> schema.with_metadata({"n_legs": "Number of legs per animal"})
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
         cdef shared_ptr[CSchema] c_schema
 
@@ -1584,6 +2116,18 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         serialized : Buffer
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())])
+
+        Write schema to Buffer:
+
+        >>> schema.serialize()
+        <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
         """
         cdef:
             shared_ptr[CBuffer] buffer
@@ -1601,6 +2145,25 @@ cdef class Schema(_Weakrefable):
         Returns
         -------
         schema : pyarrow.Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Create a new schema with removing the metadata from the original:
+
+        >>> schema.remove_metadata()
+        n_legs: int64
+        animals: string
         """
         cdef shared_ptr[CSchema] new_schema
         with nogil:
@@ -1646,7 +2209,7 @@ cdef class Schema(_Weakrefable):
 
         return frombytes(result, safe=True)
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1654,17 +2217,19 @@ cdef class Schema(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportSchema(deref(self.schema), <ArrowSchema*> out_ptr))
+        check_status(ExportSchema(deref(self.schema),
+                                  <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Schema from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportSchema(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportSchema(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_schema(result)
 
     def __str__(self):
@@ -1674,7 +2239,7 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(list schemas):
+def unify_schemas(schemas):
     """
     Unify schemas by merging fields by name.
 
@@ -2101,6 +2666,14 @@ def duration(unit):
     return out
 
 
+def month_day_nano_interval():
+    """
+    Create instance of an interval type representing months, days and
+    nanoseconds between two dates.
+    """
+    return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
+
+
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
@@ -2336,7 +2909,7 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types.
+    Create MapType instance from key and item data types or fields.
 
     Parameters
     ----------
@@ -2349,12 +2922,25 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     map_type : DataType
     """
     cdef:
-        DataType _key_type = ensure_type(key_type, allow_none=False)
-        DataType _item_type = ensure_type(item_type, allow_none=False)
+        Field _key_field
+        Field _item_field
         shared_ptr[CDataType] map_type
         MapType out = MapType.__new__(MapType)
 
-    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+    if isinstance(key_type, Field):
+        if key_type.nullable:
+            raise TypeError('Map key field should be non-nullable')
+        _key_field = key_type
+    else:
+        _key_field = field('key', ensure_type(key_type, allow_none=False),
+                           nullable=False)
+
+    if isinstance(item_type, Field):
+        _item_field = item_type
+    else:
+        _item_field = field('value', ensure_type(item_type, allow_none=False))
+
+    map_type.reset(new CMapType(_key_field.sp_field, _item_field.sp_field,
                                 keys_sorted))
     out.init(map_type)
     return out
@@ -2380,8 +2966,11 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
 
-    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
-        raise TypeError("The dictionary index type should be signed integer.")
+    if _index_type.id not in {
+        Type_INT8, Type_INT16, Type_INT32, Type_INT64,
+        Type_UINT8, Type_UINT16, Type_UINT32, Type_UINT64,
+    }:
+        raise TypeError("The dictionary index type should be integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))
@@ -2633,12 +3222,18 @@ cdef dict _type_aliases = {
     'duration[ms]': duration('ms'),
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
+    'month_day_nano_interval': month_day_nano_interval(),
 }
 
 
 def type_for_alias(name):
     """
     Return DataType given a string alias if one exists.
+
+    Parameters
+    ----------
+    name : str
+        The alias of the DataType that should be retrieved.
 
     Returns
     -------
@@ -2672,7 +3267,7 @@ def schema(fields, metadata=None):
 
     Parameters
     ----------
-    field : iterable of Fields or tuples, or mapping of strings to DataTypes
+    fields : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
         Keys and values must be coercible to bytes.
 
@@ -2728,6 +3323,10 @@ def schema(fields, metadata=None):
 def from_numpy_dtype(object dtype):
     """
     Convert NumPy dtype to pyarrow.DataType.
+
+    Parameters
+    ----------
+    dtype : the numpy dtype to convert
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
@@ -2738,14 +3337,38 @@ def from_numpy_dtype(object dtype):
 
 
 def is_boolean_value(object obj):
+    """
+    Check if the object is a boolean.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyBool(obj)
 
 
 def is_integer_value(object obj):
+    """
+    Check if the object is an integer.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyInt(obj)
 
 
 def is_float_value(object obj):
+    """
+    Check if the object is a float.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyFloat(obj)
 
 

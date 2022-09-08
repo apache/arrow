@@ -85,4 +85,4 @@ echo "== Running example project"
 echo "=="
 echo
 
-call example\arrow_example.exe
+call example\arrow-example.exe

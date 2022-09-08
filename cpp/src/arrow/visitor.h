@@ -23,6 +23,10 @@
 
 namespace arrow {
 
+/// \brief Abstract array visitor class
+///
+/// Subclass this to create a visitor that can be used with the Array::Accept()
+/// method.
 class ARROW_EXPORT ArrayVisitor {
  public:
   virtual ~ArrayVisitor() = default;
@@ -51,6 +55,7 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const Time64Array& array);
   virtual Status Visit(const TimestampArray& array);
   virtual Status Visit(const DayTimeIntervalArray& array);
+  virtual Status Visit(const MonthDayNanoIntervalArray& array);
   virtual Status Visit(const MonthIntervalArray& array);
   virtual Status Visit(const DurationArray& array);
   virtual Status Visit(const Decimal128Array& array);
@@ -66,6 +71,10 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const ExtensionArray& array);
 };
 
+/// \brief Abstract type visitor class
+///
+/// Subclass this to create a visitor that can be used with the DataType::Accept()
+/// method.
 class ARROW_EXPORT TypeVisitor {
  public:
   virtual ~TypeVisitor() = default;
@@ -93,6 +102,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const Time32Type& type);
   virtual Status Visit(const Time64Type& type);
   virtual Status Visit(const TimestampType& type);
+  virtual Status Visit(const MonthDayNanoIntervalType& type);
   virtual Status Visit(const MonthIntervalType& type);
   virtual Status Visit(const DayTimeIntervalType& type);
   virtual Status Visit(const DurationType& type);
@@ -109,6 +119,10 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const ExtensionType& type);
 };
 
+/// \brief Abstract scalar visitor class
+///
+/// Subclass this to create a visitor that can be used with the Scalar::Accept()
+/// method.
 class ARROW_EXPORT ScalarVisitor {
  public:
   virtual ~ScalarVisitor() = default;
@@ -137,6 +151,7 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const Time64Scalar& scalar);
   virtual Status Visit(const TimestampScalar& scalar);
   virtual Status Visit(const DayTimeIntervalScalar& scalar);
+  virtual Status Visit(const MonthDayNanoIntervalScalar& type);
   virtual Status Visit(const MonthIntervalScalar& scalar);
   virtual Status Visit(const DurationScalar& scalar);
   virtual Status Visit(const Decimal128Scalar& scalar);
@@ -147,6 +162,9 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const FixedSizeListScalar& scalar);
   virtual Status Visit(const StructScalar& scalar);
   virtual Status Visit(const DictionaryScalar& scalar);
+  virtual Status Visit(const SparseUnionScalar& scalar);
+  virtual Status Visit(const DenseUnionScalar& scalar);
+  virtual Status Visit(const ExtensionScalar& scalar);
 };
 
 }  // namespace arrow

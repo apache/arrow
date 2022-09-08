@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/type.h>
 
 // [[arrow::export]]
@@ -52,5 +51,3 @@ bool Field__nullable(const std::shared_ptr<arrow::Field>& field) {
 std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field) {
   return field->type();
 }
-
-#endif

@@ -35,6 +35,8 @@ enum class InferKind {
   Time,
   Timestamp,
   TimestampNS,
+  TimestampWithZone,
+  TimestampWithZoneNS,
   TextDict,
   BinaryDict,
   Text,
@@ -67,6 +69,10 @@ class InferStatus {
       case InferKind::Timestamp:
         return SetKind(InferKind::TimestampNS);
       case InferKind::TimestampNS:
+        return SetKind(InferKind::TimestampWithZone);
+      case InferKind::TimestampWithZone:
+        return SetKind(InferKind::TimestampWithZoneNS);
+      case InferKind::TimestampWithZoneNS:
         return SetKind(InferKind::Real);
       case InferKind::Real:
         if (options_.auto_dict_encode) {
@@ -123,6 +129,10 @@ class InferStatus {
         return make_converter(timestamp(TimeUnit::SECOND));
       case InferKind::TimestampNS:
         return make_converter(timestamp(TimeUnit::NANO));
+      case InferKind::TimestampWithZone:
+        return make_converter(timestamp(TimeUnit::SECOND, "UTC"));
+      case InferKind::TimestampWithZoneNS:
+        return make_converter(timestamp(TimeUnit::NANO, "UTC"));
       case InferKind::Real:
         return make_converter(float64());
       case InferKind::Text:

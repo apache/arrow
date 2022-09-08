@@ -44,7 +44,7 @@
 #'   you encounter one that `arrow` should support. Also, the following options are
 #'   supported. From [CsvReadOptions]:
 #'   * `skip_rows`
-#'   * `column_names`
+#'   * `column_names`. Note that if a [Schema] is specified, `column_names` must match those specified in the schema.
 #'   * `autogenerate_column_names`
 #'   From [CsvFragmentScanOptions] (these values can be overridden at scan time):
 #'   * `convert_options`: a [CsvConvertOptions]
@@ -74,12 +74,12 @@ FileFormat <- R6Class("FileFormat",
     type = function() dataset___FileFormat__type_name(self)
   )
 )
-FileFormat$create <- function(format, ...) {
+FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(...)
+    CsvFileFormat$create(schema = schema, ...)
   } else if (format == c("tsv")) {
-    CsvFileFormat$create(delimiter = "\t", ...)
+    CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
@@ -118,28 +118,82 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
+CsvFileFormat$create <- function(...,
+                                 opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+  check_csv_file_format_args(...)
+  # Evaluate opts first to catch any unsupported arguments
+  force(opts)
+
+  options <- list(...)
+  schema <- options[["schema"]]
+
+  column_names <- read_options$column_names
+  schema_names <- names(schema)
+
+  if (!is.null(schema) && !identical(schema_names, column_names)) {
+    missing_from_schema <- setdiff(column_names, schema_names)
+    missing_from_colnames <- setdiff(schema_names, column_names)
+    message_colnames <- NULL
+    message_schema <- NULL
+    message_order <- NULL
+
+    if (length(missing_from_colnames) > 0) {
+      message_colnames <- paste(
+        oxford_paste(missing_from_colnames, quote_symbol = "`"),
+        "not present in `column_names`"
+      )
+    }
+
+    if (length(missing_from_schema) > 0) {
+      message_schema <- paste(
+        oxford_paste(missing_from_schema, quote_symbol = "`"),
+        "not present in `schema`"
+      )
+    }
+
+    if (length(missing_from_schema) == 0 && length(missing_from_colnames) == 0) {
+      message_order <- "`column_names` and `schema` field names match but are not in the same order"
+    }
+
+    abort(
+      c(
+        "Values in `column_names` must match `schema` field names",
+        x = message_order,
+        x = message_schema,
+        x = message_colnames
+      )
+    )
+  }
+
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
-# Support both readr-style option names and Arrow C++ option names
-csv_file_format_parse_options <- function(...) {
+# Check all arguments are valid
+check_csv_file_format_args <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
-  convert_opts <- names(formals(CsvConvertOptions$create))
-  read_opts <- names(formals(CsvReadOptions$create))
-  opts[convert_opts] <- NULL
-  opts[read_opts] <- NULL
+  convert_opts <- c(names(formals(CsvConvertOptions$create)))
+
+  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
+
+  # We only currently support all of the readr options for parseoptions
+  parse_opts <- c(
+    names(formals(CsvParseOptions$create)),
+    names(formals(readr_to_csv_parse_options))
+  )
+
   opt_names <- names(opts)
+
   # Catch any readr-style options specified with full option names that are
   # supported by read_delim_arrow() (and its wrappers) but are not yet
   # supported here
   unsup_readr_opts <- setdiff(
     names(formals(read_delim_arrow)),
-    names(formals(readr_to_csv_parse_options))
+    c(convert_opts, read_opts, parse_opts, "schema")
   )
+
   is_unsup_opt <- opt_names %in% unsup_readr_opts
   unsup_opts <- opt_names[is_unsup_opt]
   if (length(unsup_opts)) {
@@ -152,10 +206,20 @@ csv_file_format_parse_options <- function(...) {
       call. = FALSE
     )
   }
+
   # Catch any options with full or partial names that do not match any of the
   # recognized Arrow C++ option names or readr-style option names
-  arrow_opts <- names(formals(CsvParseOptions$create))
-  readr_opts <- names(formals(readr_to_csv_parse_options))
+  arrow_opts <- c(
+    names(formals(CsvParseOptions$create)),
+    names(formals(CsvReadOptions$create)),
+    names(formals(CsvConvertOptions$create)),
+    "schema"
+  )
+
+  readr_opts <- c(
+    names(formals(readr_to_csv_parse_options))
+  )
+
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
   is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
   unrec_opts <- opt_names[!is_arrow_opt & !is_readr_opt]
@@ -168,6 +232,25 @@ csv_file_format_parse_options <- function(...) {
       call. = FALSE
     )
   }
+}
+
+# Support both readr-style option names and Arrow C++ option names
+csv_file_format_parse_options <- function(...) {
+  opts <- list(...)
+  # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
+  convert_opts <- names(formals(CsvConvertOptions$create))
+  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
+  opts[convert_opts] <- NULL
+  opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
+  opt_names <- names(opts)
+
+  arrow_opts <- c(names(formals(CsvParseOptions$create)))
+  readr_opts <- c(names(formals(readr_to_csv_parse_options)))
+
+  is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
+  is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
+
   # Catch options with ambiguous partial names (such as "del") that make it
   # unclear whether the user is specifying Arrow C++ options ("delimiter") or
   # readr-style options ("delim")
@@ -182,6 +265,7 @@ csv_file_format_parse_options <- function(...) {
       call. = FALSE
     )
   }
+
   if (any(is_readr_opt)) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
     # readr-style options
@@ -201,14 +285,15 @@ csv_file_format_convert_opts <- function(...) {
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
-  read_opts <- names(formals(CsvReadOptions$create))
+  read_opts <- c(names(formals(CsvReadOptions$create)), "skip")
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[read_opts] <- NULL
+  opts[["schema"]] <- NULL
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_opts <- function(...) {
+csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -217,6 +302,9 @@ csv_file_format_read_opts <- function(...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
+  if (!is.null(schema) && is.null(opts[["column_names"]])) {
+    opts[["column_names"]] <- names(schema)
+  }
   do.call(CsvReadOptions$create, opts)
 }
 
@@ -291,7 +379,7 @@ CsvFragmentScanOptions$create <- function(...,
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
 ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               buffer_size = 8196,
-                                              pre_buffer = FALSE) {
+                                              pre_buffer = TRUE) {
   dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
 }
 
@@ -302,15 +390,57 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
-    update = function(table, ...) {
+    update = function(column_names, ...) {
+      check_additional_args <- function(format, passed_args) {
+        if (format == "parquet") {
+          supported_args <- names(formals(write_parquet))
+          supported_args <- supported_args[supported_args != c("x", "sink")]
+        } else if (format == "ipc") {
+          supported_args <- c(
+            "use_legacy_format",
+            "metadata_version",
+            "codec",
+            "null_fallback"
+          )
+        } else if (format == "csv") {
+          supported_args <- names(formals(CsvWriteOptions$create))
+        }
+
+        unsupported_passed_args <- setdiff(passed_args, supported_args)
+
+        if (length(unsupported_passed_args) > 0) {
+          err_header <- paste0(
+            oxford_paste(unsupported_passed_args, quote_symbol = "`"),
+            ngettext(
+              length(unsupported_passed_args),
+              " is not a valid argument ",
+              " are not valid arguments "
+            ),
+            "for your chosen `format`."
+          )
+          err_info <- NULL
+          arg_info <- paste0(
+            "Supported arguments: ",
+            oxford_paste(supported_args, quote_symbol = "`"),
+            "."
+          )
+          if ("compression" %in% unsupported_passed_args) {
+            err_info <- "You could try using `codec` instead of `compression`."
+          }
+          abort(c(err_header, i = err_info, i = arg_info))
+        }
+      }
+
+      args <- list(...)
+      check_additional_args(self$type, names(args))
+
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
-          ParquetWriterProperties$create(table, ...),
+          ParquetWriterProperties$create(column_names, ...),
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {
-        args <- list(...)
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
             self,

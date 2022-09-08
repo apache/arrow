@@ -14,18 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-stream-to-file"
+package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/arrio"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/arrow/arrio"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func processStream(w *os.File, r io.Reader) error {
 
 	rr, err := ipc.NewReader(r, ipc.WithAllocator(mem))
 	if err != nil {
-		if xerrors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -53,18 +54,18 @@ func processStream(w *os.File, r io.Reader) error {
 
 	ww, err := ipc.NewFileWriter(w, ipc.WithAllocator(mem), ipc.WithSchema(rr.Schema()))
 	if err != nil {
-		return xerrors.Errorf("could not create ARROW file writer: %w", err)
+		return fmt.Errorf("could not create ARROW file writer: %w", err)
 	}
 	defer ww.Close()
 
 	_, err = arrio.Copy(ww, rr)
 	if err != nil {
-		return xerrors.Errorf("could not copy ARROW stream: %w", err)
+		return fmt.Errorf("could not copy ARROW stream: %w", err)
 	}
 
 	err = ww.Close()
 	if err != nil {
-		return xerrors.Errorf("could not close output ARROW file: %w", err)
+		return fmt.Errorf("could not close output ARROW file: %w", err)
 	}
 
 	return nil

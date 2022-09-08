@@ -111,6 +111,33 @@
 #endif
 
 /**
+ * GARROW_VERSION_9_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 9.0.0
+ */
+#define GARROW_VERSION_9_0 G_ENCODE_VERSION(9, 0)
+
+/**
+ * GARROW_VERSION_8_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 8.0.0
+ */
+#define GARROW_VERSION_8_0 G_ENCODE_VERSION(8, 0)
+
+/**
+ * GARROW_VERSION_7_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 7.0.0
+ */
+#define GARROW_VERSION_7_0 G_ENCODE_VERSION(7, 0)
+
+/**
  * GARROW_VERSION_6_0:
  *
  * You can use this macro value for compile time API version check.
@@ -273,6 +300,48 @@
 
 
 #define GARROW_AVAILABLE_IN_ALL
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_9_0
+#  define GARROW_DEPRECATED_IN_9_0                GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_9_0_FOR(function)  GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_9_0
+#  define GARROW_DEPRECATED_IN_9_0_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_9_0
+#  define GARROW_AVAILABLE_IN_9_0 GARROW_UNAVAILABLE(9, 0)
+#else
+#  define GARROW_AVAILABLE_IN_9_0
+#endif
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_8_0
+#  define GARROW_DEPRECATED_IN_8_0                GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_8_0_FOR(function)  GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_8_0
+#  define GARROW_DEPRECATED_IN_8_0_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_8_0
+#  define GARROW_AVAILABLE_IN_8_0 GARROW_UNAVAILABLE(8, 0)
+#else
+#  define GARROW_AVAILABLE_IN_8_0
+#endif
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_7_0
+#  define GARROW_DEPRECATED_IN_7_0                GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_7_0_FOR(function)  GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_7_0
+#  define GARROW_DEPRECATED_IN_7_0_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_7_0
+#  define GARROW_AVAILABLE_IN_7_0 GARROW_UNAVAILABLE(7, 0)
+#else
+#  define GARROW_AVAILABLE_IN_7_0
+#endif
 
 #if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_6_0
 #  define GARROW_DEPRECATED_IN_6_0                GARROW_DEPRECATED

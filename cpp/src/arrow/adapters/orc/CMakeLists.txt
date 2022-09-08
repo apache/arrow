@@ -20,7 +20,8 @@
 #
 
 # Headers: top level
-install(FILES adapter.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")
+install(FILES adapter.h options.h
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")
 
 # pkg-config support
 arrow_add_pkg_config("arrow-orc")
@@ -28,7 +29,7 @@ arrow_add_pkg_config("arrow-orc")
 set(ORC_MIN_TEST_LIBS
     GTest::gtest_main
     GTest::gtest
-    Snappy::snappy
+    ${Snappy_TARGET}
     LZ4::lz4
     ZLIB::ZLIB)
 

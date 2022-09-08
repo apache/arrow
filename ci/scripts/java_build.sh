@@ -18,10 +18,16 @@
 
 set -ex
 
+if [[ "${ARROW_JAVA_BUILD:-ON}" != "ON" ]]; then
+  exit
+fi
+
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-with_docs=${3:-false}
+build_dir=${2}
+java_jni_dist_dir=${3}
+
+: ${BUILD_DOCS_JAVA:=OFF}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
@@ -33,46 +39,39 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
-  ver="3.7.1"
+  ver="21.2"
   classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${classifier}.${extension}
+  # target=${artifact}-${ver}-${classifier}.${extension}
+  target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-  # protoc requires libprotoc.so.18 libprotobuf.so.18
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.18
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.18
+  # protoc requires libprotoc.so.* libprotobuf.so.*
+  libver="32"
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.${libver}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.${libver}
   mkdir -p ${ARROW_HOME}/lib
-  cp lib*.so.18 ${ARROW_HOME}/lib
+  cp lib*.so.${libver} ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
   artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
-  ver="1.30.2"
+  ver="1.47.0"
   classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-
-  artifactory_dir="netty-binary"
-  group="io.netty"
-  artifact="netty-transport-native-unix-common"
-  ver="4.1.48.Final"
-  classifier="linux-s390_64"
-  extension="jar"
-  target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-  artifact="netty-transport-native-epoll"
-  extension="jar"
-  target=${artifact}-${ver}-${classifier}.${extension}
+  # target=${artifact}-${ver}-${classifier}.${extension}
+  target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
+if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
+  mvn="${mvn} -Dmaven.gitcommitid.skip=true"
+fi
+
 # Use `2 * ncores` threads
 mvn="${mvn} -T 2C"
 
@@ -84,8 +83,12 @@ if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   ${mvn} -Pshade-flatbuffers install
 fi
 
+if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
+  ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
+fi
+
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
-  ${mvn} -Darrow.cpp.build.dir=${cpp_build_dir} -Parrow-jni install
+  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
@@ -94,9 +97,11 @@ if [ "${ARROW_PLASMA}" = "ON" ]; then
   popd
 fi
 
-if [ "${with_docs}" == "true" ]; then
+if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
+  mkdir -p ${build_dir}/docs/java/reference
   ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
+  rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
 popd

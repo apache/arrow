@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flatbuf.Endianness;
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
@@ -75,6 +77,7 @@ public class Schema {
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
   private static final ObjectReader reader = mapper.readerFor(Schema.class);
+  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   public static Schema fromJSON(String json) throws IOException {
     return reader.readValue(Preconditions.checkNotNull(json));
@@ -97,7 +100,7 @@ public class Schema {
       String value = kv.value();
       metadata.put(key == null ? "" : key, value == null ? "" : value);
     }
-    return new Schema(Collections2.immutableListCopy(fields), Collections2.immutableMapCopy(metadata));
+    return new Schema(true, Collections.unmodifiableList(fields), Collections.unmodifiableMap(metadata));
   }
 
   private final List<Field> fields;
@@ -112,13 +115,11 @@ public class Schema {
    */
   public Schema(Iterable<Field> fields,
                 Map<String, String> metadata) {
-    List<Field> fieldList = new ArrayList<>();
-    for (Field field : fields) {
-      fieldList.add(field);
-    }
-    this.fields = Collections2.immutableListCopy(fieldList);
-    this.metadata = metadata == null ? Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+    this(true,
+        Collections2.toImmutableList(fields),
+        metadata == null ? Collections.emptyMap() : Collections2.immutableMapCopy(metadata));
   }
+
 
   /**
    * Constructor used for JSON deserialization.
@@ -126,13 +127,18 @@ public class Schema {
   @JsonCreator
   private Schema(@JsonProperty("fields") Iterable<Field> fields,
                 @JsonProperty("metadata") List<Map<String, String>> metadata) {
-    List<Field> fieldList = new ArrayList<>();
-    for (Field field : fields) {
-      fieldList.add(field);
-    }
-    this.fields = Collections2.immutableListCopy(fieldList);
-    this.metadata = metadata == null ?
-        Collections.emptyMap() : Collections2.immutableMapCopy(convertMetadata(metadata));
+    this(fields, convertMetadata(metadata));
+  }
+
+
+  /**
+   * Private constructor to bypass automatic collection copy.
+   * @param unsafe a ignored argument. Its only purpose is to prevent using the constructor
+   *     by accident because of type collisions (List vs Iterable).
+   */
+  private Schema(boolean unsafe, List<Field> fields, Map<String, String> metadata) {
+    this.fields = fields;
+    this.metadata = metadata;
   }
 
   static Map<String, String> convertMetadata(List<Map<String, String>> metadata) {
@@ -204,6 +210,8 @@ public class Schema {
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
     int metadataOffset = FBSerializables.writeKeyValues(builder, metadata);
     org.apache.arrow.flatbuf.Schema.startSchema(builder);
+    org.apache.arrow.flatbuf.Schema.addEndianness(builder,
+        (LITTLE_ENDIAN ? Endianness.Little : Endianness.Big));
     org.apache.arrow.flatbuf.Schema.addFields(builder, fieldsOffset);
     org.apache.arrow.flatbuf.Schema.addCustomMetadata(builder, metadataOffset);
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Buffer")
-
 test_that("Buffer can be created from raw vector", {
   vec <- raw(123)
   buf <- buffer(vec)

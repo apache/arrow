@@ -30,6 +30,8 @@ here = os.path.dirname(os.path.abspath(__file__))
 test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
 if os.name == 'posix':
     compiler_opts = ['-std=c++11']
+elif os.name == 'nt':
+    compiler_opts = ['-D_ENABLE_EXTENDED_ALIGNED_STORAGE']
 else:
     compiler_opts = []
 
@@ -79,6 +81,8 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="ARROW-17172: currently fails on windows")
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """
@@ -136,7 +140,6 @@ def test_cython_api(tmpdir):
         subprocess_env[var] = delim.join(
             pa.get_library_dirs() + [subprocess_env.get(var, '')]
         )
-
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)

@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_vector.h"
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -39,8 +41,12 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace internal {
+
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
+using compute::NullPlacement;
+using compute::RankOptions;
+
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
     : BasicEnumTraits<FilterOptions::NullSelectionBehavior, FilterOptions::DROP,
@@ -71,6 +77,40 @@ struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     return "<INVALID>";
   }
 };
+template <>
+struct EnumTraits<NullPlacement>
+    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
+  static std::string name() { return "NullPlacement"; }
+  static std::string value_name(NullPlacement value) {
+    switch (value) {
+      case NullPlacement::AtStart:
+        return "AtStart";
+      case NullPlacement::AtEnd:
+        return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<RankOptions::Tiebreaker>
+    : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
+                      RankOptions::First, RankOptions::Dense> {
+  static std::string name() { return "Tiebreaker"; }
+  static std::string value_name(RankOptions::Tiebreaker value) {
+    switch (value) {
+      case RankOptions::Min:
+        return "Min";
+      case RankOptions::Max:
+        return "Max";
+      case RankOptions::First:
+        return "First";
+      case RankOptions::Dense:
+        return "Dense";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -79,11 +119,11 @@ namespace compute {
 // Function options
 
 bool SortKey::Equals(const SortKey& other) const {
-  return name == other.name && order == other.order;
+  return target == other.target && order == other.order;
 }
 std::string SortKey::ToString() const {
   std::stringstream ss;
-  ss << name << ' ';
+  ss << target.ToString() << ' ';
   switch (order) {
     case SortOrder::Ascending:
       ss << "ASC";
@@ -106,11 +146,25 @@ static auto kDictionaryEncodeOptionsType =
     GetFunctionOptionsType<DictionaryEncodeOptions>(DataMember(
         "null_encoding_behavior", &DictionaryEncodeOptions::null_encoding_behavior));
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
-    DataMember("order", &ArraySortOptions::order));
-static auto kSortOptionsType =
-    GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
+    DataMember("order", &ArraySortOptions::order),
+    DataMember("null_placement", &ArraySortOptions::null_placement));
+static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
+    DataMember("sort_keys", &SortOptions::sort_keys),
+    DataMember("null_placement", &SortOptions::null_placement));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
-    DataMember("pivot", &PartitionNthOptions::pivot));
+    DataMember("pivot", &PartitionNthOptions::pivot),
+    DataMember("null_placement", &PartitionNthOptions::null_placement));
+static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
+    DataMember("k", &SelectKOptions::k),
+    DataMember("sort_keys", &SelectKOptions::sort_keys));
+static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
+    DataMember("start", &CumulativeSumOptions::start),
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
+    DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
+    DataMember("sort_keys", &RankOptions::sort_keys),
+    DataMember("null_placement", &RankOptions::null_placement),
+    DataMember("tiebreaker", &RankOptions::tiebreaker));
 }  // namespace
 }  // namespace internal
 
@@ -128,17 +182,49 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
 
-ArraySortOptions::ArraySortOptions(SortOrder order)
-    : FunctionOptions(internal::kArraySortOptionsType), order(order) {}
+ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement)
+    : FunctionOptions(internal::kArraySortOptionsType),
+      order(order),
+      null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys)
-    : FunctionOptions(internal::kSortOptionsType), sort_keys(std::move(sort_keys)) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement) {}
 constexpr char SortOptions::kTypeName[];
 
-PartitionNthOptions::PartitionNthOptions(int64_t pivot)
-    : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
+PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
+    : FunctionOptions(internal::kPartitionNthOptionsType),
+      pivot(pivot),
+      null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
+
+SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSelectKOptionsType),
+      k(k),
+      sort_keys(std::move(sort_keys)) {}
+constexpr char SelectKOptions::kTypeName[];
+
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
+                                           bool check_overflow)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
+                           check_overflow) {}
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
+                                           bool check_overflow)
+    : FunctionOptions(internal::kCumulativeSumOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls),
+      check_overflow(check_overflow) {}
+constexpr char CumulativeSumOptions::kTypeName[];
+
+RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
+                         RankOptions::Tiebreaker tiebreaker)
+    : FunctionOptions(internal::kRankOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement),
+      tiebreaker(tiebreaker) {}
+constexpr char RankOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -148,11 +234,22 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }
 }  // namespace internal
 
 // ----------------------------------------------------------------------
 // Direct exec interface to kernels
+
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values,
+                                            const PartitionNthOptions& options,
+                                            ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("partition_nth_indices",
+                                                   {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
 
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx) {
@@ -162,9 +259,33 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
+                                               ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("select_k_unstable", {datum}, &options, ctx));
+  return result.make_array();
+}
+
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx) {
   return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
+}
+
+Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx) {
+  return CallFunction("fill_null_forward", {values}, ctx);
+}
+
+Result<Datum> FillNullBackward(const Datum& values, ExecContext* ctx) {
+  return CallFunction("fill_null_backward", {values}, ctx);
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const Array& values,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("array_sort_indices", {Datum(values)}, &options, ctx));
+  return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
@@ -176,11 +297,17 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
-                                           SortOrder order, ExecContext* ctx) {
-  SortOptions options({SortKey("not-used", order)});
+                                           const ArraySortOptions& array_options,
+                                           ExecContext* ctx) {
+  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
   return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
+                                           SortOrder order, ExecContext* ctx) {
+  return SortIndices(chunked_array, ArraySortOptions(order), ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
@@ -220,11 +347,11 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
   return CallFunction("filter", {values, filter}, &options, ctx);
 }
 
-Result<Datum> Take(const Datum& values, const Datum& filter, const TakeOptions& options,
+Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
                    ExecContext* ctx) {
   // Invoke metafunction which deals with Datum kinds other than just Array,
   // ChunkedArray.
-  return CallFunction("take", {values, filter}, &options, ctx);
+  return CallFunction("take", {values, indices}, &options, ctx);
 }
 
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
@@ -245,6 +372,15 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx) {
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum out, DropNull(Datum(values), ctx));
   return out.make_array();
+}
+
+// ----------------------------------------------------------------------
+// Cumulative functions
+
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
+                            ExecContext* ctx) {
+  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

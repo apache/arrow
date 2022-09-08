@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "json"
 require "open-uri"
 require "time"
 
@@ -100,14 +101,18 @@ class PackageTask
     unless File.exist?(absolute_output_path)
       mkdir_p(File.dirname(absolute_output_path))
       rake_output_message "Downloading... #{url}"
-      URI(url).open do |downloaded_file|
+      open_url(url) do |downloaded_file|
         File.open(absolute_output_path, "wb") do |output_file|
-          output_file.print(downloaded_file.read)
+          IO.copy_stream(downloaded_file, output_file)
         end
       end
     end
 
     absolute_output_path
+  end
+
+  def open_url(url, &block)
+    URI(url).open(&block)
   end
 
   def substitute_content(content)
@@ -169,9 +174,24 @@ class PackageTask
       docker_context = id
     else
       from = File.readlines(File.join(id, "from")).find do |line|
-        /^[a-z]/i =~ line
+        /^[a-z-]/i =~ line
       end
-      build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
+      from_components = from.chomp.split
+      from = from_components.pop
+      build_arguments = from_components
+      case build_arguments
+      when ["--platform=linux/arm64"]
+        docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+        case docker_info["Architecture"]
+        when "aarch64"
+          # Do nothing
+        else
+          # docker build ... -> docker buildx build ...
+          build_command_line[1, 0] = "buildx"
+          build_command_line.concat(build_arguments)
+        end
+      end
+      build_command_line.concat(["--build-arg", "FROM=#{from}"])
       docker_context = os
     end
     build_command_line.concat(docker_build_options(os, architecture))
@@ -232,6 +252,8 @@ class PackageTask
     components = target.split("-")
     if components[0, 2] == ["amazon", "linux"]
       components[0, 2] = components[0, 2].join("-")
+    elsif components.values_at(0, 2) == ["centos", "stream"]
+      components[1, 2] = components[1, 2].join("-")
     end
     if components.size >= 3
       components[2..-1] = components[2..-1].join("-")
@@ -258,16 +280,16 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-hirsute",
-      # "ubuntu-hirsute-arm64",
+      "ubuntu-jammy",
+      # "ubuntu-jammy-arm64",
     ]
   end
 
@@ -402,12 +424,18 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-9",
+      # "almalinux-9-arch64",
+      "almalinux-8",
+      # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
+      "centos-9-stream",
+      # "centos-9-stream-aarch64",
+      "centos-8-stream",
+      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
-      "centos-8",
-      # "centos-8-aarch64",
     ]
   end
 

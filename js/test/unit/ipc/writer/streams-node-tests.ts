@@ -15,39 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../../data/tables';
-
-import { from, as } from 'ix/asynciterable';
-import { tap, flatMap } from 'ix/asynciterable/operators';
+import { as, from } from 'ix/asynciterable';
+import { flatMap, tap } from 'ix/asynciterable/operators';
 import 'ix/Ix.node';
 
-import {
-    Table,
-    RecordBatchReader,
-    RecordBatchWriter,
-    RecordBatchFileWriter,
-    RecordBatchJSONWriter,
-    RecordBatchStreamWriter,
-} from 'apache-arrow';
-
+import { generateRandomTables } from '../../../data/tables.js';
 import {
     ArrowIOTestHelper,
     concatBuffersAsync
-} from '../helpers';
+} from '../helpers.js';
+import {
+    validateAsyncRecordBatchReader,
+    validateRecordBatchAsyncIterator, validateRecordBatchReader
+} from '../validate.js';
 
 import {
-    validateRecordBatchReader,
-    validateAsyncRecordBatchReader,
-    validateRecordBatchAsyncIterator
-} from '../validate';
+    RecordBatchFileWriter,
+    RecordBatchJSONWriter,
+    RecordBatchReader,
+    RecordBatchStreamWriter,
+    RecordBatchWriter,
+    Table
+} from 'apache-arrow';
 
 (() => {
 
     if (process.env.TEST_NODE_STREAMS !== 'true') {
-        return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
+        return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => { });
     }
 
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -110,7 +104,7 @@ import {
                 test('Promise<Uint8Array>', json.buffer((source) => validate(Promise.resolve(toJSON(source)))));
 
                 async function validate(source: { schema: any } | Promise<{ schema: any }>) {
-                    const reader = await RecordBatchReader.from(<any> source);
+                    const reader = await RecordBatchReader.from(<any>source);
                     const writer = await RecordBatchJSONWriter.writeAll(reader);
                     const buffer = await concatBuffersAsync(writer.toNodeStream());
                     validateRecordBatchReader('json', 3, RecordBatchReader.from(toJSON(buffer)));
@@ -240,7 +234,7 @@ import {
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
-                const streamTable = await Table.from(reader);
+                const streamTable = new Table(await reader.readAll());
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
@@ -256,12 +250,12 @@ import {
             const stream = from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
                 .pipe(tap({ async next(table: Table) { tables.push(table); await sleep(1); } }))
-                .pipe(flatMap((table) => as(table.chunks)))
+                .pipe(flatMap((table) => as(table.batches)))
                 .pipe(writer);
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
-                const streamTable = await Table.from(reader);
+                const streamTable = new Table(await reader.readAll());
                 expect(streamTable).toEqualTable(sourceTable);
             }
 

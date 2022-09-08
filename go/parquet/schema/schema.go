@@ -35,8 +35,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/parquet"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -207,6 +207,12 @@ func (s *Schema) UpdateColumnOrders(orders []parquet.ColumnOrder) error {
 	visitor := schemaColumnOrderUpdater{orders, 0}
 	s.root.Visit(&visitor)
 	return nil
+}
+
+func (s *Schema) String() string {
+	var b strings.Builder
+	PrintSchema(s.root, &b, 2)
+	return b.String()
 }
 
 // NewSchema constructs a new Schema object from a root group node.

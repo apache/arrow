@@ -201,6 +201,11 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
               const std::shared_ptr<Array>& unconverted) override {
     std::unique_lock<std::mutex> lock(mutex_);
 
+    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
+      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
+      offset_chunks_.resize(null_bitmap_chunks_.size(), nullptr);
+    }
+
     if (unconverted->type_id() == Type::NA) {
       auto st = InsertNull(block_index, unconverted->length());
       if (!st.ok()) {
@@ -212,10 +217,6 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
     DCHECK_EQ(unconverted->type_id(), Type::LIST);
     const auto& list_array = checked_cast<const ListArray&>(*unconverted);
 
-    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
-      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
-      offset_chunks_.resize(null_bitmap_chunks_.size(), nullptr);
-    }
     null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
     offset_chunks_[block_index] = list_array.value_offsets();
 

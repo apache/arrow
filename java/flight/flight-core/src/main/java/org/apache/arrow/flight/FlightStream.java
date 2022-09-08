@@ -399,6 +399,14 @@ public class FlightStream implements AutoCloseable {
         }
         case SCHEMA: {
           Schema schema = msg.asSchema();
+          
+          // if there is app metadata in the schema message, make sure
+          // that we don't leak it.
+          ArrowBuf meta = msg.getApplicationMetadata();
+          if (meta != null) {
+            meta.close();
+          }
+
           final List<Field> fields = new ArrayList<>();
           final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
           for (final Field originalField : schema.getFields()) {
@@ -419,7 +427,7 @@ public class FlightStream implements AutoCloseable {
           }
 
           synchronized (completed) {
-            if (!completed.isDone()) {
+            if (!completed.isDone()) {              
               fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
               loader = new VectorLoader(fulfilledRoot);
               if (msg.getDescriptor() != null) {

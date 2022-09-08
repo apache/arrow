@@ -286,9 +286,11 @@ garrow_cuda_buffer_new(GArrowCUDAContext *context,
                        GError **error)
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
-  auto arrow_buffer = arrow_context->Allocate(size);
-  if (garrow::check(error, arrow_buffer, "[cuda][buffer][new]")) {
-    return garrow_cuda_buffer_new_raw(&(*arrow_buffer));
+  auto arrow_buffer_result = arrow_context->Allocate(size);
+  if (garrow::check(error, arrow_buffer_result, "[cuda][buffer][new]")) {
+    std::shared_ptr<arrow::cuda::CudaBuffer> arrow_buffer =
+        std::move(*arrow_buffer_result);
+    return garrow_cuda_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;
   }

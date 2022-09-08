@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("S3 tests using local minio")
 
 if (arrow_with_s3() && process_is_running("minio server")) {
   # Get minio config, with expected defaults
@@ -30,20 +29,25 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   }
   minio_path <- function(...) paste(now, ..., sep = "/")
 
-  test_that("minio setup", {
-    # Create a "bucket" on minio for this test run, which we'll delete when done.
-    fs <- S3FileSystem$create(
-      access_key = minio_key,
-      secret_key = minio_secret,
-      scheme = "http",
-      endpoint_override = paste0("localhost:", minio_port)
-    )
-    expect_r6_class(fs, "S3FileSystem")
-    now <- as.character(as.numeric(Sys.time()))
-    # If minio isn't running, this will hang for a few seconds and fail with a
-    # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
-    fs$CreateDir(now)
-  })
+  # Create a "bucket" on minio for this test run, which we'll delete when done.
+  fs <- S3FileSystem$create(
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port),
+    allow_bucket_creation = TRUE,
+    allow_bucket_deletion = TRUE
+  )
+  limited_fs <- S3FileSystem$create(
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port),
+    allow_bucket_creation = FALSE,
+    allow_bucket_deletion = FALSE
+  )
+  now <- as.character(as.numeric(Sys.time()))
+  fs$CreateDir(now)
   # Clean up when we're all done
   on.exit(fs$DeleteDir(now))
 
@@ -57,6 +61,26 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     expect_identical(
       read_feather(fs$path(minio_path("test2.feather"))),
       example_data
+    )
+  })
+
+  test_that("read/write compressed csv by filesystem", {
+    skip_if_not_available("gzip")
+    dat <- tibble(x = seq(1, 10, by = 0.2))
+    write_csv_arrow(dat, fs$path(minio_path("test.csv.gz")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv.gz"))),
+      dat
+    )
+  })
+
+  test_that("read/write csv by filesystem", {
+    skip_if_not_available("gzip")
+    dat <- tibble(x = seq(1, 10, by = 0.2))
+    write_csv_arrow(dat, fs$path(minio_path("test.csv")))
+    expect_identical(
+      read_csv_arrow(fs$path(minio_path("test.csv"))),
+      dat
     )
   })
 
@@ -86,8 +110,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     test_that("open_dataset with an S3 file (not directory) URI", {
       skip_if_not_available("parquet")
       expect_identical(
-        open_dataset(minio_uri("test.parquet")) %>% collect(),
-        example_data
+        open_dataset(minio_uri("test.parquet")) %>% collect() %>% arrange(int),
+        example_data %>% arrange(int)
       )
     })
 
@@ -96,8 +120,10 @@ if (arrow_with_s3() && process_is_running("minio server")) {
         open_dataset(
           c(minio_uri("test.feather"), minio_uri("test2.feather")),
           format = "feather"
-        ) %>% collect(),
-        rbind(example_data, example_data)
+        ) %>%
+          arrange(int) %>%
+          collect(),
+        rbind(example_data, example_data) %>% arrange(int)
       )
     })
 
@@ -153,8 +179,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     test_that("open_dataset with fs", {
       ds <- open_dataset(fs$path(minio_path("hive_dir")))
       expect_identical(
-        ds %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
     })
 
@@ -164,22 +190,30 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
     })
 
+    test_that("CreateDir fails on bucket if allow_bucket_creation=False", {
+      now_tmp <- paste0(now, "-test-fail-delete")
+      fs$CreateDir(now_tmp)
+
+      expect_error(limited_fs$CreateDir("should-fail"))
+      expect_error(limited_fs$DeleteDir(now_tmp))
+    })
+
     test_that("Let's test copy_files too", {
       td <- make_temp_dir()
       copy_files(minio_uri("hive_dir"), td)
       expect_length(dir(td), 2)
       ds <- open_dataset(td)
       expect_identical(
-        ds %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
 
       # Let's copy the other way and use a SubTreeFileSystem rather than URI
       copy_files(td, fs$path(minio_path("hive_dir2")))
       ds2 <- open_dataset(fs$path(minio_path("hive_dir2")))
       expect_identical(
-        ds2 %>% select(dbl, lgl) %>% collect(),
-        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+        ds2 %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
       )
     })
   }

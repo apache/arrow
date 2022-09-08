@@ -15,12 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../schema';
-import { Builder } from '../builder';
-import { DataType, Struct } from '../type';
+/* eslint-disable unicorn/no-array-for-each */
+
+import { Field } from '../schema.js';
+import { Builder } from '../builder.js';
+import { Struct, TypeMap } from '../type.js';
 
 /** @ignore */
-export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends Builder<Struct<T>, TNull> {
+export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
+    public setValue(index: number, value: Struct<T>['TValue']) {
+        const { children, type } = this;
+        switch (Array.isArray(value) || value.constructor) {
+            case true: return type.children.forEach((_, i) => children[i].set(index, value[i]));
+            case Map: return type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
+            default: return type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+        }
+    }
+
+    /** @inheritdoc */
+    public setValid(index: number, valid: boolean) {
+        if (!super.setValid(index, valid)) {
+            this.children.forEach((child) => child.setValid(index, valid));
+        }
+        return valid;
+    }
+
     public addChild(child: Builder, name = `${this.numChildren}`) {
         const childIndex = this.children.push(child);
         this.type = new Struct([...this.type.children, new Field(name, child.type, true)]);

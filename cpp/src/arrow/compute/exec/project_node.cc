@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
+#include <sstream>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
@@ -27,6 +28,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -35,13 +37,12 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class ProjectNode : public ExecNode {
+class ProjectNode : public MapNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
-      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-                 std::move(output_schema),
-                 /*num_outputs=*/1),
+              std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs,
+              bool async_mode)
+      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         exprs_(std::move(exprs)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -63,21 +64,27 @@ class ProjectNode : public ExecNode {
     int i = 0;
     for (auto& expr : exprs) {
       if (!expr.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*inputs[0]->output_schema()));
+        ARROW_ASSIGN_OR_RAISE(
+            expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
       }
-      fields[i] = field(std::move(names[i]), expr.type());
+      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
       ++i;
     }
-
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
-                                          schema(std::move(fields)), std::move(exprs));
+                                          schema(std::move(fields)), std::move(exprs),
+                                          project_options.async_mode);
   }
 
-  const char* kind_name() override { return "ProjectNode"; }
+  const char* kind_name() const override { return "ProjectNode"; }
 
   Result<ExecBatch> DoProject(const ExecBatch& target) {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
+      util::tracing::Span span;
+      START_COMPUTE_SPAN(span, "Project",
+                         {{"project.type", exprs_[i].type()->ToString()},
+                          {"project.length", target.length},
+                          {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
@@ -88,46 +95,50 @@ class ProjectNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_projected = DoProject(std::move(batch));
-    if (ErrorIfNotOk(maybe_projected.status())) return;
-
-    maybe_projected->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
+    auto func = [this](ExecBatch batch) {
+      util::tracing::Span span;
+      START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                                     {{"project", ToStringExtra()},
+                                      {"node.label", label()},
+                                      {"batch.length", batch.length}});
+      auto result = DoProject(std::move(batch));
+      MARK_SPAN(span, result.status());
+      END_SPAN(span);
+      return result;
+    };
+    this->SubmitTask(std::move(func), std::move(batch));
   }
 
-  void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->ErrorReceived(this, std::move(error));
+ protected:
+  std::string ToStringExtra(int indent = 0) const override {
+    std::stringstream ss;
+    ss << "projection=[";
+    for (int i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {
+      if (i > 0) ss << ", ";
+      auto repr = exprs_[i].ToString();
+      if (repr != output_schema_->field(i)->name()) {
+        ss << '"' << output_schema_->field(i)->name() << "\": ";
+      }
+      ss << repr;
+    }
+    ss << ']';
+    return ss.str();
   }
-
-  void InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, total_batches);
-  }
-
-  Status StartProducing() override { return Status::OK(); }
-
-  void PauseProducing(ExecNode* output) override {}
-
-  void ResumeProducing(ExecNode* output) override {}
-
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
-
-  Future<> finished() override { return inputs_[0]->finished(); }
 
  private:
   std::vector<Expression> exprs_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterProject("project", ProjectNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterProjectNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("project", ProjectNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

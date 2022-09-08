@@ -37,7 +37,9 @@ struct _GArrowDecimal128Class
   GObjectClass parent_class;
 };
 
-GArrowDecimal128 *garrow_decimal128_new_string(const gchar *data);
+GArrowDecimal128 *
+garrow_decimal128_new_string(const gchar *data,
+                             GError **error);
 GArrowDecimal128 *garrow_decimal128_new_integer(const gint64 data);
 GARROW_AVAILABLE_IN_3_0
 GArrowDecimal128 *garrow_decimal128_copy(GArrowDecimal128 *decimal);
@@ -99,7 +101,9 @@ struct _GArrowDecimal256Class
 };
 
 GARROW_AVAILABLE_IN_3_0
-GArrowDecimal256 *garrow_decimal256_new_string(const gchar *data);
+GArrowDecimal256 *
+garrow_decimal256_new_string(const gchar *data,
+                             GError **error);
 GARROW_AVAILABLE_IN_3_0
 GArrowDecimal256 *garrow_decimal256_new_integer(const gint64 data);
 GARROW_AVAILABLE_IN_3_0

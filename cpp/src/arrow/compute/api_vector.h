@@ -37,14 +37,14 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
-    /// the corresponding filtered value will be removed in the output
+    /// The corresponding filtered value will be removed in the output.
     DROP,
-    /// the corresponding filtered value will be null in the output
+    /// The corresponding filtered value will be null in the output.
     EMIT_NULL,
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  constexpr static char const kTypeName[] = "FilterOptions";
+  static constexpr char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -53,7 +53,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  constexpr static char const kTypeName[] = "TakeOptions";
+  static constexpr char const kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -66,29 +66,40 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
   enum NullEncodingBehavior {
-    /// the null value will be added to the dictionary with a proper index
+    /// The null value will be added to the dictionary with a proper index.
     ENCODE,
-    /// the null value will be masked in the indices array
+    /// The null value will be masked in the indices array.
     MASK
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  constexpr static char const kTypeName[] = "DictionaryEncodeOptions";
+  static constexpr char const kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
 enum class SortOrder {
+  /// Arrange values in increasing order
   Ascending,
+  /// Arrange values in decreasing order
   Descending,
+};
+
+enum class NullPlacement {
+  /// Place nulls and NaNs before any non-null values.
+  /// NaNs will come after nulls.
+  AtStart,
+  /// Place nulls and NaNs after any non-null values.
+  /// NaNs will come before nulls.
+  AtEnd,
 };
 
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
-  explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(std::move(name)), order(order) {}
+  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
+      : target(std::move(target)), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
   using util::EqualityComparable<SortKey>::operator==;
@@ -96,39 +107,143 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
 
-  /// The name of the sort column.
-  std::string name;
+  /// A FieldRef targetting the sort column.
+  FieldRef target;
   /// How to order by this sort key.
   SortOrder order;
 };
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
-  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
-  constexpr static char const kTypeName[] = "ArraySortOptions";
-  static ArraySortOptions Defaults() { return ArraySortOptions{}; }
+  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
+                            NullPlacement null_placement = NullPlacement::AtEnd);
+  static constexpr char const kTypeName[] = "ArraySortOptions";
+  static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
+  /// Sorting order
   SortOrder order;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
 };
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {});
-  constexpr static char const kTypeName[] = "SortOptions";
-  static SortOptions Defaults() { return SortOptions{}; }
+  explicit SortOptions(std::vector<SortKey> sort_keys = {},
+                       NullPlacement null_placement = NullPlacement::AtEnd);
+  static constexpr char const kTypeName[] = "SortOptions";
+  static SortOptions Defaults() { return SortOptions(); }
 
+  /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+};
+
+/// \brief SelectK options
+class ARROW_EXPORT SelectKOptions : public FunctionOptions {
+ public:
+  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
+  static constexpr char const kTypeName[] = "SelectKOptions";
+  static SelectKOptions Defaults() { return SelectKOptions(); }
+
+  static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Descending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Descending));
+    }
+    return SelectKOptions{k, keys};
+  }
+  static SelectKOptions BottomKDefault(int64_t k,
+                                       std::vector<std::string> key_names = {}) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, SortOrder::Ascending));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", SortOrder::Ascending));
+    }
+    return SelectKOptions{k, keys};
+  }
+
+  /// The number of `k` elements to keep.
+  int64_t k;
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+};
+
+/// \brief Rank options
+class ARROW_EXPORT RankOptions : public FunctionOptions {
+ public:
+  /// Configure how ties between equal values are handled
+  enum Tiebreaker {
+    /// Ties get the smallest possible rank in sorted order.
+    Min,
+    /// Ties get the largest possible rank in sorted order.
+    Max,
+    /// Ranks are assigned in order of when ties appear in the input.
+    /// This ensures the ranks are a stable permutation of the input.
+    First,
+    /// The ranks span a dense [1, M] interval where M is the number
+    /// of distinct values in the input.
+    Dense
+  };
+
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       Tiebreaker tiebreaker = RankOptions::First);
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order,
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+
+  static constexpr char const kTypeName[] = "RankOptions";
+  static RankOptions Defaults() { return RankOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+  /// Tiebreaker for dealing with equal values in ranks
+  Tiebreaker tiebreaker;
 };
 
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
-  explicit PartitionNthOptions(int64_t pivot);
+  explicit PartitionNthOptions(int64_t pivot,
+                               NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  constexpr static char const kTypeName[] = "PartitionNthOptions";
+  static constexpr char const kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
+  /// Whether nulls and NaNs are partitioned at the start or at the end
+  NullPlacement null_placement;
+};
+
+/// \brief Options for cumulative sum function
+class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+ public:
+  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
+                                bool check_overflow = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
+                                bool check_overflow = false);
+  static constexpr char const kTypeName[] = "CumulativeSumOptions";
+  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+
+  /// Optional starting value for cumulative operation computation
+  std::shared_ptr<Scalar> start;
+
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null encountered is propagated through the remaining output.
+  bool skip_nulls = false;
+
+  /// When true, returns an Invalid Status when overflow is detected
+  bool check_overflow = false;
 };
 
 /// @}
@@ -160,14 +275,14 @@ namespace internal {
 
 /// \brief Return the number of selected indices in the boolean filter
 ARROW_EXPORT
-int64_t GetFilterOutputSize(const ArrayData& filter,
+int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection);
 
 /// \brief Compute uint64 selection indices for use with Take given a boolean
 /// filter
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
-    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool = default_memory_pool());
 
 }  // namespace internal
@@ -188,6 +303,34 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
 ARROW_EXPORT
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx = NULLPTR);
+
+/// \brief FillNullForward fill null values in forward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in forward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "c", "c", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief FillNullBackward fill null values in backward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in backward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "f", "f", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullBackward(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Take from an array of values at indices in another array
 ///
@@ -234,8 +377,7 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Returns indices that partition an array around n-th
-/// sorted element.
+/// \brief Return indices that partition an array around n-th sorted element.
 ///
 /// Find index of n-th(0 based) smallest value and perform indirect
 /// partition of an array around that element. Output indices[0 ~ n-1]
@@ -252,8 +394,38 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an array in the
-/// specified order.
+/// \brief Return indices that partition an array around n-th sorted element.
+///
+/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// and the null handling.
+///
+/// \param[in] values array to be partitioned
+/// \param[in] options options including pivot index and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would partition an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values,
+                                            const PartitionNthOptions& options,
+                                            ExecContext* ctx = NULLPTR);
+
+/// \brief Return indices that would select the first `k` elements.
+///
+/// Perform an indirect sort of the datum, keeping only the first `k` elements. The output
+/// array will contain indices such that the item indicated by the k-th index will be in
+/// the position it would be if the datum were sorted by `options.sort_keys`. However,
+/// indices of null values will not be part of the output. The sort is not guaranteed to
+/// be stable.
+///
+/// \param[in] datum datum to be partitioned
+/// \param[in] options options
+/// \param[in] ctx the function execution context, optional
+/// \return a datum with the same schema as the input
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
+                                               const SelectKOptions& options,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief Return the indices that would sort an array.
 ///
 /// Perform an indirect sort of array. The output array will contain
 /// indices that would sort an array, which would be the same length
@@ -273,8 +445,21 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort a chunked array in the
-/// specified order.
+/// \brief Return the indices that would sort an array.
+///
+/// This overload takes a ArraySortOptions specifiying the sort order
+/// and the null handling.
+///
+/// \param[in] array array to sort
+/// \param[in] options options including sort order and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const Array& array,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Return the indices that would sort a chunked array.
 ///
 /// Perform an indirect sort of chunked array. The output array will
 /// contain indices that would sort a chunked array, which would be
@@ -294,14 +479,28 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an input in the
+/// \brief Return the indices that would sort a chunked array.
+///
+/// This overload takes a ArraySortOptions specifiying the sort order
+/// and the null handling.
+///
+/// \param[in] chunked_array chunked array to sort
+/// \param[in] options options including sort order and null handling
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
+                                           const ArraySortOptions& options,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Return the indices that would sort an input in the
 /// specified order. Input is one of array, chunked array record batch
 /// or table.
 ///
 /// Perform an indirect sort of input. The output array will contain
 /// indices that would sort an input, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the
-/// output regardless of order.
+/// as input. Nulls will be stably partitioned to the start or to the end
+/// of the output depending on SortOrder::null_placement.
 ///
 /// For example given input (table) = {
 /// "column1": [[null,   1], [   3, null, 2, 1]],
@@ -379,6 +578,12 @@ ARROW_EXPORT
 Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> CumulativeSum(
+    const Datum& values,
+    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------

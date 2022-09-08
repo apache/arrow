@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * UInt1Vector implements a fixed width (1 bytes) vector of
@@ -328,7 +329,10 @@ public final class UInt1Vector extends BaseFixedWidthVector implements BaseIntVe
     return this.get(index) & PROMOTION_MASK;
   }
 
-
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0, getValueCount(), (v, i) -> v.getObjectNoOverflow(i));
+  }
 
   private class TransferImpl implements TransferPair {
     UInt1Vector to;

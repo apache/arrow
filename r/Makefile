@@ -36,9 +36,19 @@ test:
 deps:
 	R -s -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
-build: doc
+# Note: files in tools are available at build time, but not at run time. The thirdparty
+# cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
+# we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
+sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
-	R CMD build .
+	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/jni' --exclude 'src/plasma' --exclude 'src/skyhook' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
+	cp -p ../.env tools/dotenv
+	cp -p ../NOTICE.txt tools/
+	cp -p ../LICENSE.txt tools/
+	sed -i"" -e "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
+
+build: doc sync-cpp
+	R CMD build ${args} .
 
 check: build
 	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && export ARROW_R_DEV=$(ARROW_R_DEV) && export _R_CHECK_TESTS_NLINES_=0 && R CMD check --as-cran --run-donttest arrow_$(VERSION).tar.gz
@@ -56,4 +66,5 @@ clean:
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
 	-rm -rf libarrow/
+	-rm -rf tools/cpp/ tools/.env tools/NOTICE.txt tools/LICENSE.txt
 	-find . -name "*.orig" -delete

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -40,11 +42,15 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
+import org.apache.arrow.vector.util.VectorBatchAppender;
+import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -227,6 +233,48 @@ public class TestExtensionType {
           }
         }
       }
+    }
+  }
+
+  @Test
+  public void testVectorCompare() {
+    UuidType uuidType = new UuidType();
+    ExtensionTypeRegistry.register(uuidType);
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+         UuidVector a1 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
+         UuidVector a2 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
+         UuidVector bb = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator)
+         ) {
+      UUID u1 = UUID.randomUUID();
+      UUID u2 = UUID.randomUUID();
+
+      // Test out type and vector validation visitors for an ExtensionTypeVector
+      ValidateVectorVisitor validateVisitor = new ValidateVectorVisitor();
+      validateVisitor.visit(a1, null);
+
+      a1.setValueCount(2);
+      a1.set(0, u1);
+      a1.set(1, u2);
+
+      a2.setValueCount(2);
+      a2.set(0, u1);
+      a2.set(1, u2);
+
+      bb.setValueCount(2);
+      bb.set(0, u2);
+      bb.set(1, u1);
+
+      Range range = new Range(0, 0, a1.getValueCount());
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(a1, a2);
+      assertTrue(visitor.rangeEquals(range));
+
+      visitor = new RangeEqualsVisitor(a1, bb);
+      assertFalse(visitor.rangeEquals(range));
+
+      // Test out vector appender
+      VectorBatchAppender.batchAppend(a1, a2, bb);
+      assertEquals(a1.getValueCount(), 6);
+      validateVisitor.visit(a1, null);
     }
   }
 

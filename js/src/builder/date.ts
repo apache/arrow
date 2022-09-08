@@ -15,12 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Date_, DateDay, DateMillisecond } from '../type';
+import { FixedWidthBuilder } from '../builder.js';
+import { Date_, DateDay, DateMillisecond } from '../type.js';
+import { setDate, setDateDay, setDateMillisecond } from '../visitor/set.js';
 
 /** @ignore */
-export class DateBuilder<T extends Date_ = Date_, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+export class DateBuilder<T extends Date_ = Date_, TNull = any> extends FixedWidthBuilder<T, TNull> { }
+
+(DateBuilder.prototype as any)._setValue = setDate;
+
 /** @ignore */
-export class DateDayBuilder<TNull = any> extends DateBuilder<DateDay, TNull> {}
+export class DateDayBuilder<TNull = any> extends DateBuilder<DateDay, TNull> { }
+
+(DateDayBuilder.prototype as any)._setValue = setDateDay;
+
 /** @ignore */
-export class DateMillisecondBuilder<TNull = any> extends DateBuilder<DateMillisecond, TNull> {}
+export class DateMillisecondBuilder<TNull = any> extends DateBuilder<DateMillisecond, TNull> { }
+
+(DateMillisecondBuilder.prototype as any)._setValue = setDateMillisecond;

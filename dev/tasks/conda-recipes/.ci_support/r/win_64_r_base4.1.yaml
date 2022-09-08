@@ -1,5 +1,5 @@
 channel_sources:
-- conda-forge,defaults
+- conda-forge
 channel_targets:
 - conda-forge main
 pin_run_as_build:

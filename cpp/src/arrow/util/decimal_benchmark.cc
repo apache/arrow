@@ -129,7 +129,7 @@ static void BinaryMathOpAggregate(
   state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
-static void BinaryMathOp128(benchmark::State& state) {  // NOLINT non-const reference
+static void BinaryMathOpAdd128(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal128> v1, v2;
   for (int x = 0; x < kValueSize; x++) {
     v1.emplace_back(100 + x, 100 + x);
@@ -137,18 +137,46 @@ static void BinaryMathOp128(benchmark::State& state) {  // NOLINT non-const refe
   }
 
   for (auto _ : state) {
-    for (int x = 0; x < kValueSize; x += 5) {
-      benchmark::DoNotOptimize(v1[x] - v2[x]);
-      benchmark::DoNotOptimize(v1[x + 1] + v2[x + 1]);
-      benchmark::DoNotOptimize(v1[x + 2] * v2[x + 2]);
-      benchmark::DoNotOptimize(v1[x + 3] / v2[x + 3]);
-      benchmark::DoNotOptimize(v1[x + 4] % v2[x + 4]);
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] + v2[x]);
     }
   }
   state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
-static void BinaryMathOp256(benchmark::State& state) {  // NOLINT non-const reference
+static void BinaryMathOpMultiply128(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal128> v1, v2;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+    v2.emplace_back(200 + x, 200 + x);
+  }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] * v2[x]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryMathOpDivide128(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal128> v1, v2;
+  for (int x = 0; x < kValueSize; x++) {
+    v1.emplace_back(100 + x, 100 + x);
+    v2.emplace_back(200 + x, 200 + x);
+  }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] / v2[x]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryMathOpAdd256(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal256> v1, v2;
   for (uint64_t x = 0; x < kValueSize; x++) {
     v1.push_back(BasicDecimal256({100 + x, 100 + x, 100 + x, 100 + x}));
@@ -156,9 +184,40 @@ static void BinaryMathOp256(benchmark::State& state) {  // NOLINT non-const refe
   }
 
   for (auto _ : state) {
-    for (int x = 0; x < kValueSize; x += 5) {
-      benchmark::DoNotOptimize(v1[x + 2] * v2[x + 2]);
-      benchmark::DoNotOptimize(v1[x + 3] / v2[x + 3]);
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] + v2[x]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryMathOpMultiply256(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal256> v1, v2;
+  for (uint64_t x = 0; x < kValueSize; x++) {
+    v1.push_back(BasicDecimal256({100 + x, 100 + x, 100 + x, 100 + x}));
+    v2.push_back(BasicDecimal256({200 + x, 200 + x, 200 + x, 200 + x}));
+  }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] * v2[x]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
+static void BinaryMathOpDivide256(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal256> v1, v2;
+  for (uint64_t x = 0; x < kValueSize; x++) {
+    v1.push_back(BasicDecimal256({100 + x, 100 + x, 100 + x, 100 + x}));
+    v2.push_back(BasicDecimal256({200 + x, 200 + x, 200 + x, 200 + x}));
+  }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; ++x) {
+      benchmark::DoNotOptimize(v1[x] / v2[x]);
     }
   }
   state.SetItemsProcessed(state.iterations() * kValueSize);
@@ -206,8 +265,12 @@ static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const referenc
 
 BENCHMARK(FromString);
 BENCHMARK(ToString);
-BENCHMARK(BinaryMathOp128);
-BENCHMARK(BinaryMathOp256);
+BENCHMARK(BinaryMathOpAdd128);
+BENCHMARK(BinaryMathOpMultiply128);
+BENCHMARK(BinaryMathOpDivide128);
+BENCHMARK(BinaryMathOpAdd256);
+BENCHMARK(BinaryMathOpMultiply256);
+BENCHMARK(BinaryMathOpDivide256);
 BENCHMARK(BinaryMathOpAggregate);
 BENCHMARK(BinaryCompareOp);
 BENCHMARK(BinaryCompareOpConstant);

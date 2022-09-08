@@ -21,6 +21,7 @@
 #include <arrow-glib/internal-index.hpp>
 
 #include <parquet-glib/arrow-file-reader.hpp>
+#include <parquet-glib/metadata.hpp>
 
 #include <parquet/file_reader.h>
 
@@ -352,6 +353,21 @@ gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader)
 }
 
 /**
+ * gparquet_arrow_file_reader_get_n_rows:
+ * @reader: A #GParquetArrowFileReader.
+ *
+ * Returns: The number of rows.
+ *
+ * Since: 6.0.0
+ */
+gint64
+gparquet_arrow_file_reader_get_n_rows(GParquetArrowFileReader *reader)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  return parquet_arrow_file_reader->parquet_reader()->metadata()->num_rows();
+}
+
+/**
  * gparquet_arrow_file_reader_use_threads:
  * @reader: A #GParquetArrowFileReader.
  * @use_threads: Whether use threads or not.
@@ -364,6 +380,22 @@ gparquet_arrow_file_reader_set_use_threads(GParquetArrowFileReader *reader,
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
   parquet_arrow_file_reader->set_use_threads(use_threads);
+}
+
+/**
+ * gparquet_arrow_file_reader_get_metadata:
+ * @reader: A #GParquetArrowFileReader.
+ *
+ * Returns: (transfer full): The metadata.
+ *
+ * Since: 8.0.0
+ */
+GParquetFileMetadata *
+gparquet_arrow_file_reader_get_metadata(GParquetArrowFileReader *reader)
+{
+  auto parquet_reader = gparquet_arrow_file_reader_get_raw(reader);
+  auto parquet_metadata = parquet_reader->parquet_reader()->metadata();
+  return gparquet_file_metadata_new_raw(&parquet_metadata);
 }
 
 G_END_DECLS

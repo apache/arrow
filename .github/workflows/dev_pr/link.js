@@ -15,16 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-function detectJIRAID(title) {
-  if (!title) {
-    return null;
-  }
-  const matched = /^(WIP:?\s*)?((ARROW|PARQUET)-\d+)/.exec(title);
-  if (!matched) {
-    return null;
-  }
-  return matched[2];
-}
+const helpers = require("./helpers.js");
+
 
 async function haveComment(github, context, pullRequestNumber, body) {
   const options = {
@@ -62,7 +54,7 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  const jiraID = detectJIRAID(title);
+  const jiraID = helpers.detectJIRAID(title);
   if (jiraID) {
     await commentJIRAURL(github, context, pullRequestNumber, jiraID);
   }

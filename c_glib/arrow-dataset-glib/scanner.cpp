@@ -18,6 +18,8 @@
  */
 
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/expression.hpp>
+#include <arrow-glib/reader.hpp>
 #include <arrow-glib/table.hpp>
 
 #include <arrow-dataset-glib/dataset.hpp>
@@ -136,7 +138,7 @@ typedef struct GADatasetScannerBuilderPrivate_ {
 } GADatasetScannerBuilderPrivate;
 
 enum {
-  PROP_SCANNER_BUILDER = 1,
+  PROP_SCANNER_BUILDER = 1
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScannerBuilder,
@@ -223,6 +225,46 @@ gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * gadataset_scanner_builder_new_record_batch_reader:
+ * @reader: A #GArrowRecordBatchReader that produces record batches.
+ *
+ * Returns: (nullable): A newly created #GADatasetScannerBuilder.
+ *
+ * Since: 6.0.0
+ */
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new_record_batch_reader(
+  GArrowRecordBatchReader *reader)
+{
+  auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
+  auto arrow_scanner_builder =
+    arrow::dataset::ScannerBuilder::FromRecordBatchReader(arrow_reader);
+  return gadataset_scanner_builder_new_raw(&arrow_scanner_builder);
+}
+
+/**
+ * gadataset_scanner_builder_set_filter:
+ * @builder: A #GADatasetScannerBuilder.
+ * @expression: A #GArrowExpression to filter rows with.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 6.0.0
+ */
+gboolean
+gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
+                                     GArrowExpression *expression,
+                                     GError **error)
+{
+  auto arrow_builder = gadataset_scanner_builder_get_raw(builder);
+  auto arrow_expression = garrow_expression_get_raw(expression);
+  return garrow::check(error,
+                       arrow_builder->Filter(*arrow_expression),
+                       "[scanner-builder][filter][set]");
 }
 
 /**

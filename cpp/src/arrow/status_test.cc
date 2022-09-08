@@ -72,6 +72,10 @@ TEST(StatusTest, TestWithDetail) {
   ASSERT_EQ(new_status.detail(), detail);
 }
 
+TEST(StatusTest, TestCoverageWarnNotOK) {
+  ARROW_WARN_NOT_OK(Status::Invalid("invalid"), "Expected warning");
+}
+
 TEST(StatusTest, AndStatus) {
   Status a = Status::OK();
   Status b = Status::OK();
@@ -179,20 +183,19 @@ TEST(StatusTest, MatcherExplanations) {
   {
     testing::StringMatchResultListener listener;
     EXPECT_TRUE(matcher.MatchAndExplain(Status::Invalid("XXX"), &listener));
-    EXPECT_THAT(listener.str(), testing::StrEq("whose value \"Invalid: XXX\" matches"));
+    EXPECT_THAT(listener.str(), testing::StrEq("whose error matches"));
   }
 
   {
     testing::StringMatchResultListener listener;
     EXPECT_FALSE(matcher.MatchAndExplain(Status::OK(), &listener));
-    EXPECT_THAT(listener.str(), testing::StrEq("whose value \"OK\" doesn't match"));
+    EXPECT_THAT(listener.str(), testing::StrEq("whose non-error doesn't match"));
   }
 
   {
     testing::StringMatchResultListener listener;
     EXPECT_FALSE(matcher.MatchAndExplain(Status::TypeError("XXX"), &listener));
-    EXPECT_THAT(listener.str(),
-                testing::StrEq("whose value \"Type error: XXX\" doesn't match"));
+    EXPECT_THAT(listener.str(), testing::StrEq("whose error doesn't match"));
   }
 }
 

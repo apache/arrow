@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as type from '../type';
-import { Visitor } from '../visitor';
-import { Type as ArrowType } from '../fb/Schema';
-import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
+import * as type from '../type.js';
+import { Visitor } from '../visitor.js';
+import { Type as ArrowType } from '../fb/type.js';
+import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum.js';
 
 /** @ignore */
 export interface JSONTypeAssembler extends Visitor {
@@ -48,8 +48,8 @@ export class JSONTypeAssembler extends Visitor {
     public visitUtf8<T extends type.Utf8>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
-    public visitDecimal<T extends type.Decimal>({ typeId, scale, precision }: T) {
-        return { 'name': ArrowType[typeId].toLowerCase(), 'scale': scale, 'precision': precision };
+    public visitDecimal<T extends type.Decimal>({ typeId, scale, precision, bitWidth }: T) {
+        return { 'name': ArrowType[typeId].toLowerCase(), 'scale': scale, 'precision': precision, 'bitWidth': bitWidth };
     }
     public visitDate<T extends type.Date_>({ typeId, unit }: T) {
         return { 'name': ArrowType[typeId].toLowerCase(), 'unit': DateUnit[unit] };

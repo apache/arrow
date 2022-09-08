@@ -14,7 +14,7 @@ and interprocess communication.
 **The `arrow` package exposes an interface to the Arrow C++ library,
 enabling access to many of its features in R.** It provides low-level
 access to the Arrow C++ library API and higher-level access through a
-`dplyr` backend and familiar R functions.
+`{dplyr}` backend and familiar R functions.
 
 ## What can the `arrow` package do?
 
@@ -27,6 +27,7 @@ access to the Arrow C++ library API and higher-level access through a
     datasets** (`open_dataset()`, `write_dataset()`)
 -   Read **large CSV and JSON files** with excellent **speed and
     efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
+-   Write CSV files (`write_csv_arrow()`)
 -   Manipulate and analyze Arrow data with **`dplyr` verbs**
 -   Read and write files in **Amazon S3** buckets with no additional
     function calls
@@ -64,16 +65,17 @@ packages that contain the Arrow C++ library. On Linux, source package
 installation will also build necessary C++ dependencies. For a faster,
 more complete installation, set the environment variable
 `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
-details.
+details. Note that version 9.0.0 was the last version to support
+R 3.6 and lower on Windows.
 
 ### Installing a development version
 
 Development versions of the package (binary and source) are built
-nightly and hosted at <https://arrow-r-nightly.s3.amazonaws.com>. To
+nightly and hosted at <https://nightlies.apache.org/arrow/r/>. To
 install from there:
 
 ``` r
-install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
+install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
 ```
 
 Conda users can install `arrow` nightly builds with
@@ -132,8 +134,8 @@ returns an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_json_arrow()`: read a JSON data file
 
 For writing data to single files, the `arrow` package provides the
-functions `write_parquet()` and `write_feather()`. These can be used
-with R `data.frame` and Arrow `Table` objects.
+functions `write_parquet()`, `write_feather()`, and `write_csv_arrow()`. 
+These can be used with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
 in `dplyr` to a Parquet file, then read it back in. Parquet is a popular
@@ -242,8 +244,8 @@ result %>% collect()
 #>    name               height_in mass_lbs
 #>    <chr>                  <dbl>    <dbl>
 #>  1 C-3PO                   65.7    165.
-#>  2 Cliegg Lars             72.0     NA  
-#>  3 Shmi Skywalker          64.2     NA  
+#>  2 Cliegg Lars             72.0     NA
+#>  3 Shmi Skywalker          64.2     NA
 #>  4 Owen Lars               70.1    265.
 #>  5 Beru Whitesun lars      65.0    165.
 #>  6 Darth Vader             79.5    300.
@@ -253,15 +255,38 @@ result %>% collect()
 #> 10 R5-D4                   38.2     70.5
 ```
 
-The `arrow` package works with most single-table `dplyr` verbs except those that
-compute aggregates, such as `summarise()` and `mutate()` after
-`group_by()`. Inside `dplyr` verbs, Arrow offers support for many
-functions and operators, with common functions mapped to their base R and
-tidyverse equivalents. The
-[changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them.
-If there are additional functions you would
-like to see implemented, please file an issue as described in the
-[Getting help](#getting-help) section below.
+The `arrow` package works with most single-table `dplyr` verbs, including those
+that compute aggregates.
+
+```r
+sw %>%
+  group_by(species) %>%
+  summarise(mean_height = mean(height, na.rm = TRUE)) %>%
+  collect()
+```
+
+Additionally, equality joins (e.g. `left_join()`, `inner_join()`) are supported
+for joining multiple tables. 
+
+```r
+jedi <- data.frame(
+  name = c("C-3PO", "Luke Skywalker", "Obi-Wan Kenobi"),
+  jedi = c(FALSE, TRUE, TRUE)
+)
+
+sw %>%
+  select(1:11) %>%
+  right_join(jedi) %>%
+  collect()
+```
+
+Window functions (e.g. `ntile()`) are not yet
+supported. Inside `dplyr` verbs, Arrow offers support for many functions and
+operators, with common functions mapped to their base R and tidyverse
+equivalents. The [changelog](https://arrow.apache.org/docs/r/news/index.html)
+lists many of them. If there are additional functions you would like to see
+implemented, please file an issue as described in the [Getting
+help](#getting-help) section below.
 
 For `dplyr` queries on `Table` objects, if the `arrow` package detects
 an unimplemented function within a `dplyr` verb, it automatically calls
@@ -280,6 +305,8 @@ Other applications of `arrow` are described in the following vignettes:
     servers to send and receive data
 -   `vignette("arrow", package = "arrow")`: access and manipulate Arrow
     objects through low-level bindings to the C++ library
+
+The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
 
 ## Getting help
 

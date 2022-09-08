@@ -21,10 +21,14 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
+  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
-  echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
+  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
+  echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -34,22 +38,31 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
+
+echo "::group::Prepare repository"
+
 export DEBIAN_FRONTEND=noninteractive
 
+APT_INSTALL="apt install -y -V --no-install-recommends"
+
 apt update
-apt install -y -V \
+${APT_INSTALL} \
+  ca-certificates \
   curl \
   lsb-release
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
-if [ "${TYPE}" = "rc" ]; then
-  artifactory_base_url+="-rc"
-fi
+case "${TYPE}" in
+  rc|staging-rc|staging-release)
+    suffix=${TYPE%-release}
+    artifactory_base_url+="-${suffix}"
+    ;;
+esac
 
-have_flight=yes
 have_plasma=yes
+have_python=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
   debian-*)
@@ -57,6 +70,9 @@ case "${distribution}-${code_name}" in
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
+    ;;
+  ubuntu-bionic)
+    have_python=no
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -80,14 +96,14 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
-  apt install -y -V "${apt_source_path}"
+  ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"
   apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
   curl \
     --output "${apt_source_base_name}" \
     "${artifactory_base_url}/${apt_source_base_name}"
-  apt install -y -V "./${apt_source_base_name}"
+  ${APT_INSTALL} "./${apt_source_base_name}"
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -103,49 +119,104 @@ if [ "${TYPE}" = "local" ]; then
       --import "${keys}"
   fi
 else
-  if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
-      /etc/apt/sources.list.d/apache-arrow.sources
-  fi
+  case "${TYPE}" in
+    rc|staging-rc|staging-release)
+      suffix=${TYPE%-release}
+      sed \
+        -i"" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
+        /etc/apt/sources.list.d/apache-arrow.sources
+      ;;
+  esac
 fi
 
 apt update
 
-apt install -y -V libarrow-glib-dev=${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
+${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
+required_packages+=(make)
+required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
-apt install -y -V ${required_packages[@]}
+${APT_INSTALL} ${required_packages[@]}
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build
+cp -a /arrow/cpp/examples/minimal_build build/
 pushd build/minimal_build
 cmake .
 make -j$(nproc)
-./arrow_example
+./arrow-example
+c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+./arrow-example
+popd
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow GLib"
+export G_DEBUG=fatal-warnings
+
+${APT_INSTALL} libarrow-glib-dev=${package_version}
+${APT_INSTALL} libarrow-glib-doc=${package_version}
+
+${APT_INSTALL} valac
+cp -a /arrow/c_glib/example/vala build/
+pushd build/vala
+valac --pkg arrow-glib --pkg posix build.vala
+./build
 popd
 
-apt install -y -V libarrow-glib-dev=${package_version}
-apt install -y -V libarrow-glib-doc=${package_version}
 
-if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-glib-dev=${package_version}
-  apt install -y -V libarrow-flight-glib-doc=${package_version}
-fi
+${APT_INSTALL} ruby-dev rubygems-integration
+gem install gobject-introspection
+ruby -r gi -e "p GI.load('Arrow')"
+echo "::endgroup::"
 
-apt install -y -V libarrow-python-dev=${package_version}
+
+echo "::group::Test Apache Arrow Dataset"
+${APT_INSTALL} libarrow-dataset-glib-dev=${package_version}
+${APT_INSTALL} libarrow-dataset-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowDataset')"
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow Flight"
+${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlight')"
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow Flight SQL"
+${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+echo "::endgroup::"
+
 
 if [ "${have_plasma}" = "yes" ]; then
-  apt install -y -V libplasma-glib-dev=${package_version}
-  apt install -y -V libplasma-glib-doc=${package_version}
-  apt install -y -V plasma-store-server=${package_version}
+  echo "::group::Test Plasma"
+  ${APT_INSTALL} libplasma-glib-dev=${package_version}
+  ${APT_INSTALL} libplasma-glib-doc=${package_version}
+  ${APT_INSTALL} plasma-store-server=${package_version}
+  ruby -r gi -e "p GI.load('Plasma')"
+  echo "::endgroup::"
 fi
 
-apt install -y -V libgandiva-glib-dev=${package_version}
-apt install -y -V libgandiva-glib-doc=${package_version}
 
-apt install -y -V libparquet-glib-dev=${package_version}
-apt install -y -V libparquet-glib-doc=${package_version}
+echo "::group::Test Gandiva"
+${APT_INSTALL} libgandiva-glib-dev=${package_version}
+${APT_INSTALL} libgandiva-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('Gandiva')"
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Parquet"
+${APT_INSTALL} libparquet-glib-dev=${package_version}
+${APT_INSTALL} libparquet-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('Parquet')"
+echo "::endgroup::"

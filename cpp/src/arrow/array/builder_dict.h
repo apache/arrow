@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
@@ -97,6 +98,17 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetOrInsert(const UInt16Type*, uint16_t value, int32_t* out);
   Status GetOrInsert(const UInt32Type*, uint32_t value, int32_t* out);
   Status GetOrInsert(const UInt64Type*, uint64_t value, int32_t* out);
+  Status GetOrInsert(const DurationType*, int64_t value, int32_t* out);
+  Status GetOrInsert(const TimestampType*, int64_t value, int32_t* out);
+  Status GetOrInsert(const Date32Type*, int32_t value, int32_t* out);
+  Status GetOrInsert(const Date64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const Time32Type*, int32_t value, int32_t* out);
+  Status GetOrInsert(const Time64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const MonthDayNanoIntervalType*,
+                     MonthDayNanoIntervalType::MonthDayNanos value, int32_t* out);
+  Status GetOrInsert(const DayTimeIntervalType*,
+                     DayTimeIntervalType::DayMilliseconds value, int32_t* out);
+  Status GetOrInsert(const MonthIntervalType*, int32_t value, int32_t* out);
   Status GetOrInsert(const FloatType*, float value, int32_t* out);
   Status GetOrInsert(const DoubleType*, double value, int32_t* out);
 
@@ -106,6 +118,14 @@ class ARROW_EXPORT DictionaryMemoTable {
   class DictionaryMemoTableImpl;
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
 };
+
+}  // namespace internal
+
+/// \addtogroup dictionary-builders
+///
+/// @{
+
+namespace internal {
 
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
@@ -146,6 +166,19 @@ class DictionaryBuilderBase : public ArrayBuilder {
         indices_builder_(pool),
         value_type_(value_type) {}
 
+  template <typename T1 = T>
+  explicit DictionaryBuilderBase(
+      const std::shared_ptr<DataType>& index_type,
+      enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
+          value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(-1),
+        indices_builder_(index_type, pool),
+        value_type_(value_type) {}
+
   template <typename B = BuilderType, typename T1 = T>
   DictionaryBuilderBase(uint8_t start_int_size,
                         enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
@@ -169,6 +202,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool),
+        value_type_(value_type) {}
+
+  template <typename T1 = T>
+  explicit DictionaryBuilderBase(
+      const std::shared_ptr<DataType>& index_type,
+      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(static_cast<const T1&>(*value_type).byte_width()),
+        indices_builder_(index_type, pool),
         value_type_(value_type) {}
 
   template <typename T1 = T>
@@ -282,6 +327,74 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return indices_builder_.AppendEmptyValues(length);
   }
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    if (!scalar.is_valid) return AppendNulls(n_repeats);
+
+    const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*scalar.type);
+    const DictionaryScalar& dict_scalar =
+        internal::checked_cast<const DictionaryScalar&>(scalar);
+    const auto& dict = internal::checked_cast<const typename TypeTraits<T>::ArrayType&>(
+        *dict_scalar.value.dictionary);
+    ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+    switch (dict_ty.index_type()->id()) {
+      case Type::UINT8:
+        return AppendScalarImpl<UInt8Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT8:
+        return AppendScalarImpl<Int8Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT16:
+        return AppendScalarImpl<UInt16Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT16:
+        return AppendScalarImpl<Int16Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT32:
+        return AppendScalarImpl<UInt32Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT32:
+        return AppendScalarImpl<Int32Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::UINT64:
+        return AppendScalarImpl<UInt64Type>(dict, *dict_scalar.value.index, n_repeats);
+      case Type::INT64:
+        return AppendScalarImpl<Int64Type>(dict, *dict_scalar.value.index, n_repeats);
+      default:
+        return Status::TypeError("Invalid index type: ", dict_ty);
+    }
+    return Status::OK();
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    for (const auto& scalar : scalars) {
+      ARROW_RETURN_NOT_OK(AppendScalar(*scalar, /*n_repeats=*/1));
+    }
+    return Status::OK();
+  }
+
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final {
+    // Visit the indices and insert the unpacked values.
+    const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*array.type);
+    // See if possible to avoid using ToArrayData here
+    const typename TypeTraits<T>::ArrayType dict(array.dictionary().ToArrayData());
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    switch (dict_ty.index_type()->id()) {
+      case Type::UINT8:
+        return AppendArraySliceImpl<uint8_t>(dict, array, offset, length);
+      case Type::INT8:
+        return AppendArraySliceImpl<int8_t>(dict, array, offset, length);
+      case Type::UINT16:
+        return AppendArraySliceImpl<uint16_t>(dict, array, offset, length);
+      case Type::INT16:
+        return AppendArraySliceImpl<int16_t>(dict, array, offset, length);
+      case Type::UINT32:
+        return AppendArraySliceImpl<uint32_t>(dict, array, offset, length);
+      case Type::INT32:
+        return AppendArraySliceImpl<int32_t>(dict, array, offset, length);
+      case Type::UINT64:
+        return AppendArraySliceImpl<uint64_t>(dict, array, offset, length);
+      case Type::INT64:
+        return AppendArraySliceImpl<int64_t>(dict, array, offset, length);
+      default:
+        return Status::TypeError("Invalid index type: ", dict_ty);
+    }
+    return Status::OK();
+  }
+
   /// \brief Insert values into the dictionary's memo, but do not append any
   /// indices. Can be used to initialize a new builder with known dictionary
   /// values
@@ -376,6 +489,37 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
  protected:
+  template <typename c_type>
+  Status AppendArraySliceImpl(const typename TypeTraits<T>::ArrayType& dict,
+                              const ArraySpan& array, int64_t offset, int64_t length) {
+    const c_type* values = array.GetValues<c_type>(1) + offset;
+    return VisitBitBlocks(
+        array.buffers[0].data, array.offset + offset, length,
+        [&](const int64_t position) {
+          const int64_t index = static_cast<int64_t>(values[position]);
+          if (dict.IsValid(index)) {
+            return Append(dict.GetView(index));
+          }
+          return AppendNull();
+        },
+        [&]() { return AppendNull(); });
+  }
+
+  template <typename IndexType>
+  Status AppendScalarImpl(const typename TypeTraits<T>::ArrayType& dict,
+                          const Scalar& index_scalar, int64_t n_repeats) {
+    using ScalarType = typename TypeTraits<IndexType>::ScalarType;
+    const auto index = internal::checked_cast<const ScalarType&>(index_scalar).value;
+    if (index_scalar.is_valid && dict.IsValid(index)) {
+      const auto& value = dict.GetView(index);
+      for (int64_t i = 0; i < n_repeats; i++) {
+        ARROW_RETURN_NOT_OK(Append(value));
+      }
+      return Status::OK();
+    }
+    return AppendNulls(n_repeats);
+  }
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     std::shared_ptr<ArrayData> dictionary;
     ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
@@ -428,6 +572,11 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                                  MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
+
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& index_type,
+                                 const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool), indices_builder_(index_type, pool) {}
 
   template <typename B = BuilderType>
   explicit DictionaryBuilderBase(
@@ -568,5 +717,7 @@ using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
 using StringDictionaryBuilder = DictionaryBuilder<StringType>;
 using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
 using StringDictionary32Builder = Dictionary32Builder<StringType>;
+
+/// @}
 
 }  // namespace arrow

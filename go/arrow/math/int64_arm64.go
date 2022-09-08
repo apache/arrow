@@ -20,6 +20,10 @@
 
 package math
 
+func initInt64NEON() {
+        Int64.sum = sum_int64_neon
+}
+
 func initInt64Go() {
 	Int64.sum = sum_int64_go
 }

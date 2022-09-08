@@ -28,9 +28,7 @@ karthothek=$1
 target=$2
 
 git clone --recurse-submodules https://github.com/JDASoftwareGroup/kartothek "${target}"
-if [ "${kartothek}" = "master" ]; then
-  git -C "${target}" checkout master;
-elif [ "${kartothek}" = "latest" ]; then
+if [ "${kartothek}" = "latest" ]; then
   git -C "${target}" checkout $(git describe --tags);
 else
   git -C "${target}" checkout ${kartothek};

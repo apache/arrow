@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/utf8.h"
+
 #include <cstdint>
 #include <iterator>
 #include <mutex>
@@ -23,7 +25,7 @@
 
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/vendored/utfcpp/checked.h"
 
 // Can be defined by utfcpp
@@ -89,6 +91,12 @@ static std::once_flag utf8_initialized;
 void InitializeUTF8() {
   std::call_once(utf8_initialized, internal::InitializeLargeTable);
 }
+
+bool ValidateUTF8(const uint8_t* data, int64_t size) {
+  return ValidateUTF8Inline(data, size);
+}
+
+bool ValidateUTF8(const util::string_view& str) { return ValidateUTF8Inline(str); }
 
 static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
 

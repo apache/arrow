@@ -42,7 +42,7 @@ on:
       - 'format/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -59,18 +59,15 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Checkout Arrow Rust
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: apache/arrow-rs
           path: rust
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -78,7 +75,7 @@ jobs:
           key: conda-${{ hashFiles('cpp/**') }}
           restore-keys: conda-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery

@@ -19,9 +19,14 @@
 
 set -ex
 
-arrow_dir=${1}
-source_dir=${1}/cpp
-build_dir=${2}/cpp
+if [[ $# < 2 ]]; then
+  echo "Usage: $0 <Arrow dir> <build dir> [ctest args ...]"
+  exit 1
+fi
+
+arrow_dir=${1}; shift
+build_dir=${1}/cpp; shift
+source_dir=${arrow_dir}/cpp
 binary_output_dir=${build_dir}/${ARROW_BUILD_TYPE:-debug}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
@@ -31,6 +36,9 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
+
+# Enable memory debug checks.
+export ARROW_DEBUG_MEMORY_POOL=trap
 
 ctest_options=()
 case "$(uname)" in
@@ -48,7 +56,6 @@ case "$(uname)" in
     exclude_tests="${exclude_tests}|gandiva-projector-test"
     exclude_tests="${exclude_tests}|gandiva-utf8-test"
     if [ "${MSYSTEM}" = "MINGW32" ]; then
-      exclude_tests="${exclude_tests}|gandiva-projector-test"
       exclude_tests="${exclude_tests}|gandiva-binary-test"
       exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
       exclude_tests="${exclude_tests}|gandiva-date-time-test"
@@ -61,6 +68,8 @@ case "$(uname)" in
       exclude_tests="${exclude_tests}|gandiva-in-expr-test"
       exclude_tests="${exclude_tests}|gandiva-literal-test"
       exclude_tests="${exclude_tests}|gandiva-null-validity-test"
+      exclude_tests="${exclude_tests}|gandiva-precompiled-test"
+      exclude_tests="${exclude_tests}|gandiva-projector-test"
     fi
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
@@ -79,7 +88,25 @@ ctest \
     --output-on-failure \
     --parallel ${n_jobs} \
     --timeout 300 \
-    "${ctest_options[@]}"
+    "${ctest_options[@]}" \
+    $@
+
+if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
+    examples=$(find ${binary_output_dir} -executable -name "*example")
+    if [ "${examples}" == "" ]; then
+        echo "=================="
+        echo "No examples found!"
+        echo "=================="
+        exit 1
+    fi
+    for ex in ${examples}
+    do
+        echo "=================="
+        echo "Executing ${ex}"
+        echo "=================="
+        ${ex}
+    done
+fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests

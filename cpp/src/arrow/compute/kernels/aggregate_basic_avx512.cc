@@ -19,29 +19,25 @@
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+namespace internal {
 
 // ----------------------------------------------------------------------
 // Sum implementation
 
 template <typename ArrowType>
 struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {
-  explicit SumImplAvx512(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using SumImpl<ArrowType, SimdLevel::AVX512>::SumImpl;
 };
 
 template <typename ArrowType>
 struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
-  explicit MeanImplAvx512(const ScalarAggregateOptions& options_) {
-    this->options = options_;
-  }
+  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx512> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -49,7 +45,7 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(
-      ctx, *args.inputs[0].type,
+      ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -59,32 +55,36 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
                                                       const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
+                        args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::AVX512> visitor(
-      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      ctx, *args.inputs[0], out_type.GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx512, internal::SignedIntTypes(), int64(), func,
+  AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
                      SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, internal::UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, internal::FloatingPointTypes(), float64(), func,
+  AddBasicAggKernels(SumInitAvx512, FloatingPointTypes(), float64(), func,
                      SimdLevel::AVX512);
 }
 
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
-  aggregate::AddBasicAggKernels(MeanInitAvx512, internal::NumericTypes(), float64(), func,
-                                SimdLevel::AVX512);
+  AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
 }
 
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {
   // Enable 32/64 int types for avx512 variants, no advantage on 8/16 int.
   AddMinMaxKernels(MinMaxInitAvx512, {int32(), uint32(), int64(), uint64()}, func,
                    SimdLevel::AVX512);
+  AddMinMaxKernels(MinMaxInitAvx512, TemporalTypes(), func, SimdLevel::AVX512);
+  AddMinMaxKernels(MinMaxInitAvx512, BaseBinaryTypes(), func, SimdLevel::AVX2);
+  AddMinMaxKernel(MinMaxInitAvx512, Type::FIXED_SIZE_BINARY, func, SimdLevel::AVX2);
+  AddMinMaxKernel(MinMaxInitAvx512, Type::INTERVAL_MONTHS, func, SimdLevel::AVX512);
 }
 
-}  // namespace aggregate
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

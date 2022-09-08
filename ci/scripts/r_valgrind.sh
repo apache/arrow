@@ -24,10 +24,13 @@ source_dir=${1}/r
 
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} ${source_dir}
-pushd ${source_dir}/tests
+pushd ${source_dir}
 
-export TEST_R_WITH_ARROW=TRUE
+# build first so that any stray compiled files in r/src are ignored
+${R_BIN} CMD build --no-build-vignettes .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
+
+pushd tests
 
 # to generate suppression files run:
 # ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testtthat.supp
@@ -44,5 +47,7 @@ fi
 
 # We might also considering using the greps that LibthGBM uses:
 # https://github.com/microsoft/LightGBM/blob/fa6d356555f9ef888acf5f5e259dca958ca24f6d/.ci/test_r_package_valgrind.sh#L20-L85
+
+popd
 
 popd

@@ -86,7 +86,7 @@ public class VectorLoader {
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
       throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " +
-          Collections2.toList(nodes).toString() + " buffers: " + Collections2.toList(buffers).toString());
+          Collections2.toString(nodes) + " buffers: " + Collections2.toString(buffers));
     }
   }
 

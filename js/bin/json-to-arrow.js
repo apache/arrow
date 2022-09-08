@@ -23,7 +23,7 @@ const fs = require('fs');
 const Path = require('path');
 const { parse } = require('json-bignum');
 const eos = require('util').promisify(require('stream').finished);
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
 const { RecordBatchReader, RecordBatchFileWriter, RecordBatchStreamWriter } = require(`../index${extension}`);
 

@@ -32,7 +32,8 @@ export PYARROW_WITH_GANDIVA=0
 
 pushd $ARROW_PYTHON_DIR
 # Workaround for https://github.com/airspeed-velocity/asv/issues/631
-git fetch --depth=100 origin master:master
+DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
+git fetch --depth=100 origin $DEFAULT_BRANCH:$DEFAULT_BRANCH
 # Generate machine information (mandatory)
 asv machine --yes
 # Run benchmarks on the changeset being tested

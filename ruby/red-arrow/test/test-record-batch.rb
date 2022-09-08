@@ -136,5 +136,47 @@ class RecordBatchTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#[]") do
+      def setup
+        @record_batch = Arrow::RecordBatch.new(a: [true],
+                                               b: [true],
+                                               c: [true],
+                                               d: [true],
+                                               e: [true],
+                                               f: [true],
+                                               g: [true])
+      end
+
+      test("[String]") do
+        assert_equal(Arrow::Column.new(@record_batch, 0),
+                     @record_batch["a"])
+      end
+
+      test("[Symbol]") do
+        assert_equal(Arrow::Column.new(@record_batch, 1),
+                     @record_batch[:b])
+      end
+
+      test("[Integer]") do
+        assert_equal(Arrow::Column.new(@record_batch, 6),
+                     @record_batch[-1])
+      end
+
+      test("[Range]") do
+        assert_equal(Arrow::RecordBatch.new(d: [true],
+                                            e: [true]),
+                     @record_batch[3..4])
+      end
+
+      test("[[Symbol, String, Integer, Range]]") do
+        assert_equal(Arrow::RecordBatch.new(c: [true],
+                                            a: [true],
+                                            g: [true],
+                                            d: [true],
+                                            e: [true]),
+                     @record_batch[[:c, "a", -1, 3..4]])
+      end
+    end
   end
 end

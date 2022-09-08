@@ -312,7 +312,8 @@ TEST(Formatting, Date64) {
 
 TEST(Formatting, Time32) {
   {
-    StringFormatter<Time32Type> formatter(time32(TimeUnit::SECOND));
+    auto ty = time32(TimeUnit::SECOND);
+    StringFormatter<Time32Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00");
     AssertFormatting(formatter, 1, "00:00:01");
@@ -321,7 +322,8 @@ TEST(Formatting, Time32) {
   }
 
   {
-    StringFormatter<Time32Type> formatter(time32(TimeUnit::MILLI));
+    auto ty = time32(TimeUnit::MILLI);
+    StringFormatter<Time32Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000");
     AssertFormatting(formatter, 1, "00:00:00.001");
@@ -334,7 +336,8 @@ TEST(Formatting, Time32) {
 
 TEST(Formatting, Time64) {
   {
-    StringFormatter<Time64Type> formatter(time64(TimeUnit::MICRO));
+    auto ty = time64(TimeUnit::MICRO);
+    StringFormatter<Time64Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000000");
     AssertFormatting(formatter, 1, "00:00:00.000001");
@@ -345,7 +348,8 @@ TEST(Formatting, Time64) {
   }
 
   {
-    StringFormatter<Time64Type> formatter(time64(TimeUnit::NANO));
+    auto ty = time64(TimeUnit::NANO);
+    StringFormatter<Time64Type> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "00:00:00.000000000");
     AssertFormatting(formatter, 1, "00:00:00.000000001");
@@ -358,7 +362,8 @@ TEST(Formatting, Time64) {
 
 TEST(Formatting, Timestamp) {
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::SECOND));
+    auto ty = timestamp(TimeUnit::SECOND);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00");
     AssertFormatting(formatter, 1, "1970-01-01 00:00:01");
@@ -373,7 +378,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::MILLI));
+    auto ty = timestamp(TimeUnit::MILLI);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000");
     AssertFormatting(formatter, 1000L + 1, "1970-01-01 00:00:01.001");
@@ -388,7 +394,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::MICRO));
+    auto ty = timestamp(TimeUnit::MICRO);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000");
     AssertFormatting(formatter, 1000000LL + 1, "1970-01-01 00:00:01.000001");
@@ -407,7 +414,8 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    StringFormatter<TimestampType> formatter(timestamp(TimeUnit::NANO));
+    auto ty = timestamp(TimeUnit::NANO);
+    StringFormatter<TimestampType> formatter(ty.get());
 
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000000");
     AssertFormatting(formatter, 1000000000LL + 1, "1970-01-01 00:00:01.000000001");
@@ -424,6 +432,47 @@ TEST(Formatting, Timestamp) {
                      "2018-11-13 17:11:10.000000007");
     AssertFormatting(formatter, -2203932304LL * 1000000000LL + 8,
                      "1900-02-28 12:34:56.000000008");
+  }
+}
+
+TEST(Formatting, Interval) {
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+
+  const int32_t max_int32 = std::numeric_limits<int32_t>::max();
+  const int32_t min_int32 = std::numeric_limits<int32_t>::min();
+  const int64_t max_int64 = std::numeric_limits<int64_t>::max();
+  const int64_t min_int64 = std::numeric_limits<int64_t>::min();
+  {
+    auto ty = month_interval();
+    StringFormatter<MonthIntervalType> formatter(ty.get());
+
+    AssertFormatting(formatter, 0, "0M");
+    AssertFormatting(formatter, -1, "-1M");
+    AssertFormatting(formatter, min_int32, "-2147483648M");
+    AssertFormatting(formatter, max_int32, "2147483647M");
+  }
+  {
+    auto ty = day_time_interval();
+    StringFormatter<DayTimeIntervalType> formatter(ty.get());
+
+    AssertFormatting(formatter, DayMilliseconds{0, 0}, "0d0ms");
+    AssertFormatting(formatter, DayMilliseconds{-1, -1}, "-1d-1ms");
+    AssertFormatting(formatter, DayMilliseconds{min_int32, min_int32},
+                     "-2147483648d-2147483648ms");
+    AssertFormatting(formatter, DayMilliseconds{max_int32, max_int32},
+                     "2147483647d2147483647ms");
+  }
+  {
+    auto ty = month_day_nano_interval();
+    StringFormatter<MonthDayNanoIntervalType> formatter(ty.get());
+
+    AssertFormatting(formatter, MonthDayNanos{0, 0, 0}, "0M0d0ns");
+    AssertFormatting(formatter, MonthDayNanos{-1, -1, -1}, "-1M-1d-1ns");
+    AssertFormatting(formatter, MonthDayNanos{min_int32, min_int32, min_int64},
+                     "-2147483648M-2147483648d-9223372036854775808ns");
+    AssertFormatting(formatter, MonthDayNanos{max_int32, max_int32, max_int64},
+                     "2147483647M2147483647d9223372036854775807ns");
   }
 }
 

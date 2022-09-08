@@ -66,7 +66,7 @@ gnome.gtkdoc(package_id,
              gobject_typesfile: package_id + '.types',
              scan_args: [
                '--rebuild-types',
-               '--deprecated-guards=GPARQUET_DISABLE_DEPRECATED',
+               '--deprecated-guards=GARROW_DISABLE_DEPRECATED',
              ],
              mkdb_args: [
                '--output-format=xml',

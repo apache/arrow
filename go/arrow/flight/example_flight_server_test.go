@@ -18,13 +18,15 @@ package flight_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 
-	"github.com/apache/arrow/go/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -32,7 +34,7 @@ type serverAuth struct{}
 
 func (sa *serverAuth) Authenticate(c flight.AuthConn) error {
 	in, err := c.Read()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return status.Error(codes.Unauthenticated, "no auth info provided")
 	}
 
@@ -55,14 +57,16 @@ func (sa *serverAuth) IsValid(token string) (interface{}, error) {
 }
 
 func Example_server() {
-	server := flight.NewFlightServer(&serverAuth{})
+	server := flight.NewFlightServer()
 	server.Init("localhost:0")
-	server.RegisterFlightService(&flight.FlightServiceService{})
+	svc := &flight.BaseFlightServer{}
+	svc.SetAuthHandler(&serverAuth{})
+	server.RegisterFlightService(svc)
 
 	go server.Serve()
 	defer server.Shutdown()
 
-	conn, err := grpc.Dial(server.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(server.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 	}

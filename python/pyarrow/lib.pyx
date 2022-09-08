@@ -27,8 +27,10 @@ import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
 # Initialize NumPy C API
@@ -36,6 +38,9 @@ arrow_init_numpy()
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
+
+
+MonthDayNano = NewMonthDayNanoTupleType()
 
 
 def cpu_count():
@@ -59,6 +64,11 @@ def cpu_count():
 def set_cpu_count(int count):
     """
     Set the number of threads to use in parallel operations.
+
+    Parameters
+    ----------
+    count : int
+        The number of concurrent threads that should be used.
 
     See Also
     --------
@@ -91,6 +101,7 @@ Type_TIMESTAMP = _Type_TIMESTAMP
 Type_TIME32 = _Type_TIME32
 Type_TIME64 = _Type_TIME64
 Type_DURATION = _Type_DURATION
+Type_INTERVAL_MONTH_DAY_NANO = _Type_INTERVAL_MONTH_DAY_NANO
 Type_BINARY = _Type_BINARY
 Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
@@ -108,10 +119,24 @@ Type_DICTIONARY = _Type_DICTIONARY
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
+__pc = None
+
 
 def _pc():
-    import pyarrow.compute as pc
-    return pc
+    global __pc
+    if __pc is None:
+        import pyarrow.compute as pc
+        try:
+            from pyarrow import _exec_plan
+            pc._exec_plan = _exec_plan
+        except ImportError:
+            pass
+        __pc = pc
+    return __pc
+
+
+def _gdb_test_session():
+    GdbTestSession()
 
 
 # Assorted compatibility helpers

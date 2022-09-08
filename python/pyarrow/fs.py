@@ -31,6 +31,8 @@ from pyarrow._fs import (  # noqa
     _MockFileSystem,
     FileSystemHandler,
     PyFileSystem,
+    _copy_files,
+    _copy_files_selector,
 )
 
 # For backward compatibility.
@@ -44,8 +46,15 @@ except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
+    from pyarrow._gcsfs import GcsFileSystem  # noqa
+except ImportError:
+    _not_imported.append("GcsFileSystem")
+
+try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3)
+        AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
+        S3FileSystem, S3LogLevel, S3RetryStrategy, finalize_s3,
+        initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
@@ -93,7 +102,7 @@ def _ensure_filesystem(
         if use_mmap:
             raise ValueError(
                 "Specifying to use memory mapping not supported for "
-                "filesytem specified as an URI string"
+                "filesystem specified as an URI string"
             )
         return _filesystem_from_str(filesystem)
 
@@ -151,6 +160,8 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
+        if not allow_legacy_filesystem:
+            path = filesystem.normalize_path(path)
         return filesystem, path
 
     path = _stringify_path(path)
@@ -161,7 +172,7 @@ def _resolve_filesystem_and_path(
     filesystem = LocalFileSystem()
     try:
         file_info = filesystem.get_file_info(path)
-    except OSError:
+    except ValueError:  # ValueError means path is likely an URI
         file_info = None
         exists_locally = False
     else:
@@ -178,8 +189,85 @@ def _resolve_filesystem_and_path(
             # instead of a more confusing scheme parsing error
             if "empty scheme" not in str(e):
                 raise
+    else:
+        path = filesystem.normalize_path(path)
 
     return filesystem, path
+
+
+def copy_files(source, destination,
+               source_filesystem=None, destination_filesystem=None,
+               *, chunk_size=1024*1024, use_threads=True):
+    """
+    Copy files between FileSystems.
+
+    This functions allows you to recursively copy directories of files from
+    one file system to another, such as from S3 to your local machine.
+
+    Parameters
+    ----------
+    source : string
+        Source file path or URI to a single file or directory.
+        If a directory, files will be copied recursively from this path.
+    destination : string
+        Destination file path or URI. If `source` is a file, `destination`
+        is also interpreted as the destination file (not directory).
+        Directories will be created as necessary.
+    source_filesystem : FileSystem, optional
+        Source filesystem, needs to be specified if `source` is not a URI,
+        otherwise inferred.
+    destination_filesystem : FileSystem, optional
+        Destination filesystem, needs to be specified if `destination` is not
+        a URI, otherwise inferred.
+    chunk_size : int, default 1MB
+        The maximum size of block to read before flushing to the
+        destination file. A larger chunk_size will use more memory while
+        copying but may help accommodate high latency FileSystems.
+    use_threads : bool, default True
+        Whether to use multiple threads to accelerate copying.
+
+    Examples
+    --------
+    Inspect an S3 bucket's files:
+
+    >>> s3, path = fs.FileSystem.from_uri(
+    ...            "s3://registry.opendata.aws/roda/ndjson/")
+    >>> selector = fs.FileSelector(path)
+    >>> s3.get_file_info(selector)
+    [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson':...]
+
+    Copy one file from S3 bucket to a local directory:
+
+    >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path))
+
+    >>> fs.LocalFileSystem().get_file_info(str(local_path)+
+    ...                                    '/index_copy.ndjson')
+    <FileInfo for '.../index_copy.ndjson': type=FileType.File, size=...>
+
+    Copy file using a FileSystem object:
+
+    >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               source_filesystem=fs.S3FileSystem())
+    """
+    source_fs, source_path = _resolve_filesystem_and_path(
+        source, source_filesystem
+    )
+    destination_fs, destination_path = _resolve_filesystem_and_path(
+        destination, destination_filesystem
+    )
+
+    file_info = source_fs.get_file_info(source_path)
+    if file_info.type == FileType.Directory:
+        source_sel = FileSelector(source_path, recursive=True)
+        _copy_files_selector(source_fs, source_sel,
+                             destination_fs, destination_path,
+                             chunk_size, use_threads)
+    else:
+        _copy_files(source_fs, source_path,
+                    destination_fs, destination_path,
+                    chunk_size, use_threads)
 
 
 class FSSpecHandler(FileSystemHandler):
@@ -188,7 +276,13 @@ class FSSpecHandler(FileSystemHandler):
 
     https://filesystem-spec.readthedocs.io/en/latest/index.html
 
-    >>> PyFileSystem(FSSpecHandler(fsspec_fs))
+    Parameters
+    ----------
+    fs : FSSpec-compliant filesystem instance.
+
+    Examples
+    --------
+    >>> PyFileSystem(FSSpecHandler(fsspec_fs)) # doctest: +SKIP
     """
 
     def __init__(self, fs):
@@ -271,18 +365,24 @@ class FSSpecHandler(FileSystemHandler):
     def delete_dir(self, path):
         self.fs.rm(path, recursive=True)
 
-    def _delete_dir_contents(self, path):
-        for subpath in self.fs.listdir(path, detail=False):
+    def _delete_dir_contents(self, path, missing_dir_ok):
+        try:
+            subpaths = self.fs.listdir(path, detail=False)
+        except FileNotFoundError:
+            if missing_dir_ok:
+                return
+            raise
+        for subpath in subpaths:
             if self.fs.isdir(subpath):
                 self.fs.rm(subpath, recursive=True)
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok):
         if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")
-        self._delete_dir_contents(path)
+        self._delete_dir_contents(path, missing_dir_ok)
 
     def delete_root_dir_contents(self):
         self._delete_dir_contents("/")

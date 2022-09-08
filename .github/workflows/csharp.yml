@@ -30,7 +30,7 @@ on:
       - 'csharp/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
@@ -43,19 +43,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install Source Link
         shell: bash
         run: dotnet tool install --global sourcelink
@@ -68,25 +65,22 @@ jobs:
 
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install Source Link
         run: dotnet tool install --global sourcelink
       - name: Build
@@ -97,29 +91,26 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
+    name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link
         shell: bash
         run: dotnet tool install --global sourcelink
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)

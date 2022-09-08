@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.6
+ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -30,12 +30,12 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 # install turbodbc dependencies from conda-forge
-RUN conda install -c conda-forge -q \
+RUN mamba install -c conda-forge -q -y \
         pybind11 \
         pytest-cov \
         mock \
         unixodbc && \
-    conda clean --all
+    mamba clean --all
 
 RUN service postgresql start && \
     sudo -u postgres psql -U postgres -c \

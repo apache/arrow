@@ -19,9 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
-
-#include <parquet-glib/version.h>
+#include <parquet-glib/metadata.h>
 
 G_BEGIN_DECLS
 
@@ -47,7 +45,7 @@ GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
                                       GError **error);
 
-GPARQUET_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_1_0
 GArrowTable *
 gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
                                           gint row_group_index,
@@ -67,8 +65,16 @@ gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,
 gint
 gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader);
 
+GARROW_AVAILABLE_IN_6_0
+gint64
+gparquet_arrow_file_reader_get_n_rows(GParquetArrowFileReader *reader);
+
 void
 gparquet_arrow_file_reader_set_use_threads(GParquetArrowFileReader *reader,
                                            gboolean use_threads);
+
+GARROW_AVAILABLE_IN_8_0
+GParquetFileMetadata *
+gparquet_arrow_file_reader_get_metadata(GParquetArrowFileReader *reader);
 
 G_END_DECLS

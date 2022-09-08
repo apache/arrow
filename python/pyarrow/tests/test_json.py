@@ -19,6 +19,7 @@ from collections import OrderedDict
 import io
 import itertools
 import json
+import pickle
 import string
 import unittest
 
@@ -51,6 +52,14 @@ def make_random_json(num_cols=2, num_rows=10, linesep='\r\n'):
     return data, expected
 
 
+def check_options_class_pickling(cls, **attr_values):
+    opts = cls(**attr_values)
+    new_opts = pickle.loads(pickle.dumps(opts,
+                                         protocol=pickle.HIGHEST_PROTOCOL))
+    for name, value in attr_values.items():
+        assert getattr(new_opts, name) == value
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
@@ -66,6 +75,9 @@ def test_read_options():
     opts = cls(block_size=1234, use_threads=False)
     assert opts.block_size == 1234
     assert opts.use_threads is False
+
+    check_options_class_pickling(cls, block_size=1234,
+                                 use_threads=False)
 
 
 def test_parse_options():
@@ -88,6 +100,10 @@ def test_parse_options():
 
     with pytest.raises(ValueError):
         opts.unexpected_field_behavior = "invalid-value"
+
+    check_options_class_pickling(cls, explicit_schema=schema,
+                                 newlines_in_values=False,
+                                 unexpected_field_behavior="ignore")
 
 
 class BaseTestJSONRead:
@@ -209,7 +225,7 @@ class BaseTestJSONRead:
         assert table.num_rows == 2
 
     def test_reconcile_accross_blocks(self):
-        # ARROW-12065: reconciling inferred types accross blocks
+        # ARROW-12065: reconciling inferred types across blocks
         first_row = b'{                               }\n'
         read_options = ReadOptions(block_size=len(first_row))
         for next_rows, expected_pylist in [

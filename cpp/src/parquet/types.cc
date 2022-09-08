@@ -909,8 +909,14 @@ bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_typ
       }
     } break;
     case parquet::Type::FIXED_LEN_BYTE_ARRAY: {
+      // If the primitive length is larger than this we will overflow int32 when
+      // calculating precision.
+      if (primitive_length <= 0 || primitive_length > 891723282) {
+        ok = false;
+        break;
+      }
       ok = precision_ <= static_cast<int32_t>(std::floor(
-                             std::log10(std::pow(2.0, (8.0 * primitive_length) - 1.0))));
+                             std::log10(2) * ((8.0 * primitive_length) - 1.0)));
     } break;
     case parquet::Type::BYTE_ARRAY: {
       ok = true;

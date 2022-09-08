@@ -17,7 +17,7 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
+#include "./safe-call-into-r.h"
 
 #include <arrow/csv/reader.h>
 #include <arrow/csv/writer.h>
@@ -162,7 +162,9 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  return ValueOrStop(table_reader->Read());
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return table_reader->Read(); });
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
@@ -202,4 +204,10 @@ void csv___WriteCSV__RecordBatch(
   StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, stream.get()));
 }
 
-#endif
+// [[arrow::export]]
+void csv___WriteCSV__RecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader,
+    const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(reader, *write_options, stream.get()));
+}

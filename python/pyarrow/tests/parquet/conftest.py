@@ -26,11 +26,11 @@ def datadir(base_datadir):
 
 
 @pytest.fixture
-def s3_bucket(request, s3_connection, s3_server):
+def s3_bucket(s3_server):
     boto3 = pytest.importorskip('boto3')
     botocore = pytest.importorskip('botocore')
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     s3 = boto3.resource(
         's3',
         endpoint_url='http://{}:{}'.format(host, port),
@@ -49,10 +49,10 @@ def s3_bucket(request, s3_connection, s3_server):
 
 
 @pytest.fixture
-def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
+def s3_example_s3fs(s3_server, s3_bucket):
     s3fs = pytest.importorskip('s3fs')
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
@@ -72,10 +72,10 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
 
 
 @pytest.fixture
-def s3_example_fs(s3_connection, s3_server):
+def s3_example_fs(s3_server):
     from pyarrow.fs import FileSystem
 
-    host, port, access_key, secret_key = s3_connection
+    host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
         .format(access_key, secret_key, host, port)

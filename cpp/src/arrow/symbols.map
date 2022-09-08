@@ -24,10 +24,18 @@
       # (from e.g. STL or Flatbuffers) involving Arrow types.
       *arrow::*;
       *arrow_vendored::*;
+      # OpenTelemetry requires on shared global state for features
+      # like automatic span linking. If we hide its symbols, spans
+      # started in (say) libarrow_dataset don't link up with those
+      # started in libarrow and vice versa.
+      *opentelemetry::*;
     };
     # Also export C-level helpers
     arrow_*;
     pyarrow_*;
+    # ARROW-14771: export Protobuf symbol table
+    descriptor_table_Flight_2eproto;
+    descriptor_table_FlightSql_2eproto;
 
   # Symbols marked as 'local' are not exported by the DSO and thus may not
   # be used by client applications.  Everything except the above falls here.

@@ -17,7 +17,11 @@
 
 #' Read a JSON file
 #'
-#' Using [JsonTableReader]
+#' Wrapper around [JsonTableReader] to read a newline-delimited JSON (ndjson) file into a
+#' data frame or Arrow Table.
+#'
+#' If passed a path, will detect and handle compression from the file extension
+#' (e.g. `.json.gz`). Accepts explicit or implicit nulls.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.
@@ -25,7 +29,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examplesIf arrow_available()
+#' @examplesIf arrow_with_json()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' writeLines('
@@ -40,7 +44,12 @@ read_json_arrow <- function(file,
                             schema = NULL,
                             ...) {
   if (!inherits(file, "InputStream")) {
+    compression <- detect_compression(file)
     file <- make_readable_file(file)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      file <- CompressedInputStream$create(file, compression)
+    }
     on.exit(file$close())
   }
   tab <- JsonTableReader$create(file, schema = schema, ...)$Read()
@@ -56,7 +65,7 @@ read_json_arrow <- function(file,
   tab
 }
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @rdname CsvTableReader
 #' @usage NULL
 #' @format NULL

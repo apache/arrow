@@ -21,6 +21,7 @@
 
 #include <arrow-glib/array.h>
 #include <arrow-glib/decimal.h>
+#include <arrow-glib/interval.h>
 
 G_BEGIN_DECLS
 
@@ -753,6 +754,14 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
                                                    const gchar *value,
                                                    GError **error);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
+                                              const gchar *value,
+                                              gint32 length,
+                                              GError **error);
+
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_16_FOR(garrow_string_array_builder_append_strings)
 gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
@@ -789,6 +798,12 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *builder,
                                                          const gchar *value,
                                                          GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean garrow_large_string_array_builder_append_string_len(
+  GArrowLargeStringArrayBuilder *builder,
+  const gchar *value,
+  gint64 length,
+  GError **error);
 GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
                                                           const gchar **values,
@@ -1050,6 +1065,105 @@ gboolean garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *buil
                                                   gint64 n,
                                                   GError **error);
 #endif
+
+
+#define GARROW_TYPE_MONTH_INTERVAL_ARRAY_BUILDER        \
+  (garrow_month_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalArrayBuilder,
+                         garrow_month_interval_array_builder,
+                         GARROW,
+                         MONTH_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowMonthIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthIntervalArrayBuilder *
+garrow_month_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_interval_array_builder_append_value(
+  GArrowMonthIntervalArrayBuilder *builder,
+  gint32 value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_interval_array_builder_append_values(
+  GArrowMonthIntervalArrayBuilder *builder,
+  const gint32 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
+#define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY_BUILDER     \
+  (garrow_day_time_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalArrayBuilder,
+                         garrow_day_time_interval_array_builder,
+                         GARROW,
+                         DAY_TIME_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowDayTimeIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowDayTimeIntervalArrayBuilder *
+garrow_day_time_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_day_time_interval_array_builder_append_value(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  GArrowDayMillisecond *value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_day_time_interval_array_builder_append_values(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  const GArrowDayMillisecond **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER       \
+  (garrow_month_day_nano_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalArrayBuilder,
+                         garrow_month_day_nano_interval_array_builder,
+                         GARROW,
+                         MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowMonthDayNanoIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNanoIntervalArrayBuilder *
+garrow_month_day_nano_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_day_nano_interval_array_builder_append_value(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  GArrowMonthDayNano *value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_day_nano_interval_array_builder_append_values(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  const GArrowMonthDayNano **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
 
 
 #define GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER (garrow_binary_dictionary_array_builder_get_type())

@@ -15,16 +15,119 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export {
-    DateUnit,
-    TimeUnit,
-    Precision,
-    UnionMode,
-    IntervalUnit,
-    MetadataVersion,
-} from './fb/Schema';
+////
+//
+// A few enums copied from `fb/Schema.ts` and `fb/Message.ts` because Webpack
+// v4 doesn't seem to be able to tree-shake the rest of those exports.
+//
+// We will have to keep these enums in sync when we re-generate the flatbuffers
+// code from the shchemas. See js/DEVELOP.md for info on how to run flatbuffers
+// code generation.
+//
+////
 
-export { MessageHeader } from './fb/Message';
+/**
+ * Logical types, vector layouts, and schemas
+ *
+ * @enum {number}
+ */
+export enum MetadataVersion {
+    /**
+     * 0.1.0 (October 2016).
+     */
+    V1 = 0,
+
+    /**
+     * 0.2.0 (February 2017). Non-backwards compatible with V1.
+     */
+    V2 = 1,
+
+    /**
+     * 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
+     */
+    V3 = 2,
+
+    /**
+     * >= 0.8.0 (December 2017). Non-backwards compatible with V3.
+     */
+    V4 = 3,
+
+    /**
+     * >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+     * metadata and IPC messages). Implementations are recommended to provide a
+     * V4 compatibility mode with V5 format changes disabled.
+     *
+     * Incompatible changes between V4 and V5:
+     * - Union buffer layout has changed. In V5, Unions don't have a validity
+     *   bitmap buffer.
+     */
+    V5 = 4
+}
+
+/**
+ * @enum {number}
+ */
+export enum UnionMode {
+    Sparse = 0,
+    Dense = 1
+}
+
+/**
+ * @enum {number}
+ */
+export enum Precision {
+    HALF = 0,
+    SINGLE = 1,
+    DOUBLE = 2
+}
+
+/**
+ * @enum {number}
+ */
+export enum DateUnit {
+    DAY = 0,
+    MILLISECOND = 1
+}
+
+/**
+ * @enum {number}
+ */
+export enum TimeUnit {
+    SECOND = 0,
+    MILLISECOND = 1,
+    MICROSECOND = 2,
+    NANOSECOND = 3
+}
+
+/**
+ * @enum {number}
+ */
+export enum IntervalUnit {
+    YEAR_MONTH = 0,
+    DAY_TIME = 1,
+    MONTH_DAY_NANO = 2
+}
+
+/**
+ * ----------------------------------------------------------------------
+ * The root Message type
+ * This union enables us to easily send different message types without
+ * redundant storage, and in the future we can easily add new message types.
+ *
+ * Arrow implementations do not need to implement all of the message types,
+ * which may include experimental metadata types. For maximum compatibility,
+ * it is best to send data using RecordBatch
+ *
+ * @enum {number}
+ */
+export enum MessageHeader {
+    NONE = 0,
+    Schema = 1,
+    DictionaryBatch = 2,
+    RecordBatch = 3,
+    Tensor = 4,
+    SparseTensor = 5
+}
 
 /**
  * Main data type enumeration.
@@ -53,70 +156,51 @@ export { MessageHeader } from './fb/Message';
  * to the flatbuffers metadata of serialized Arrow IPC payloads.
  */
 export enum Type {
-    /** The default placeholder type */
-    NONE            =  0,
-    /** A NULL type having no physical storage */
-    Null            =  1,
-    /** Signed or unsigned 8, 16, 32, or 64-bit little-endian integer */
-    Int             =  2,
-    /** 2, 4, or 8-byte floating point value */
-    Float           =  3,
-    /** Variable-length bytes (no guarantee of UTF8-ness) */
-    Binary          =  4,
-    /** UTF8 variable-length string as List<Char> */
-    Utf8            =  5,
-    /** Boolean as 1 bit, LSB bit-packed ordering */
-    Bool            =  6,
-    /** Precision-and-scale-based decimal type. Storage type depends on the parameters. */
-    Decimal         =  7,
-    /** int32_t days or int64_t milliseconds since the UNIX epoch */
-    Date            =  8,
-    /** Time as signed 32 or 64-bit integer, representing either seconds, milliseconds, microseconds, or nanoseconds since midnight since midnight */
-    Time            =  9,
-    /** Exact timestamp encoded with int64 since UNIX epoch (Default unit millisecond) */
-    Timestamp       = 10,
-    /** YEAR_MONTH or DAY_TIME interval in SQL style */
-    Interval        = 11,
-    /** A list of some logical data type */
-    List            = 12,
-    /** Struct of logical types */
-    Struct          = 13,
-    /** Union of logical types */
-    Union           = 14,
-    /** Fixed-size binary. Each value occupies the same number of bytes */
-    FixedSizeBinary = 15,
-    /** Fixed-size list. Each value occupies the same number of bytes */
-    FixedSizeList   = 16,
-    /** Map of named logical types */
-    Map             = 17,
+    NONE = 0, /** The default placeholder type */
+    Null = 1, /** A NULL type having no physical storage */
+    Int = 2, /** Signed or unsigned 8, 16, 32, or 64-bit little-endian integer */
+    Float = 3, /** 2, 4, or 8-byte floating point value */
+    Binary = 4, /** Variable-length bytes (no guarantee of UTF8-ness) */
+    Utf8 = 5, /** UTF8 variable-length string as List<Char> */
+    Bool = 6, /** Boolean as 1 bit, LSB bit-packed ordering */
+    Decimal = 7, /** Precision-and-scale-based decimal type. Storage type depends on the parameters. */
+    Date = 8, /** int32_t days or int64_t milliseconds since the UNIX epoch */
+    Time = 9, /** Time as signed 32 or 64-bit integer, representing either seconds, milliseconds, microseconds, or nanoseconds since midnight since midnight */
+    Timestamp = 10, /** Exact timestamp encoded with int64 since UNIX epoch (Default unit millisecond) */
+    Interval = 11, /** YEAR_MONTH or DAY_TIME interval in SQL style */
+    List = 12, /** A list of some logical data type */
+    Struct = 13, /** Struct of logical types */
+    Union = 14, /** Union of logical types */
+    FixedSizeBinary = 15, /** Fixed-size binary. Each value occupies the same number of bytes */
+    FixedSizeList = 16, /** Fixed-size list. Each value occupies the same number of bytes */
+    Map = 17, /** Map of named logical types */
 
-    /** Dictionary aka Category type */
-    Dictionary            = -1,
-    Int8                  = -2,
-    Int16                 = -3,
-    Int32                 = -4,
-    Int64                 = -5,
-    Uint8                 = -6,
-    Uint16                = -7,
-    Uint32                = -8,
-    Uint64                = -9,
-    Float16               = -10,
-    Float32               = -11,
-    Float64               = -12,
-    DateDay               = -13,
-    DateMillisecond       = -14,
-    TimestampSecond       = -15,
-    TimestampMillisecond  = -16,
-    TimestampMicrosecond  = -17,
-    TimestampNanosecond   = -18,
-    TimeSecond            = -19,
-    TimeMillisecond       = -20,
-    TimeMicrosecond       = -21,
-    TimeNanosecond        = -22,
-    DenseUnion            = -23,
-    SparseUnion           = -24,
-    IntervalDayTime       = -25,
-    IntervalYearMonth     = -26,
+    Dictionary = -1, /** Dictionary aka Category type */
+    Int8 = -2,
+    Int16 = -3,
+    Int32 = -4,
+    Int64 = -5,
+    Uint8 = -6,
+    Uint16 = -7,
+    Uint32 = -8,
+    Uint64 = -9,
+    Float16 = -10,
+    Float32 = -11,
+    Float64 = -12,
+    DateDay = -13,
+    DateMillisecond = -14,
+    TimestampSecond = -15,
+    TimestampMillisecond = -16,
+    TimestampMicrosecond = -17,
+    TimestampNanosecond = -18,
+    TimeSecond = -19,
+    TimeMillisecond = -20,
+    TimeMicrosecond = -21,
+    TimeNanosecond = -22,
+    DenseUnion = -23,
+    SparseUnion = -24,
+    IntervalDayTime = -25,
+    IntervalYearMonth = -26,
 }
 
 export enum BufferType {
@@ -139,4 +223,4 @@ export enum BufferType {
      * Type vector used in Union type
      */
     TYPE = 3
-  }
+}

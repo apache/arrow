@@ -100,5 +100,13 @@ std::string UriUnescape(const arrow::util::string_view s);
 ARROW_EXPORT
 std::string UriEncodeHost(const std::string& host);
 
+/// Whether the string is a syntactically valid URI scheme according to RFC 3986.
+ARROW_EXPORT
+bool IsValidUriScheme(const arrow::util::string_view s);
+
+/// Create a file uri from a given absolute path
+ARROW_EXPORT
+std::string UriFromAbsolutePath(const std::string& path);
+
 }  // namespace internal
 }  // namespace arrow

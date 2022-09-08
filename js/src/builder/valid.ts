@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../type';
-import { valueToString } from '../util/pretty';
-import { BigIntAvailable } from '../util/compat';
+import { DataType } from '../type.js';
+import { valueToString } from '../util/pretty.js';
+import { BigIntAvailable } from '../util/compat.js';
 
 /**
  * Dynamically compile the null values into an `isValid()` function whose

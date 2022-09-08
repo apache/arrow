@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
 tbl <- example_data
@@ -35,8 +33,8 @@ test_that("mutate() is lazy", {
 })
 
 test_that("basic mutate", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       mutate(int = int + 6L) %>%
@@ -46,8 +44,8 @@ test_that("basic mutate", {
 })
 
 test_that("mutate() with NULL inputs", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(int = NULL) %>%
       collect(),
     tbl
@@ -55,8 +53,8 @@ test_that("mutate() with NULL inputs", {
 })
 
 test_that("empty mutate()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate() %>%
       collect(),
     tbl
@@ -64,8 +62,8 @@ test_that("empty mutate()", {
 })
 
 test_that("transmute", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
@@ -74,9 +72,19 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute respect bespoke dplyr implementation", {
+  ## see: https://github.com/tidyverse/dplyr/issues/6086
+  compare_dplyr_binding(
+    .input %>%
+      transmute(dbl, int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute() with NULL inputs", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(int = NULL) %>%
       collect(),
     tbl
@@ -84,9 +92,23 @@ test_that("transmute() with NULL inputs", {
 })
 
 test_that("empty transmute()", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute() %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute with unnamed expressions", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, padded_strings) %>%
+      transmute(
+        int, # bare column name
+        nchar(padded_strings) # expression
+      ) %>%
+      filter(int > 5) %>%
       collect(),
     tbl
   )
@@ -120,16 +142,19 @@ test_that("transmute() defuses dots arguments (ARROW-13262)", {
   expect_warning(
     tbl %>%
       Table$create() %>%
-      transmute(stringr::str_c(chr, chr)) %>%
+      transmute(
+        a = stringr::str_c(padded_strings, padded_strings),
+        b = stringr::str_squish(a)
+      ) %>%
       collect(),
-    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    "Expression stringr::str_squish(a) not supported in Arrow; pulling data into R",
     fixed = TRUE
   )
 })
 
 test_that("mutate and refer to previous mutants", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, verses) %>%
       mutate(
         line_lengths = nchar(verses),
@@ -142,8 +167,8 @@ test_that("mutate and refer to previous mutants", {
 })
 
 test_that("nchar() arguments", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, verses) %>%
       mutate(
         line_lengths = nchar(verses, type = "bytes"),
@@ -154,8 +179,8 @@ test_that("nchar() arguments", {
     tbl
   )
   # This tests the whole abandon_ship() machinery
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, verses) %>%
       mutate(
         line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
@@ -166,14 +191,14 @@ test_that("nchar() arguments", {
     tbl,
     warning = paste0(
       "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
-      "allowNA = TRUE not supported by Arrow; pulling data into R"
+      "allowNA = TRUE not supported in Arrow; pulling data into R"
     )
   )
 })
 
 test_that("mutate with .data pronoun", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, verses) %>%
       mutate(
         line_lengths = str_length(verses),
@@ -186,8 +211,8 @@ test_that("mutate with .data pronoun", {
 })
 
 test_that("mutate with unnamed expressions", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, padded_strings) %>%
       mutate(
         int, # bare column name
@@ -200,8 +225,8 @@ test_that("mutate with unnamed expressions", {
 })
 
 test_that("mutate with reassigning same name", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       transmute(
         new = lgl,
         new = chr
@@ -212,8 +237,8 @@ test_that("mutate with reassigning same name", {
 })
 
 test_that("mutate with single value for recycling", {
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, padded_strings) %>%
       mutate(
         dr_bronner = 1 # ALL ONE!
@@ -225,8 +250,8 @@ test_that("mutate with single value for recycling", {
 
 test_that("dplyr::mutate's examples", {
   # Newly created variables are available immediately
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(name, mass) %>%
       mutate(
         mass2 = mass * 2,
@@ -238,8 +263,8 @@ test_that("dplyr::mutate's examples", {
 
   # As well as adding new variables, you can use mutate() to
   # remove variables and modify existing variables.
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(name, height, mass, homeworld) %>%
       mutate(
         mass = NULL,
@@ -252,19 +277,18 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
-  # across and autosplicing: ARROW-11699
-  expect_dplyr_equal(
-    input %>%
-      select(name, homeworld, species) %>%
-      mutate(across(!name, as.factor)) %>%
+  # test modified from version in dplyr::mutate due to ARROW-12632
+  compare_dplyr_binding(
+    .input %>%
+      select(name, height, mass) %>%
+      mutate(across(!name, as.character)) %>%
       collect(),
     starwars,
-    warning = "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       select(name, mass, homeworld) %>%
       group_by(homeworld) %>%
       mutate(rank = min_rank(desc(mass))) %>%
@@ -275,24 +299,25 @@ test_that("dplyr::mutate's examples", {
 
   # `.before` and `.after` experimental args: ARROW-11701
   df <- tibble(x = 1, y = 2)
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y) %>% collect(),
     df
   )
   #> # A tibble: 1 x 3
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .before = 1) %>% collect(),
+
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, .before = 1) %>% collect(),
     df
   )
   #> # A tibble: 1 x 3
   #>       z     x     y
   #>   <dbl> <dbl> <dbl>
   #> 1     3     1     2
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .after = x) %>% collect(),
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, .after = x) %>% collect(),
     df
   )
   #> # A tibble: 1 x 3
@@ -303,51 +328,94 @@ test_that("dplyr::mutate's examples", {
   # By default, mutate() keeps all columns from the input data.
   # Experimental: You can override with `.keep`
   df <- tibble(x = 1, y = 2, a = "a", b = "b")
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .keep = "all") %>% collect(), # the default
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, .keep = "all") %>% collect(), # the default
     df
   )
   #> # A tibble: 1 x 5
   #>       x     y a     b         z
   #>   <dbl> <dbl> <chr> <chr> <dbl>
   #> 1     1     2 a     b         3
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .keep = "used") %>% collect(),
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, .keep = "used") %>% collect(),
     df
   )
   #> # A tibble: 1 x 3
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .keep = "unused") %>% collect(),
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, .keep = "unused") %>% collect(),
     df
   )
   #> # A tibble: 1 x 3
   #>   a     b         z
   #>   <chr> <chr> <dbl>
   #> 1 a     b         3
-  expect_dplyr_equal(
-    input %>% mutate(z = x + y, .keep = "none") %>% collect(), # same as transmute()
+  compare_dplyr_binding(
+    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(),
     df
   )
-  #> # A tibble: 1 x 1
-  #>       z
-  #>   <dbl>
-  #> 1     3
+  #> # A tibble: 1 × 2
+  #>       x     z
+  #>   <dbl> <dbl>
+  #> 1     1     3
 
   # Grouping ----------------------------------------
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO: ARROW-11702
-  expect_dplyr_equal(
-    input %>%
+  # TODO(ARROW-13926): support window functions
+  compare_dplyr_binding(
+    .input %>%
       select(name, mass, species) %>%
       mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
       collect(),
     starwars,
-    warning = TRUE
+    warning = "window function"
+  )
+})
+
+test_that("Can mutate after group_by as long as there are no aggregations", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean` in `mutate()` to test that
+      # `all_funs()` does not incorrectly identify it as an aggregate function
+      group_by(chr) %>%
+      mutate(mean = mean + 6L) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(avg_int = mean(int)) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
+      # `all_funs()` detects `mean()` despite the collision with a column name
+      group_by(chr) %>%
+      mutate(avg_int = mean(mean)) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 })
 
@@ -388,7 +456,7 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 twice: double (multiply_checked(int, 2))
 
@@ -400,8 +468,6 @@ See $.data for the source Arrow object",
 test_that("mutate and write_dataset", {
   skip_if_not_available("dataset")
   # See related test in test-dataset.R
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
 
   first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
   df1 <- tibble(
@@ -434,7 +500,7 @@ test_that("mutate and write_dataset", {
 
   new_ds <- open_dataset(dst_dir, format = "feather")
 
-  expect_equivalent(
+  expect_equal(
     new_ds %>%
       select(string = chr, integer = int, twice) %>%
       filter(integer > 6 & integer < 11) %>%
@@ -456,25 +522,121 @@ test_that("mutate and pmin/pmax", {
     val3 = c(0, NA, NA)
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         max_val_1 = pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
         min_val_1 = pmin(val1, val2, val3),
-        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
+        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE),
+        max_val_1_nmspc = base::pmax(val1, val2, val3),
+        max_val_2_nmspc = base::pmax(val1, val2, val3, na.rm = TRUE),
+        min_val_1_nmspc = base::pmin(val1, val2, val3),
+        min_val_2_nmspc = base::pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
     df
   )
 
-  expect_dplyr_equal(
-    input %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = TRUE),
         min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = TRUE),
       ) %>%
       collect(),
     df
+  )
+})
+
+test_that("mutate() and transmute() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # str_detect binding depends on RE2
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Can use across() within mutate()", {
+
+  # expressions work in the right order
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
+  )
+
+  # this is valid is neither R nor Arrow
+  expect_error(
+    expect_warning(
+      compare_dplyr_binding(
+        .input %>%
+          arrow_table() %>%
+          mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
+          collect(),
+        example_data,
+        warning = TRUE
+      )
+    )
+  )
+
+  # ARROW-12778 - `where()` is not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(where(is.double))) %>%
+        collect(),
+      example_data
+    ),
+    "Unsupported selection helper"
+  )
+
+  # gives the right error with window functions
+  expect_warning(
+    arrow_table(example_data) %>%
+      mutate(
+        x = int + 2,
+        across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
+        exp(dbl2)
+      ) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 })

@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -91,6 +92,32 @@ public class TestVectorAppender {
       try (IntVector expected = new IntVector("expected", allocator)) {
         expected.allocateNew();
         ValueVectorDataPopulator.setVector(expected, 0, 1, 2, 3, 4, 5, 6, null, 8, 9, null, 11, 12, 13, 14);
+        assertVectorsEqual(expected, target);
+      }
+    }
+  }
+
+  @Test
+  public void testAppendBitVector() {
+    final int length1 = 10;
+    final int length2 = 5;
+    try (BitVector target = new BitVector("", allocator);
+         BitVector delta = new BitVector("", allocator)) {
+
+      target.allocateNew(length1);
+      delta.allocateNew(length2);
+
+      ValueVectorDataPopulator.setVector(target, 0, 1, 0, 1, 0, 1, 0, null, 0, 1);
+      ValueVectorDataPopulator.setVector(delta, null, 1, 1, 0, 0);
+
+      VectorAppender appender = new VectorAppender(target);
+      delta.accept(appender, null);
+
+      assertEquals(length1 + length2, target.getValueCount());
+
+      try (BitVector expected = new BitVector("expected", allocator)) {
+        expected.allocateNew();
+        ValueVectorDataPopulator.setVector(expected, 0, 1, 0, 1, 0, 1, 0, null, 0, 1, null, 1, 1, 0, 0);
         assertVectorsEqual(expected, target);
       }
     }

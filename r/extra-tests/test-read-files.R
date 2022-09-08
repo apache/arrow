@@ -51,7 +51,6 @@ test_that("Can see the metadata (parquet)", {
   )
 
   # column-level attributes
-  expect_equal(attributes(df$a), list(class = "special_string"))
   expect_equal(
     attributes(df$c),
     list(
@@ -94,7 +93,6 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     )
 
     # column-level attributes
-    expect_equal(attributes(df$a), list(class = "special_string"))
     expect_equal(
       attributes(df$c),
       list(
@@ -115,7 +113,7 @@ test_that("Can read feather version 1", {
   expect_equal(
     attributes(df),
     list(
-      names = c("a", "b", "d"),
+      names = c("b", "d"),
       class = c("tbl_df", "tbl", "data.frame"),
       row.names = 1L
     )
@@ -153,7 +151,6 @@ test_that("Can see the metadata (stream)", {
   )
 
   # column-level attributes
-  expect_equal(attributes(df$a), list(class = "special_string"))
   expect_equal(
     attributes(df$c),
     list(

@@ -125,7 +125,11 @@ static inline std::string GenericToString(const std::shared_ptr<T>& value) {
 
 static inline std::string GenericToString(const std::shared_ptr<Scalar>& value) {
   std::stringstream ss;
-  ss << value->type->ToString() << ":" << value->ToString();
+  if (value) {
+    ss << value->type->ToString() << ":" << value->ToString();
+  } else {
+    ss << "<NULLPTR>";
+  }
   return ss.str();
 }
 
@@ -156,13 +160,9 @@ static inline std::string GenericToString(const Datum& value) {
       ss << value.type()->ToString() << ':' << value.make_array()->ToString();
       return ss.str();
     }
-    case Datum::CHUNKED_ARRAY:
-    case Datum::RECORD_BATCH:
-    case Datum::TABLE:
-    case Datum::COLLECTION:
+    default:
       return value.ToString();
   }
-  return value.ToString();
 }
 
 template <typename T>
@@ -265,7 +265,7 @@ template <typename T>
 static inline enable_if_same<T, SortKey, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
   std::vector<std::shared_ptr<Field>> fields;
-  fields.emplace_back(new Field("name", GenericTypeSingleton<std::string>()));
+  fields.emplace_back(new Field("target", GenericTypeSingleton<std::string>()));
   fields.emplace_back(new Field("order", GenericTypeSingleton<SortOrder>()));
   return std::make_shared<StructType>(std::move(fields));
 }
@@ -283,16 +283,20 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(bool value) {
   return MakeScalar(value);
 }
 
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const FieldRef& ref) {
+  return MakeScalar(ref.ToDotPath());
+}
+
 template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
   return GenericToScalar(static_cast<CType>(value));
 }
 
-static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& value) {
-  ARROW_ASSIGN_OR_RAISE(auto name, GenericToScalar(value.name));
-  ARROW_ASSIGN_OR_RAISE(auto order, GenericToScalar(value.order));
-  return StructScalar::Make({name, order}, {"name", "order"});
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& key) {
+  ARROW_ASSIGN_OR_RAISE(auto target, GenericToScalar(key.target));
+  ARROW_ASSIGN_OR_RAISE(auto order, GenericToScalar(key.order));
+  return StructScalar::Make({target, order}, {"target", "order"});
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
@@ -339,6 +343,10 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     return Status::Invalid("shared_ptr<DataType> is nullptr");
   }
   return MakeNullScalar(value);
+}
+
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const TypeHolder& value) {
+  return GenericToScalar(value.GetSharedPtr());
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
@@ -399,6 +407,13 @@ static inline enable_if_same_result<T, std::string> GenericFromScalar(
 }
 
 template <typename T>
+static inline enable_if_same_result<T, FieldRef> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  ARROW_ASSIGN_OR_RAISE(auto path, GenericFromScalar<std::string>(value));
+  return FieldRef::FromDotPath(path);
+}
+
+template <typename T>
 static inline enable_if_same_result<T, SortKey> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
   if (value->type->id() != Type::STRUCT) {
@@ -406,15 +421,21 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
   }
   if (!value->is_valid) return Status::Invalid("Got null scalar");
   const auto& holder = checked_cast<const StructScalar&>(*value);
-  ARROW_ASSIGN_OR_RAISE(auto name_holder, holder.field("name"));
+  ARROW_ASSIGN_OR_RAISE(auto target_holder, holder.field("target"));
   ARROW_ASSIGN_OR_RAISE(auto order_holder, holder.field("order"));
-  ARROW_ASSIGN_OR_RAISE(auto name, GenericFromScalar<std::string>(name_holder));
+  ARROW_ASSIGN_OR_RAISE(auto target, GenericFromScalar<FieldRef>(target_holder));
   ARROW_ASSIGN_OR_RAISE(auto order, GenericFromScalar<SortOrder>(order_holder));
-  return SortKey{std::move(name), order};
+  return SortKey{std::move(target), order};
 }
 
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  return value->type;
+}
+
+template <typename T>
+static inline enable_if_same_result<T, TypeHolder> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
   return value->type;
 }

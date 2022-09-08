@@ -34,10 +34,10 @@ that is backed by the Arrow object given. No data is copied or modified until
 \details{
 The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 
-Alternatively, one can pass the argument \code{.engine = "duckdb"} to \code{summarise()}
-that starts with an Arrow object to use DuckDB to calculate the summarization
-step. Internally, this calls \code{to_duckdb()} with all of the default argument
-values.
+If \code{auto_disconnect = TRUE}, the DuckDB table that is created will be configured
+to be unregistered when the \code{tbl} object is garbage collected. This is helpful
+if you don't want to have extra table objects in DuckDB after you've finished
+using them.
 }
 \examples{
 \dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
@@ -47,14 +47,8 @@ ds <- InMemoryDataset$create(mtcars)
 
 ds \%>\%
   filter(mpg < 30) \%>\%
+  group_by(cyl) \%>\%
   to_duckdb() \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE))
-
-# the same query can be simplified using .engine = "duckdb"
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
+  slice_min(disp)
 \dontshow{\}) # examplesIf}
 }

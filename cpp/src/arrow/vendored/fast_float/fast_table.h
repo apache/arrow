@@ -1,5 +1,6 @@
 #ifndef FASTFLOAT_FAST_TABLE_H
 #define FASTFLOAT_FAST_TABLE_H
+
 #include <cstdint>
 
 namespace arrow_vendored {
@@ -29,10 +30,18 @@ namespace fast_float {
  * infinite in binary64 so we never need to worry about powers
  * of 5 greater than 308.
  */
-constexpr int smallest_power_of_five = -342;
-constexpr int largest_power_of_five = 308;
+template <class unused = void>
+struct powers_template {
+
+constexpr static int smallest_power_of_five = binary_format<double>::smallest_power_of_ten();
+constexpr static int largest_power_of_five = binary_format<double>::largest_power_of_ten();
+constexpr static int number_of_entries = 2 * (largest_power_of_five - smallest_power_of_five + 1);
 // Powers of five from 5^-342 all the way to 5^308 rounded toward one.
-const uint64_t power_of_five_128[]= {
+static const uint64_t power_of_five_128[number_of_entries];
+};
+
+template <class unused>
+const uint64_t powers_template<unused>::power_of_five_128[number_of_entries] = {
         0xeef453d6923bd65a,0x113faa2906a13b3f,
         0x9558b4661b6565f8,0x4ac7ca59a424c507,
         0xbaaee17fa23ebf76,0x5d79bcf00d2df649,
@@ -684,6 +693,7 @@ const uint64_t power_of_five_128[]= {
         0xb6472e511c81471d,0xe0133fe4adf8e952,
         0xe3d8f9e563a198e5,0x58180fddd97723a6,
         0x8e679c2f5e44ff8f,0x570f09eaa7ea7648,};
+using powers = powers_template<>;
 
 }
 } // namespace arrow_vendored

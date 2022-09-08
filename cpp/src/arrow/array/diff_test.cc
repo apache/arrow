@@ -31,7 +31,7 @@
 #include "arrow/array/diff.h"
 #include "arrow/compute/api.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -500,6 +500,14 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 -1970-01-02 03:04:05.000678
 @@ -4, +3 @@
 +1970-01-02 03:04:05.000678
+)");
+
+  // Month, Day, Nano Intervals
+  base_ = ArrayFromJSON(month_day_nano_interval(), R"([[2, 3, 1]])");
+  target_ = ArrayFromJSON(month_day_nano_interval(), R"([])");
+  AssertDiffAndFormat(R"(
+@@ -0, +0 @@
+-2M3d1ns
 )");
 
   // lists

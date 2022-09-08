@@ -40,6 +40,9 @@ std::unique_ptr<TemporaryDir> temp_dir;
 class TestEncryptionKeyManagement : public ::testing::Test {
  public:
   void SetUp() {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
     column_key_mapping_ = BuildColumnKeyMapping();

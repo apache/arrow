@@ -17,7 +17,6 @@
 
 ARG base=amd64/ubuntu:20.04
 FROM ${base}
-ARG arch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -30,20 +29,27 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN if [ "${llvm}" -gt "10" ]; then \
+RUN latest_system_llvm=10 && \
+    if [ ${llvm} -gt ${latest_system_llvm} -o \
+         ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           apt-transport-https \
           ca-certificates \
           gnupg \
+          lsb-release \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-      echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${llvm} main" > \
-         /etc/apt/sources.list.d/llvm.list && \
-      if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -gt 10 ]; then \
-        echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_tools} main" > \
+      code_name=$(lsb_release --codename --short) && \
+      if [ ${llvm} -gt 10 ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
+           /etc/apt/sources.list.d/llvm.list; \
+      fi && \
+      if [ ${clang_tools} -ne ${llvm} -a \
+           ${clang_tools} -gt ${latest_system_llvm} ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${clang_tools} main" > \
            /etc/apt/sources.list.d/clang-tools.list; \
-      fi \
+      fi; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
@@ -78,6 +84,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libprotobuf-dev \
         libprotoc-dev \
+        libradospp-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
@@ -86,30 +93,47 @@ RUN apt-get update -y -q && \
         libzstd-dev \
         make \
         ninja-build \
+        nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
+        python3-dev \
+        python3-pip \
+        python3-rados \
+        rados-objclass-dev \
         rapidjson-dev \
+        rsync \
         tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-COPY ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ceph.sh
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
+# - Abseil is not packaged
 # - libc-ares-dev does not install CMake config files
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV absl_SOURCE=BUNDLED \
+    ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
+    ARROW_GCS=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
@@ -124,16 +148,19 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
+    google_cloud_cpp_storage_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
-    PYTHON=python3
+    PATH=/usr/lib/ccache/:$PATH \
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

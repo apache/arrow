@@ -42,13 +42,15 @@ namespace {
 
 template <typename SrcType, typename DestType>
 typename std::enable_if<SrcType::type_id == DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArrayData& in_array, ArrayData* out_array) {
+CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
   return Status::OK();
 }
 
+// TODO(wesm): memory could be preallocated here and it would make
+// things simpler
 template <typename SrcType, typename DestType>
 typename std::enable_if<SrcType::type_id != DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArrayData& in_array, ArrayData* out_array) {
+CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
   using src_offset_type = typename SrcType::offset_type;
   using dest_offset_type = typename DestType::offset_type;
 
@@ -68,37 +70,22 @@ struct CastList {
   static constexpr bool is_upcast = sizeof(src_offset_type) < sizeof(dest_offset_type);
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
 
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
 
-    if (out->kind() == Datum::SCALAR) {
-      // The scalar case is simple, as only the underlying values must be cast
-      const auto& in_scalar = checked_cast<const BaseListScalar&>(*batch[0].scalar());
-      auto out_scalar = checked_cast<BaseListScalar*>(out->scalar().get());
-
-      DCHECK(!out_scalar->is_valid);
-      if (in_scalar.is_valid) {
-        ARROW_ASSIGN_OR_RAISE(out_scalar->value, Cast(*in_scalar.value, child_type,
-                                                      options, ctx->exec_context()));
-
-        out_scalar->is_valid = true;
-      }
-      return Status::OK();
-    }
-
-    const ArrayData& in_array = *batch[0].array();
+    const ArraySpan& in_array = batch[0].array;
     auto offsets = in_array.GetValues<src_offset_type>(1);
-    Datum values = in_array.child_data[0];
 
-    ArrayData* out_array = out->mutable_array();
-    out_array->buffers = in_array.buffers;
+    ArrayData* out_array = out->array_data().get();
+    out_array->buffers[0] = in_array.GetBuffer(0);
+    out_array->buffers[1] = in_array.GetBuffer(1);
 
     // Shift bitmap in case the source offset is non-zero
-    if (in_array.offset != 0 && in_array.buffers[0]) {
+    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
       ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
                                        in_array.offset, in_array.length));
     }
 
@@ -116,6 +103,8 @@ struct CastList {
       }
     }
 
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+
     if (in_array.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
           out_array->buffers[1],
@@ -125,7 +114,8 @@ struct CastList {
       for (int64_t i = 0; i < in_array.length + 1; ++i) {
         shifted_offsets[i] = static_cast<dest_offset_type>(offsets[i] - offsets[0]);
       }
-      values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
+
+      values = values->Slice(offsets[0], offsets[in_array.length]);
     } else {
       RETURN_NOT_OK((CastListOffsets<SrcType, DestType>(ctx, in_array, out_array)));
     }
@@ -134,7 +124,7 @@ struct CastList {
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                           Cast(values, child_type, options, ctx->exec_context()));
 
-    DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+    DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
     return Status::OK();
   }
@@ -148,6 +138,72 @@ void AddListCast(CastFunction* func) {
       KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
+}
+
+struct CastStruct {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+    const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
+    const auto& out_type = checked_cast<const StructType&>(*out->type());
+    const int in_field_count = in_type.num_fields();
+    const int out_field_count = out_type.num_fields();
+
+    std::vector<int> fields_to_select(out_field_count, -1);
+
+    int out_field_index = 0;
+    for (int in_field_index = 0;
+         in_field_index < in_field_count && out_field_index < out_field_count;
+         ++in_field_index) {
+      const auto& in_field = in_type.field(in_field_index);
+      const auto& out_field = out_type.field(out_field_index);
+      if (in_field->name() == out_field->name()) {
+        if (in_field->nullable() && !out_field->nullable()) {
+          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
+                                   in_type.ToString(), " ", out_type.ToString());
+        }
+        fields_to_select[out_field_index++] = in_field_index;
+      }
+    }
+
+    if (out_field_index < out_field_count) {
+      return Status::TypeError(
+          "struct fields don't match or are in the wrong order: Input fields: ",
+          in_type.ToString(), " output fields: ", out_type.ToString());
+    }
+
+    const ArraySpan& in_array = batch[0].array;
+    ArrayData* out_array = out->array_data().get();
+
+    if (in_array.buffers[0].data != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
+                                       in_array.offset, in_array.length));
+    }
+
+    out_field_index = 0;
+    for (int field_index : fields_to_select) {
+      const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
+          in_array.offset, in_array.length));
+      const auto& target_type = out->type()->field(out_field_index++)->type();
+
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                            Cast(values, target_type, options, ctx->exec_context()));
+
+      DCHECK(cast_values.is_array());
+      out_array->child_data.push_back(cast_values.array());
+    }
+
+    return Status::OK();
+  }
+};
+
+void AddStructToStructCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastStruct::Exec;
+  kernel.signature =
+      KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }
 
 }  // namespace
@@ -174,6 +230,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
   AddCommonCasts(Type::STRUCT, kOutputTargetType, cast_struct.get());
+  AddStructToStructCast(cast_struct.get());
 
   // So is dictionary
   auto cast_dictionary =

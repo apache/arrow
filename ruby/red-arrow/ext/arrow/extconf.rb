@@ -25,6 +25,19 @@ if arrow_pkg_config_path
   ENV["PKG_CONFIG_PATH"] = pkg_config_paths.join(File::PATH_SEPARATOR)
 end
 
+checking_for(checking_message("Homebrew")) do
+  platform = NativePackageInstaller::Platform.detect
+  if platform.is_a?(NativePackageInstaller::Platform::Homebrew)
+    openssl_prefix = `brew --prefix openssl`.chomp
+    unless openssl_prefix.empty?
+      PKGConfig.add_path("#{openssl_prefix}/lib/pkgconfig")
+    end
+    true
+  else
+    false
+  end
+end
+
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
@@ -32,9 +45,10 @@ unless required_pkg_config_package([
                                      Arrow::Version::MICRO,
                                    ],
                                    debian: "libarrow-dev",
-                                   redhat: "arrow-devel",
+                                   fedora: "libarrow-devel",
                                    homebrew: "apache-arrow",
-                                   msys2: "arrow")
+                                   msys2: "arrow",
+                                   redhat: "arrow-devel")
   exit(false)
 end
 
@@ -45,9 +59,10 @@ unless required_pkg_config_package([
                                      Arrow::Version::MICRO,
                                    ],
                                    debian: "libarrow-glib-dev",
-                                   redhat: "arrow-glib-devel",
+                                   fedora: "libarrow-glib-devel",
                                    homebrew: "apache-arrow-glib",
-                                   msys2: "arrow")
+                                   msys2: "arrow",
+                                   redhat: "arrow-glib-devel")
   exit(false)
 end
 

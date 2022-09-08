@@ -26,7 +26,7 @@ import weakref
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.tests.util import changed_environ
+from pyarrow.tests.util import changed_environ, invoke_script
 
 
 try:
@@ -77,8 +77,11 @@ class IpcFixture:
 
 class FileFormatFixture(IpcFixture):
 
+    is_file = True
+    options = None
+
     def _get_writer(self, sink, schema):
-        return pa.ipc.new_file(sink, schema)
+        return pa.ipc.new_file(sink, schema, options=self.options)
 
     def _check_roundtrip(self, as_table=False):
         batches = self.write_batches(as_table=as_table)
@@ -105,6 +108,7 @@ class StreamFormatFixture(IpcFixture):
     use_legacy_ipc_format = False
     # ARROW-9395, for testing writing old metadata version
     options = None
+    is_file = False
 
     def _get_writer(self, sink, schema):
         return pa.ipc.new_stream(
@@ -134,6 +138,20 @@ def file_fixture():
 @pytest.fixture
 def stream_fixture():
     return StreamFormatFixture()
+
+
+@pytest.fixture(params=[
+    pytest.param(
+        pytest.lazy_fixture('file_fixture'),
+        id='File Format'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('stream_fixture'),
+        id='Stream Format'
+    )
+])
+def format_fixture(request):
+    return request.param
 
 
 def test_empty_file():
@@ -223,6 +241,25 @@ def test_empty_stream():
 
 
 @pytest.mark.pandas
+def test_read_year_month_nano_interval(tmpdir):
+    """ARROW-15783: Verify to_pandas works for interval types.
+
+    Interval types require static structures to be enabled. This test verifies
+    that they are when no other library functions are invoked.
+    """
+    mdn_interval_type = pa.month_day_nano_interval()
+    schema = pa.schema([pa.field('nums', mdn_interval_type)])
+
+    path = tmpdir.join('file.arrow').strpath
+    with pa.OSFile(path, 'wb') as sink:
+        with pa.ipc.new_file(sink, schema) as writer:
+            interval_array = pa.array([(1, 2, 3)], type=mdn_interval_type)
+            batch = pa.record_batch([interval_array], schema)
+            writer.write(batch)
+    invoke_script('read_record_batch.py', path)
+
+
+@pytest.mark.pandas
 def test_stream_categorical_roundtrip(stream_fixture):
     df = pd.DataFrame({
         'one': np.random.randn(5),
@@ -262,6 +299,57 @@ def test_open_stream_from_buffer(stream_fixture):
     assert reader3.stats == st1
 
     assert tuple(st1) == tuple(stream_fixture.write_stats)
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_stream_options(stream_fixture, options):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    reader = pa.ipc.open_stream(source, options=options)
+
+    reader.read_all()
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+    assert tuple(st) == tuple(stream_fixture.write_stats)
+
+
+def test_open_stream_with_wrong_options(stream_fixture):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_stream(source, options=True)
+
+
+@pytest.mark.parametrize('options', [
+    pa.ipc.IpcReadOptions(),
+    pa.ipc.IpcReadOptions(use_threads=False),
+])
+def test_open_file_options(file_fixture, options):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    reader = pa.ipc.open_file(source, options=options)
+
+    reader.read_all()
+
+    st = reader.stats
+    assert st.num_messages == 6
+    assert st.num_record_batches == 5
+
+
+def test_open_file_with_wrong_options(file_fixture):
+    file_fixture.write_batches()
+    source = file_fixture.get_source()
+
+    with pytest.raises(TypeError):
+        pa.ipc.open_file(source, options=True)
 
 
 @pytest.mark.pandas
@@ -332,7 +420,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
-    values = np.random.randint(0, 10, 10000)
+    values = np.random.randint(0, 3, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd')
@@ -450,40 +538,131 @@ def test_stream_options_roundtrip(stream_fixture, options):
         reader.read_next_batch()
 
 
-def test_dictionary_delta(stream_fixture):
+def test_read_options():
+    options = pa.ipc.IpcReadOptions()
+    assert options.use_threads is True
+    assert options.ensure_native_endian is True
+    assert options.included_fields == []
+
+    options.ensure_native_endian = False
+    assert options.ensure_native_endian is False
+
+    options.use_threads = False
+    assert options.use_threads is False
+
+    options.included_fields = [0, 1]
+    assert options.included_fields == [0, 1]
+
+    with pytest.raises(TypeError):
+        options.included_fields = None
+
+    options = pa.ipc.IpcReadOptions(
+        use_threads=False, ensure_native_endian=False,
+        included_fields=[1]
+    )
+    assert options.use_threads is False
+    assert options.ensure_native_endian is False
+    assert options.included_fields == [1]
+
+
+def test_read_options_included_fields(stream_fixture):
+    options1 = pa.ipc.IpcReadOptions()
+    options2 = pa.ipc.IpcReadOptions(included_fields=[1])
+    table = pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                 names=['a', 'b'])
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write_table(table)
+    source = stream_fixture.get_source()
+
+    reader1 = pa.ipc.open_stream(source, options=options1)
+    reader2 = pa.ipc.open_stream(
+        source, options=options2, memory_pool=pa.system_memory_pool())
+
+    result1 = reader1.read_all()
+    result2 = reader2.read_all()
+
+    assert result1.num_columns == 2
+    assert result2.num_columns == 1
+
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    assert result2 == expected
+    assert result1 == table
+
+
+def test_dictionary_delta(format_fixture):
     ty = pa.dictionary(pa.int8(), pa.utf8())
     data = [["foo", "foo", None],
             ["foo", "bar", "foo"],  # potential delta
-            ["foo", "bar"],
+            ["foo", "bar"],  # nothing new
             ["foo", None, "bar", "quux"],  # potential delta
             ["bar", "quux"],  # replacement
             ]
     batches = [
         pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=['dicts'])
         for v in data]
+    batches_delta_only = batches[:4]
     schema = batches[0].schema
 
-    def write_batches():
-        with stream_fixture._get_writer(pa.MockOutputStream(),
+    def write_batches(batches, as_table=False):
+        with format_fixture._get_writer(pa.MockOutputStream(),
                                         schema) as writer:
-            for batch in batches:
-                writer.write_batch(batch)
+            if as_table:
+                table = pa.Table.from_batches(batches)
+                writer.write_table(table)
+            else:
+                for batch in batches:
+                    writer.write_batch(batch)
             return writer.stats
 
-    st = write_batches()
-    assert st.num_record_batches == 5
-    assert st.num_dictionary_batches == 4
-    assert st.num_replaced_dictionaries == 3
-    assert st.num_dictionary_deltas == 0
+    if format_fixture.is_file:
+        # File format cannot handle replacement
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches)
+        # File format cannot handle delta if emit_deltas
+        # is not provided
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches_delta_only)
+    else:
+        st = write_batches(batches)
+        assert st.num_record_batches == 5
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 3
+        assert st.num_dictionary_deltas == 0
 
-    stream_fixture.use_legacy_ipc_format = None
-    stream_fixture.options = pa.ipc.IpcWriteOptions(
+    format_fixture.use_legacy_ipc_format = None
+    format_fixture.options = pa.ipc.IpcWriteOptions(
         emit_dictionary_deltas=True)
-    st = write_batches()
-    assert st.num_record_batches == 5
-    assert st.num_dictionary_batches == 4
-    assert st.num_replaced_dictionaries == 1
+    if format_fixture.is_file:
+        # File format cannot handle replacement
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches)
+    else:
+        st = write_batches(batches)
+        assert st.num_record_batches == 5
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 1
+        assert st.num_dictionary_deltas == 2
+
+    st = write_batches(batches_delta_only)
+    assert st.num_record_batches == 4
+    assert st.num_dictionary_batches == 3
+    assert st.num_replaced_dictionaries == 0
     assert st.num_dictionary_deltas == 2
+
+    format_fixture.options = pa.ipc.IpcWriteOptions(
+        unify_dictionaries=True
+    )
+    st = write_batches(batches, as_table=True)
+    assert st.num_record_batches == 5
+    if format_fixture.is_file:
+        assert st.num_dictionary_batches == 1
+        assert st.num_replaced_dictionaries == 0
+        assert st.num_dictionary_deltas == 0
+    else:
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 3
+        assert st.num_dictionary_deltas == 0
 
 
 def test_envvar_set_legacy_ipc_format():
@@ -669,8 +848,8 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return(self._schema, self._table if self._do_read_all
-               else self._batches)
+        return (self._schema, self._table if self._do_read_all
+                else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
@@ -921,23 +1100,6 @@ def test_schema_serialization_with_metadata():
     assert recons_schema.metadata == schema_metadata
     assert recons_schema[0].metadata is None
     assert recons_schema[1].metadata == field_metadata
-
-
-def test_deprecated_pyarrow_ns_apis():
-    table = pa.table([pa.array([1, 2, 3, 4])], names=['a'])
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, table.schema) as writer:
-        writer.write(table)
-
-    with pytest.warns(FutureWarning,
-                      match="please use pyarrow.ipc.open_stream"):
-        pa.open_stream(sink.getvalue())
-
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_file(sink, table.schema) as writer:
-        writer.write(table)
-    with pytest.warns(FutureWarning, match="please use pyarrow.ipc.open_file"):
-        pa.open_file(sink.getvalue())
 
 
 def write_file(batch, sink):

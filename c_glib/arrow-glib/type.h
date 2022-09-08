@@ -48,8 +48,8 @@ G_BEGIN_DECLS
  *   Default unit millisecond.
  * @GARROW_TYPE_TIME32: Exact time encoded with int32, supporting seconds or milliseconds
  * @GARROW_TYPE_TIME64: Exact time encoded with int64, supporting micro- or nanoseconds
- * @GARROW_TYPE_INTERVAL_MONTHS: YEAR_MONTH interval in SQL style.
- * @GARROW_TYPE_INTERVAL_DAY_TIME: DAY_TIME interval in SQL style.
+ * @GARROW_TYPE_MONTH_INTERVAL: YEAR_MONTH interval in SQL style.
+ * @GARROW_TYPE_DAY_TIME_INTERVAL: DAY_TIME interval in SQL style.
  * @GARROW_TYPE_DECIMAL128: Precision- and scale-based decimal
  *   type with 128-bit. Storage type depends on the parameters.
  * @GARROW_TYPE_DECIMAL256: Precision- and scale-based decimal
@@ -67,6 +67,7 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_LARGE_STRING: 64bit offsets UTF-8 variable-length string.
  * @GARROW_TYPE_LARGE_BINARY: 64bit offsets Variable-length bytes (no guarantee of UTF-8-ness).
  * @GARROW_TYPE_LARGE_LIST: A list of some logical data type with 64-bit offsets.
+ * @GARROW_TYPE_MONTH_DAY_NANO_INTERVAL: MONTH_DAY_NANO interval in SQL style.
  *
  * They are corresponding to `arrow::Type::type` values.
  */
@@ -92,8 +93,8 @@ typedef enum {
   GARROW_TYPE_TIMESTAMP,
   GARROW_TYPE_TIME32,
   GARROW_TYPE_TIME64,
-  GARROW_TYPE_INTERVAL_MONTHS,
-  GARROW_TYPE_INTERVAL_DAY_TIME,
+  GARROW_TYPE_MONTH_INTERVAL,
+  GARROW_TYPE_DAY_TIME_INTERVAL,
   GARROW_TYPE_DECIMAL128,
   GARROW_TYPE_DECIMAL256,
   GARROW_TYPE_LIST,
@@ -107,7 +108,8 @@ typedef enum {
   GARROW_TYPE_DURATION,
   GARROW_TYPE_LARGE_STRING,
   GARROW_TYPE_LARGE_BINARY,
-  GARROW_TYPE_LARGE_LIST
+  GARROW_TYPE_LARGE_LIST,
+  GARROW_TYPE_MONTH_DAY_NANO_INTERVAL,
 } GArrowType;
 
 /**
@@ -125,5 +127,23 @@ typedef enum {
   GARROW_TIME_UNIT_MICRO,
   GARROW_TIME_UNIT_NANO
 } GArrowTimeUnit;
+
+/**
+ * GArrowIntervalType:
+ * @GARROW_INTERVAL_TYPE_MONTH: A number of months.
+ * @GARROW_INTERVAL_TYPE_DAY_TIME: A number of days and
+ *   milliseconds (fraction of day).
+ * @GARROW_INTERVAL_TYPE_MONTH_DAY_NANO: A number of months, days and
+ *   nanoseconds between two dates.
+ *
+ * They are corresponding to `arrow::IntervalType::type` values.
+ *
+ * Since 7.0.0
+ */
+typedef enum {
+  GARROW_INTERVAL_TYPE_MONTH,
+  GARROW_INTERVAL_TYPE_DAY_TIME,
+  GARROW_INTERVAL_TYPE_MONTH_DAY_NANO,
+} GArrowIntervalType;
 
 G_END_DECLS

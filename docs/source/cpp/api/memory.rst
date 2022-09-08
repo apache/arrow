@@ -47,43 +47,35 @@ Buffers
 -------
 
 .. doxygenclass:: arrow::Buffer
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::MutableBuffer
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::ResizableBuffer
-   :project: arrow_cpp
    :members:
 
 Memory Pools
 ------------
 
 .. doxygenfunction:: arrow::default_memory_pool
-   :project: arrow_cpp
 
 .. doxygenfunction:: arrow::jemalloc_memory_pool
-   :project: arrow_cpp
 
 .. doxygenfunction:: arrow::mimalloc_memory_pool
-   :project: arrow_cpp
 
 .. doxygenfunction:: arrow::system_memory_pool
-   :project: arrow_cpp
 
 .. doxygenclass:: arrow::MemoryPool
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::LoggingMemoryPool
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::ProxyMemoryPool
-   :project: arrow_cpp
    :members:
+
+.. doxygenfunction:: arrow::SupportedMemoryBackendNames
 
 Allocation Functions
 --------------------
@@ -91,34 +83,28 @@ Allocation Functions
 These functions allocate a buffer from a particular memory pool.
 
 .. doxygengroup:: buffer-allocation-functions
-   :project: arrow_cpp
    :content-only:
 
 Slicing
 -------
 
 .. doxygengroup:: buffer-slicing-functions
-   :project: arrow_cpp
    :content-only:
 
 Buffer Builders
 ---------------
 
 .. doxygenclass:: arrow::BufferBuilder
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::TypedBufferBuilder
-   :project: arrow_cpp
    :members:
 
 STL Integration
 ---------------
 
 .. doxygenclass:: arrow::stl::allocator
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::stl::STLMemoryPool
-   :project: arrow_cpp
    :members:

@@ -15,16 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
+import { FixedWidthBuilder } from '../builder.js';
+import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type.js';
+import { setTimestamp, setTimestampSecond, setTimestampMillisecond, setTimestampMicrosecond, setTimestampNanosecond } from '../visitor/set.js';
 
 /** @ignore */
-export class TimestampBuilder<T extends Timestamp = Timestamp, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+export class TimestampBuilder<T extends Timestamp = Timestamp, TNull = any> extends FixedWidthBuilder<T, TNull> { }
+
+(TimestampBuilder.prototype as any)._setValue = setTimestamp;
+
 /** @ignore */
-export class TimestampSecondBuilder<TNull = any> extends TimestampBuilder<TimestampSecond, TNull> {}
+export class TimestampSecondBuilder<TNull = any> extends TimestampBuilder<TimestampSecond, TNull> { }
+
+(TimestampSecondBuilder.prototype as any)._setValue = setTimestampSecond;
+
 /** @ignore */
-export class TimestampMillisecondBuilder<TNull = any> extends TimestampBuilder<TimestampMillisecond, TNull> {}
+export class TimestampMillisecondBuilder<TNull = any> extends TimestampBuilder<TimestampMillisecond, TNull> { }
+
+(TimestampMillisecondBuilder.prototype as any)._setValue = setTimestampMillisecond;
+
 /** @ignore */
-export class TimestampMicrosecondBuilder<TNull = any> extends TimestampBuilder<TimestampMicrosecond, TNull> {}
+export class TimestampMicrosecondBuilder<TNull = any> extends TimestampBuilder<TimestampMicrosecond, TNull> { }
+
+(TimestampMicrosecondBuilder.prototype as any)._setValue = setTimestampMicrosecond;
+
 /** @ignore */
-export class TimestampNanosecondBuilder<TNull = any> extends TimestampBuilder<TimestampNanosecond, TNull> {}
+export class TimestampNanosecondBuilder<TNull = any> extends TimestampBuilder<TimestampNanosecond, TNull> { }
+
+(TimestampNanosecondBuilder.prototype as any)._setValue = setTimestampNanosecond;

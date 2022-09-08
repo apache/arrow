@@ -30,6 +30,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -296,6 +297,13 @@ TEST(FixedSizeBinaryConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
 
+  AssertConversion<FixedSizeBinaryType, std::string>(fixed_size_binary(2),
+                                                     {"\"ab\",\"xxx\"\n"}, {{"ab"}, {""}},
+                                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(fixed_size_binary(2), {"\"ab\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<FixedSizeBinaryType, std::string>(
       fixed_size_binary(2), {"ab,xxx\n", "zzz,ij\n"}, {{"ab", "\0\0"}, {"\0\0", "ij"}},
       {{true, false}, {false, true}}, options);
@@ -351,6 +359,12 @@ TEST(IntegerConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
 
+  AssertConversion<Int8Type, int8_t>(int8(), {"\"12\",\"xxx\"\n"}, {{12}, {0}},
+                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(int8(), {"\"12\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<Int8Type, int8_t>(int8(), {"12,xxx\n", "zzz,-128\n"},
                                      {{12, 0}, {0, -128}}, {{true, false}, {false, true}},
                                      options);
@@ -387,6 +401,12 @@ TEST(FloatingPointConversion, Nulls) {
 TEST(FloatingPointConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<FloatType, float>(float32(), {"\"1.5\",\"xxx\"\n"}, {{1.5}, {0}},
+                                     {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(float32(), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<FloatType, float>(float32(), {"1.5,xxx\n", "zzz,-1e10\n"},
                                      {{1.5, 0.}, {0., -1e10f}},
@@ -425,6 +445,12 @@ TEST(BooleanConversion, Nulls) {
 TEST(BooleanConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<BooleanType, bool>(boolean(), {"\"true\",\"xxx\"\n"}, {{1}, {0}},
+                                      {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(boolean(), {"\"true\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<BooleanType, bool>(boolean(), {"true,xxx\n", "zzz,0\n"},
                                       {{true, false}, {false, false}},
@@ -523,10 +549,41 @@ TEST(TimestampConversion, Basics) {
                                            {"2018-11-13 17:11:10\n1900-02-28 12:34:56\n"},
                                            {{1542129070, -2203932304LL}});
 
+  // Zone offsets are not accepted
+  AssertConversionError(type,
+                        {"1970-01-01T00Z\n2000-02-29T00-0200\n"
+                         "3989-07-14T00+03:14\n1900-02-28 00-04:59\n"},
+                        {0});
+
   type = timestamp(TimeUnit::NANO);
   AssertConversion<TimestampType, int64_t>(
       type, {"1970-01-01\n2000-02-29\n1900-02-28\n"},
       {{0, 951782400000000000LL, -2203977600000000000LL}});
+}
+
+TEST(TimestampConversion, WithZoneOffset) {
+  auto type = timestamp(TimeUnit::SECOND, "UTC");
+
+  AssertConversion<TimestampType, int64_t>(
+      type,
+      {"1970-01-01T00Z\n2000-02-29T00-0200\n"
+       "3989-07-14T00+03:14\n1900-02-28 00-04:59\n"},
+      {{0, 951782400 + 7200, 63730281600LL - 11640, -2203977600LL + 17940}});
+
+  type = timestamp(TimeUnit::NANO, "UTC");
+  AssertConversion<TimestampType, int64_t>(
+      type,
+      {"1970-01-01T00Z\n"
+       "2000-02-29T00:00:00.123456789+0117\n"
+       "1900-02-28 00:00:00.123456789-01:00\n"},
+      {{0, 951782400000000000LL + 123456789LL - 4620000000000LL,
+        -2203977600000000000LL + 123456789LL + 3600000000000LL}});
+
+  // Local times are not accepted
+  AssertConversionError(type,
+                        {"1970-01-01T00\n2000-02-29T00\n"
+                         "3989-07-14T00\n1900-02-28 00\n"},
+                        {0});
 }
 
 TEST(TimestampConversion, Nulls) {
@@ -539,8 +596,14 @@ TEST(TimestampConversion, Nulls) {
 TEST(TimestampConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
-
   auto type = timestamp(TimeUnit::MILLI);
+
+  AssertConversion<TimestampType, int64_t>(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"},
+                                           {{60000}, {0}}, {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"}, {1}, options);
+
   AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,xxx,zzz\n"},
                                            {{60000}, {0}, {0}},
                                            {{true}, {false}, {false}}, options);
@@ -559,6 +622,37 @@ TEST(TimestampConversion, UserDefinedParsers) {
   options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
   AssertConversion<TimestampType, int64_t>(type, {"01/02/1970,1970-01-03\n"},
                                            {{86400000}, {172800000}}, options);
+}
+
+TEST(TimestampConversion, UserDefinedParsersWithZone) {
+  auto options = ConvertOptions::Defaults();
+  auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
+  if (internal::kStrptimeSupportsZone) {
+    AssertConversion<TimestampType, int64_t>(
+        type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {{86400}, {172800}}, options);
+  } else {
+    AssertConversionError(type, {"01/02/1970 +0000,01/03/1970 +0000\n"}, {0, 1}, options);
+  }
+
+  // Test multiple parsers
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  if (internal::kStrptimeSupportsZone) {
+    AssertConversion<TimestampType, int64_t>(
+        type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {{86400}, {172800}},
+        options);
+  } else {
+    AssertConversionError(type, {"01/02/1970 +0000,1970-01-03T00:00:00+0000\n"}, {0},
+                          options);
+  }
+
+  // Test errors
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y")};
+  AssertConversionError(type, {"01/02/1970,01/03/1970\n"}, {0, 1}, options);
+  options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
+  AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
 }
 
 Decimal128 Dec128(util::string_view value) {
@@ -587,6 +681,13 @@ TEST(DecimalConversion, Nulls) {
 TEST(DecimalConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<Decimal128Type, Decimal128>(decimal(14, 3), {"\"1.5\",\"xxx\"\n"},
+                                               {{Dec128("1.500")}, {0}},
+                                               {{true}, {false}}, options);
+
+  options.quoted_strings_can_be_null = false;
+  AssertConversionError(decimal(14, 3), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<Decimal128Type, Decimal128>(
       decimal(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
@@ -645,11 +746,17 @@ TYPED_TEST(TestNumericDictConverter, Nulls) {
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 0]");
 
   AssertDictConversion("4\n5\nN/A\n4\n", expected_indices, expected_dict);
+  AssertDictConversion("\"4\"\n\"5\"\n\"N/A\"\n\"4\"\n", expected_indices, expected_dict);
 }
 
 TYPED_TEST(TestNumericDictConverter, Errors) {
   auto value_type = this->type();
   ASSERT_RAISES(Invalid, DictConversion(value_type, "xxx\n"));
+
+  ConvertOptions options = ConvertOptions::Defaults();
+
+  options.quoted_strings_can_be_null = false;
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "\"N/A\"\n", -1, options));
 
   // Overflow
   if (is_integer(value_type->id())) {

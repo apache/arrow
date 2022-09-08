@@ -25,6 +25,7 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/align_util.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
@@ -40,7 +41,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 
   const auto p = BitmapWordAlign<pop_len / 8>(data, bit_offset, length);
   for (int64_t i = bit_offset; i < bit_offset + p.leading_bits; ++i) {
-    if (BitUtil::GetBit(data, i)) {
+    if (bit_util::GetBit(data, i)) {
       ++count;
     }
   }
@@ -52,13 +53,14 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     const uint64_t* end = u64_data + p.aligned_words;
 
     constexpr int64_t kCountUnrollFactor = 4;
-    const int64_t words_rounded = BitUtil::RoundDown(p.aligned_words, kCountUnrollFactor);
+    const int64_t words_rounded =
+        bit_util::RoundDown(p.aligned_words, kCountUnrollFactor);
     int64_t count_unroll[kCountUnrollFactor] = {0};
 
     // Unroll the loop for better performance
     for (int64_t i = 0; i < words_rounded; i += kCountUnrollFactor) {
       for (int64_t k = 0; k < kCountUnrollFactor; k++) {
-        count_unroll[k] += BitUtil::PopCount(u64_data[k]);
+        count_unroll[k] += bit_util::PopCount(u64_data[k]);
       }
       u64_data += kCountUnrollFactor;
     }
@@ -68,14 +70,14 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 
     // The trailing part
     for (; u64_data < end; ++u64_data) {
-      count += BitUtil::PopCount(*u64_data);
+      count += bit_util::PopCount(*u64_data);
     }
   }
 
   // Account for left over bits (in theory we could fall back to smaller
   // versions of popcount but the code complexity is likely not worth it)
   for (int64_t i = p.trailing_bit_offset; i < bit_offset + length; ++i) {
-    if (BitUtil::GetBit(data, i)) {
+    if (bit_util::GetBit(data, i)) {
       ++count;
     }
   }
@@ -83,7 +85,38 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
+int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
+                        const uint8_t* right_bitmap, int64_t right_offset,
+                        int64_t length) {
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t count = 0;
+  while (true) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.length == 0) {
+      break;
+    }
+    count += block.popcount;
+  }
+  return count;
+}
+
 enum class TransferMode : bool { Copy, Invert };
+
+// Reverse all bits from entire byte(uint8)
+uint8_t ReverseUint8(uint8_t num) {
+  num = ((num & 0xf0) >> 4) | ((num & 0x0f) << 4);
+  num = ((num & 0xcc) >> 2) | ((num & 0x33) << 2);
+  num = ((num & 0xaa) >> 1) | ((num & 0x55) << 1);
+  return num;
+}
+
+// Get a reverse block of byte(uint8) using offsets, the result can be
+// part of a left block and right block, length indicates the number of bits
+// to be taken from the right block
+uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length) {
+  return ReverseUint8(((block_right << 8) + block_left) >> length);
+}
 
 template <TransferMode mode>
 void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
@@ -107,7 +140,7 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
       writer.PutNextTrailingByte(mode == TransferMode::Invert ? ~byte : byte, valid_bits);
     }
   } else if (length) {
-    int64_t num_bytes = BitUtil::BytesForBits(length);
+    int64_t num_bytes = bit_util::BytesForBits(length);
 
     // Shift by its byte offset
     data += offset / 8;
@@ -137,6 +170,49 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
   }
 }
 
+void ReverseBlockOffsets(const uint8_t* data, int64_t offset, int64_t length,
+                         int64_t dest_offset, uint8_t* dest) {
+  int64_t num_bytes = bit_util::BytesForBits(offset % 8 + length);
+  // Shift by its byte offset
+  data += offset / 8;
+  dest += dest_offset / 8;
+
+  int64_t j_src = num_bytes - 1;
+  int64_t i_dest = 0;
+
+  while (length > 0) {
+    uint8_t right_trailing_bits_src = (length + offset) % 8;
+    right_trailing_bits_src = !right_trailing_bits_src ? 8 : right_trailing_bits_src;
+
+    uint8_t left_trailing_bits_dest = 8 - dest_offset % 8;
+    uint8_t left_trailing_mask_dest = 0xFF << (8 - left_trailing_bits_dest);
+    if (length <= 8 && (dest_offset % 8) + length < 8) {
+      uint8_t extra_bits = static_cast<uint8_t>(8 - ((dest_offset % 8) + length));
+      left_trailing_mask_dest <<= extra_bits;
+      left_trailing_mask_dest >>= extra_bits;
+    }
+
+    uint8_t right_reversed_block;
+    if (j_src == 0) {
+      right_reversed_block = static_cast<uint8_t>(
+          GetReversedBlock(data[0], data[0], right_trailing_bits_src));
+    } else {
+      right_reversed_block = static_cast<uint8_t>(
+          GetReversedBlock(data[j_src - 1], data[j_src], right_trailing_bits_src));
+    }
+
+    dest[i_dest] &= ~left_trailing_mask_dest;
+    dest[i_dest] |=
+        (right_reversed_block << (8 - left_trailing_bits_dest)) & left_trailing_mask_dest;
+
+    dest_offset += left_trailing_bits_dest;
+    length -= left_trailing_bits_dest;
+
+    if (left_trailing_bits_dest >= right_trailing_bits_src) j_src--;
+    i_dest++;
+  }
+}
+
 template <TransferMode mode>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
                                                int64_t offset, int64_t length) {
@@ -147,11 +223,11 @@ Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* 
 
   // As we have freshly allocated this bitmap, we should take care of zeroing the
   // remaining bits.
-  int64_t num_bytes = BitUtil::BytesForBits(length);
+  int64_t num_bytes = bit_util::BytesForBits(length);
   int64_t bits_to_zero = num_bytes * 8 - length;
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
     // Both branches may copy extra bits - unsetting to match specification.
-    BitUtil::ClearBit(dest, i);
+    bit_util::ClearBit(dest, i);
   }
   return buffer;
 }
@@ -166,6 +242,11 @@ void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* 
   TransferBitmap<TransferMode::Invert>(data, offset, length, dest_offset, dest);
 }
 
+void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
+                   int64_t dest_offset) {
+  ReverseBlockOffsets(data, offset, length, dest_offset, dest);
+}
+
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
                                            int64_t offset, int64_t length) {
   return TransferBitmap<TransferMode::Copy>(pool, data, offset, length);
@@ -174,6 +255,16 @@ Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
                                              int64_t offset, int64_t length) {
   return TransferBitmap<TransferMode::Invert>(pool, data, offset, length);
+}
+
+Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* data,
+                                              int64_t offset, int64_t length) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
+  uint8_t* dest = buffer->mutable_data();
+
+  ReverseBlockOffsets(data, offset, length, /*start_offset=*/0, dest);
+
+  return buffer;
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -186,8 +277,8 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
       return false;
     }
     for (int64_t i = (length / 8) * 8; i < length; ++i) {
-      if (BitUtil::GetBit(left, left_offset + i) !=
-          BitUtil::GetBit(right, right_offset + i)) {
+      if (bit_util::GetBit(left, left_offset + i) !=
+          bit_util::GetBit(right, right_offset + i)) {
         return false;
       }
     }
@@ -245,7 +336,7 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
-  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset % 8);
+  const int64_t nbytes = bit_util::BytesForBits(length + left_offset % 8);
   left += left_offset / 8;
   right += right_offset / 8;
   out += out_offset / 8;

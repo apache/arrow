@@ -176,7 +176,7 @@ def main(simd_width):
         template <DispatchLevel level>
         struct {struct_name} {{
 
-        using simd_batch = xsimd::batch<uint32_t, {simd_width // 32}>;
+        using simd_batch = xsimd::make_sized_batch_t<uint32_t, {simd_width//32}>;
         """))
 
     gen = UnpackGenerator(simd_width)

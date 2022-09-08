@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 using System;
 
@@ -48,6 +49,8 @@ namespace Apache.Arrow
                     return new DoubleArray(data);
                 case ArrowTypeId.String:
                     return new StringArray(data);
+                case ArrowTypeId.FixedSizedBinary:
+                    return new FixedSizeBinaryArray(data);
                 case ArrowTypeId.Binary:
                     return new BinaryArray(data);
                 case ArrowTypeId.Timestamp:
@@ -62,18 +65,19 @@ namespace Apache.Arrow
                     return new Date64Array(data);
                 case ArrowTypeId.Date32:
                     return new Date32Array(data);
+                case ArrowTypeId.Time32:
+                    return new Time32Array(data);
+                case ArrowTypeId.Time64:
+                    return new Time64Array(data);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array(data);
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array(data);
                 case ArrowTypeId.Dictionary:
                     return new DictionaryArray(data);
-                case ArrowTypeId.FixedSizedBinary:
                 case ArrowTypeId.HalfFloat:
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:
-                case ArrowTypeId.Time32:
-                case ArrowTypeId.Time64:
                 default:
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }

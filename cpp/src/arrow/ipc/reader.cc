@@ -18,11 +18,13 @@
 #include "arrow/ipc/reader.h"
 
 #include <algorithm>
-#include <climits>
 #include <cstdint>
 #include <cstring>
+#include <numeric>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -36,7 +38,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
-#include "arrow/ipc/util.h"
+#include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/sparse_tensor.h"
@@ -50,12 +52,13 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/vector.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: export
 #include "generated/Message_generated.h"
@@ -68,7 +71,6 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::GetByteWidth;
 
 namespace ipc {
 
@@ -136,6 +138,29 @@ struct IpcReadContext {
   const bool swap_endian;
 };
 
+/// A collection of ranges to read and pointers to set to those ranges when they are
+/// available.  This allows the ArrayLoader to utilize a two pass cache-then-read
+/// strategy with a ReadRangeCache
+class BatchDataReadRequest {
+ public:
+  const std::vector<io::ReadRange>& ranges_to_read() const { return ranges_to_read_; }
+
+  void RequestRange(int64_t offset, int64_t length, std::shared_ptr<Buffer>* out) {
+    ranges_to_read_.push_back({offset, length});
+    destinations_.push_back(out);
+  }
+
+  void FulfillRequest(const std::vector<std::shared_ptr<Buffer>>& buffers) {
+    for (std::size_t i = 0; i < buffers.size(); i++) {
+      *destinations_[i] = buffers[i];
+    }
+  }
+
+ private:
+  std::vector<io::ReadRange> ranges_to_read_;
+  std::vector<std::shared_ptr<Buffer>*> destinations_;
+};
+
 /// The field_index and buffer_index are incremented based on how much of the
 /// batch is "consumed" (through nested data reconstruction, for example)
 class ArrayLoader {
@@ -146,6 +171,16 @@ class ArrayLoader {
       : metadata_(metadata),
         metadata_version_(metadata_version),
         file_(file),
+        file_offset_(0),
+        max_recursion_depth_(options.max_recursion_depth) {}
+
+  explicit ArrayLoader(const flatbuf::RecordBatch* metadata,
+                       MetadataVersion metadata_version, const IpcReadOptions& options,
+                       int64_t file_offset)
+      : metadata_(metadata),
+        metadata_version_(metadata_version),
+        file_(nullptr),
+        file_offset_(file_offset),
         max_recursion_depth_(options.max_recursion_depth) {}
 
   Status ReadBuffer(int64_t offset, int64_t length, std::shared_ptr<Buffer>* out) {
@@ -159,11 +194,16 @@ class ArrayLoader {
       return Status::Invalid("Negative length for reading buffer ", buffer_index_);
     }
     // This construct permits overriding GetBuffer at compile time
-    if (!BitUtil::IsMultipleOf8(offset)) {
+    if (!bit_util::IsMultipleOf8(offset)) {
       return Status::Invalid("Buffer ", buffer_index_,
                              " did not start on 8-byte aligned offset: ", offset);
     }
-    return file_->ReadAt(offset, length).Value(out);
+    if (file_) {
+      return file_->ReadAt(offset, length).Value(out);
+    } else {
+      read_request_.RequestRange(offset + file_offset_, length, out);
+      return Status::OK();
+    }
   }
 
   Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
@@ -383,17 +423,21 @@ class ArrayLoader {
 
   Status Visit(const ExtensionType& type) { return LoadType(*type.storage_type()); }
 
+  BatchDataReadRequest& read_request() { return read_request_; }
+
  private:
   const flatbuf::RecordBatch* metadata_;
   const MetadataVersion metadata_version_;
   io::RandomAccessFile* file_;
+  int64_t file_offset_;
   int max_recursion_depth_;
   int buffer_index_ = 0;
   int field_index_ = 0;
   bool skip_io_ = false;
 
-  const Field* field_;
-  ArrayData* out_;
+  BatchDataReadRequest read_request_;
+  const Field* field_ = nullptr;
+  ArrayData* out_ = nullptr;
 };
 
 Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
@@ -411,7 +455,7 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
 
   const uint8_t* data = buf->data();
   int64_t compressed_size = buf->size() - sizeof(int64_t);
-  int64_t uncompressed_size = BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+  int64_t uncompressed_size = bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
@@ -532,7 +576,8 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
   if (inclusion_mask.size() > 0) {
     return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   } else {
-    return LoadRecordBatchSubset(metadata, schema, /*param_name=*/nullptr, context, file);
+    return LoadRecordBatchSubset(metadata, schema, /*inclusion_mask=*/nullptr, context,
+                                 file);
   }
 }
 
@@ -608,7 +653,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
                          reader.get());
 }
 
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
+Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, IpcReadContext& context,
     io::RandomAccessFile* file) {
@@ -630,7 +675,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
   }
   context.compression = compression;
   context.metadata_version = internal::GetMetadataVersion(message->version());
-  return LoadRecordBatch(batch, schema, inclusion_mask, context, file);
+
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+  if (message->custom_metadata() != nullptr) {
+    RETURN_NOT_OK(
+        internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto record_batch,
+                        LoadRecordBatch(batch, schema, inclusion_mask, context, file));
+  return RecordBatchWithMetadata{record_batch, custom_metadata};
 }
 
 // If we are selecting only certain fields, populate an inclusion mask for fast lookups.
@@ -710,7 +763,10 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   IpcReadContext context(const_cast<DictionaryMemo*>(dictionary_memo), options, false);
   RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
                                              &inclusion_mask, &out_schema));
-  return ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file);
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_and_custom_metadata,
+      ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file));
+  return batch_and_custom_metadata.batch;
 }
 
 Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
@@ -806,15 +862,21 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadNext());
+    *batch = std::move(batch_with_metadata.batch);
+    return Status::OK();
+  }
+
+  Result<RecordBatchWithMetadata> ReadNext() override {
     if (!have_read_initial_dictionaries_) {
       RETURN_NOT_OK(ReadInitialDictionaries());
     }
 
+    RecordBatchWithMetadata batch_with_metadata;
     if (empty_stream_) {
       // ARROW-6006: Degenerate case where stream contains no data, we do not
       // bother trying to read a RecordBatch message from the stream
-      *batch = nullptr;
-      return Status::OK();
+      return batch_with_metadata;
     }
 
     // Continue to read other dictionaries, if any
@@ -828,16 +890,14 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     if (message == nullptr) {
       // End of stream
-      *batch = nullptr;
-      return Status::OK();
+      return batch_with_metadata;
     }
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   context, reader.get())
-        .Value(batch);
+                                   context, reader.get());
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
@@ -967,27 +1027,32 @@ static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock{block->offset(), block->metaDataLength(), block->bodyLength()};
 }
 
-static Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& block,
-                                                             io::RandomAccessFile* file) {
-  if (!BitUtil::IsMultipleOf8(block.offset) ||
-      !BitUtil::IsMultipleOf8(block.metadata_length) ||
-      !BitUtil::IsMultipleOf8(block.body_length)) {
+Status CheckAligned(const FileBlock& block) {
+  if (!bit_util::IsMultipleOf8(block.offset) ||
+      !bit_util::IsMultipleOf8(block.metadata_length) ||
+      !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
+  return Status::OK();
+}
 
+static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
+    const FileBlock& block, io::RandomAccessFile* file,
+    const FieldsLoaderFunction& fields_loader) {
+  RETURN_NOT_OK(CheckAligned(block));
   // TODO(wesm): this breaks integration tests, see ARROW-3256
   // DCHECK_EQ((*out)->body_length(), block.body_length);
 
-  ARROW_ASSIGN_OR_RAISE(auto message,
-                        ReadMessage(block.offset, block.metadata_length, file));
+  ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
+                                                  file, fields_loader));
   return std::move(message);
 }
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
-  if (!BitUtil::IsMultipleOf8(block.offset) ||
-      !BitUtil::IsMultipleOf8(block.metadata_length) ||
-      !BitUtil::IsMultipleOf8(block.body_length)) {
+  if (!bit_util::IsMultipleOf8(block.offset) ||
+      !bit_util::IsMultipleOf8(block.metadata_length) ||
+      !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
 
@@ -998,29 +1063,16 @@ static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
                           io_context);
 }
 
-static Status ReadOneDictionary(Message* message, const IpcReadContext& context) {
-  CHECK_HAS_BODY(*message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-  DictionaryKind kind;
-  RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
-  if (kind != DictionaryKind::New) {
-    return Status::Invalid(
-        "Unsupported dictionary replacement or "
-        "dictionary delta in IPC file");
-  }
-  return Status::OK();
-}
-
 class RecordBatchFileReaderImpl;
 
 /// A generator of record batches.
 ///
 /// All batches are yielded in order.
-class ARROW_EXPORT IpcFileRecordBatchGenerator {
+class ARROW_EXPORT WholeIpcFileRecordBatchGenerator {
  public:
   using Item = std::shared_ptr<RecordBatch>;
 
-  explicit IpcFileRecordBatchGenerator(
+  explicit WholeIpcFileRecordBatchGenerator(
       std::shared_ptr<RecordBatchFileReaderImpl> state,
       std::shared_ptr<io::internal::ReadRangeCache> cached_source,
       const io::IOContext& io_context, arrow::internal::Executor* executor)
@@ -1049,6 +1101,25 @@ class ARROW_EXPORT IpcFileRecordBatchGenerator {
   Future<> read_dictionaries_;
 };
 
+/// A generator of record batches for use when reading
+/// a subset of columns from the file.
+///
+/// All batches are yielded in order.
+class ARROW_EXPORT SelectiveIpcFileRecordBatchGenerator {
+ public:
+  using Item = std::shared_ptr<RecordBatch>;
+
+  explicit SelectiveIpcFileRecordBatchGenerator(
+      std::shared_ptr<RecordBatchFileReaderImpl> state)
+      : state_(std::move(state)), index_(0) {}
+
+  Future<Item> operator()();
+
+ private:
+  std::shared_ptr<RecordBatchFileReaderImpl> state_;
+  int index_;
+};
+
 class RecordBatchFileReaderImpl : public RecordBatchFileReader {
  public:
   RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {}
@@ -1061,25 +1132,93 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return internal::GetMetadataVersion(footer_->version());
   }
 
-  Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) override {
+  static Status LoadFieldsSubset(const flatbuf::RecordBatch* metadata,
+                                 const IpcReadOptions& options,
+                                 io::RandomAccessFile* file,
+                                 const std::shared_ptr<Schema>& schema,
+                                 const std::vector<bool>* inclusion_mask,
+                                 MetadataVersion metadata_version = MetadataVersion::V5) {
+    ArrayLoader loader(metadata, metadata_version, options, file);
+    for (int i = 0; i < schema->num_fields(); ++i) {
+      const Field& field = *schema->field(i);
+      if (!inclusion_mask || (*inclusion_mask)[i]) {
+        // Read field
+        ArrayData column;
+        RETURN_NOT_OK(loader.Load(&field, &column));
+        if (metadata->length() != column.length) {
+          return Status::IOError("Array length did not match record batch length");
+        }
+      } else {
+        // Skip field. This logic must be executed to advance the state of the
+        // loader to the next field
+        RETURN_NOT_OK(loader.SkipField(&field));
+      }
+    }
+    return Status::OK();
+  }
+
+  Future<std::shared_ptr<RecordBatch>> ReadRecordBatchAsync(int i) {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
 
-    if (!read_dictionaries_) {
-      RETURN_NOT_OK(ReadDictionaries());
-      read_dictionaries_ = true;
+    auto cached_metadata = cached_metadata_.find(i);
+    if (cached_metadata != cached_metadata_.end()) {
+      return ReadCachedRecordBatch(i, cached_metadata->second);
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetRecordBatchBlock(i)));
+    return Status::Invalid(
+        "Asynchronous record batch reading is only supported after a call to "
+        "PreBufferMetadata or PreBufferBatches");
+  }
+
+  Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) override {
+    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadRecordBatchWithCustomMetadata(i));
+    return batch_with_metadata.batch;
+  }
+
+  Result<RecordBatchWithMetadata> ReadRecordBatchWithCustomMetadata(int i) override {
+    DCHECK_GE(i, 0);
+    DCHECK_LT(i, num_record_batches());
+
+    auto cached_metadata = cached_metadata_.find(i);
+    if (cached_metadata != cached_metadata_.end()) {
+      auto result = ReadCachedRecordBatch(i, cached_metadata->second).result();
+      ARROW_ASSIGN_OR_RAISE(auto batch, result);
+      ARROW_ASSIGN_OR_RAISE(auto message_obj, cached_metadata->second.result());
+      ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+      std::shared_ptr<KeyValueMetadata> custom_metadata;
+      if (message->custom_metadata() != nullptr) {
+        RETURN_NOT_OK(
+            internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+      }
+      return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
+    }
+
+    RETURN_NOT_OK(WaitForDictionaryReadFinished());
+
+    FieldsLoaderFunction fields_loader = {};
+    if (!field_inclusion_mask_.empty()) {
+      auto& schema = schema_;
+      auto& inclusion_mask = field_inclusion_mask_;
+      auto& read_options = options_;
+      fields_loader = [schema, inclusion_mask, read_options](const void* metadata,
+                                                             io::RandomAccessFile* file) {
+        return LoadFieldsSubset(static_cast<const flatbuf::RecordBatch*>(metadata),
+                                read_options, file, schema, &inclusion_mask);
+      };
+    }
+    ARROW_ASSIGN_OR_RAISE(auto message,
+                          ReadMessageFromBlock(GetRecordBatchBlock(i), fields_loader));
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    ARROW_ASSIGN_OR_RAISE(auto batch, ReadRecordBatchInternal(
-                                          *message->metadata(), schema_,
-                                          field_inclusion_mask_, context, reader.get()));
-    ++stats_.num_record_batches;
-    return batch;
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch_with_metadata,
+        ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                context, reader.get()));
+    stats_.num_record_batches.fetch_add(1, std::memory_order_relaxed);
+    return batch_with_metadata;
   }
 
   Result<int64_t> CountRows() override {
@@ -1104,11 +1243,19 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
               const IpcReadOptions& options) {
     owned_file_ = file;
+    metadata_cache_ = std::make_shared<io::internal::ReadRangeCache>(
+        file, file->io_context(), options.pre_buffer_cache_options);
     return Open(file.get(), footer_offset, options);
   }
 
   Status Open(io::RandomAccessFile* file, int64_t footer_offset,
               const IpcReadOptions& options) {
+    // The metadata_cache_ may have already been constructed with an owned file in the
+    // owning overload of Open
+    if (!metadata_cache_) {
+      metadata_cache_ = std::make_shared<io::internal::ReadRangeCache>(
+          file, file->io_context(), options.pre_buffer_cache_options);
+    }
     file_ = file;
     options_ = options;
     footer_offset_ = footer_offset;
@@ -1118,18 +1265,26 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
                                       &schema_, &out_schema_, &field_inclusion_mask_,
                                       &swap_endian_));
-    ++stats_.num_messages;
+    stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
     return Status::OK();
   }
 
   Future<> OpenAsync(const std::shared_ptr<io::RandomAccessFile>& file,
                      int64_t footer_offset, const IpcReadOptions& options) {
     owned_file_ = file;
+    metadata_cache_ = std::make_shared<io::internal::ReadRangeCache>(
+        file, file->io_context(), options.pre_buffer_cache_options);
     return OpenAsync(file.get(), footer_offset, options);
   }
 
   Future<> OpenAsync(io::RandomAccessFile* file, int64_t footer_offset,
                      const IpcReadOptions& options) {
+    // The metadata_cache_ may have already been constructed with an owned file in the
+    // owning overload of OpenAsync
+    if (!metadata_cache_) {
+      metadata_cache_ = std::make_shared<io::internal::ReadRangeCache>(
+          file, file->io_context(), options.pre_buffer_cache_options);
+    }
     file_ = file;
     options_ = options;
     footer_offset_ = footer_offset;
@@ -1140,7 +1295,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       RETURN_NOT_OK(UnpackSchemaMessage(
           self->footer_->schema(), options, &self->dictionary_memo_, &self->schema_,
           &self->out_schema_, &self->field_inclusion_mask_, &self->swap_endian_));
-      ++self->stats_.num_messages;
+      self->stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
       return Status::OK();
     });
   }
@@ -1149,41 +1304,95 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
 
-  ReadStats stats() const override { return stats_; }
+  ReadStats stats() const override { return stats_.poll(); }
 
   Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
       const bool coalesce, const io::IOContext& io_context,
       const io::CacheOptions cache_options,
       arrow::internal::Executor* executor) override {
     auto state = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
-    std::shared_ptr<io::internal::ReadRangeCache> cached_source;
-    if (coalesce) {
-      if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
-      cached_source = std::make_shared<io::internal::ReadRangeCache>(
-          owned_file_, io_context, cache_options);
-      auto num_dictionaries = this->num_dictionaries();
-      auto num_record_batches = this->num_record_batches();
-      std::vector<io::ReadRange> ranges(num_dictionaries + num_record_batches);
-      for (int i = 0; i < num_dictionaries; i++) {
-        auto block = FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
-        ranges[i].offset = block.offset;
-        ranges[i].length = block.metadata_length + block.body_length;
-      }
-      for (int i = 0; i < num_record_batches; i++) {
-        auto block = FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
-        ranges[num_dictionaries + i].offset = block.offset;
-        ranges[num_dictionaries + i].length = block.metadata_length + block.body_length;
-      }
-      RETURN_NOT_OK(cached_source->Cache(std::move(ranges)));
+    // Prebuffering causes us to use a lot of futures which, at the moment,
+    // can only slow things down when we are doing zero-copy in-memory reads.
+    //
+    // Prebuffering's read patterns are also slightly worse than the alternative
+    // when doing whole-file reads because the logic is not in place to recognize
+    // we can just read the entire file up-front
+    if (options_.included_fields.size() != 0 &&
+        options_.included_fields.size() != schema_->fields().size() &&
+        !file_->supports_zero_copy()) {
+      RETURN_NOT_OK(state->PreBufferMetadata({}));
+      return SelectiveIpcFileRecordBatchGenerator(std::move(state));
     }
-    return IpcFileRecordBatchGenerator(std::move(state), std::move(cached_source),
-                                       io_context, executor);
+
+    std::shared_ptr<io::internal::ReadRangeCache> cached_source;
+    if (coalesce && !file_->supports_zero_copy()) {
+      if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
+      // Since the user is asking for all fields then we can cache the entire
+      // file (up to the footer)
+      cached_source = std::make_shared<io::internal::ReadRangeCache>(file_, io_context,
+                                                                     cache_options);
+      RETURN_NOT_OK(cached_source->Cache({{0, footer_offset_}}));
+    }
+    return WholeIpcFileRecordBatchGenerator(std::move(state), std::move(cached_source),
+                                            io_context, executor);
+  }
+
+  Status DoPreBufferMetadata(const std::vector<int>& indices) {
+    RETURN_NOT_OK(CacheMetadata(indices));
+    EnsureDictionaryReadStarted();
+    Future<> all_metadata_ready = WaitForMetadatas(indices);
+    for (int index : indices) {
+      Future<std::shared_ptr<Message>> metadata_loaded =
+          all_metadata_ready.Then([this, index]() -> Result<std::shared_ptr<Message>> {
+            stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
+            FileBlock block = GetRecordBatchBlock(index);
+            ARROW_ASSIGN_OR_RAISE(
+                std::shared_ptr<Buffer> metadata,
+                metadata_cache_->Read({block.offset, block.metadata_length}));
+            return ReadMessage(std::move(metadata), nullptr);
+          });
+      cached_metadata_.emplace(index, metadata_loaded);
+    }
+    return Status::OK();
+  }
+
+  std::vector<int> AllIndices() const {
+    std::vector<int> all_indices(num_record_batches());
+    std::iota(all_indices.begin(), all_indices.end(), 0);
+    return all_indices;
+  }
+
+  Status PreBufferMetadata(const std::vector<int>& indices) override {
+    if (indices.size() == 0) {
+      return DoPreBufferMetadata(AllIndices());
+    } else {
+      return DoPreBufferMetadata(indices);
+    }
   }
 
  private:
-  friend AsyncGenerator<std::shared_ptr<Message>> MakeMessageGenerator(
-      std::shared_ptr<RecordBatchFileReaderImpl>, const io::IOContext&);
-  friend class IpcFileRecordBatchGenerator;
+  friend class WholeIpcFileRecordBatchGenerator;
+
+  struct AtomicReadStats {
+    std::atomic<int64_t> num_messages{0};
+    std::atomic<int64_t> num_record_batches{0};
+    std::atomic<int64_t> num_dictionary_batches{0};
+    std::atomic<int64_t> num_dictionary_deltas{0};
+    std::atomic<int64_t> num_replaced_dictionaries{0};
+
+    /// \brief Capture a copy of the current counters
+    ReadStats poll() const {
+      ReadStats stats;
+      stats.num_messages = num_messages.load(std::memory_order_relaxed);
+      stats.num_record_batches = num_record_batches.load(std::memory_order_relaxed);
+      stats.num_dictionary_batches =
+          num_dictionary_batches.load(std::memory_order_relaxed);
+      stats.num_dictionary_deltas = num_dictionary_deltas.load(std::memory_order_relaxed);
+      stats.num_replaced_dictionaries =
+          num_replaced_dictionaries.load(std::memory_order_relaxed);
+      return stats;
+    }
+  };
 
   FileBlock GetRecordBatchBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
@@ -1193,9 +1402,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
   }
 
-  Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& block) {
-    ARROW_ASSIGN_OR_RAISE(auto message, arrow::ipc::ReadMessageFromBlock(block, file_));
-    ++stats_.num_messages;
+  Result<std::unique_ptr<Message>> ReadMessageFromBlock(
+      const FileBlock& block, const FieldsLoaderFunction& fields_loader = {}) {
+    ARROW_ASSIGN_OR_RAISE(auto message,
+                          arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
+    stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
     return std::move(message);
   }
 
@@ -1205,9 +1416,235 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     for (int i = 0; i < num_dictionaries(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetDictionaryBlock(i)));
       RETURN_NOT_OK(ReadOneDictionary(message.get(), context));
-      ++stats_.num_dictionary_batches;
+      stats_.num_dictionary_batches.fetch_add(1, std::memory_order_relaxed);
     }
     return Status::OK();
+  }
+
+  Status ReadOneDictionary(Message* message, const IpcReadContext& context) {
+    CHECK_HAS_BODY(*message);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+    DictionaryKind kind;
+    RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
+    if (kind == DictionaryKind::Replacement) {
+      return Status::Invalid("Unsupported dictionary replacement in IPC file");
+    } else if (kind == DictionaryKind::Delta) {
+      stats_.num_dictionary_deltas.fetch_add(1, std::memory_order_relaxed);
+    }
+    return Status::OK();
+  }
+
+  void AddDictionaryRanges(std::vector<io::ReadRange>* ranges) const {
+    // Adds all dictionaries to the range cache
+    for (int i = 0; i < num_dictionaries(); ++i) {
+      FileBlock block = GetDictionaryBlock(i);
+      ranges->push_back({block.offset, block.metadata_length + block.body_length});
+    }
+  }
+
+  void AddMetadataRanges(const std::vector<int>& indices,
+                         std::vector<io::ReadRange>* ranges) {
+    for (int index : indices) {
+      FileBlock block = GetRecordBatchBlock(static_cast<int>(index));
+      ranges->push_back({block.offset, block.metadata_length});
+    }
+  }
+
+  Status CacheMetadata(const std::vector<int>& indices) {
+    std::vector<io::ReadRange> ranges;
+    if (!read_dictionaries_) {
+      AddDictionaryRanges(&ranges);
+    }
+    AddMetadataRanges(indices, &ranges);
+    return metadata_cache_->Cache(std::move(ranges));
+  }
+
+  void EnsureDictionaryReadStarted() {
+    if (!dictionary_load_finished_.is_valid()) {
+      read_dictionaries_ = true;
+      std::vector<io::ReadRange> ranges;
+      AddDictionaryRanges(&ranges);
+      dictionary_load_finished_ =
+          metadata_cache_->WaitFor(std::move(ranges)).Then([this] {
+            return ReadDictionaries();
+          });
+    }
+  }
+
+  Status WaitForDictionaryReadFinished() {
+    if (!read_dictionaries_) {
+      RETURN_NOT_OK(ReadDictionaries());
+      read_dictionaries_ = true;
+      return Status::OK();
+    }
+    if (dictionary_load_finished_.is_valid()) {
+      return dictionary_load_finished_.status();
+    }
+    // Dictionaries were previously loaded synchronously
+    return Status::OK();
+  }
+
+  Future<> WaitForMetadatas(const std::vector<int>& indices) {
+    std::vector<io::ReadRange> ranges;
+    AddMetadataRanges(indices, &ranges);
+    return metadata_cache_->WaitFor(std::move(ranges));
+  }
+
+  Result<IpcReadContext> GetIpcReadContext(const flatbuf::Message* message,
+                                           const flatbuf::RecordBatch* batch) {
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+    Compression::type compression;
+    RETURN_NOT_OK(GetCompression(batch, &compression));
+    if (context.compression == Compression::UNCOMPRESSED &&
+        message->version() == flatbuf::MetadataVersion::V4) {
+      // Possibly obtain codec information from experimental serialization format
+      // in 0.17.x
+      RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
+    }
+    context.compression = compression;
+    context.metadata_version = internal::GetMetadataVersion(message->version());
+    return std::move(context);
+  }
+
+  Result<const flatbuf::RecordBatch*> GetBatchFromMessage(
+      const flatbuf::Message* message) {
+    auto batch = message->header_as_RecordBatch();
+    if (batch == nullptr) {
+      return Status::IOError(
+          "Header-type of flatbuffer-encoded Message is not RecordBatch.");
+    }
+    return batch;
+  }
+
+  Result<const flatbuf::Message*> GetFlatbufMessage(
+      const std::shared_ptr<Message>& message) {
+    const Buffer& metadata = *message->metadata();
+    const flatbuf::Message* flatbuf_message = nullptr;
+    RETURN_NOT_OK(
+        internal::VerifyMessage(metadata.data(), metadata.size(), &flatbuf_message));
+    return flatbuf_message;
+  }
+
+  struct CachedRecordBatchReadContext {
+    CachedRecordBatchReadContext(std::shared_ptr<Schema> sch,
+                                 const flatbuf::RecordBatch* batch,
+                                 IpcReadContext context, io::RandomAccessFile* file,
+                                 std::shared_ptr<io::RandomAccessFile> owned_file,
+                                 int64_t block_data_offset)
+        : schema(std::move(sch)),
+          context(std::move(context)),
+          file(file),
+          owned_file(std::move(owned_file)),
+          loader(batch, context.metadata_version, context.options, block_data_offset),
+          columns(schema->num_fields()),
+          cache(file, file->io_context(), io::CacheOptions::LazyDefaults()),
+          length(batch->length()) {}
+
+    Status CalculateLoadRequest() {
+      std::shared_ptr<Schema> out_schema;
+      RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
+                                                 &inclusion_mask, &out_schema));
+
+      for (int i = 0; i < schema->num_fields(); ++i) {
+        const Field& field = *schema->field(i);
+        if (inclusion_mask.size() == 0 || inclusion_mask[i]) {
+          // Read field
+          auto column = std::make_shared<ArrayData>();
+          RETURN_NOT_OK(loader.Load(&field, column.get()));
+          if (length != column->length) {
+            return Status::IOError("Array length did not match record batch length");
+          }
+          columns[i] = std::move(column);
+          if (inclusion_mask.size() > 0) {
+            filtered_columns.push_back(columns[i]);
+            filtered_fields.push_back(schema->field(i));
+          }
+        } else {
+          // Skip field. This logic must be executed to advance the state of the
+          // loader to the next field
+          RETURN_NOT_OK(loader.SkipField(&field));
+        }
+      }
+      if (inclusion_mask.size() > 0) {
+        filtered_schema = ::arrow::schema(std::move(filtered_fields), schema->metadata());
+      } else {
+        filtered_schema = schema;
+      }
+      return Status::OK();
+    }
+
+    Future<> ReadAsync() {
+      RETURN_NOT_OK(cache.Cache(loader.read_request().ranges_to_read()));
+      return cache.WaitFor(loader.read_request().ranges_to_read());
+    }
+
+    Result<std::shared_ptr<RecordBatch>> CreateRecordBatch() {
+      std::vector<std::shared_ptr<Buffer>> buffers;
+      for (const auto& range_to_read : loader.read_request().ranges_to_read()) {
+        ARROW_ASSIGN_OR_RAISE(auto buffer, cache.Read(range_to_read));
+        buffers.push_back(std::move(buffer));
+      }
+      loader.read_request().FulfillRequest(buffers);
+
+      // Dictionary resolution needs to happen on the unfiltered columns,
+      // because fields are mapped structurally (by path in the original schema).
+      RETURN_NOT_OK(ResolveDictionaries(columns, *context.dictionary_memo,
+                                        context.options.memory_pool));
+      if (inclusion_mask.size() > 0) {
+        columns.clear();
+      } else {
+        filtered_columns = std::move(columns);
+      }
+
+      if (context.compression != Compression::UNCOMPRESSED) {
+        RETURN_NOT_OK(
+            DecompressBuffers(context.compression, context.options, &filtered_columns));
+      }
+
+      // swap endian in a set of ArrayData if necessary (swap_endian == true)
+      if (context.swap_endian) {
+        for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
+          ARROW_ASSIGN_OR_RAISE(filtered_columns[i], arrow::internal::SwapEndianArrayData(
+                                                         filtered_columns[i]));
+        }
+      }
+      return RecordBatch::Make(std::move(filtered_schema), length,
+                               std::move(filtered_columns));
+    }
+
+    std::shared_ptr<Schema> schema;
+    IpcReadContext context;
+    io::RandomAccessFile* file;
+    std::shared_ptr<io::RandomAccessFile> owned_file;
+
+    ArrayLoader loader;
+    ArrayDataVector columns;
+    io::internal::ReadRangeCache cache;
+    int64_t length;
+    ArrayDataVector filtered_columns;
+    FieldVector filtered_fields;
+    std::shared_ptr<Schema> filtered_schema;
+    std::vector<bool> inclusion_mask;
+  };
+
+  Future<std::shared_ptr<RecordBatch>> ReadCachedRecordBatch(
+      int index, Future<std::shared_ptr<Message>> message_fut) {
+    stats_.num_record_batches.fetch_add(1, std::memory_order_relaxed);
+    return dictionary_load_finished_.Then([message_fut] { return message_fut; })
+        .Then([this, index](const std::shared_ptr<Message>& message_obj)
+                  -> Future<std::shared_ptr<RecordBatch>> {
+          FileBlock block = GetRecordBatchBlock(index);
+          ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+          ARROW_ASSIGN_OR_RAISE(auto batch, GetBatchFromMessage(message));
+          ARROW_ASSIGN_OR_RAISE(auto context, GetIpcReadContext(message, batch));
+
+          auto read_context = std::make_shared<CachedRecordBatchReadContext>(
+              schema_, batch, std::move(context), file_, owned_file_,
+              block.offset + static_cast<int64_t>(block.metadata_length));
+          RETURN_NOT_OK(read_context->CalculateLoadRequest());
+          return read_context->ReadAsync().Then(
+              [read_context] { return read_context->CreateRecordBatch(); });
+        });
   }
 
   Status ReadFooter() {
@@ -1239,7 +1676,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
             return Status::Invalid("Not an Arrow file");
           }
 
-          int32_t footer_length = BitUtil::FromLittleEndian(
+          int32_t footer_length = bit_util::FromLittleEndian(
               *reinterpret_cast<const int32_t*>(buffer->data()));
 
           if (footer_length <= 0 ||
@@ -1299,7 +1736,12 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   // Schema with deselected fields dropped
   std::shared_ptr<Schema> out_schema_;
 
-  ReadStats stats_;
+  AtomicReadStats stats_;
+  std::shared_ptr<io::internal::ReadRangeCache> metadata_cache_;
+  std::unordered_set<int> cached_data_blocks_;
+  Future<> dictionary_load_finished_;
+  std::unordered_map<int, Future<std::shared_ptr<Message>>> cached_metadata_;
+  std::unordered_map<int, Future<>> cached_data_requests_;
 
   bool swap_endian_;
 };
@@ -1358,7 +1800,17 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
       .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
-Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator()() {
+Future<SelectiveIpcFileRecordBatchGenerator::Item>
+SelectiveIpcFileRecordBatchGenerator::operator()() {
+  int index = index_++;
+  if (index >= state_->num_record_batches()) {
+    return IterationEnd<SelectiveIpcFileRecordBatchGenerator::Item>();
+  }
+  return state_->ReadRecordBatchAsync(index);
+}
+
+Future<WholeIpcFileRecordBatchGenerator::Item>
+WholeIpcFileRecordBatchGenerator::operator()() {
   auto state = state_;
   if (!read_dictionaries_.is_valid()) {
     std::vector<Future<std::shared_ptr<Message>>> messages(state->num_dictionaries());
@@ -1398,7 +1850,7 @@ Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator(
   });
 }
 
-Future<std::shared_ptr<Message>> IpcFileRecordBatchGenerator::ReadBlock(
+Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
     const FileBlock& block) {
   if (cached_source_) {
     auto cached_source = cached_source_;
@@ -1415,23 +1867,26 @@ Future<std::shared_ptr<Message>> IpcFileRecordBatchGenerator::ReadBlock(
   }
 }
 
-Status IpcFileRecordBatchGenerator::ReadDictionaries(
+Status WholeIpcFileRecordBatchGenerator::ReadDictionaries(
     RecordBatchFileReaderImpl* state,
     std::vector<std::shared_ptr<Message>> dictionary_messages) {
   IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
   for (const auto& message : dictionary_messages) {
-    RETURN_NOT_OK(ReadOneDictionary(message.get(), context));
+    RETURN_NOT_OK(state->ReadOneDictionary(message.get(), context));
   }
   return Status::OK();
 }
 
-Result<std::shared_ptr<RecordBatch>> IpcFileRecordBatchGenerator::ReadRecordBatch(
+Result<std::shared_ptr<RecordBatch>> WholeIpcFileRecordBatchGenerator::ReadRecordBatch(
     RecordBatchFileReaderImpl* state, Message* message) {
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
-  return ReadRecordBatchInternal(*message->metadata(), state->schema_,
-                                 state->field_inclusion_mask_, context, reader.get());
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_with_metadata,
+      ReadRecordBatchInternal(*message->metadata(), state->schema_,
+                              state->field_inclusion_mask_, context, reader.get()));
+  return batch_with_metadata.batch;
 }
 
 Status Listener::OnEOS() { return Status::OK(); }
@@ -1529,7 +1984,6 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
-    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     if (message->type() == MessageType::DICTIONARY_BATCH) {
       return ReadDictionary(*message);
     } else {
@@ -1537,11 +1991,11 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
       IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
       ARROW_ASSIGN_OR_RAISE(
-          auto batch,
+          auto batch_with_metadata,
           ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
                                   context, reader.get()));
       ++stats_.num_record_batches;
-      return listener_->OnRecordBatchDecoded(std::move(batch));
+      return listener_->OnRecordBatchDecoded(std::move(batch_with_metadata.batch));
     }
   }
 
@@ -1640,7 +2094,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
 
   std::shared_ptr<DataType> indices_type;
   RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
-  const int64_t indices_elsize = GetByteWidth(*indices_type);
+  const int64_t indices_elsize = indices_type->byte_width();
 
   auto* indices_buffer = sparse_index->indicesBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
@@ -1676,7 +2130,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   std::shared_ptr<DataType> indptr_type, indices_type;
   RETURN_NOT_OK(
       internal::GetSparseCSXIndexMetadata(sparse_index, &indptr_type, &indices_type));
-  const int indptr_byte_width = GetByteWidth(*indptr_type);
+  const int indptr_byte_width = indptr_type->byte_width();
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indptr_data,
@@ -1687,7 +2141,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
   std::vector<int64_t> indices_shape({non_zero_length});
-  const auto indices_minimum_bytes = indices_shape[0] * GetByteWidth(*indices_type);
+  const auto indices_minimum_bytes = indices_shape[0] * indices_type->byte_width();
   if (indices_minimum_bytes > indices_buffer->length()) {
     return Status::Invalid("shape is inconsistent to the size of indices buffer");
   }
@@ -1801,7 +2255,7 @@ Status ReadSparseTensorMetadata(const Buffer& metadata,
   *out_fb_sparse_tensor = sparse_tensor;
 
   auto buffer = sparse_tensor->data();
-  if (!BitUtil::IsMultipleOf8(buffer->offset())) {
+  if (!bit_util::IsMultipleOf8(buffer->offset())) {
     return Status::Invalid(
         "Buffer of sparse index data did not start on 8-byte aligned offset: ",
         buffer->offset());
@@ -1853,7 +2307,7 @@ Status CheckSparseTensorBodyBufferCount(const IpcPayload& payload,
 }  // namespace
 
 Result<size_t> ReadSparseTensorBodyBufferCount(const Buffer& metadata) {
-  SparseTensorFormat::type format_id;
+  SparseTensorFormat::type format_id{};
   std::vector<int64_t> shape;
 
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, &shape, nullptr,
@@ -2023,6 +2477,18 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
 // Helpers for fuzzing
 
 namespace internal {
+namespace {
+
+Status ValidateFuzzBatch(const RecordBatch& batch) {
+  auto st = batch.ValidateFull();
+  if (st.ok()) {
+    // If the batch is valid, printing should succeed
+    batch.ToString();
+  }
+  return st;
+}
+
+}  // namespace
 
 Status FuzzIpcStream(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<Buffer>(data, size);
@@ -2030,6 +2496,7 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
 
   std::shared_ptr<RecordBatchReader> batch_reader;
   ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchStreamReader::Open(&buffer_reader));
+  Status st;
 
   while (true) {
     std::shared_ptr<arrow::RecordBatch> batch;
@@ -2037,10 +2504,10 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
     if (batch == nullptr) {
       break;
     }
-    RETURN_NOT_OK(batch->ValidateFull());
+    st &= ValidateFuzzBatch(*batch);
   }
 
-  return Status::OK();
+  return st;
 }
 
 Status FuzzIpcFile(const uint8_t* data, int64_t size) {
@@ -2049,14 +2516,15 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
 
   std::shared_ptr<RecordBatchFileReader> batch_reader;
   ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchFileReader::Open(&buffer_reader));
+  Status st;
 
   const int n_batches = batch_reader->num_record_batches();
   for (int i = 0; i < n_batches; ++i) {
     ARROW_ASSIGN_OR_RAISE(auto batch, batch_reader->ReadRecordBatch(i));
-    RETURN_NOT_OK(batch->ValidateFull());
+    st &= ValidateFuzzBatch(*batch);
   }
 
-  return Status::OK();
+  return st;
 }
 
 Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
@@ -2074,6 +2542,67 @@ Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
   }
 
   return Status::OK();
+}
+
+Result<int64_t> IoRecordedRandomAccessFile::GetSize() { return file_size_; }
+
+Result<int64_t> IoRecordedRandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                                   void* out) {
+  auto num_bytes_read = std::min(file_size_, position + nbytes) - position;
+
+  if (!read_ranges_.empty() &&
+      position == read_ranges_.back().offset + read_ranges_.back().length) {
+    // merge continuous IOs into one if possible
+    read_ranges_.back().length += num_bytes_read;
+  } else {
+    // no real IO is performed, it is only saved into a vector for replaying later
+    read_ranges_.emplace_back(io::ReadRange{position, num_bytes_read});
+  }
+  return num_bytes_read;
+}
+
+Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::ReadAt(int64_t position,
+                                                                   int64_t nbytes) {
+  std::shared_ptr<Buffer> out;
+  auto result = ReadAt(position, nbytes, &out);
+  return out;
+}
+
+Status IoRecordedRandomAccessFile::Close() {
+  closed_ = true;
+  return Status::OK();
+}
+
+Status IoRecordedRandomAccessFile::Abort() { return Status::OK(); }
+
+Result<int64_t> IoRecordedRandomAccessFile::Tell() const { return position_; }
+
+bool IoRecordedRandomAccessFile::closed() const { return closed_; }
+
+Status IoRecordedRandomAccessFile::Seek(int64_t position) {
+  position_ = position;
+  return Status::OK();
+}
+
+Result<int64_t> IoRecordedRandomAccessFile::Read(int64_t nbytes, void* out) {
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(position_, nbytes, out));
+  position_ += bytes_read;
+  return bytes_read;
+}
+
+Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
+  auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
+  position_ += num_bytes_read;
+  return std::move(buffer);
+}
+
+const io::IOContext& IoRecordedRandomAccessFile::io_context() const {
+  return io_context_;
+}
+
+const std::vector<io::ReadRange>& IoRecordedRandomAccessFile::GetReadRanges() const {
+  return read_ranges_;
 }
 
 }  // namespace internal

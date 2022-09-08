@@ -1,0 +1,139 @@
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+<svg width="320pt" height="404pt"
+ viewBox="0.00 0.00 388.02 404.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 400)">
+<title>G</title>
+<polygon fill="#ffffff" stroke="transparent" points="-4,4 -4,-400 384.0173,-400 384.0173,4 -4,4"/>
+<!-- scan lineitem -->
+<g id="node1" class="node">
+<title>scan lineitem</title>
+<ellipse fill="none" stroke="#000000" cx="62.2569" cy="-378" rx="62.0148" ry="18"/>
+<text text-anchor="middle" x="62.2569" y="-373.8" font-family="Times,serif" font-size="14.00" fill="#000000">scan lineitem</text>
+</g>
+<!-- filter -->
+<g id="node2" class="node">
+<title>filter</title>
+<ellipse fill="none" stroke="#000000" cx="86.2569" cy="-306" rx="29.6089" ry="18"/>
+<text text-anchor="middle" x="86.2569" y="-301.8" font-family="Times,serif" font-size="14.00" fill="#000000">filter</text>
+</g>
+<!-- scan lineitem&#45;&gt;filter -->
+<g id="edge1" class="edge">
+<title>scan lineitem&#45;&gt;filter</title>
+<path fill="none" stroke="#000000" d="M68.3132,-359.8314C70.9767,-351.8406 74.163,-342.2819 77.1065,-333.4514"/>
+<polygon fill="#000000" stroke="#000000" points="80.4439,-334.5071 80.2858,-323.9134 73.8031,-332.2934 80.4439,-334.5071"/>
+</g>
+<!-- join -->
+<g id="node3" class="node">
+<title>join</title>
+<ellipse fill="none" stroke="#000000" cx="184.2569" cy="-234" rx="27" ry="18"/>
+<text text-anchor="middle" x="184.2569" y="-229.8" font-family="Times,serif" font-size="14.00" fill="#000000">join</text>
+</g>
+<!-- filter&#45;&gt;join -->
+<g id="edge2" class="edge">
+<title>filter&#45;&gt;join</title>
+<path fill="none" stroke="#000000" d="M105.6186,-291.7751C120.5341,-280.8168 141.3184,-265.5467 157.7735,-253.4572"/>
+<polygon fill="#000000" stroke="#000000" points="159.9433,-256.2062 165.9299,-247.4648 155.7988,-250.565 159.9433,-256.2062"/>
+</g>
+<!-- join again -->
+<g id="node4" class="node">
+<title>join again</title>
+<ellipse fill="none" stroke="#000000" cx="231.2569" cy="-162" rx="49.2784" ry="18"/>
+<text text-anchor="middle" x="231.2569" y="-157.8" font-family="Times,serif" font-size="14.00" fill="#000000">join again</text>
+</g>
+<!-- join&#45;&gt;join again -->
+<g id="edge3" class="edge">
+<title>join&#45;&gt;join again</title>
+<path fill="none" stroke="#000000" d="M195.1578,-217.3008C200.8051,-208.6496 207.8305,-197.8873 214.1788,-188.1623"/>
+<polygon fill="#000000" stroke="#000000" points="217.224,-189.9002 219.7594,-179.6132 211.3623,-186.0738 217.224,-189.9002"/>
+</g>
+<!-- filter again -->
+<g id="node9" class="node">
+<title>filter again</title>
+<ellipse fill="none" stroke="#000000" cx="231.2569" cy="-90" rx="53.2645" ry="18"/>
+<text text-anchor="middle" x="231.2569" y="-85.8" font-family="Times,serif" font-size="14.00" fill="#000000">filter again</text>
+</g>
+<!-- join again&#45;&gt;filter again -->
+<g id="edge8" class="edge">
+<title>join again&#45;&gt;filter again</title>
+<path fill="none" stroke="#000000" d="M231.2569,-143.8314C231.2569,-136.131 231.2569,-126.9743 231.2569,-118.4166"/>
+<polygon fill="#000000" stroke="#000000" points="234.757,-118.4132 231.2569,-108.4133 227.757,-118.4133 234.757,-118.4132"/>
+</g>
+<!-- scan orders -->
+<g id="node5" class="node">
+<title>scan orders</title>
+<ellipse fill="none" stroke="#000000" cx="197.2569" cy="-378" rx="54.9752" ry="18"/>
+<text text-anchor="middle" x="197.2569" y="-373.8" font-family="Times,serif" font-size="14.00" fill="#000000">scan orders</text>
+</g>
+<!-- project -->
+<g id="node6" class="node">
+<title>project</title>
+<ellipse fill="none" stroke="#000000" cx="184.2569" cy="-306" rx="37.6986" ry="18"/>
+<text text-anchor="middle" x="184.2569" y="-301.8" font-family="Times,serif" font-size="14.00" fill="#000000">project</text>
+</g>
+<!-- scan orders&#45;&gt;project -->
+<g id="edge4" class="edge">
+<title>scan orders&#45;&gt;project</title>
+<path fill="none" stroke="#000000" d="M193.9765,-359.8314C192.5861,-352.131 190.9329,-342.9743 189.3877,-334.4166"/>
+<polygon fill="#000000" stroke="#000000" points="192.8028,-333.6322 187.5816,-324.4133 185.9142,-334.8761 192.8028,-333.6322"/>
+</g>
+<!-- project&#45;&gt;join -->
+<g id="edge5" class="edge">
+<title>project&#45;&gt;join</title>
+<path fill="none" stroke="#000000" d="M184.2569,-287.8314C184.2569,-280.131 184.2569,-270.9743 184.2569,-262.4166"/>
+<polygon fill="#000000" stroke="#000000" points="187.757,-262.4132 184.2569,-252.4133 180.757,-262.4133 187.757,-262.4132"/>
+</g>
+<!-- scan customers -->
+<g id="node7" class="node">
+<title>scan customers</title>
+<ellipse fill="none" stroke="#000000" cx="310.2569" cy="-306" rx="69.5216" ry="18"/>
+<text text-anchor="middle" x="310.2569" y="-301.8" font-family="Times,serif" font-size="14.00" fill="#000000">scan customers</text>
+</g>
+<!-- aggregate -->
+<g id="node8" class="node">
+<title>aggregate</title>
+<ellipse fill="none" stroke="#000000" cx="294.2569" cy="-234" rx="48.6346" ry="18"/>
+<text text-anchor="middle" x="294.2569" y="-229.8" font-family="Times,serif" font-size="14.00" fill="#000000">aggregate</text>
+</g>
+<!-- scan customers&#45;&gt;aggregate -->
+<g id="edge6" class="edge">
+<title>scan customers&#45;&gt;aggregate</title>
+<path fill="none" stroke="#000000" d="M306.2195,-287.8314C304.5083,-280.131 302.4735,-270.9743 300.5717,-262.4166"/>
+<polygon fill="#000000" stroke="#000000" points="303.9348,-261.4159 298.3488,-252.4133 297.1015,-262.9344 303.9348,-261.4159"/>
+</g>
+<!-- aggregate&#45;&gt;join again -->
+<g id="edge7" class="edge">
+<title>aggregate&#45;&gt;join again</title>
+<path fill="none" stroke="#000000" d="M279.0064,-216.5708C271.1906,-207.6385 261.5369,-196.6056 252.9595,-186.8029"/>
+<polygon fill="#000000" stroke="#000000" points="255.5861,-184.4897 246.367,-179.2687 250.3181,-189.0993 255.5861,-184.4897"/>
+</g>
+<!-- write to disk -->
+<g id="node10" class="node">
+<title>write to disk</title>
+<ellipse fill="none" stroke="#000000" cx="231.2569" cy="-18" rx="59.1276" ry="18"/>
+<text text-anchor="middle" x="231.2569" y="-13.8" font-family="Times,serif" font-size="14.00" fill="#000000">write to disk</text>
+</g>
+<!-- filter again&#45;&gt;write to disk -->
+<g id="edge9" class="edge">
+<title>filter again&#45;&gt;write to disk</title>
+<path fill="none" stroke="#000000" d="M231.2569,-71.8314C231.2569,-64.131 231.2569,-54.9743 231.2569,-46.4166"/>
+<polygon fill="#000000" stroke="#000000" points="234.757,-46.4132 231.2569,-36.4133 227.757,-46.4133 234.757,-46.4132"/>
+</g>
+</g>
+</svg>

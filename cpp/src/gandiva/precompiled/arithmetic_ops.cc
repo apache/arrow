@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <cstdint>
+#include "arrow/util/basic_decimal.h"
+
 extern "C" {
 
-#include <math.h>
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -57,6 +60,21 @@ extern "C" {
                        : static_cast<gdv_##OUT_TYPE>(left % right));    \
   }
 
+#define PMOD_OP(NAME, IN_TYPE1, IN_TYPE2, OUT_TYPE)                                   \
+  FORCE_INLINE                                                                        \
+  gdv_##OUT_TYPE NAME##_##IN_TYPE1##_##IN_TYPE2(int64_t context, gdv_##IN_TYPE1 left, \
+                                                gdv_##IN_TYPE2 right) {               \
+    if (right == static_cast<gdv_##IN_TYPE2>(0)) {                                    \
+      gdv_fn_context_set_error_msg(context, "divide by zero error");                  \
+      return static_cast<gdv_##IN_TYPE1>(0);                                          \
+    }                                                                                 \
+    double mod = fmod(static_cast<double>(left), static_cast<double>(right));         \
+    if (mod < 0 || right < 0) {                                                       \
+      mod += static_cast<double>(right);                                              \
+    }                                                                                 \
+    return static_cast<gdv_##IN_TYPE1>(mod);                                          \
+  }
+
 // Symmetric binary fns : left, right params and return type are same.
 #define BINARY_SYMMETRIC(NAME, TYPE, OP)                                 \
   FORCE_INLINE                                                           \
@@ -79,7 +97,13 @@ BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
 
+PMOD_OP(pmod, int32, int32, int32)
+PMOD_OP(pmod, int64, int64, int64)
+PMOD_OP(pmod, float32, float32, float32)
+PMOD_OP(pmod, float64, float64, float64)
+
 #undef MOD_OP
+#undef PMOD_OP
 
 gdv_float64 mod_float64_float64(int64_t context, gdv_float64 x, gdv_float64 y) {
   if (y == 0.0) {
@@ -103,6 +127,69 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than, >)
 NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
 #undef BINARY_RELATIONAL
+
+// Returns the greatest or least value from a list of values
+#define COMPARE_TWO_VALUES(NAME, TYPE, OP)                            \
+  FORCE_INLINE                                                        \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2) { \
+    return (in1 OP in2 ? in1 : in2);                                  \
+  }
+
+#define COMPARE_THREE_VALUES(NAME, TYPE, OP)                                 \
+  FORCE_INLINE                                                               \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2, \
+                                             gdv_##TYPE in3) {               \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                          \
+    return (compared OP in3 ? compared : in3);                               \
+  }
+
+#define COMPARE_FOUR_VALUES(NAME, TYPE, OP)                                             \
+  FORCE_INLINE                                                                          \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2,   \
+                                                      gdv_##TYPE in3, gdv_##TYPE in4) { \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                     \
+    compared = (compared OP in3 ? compared : in3);                                      \
+    return (compared OP in4 ? compared : in4);                                          \
+  }
+
+#define COMPARE_FIVE_VALUES(NAME, TYPE, OP)                                             \
+  FORCE_INLINE                                                                          \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(                         \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5) { \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                     \
+    compared = (compared OP in3 ? compared : in3);                                      \
+    compared = (compared OP in4 ? compared : in4);                                      \
+    return (compared OP in5 ? compared : in5);                                          \
+  }
+
+#define COMPARE_SIX_VALUES(NAME, TYPE, OP)                                            \
+  FORCE_INLINE                                                                        \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(              \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5, \
+      gdv_##TYPE in6) {                                                               \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                   \
+    compared = (compared OP in3 ? compared : in3);                                    \
+    compared = (compared OP in4 ? compared : in4);                                    \
+    compared = (compared OP in5 ? compared : in5);                                    \
+    return (compared OP in6 ? compared : in6);                                        \
+  }
+
+NUMERIC_DATE_TYPES(COMPARE_TWO_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_TWO_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_THREE_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_THREE_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_FOUR_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_FOUR_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_FIVE_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_FIVE_VALUES, least, <)
+NUMERIC_DATE_TYPES(COMPARE_SIX_VALUES, greatest, >)
+NUMERIC_DATE_TYPES(COMPARE_SIX_VALUES, least, <)
+
+#undef COMPARE_TWO_VALUES
+#undef COMPARE_THREE_VALUES
+#undef COMPARE_FOUR_VALUES
+#undef COMPARE_FIVE_VALUES
+#undef COMPARE_SIX_VALUES
 
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE)           \
@@ -148,6 +235,46 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
 
+#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP)                      \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP in;                                      \
+  }
+
+IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
+IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
+
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(NAME, TYPE, OP)           \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP in;                                     \
+  }
+
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnottrue, boolean, !)
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnotfalse, boolean, +)
+
+#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP)                   \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP(in != 0);                                \
+  }
+
+NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, istrue, +)
+NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
+
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC(NAME, TYPE, OP)        \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP(in != 0);                               \
+  }
+
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnottrue, !)
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnotfalse, +)
+
+#define NUMERIC_FUNCTION_FOR_REAL(INNER) \
+  INNER(float32)                         \
+  INNER(float64)
+
 #define NUMERIC_FUNCTION(INNER) \
   INNER(int8)                   \
   INNER(int16)                  \
@@ -157,8 +284,7 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
   INNER(uint16)                 \
   INNER(uint32)                 \
   INNER(uint64)                 \
-  INNER(float32)                \
-  INNER(float64)
+  NUMERIC_FUNCTION_FOR_REAL(INNER)
 
 #define DATE_FUNCTION(INNER) \
   INNER(date32)              \
@@ -170,6 +296,17 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
   NUMERIC_FUNCTION(INNER)                 \
   DATE_FUNCTION(INNER)                    \
   INNER(boolean)
+
+#define NVL(TYPE)                                                                  \
+  FORCE_INLINE                                                                     \
+  gdv_##TYPE nvl_##TYPE##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid_in,           \
+                                 gdv_##TYPE replace, gdv_boolean is_valid_value) { \
+    return (is_valid_in ? in : replace);                                           \
+  }
+
+NUMERIC_BOOL_DATE_FUNCTION(NVL)
+
+#undef NVL
 
 FORCE_INLINE
 gdv_boolean not_boolean(gdv_boolean in) { return !in; }
@@ -223,6 +360,70 @@ NUMERIC_FUNCTION(DIVIDE)
 
 #undef DIVIDE
 
+#define POSITIVE(TYPE) \
+  FORCE_INLINE         \
+  gdv_##TYPE positive_##TYPE(gdv_##TYPE in) { return in; }
+
+NUMERIC_FUNCTION(POSITIVE)
+
+#undef POSITIVE
+
+#define NEGATIVE(TYPE) \
+  FORCE_INLINE         \
+  gdv_##TYPE negative_##TYPE(gdv_##TYPE in) { return static_cast<gdv_##TYPE>(-1 * in); }
+
+NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
+
+#define NEGATIVE_INTEGER(TYPE, SIZE)                                           \
+  FORCE_INLINE                                                                 \
+  gdv_##TYPE negative_##TYPE(gdv_int64 context, gdv_##TYPE in) {               \
+    if (in <= INT##SIZE##_MIN) {                                               \
+      gdv_fn_context_set_error_msg(context, "Overflow in negative execution"); \
+      return 0;                                                                \
+    }                                                                          \
+    return -1 * in;                                                            \
+  }
+
+NEGATIVE_INTEGER(int32, 32)
+NEGATIVE_INTEGER(int64, 64)
+NEGATIVE_INTEGER(month_interval, 32)
+
+const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
+const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
+
+gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval) {
+  if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME ||
+      interval < INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME) {
+    gdv_fn_context_set_error_msg(
+        context, "Interval day time is out of boundaries for the negative function");
+    return 0;
+  }
+
+  int64_t left = interval >> 32;
+  int64_t right = interval & 0x00000000FFFFFFFF;
+
+  left = -1 * left;
+  right = -1 * right;
+
+  gdv_int64 out = (left & 0x00000000FFFFFFFF) << 32;
+  out |= (right & 0x00000000FFFFFFFF);
+
+  return out;
+}
+
+#undef NEGATIVE
+#undef NEGATIVE_INTEGER
+
+void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits) {
+  arrow::BasicDecimal128 res = arrow::BasicDecimal128(high_bits, low_bits).Negate();
+
+  *out_high_bits = res.high_bits();
+  *out_low_bits = res.low_bits();
+}
+
 #define DIV(TYPE)                                                                     \
   FORCE_INLINE                                                                        \
   gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
@@ -268,6 +469,45 @@ BITWISE_NOT(int64)
 #undef DATE_TYPES
 #undef NUMERIC_BOOL_DATE_TYPES
 #undef NUMERIC_DATE_TYPES
+
+#define SIGN(TYPE)                         \
+  FORCE_INLINE                             \
+  gdv_##TYPE sign_##TYPE(gdv_##TYPE in1) { \
+    gdv_##TYPE out;                        \
+    if (in1 > 0) {                         \
+      out = static_cast<gdv_##TYPE>(1);    \
+    } else if (in1 < 0) {                  \
+      out = static_cast<gdv_##TYPE>(-1);   \
+    } else {                               \
+      out = in1;                           \
+    }                                      \
+    return out;                            \
+  }
+
+SIGN(int32)
+SIGN(int64)
+SIGN(float32)
+SIGN(float64)
+
+#undef SIGN
+#define CEILING(TYPE) \
+  FORCE_INLINE        \
+  gdv_##TYPE ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
+
+CEILING(float32)
+CEILING(float64)
+
+#undef CEILING
+
+#define FLOOR(TYPE) \
+  FORCE_INLINE      \
+  gdv_##TYPE floor_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(floor(in1)); }
+
+FLOOR(float32)
+FLOOR(float64)
+
+#undef FLOOR
+
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES
 

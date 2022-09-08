@@ -25,6 +25,56 @@ add_arrow_compute_test(expression_test
                        subtree_test.cc)
 
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
+add_arrow_compute_test(hash_join_node_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       hash_join_node_test.cc
+                       bloom_filter_test.cc
+                       key_hash_test.cc)
+add_arrow_compute_test(asof_join_node_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       asof_join_node_test.cc)
+add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
+add_arrow_compute_test(util_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       util_test.cc
+                       task_util_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+
+add_arrow_benchmark(filter_benchmark
+                    PREFIX
+                    "arrow-compute"
+                    SOURCES
+                    benchmark_util.cc
+                    filter_benchmark.cc)
+
+add_arrow_benchmark(project_benchmark
+                    PREFIX
+                    "arrow-compute"
+                    SOURCES
+                    benchmark_util.cc
+                    project_benchmark.cc)
+
+add_arrow_benchmark(asof_join_benchmark PREFIX "arrow-compute")
+
+add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
+
+if(ARROW_BUILD_OPENMP_BENCHMARKS)
+  find_package(OpenMP REQUIRED)
+  add_arrow_benchmark(hash_join_benchmark
+                      PREFIX
+                      "arrow-compute"
+                      EXTRA_LINK_LIBS
+                      OpenMP::OpenMP_CXX)
+  if(MSVC)
+    target_compile_options(arrow-compute-hash-join-benchmark
+                           PRIVATE "-openmp:experimental -openmp:llvm")
+  endif()
+endif()

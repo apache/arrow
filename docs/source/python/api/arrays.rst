@@ -65,11 +65,14 @@ may expose data type-specific methods or properties.
    Date32Array
    Date64Array
    TimestampArray
+   DurationArray
+   MonthDayNanoIntervalArray
    Decimal128Array
    DictionaryArray
    ListArray
    FixedSizeListArray
    LargeListArray
+   MapArray
    StructArray
    UnionArray
    ExtensionArray
@@ -115,9 +118,13 @@ classes may expose data type-specific methods or properties.
    Date32Scalar
    Date64Scalar
    TimestampScalar
+   DurationScalar
+   MonthDayNanoIntervalScalar
    Decimal128Scalar
    DictionaryScalar
    ListScalar
    LargeListScalar
+   MapScalar
    StructScalar
    UnionScalar
+   ExtensionScalar

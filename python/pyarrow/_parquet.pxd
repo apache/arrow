@@ -19,7 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
+from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         CRandomAccessFile, COutputStream,
@@ -133,7 +133,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     enum ParquetVersion" parquet::ParquetVersion::type":
         ParquetVersion_V1" parquet::ParquetVersion::PARQUET_1_0"
-        ParquetVersion_V2" parquet::ParquetVersion::PARQUET_2_0"
+        ParquetVersion_V2_0" parquet::ParquetVersion::PARQUET_2_0"
+        ParquetVersion_V2_4" parquet::ParquetVersion::PARQUET_2_4"
+        ParquetVersion_V2_6" parquet::ParquetVersion::PARQUET_2_6"
 
     enum ParquetSortOrder" parquet::SortOrder::type":
         ParquetSortOrder_SIGNED" parquet::SortOrder::SIGNED"
@@ -190,6 +192,18 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     cdef c_string FormatStatValue(ParquetType parquet_type, c_string val)
 
+    enum ParquetCipher" parquet::ParquetCipher::type":
+        ParquetCipher_AES_GCM_V1" parquet::ParquetCipher::AES_GCM_V1"
+        ParquetCipher_AES_GCM_CTR_V1" parquet::ParquetCipher::AES_GCM_CTR_V1"
+
+    struct AadMetadata:
+        c_string aad_prefix
+        c_string aad_file_unique
+        c_bool supply_aad_prefix
+
+    struct EncryptionAlgorithm:
+        ParquetCipher algorithm
+        AadMetadata aad
 
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
@@ -281,10 +295,16 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ParquetFLBA min()
         ParquetFLBA max()
 
+    cdef cppclass CColumnCryptoMetaData" parquet::ColumnCryptoMetaData":
+        shared_ptr[ColumnPath] path_in_schema() const
+        c_bool encrypted_with_footer_key() const
+        const c_string& key_metadata() const
+
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
         const c_string& file_path() const
 
+        c_bool is_metadata_set() const
         ParquetType type() const
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
@@ -300,6 +320,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
+        unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
 
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         c_bool Equals(const CRowGroupMetaData&) const
@@ -326,6 +347,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
         void WriteTo(COutputStream* dst) const
 
+        inline c_bool is_encryption_algorithm_set() const
+        inline EncryptionAlgorithm encryption_algorithm() const
+        inline const c_string& footer_signing_key_metadata() const
+
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
@@ -334,8 +359,20 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
+
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
+
+        void set_thrift_string_size_limit(int32_t size)
+        int32_t thrift_string_size_limit() const
+
+        void set_thrift_container_size_limit(int32_t size)
+        int32_t thrift_container_size_limit() const
+
+        void file_decryption_properties(shared_ptr[CFileDecryptionProperties]
+                                        decryption)
+        shared_ptr[CFileDecryptionProperties] file_decryption_properties() \
+            const
 
     CReaderProperties default_reader_properties()
 
@@ -367,6 +404,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* compression_level(int compression_level)
             Builder* compression_level(const c_string& path,
                                        int compression_level)
+            Builder* encryption(
+                shared_ptr[CFileEncryptionProperties]
+                file_encryption_properties)
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
@@ -378,6 +418,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
+            Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -452,6 +493,10 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
+    CStatus StatisticsAsScalars(const CStatistics& Statistics,
+                                shared_ptr[CScalar]* min,
+                                shared_ptr[CScalar]* max)
+
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
@@ -494,6 +539,21 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         const CFileMetaData& file_metadata,
         const COutputStream* sink)
 
+cdef class FileEncryptionProperties:
+    """File-level encryption properties for the low-level API"""
+    cdef:
+        shared_ptr[CFileEncryptionProperties] properties
+
+    @staticmethod
+    cdef inline FileEncryptionProperties wrap(
+            shared_ptr[CFileEncryptionProperties] properties):
+
+        result = FileEncryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CFileEncryptionProperties] unwrap(self):
+        return self.properties
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
     use_dictionary=*,
@@ -503,7 +563,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_size=*,
     compression_level=*,
     use_byte_stream_split=*,
-    data_page_version=*) except *
+    column_encoding=*,
+    data_page_version=*,
+    FileEncryptionProperties encryption_properties=*,
+    write_batch_size=*,
+    dictionary_pagesize_limit=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
@@ -555,3 +619,28 @@ cdef class Statistics(_Weakrefable):
                      ColumnChunkMetaData parent):
         self.statistics = statistics
         self.parent = parent
+
+cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
+    cdef cppclass CFileDecryptionProperties\
+            " parquet::FileDecryptionProperties":
+        pass
+
+    cdef cppclass CFileEncryptionProperties\
+            " parquet::FileEncryptionProperties":
+        pass
+
+cdef class FileDecryptionProperties:
+    """File-level decryption properties for the low-level API"""
+    cdef:
+        shared_ptr[CFileDecryptionProperties] properties
+
+    @staticmethod
+    cdef inline FileDecryptionProperties wrap(
+            shared_ptr[CFileDecryptionProperties] properties):
+
+        result = FileDecryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CFileDecryptionProperties] unwrap(self):
+        return self.properties

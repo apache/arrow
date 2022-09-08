@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <mutex>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
@@ -42,7 +43,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -87,6 +88,8 @@ constexpr Type::type TimestampType::type_id;
 constexpr Type::type MonthIntervalType::type_id;
 
 constexpr Type::type DayTimeIntervalType::type_id;
+
+constexpr Type::type MonthDayNanoIntervalType::type_id;
 
 constexpr Type::type DurationType::type_id;
 
@@ -138,6 +141,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(TIME64)
     TO_STRING_CASE(TIMESTAMP)
     TO_STRING_CASE(INTERVAL_DAY_TIME)
+    TO_STRING_CASE(INTERVAL_MONTH_DAY_NANO)
     TO_STRING_CASE(INTERVAL_MONTHS)
     TO_STRING_CASE(DURATION)
     TO_STRING_CASE(STRING)
@@ -177,11 +181,6 @@ std::string ToString(TimeUnit::type unit) {
       DCHECK(false);
       return "";
   }
-}
-
-int GetByteWidth(const DataType& type) {
-  const auto& fw_type = checked_cast<const FixedWidthType&>(type);
-  return fw_type.bit_width() / CHAR_BIT;
 }
 
 }  // namespace internal
@@ -362,6 +361,8 @@ std::string Field::ToString(bool show_metadata) const {
   return ss.str();
 }
 
+void PrintTo(const Field& field, std::ostream* os) { *os << field.ToString(); }
+
 DataType::~DataType() {}
 
 bool DataType::Equals(const DataType& other, bool check_metadata) const {
@@ -387,6 +388,29 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const TypeHolder& type) {
+  os << type.ToString();
+  return os;
+}
+
+// ----------------------------------------------------------------------
+// TypeHolder
+
+std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
+  std::stringstream ss;
+  ss << "(";
+  for (size_t i = 0; i < types.size(); ++i) {
+    if (i > 0) {
+      ss << ", ";
+    }
+    ss << types[i].type->ToString();
+  }
+  ss << ")";
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
+
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
 }
@@ -397,6 +421,18 @@ FloatingPointType::Precision FloatType::precision() const {
 
 FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         DayTimeIntervalType::DayMilliseconds interval) {
+  os << interval.days << "d" << interval.milliseconds << "ms";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         MonthDayNanoIntervalType::MonthDayNanos interval) {
+  os << interval.months << "M" << interval.days << "d" << interval.nanoseconds << "ns";
+  return os;
 }
 
 std::string ListType::ToString() const {
@@ -771,6 +807,30 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+Result<std::shared_ptr<StructType>> StructType::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+  return std::make_shared<StructType>(internal::AddVectorElement(children_, i, field));
+}
+
+Result<std::shared_ptr<StructType>> StructType::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+  return std::make_shared<StructType>(internal::DeleteVectorElement(children_, i));
+}
+
+Result<std::shared_ptr<StructType>> StructType::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to set field.");
+  }
+  return std::make_shared<StructType>(
+      internal::ReplaceVectorElement(children_, i, field));
+}
+
 Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
                                                     int32_t scale) {
   if (type_id == Type::DECIMAL128) {
@@ -815,7 +875,8 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range: ", precision);
+    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
+                           ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal128Type>(precision, scale);
 }
@@ -831,7 +892,8 @@ Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range: ", precision);
+    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
+                           ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal256Type>(precision, scale);
 }
@@ -1152,6 +1214,30 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
   FieldRef out;
   out.Flatten(std::move(children));
   return out;
+}
+
+std::string FieldRef::ToDotPath() const {
+  struct Visitor {
+    std::string operator()(const FieldPath& path) {
+      std::string out;
+      for (int i : path.indices()) {
+        out += "[" + std::to_string(i) + "]";
+      }
+      return out;
+    }
+
+    std::string operator()(const std::string& name) { return "." + name; }
+
+    std::string operator()(const std::vector<FieldRef>& children) {
+      std::string out;
+      for (const auto& child : children) {
+        out += child.ToDotPath();
+      }
+      return out;
+    }
+  };
+
+  return util::visit(Visitor{}, impl_);
 }
 
 size_t FieldRef::hash() const {
@@ -1478,7 +1564,7 @@ Result<std::shared_ptr<Schema>> Schema::AddField(
 Result<std::shared_ptr<Schema>> Schema::SetField(
     int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
+    return Status::Invalid("Invalid column index to set field.");
   }
 
   return std::make_shared<Schema>(
@@ -1811,6 +1897,8 @@ static char IntervalTypeFingerprint(IntervalType::type unit) {
       return 'd';
     case IntervalType::MONTHS:
       return 'M';
+    case IntervalType::MONTH_DAY_NANO:
+      return 'N';
     default:
       DCHECK(false) << "Unexpected IntervalType::type";
       return '\0';
@@ -2081,7 +2169,7 @@ Status DataType::Accept(TypeVisitor* visitor) const {
 }
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
-  std::shared_ptr<DataType> NAME() {                                     \
+  const std::shared_ptr<DataType>& NAME() {                              \
     static std::shared_ptr<DataType> result = std::make_shared<KLASS>(); \
     return result;                                                       \
   }
@@ -2116,6 +2204,10 @@ std::shared_ptr<DataType> duration(TimeUnit::type unit) {
 
 std::shared_ptr<DataType> day_time_interval() {
   return std::make_shared<DayTimeIntervalType>();
+}
+
+std::shared_ptr<DataType> month_day_nano_interval() {
+  return std::make_shared<MonthDayNanoIntervalType>();
 }
 
 std::shared_ptr<DataType> month_interval() {
@@ -2277,6 +2369,135 @@ std::string Decimal256Type::ToString() const {
   std::stringstream s;
   s << "decimal256(" << precision_ << ", " << scale_ << ")";
   return s.str();
+}
+
+namespace {
+
+std::vector<std::shared_ptr<DataType>> g_signed_int_types;
+std::vector<std::shared_ptr<DataType>> g_unsigned_int_types;
+std::vector<std::shared_ptr<DataType>> g_int_types;
+std::vector<std::shared_ptr<DataType>> g_floating_types;
+std::vector<std::shared_ptr<DataType>> g_numeric_types;
+std::vector<std::shared_ptr<DataType>> g_base_binary_types;
+std::vector<std::shared_ptr<DataType>> g_temporal_types;
+std::vector<std::shared_ptr<DataType>> g_interval_types;
+std::vector<std::shared_ptr<DataType>> g_primitive_types;
+std::once_flag static_data_initialized;
+
+template <typename T>
+void Extend(const std::vector<T>& values, std::vector<T>* out) {
+  out->insert(out->end(), values.begin(), values.end());
+}
+
+void InitStaticData() {
+  // Signed int types
+  g_signed_int_types = {int8(), int16(), int32(), int64()};
+
+  // Unsigned int types
+  g_unsigned_int_types = {uint8(), uint16(), uint32(), uint64()};
+
+  // All int types
+  Extend(g_unsigned_int_types, &g_int_types);
+  Extend(g_signed_int_types, &g_int_types);
+
+  // Floating point types
+  g_floating_types = {float32(), float64()};
+
+  // Numeric types
+  Extend(g_int_types, &g_numeric_types);
+  Extend(g_floating_types, &g_numeric_types);
+
+  // Temporal types
+  g_temporal_types = {date32(),
+                      date64(),
+                      time32(TimeUnit::SECOND),
+                      time32(TimeUnit::MILLI),
+                      time64(TimeUnit::MICRO),
+                      time64(TimeUnit::NANO),
+                      timestamp(TimeUnit::SECOND),
+                      timestamp(TimeUnit::MILLI),
+                      timestamp(TimeUnit::MICRO),
+                      timestamp(TimeUnit::NANO)};
+
+  // Interval types
+  g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
+
+  // Base binary types (without FixedSizeBinary)
+  g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
+
+  // Non-parametric, non-nested types. This also DOES NOT include
+  //
+  // * Decimal
+  // * Fixed Size Binary
+  // * Time32
+  // * Time64
+  // * Timestamp
+  g_primitive_types = {null(), boolean(), date32(), date64()};
+  Extend(g_numeric_types, &g_primitive_types);
+  Extend(g_base_binary_types, &g_primitive_types);
+}
+
+}  // namespace
+
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_base_binary_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
+  static DataTypeVector types = {binary(), large_binary()};
+  return types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& StringTypes() {
+  static DataTypeVector types = {utf8(), large_utf8()};
+  return types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_signed_int_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_unsigned_int_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& IntTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_int_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_floating_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_numeric_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_temporal_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_interval_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_primitive_types;
+}
+
+const std::vector<TimeUnit::type>& TimeUnit::values() {
+  static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
+                                              TimeUnit::MICRO, TimeUnit::NANO};
+  return units;
 }
 
 }  // namespace arrow

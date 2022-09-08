@@ -235,6 +235,8 @@ public class TypeLayout {
             return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
           case YEAR_MONTH:
             return newFixedWidthTypeLayout(BufferLayout.dataBuffer(32));
+          case MONTH_DAY_NANO:
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(128));
           default:
             throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
         }

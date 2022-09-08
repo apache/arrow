@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
 #include <arrow/builder.h>
@@ -29,6 +28,7 @@
 #include <cpp11/altrep.hpp>
 #include <type_traits>
 
+#include "./extension.h"
 #include "./r_task_group.h"
 
 namespace arrow {
@@ -65,23 +65,13 @@ class Converter {
 
   // converter is passed as self to outlive the scope of Converter::Convert()
   SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-#if defined(HAS_ALTREP)
-    // special case when there is only one array
-    if (chunked_array_->num_chunks() == 1) {
-      const auto& array = chunked_array_->chunk(0);
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
-          array->null_count() == 0) {
-        switch (array->type()->id()) {
-          case arrow::Type::DOUBLE:
-            return arrow::r::MakeDoubleArrayNoNull(array);
-          case arrow::Type::INT32:
-            return arrow::r::MakeInt32ArrayNoNull(array);
-          default:
-            break;
-        }
-      }
+    // try altrep first
+    SEXP alt = altrep::MakeAltrepVector(chunked_array_);
+    if (!Rf_isNull(alt)) {
+      return alt;
     }
-#endif
+
+    // otherwise use the Converter api:
 
     // allocating the R vector upfront
     SEXP out = PROTECT(Allocate(chunked_array_->length()));
@@ -131,6 +121,8 @@ class Converter {
     return Convert(std::make_shared<ChunkedArray>(array), false);
   }
 
+  SEXP MaybeAltrep() { return altrep::MakeAltrepVector(chunked_array_); }
+
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
 };
@@ -164,6 +156,15 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
                   SetNonNull&& set_non_null) {
   auto nothing = [](R_xlen_t i) { return Status::OK(); };
   return IngestSome(array, n, std::forward<SetNonNull>(set_non_null), nothing);
+}
+
+std::shared_ptr<Array> CreateEmptyArray(const std::shared_ptr<DataType>& array_type) {
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), array_type, &builder));
+
+  std::shared_ptr<arrow::Array> array;
+  StopIfNotOk(builder->Finish(&array));
+  return array;
 }
 
 template <typename Type>
@@ -541,6 +542,24 @@ class Converter_FixedSizeBinary : public Converter {
   int byte_width_;
 };
 
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array) {
+  int n = chunked_array->num_chunks();
+  if (n < 2) {
+    return false;
+  }
+  const auto& arr_first =
+      internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+  for (int i = 1; i < n; i++) {
+    const auto& arr =
+        internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i));
+    if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class Converter_Dictionary : public Converter {
  private:
   bool need_unification_;
@@ -551,11 +570,10 @@ class Converter_Dictionary : public Converter {
 
  public:
   explicit Converter_Dictionary(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : Converter(chunked_array), need_unification_(NeedUnification()) {
+      : Converter(chunked_array),
+        need_unification_(DictionaryChunkArrayNeedUnification(chunked_array)) {
     if (need_unification_) {
-      const auto& arr_first =
-          checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
-      const auto& arr_type = checked_cast<const DictionaryType&>(*arr_first.type());
+      const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
       size_t n_arrays = chunked_array->num_chunks();
@@ -569,11 +587,10 @@ class Converter_Dictionary : public Converter {
 
       StopIfNotOk(unifier_->GetResult(&out_type_, &dictionary_));
     } else {
-      const auto& dict_array =
-          checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+      const auto& dict_type = checked_cast<const DictionaryType&>(*chunked_array->type());
 
-      auto indices = dict_array.indices();
-      switch (indices->type_id()) {
+      const auto& indices_type = *dict_type.index_type();
+      switch (indices_type.id()) {
         case Type::UINT8:
         case Type::INT8:
         case Type::UINT16:
@@ -583,10 +600,18 @@ class Converter_Dictionary : public Converter {
           break;
         default:
           cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
-                      dict_array.type()->ToString().c_str());
+                      dict_type.ToString().c_str());
       }
 
-      dictionary_ = dict_array.dictionary();
+      if (chunked_array->num_chunks() > 0) {
+        // DictionaryChunkArrayNeedUnification() returned false so we can safely assume
+        // the dictionary of the first chunk applies everywhere
+        const auto& dict_array =
+            checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+        dictionary_ = dict_array.dictionary();
+      } else {
+        dictionary_ = CreateEmptyArray(dict_type.value_type());
+      }
     }
   }
 
@@ -671,26 +696,8 @@ class Converter_Dictionary : public Converter {
     }
   }
 
-  bool NeedUnification() {
-    int n = chunked_array_->num_chunks();
-    if (n < 2) {
-      return false;
-    }
-    const auto& arr_first =
-        checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0));
-    for (int i = 1; i < n; i++) {
-      const auto& arr = checked_cast<const DictionaryArray&>(*chunked_array_->chunk(i));
-      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   bool GetOrdered() const {
-    return checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0))
-        .dict_type()
-        ->ordered();
+    return checked_cast<const DictionaryType&>(*chunked_array_->type()).ordered();
   }
 
   SEXP GetLevels() const {
@@ -713,23 +720,30 @@ class Converter_Struct : public Converter {
  public:
   explicit Converter_Struct(const std::shared_ptr<ChunkedArray>& chunked_array)
       : Converter(chunked_array), converters() {
-    auto first_array =
-        checked_cast<const arrow::StructArray*>(this->chunked_array_->chunk(0).get());
-    int nf = first_array->num_fields();
+    const auto& struct_type =
+        checked_cast<const arrow::StructType&>(*chunked_array->type());
+
+    int nf = struct_type.num_fields();
+
+    std::shared_ptr<arrow::Table> array_as_table =
+        ValueOrStop(arrow::Table::FromChunkedStructArray(chunked_array));
     for (int i = 0; i < nf; i++) {
-      converters.push_back(
-          Converter::Make(std::make_shared<ChunkedArray>(first_array->field(i))));
+      converters.push_back(Converter::Make(array_as_table->column(i)));
     }
   }
 
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
-    auto first_array =
-        checked_cast<const arrow::StructArray*>(this->chunked_array_->chunk(0).get());
-    auto type = first_array->struct_type();
+    // If possible, a column is dealt with directly with altrep
+    auto type =
+        checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
     auto out =
         arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
-          return converter->Allocate(n);
+          SEXP out = converter->MaybeAltrep();
+          if (Rf_isNull(out)) {
+            out = converter->Allocate(n);
+          }
+          return out;
         });
     auto colnames = arrow::r::to_r_strings(
         type->fields(),
@@ -744,7 +758,12 @@ class Converter_Struct : public Converter {
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     int nf = converters.size();
     for (int i = 0; i < nf; i++) {
-      StopIfNotOk(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+      SEXP data_i = VECTOR_ELT(data, i);
+
+      // only ingest if the column is not altrep
+      if (!altrep::is_arrow_altrep(data_i)) {
+        StopIfNotOk(converters[i]->Ingest_all_nulls(data_i, start, n));
+      }
     }
     return Status::OK();
   }
@@ -756,8 +775,13 @@ class Converter_Struct : public Converter {
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(gc_memory_pool()));
     for (int i = 0; i < nf; i++) {
-      StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start,
-                                                   n, chunk_index));
+      SEXP data_i = VECTOR_ELT(data, i);
+
+      // only ingest if the column is not altrep
+      if (!altrep::is_arrow_altrep(data_i)) {
+        StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i],
+                                                     start, n, chunk_index));
+      }
     }
 
     return Status::OK();
@@ -865,6 +889,61 @@ class Converter_Time : public Converter {
   }
 };
 
+template <typename value_type, typename unit_type = DurationType>
+class Converter_Duration : public Converter {
+ public:
+  explicit Converter_Duration(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    cpp11::writable::doubles data(n);
+    data.attr("class") = "difftime";
+
+    // difftime is always stored as "seconds"
+    data.attr("units") = cpp11::writable::strings({"secs"});
+    return data;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    int multiplier = TimeUnit_multiplier(array);
+
+    auto p_data = REAL(data) + start;
+    auto p_values = array->data()->GetValues<value_type>(1);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<double>(p_values[i]) / multiplier;
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+    return IngestSome(array, n, ingest_one, null_one);
+  }
+
+ private:
+  int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
+    // difftime is always "seconds", so multiply based on the Array's TimeUnit
+    switch (static_cast<unit_type*>(array->type().get())->unit()) {
+      case TimeUnit::SECOND:
+        return 1;
+      case TimeUnit::MILLI:
+        return 1000;
+      case TimeUnit::MICRO:
+        return 1000000;
+      case TimeUnit::NANO:
+        return 1000000000;
+      default:
+        return 0;
+    }
+  }
+};
+
 template <typename value_type>
 class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
  public:
@@ -874,9 +953,8 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
-    auto array =
-        checked_cast<const TimestampArray*>(this->chunked_array_->chunk(0).get());
-    auto array_type = checked_cast<const TimestampType*>(array->type().get());
+    auto array_type =
+        checked_cast<const TimestampType*>(this->chunked_array_->type().get());
     std::string tzone = array_type->timezone();
     if (tzone.size() > 0) {
       data.attr("tzone") = tzone;
@@ -885,6 +963,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   }
 };
 
+template <typename Type>
 class Converter_Decimal : public Converter {
  public:
   explicit Converter_Decimal(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -899,8 +978,9 @@ class Converter_Decimal : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    using DecimalArray = typename TypeTraits<Type>::ArrayType;
     auto p_data = REAL(data) + start;
-    const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
+    const auto& decimals_arr = checked_cast<const DecimalArray&>(*array);
 
     auto ingest_one = [&](R_xlen_t i) {
       p_data[i] = std::stod(decimals_arr.FormatValue(i).c_str());
@@ -927,16 +1007,16 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
-                                  ? arrow::r::data::classes_arrow_list
-                                  : arrow::r::data::classes_arrow_large_list;
 
-    // Build an empty array to match value_type
-    std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
+    if (std::is_same<ListArrayType, MapArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else if (std::is_same<ListArrayType, ListArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
+    }
 
-    std::shared_ptr<arrow::Array> array;
-    StopIfNotOk(builder->Finish(&array));
+    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
     // convert to an R object to store as the list' ptype
     res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
@@ -982,12 +1062,7 @@ class Converter_FixedSizeList : public Converter {
     Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
     res.attr(arrow::r::symbols::list_size) = Rf_ScalarInteger(list_size_);
 
-    // Build an empty array to match value_type
-    std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
-
-    std::shared_ptr<arrow::Array> array;
-    StopIfNotOk(builder->Finish(&array));
+    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
     // convert to an R object to store as the list' ptype
     res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
@@ -1079,12 +1154,41 @@ class Converter_Null : public Converter {
   }
 };
 
+// Unlike other types, conversion of ExtensionType (chunked) arrays occurs at
+// R level via the ExtensionType (or subclass) R6 instance. We do this via Allocate,
+// since it is called once per ChunkedArray.
+class Converter_Extension : public Converter {
+ public:
+  explicit Converter_Extension(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    auto extension_type =
+        dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
+    if (extension_type == nullptr) {
+      Rf_error("Converter_Extension can't be used with a non-R extension type");
+    }
+
+    return extension_type->Convert(chunked_array_);
+  }
+
+  // At this point we have already done the conversion
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    return Status::OK();
+  }
+};
+
 bool ArraysCanFitInteger(ArrayVector arrays) {
   bool all_can_fit = true;
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
     if (all_can_fit) {
-      all_can_fit = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+      all_can_fit = arrow::IntegersCanFit(*array->data(), *i32).ok();
     }
   }
   return all_can_fit;
@@ -1194,6 +1298,9 @@ std::shared_ptr<Converter> Converter::Make(
     case Type::TIME64:
       return std::make_shared<arrow::r::Converter_Time<int64_t>>(chunked_array);
 
+    case Type::DURATION:
+      return std::make_shared<arrow::r::Converter_Duration<int64_t>>(chunked_array);
+
     case Type::TIMESTAMP:
       return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(chunked_array);
 
@@ -1206,8 +1313,11 @@ std::shared_ptr<Converter> Converter::Make(
         return std::make_shared<arrow::r::Converter_Int64>(chunked_array);
       }
 
-    case Type::DECIMAL:
-      return std::make_shared<arrow::r::Converter_Decimal>(chunked_array);
+    case Type::DECIMAL128:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
+
+    case Type::DECIMAL256:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal256Type>>(chunked_array);
 
       // nested
     case Type::STRUCT:
@@ -1228,14 +1338,21 @@ std::shared_ptr<Converter> Converter::Make(
           checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
           checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
 
+    case Type::MAP:
+      return std::make_shared<arrow::r::Converter_List<arrow::MapArray>>(
+          chunked_array, checked_cast<const arrow::MapType&>(*type).value_type());
+
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);
+
+    case Type::EXTENSION:
+      return std::make_shared<arrow::r::Converter_Extension>(chunked_array);
 
     default:
       break;
   }
 
-  cpp11::stop("cannot handle Array of type ", type->name().c_str());
+  cpp11::stop("cannot handle Array of type <%s>", type->name().c_str());
 }
 
 std::shared_ptr<ChunkedArray> to_chunks(const std::shared_ptr<Array>& array) {
@@ -1297,5 +1414,3 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
                                           bool use_threads) {
   return arrow::r::to_data_frame(table, use_threads);
 }
-
-#endif

@@ -33,6 +33,10 @@ if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
+if(PYARROW_CPP_HOME)
+  list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
+endif()
+
 include(CMakeParseArguments)
 
 # Only interpret if() arguments as variables or keywords when unquoted.
@@ -55,7 +59,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -69,10 +73,13 @@ endif()
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_SUBSTRAIT "Build the PyArrow Substrait integration" OFF)
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
+  option(PYARROW_BUILD_PARQUET_ENCRYPTION
+         "Build the PyArrow Parquet encryption integration" OFF)
   option(PYARROW_BOOST_USE_SHARED
          "Rely on boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
@@ -103,9 +110,21 @@ set(BUILD_WARNING_LEVEL "PRODUCTION")
 
 # This must be synchronized with the definition in
 # cpp/cmake_modules/DefineOptions.cmake.
-set(ARROW_ARMV8_ARCH
-    "armv8-a"
-    CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+if(NOT DEFINED ARROW_SIMD_LEVEL)
+  set(ARROW_SIMD_LEVEL
+      "DEFAULT"
+      CACHE STRING "Compile time SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
+  set(ARROW_RUNTIME_SIMD_LEVEL
+      "MAX"
+      CACHE STRING "Max runtime SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_ARMV8_ARCH)
+  set(ARROW_ARMV8_ARCH
+      "armv8-a"
+      CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+endif()
 include(SetupCxxFlags)
 
 # Add common flags
@@ -213,6 +232,10 @@ if(PYARROW_BUILD_FLIGHT)
   set(ARROW_FLIGHT TRUE)
 endif()
 
+if(PYARROW_BUILD_SUBSTRAIT)
+  set(ARROW_SUBSTRAIT TRUE)
+endif()
+
 # Arrow
 find_package(ArrowPython REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
@@ -244,7 +267,7 @@ function(bundle_arrow_lib library_path)
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
                    COPYONLY)
   else()
-    configure_file(${${library_path}}.${ARG_SO_VERSION}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
                    COPYONLY)
   endif()
@@ -385,12 +408,17 @@ set(CYTHON_EXTENSIONS
     lib
     _compute
     _csv
+    _exec_plan
     _feather
     _fs
     _hdfsio
     _json)
 
-set(LINK_LIBS arrow_shared arrow_python_shared)
+set(LINK_LIBS ArrowPython::arrow_python_shared)
+
+if(PYARROW_BUILD_GCS)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
+endif()
 
 if(PYARROW_BUILD_S3)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
@@ -410,7 +438,7 @@ if(PYARROW_BUILD_CUDA)
       bundle_arrow_import_lib(ARROW_CUDA_IMPORT_LIB)
     endif()
   endif()
-  set(CUDA_LINK_LIBS arrow_cuda_shared)
+  set(CUDA_LINK_LIBS ArrowCUDA::arrow_cuda_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
@@ -426,7 +454,7 @@ if(PYARROW_BUILD_DATASET)
     endif()
   endif()
 
-  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
 endif()
 
@@ -448,7 +476,7 @@ if(PYARROW_BUILD_PARQUET)
         bundle_arrow_import_lib(PARQUET_IMPORT_LIB)
       endif()
     endif()
-    set(PARQUET_LINK_LIBS parquet_shared)
+    set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
     find_package(Thrift)
     if(PYARROW_BOOST_USE_SHARED)
@@ -464,6 +492,12 @@ if(PYARROW_BUILD_PARQUET)
     set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet_encryption)
+  endif()
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_parquet)
+  endif()
 endif()
 
 # Plasma
@@ -478,7 +512,7 @@ if(PYARROW_BUILD_PLASMA)
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(PLASMA_SHARED_LIB SO_VERSION ${PLASMA_SO_VERSION})
   endif()
-  set(PLASMA_LINK_LIBS plasma_shared)
+  set(PLASMA_LINK_LIBS Plasma::plasma_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
   file(COPY ${PLASMA_STORE_SERVER} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
@@ -486,6 +520,9 @@ endif()
 if(PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
+  endif()
 endif()
 
 # Flight
@@ -507,8 +544,22 @@ if(PYARROW_BUILD_FLIGHT)
     endif()
   endif()
 
-  set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
+  set(FLIGHT_LINK_LIBS ArrowPythonFlight::arrow_python_flight_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+endif()
+
+# Engine
+if(PYARROW_BUILD_SUBSTRAIT)
+  find_package(ArrowSubstrait REQUIRED)
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_SUBSTRAIT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_SUBSTRAIT_IMPORT_LIB)
+    endif()
+  endif()
+
+  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _substrait)
 endif()
 
 # Gandiva
@@ -528,7 +579,7 @@ if(PYARROW_BUILD_GANDIVA)
     endif()
   endif()
 
-  set(GANDIVA_LINK_LIBS gandiva_shared)
+  set(GANDIVA_LINK_LIBS Gandiva::gandiva_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 
@@ -557,29 +608,27 @@ foreach(module ${CYTHON_EXTENSIONS})
                                                     ${module_output_directory})
   endif()
 
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    # In the event that we are bundling the shared libraries (e.g. in a
-    # manylinux1 wheel), we need to set the RPATH of the extensions to the
-    # root of the pyarrow/ package so that libarrow/libarrow_python are able
-    # to be loaded properly
-    if(APPLE)
-      set(module_install_rpath "@loader_path/")
-    else()
-      set(module_install_rpath "\$ORIGIN")
-    endif()
-
-    # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
-    # modules in interior directories. Since all of our C extensions and
-    # bundled libraries are in the same place, we can skip this part
-
-    # list(LENGTH directories i)
-    # while(${i} GREATER 0)
-    #   set(module_install_rpath "${module_install_rpath}/..")
-    #   math(EXPR i "${i} - 1" )
-    # endwhile(${i} GREATER 0)
-
-    set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
+  # In the event that we are bundling the shared libraries (e.g. in a
+  # manylinux1 wheel), we need to set the RPATH of the extensions to the
+  # root of the pyarrow/ package so that libarrow is able to be
+  # loaded properly
+  if(APPLE)
+    set(module_install_rpath "@loader_path/")
+  else()
+    set(module_install_rpath "\$ORIGIN")
   endif()
+
+  # XXX(wesm): ARROW-2326 this logic is only needed when we have Cython
+  # modules in interior directories. Since all of our C extensions and
+  # bundled libraries are in the same place, we can skip this part
+
+  # list(LENGTH directories i)
+  # while(${i} GREATER 0)
+  #   set(module_install_rpath "${module_install_rpath}/..")
+  #   math(EXPR i "${i} - 1" )
+  # endwhile(${i} GREATER 0)
+
+  set_target_properties(${module_name} PROPERTIES INSTALL_RPATH ${module_install_rpath})
 
   if(PYARROW_GENERATE_COVERAGE)
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
@@ -601,8 +650,19 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
 endif()
 
+if(PYARROW_BUILD_SUBSTRAIT)
+  target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
+endif()
+
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  target_link_libraries(_exec_plan PRIVATE ${DATASET_LINK_LIBS})
+  if(PYARROW_BUILD_ORC)
+    target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
+  endif()
+  if(PYARROW_BUILD_PARQUET)
+    target_link_libraries(_dataset_parquet PRIVATE ${DATASET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_GANDIVA)
@@ -611,6 +671,9 @@ endif()
 
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_PLASMA)

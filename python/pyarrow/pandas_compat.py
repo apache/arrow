@@ -217,16 +217,31 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
 
     index_column_metadata = []
     if preserve_index is not False:
+        non_str_index_names = []
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
             if isinstance(descriptor, dict):
                 # The index is represented in a non-serialized fashion,
                 # e.g. RangeIndex
                 continue
-            metadata = get_column_metadata(level, name=level.name,
-                                           arrow_type=arrow_type,
-                                           field_name=descriptor)
+
+            if level.name is not None and not isinstance(level.name, str):
+                non_str_index_names.append(level.name)
+
+            metadata = get_column_metadata(
+                level,
+                name=_column_name_to_strings(level.name),
+                arrow_type=arrow_type,
+                field_name=descriptor,
+            )
             index_column_metadata.append(metadata)
+
+        if len(non_str_index_names) > 0:
+            warnings.warn(
+                f"The DataFrame has non-str index name `{non_str_index_names}`"
+                " which will be converted to string"
+                " and not roundtrip correctly.",
+                UserWarning, stacklevel=4)
 
         column_indexes = []
 
@@ -291,11 +306,11 @@ def _column_name_to_strings(name):
     'foo'
     >>> name = ('foo', 'bar')
     >>> _column_name_to_strings(name)
-    ('foo', 'bar')
+    "('foo', 'bar')"
     >>> import pandas as pd
     >>> name = (1, pd.Timestamp('2017-02-01 00:00:00'))
     >>> _column_name_to_strings(name)
-    ('1', '2017-02-01 00:00:00')
+    "('1', '2017-02-01 00:00:00')"
     """
     if isinstance(name, str):
         return name
@@ -325,7 +340,7 @@ def _index_level_name(index, i, column_names):
     name : str
     """
     if index.name is not None and index.name not in column_names:
-        return index.name
+        return _column_name_to_strings(index.name)
     else:
         return '__index_level_{:d}__'.format(i)
 
@@ -623,7 +638,21 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
 
-    return arrays, schema
+    # If dataframe is empty but with RangeIndex ->
+    # remember the length of the indexes
+    n_rows = None
+    if len(arrays) == 0:
+        try:
+            kind = index_descriptors[0]["kind"]
+            if kind == "range":
+                start = index_descriptors[0]["start"]
+                stop = index_descriptors[0]["stop"]
+                step = index_descriptors[0]["step"]
+                n_rows = len(range(start, stop, step))
+        except IndexError:
+            pass
+
+    return arrays, schema, n_rows
 
 
 def get_datetimetz_type(values, dtype, type_):
@@ -822,8 +851,12 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
 
     # infer the extension columns from the pandas metadata
     for col_meta in columns_metadata:
-        name = col_meta['name']
+        try:
+            name = col_meta['field_name']
+        except KeyError:
+            name = col_meta['name']
         dtype = col_meta['numpy_type']
+
         if dtype not in _pandas_supported_numpy_types:
             # pandas_dtype is expensive, so avoid doing this for types
             # that are certainly numpy dtypes
@@ -1021,6 +1054,7 @@ def _is_generated_index_name(name):
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
+    'datetimetz': 'datetime64[ns]',
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
@@ -1109,10 +1143,16 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # convert them back to bytes to preserve metadata.
         if dtype == np.bytes_:
             level = level.map(encoder)
+        # ARROW-13756: if index is timezone aware DataTimeIndex
+        if pandas_dtype == "datetimetz":
+            tz = pa.lib.string_to_tzinfo(
+                column_indexes[0]['metadata']['timezone'])
+            dt = level.astype(numpy_dtype)
+            level = dt.tz_localize('utc').tz_convert(tz)
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
-        if level.dtype != numpy_dtype:
+        if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
             level = level.astype(numpy_dtype)
 
         new_levels.append(level)

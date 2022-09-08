@@ -23,7 +23,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/apache/arrow/go/arrow/internal/flight_integration"
+	"github.com/apache/arrow/go/v10/arrow/internal/flight_integration"
 )
 
 var (
@@ -36,7 +36,6 @@ func main() {
 
 	s := flight_integration.GetScenario(*scenario)
 	srv := s.MakeServer(*port)
-	srv.Init(fmt.Sprintf("0.0.0.0:%d", *port))
 	srv.SetShutdownOnSignals(syscall.SIGTERM, os.Interrupt)
 	_, p, _ := net.SplitHostPort(srv.Addr().String())
 	fmt.Printf("Server listening on localhost:%s\n", p)

@@ -22,10 +22,12 @@
 #include <limits>
 #include <utility>
 
+#include "arrow/csv/lexing_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace csv {
@@ -40,29 +42,22 @@ Status ParseError(Args&&... args) {
   return Status::Invalid("CSV parse error: ", std::forward<Args>(args)...);
 }
 
-Status MismatchingColumns(int32_t expected, int32_t actual, int64_t row_num,
-                          util::string_view row) {
+Status MismatchingColumns(const InvalidRow& row) {
   std::string ellipse;
-  if (row.length() > 100) {
-    row = row.substr(0, 96);
+  auto row_string = row.text;
+  if (row_string.length() > 100) {
+    row_string = row_string.substr(0, 96);
     ellipse = " ...";
   }
-  if (row_num < 0) {
-    return ParseError("Expected ", expected, " columns, got ", actual, ": ", row,
-                      ellipse);
+  if (row.number < 0) {
+    return ParseError("Expected ", row.expected_columns, " columns, got ",
+                      row.actual_columns, ": ", row_string, ellipse);
   }
-  return ParseError("Row #", row_num, ": Expected ", expected, " columns, got ", actual,
-                    ": ", row, ellipse);
+  return ParseError("Row #", row.number, ": Expected ", row.expected_columns,
+                    " columns, got ", row.actual_columns, ": ", row_string, ellipse);
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
-
-template <bool Quoting, bool Escaping>
-class SpecializedOptions {
- public:
-  static constexpr bool quoting = Quoting;
-  static constexpr bool escaping = Escaping;
-};
 
 // A helper class allocating the buffer for parsed values and writing into it
 // without any further resizes, except at the end.
@@ -84,6 +79,13 @@ class PresizedDataWriter {
   void PushFieldChar(char c) {
     DCHECK_LT(parsed_size_, parsed_capacity_);
     parsed_[parsed_size_++] = static_cast<uint8_t>(c);
+  }
+
+  template <typename Word>
+  void PushFieldWord(Word w) {
+    DCHECK_GE(parsed_capacity_ - parsed_size_, static_cast<int64_t>(sizeof(w)));
+    memcpy(parsed_ + parsed_size_, &w, sizeof(w));
+    parsed_size_ += sizeof(w);
   }
 
   // Rollback the state that was saved in BeginLine()
@@ -185,7 +187,7 @@ class BlockParserImpl {
   BlockParserImpl(MemoryPool* pool, ParseOptions options, int32_t num_cols,
                   int64_t first_row, int32_t max_num_rows)
       : pool_(pool),
-        options_(options),
+        options_(std::move(options)),
         first_row_(first_row),
         max_num_rows_(max_num_rows),
         batch_(num_cols) {}
@@ -194,10 +196,47 @@ class BlockParserImpl {
 
   int64_t first_row_num() const { return first_row_; }
 
-  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
+  template <typename ValueDescWriter, typename DataWriter>
+  Status HandleInvalidRow(ValueDescWriter* values_writer, DataWriter* parsed_writer,
+                          const char* start, const char* data, int32_t num_cols,
+                          const char** out_data) {
+    // Find the end of the line without newline or carriage return
+    auto end = data;
+    if (*(end - 1) == '\n') {
+      --end;
+    }
+    if (*(end - 1) == '\r') {
+      --end;
+    }
+    const int32_t batch_row_including_skipped =
+        batch_.num_rows_ + batch_.num_skipped_rows();
+    InvalidRow row{batch_.num_cols_, num_cols,
+                   first_row_ < 0 ? -1 : first_row_ + batch_row_including_skipped,
+                   util::string_view(start, end - start)};
+
+    if (options_.invalid_row_handler &&
+        options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
+      values_writer->RollbackLine();
+      parsed_writer->RollbackLine();
+      if (!batch_.skipped_rows_.empty()) {
+        // Should be increasing (non-strictly)
+        DCHECK_GE(batch_.num_rows_, batch_.skipped_rows_.back());
+      }
+      // Record the logical row number (not including skipped) since that
+      // is what we are going to look for later.
+      batch_.skipped_rows_.push_back(batch_.num_rows_);
+      *out_data = data;
+      return Status::OK();
+    }
+
+    return MismatchingColumns(row);
+  }
+
+  template <typename SpecializedOptions, bool UseBulkFilter, typename ValueDescWriter,
+            typename DataWriter, typename BulkFilter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
-                   const char** out_data) {
+                   const char** out_data, const BulkFilter& bulk_filter) {
     int32_t num_cols = 0;
     char c;
     const auto start = data;
@@ -229,6 +268,18 @@ class BlockParserImpl {
 
   FieldStart:
     // At the start of a field
+    if (*data == options_.delimiter) {
+      // Empty cells are very common in some files, shortcut them
+      values_writer->StartField(false /* quoted */);
+      FinishField();
+      ++data;
+      ++num_cols;
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        goto AbortLine;
+      }
+      goto FieldStart;
+    }
+
     // Quoting is only recognized at start of field
     if (SpecializedOptions::quoting &&
         ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
@@ -242,9 +293,21 @@ class BlockParserImpl {
 
   InField:
     // Inside a non-quoted part of a field
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      goto AbortLine;
+    if (UseBulkFilter) {
+      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        if (is_final) {
+          data = data_end;
+        }
+        goto AbortLine;
+      }
+      data = bulk_end;
+    } else {
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        goto AbortLine;
+      }
     }
+
     c = *data++;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
       if (ARROW_PREDICT_FALSE(data == data_end)) {
@@ -274,8 +337,19 @@ class BlockParserImpl {
 
   InQuotedField:
     // Inside a quoted part of a field
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      goto AbortLine;
+    if (UseBulkFilter) {
+      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        if (is_final) {
+          data = data_end;
+        }
+        goto AbortLine;
+      }
+      data = bulk_end;
+    } else {
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        goto AbortLine;
+      }
     }
     c = *data++;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
@@ -316,17 +390,8 @@ class BlockParserImpl {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
       } else {
-        // Find the end of the line without newline or carriage return
-        auto end = data;
-        if (*(end - 1) == '\n') {
-          --end;
-        }
-        if (*(end - 1) == '\r') {
-          --end;
-        }
-        return MismatchingColumns(batch_.num_cols_, num_cols,
-                                  first_row_ < 0 ? -1 : first_row_ + batch_.num_rows_,
-                                  util::string_view(start, end - start));
+        return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
+                                out_data);
       }
     }
     ++batch_.num_rows_;
@@ -360,24 +425,76 @@ class BlockParserImpl {
     return Status::OK();
   }
 
-  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
+  template <typename DataWriter, typename SpecializedBulkFilter>
+  const char* RunBulkFilter(DataWriter* data_writer, const char* data,
+                            const char* data_end,
+                            const SpecializedBulkFilter& bulk_filter) {
+    while (true) {
+      using WordType = typename SpecializedBulkFilter::WordType;
+
+      if (ARROW_PREDICT_FALSE(static_cast<size_t>(data_end - data) < sizeof(WordType))) {
+        if (ARROW_PREDICT_FALSE(data == data_end)) {
+          return nullptr;
+        }
+        return data;
+      }
+      WordType word;
+      memcpy(&word, data, sizeof(WordType));
+      if (bulk_filter.Matches(word)) {
+        return data;
+      }
+      // No special chars
+      data_writer->PushFieldWord(word);
+      data += sizeof(WordType);
+    }
+  }
+
+  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter,
+            typename BulkFilter>
   Status ParseChunk(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                     const char* data, const char* data_end, bool is_final,
-                    int32_t rows_in_chunk, const char** out_data,
-                    bool* finished_parsing) {
-    int32_t num_rows_deadline = batch_.num_rows_ + rows_in_chunk;
+                    int32_t rows_in_chunk, const char** out_data, bool* finished_parsing,
+                    const BulkFilter& bulk_filter) {
+    const int32_t start_num_rows = batch_.num_rows_;
+    const int32_t num_rows_deadline = batch_.num_rows_ + rows_in_chunk;
 
-    while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
-      const char* line_end = data;
-      RETURN_NOT_OK(ParseLine<SpecializedOptions>(values_writer, parsed_writer, data,
-                                                  data_end, is_final, &line_end));
-      if (line_end == data) {
-        // Cannot parse any further
-        *finished_parsing = true;
-        break;
+    if (use_bulk_filter_) {
+      while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
+        const char* line_end = data;
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(values_writer, parsed_writer,
+                                                           data, data_end, is_final,
+                                                           &line_end, bulk_filter)));
+        if (line_end == data) {
+          // Cannot parse any further
+          *finished_parsing = true;
+          break;
+        }
+        data = line_end;
       }
-      data = line_end;
+    } else {
+      while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
+        const char* line_end = data;
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(values_writer, parsed_writer,
+                                                            data, data_end, is_final,
+                                                            &line_end, bulk_filter)));
+        if (line_end == data) {
+          // Cannot parse any further
+          *finished_parsing = true;
+          break;
+        }
+        data = line_end;
+      }
     }
+
+    if (batch_.num_rows_ > start_num_rows && batch_.num_cols_ > 0) {
+      // Use bulk filter only if average value length is >= 10 bytes,
+      // as the bulk filter has a fixed cost that isn't compensated
+      // when values are too short.
+      const int64_t bulk_filter_threshold =
+          batch_.num_cols_ * (batch_.num_rows_ - start_num_rows) * 10;
+      use_bulk_filter_ = (data - *out_data) > bulk_filter_threshold;
+    }
+
     // Append new buffers and update size
     std::shared_ptr<Buffer> values_buffer;
     values_writer->Finish(&values_buffer);
@@ -393,6 +510,8 @@ class BlockParserImpl {
   template <typename SpecializedOptions>
   Status ParseSpecialized(const std::vector<util::string_view>& views, bool is_final,
                           uint32_t* out_size) {
+    internal::PreferredBulkFilterType<SpecializedOptions> bulk_filter(options_);
+
     batch_ = DataBatch{batch_.num_cols_};
     values_size_ = 0;
 
@@ -419,9 +538,9 @@ class BlockParserImpl {
         ResizableValueDescWriter values_writer(pool_);
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                     data_end, is_final, rows_in_chunk,
-                                                     &data, &finished_parsing));
+        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+            &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
+            &data, &finished_parsing, bulk_filter));
         if (batch_.num_cols_ == -1) {
           return ParseError("Empty CSV file or block: cannot infer number of columns");
         }
@@ -444,9 +563,9 @@ class BlockParserImpl {
         PresizedValueDescWriter values_writer(pool_, rows_in_chunk, batch_.num_cols_);
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                     data_end, is_final, rows_in_chunk,
-                                                     &data, &finished_parsing));
+        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+            &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
+            &data, &finished_parsing, bulk_filter));
       }
       DCHECK_GE(data, view.data());
       DCHECK_LE(data, data_end);
@@ -489,18 +608,19 @@ class BlockParserImpl {
                uint32_t* out_size) {
     if (options_.quoting) {
       if (options_.escaping) {
-        return ParseSpecialized<SpecializedOptions<true, true>>(data, is_final, out_size);
+        return ParseSpecialized<internal::SpecializedOptions<true, true>>(data, is_final,
+                                                                          out_size);
       } else {
-        return ParseSpecialized<SpecializedOptions<true, false>>(data, is_final,
-                                                                 out_size);
+        return ParseSpecialized<internal::SpecializedOptions<true, false>>(data, is_final,
+                                                                           out_size);
       }
     } else {
       if (options_.escaping) {
-        return ParseSpecialized<SpecializedOptions<false, true>>(data, is_final,
-                                                                 out_size);
+        return ParseSpecialized<internal::SpecializedOptions<false, true>>(data, is_final,
+                                                                           out_size);
       } else {
-        return ParseSpecialized<SpecializedOptions<false, false>>(data, is_final,
-                                                                  out_size);
+        return ParseSpecialized<internal::SpecializedOptions<false, false>>(
+            data, is_final, out_size);
       }
     }
   }
@@ -511,6 +631,8 @@ class BlockParserImpl {
   const int64_t first_row_;
   // The maximum number of rows to parse from a block
   int32_t max_num_rows_;
+
+  bool use_bulk_filter_ = false;
 
   // Unparsed data size
   int32_t values_size_;

@@ -23,7 +23,11 @@ py_to_r.pyarrow.lib.Array <- function(x, ...) {
     delete_arrow_array(array_ptr)
   })
 
-  x$`_export_to_c`(array_ptr, schema_ptr)
+  x$`_export_to_c`(
+    pyarrow_compatible_pointer(array_ptr),
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   Array$import_from_c(array_ptr, schema_ptr)
 }
 
@@ -38,7 +42,12 @@ r_to_py.Array <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(array_ptr, schema_ptr)
-  out <- pa$Array$`_import_from_c`(array_ptr, schema_ptr)
+
+  out <- pa$Array$`_import_from_c`(
+    pyarrow_compatible_pointer(array_ptr),
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -52,7 +61,10 @@ py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
     delete_arrow_array(array_ptr)
   })
 
-  x$`_export_to_c`(array_ptr, schema_ptr)
+  x$`_export_to_c`(
+    pyarrow_compatible_pointer(array_ptr),
+    pyarrow_compatible_pointer(schema_ptr)
+  )
 
   RecordBatch$import_from_c(array_ptr, schema_ptr)
 }
@@ -68,7 +80,12 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(array_ptr, schema_ptr)
-  out <- pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)
+
+  out <- pa$RecordBatch$`_import_from_c`(
+    pyarrow_compatible_pointer(array_ptr),
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -88,26 +105,35 @@ py_to_r.pyarrow.lib.ChunkedArray <- function(x, ...) {
 }
 
 r_to_py.Table <- function(x, convert = FALSE) {
-  # Import with convert = FALSE so that `_import_from_c` returns a Python object
-  pa <- reticulate::import("pyarrow", convert = FALSE)
-  out <- pa$Table$from_arrays(x$columns, schema = x$schema)
-  # But set the convert attribute on the return object to the requested value
+  # TODO(ARROW-16269): Going through RecordBatchReader maintains schema
+  # metadata (e.g., extension types) more faithfully than column-wise
+  # construction; however, may re-chunk columns unnecessarily.
+  py_rbr <- reticulate::r_to_py(as_record_batch_reader(x), convert = FALSE)
+  out <- py_rbr$read_all()
   assign("convert", convert, out)
   out
 }
 
 py_to_r.pyarrow.lib.Table <- function(x, ...) {
-  colnames <- maybe_py_to_r(x$column_names)
-  r_cols <- maybe_py_to_r(x$columns)
-  names(r_cols) <- colnames
-  Table$create(!!!r_cols, schema = maybe_py_to_r(x$schema))
+  # TODO(ARROW-16269): Going through RecordBatchReader maintains schema
+  # metadata (e.g., extension types) more faithfully than column-wise
+  # construction; however, may re-chunk columns unnecessarily.
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  py_rbr <- pa$lib$RecordBatchReader$from_batches(
+    x$schema,
+    x$to_batches()
+  )
+
+  r_rbr <- maybe_py_to_r(py_rbr)
+  r_rbr$read_table()
 }
 
 py_to_r.pyarrow.lib.Schema <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  x$`_export_to_c`(schema_ptr)
+  x$`_export_to_c`(pyarrow_compatible_pointer(schema_ptr))
+
   Schema$import_from_c(schema_ptr)
 }
 
@@ -118,7 +144,11 @@ r_to_py.Schema <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
-  out <- pa$Schema$`_import_from_c`(schema_ptr)
+
+  out <- pa$Schema$`_import_from_c`(
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -128,7 +158,8 @@ py_to_r.pyarrow.lib.Field <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  x$`_export_to_c`(schema_ptr)
+  x$`_export_to_c`(pyarrow_compatible_pointer(schema_ptr))
+
   Field$import_from_c(schema_ptr)
 }
 
@@ -139,7 +170,11 @@ r_to_py.Field <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
-  out <- pa$Field$`_import_from_c`(schema_ptr)
+
+  out <- pa$Field$`_import_from_c`(
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -149,7 +184,8 @@ py_to_r.pyarrow.lib.DataType <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  x$`_export_to_c`(schema_ptr)
+  x$`_export_to_c`(pyarrow_compatible_pointer(schema_ptr))
+
   DataType$import_from_c(schema_ptr)
 }
 
@@ -160,7 +196,11 @@ r_to_py.DataType <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
-  out <- pa$DataType$`_import_from_c`(schema_ptr)
+
+  out <- pa$DataType$`_import_from_c`(
+    pyarrow_compatible_pointer(schema_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -170,7 +210,8 @@ py_to_r.pyarrow.lib.RecordBatchReader <- function(x, ...) {
   stream_ptr <- allocate_arrow_array_stream()
   on.exit(delete_arrow_array_stream(stream_ptr))
 
-  x$`_export_to_c`(stream_ptr)
+  x$`_export_to_c`(pyarrow_compatible_pointer(stream_ptr))
+
   RecordBatchReader$import_from_c(stream_ptr)
 }
 
@@ -182,7 +223,11 @@ r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(stream_ptr)
   # TODO: handle subclasses of RecordBatchReader?
-  out <- pa$lib$RecordBatchReader$`_import_from_c`(stream_ptr)
+
+  out <- pa$lib$RecordBatchReader$`_import_from_c`(
+    pyarrow_compatible_pointer(stream_ptr)
+  )
+
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
@@ -197,6 +242,75 @@ maybe_py_to_r <- function(x) {
   }
   x
 }
+
+
+#' @export
+as_arrow_array.pyarrow.lib.Array <- function(x, ..., type = NULL) {
+  as_arrow_array(py_to_r.pyarrow.lib.Array(x), type = type)
+}
+
+# nolint start
+#' @export
+as_chunked_array.pyarrow.lib.ChunkedArray <- function(x, ..., type = NULL) {
+  as_chunked_array(py_to_r.pyarrow.lib.ChunkedArray(x), type = type)
+}
+# nolint end
+
+#' @export
+as_record_batch.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
+  as_record_batch(py_to_r.pyarrow.lib.RecordBatch(x), schema = schema)
+}
+
+#' @export
+as_arrow_table.pyarrow.lib.RecordBatch <- function(x, ..., schema = NULL) {
+  as_arrow_table(py_to_r.pyarrow.lib.RecordBatch(x), schema = schema)
+}
+
+# Some of these function names are longer than 40 characters
+# (but have to be named such because of S3 method naming)
+# nolint start
+#' @export
+as_record_batch_reader.pyarrow.lib.RecordBatch <- function(x, ...) {
+  as_record_batch_reader(py_to_r.pyarrow.lib.RecordBatch(x))
+}
+# nolint end
+
+#' @export
+as_record_batch.pyarrow.lib.Table <- function(x, ..., schema = NULL) {
+  as_record_batch(py_to_r.pyarrow.lib.Table(x), schema = schema)
+}
+
+#' @export
+as_arrow_table.pyarrow.lib.Table <- function(x, ..., schema = NULL) {
+  as_arrow_table(py_to_r.pyarrow.lib.Table(x), schema = schema)
+}
+
+#' @export
+as_record_batch_reader.pyarrow.lib.Table <- function(x, ...) {
+  as_record_batch_reader(py_to_r.pyarrow.lib.Table(x))
+}
+
+#' @export
+as_schema.pyarrow.lib.Schema <- function(x, ...) {
+  py_to_r.pyarrow.lib.Schema(x)
+}
+
+#' @export
+as_data_type.pyarrow.lib.Field <- function(x, ...) {
+  as_data_type(py_to_r.pyarrow.lib.Field(x))
+}
+
+#' @export
+as_data_type.pyarrow.lib.DataType <- function(x, ...) {
+  as_data_type(py_to_r.pyarrow.lib.DataType(x))
+}
+
+# nolint start
+#' @export
+as_record_batch_reader.pyarrow.lib.RecordBatchReader <- function(x, ...) {
+  py_to_r.pyarrow.lib.RecordBatchReader(x)
+}
+# nolint end
 
 #' Install pyarrow for use with reticulate
 #'
@@ -221,5 +335,19 @@ install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
     )
   } else {
     reticulate::py_install("pyarrow", envname = envname, ...)
+  }
+}
+
+pyarrow_compatible_pointer <- function(ptr) {
+  pa <- reticulate::import("pyarrow")
+  version_string <- pa$`__version__`
+  # remove trailing .devXXX because it won't work with package_version()
+  pyarrow_version <- package_version(gsub("\\.dev.*?$", "", version_string))
+
+  # pyarrow pointers changed in version 7.0.0
+  if (pyarrow_version >= "7.0.0") {
+    return(ptr)
+  } else {
+    return(external_pointer_addr_double(ptr))
   }
 }

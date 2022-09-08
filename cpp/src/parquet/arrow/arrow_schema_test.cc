@@ -35,7 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-using arrow::ArrayFromVector;
 using arrow::Field;
 using arrow::TimeUnit;
 
@@ -367,9 +366,14 @@ TEST_F(TestConvertParquetSchema, ParquetMaps) {
     auto list = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
     parquet_fields.push_back(
         GroupNode::Make("my_map", Repetition::REQUIRED, {list}, LogicalType::Map()));
-    auto arrow_value = ::arrow::field("string", UTF8, /*nullable=*/true);
-    auto arrow_map = ::arrow::map(/*key=*/UTF8, arrow_value);
-    arrow_fields.push_back(::arrow::field("my_map", arrow_map, false));
+    auto arrow_key = ::arrow::field("key", UTF8, /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", UTF8, /*nullable=*/true);
+    auto arrow_map = std::make_shared<::arrow::MapType>(
+        ::arrow::field("my_map", ::arrow::struct_({arrow_key, arrow_value}),
+                       /*nullable=*/false),
+        /*nullable=*/false);
+
+    arrow_fields.push_back(::arrow::field("my_map", arrow_map, /*nullable=*/false));
   }
   // Single column map (i.e. set) gets converted to list of struct.
   {
@@ -382,11 +386,40 @@ TEST_F(TestConvertParquetSchema, ParquetMaps) {
     auto arrow_list = ::arrow::list({::arrow::field("key", UTF8, /*nullable=*/false)});
     arrow_fields.push_back(::arrow::field("my_set", arrow_list, false));
   }
+  // Two column map with non-standard field names.
+  {
+    auto key = PrimitiveNode::Make("int_key", Repetition::REQUIRED, ParquetType::INT32,
+                                   ConvertedType::INT_32);
+    auto value = PrimitiveNode::Make("str_value", Repetition::OPTIONAL,
+                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+
+    auto list = GroupNode::Make("items", Repetition::REPEATED, {key, value});
+    parquet_fields.push_back(
+        GroupNode::Make("items", Repetition::REQUIRED, {list}, LogicalType::Map()));
+    auto arrow_value = ::arrow::field("str_value", UTF8, /*nullable=*/true);
+    auto arrow_key = ::arrow::field("int_key", INT32, /*nullable=*/false);
+    auto arrow_map = std::make_shared<::arrow::MapType>(
+        ::arrow::field("items", ::arrow::struct_({arrow_key, arrow_value}), false),
+        false);
+
+    arrow_fields.push_back(::arrow::field("items", arrow_map, false));
+  }
 
   auto arrow_schema = ::arrow::schema(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+  for (int i = 0; i < arrow_schema->num_fields(); ++i) {
+    auto result_field = result_schema_->field(i);
+    auto expected_field = arrow_schema->field(i);
+    if (expected_field->type()->id() == ::arrow::Type::MAP) {
+      EXPECT_TRUE(
+          expected_field->type()->field(0)->Equals(result_field->type()->field(0)))
+          << "Map's struct in field " << i
+          << "\n result: " << result_field->type()->field(0)->ToString() << " "
+          << "\n expected: " << expected_field->type()->field(0)->ToString() << "\n";
+    }
+  }
 }
 
 TEST_F(TestConvertParquetSchema, ParquetLists) {
@@ -803,8 +836,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"int8", ::arrow::int8(), LogicalType::Int(8, true), ParquetType::INT32, -1},
       {"uint16", ::arrow::uint16(), LogicalType::Int(16, false), ParquetType::INT32, -1},
       {"int16", ::arrow::int16(), LogicalType::Int(16, true), ParquetType::INT32, -1},
-      {"uint32", ::arrow::uint32(), LogicalType::None(), ParquetType::INT64,
-       -1},  // Parquet 1.0
+      {"uint32", ::arrow::uint32(), LogicalType::Int(32, false), ParquetType::INT32, -1},
       {"int32", ::arrow::int32(), LogicalType::None(), ParquetType::INT32, -1},
       {"uint64", ::arrow::uint64(), LogicalType::Int(64, false), ParquetType::INT64, -1},
       {"int64", ::arrow::int64(), LogicalType::None(), ParquetType::INT64, -1},
@@ -1338,7 +1370,7 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
 ::arrow::Result<std::deque<LevelInfo>> RootToTreeLeafLevels(
     const SchemaManifest& manifest, int column_number) {
   std::deque<LevelInfo> out;
-  const SchemaField* field;
+  const SchemaField* field = nullptr;
   RETURN_NOT_OK(manifest.GetColumnField(column_number, &field));
   while (field != nullptr) {
     out.push_front(field->level_info);

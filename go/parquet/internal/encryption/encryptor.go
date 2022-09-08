@@ -19,8 +19,8 @@ package encryption
 import (
 	"io"
 
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
 )
 
 // FileEncryptor is the interface for constructing encryptors for the different

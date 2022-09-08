@@ -33,13 +33,7 @@ Microsoft provides the free Visual Studio Community edition. When doing
 development in the shell, you must initialize the development environment
 each time you open the shell.
 
-For Visual Studio 2015, execute the following batch script:
-
-.. code-block:: shell
-
-   "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
-
-For Visual Studio 2017, the script is:
+For Visual Studio 2017, execute the following batch script:
 
 .. code-block:: shell
 
@@ -58,7 +52,7 @@ Using conda-forge for build dependencies
 ========================================
 
 `Miniconda <https://conda.io/miniconda.html>`_ is a minimal Python distribution
-including the `conda <https://conda.io>`_ package manager. Some memers of the
+including the `conda <https://conda.io>`_ package manager. Some members of the
 Apache Arrow community participate in the maintenance of `conda-forge
 <https://conda-forge.org/>`_, a community-maintained cross-platform package
 repository for conda.
@@ -176,12 +170,13 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015" -A x64 ^
+   cmake .. -G "Visual Studio 15 2017" -A x64 ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
 
 For newer versions of Visual Studio, specify the generator
-``Visual Studio 15 2017`` or ``Visual Studio 16 2019``.
+``Visual Studio 16 2019`` or see ``cmake --help`` for available
+generators.
 
 Building with Ninja and clcache
 ===============================
@@ -291,6 +286,30 @@ file:
    make || exit /B
    popd
 
+Building on Windows/ARM64 using Ninja and Clang
+===============================================
+
+Ninja and clang can be used for building library on windows/arm64 platform.
+
+.. code-block:: batch
+
+   cd cpp
+   mkdir build
+   cd build
+
+   set CC=clang-cl
+   set CXX=clang-cl
+
+   cmake -G "Ninja" ..
+
+   cmake --build . --config Release
+
+LLVM toolchain for Windows on ARM64 can be downloaded from LLVM release page `LLVM release page <https://releases.llvm.org>`_
+
+Visual Studio (MSVC) cannot be yet used for compiling win/arm64 build due to compatibility issues for dependencies like xsimd and boost library.
+
+Note: This is only an experimental build for WoA64 as all features are not extensively tested through CI due to lack of infrastructure.
+
 Debug builds
 ============
 
@@ -310,7 +329,7 @@ The command line to build Arrow in Debug mode will look something like this:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015" -A x64 ^
+   cmake .. -G "Visual Studio 15 2017" -A x64 ^
          -DARROW_BOOST_USE_SHARED=OFF ^
          -DCMAKE_BUILD_TYPE=Debug ^
          -DBOOST_ROOT=C:/local/boost_1_63_0  ^
@@ -342,6 +361,37 @@ option ``ARROW_BUILD_STATIC``) use the preprocessor macro ``ARROW_STATIC`` to
 suppress dllimport/dllexport marking of symbols. Projects that statically link
 against Arrow on Windows additionally need this definition. The Unix builds do
 not use the macro.
+
+In addition if using ``-DARROW_FLIGHT=ON``, ``ARROW_FLIGHT_STATIC`` needs to
+be defined, and similarly for ``-DARROW_FLIGHT_SQL=ON``.
+
+.. code-block:: cmake
+
+   project(MyExample)
+
+   find_package(Arrow REQUIRED)
+
+   add_executable(my_example my_example.cc)
+   target_link_libraries(my_example
+                         PRIVATE
+                         arrow_static
+                         arrow_flight_static
+                         arrow_flight_sql_static)
+
+   target_compile_definitions(my_example
+                              PUBLIC
+                              ARROW_STATIC
+                              ARROW_FLIGHT_STATIC
+                              ARROW_FLIGHT_SQL_STATIC)
+
+Downloading the Timezone Database
+=================================
+
+To run some of the compute unit tests on Windows, the IANA timezone database
+and the Windows timezone mapping need to be downloaded first. See 
+:ref:`download-timezone-database` for download instructions. To set a non-default
+path for the timezone database while running the unit tests, set the 
+``ARROW_TIMEZONE_DATABASE`` environment variable.
 
 Replicating Appveyor Builds
 ===========================
@@ -398,7 +448,7 @@ tests can be made with there individual make targets).
    SET USE_CLCACHE=false
    SET ARROW_BUILD_GANDIVA=OFF
    SET ARROW_LLVM_VERSION=8.0.*
-   SET PYTHON=3.6
+   SET PYTHON=3.9
    SET ARCH=64
    SET PATH=C:\Users\User\Anaconda3;C:\Users\User\Anaconda3\Scripts;C:\Users\User\Anaconda3\Library\bin;%PATH%
    SET BOOST_LIBRARYDIR=C:\Boost\lib

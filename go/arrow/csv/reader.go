@@ -18,17 +18,17 @@ package csv
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -38,7 +38,7 @@ type Reader struct {
 
 	refs int64
 	bld  *array.RecordBuilder
-	cur  array.Record
+	cur  arrow.Record
 	err  error
 
 	chunk int
@@ -57,7 +57,7 @@ type Reader struct {
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
-// array.Records from the given schema.
+// arrow.Records from the given schema.
 //
 // NewReader panics if the given schema contains fields that have types that are not
 // primitive types.
@@ -105,7 +105,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 func (r *Reader) readHeader() error {
 	records, err := r.r.Read()
 	if err != nil {
-		return xerrors.Errorf("arrow/csv: could not read header from file: %w", err)
+		return fmt.Errorf("arrow/csv: could not read header from file: %w", err)
 	}
 
 	if len(records) != len(r.schema.Fields()) {
@@ -133,12 +133,15 @@ func (r *Reader) Schema() *arrow.Schema { return r.schema }
 // Record returns the current record that has been extracted from the
 // underlying CSV file.
 // It is valid until the next call to Next.
-func (r *Reader) Record() array.Record { return r.cur }
+func (r *Reader) Record() arrow.Record { return r.cur }
 
 // Next returns whether a Record could be extracted from the underlying CSV file.
 //
 // Next panics if the number of records extracted from a CSV row does not match
-// the number of fields of the associated schema.
+// the number of fields of the associated schema. If a parse failure occurs, Next
+// will return true and the Record will contain nulls where failures occurred.
+// Subsequent calls to Next will return false - The user should check Err() after
+// each call to Next to check if an error took place.
 func (r *Reader) Next() bool {
 	if r.header {
 		r.once.Do(func() {
@@ -165,7 +168,7 @@ func (r *Reader) next1() bool {
 	recs, r.err = r.r.Read()
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false
@@ -209,11 +212,15 @@ func (r *Reader) nextn() bool {
 	var (
 		recs []string
 		n    = 0
+		err  error
 	)
 
 	for i := 0; i < r.chunk && !r.done; i++ {
-		recs, r.err = r.r.Read()
-		if r.err != nil {
+		recs, err = r.r.Read()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				r.err = err
+			}
 			r.done = true
 			break
 		}
@@ -225,9 +232,6 @@ func (r *Reader) nextn() bool {
 
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
-			r.err = nil
-		}
 	}
 
 	r.cur = r.bld.NewRecord()
@@ -261,7 +265,7 @@ func (r *Reader) read(recs []string) {
 }
 
 func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, string) {
-	switch field.Type.(type) {
+	switch dt := field.Type.(type) {
 	case *arrow.BooleanType:
 		return func(field array.Builder, str string) {
 			r.parseBool(field, str)
@@ -321,6 +325,10 @@ func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, stri
 				field.(*array.StringBuilder).Append(str)
 			}
 		}
+	case *arrow.TimestampType:
+		return func(field array.Builder, str string) {
+			r.parseTimestamp(field, str, dt.Unit)
+		}
 
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", field.Type))
@@ -340,7 +348,7 @@ func (r *Reader) parseBool(field array.Builder, str string) {
 	case "true", "True", "1":
 		v = true
 	default:
-		r.err = fmt.Errorf("Unrecognized boolean: %s", str)
+		r.err = fmt.Errorf("unrecognized boolean: %s", str)
 		field.AppendNull()
 		return
 	}
@@ -505,6 +513,23 @@ func (r *Reader) parseFloat64(field array.Builder, str string) {
 		return
 	}
 	field.(*array.Float64Builder).Append(v)
+}
+
+// parses timestamps using millisecond precision
+func (r *Reader) parseTimestamp(field array.Builder, str string, unit arrow.TimeUnit) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := arrow.TimestampFromString(str, unit)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.TimestampBuilder).Append(v)
 }
 
 // Retain increases the reference count by 1.

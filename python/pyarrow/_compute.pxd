@@ -21,10 +21,39 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
+cdef class ScalarUdfContext(_Weakrefable):
+    cdef:
+        CScalarUdfContext c_context
+
+    cdef void init(self, const CScalarUdfContext& c_context)
 
 cdef class FunctionOptions(_Weakrefable):
     cdef:
-        unique_ptr[CFunctionOptions] wrapped
+        shared_ptr[CFunctionOptions] wrapped
 
     cdef const CFunctionOptions* get_options(self) except NULL
-    cdef void init(self, unique_ptr[CFunctionOptions] options)
+    cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
+
+    cdef inline shared_ptr[CFunctionOptions] unwrap(self)
+
+
+cdef CExpression _bind(Expression filter, Schema schema) except *
+
+
+cdef class Expression(_Weakrefable):
+
+    cdef:
+        CExpression expr
+
+    cdef void init(self, const CExpression& sp)
+
+    @staticmethod
+    cdef wrap(const CExpression& sp)
+
+    cdef inline CExpression unwrap(self)
+
+    @staticmethod
+    cdef Expression _expr_or_scalar(object expr)
+
+
+cdef CExpression _true

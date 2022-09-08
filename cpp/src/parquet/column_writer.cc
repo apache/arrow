@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -60,12 +60,12 @@ using arrow::ArrayData;
 using arrow::Datum;
 using arrow::Result;
 using arrow::Status;
-using arrow::BitUtil::BitWriter;
+using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
@@ -106,9 +106,9 @@ struct ValueBufferSlicer {
 
   Status Visit(const ::arrow::BooleanArray& array) {
     auto data = array.data();
-    if (BitUtil::IsMultipleOf8(data->offset)) {
-      buffer_ = SliceBuffer(data->buffers[1], BitUtil::BytesForBits(data->offset),
-                            BitUtil::BytesForBits(data->length));
+    if (bit_util::IsMultipleOf8(data->offset)) {
+      buffer_ = SliceBuffer(data->buffers[1], bit_util::BytesForBits(data->offset),
+                            bit_util::BytesForBits(data->length));
       return Status::OK();
     }
     PARQUET_ASSIGN_OR_THROW(buffer_,
@@ -168,7 +168,7 @@ LevelEncoder::~LevelEncoder() {}
 
 void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
                         int num_buffered_values, uint8_t* data, int data_size) {
-  bit_width_ = BitUtil::Log2(max_level + 1);
+  bit_width_ = bit_util::Log2(max_level + 1);
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
@@ -177,7 +177,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
     }
     case Encoding::BIT_PACKED: {
       int num_bytes =
-          static_cast<int>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
+          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width_));
       bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
       break;
     }
@@ -188,7 +188,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
 
 int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
                                 int num_buffered_values) {
-  int bit_width = BitUtil::Log2(max_level + 1);
+  int bit_width = bit_util::Log2(max_level + 1);
   int num_bytes = 0;
   switch (encoding) {
     case Encoding::RLE: {
@@ -200,7 +200,7 @@ int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
     }
     case Encoding::BIT_PACKED: {
       num_bytes =
-          static_cast<int>(BitUtil::BytesForBits(num_buffered_values * bit_width));
+          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width));
       break;
     }
     default:
@@ -748,7 +748,7 @@ class ColumnWriterImpl {
   int64_t num_buffered_encoded_values_;
 
   // Total number of rows written with this ColumnWriter
-  int rows_written_;
+  int64_t rows_written_;
 
   // Records the total number of uncompressed bytes written by the serializer
   int64_t total_bytes_written_;
@@ -1037,6 +1037,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          properties) {
     current_encoder_ = MakeEncoder(DType::type_num, encoding, use_dictionary, descr_,
                                    properties->memory_pool());
+    // We have to dynamic_cast as some compilers don't want to static_cast
+    // through virtual inheritance.
+    current_value_encoder_ = dynamic_cast<TypedEncoder<DType>*>(current_encoder_.get());
+    // Will be null if not using dictionary, but that's ok
+    current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
 
     if (properties->statistics_enabled(descr_->path()) &&
         (SortOrder::UNKNOWN != descr_->sort_order())) {
@@ -1094,11 +1099,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
-                          batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0);
+                          batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
+                          /*num_levels=*/batch_size);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
-                          valid_bits_offset + value_offset);
+                          valid_bits_offset + value_offset, /*num_levels=*/batch_size);
       }
       CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values);
       value_offset += batch_num_spaced_values;
@@ -1124,7 +1130,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
           ::arrow::AllocateResizableBuffer(
-              BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
+              bit_util::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
     }
 
@@ -1159,15 +1165,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                          ArrowWriteContext* context, bool maybe_parent_nulls);
 
   void WriteDictionaryPage() override {
-    // We have to dynamic cast here because of TypedEncoder<Type> as
-    // some compilers don't want to cast through virtual inheritance
-    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-    DCHECK(dict_encoder);
-    std::shared_ptr<ResizableBuffer> buffer =
-        AllocateBuffer(properties_->memory_pool(), dict_encoder->dict_encoded_size());
-    dict_encoder->WriteDict(buffer->mutable_data());
+    DCHECK(current_dict_encoder_);
+    std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(
+        properties_->memory_pool(), current_dict_encoder_->dict_encoded_size());
+    current_dict_encoder_->WriteDict(buffer->mutable_data());
 
-    DictionaryPage page(buffer, dict_encoder->num_entries(),
+    DictionaryPage page(buffer, current_dict_encoder_->num_entries(),
                         properties_->dictionary_page_encoding());
     total_bytes_written_ += pager_->WriteDictionaryPage(page);
   }
@@ -1207,6 +1210,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
   using TypedStats = TypedStatistics<DType>;
   std::unique_ptr<Encoder> current_encoder_;
+  // Downcasted observers of current_encoder_.
+  // The downcast is performed once as opposed to at every use since
+  // dynamic_cast is so expensive, and static_cast is not available due
+  // to virtual inheritance.
+  ValueEncoderType* current_value_encoder_;
+  DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
 
@@ -1246,7 +1255,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteRepetitionLevels(num_values, rep_levels);
     } else {
       // Each value is exactly one row
-      rows_written_ += static_cast<int>(num_values);
+      rows_written_ += num_values;
     }
     return values_to_write;
   }
@@ -1281,7 +1290,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
     // Shrink to fit possible causes another allocation, and would only be necessary
     // on the last batch.
-    int64_t new_bitmap_size = BitUtil::BytesForBits(batch_size);
+    int64_t new_bitmap_size = bit_util::BytesForBits(batch_size);
     if (new_bitmap_size != bits_buffer_->size()) {
       PARQUET_THROW_NOT_OK(
           bits_buffer_->Resize(new_bitmap_size, /*shrink_to_fit=*/false));
@@ -1336,7 +1345,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
       // Each value is exactly one row
-      rows_written_ += static_cast<int>(num_levels);
+      rows_written_ += num_levels;
     }
   }
 
@@ -1358,6 +1367,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       // Only PLAIN encoding is supported for fallback in V1
       current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
                                      properties_->memory_pool());
+      current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
+      current_dict_encoder_ = nullptr;  // not using dict
       encoding_ = Encoding::PLAIN;
     }
   }
@@ -1375,36 +1386,32 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       return;
     }
 
-    // We have to dynamic cast here because TypedEncoder<Type> as some compilers
-    // don't want to cast through virtual inheritance
-    auto dict_encoder = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
-    if (dict_encoder->dict_encoded_size() >= properties_->dictionary_pagesize_limit()) {
+    if (current_dict_encoder_->dict_encoded_size() >=
+        properties_->dictionary_pagesize_limit()) {
       FallbackToPlainEncoding();
     }
   }
 
   void WriteValues(const T* values, int64_t num_values, int64_t num_nulls) {
-    dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-        ->Put(values, static_cast<int>(num_values));
+    current_value_encoder_->Put(values, static_cast<int>(num_values));
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
     }
   }
 
   void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
-                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
+                         const uint8_t* valid_bits, int64_t valid_bits_offset,
+                         int64_t num_levels) {
     if (num_values != num_spaced_values) {
-      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-          ->PutSpaced(values, static_cast<int>(num_spaced_values), valid_bits,
-                      valid_bits_offset);
+      current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
+                                        valid_bits, valid_bits_offset);
     } else {
-      dynamic_cast<ValueEncoderType*>(current_encoder_.get())
-          ->Put(values, static_cast<int>(num_values));
+      current_value_encoder_->Put(values, static_cast<int>(num_values));
     }
     if (page_statistics_ != nullptr) {
-      const int64_t num_nulls = num_spaced_values - num_values;
-      page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_values,
-                                     num_nulls);
+      const int64_t num_nulls = num_levels - num_values;
+      page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
+                                     num_spaced_values, num_values, num_nulls);
     }
   }
 };
@@ -1509,8 +1516,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                                    &exec_ctx));
         referenced_dictionary = referenced_dictionary_datum.make_array();
       }
-      page_statistics_->IncrementNullCount(indices->null_count());
-      page_statistics_->IncrementNumValues(indices->length() - indices->null_count());
+      int64_t non_null_count = indices->length() - indices->null_count();
+      page_statistics_->IncrementNullCount(num_levels - non_null_count);
+      page_statistics_->IncrementNumValues(non_null_count);
       page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
     }
     preserved_dictionary_ = dictionary;
@@ -1805,6 +1813,8 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
         maybe_parent_nulls);
   };
 
+  const ParquetVersion::type version = writer->properties()->version();
+
   if (ctx->properties->coerce_timestamps_enabled()) {
     // User explicitly requested coercion to specific unit
     if (source_type.unit() == ctx->properties->coerce_timestamps_unit()) {
@@ -1814,9 +1824,10 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
     } else {
       return WriteCoerce(ctx->properties);
     }
-  } else if (writer->properties()->version() == ParquetVersion::PARQUET_1_0 &&
+  } else if ((version == ParquetVersion::PARQUET_1_0 ||
+              version == ParquetVersion::PARQUET_2_4) &&
              source_type.unit() == ::arrow::TimeUnit::NANO) {
-    // Absent superseding user instructions, when writing Parquet version 1.0 files,
+    // Absent superseding user instructions, when writing Parquet version <= 2.4 files,
     // timestamps in nanoseconds are coerced to microseconds
     std::shared_ptr<ArrowWriterProperties> properties =
         (ArrowWriterProperties::Builder())
@@ -1851,6 +1862,7 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int64Type)
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
+      WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
     default:
       ARROW_UNSUPPORTED();
   }
@@ -1920,7 +1932,11 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
-      page_statistics_->Update(*data_slice);
+      page_statistics_->Update(*data_slice, /*update_counts=*/false);
+      // Null values in ancestors count as nulls.
+      int64_t non_null = data_slice->length() - data_slice->null_count();
+      page_statistics_->IncrementNullCount(batch_size - non_null);
+      page_statistics_->IncrementNumValues(non_null);
     }
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     CheckDictionarySizeLimit();
@@ -2011,13 +2027,13 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
     static_assert(byte_width == 16 || byte_width == 32,
                   "only 16 and 32 byte Decimals supported");
     if (byte_width == 32) {
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[3]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[2]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     } else {
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
     }
     return FixedLenByteArray(out);
   }

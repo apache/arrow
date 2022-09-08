@@ -214,7 +214,12 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   ///
   /// Like DeleteDir, but doesn't delete the directory itself.
   /// Passing an empty path ("" or "/") is disallowed, see DeleteRootDirContents.
-  virtual Status DeleteDirContents(const std::string& path) = 0;
+  virtual Status DeleteDirContents(const std::string& path,
+                                   bool missing_dir_ok = false) = 0;
+
+  /// Async version of DeleteDirContents.
+  virtual Future<> DeleteDirContentsAsync(const std::string& path,
+                                          bool missing_dir_ok = false);
 
   /// EXPERIMENTAL: Delete the root directory's contents, recursively.
   ///
@@ -290,9 +295,10 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
-  ARROW_DEPRECATED(
-      "Deprecated in 6.0.0. "
-      "OpenAppendStream is unsupported on several filesystems and will be later removed.")
+  ///
+  /// Note: some filesystem implementations do not support efficient appending
+  /// to an existing file, in which case this method will return NotImplemented.
+  /// Consider writing to multiple files (using e.g. the dataset layer) instead.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) = 0;
@@ -344,7 +350,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -383,8 +389,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   const std::string base_path_;
   std::shared_ptr<FileSystem> base_fs_;
 
-  std::string PrependBase(const std::string& s) const;
-  Status PrependBaseNonEmpty(std::string* s) const;
+  Result<std::string> PrependBase(const std::string& s) const;
+  Result<std::string> PrependBaseNonEmpty(const std::string& s) const;
   Result<std::string> StripBase(const std::string& s) const;
   Status FixInfo(FileInfo* info) const;
 
@@ -412,7 +418,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -446,7 +452,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
 /// \brief Create a new FileSystem by URI
 ///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs" and "gcs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_path (optional) Path inside the filesystem.
@@ -457,7 +464,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs" and "gcs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[in] io_context an IOContext which will be associated with the filesystem

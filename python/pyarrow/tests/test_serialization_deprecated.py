@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 import pytest
 
 import pyarrow as pa
@@ -46,8 +44,6 @@ def test_serialization_deprecated():
         pa.register_default_serialization_handlers(context)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="getattr needs Python 3.7")
 def test_serialization_deprecated_toplevel():
     with pytest.warns(FutureWarning):
         pa.SerializedPyObject()

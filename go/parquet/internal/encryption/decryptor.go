@@ -17,8 +17,10 @@
 package encryption
 
 import (
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
+	"io"
+
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
 )
 
 // FileDecryptor is an interface used by the filereader for decrypting an
@@ -240,6 +242,8 @@ type Decryptor interface {
 	CiphertextSizeDelta() int
 	// Decrypt just returns the decrypted plaintext from the src ciphertext
 	Decrypt(src []byte) []byte
+	// Decrypt just returns the decrypted plaintext from the src ciphertext
+	DecryptFrom(r io.Reader) []byte
 	// set the AAD bytes of the decryptor to the provided string
 	UpdateAad(string)
 }
@@ -258,4 +262,7 @@ func (d *decryptor) UpdateAad(aad string)        { d.aad = []byte(aad) }
 func (d *decryptor) CiphertextSizeDelta() int    { return d.decryptor.CiphertextSizeDelta() }
 func (d *decryptor) Decrypt(src []byte) []byte {
 	return d.decryptor.Decrypt(src, d.key, d.aad)
+}
+func (d *decryptor) DecryptFrom(r io.Reader) []byte {
+	return d.decryptor.DecryptFrom(r, d.key, d.aad)
 }

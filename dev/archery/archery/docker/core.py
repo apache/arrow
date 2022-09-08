@@ -16,7 +16,7 @@
 # under the License.
 
 import os
-import re
+import shlex
 import subprocess
 from io import StringIO
 
@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
 
@@ -42,10 +43,13 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
-def _sanitize_command(cmd):
-    if isinstance(cmd, list):
-        cmd = " ".join(cmd)
-    return re.sub(r"\s+", " ", cmd)
+_arch_short_mapping = {
+    'arm64v8': 'arm64',
+}
+_arch_alias_mapping = {
+    'amd64': 'x86_64',
+    'arm64v8': 'aarch64',
+}
 
 
 class UndefinedImage(Exception):
@@ -82,18 +86,8 @@ class ComposeConfig:
 
         # translate docker's architecture notation to a more widely used one
         arch = self.env.get('ARCH', 'amd64')
-        arch_aliases = {
-            'amd64': 'x86_64',
-            'arm64v8': 'aarch64',
-            's390x': 's390x'
-        }
-        arch_short_aliases = {
-            'amd64': 'x64',
-            'arm64v8': 'arm64',
-            's390x': 's390x'
-        }
-        self.env['ARCH_ALIAS'] = arch_aliases.get(arch, arch)
-        self.env['ARCH_SHORT_ALIAS'] = arch_short_aliases.get(arch, arch)
+        self.env['ARCH_ALIAS'] = _arch_alias_mapping.get(arch, arch)
+        self.env['ARCH_SHORT'] = _arch_short_mapping.get(arch, arch)
 
     def _read_config(self, config_path, compose_bin):
         """
@@ -220,7 +214,8 @@ class DockerCompose(Command):
                 )
             )
 
-    def pull(self, service_name, pull_leaf=True, using_docker=False):
+    def pull(self, service_name, pull_leaf=True, using_docker=False,
+             ignore_pull_failures=True):
         def _pull(service):
             args = ['pull']
             if service['image'] in self.pull_memory:
@@ -230,10 +225,14 @@ class DockerCompose(Command):
                 try:
                     self._execute_docker(*args, service['image'])
                 except Exception as e:
-                    # better --ignore-pull-failures handling
-                    print(e)
+                    if ignore_pull_failures:
+                        # better --ignore-pull-failures handling
+                        print(e)
+                    else:
+                        raise
             else:
-                args.append('--ignore-pull-failures')
+                if ignore_pull_failures:
+                    args.append('--ignore-pull-failures')
                 self._execute_compose(*args, service['name'])
 
             self.pull_memory.add(service['image'])
@@ -290,7 +289,7 @@ class DockerCompose(Command):
 
                 args.extend([
                     '--output', 'type=docker',
-                    '-f', service['build']['dockerfile'],
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -302,7 +301,7 @@ class DockerCompose(Command):
                 for img in cache_from:
                     args.append('--cache-from="{}"'.format(img))
                 args.extend([
-                    '-f', service['build']['dockerfile'],
+                    '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
                     service['build'].get('context', '.')
                 ])
@@ -377,10 +376,9 @@ class DockerCompose(Command):
             if command is not None:
                 args.append(command)
             else:
-                # replace whitespaces from the preformatted compose command
-                cmd = _sanitize_command(service.get('command', ''))
+                cmd = service.get('command', '')
                 if cmd:
-                    args.append(cmd)
+                    args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)

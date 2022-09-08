@@ -29,6 +29,8 @@
 #define ARROW_CXX_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@"
 #define ARROW_CXX_COMPILER_FLAGS "@CMAKE_CXX_FLAGS@"
 
+#define ARROW_BUILD_TYPE "@UPPERCASE_BUILD_TYPE@"
+
 #define ARROW_GIT_ID "@ARROW_GIT_ID@"
 #define ARROW_GIT_DESCRIPTION "@ARROW_GIT_DESCRIPTION@"
 
@@ -36,13 +38,22 @@
 
 #cmakedefine ARROW_COMPUTE
 #cmakedefine ARROW_CSV
+#cmakedefine ARROW_CUDA
 #cmakedefine ARROW_DATASET
 #cmakedefine ARROW_FILESYSTEM
 #cmakedefine ARROW_FLIGHT
 #cmakedefine ARROW_IPC
+#cmakedefine ARROW_JEMALLOC
+#cmakedefine ARROW_JEMALLOC_VENDORED
 #cmakedefine ARROW_JSON
+#cmakedefine ARROW_ORC
+#cmakedefine ARROW_PARQUET
 
+#cmakedefine ARROW_GCS
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_NATIVE_INT128
+#cmakedefine ARROW_WITH_MUSL
+#cmakedefine ARROW_WITH_OPENTELEMETRY
+#cmakedefine ARROW_WITH_UCX
 
 #cmakedefine GRPCPP_PP_INCLUDE

@@ -20,6 +20,8 @@ require "arrow"
 require "fiddle"
 require "pathname"
 require "tempfile"
+require "timeout"
+require "webrick"
 require "zlib"
 
 require "test-unit"
