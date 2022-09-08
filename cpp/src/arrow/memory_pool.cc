@@ -670,18 +670,22 @@ Status jemalloc_set_decay_ms(int ms) {
   return Status::Invalid("jemalloc support is not built");
 }
 
-Status jemalloc_get_stat(const char* name, size_t* out) {
+Status jemalloc_get_stat(const char* name, size_t& out) {
   return Status::Invalid("jemalloc support is not built");
-};
-
-Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp, void* newp,
-                        size_t newlen) {
-  return Status::NotImplemented("This Arrow build does not enable jemalloc");
 }
 
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
-                            const char* opts) {
-  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+Status jemalloc_get_stat(const char* name, uint64_t& out) {
+  return Status::Invalid("jemalloc support is not built");
+}
+
+Status jemalloc_get_statp(const char* name, uint64_t& out) {
+  return Status::Invalid("jemalloc support is not built");
+}
+
+Status jemalloc_peak_reset() { return Status::Invalid("jemalloc support is not built"); }
+
+Status jemalloc_stats_print(const char* opts) {
+  return Status::Invalid("jemalloc support is not built");
 }
 #endif
 

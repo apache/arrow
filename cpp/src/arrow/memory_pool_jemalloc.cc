@@ -154,24 +154,49 @@ Status jemalloc_set_decay_ms(int ms) {
 
 #undef RETURN_IF_JEMALLOC_ERROR
 
-Status jemalloc_get_stat(const char* name, size_t* out) {
-  size_t sz = sizeof(size_t);
-  int err = mallctl(name, out, &sz, NULL, 0);
-  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
-             : Status::OK();
-};
-
 #ifdef ARROW_JEMALLOC
-Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp, void* newp,
-                        size_t newlen) {
-  int err = mallctl(name, oldp, oldlenp, newp, newlen);
-  return err ? arrow::internal::IOErrorFromErrno(err, "Memory allocation error.")
+Status jemalloc_get_stat(const char* name, size_t& out) {
+  uint64_t epoch;
+  size_t sz = sizeof(uint64_t);
+  mallctl("epoch", &epoch, &sz, &epoch, sz);
+
+  size_t value;
+  sz = sizeof(size_t);
+  int err = mallctl(name, &value, &sz, NULLPTR, 0);
+  out = std::move(value);
+
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
              : Status::OK();
 }
 
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
-                            const char* opts) {
-  malloc_stats_print(write_cb, cbopaque, opts);
+Status jemalloc_get_stat(const char* name, uint64_t& out) {
+  uint64_t value;
+  size_t sz = sizeof(uint64_t);
+  int err = mallctl(name, &value, &sz, NULLPTR, 0);
+  out = value;
+
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
+             : Status::OK();
+}
+
+Status jemalloc_get_statp(const char* name, uint64_t& out) {
+  uint64_t* value;
+  size_t sz = sizeof(uint64_t);
+  int err = mallctl(name, &value, &sz, NULLPTR, 0);
+  out = *value;
+
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
+             : Status::OK();
+}
+
+Status jemalloc_peak_reset() {
+  int err = mallctl("thread.peak.reset", NULLPTR, NULLPTR, NULLPTR, 0);
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed resetting thread.peak.")
+             : Status::OK();
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  malloc_stats_print(NULLPTR, NULLPTR, opts);
   return Status::OK();
 }
 #endif
