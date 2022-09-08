@@ -109,12 +109,14 @@ struct RunLengthEncodeExec
                             AllocateBitmap(0, this->kernel_context->memory_pool()));
       output_array_data->length = 0;
       output_array_data->offset = 0;
+      output_array_data->null_count = 0;
       output_array_data->buffers = {NULLPTR};
       output_array_data->child_data.resize(2);
       output_array_data->child_data[0] =
           ArrayData::Make(int32(),
                           /*length =*/0,
-                          /*buffers =*/{NULLPTR, run_ends_buffer});
+                          /*buffers =*/{NULLPTR, run_ends_buffer},
+                          /*null_count =*/0);
       output_array_data->child_data[1] = this->input_array.ToArrayData();
       return Status::OK();
     }
