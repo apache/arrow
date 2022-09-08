@@ -248,13 +248,6 @@ struct RunLengthDecodeExec
 
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
-    if (this->input_array.length == 0) {
-      output_array_data->length = 0;
-      output_array_data->offset = 0;
-      output_array_data->buffers = {NULLPTR, NULLPTR};
-      return Status::OK();
-    }
-
     const ArraySpan& data_array = rle_util::ValuesArray(this->input_array);
     this->input_validity = data_array.buffers[0].data;
     this->input_values = data_array.buffers[1].data;
