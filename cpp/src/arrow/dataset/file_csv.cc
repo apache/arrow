@@ -233,7 +233,7 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   ARROW_ASSIGN_OR_RAISE(
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
-          kCsvTypeName, scan_options.get(), this->default_fragment_scan_options));
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   if (fragment_scan_options->stream_transform_func) {
     ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
   }
@@ -253,11 +253,11 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderForRangeAs
     io::ReadRange read_range) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
   std::shared_ptr<io::InputStream> input;
-  ARROW_ASSIGN_OR_RAISE(input, source.OpenRange(start, end));
+  ARROW_ASSIGN_OR_RAISE(input, source.OpenRange(read_range));
   ARROW_ASSIGN_OR_RAISE(
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
-          kCsvTypeName, scan_options.get(), this->default_fragment_scan_options));
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
     if (fragment_scan_options->stream_transform_func) {
       ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
     }
