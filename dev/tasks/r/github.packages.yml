@@ -82,11 +82,8 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          AWS_SECRET_ACCESS_KEY: {{' ${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SCCACHE_S3_KEY_PREFIX: sccache
-          UBUNTU: {{ '${{ matrix.config.version }}' }}
+          UBUNTU: {{ '"${{ matrix.config.version }}"' }}
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -127,10 +124,7 @@ jobs:
         shell: bash
         env:
           ARROW_HOME: "arrow"
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SCCACHE_S3_KEY_PREFIX: 'sccache'
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
@@ -186,11 +180,8 @@ jobs:
         env:
           NOT_CRAN: "true" # actions/setup-r sets this implicitly
           ARROW_R_DEV: TRUE
-          # For macos
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SCCACHE_S3_KEY_PREFIX: 'sccache'
+          # sccache for macos
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -317,10 +308,7 @@ jobs:
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SCCACHE_S3_KEY_PREFIX: 'sccache'
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
@@ -330,10 +318,7 @@ jobs:
         env:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SCCACHE_S3_KEY_PREFIX: 'sccache'
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
