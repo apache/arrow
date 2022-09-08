@@ -386,6 +386,8 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::RUN_LENGTH_ENCODED) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
   }
