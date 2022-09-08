@@ -38,7 +38,6 @@ ninja
 #    https://github.com/conda-forge/google-cloud-cpp-feedstock/issues/28
 nlohmann_json
 pkg-config
-python
 rapidjson
 re2
 snappy
