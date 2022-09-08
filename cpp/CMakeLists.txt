@@ -197,6 +197,12 @@ if((ARROW_USE_CCACHE OR ENV{SCCACHE_BUCKET})
 
   find_program(CCACHE_FOUND ccache)
   find_program(SCCACHE_FOUND sccache)
+
+  if(NOT SCCACHE_FOUND AND MINGW)
+    message(STATUS "Did not find sccache, looking for sccache.exe")
+    find_program(SCCACHE_FOUND sccache.exe)
+  endif()
+
   if(SCCACHE_FOUND)
     message(STATUS "Using sccache: ${SCCACHE_FOUND}")
     set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
