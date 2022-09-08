@@ -235,7 +235,7 @@ Result<DeclarationInfo> FromReadRelation(const substrait::ReadRel& rel,
       default:
         // TODO: maybe check for ".feather" or ".arrows"?
         return Status::NotImplemented(
-            "unknown file format ",
+            "unsupported file format ",
             "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
     }
   }
@@ -250,15 +250,15 @@ Result<DeclarationInfo> FromReadRelation(const substrait::ReadRel& rel,
     // Extract and parse the read relation's source URI
     ::arrow::internal::Uri item_uri;
     switch (item.path_type_case()) {
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath:
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
         RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
         break;
 
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile:
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile:
         RETURN_NOT_OK(item_uri.Parse(item.uri_file()));
         break;
 
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder:
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder:
         RETURN_NOT_OK(item_uri.Parse(item.uri_folder()));
         break;
 
@@ -272,27 +272,24 @@ Result<DeclarationInfo> FromReadRelation(const substrait::ReadRel& rel,
 
     // Handle the URI as appropriate
     switch (item.path_type_case()) {
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile: {
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
         files.emplace_back(item_uri.path(), fs::FileType::File);
         break;
       }
 
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder: {
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
         RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
         break;
       }
 
-      case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath: {
+      case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
         // Let the filesystem API decide for us if the URI is a file or a directory
         ARROW_ASSIGN_OR_RAISE(auto file_info, filesystem->GetFileInfo(item_uri.path()));
 
-        // push the FileInfo if it's for a file
+        // push the FileInfo if it's a file; else, recurse into the directory
         if (file_info.type() == fs::FileType::File) {
           files.push_back(std::move(file_info));
-        }
-
-        // recurse into the directory to discover FileInfo for each file
-        else if (file_info.type() == fs::FileType::Directory) {
+        } else if (file_info.type() == fs::FileType::Directory) {
           RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
         }
 
