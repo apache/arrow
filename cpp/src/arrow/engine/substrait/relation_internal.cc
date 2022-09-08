@@ -199,11 +199,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                       std::back_inserter(files));
             break;
           }
-          default:
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPathGlob: {
             ARROW_ASSIGN_OR_RAISE(auto discovered_files,
                                   fs::internal::GlobFiles(filesystem, path));
             std::move(discovered_files.begin(), discovered_files.end(),
                       std::back_inserter(files));
+            break;
+          }
+          default: {
+            return Status::Invalid("Unrecognized file type in LocalFiles");
+          }
         }
       }
 
@@ -478,17 +483,14 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     // set file format
     auto format_type_name = dataset->format()->type_name();
     if (format_type_name == "parquet") {
-      auto parquet_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions>();
-      read_rel_lfs_ffs->set_allocated_parquet(parquet_fmt.release());
+      read_rel_lfs_ffs->set_allocated_parquet(
+          new substrait::ReadRel::LocalFiles::FileOrFiles::ParquetReadOptions());
     } else if (format_type_name == "ipc") {
-      auto arrow_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions>();
-      read_rel_lfs_ffs->set_allocated_arrow(arrow_fmt.release());
+      read_rel_lfs_ffs->set_allocated_arrow(
+          new substrait::ReadRel::LocalFiles::FileOrFiles::ArrowReadOptions());
     } else if (format_type_name == "orc") {
-      auto orc_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_OrcReadOptions>();
-      read_rel_lfs_ffs->set_allocated_orc(orc_fmt.release());
+      read_rel_lfs_ffs->set_allocated_orc(
+          new substrait::ReadRel::LocalFiles::FileOrFiles::OrcReadOptions());
     } else {
       return Status::NotImplemented("Unsupported file type: ", format_type_name);
     }

@@ -47,8 +47,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
 
 /// \brief Convert an Acero Declaration to a Substrait Rel
 ///
-/// Note that in order to provide a generic interface for ToProto for
-/// declaration. The ExecNode or ExecPlan is not used in this context as Declaration
+/// Note that, in order to provide a generic interface for ToProto,
+/// the ExecNode or ExecPlan are not used in this context as Declaration
 /// is preferred in the Substrait space rather than internal components of
 /// Acero execution engine.
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(

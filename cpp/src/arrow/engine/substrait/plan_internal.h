@@ -53,10 +53,10 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
-/// \brief Serialize a declaration and into a substrait::Plan.
+/// \brief Serialize a declaration into a substrait::Plan.
 ///
-/// Note that, this is a part of roundtripping test API and not
-/// designed to use in production
+/// Note that, this is a part of a roundtripping test API and not
+/// designed for use in production
 /// \param[in] declr the sequence of declarations to be serialized
 /// \param[in, out] ext_set the extension set to be updated
 /// \param[in] conversion_options options to control serialization behavior
