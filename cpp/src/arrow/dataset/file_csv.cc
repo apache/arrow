@@ -184,10 +184,6 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   auto tracer = arrow::internal::tracing::GetTracer();
   auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
 #endif
-  ARROW_ASSIGN_OR_RAISE(
-      auto fragment_scan_options,
-      GetFragmentScanOptions<CsvFragmentScanOptions>(
-          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
   // Grab the first block and use it to determine the schema and create a reader.  The
@@ -258,9 +254,9 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderForRangeAs
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
-    if (fragment_scan_options->stream_transform_func) {
-      ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
-    }
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       auto buffered_input,
