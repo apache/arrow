@@ -397,23 +397,25 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
-  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
-      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
+  AsofJoinNodeOptions(FieldRef on_key, std::vector<FieldRef> by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(by_key), tolerance(tolerance) {}
 
-  /// \brief "on" key for the join. Each
+  /// \brief "on" key for the join.
   ///
-  /// All inputs tables must be sorted by the "on" key. Inexact
-  /// match is used on the "on" key. i.e., a row is considiered match iff
+  /// All inputs tables must be sorted by the "on" key. Must be a single field of a common
+  /// type. Inexact match is used on the "on" key. i.e., a row is considered match iff
   /// left_on - tolerance <= right_on <= left_on.
-  /// Currently, "on" key must be an int64 field
+  /// Currently, the "on" key must be of an integer, date, or timestamp type.
   FieldRef on_key;
   /// \brief "by" key for the join.
   ///
   /// All input tables must have the "by" key.  Exact equality
   /// is used for the "by" key.
-  /// Currently, the "by" key must be an int32 field
-  FieldRef by_key;
-  /// Tolerance for inexact "on" key matching
+  /// Currently, the "by" key must be of an integer, date, timestamp, or base-binary type
+  std::vector<FieldRef> by_key;
+  /// \brief Tolerance for inexact "on" key matching.  Must be non-negative.
+  ///
+  /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
 };
 
