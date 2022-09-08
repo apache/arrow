@@ -393,7 +393,7 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
   Status Open(int fd) { return OpenWritable(fd); }
 };
 
-DirectFileOutputStream::DirectFileOutputStream(long sector_size) {
+DirectFileOutputStream::DirectFileOutputStream(int64_t sector_size) {
   sector_size_ = sector_size;
   uintptr_t mask = (uintptr_t)(sector_size - 1);
   cached_data_.reserve(sector_size * 2 - 1);
@@ -414,7 +414,7 @@ Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
 }
 
 Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(
-    int fd, long sector_size) {
+    int fd, int64_t sector_size) {
   auto stream =
       std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream(sector_size));
   RETURN_NOT_OK(stream->impl_->Open(fd));
