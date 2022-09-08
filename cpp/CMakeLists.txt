@@ -191,23 +191,31 @@ else()
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()
 
-if((ARROW_USE_CCACHE OR ENV{SCCACHE_BUCKET})
-   AND NOT CMAKE_C_COMPILER_LAUNCHER
-   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+if((ARROW_USE_SCCACHE)
+  AND NOT CMAKE_C_COMPILER_LAUNCHER
+  AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
 
-  find_program(CCACHE_FOUND ccache)
   find_program(SCCACHE_FOUND sccache)
-
-  if(NOT SCCACHE_FOUND AND MINGW)
-    message(STATUS "Did not find sccache, looking for sccache.exe")
-    find_program(SCCACHE_FOUND sccache.exe)
+  
+  if(NOT SCCACHE_FOUND AND DEFINED ENV{SCCACHE_PATH})
+    message(STATUS "Did not find sccache, using envvar fallback.")
+    set(SCCACHE_FOUND $ENV{SCCACHE_PATH})
   endif()
 
   if(SCCACHE_FOUND)
     message(STATUS "Using sccache: ${SCCACHE_FOUND}")
     set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
-  elseif(CCACHE_FOUND)
+  endif()
+endif()
+
+if((ARROW_USE_CCACHE)
+  AND NOT CMAKE_C_COMPILER_LAUNCHER
+  AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
+  find_program(CCACHE_FOUND ccache)
+
+  if(CCACHE_FOUND)
     message(STATUS "Using ccache: ${CCACHE_FOUND}")
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})

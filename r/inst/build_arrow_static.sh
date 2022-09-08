@@ -62,9 +62,6 @@ tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache/
 chmod u+x sccache/sccache
 export PATH=$(pwd)/sccache:$PATH
 
-echo "=== sccache stats before the build ==="
-sccache --show-stats
-
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
@@ -99,9 +96,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
-    -DARROW_USE_CCACHE=OFF \
-    -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-    -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+    -DARROW_USE_SCCACHE=ON \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
