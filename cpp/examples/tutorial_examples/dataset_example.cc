@@ -15,13 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// (Doc section: Dataset Example)
+
+// (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/dataset/api.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 
 #include <iostream>
+// (Doc section: Includes)
 
+// (Doc section: Helper Functions)
 // Generate some data for the rest of this example.
 arrow::Result<std::shared_ptr<arrow::Table>> CreateTable() {
   // This code should look familiar from the basic Arrow example, and is not the
@@ -78,36 +83,59 @@ arrow::Status PrepareEnv() {
 
   return arrow::Status::OK();
 }
+// (Doc section: Helper Functions)
 
+// (Doc section: RunMain)
 arrow::Status RunMain() {
+  // (Doc section: RunMain)
+  // (Doc section: PrepareEnv)
   ARROW_RETURN_NOT_OK(PrepareEnv());
+  // (Doc section: PrepareEnv)
 
+  // (Doc section: FileSystem Declare)
   // First, we need a filesystem object, which lets us interact with our local
   // filesystem starting at a given path. For the sake of simplicity, that'll be
   // the current directory.
   std::shared_ptr<arrow::fs::FileSystem> fs;
+  // (Doc section: FileSystem Declare)
+
+  // (Doc section: FileSystem Init)
   // Get the CWD, use it to make the FileSystem object.
   char init_path[256];
   getcwd(init_path, 256);
   ARROW_ASSIGN_OR_RAISE(fs, arrow::fs::FileSystemFromUriOrPath(init_path));
+  // (Doc section: FileSystem Init)
 
+  // (Doc section: FileSelector Declare)
   // A file selector lets us actually traverse a multi-file dataset.
   arrow::fs::FileSelector selector;
+  // (Doc section: FileSelector Declare)
+  // (Doc section: FileSelector Config)
   selector.base_dir = "parquet_dataset";
   // Recursive is a safe bet if you don't know the nesting of your dataset.
   selector.recursive = true;
+  // (Doc section: FileSelector Config)
+  // (Doc section: FileSystemFactoryOptions)
   // Making an options object lets us configure our dataset reading.
   arrow::dataset::FileSystemFactoryOptions options;
   // We'll use Hive-style partitioning. We'll let Arrow Datasets infer the partition
   // schema. We won't set any other options, defaults are fine.
   options.partitioning = arrow::dataset::HivePartitioning::MakeFactory();
+  // (Doc section: FileSystemFactoryOptions)
+  // (Doc section: File Format Setup)
   auto read_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  // (Doc section: File Format Setup)
+  // (Doc section: FileSystemDatasetFactory Make)
   // Now, we get a factory that will let us get our dataset -- we don't have the
   // dataset yet!
   ARROW_ASSIGN_OR_RAISE(auto factory, arrow::dataset::FileSystemDatasetFactory::Make(
                                           fs, selector, read_format, options));
+  // (Doc section: FileSystemDatasetFactory Make)
+  // (Doc section: FileSystemDatasetFactory Finish)
   // Now we build our dataset from the factory.
   ARROW_ASSIGN_OR_RAISE(auto read_dataset, factory->Finish());
+  // (Doc section: FileSystemDatasetFactory Finish)
+  // (Doc section: Dataset Fragments)
   // Print out the fragments
   ARROW_ASSIGN_OR_RAISE(auto fragments, read_dataset->GetFragments());
   for (const auto& fragment : fragments) {
@@ -115,55 +143,85 @@ arrow::Status RunMain() {
     std::cout << "Partition expression: "
               << (*fragment)->partition_expression().ToString() << std::endl;
   }
-
+  // (Doc section: Dataset Fragments)
+  // (Doc section: Read Scan Builder)
   // Scan dataset into a Table -- once this is done, you can do
   // normal table things with it, like computation and printing. However, now you're
   // also dedicated to being in memory.
   ARROW_ASSIGN_OR_RAISE(auto read_scan_builder, read_dataset->NewScan());
+  // (Doc section: Read Scan Builder)
+  // (Doc section: Read Scanner)
   ARROW_ASSIGN_OR_RAISE(auto read_scanner, read_scan_builder->Finish());
+  // (Doc section: Read Scanner)
+  // (Doc section: To Table)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table, read_scanner->ToTable());
   std::cout << table->ToString();
+  // (Doc section: To Table)
 
+  // (Doc section: TableBatchReader)
   // Now, let's get a table out to disk as a dataset!
   // We make a RecordBatchReader from our Table, then set up a scanner, which lets us
   // go to a file.
   std::shared_ptr<arrow::TableBatchReader> write_dataset =
       std::make_shared<arrow::TableBatchReader>(table);
+  // (Doc section: TableBatchReader)
+  // (Doc section: WriteScanner)
   auto write_scanner_builder =
       arrow::dataset::ScannerBuilder::FromRecordBatchReader(write_dataset);
   ARROW_ASSIGN_OR_RAISE(auto write_scanner, write_scanner_builder->Finish())
-
+  // (Doc section: WriteScanner)
+  // (Doc section: Partition Schema)
   // The partition schema determines which fields are used as keys for partitioning.
   auto partition_schema = arrow::schema({arrow::field("a", arrow::utf8())});
+  // (Doc section: Partition Schema)
+  // (Doc section: Partition Create)
   // We'll use Hive-style partitioning, which creates directories with "key=value"
   // pairs.
   auto partitioning =
       std::make_shared<arrow::dataset::HivePartitioning>(partition_schema);
+  // (Doc section: Partition Create)
+  // (Doc section: Write Format)
   // Now, we declare we'll be writing Parquet files.
   auto write_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  // (Doc section: Write Format)
+  // (Doc section: Write Options)
   // This time, we make Options for writing, but do much more configuration.
   arrow::dataset::FileSystemDatasetWriteOptions write_options;
   // Defaults to start.
   write_options.file_write_options = write_format->DefaultWriteOptions();
+  // (Doc section: Write Options)
+  // (Doc section: Options FS)
   // Use the filesystem we already have.
   write_options.filesystem = fs;
+  // (Doc section: Options FS)
+  // (Doc section: Options Target)
   // Write to the folder "write_dataset" in current directory.
   write_options.base_dir = "write_dataset";
+  // (Doc section: Options Target)
+  // (Doc section: Options Partitioning)
   // Use the partitioning declared above.
   write_options.partitioning = partitioning;
+  // (Doc section: Options Partitioning)
+  // (Doc section: Options Name Template)
   // Define what the name for the files making up the dataset will be.
   write_options.basename_template = "part{i}.parquet";
+  // (Doc section: Options Name Template)
+  // (Doc section: Options File Behavior)
   // Set behavior to overwrite existing data -- specifically, this lets this example
   // be run more than once, and allows whatever code you have to overwrite what's there.
   write_options.existing_data_behavior =
       arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore;
+  // (Doc section: Options File Behavior)
+  // (Doc section: Write Dataset)
   // Write to disk!
   ARROW_RETURN_NOT_OK(
       arrow::dataset::FileSystemDataset::Write(write_options, write_scanner));
-
+  // (Doc section: Write Dataset)
+  // (Doc section: Ret)
   return arrow::Status::OK();
 }
-
+// (Doc section: Ret)
+// (Doc section: Main)
 int main() {
   arrow::Status st = RunMain();
   if (!st.ok()) {
@@ -172,3 +230,6 @@ int main() {
   }
   return 0;
 }
+// (Doc section: Main)
+
+// (Doc section: Dataset Example)
