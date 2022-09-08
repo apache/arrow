@@ -531,9 +531,6 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
   expect_type_equal(a$type, type)
-
-  ## as_arrow_array respects `type` argument (ARROW-17620)
-  expect_type_equal(a, as_arrow_array(df, type = type))
   
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(
@@ -1031,6 +1028,14 @@ test_that("as_arrow_array() default method calls Array$create()", {
     as_arrow_array(1:10, type = float64()),
     Array$create(1:10, type = float64())
   )
+})
+
+test_that("as_arrow_array respects `type` argument (ARROW-17620)", {
+  df <- tibble::tibble(x = 1:10, y = 1:10)
+  type <- struct(x = float64(), y = int16())
+  a <- Array$create(df, type = type)
+
+  expect_type_equal(a, as_arrow_array(df, type = type))
 })
 
 test_that("as_arrow_array() works for Array", {
