@@ -226,6 +226,7 @@ class Commit:
     def title(self):
         return self._title
 
+
 class DefaultBranchName(object):
     def __new__(self):
         if not hasattr(self, 'instance'):
@@ -233,12 +234,14 @@ class DefaultBranchName(object):
             arrow = ArrowSources.find()
             arrow = ArrowSources.find()
             repo = Repo(arrow.path)
-            remotes = repo.remotes
             origin = repo.remotes["origin"]
             origin_refs = origin.refs
-            origin_head = origin_refs["HEAD"] # git.RemoteReference object to origin/HEAD
-            origin_head_reference = origin_head.reference # git.RemoteReference object to origin/main
-            origin_head_name = origin_head_reference.name # Should return "origin/main" or "origin/master"
+            # git.RemoteReference object to origin/HEAD
+            origin_head = origin_refs["HEAD"]
+            # git.RemoteReference object to origin/main
+            origin_head_reference = origin_head.reference
+            # Should return "origin/main" or "origin/master"
+            origin_head_name = origin_head_reference.name
             origin_head_name_tokenized = origin_head_name.split("/")
             self.default_branch_name = origin_head_name_tokenized[-1]
         return self.instance

@@ -560,12 +560,14 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     Examples:
 
     \b
-    # Compare workspace (contender) against the mainline development branch (baseline)
+    # Compare workspace (contender) against the mainline development branch
+    # (baseline)
     \b
     archery benchmark diff
 
     \b
-    # Compare the mainline development branch (contender) against the latest version (baseline)
+    # Compare the mainline development branch (contender) against the latest
+    # version (baseline)
     \b
     export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
     \b
