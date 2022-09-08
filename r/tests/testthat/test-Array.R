@@ -531,7 +531,6 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   type <- struct(x = float64(), y = int16())
   a <- Array$create(df, type = type)
   expect_type_equal(a$type, type)
-  
   type <- struct(x = float64(), y = int16(), z = int32())
   expect_error(
     Array$create(df, type = type),
