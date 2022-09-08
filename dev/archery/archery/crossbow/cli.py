@@ -16,8 +16,10 @@
 # under the License.
 
 from pathlib import Path
+from pickle import TRUE
 import time
 import sys
+import pygit2
 
 import click
 
@@ -155,9 +157,12 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
+# Get the default branch name from the repository
+arrow_source_dir = ArrowSources.find()
+repo = Repo(arrow_source_dir.path)
 
 @crossbow.command()
-@click.option('--base-branch', default="master",
+@click.option('--base-branch', default=repo.default_branch_name,
               help='Set base branch for the PR.')
 @click.option('--create-pr', is_flag=True, default=False,
               help='Create GitHub Pull Request')

@@ -226,6 +226,27 @@ class Commit:
     def title(self):
         return self._title
 
+class DefaultBranchName(object):
+    def __new__(self):
+        if not hasattr(self, 'instance'):
+            self.instance = super(DefaultBranchName, self).__new__(self)
+            arrow = ArrowSources.find()
+            arrow = ArrowSources.find()
+            repo = Repo(arrow.path)
+            remotes = repo.remotes
+            origin = repo.remotes["origin"]
+            origin_refs = origin.refs
+            origin_head = origin_refs["HEAD"] # git.RemoteReference object to origin/HEAD
+            origin_head_reference = origin_head.reference # git.RemoteReference object to origin/main
+            origin_head_name = origin_head_reference.name # Should return "origin/main" or "origin/master"
+            origin_head_name_tokenized = origin_head_name.split("/")
+            self.default_branch_name = origin_head_name_tokenized[-1]
+        return self.instance
+
+    @property
+    def value(self):
+        return self.default_branch_name
+
 
 class Release:
 
@@ -363,7 +384,8 @@ class Release:
 
     @property
     def base_branch(self):
-        return "master"
+        default_branch_name = DefaultBranchName()
+        return default_branch_name.value()
 
     def curate(self, minimal=False):
         # handle commits with parquet issue key specially and query them from
@@ -480,7 +502,8 @@ class MajorRelease(Release):
 
     @property
     def base_branch(self):
-        return "master"
+        default_branch_name = DefaultBranchName()
+        return default_branch_name.value()
 
     @cached_property
     def siblings(self):

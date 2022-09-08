@@ -361,6 +361,13 @@ class Repo:
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
 
+    @property
+    def default_branch_name(self):
+        ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
+        target_name = ref_obj.target
+        target_name_tokenized = target_name.split("/")
+        return target_name_tokenized[-1]
+
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
@@ -382,7 +389,7 @@ class Repo:
         if parents is None:
             # by default use the main branch as the base of the new branch
             # required to reuse github actions cache across crossbow tasks
-            commit, _ = self.repo.resolve_refish("master")
+            commit, _ = self.repo.resolve_refish(self.default_branch_name)
             parents = [commit.id]
         tree_id = self.create_tree(files)
 
@@ -546,8 +553,10 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
-    def github_pr(self, title, head=None, base="master", body=None,
+    def github_pr(self, title, head=None, base=None, body=None,
                   github_token=None, create=False):
+        # Default value for base is the default_branch name()
+        base = self.default_branch_name() if base is None else base
         github_token = github_token or self.github_token
         repo = self.as_github_repo(github_token=github_token)
         if create:
@@ -1289,11 +1298,15 @@ class Config(dict):
                     'is: `{}`'.format(task_name, str(e))
                 )
 
+        # Get the default branch name from the repository
+        arrow_source_dir = ArrowSources.find()
+        repo = Repo(arrow_source_dir.path)
+
         # validate that the defined tasks are renderable, in order to to that
         # define the required object with dummy data
         target = Target(
             head='e279a7e06e61c14868ca7d71dea795420aea6539',
-            branch='master',
+            branch=repo.default_branch_name,
             remote='https://github.com/apache/arrow',
             version='1.0.0dev123',
             r_version='0.13.0.100000123',
