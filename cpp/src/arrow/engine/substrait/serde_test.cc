@@ -23,16 +23,29 @@
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
+#include "arrow/dataset/file_parquet.h"
+
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/serde.h"
+
 #include "arrow/engine/substrait/util.h"
+
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/io/compressed.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
+
+#include "parquet/arrow/writer.h"
+
+#include "arrow/util/hash_util.h"
+#include "arrow/util/hashing.h"
 
 using testing::ElementsAre;
 using testing::Eq;
@@ -42,8 +55,45 @@ using testing::UnorderedElementsAre;
 namespace arrow {
 
 using internal::checked_cast;
-
+using internal::hash_combine;
 namespace engine {
+
+Status WriteIpcData(const std::string& path,
+                    const std::shared_ptr<fs::FileSystem> file_system,
+                    const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  ARROW_ASSIGN_OR_RAISE(
+      auto file_writer,
+      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  TableBatchReader reader(input);
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    RETURN_NOT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    RETURN_NOT_OK(file_writer->WriteRecordBatch(*batch));
+  }
+  RETURN_NOT_OK(file_writer->Close());
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Table>> GetTableFromPlan(
+    compute::Declaration& declarations,
+    arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
+    compute::ExecContext& exec_context, std::shared_ptr<Schema>& output_schema) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
+
+  RETURN_NOT_OK(decl->Validate());
+
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      output_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+  return arrow::Table::FromRecordBatchReader(sink_reader.get());
+}
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
@@ -866,6 +916,7 @@ Result<std::string> GetSubstraitJSON() {
   auto file_name =
       arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
   auto file_path = file_name->ToString();
+
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -1812,6 +1863,244 @@ TEST(Substrait, AggregateBadPhase) {
   })"));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, BasicPlanRoundTripping) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  std::cout << "file_path_str " << tempdir->path().ToString() << std::endl;
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
+
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+  }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
+  }
+}
+
+TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 4]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 1],
+      [3, 1, 3],
+      [1, 2, 2]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 3]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
+                                                             exec_context, dummy_schema));
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
+
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+  }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
+  }
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> rnd_trp_sink_gen;
+  auto rnd_trp_sink_node_options = compute::SinkNodeOptions{&rnd_trp_sink_gen};
+  auto rnd_trp_sink_declaration =
+      compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
+  auto rnd_trp_declarations =
+      compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
+  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
+                       GetTableFromPlan(rnd_trp_declarations, rnd_trp_sink_gen,
+                                        exec_context, dummy_schema));
+  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
 }  // namespace engine
