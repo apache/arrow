@@ -1167,7 +1167,7 @@ services:
     command:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/dist/java &&
+          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java &&
           /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
 

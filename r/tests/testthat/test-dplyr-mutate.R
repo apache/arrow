@@ -279,14 +279,13 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
-  # across and autosplicing: ARROW-11699
+  # test modified from version in dplyr::mutate due to ARROW-12632
   compare_dplyr_binding(
     .input %>%
-      select(name, homeworld, species) %>%
-      mutate(across(!name, as.factor)) %>%
+      select(name, height, mass) %>%
+      mutate(across(!name, as.character)) %>%
       collect(),
     starwars,
-    warning = "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
@@ -587,5 +586,59 @@ test_that("mutate() and transmute() with namespaced functions", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("Can use across() within mutate()", {
+
+  # expressions work in the right order
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
+  )
+
+  # this is valid is neither R nor Arrow
+  expect_error(
+    expect_warning(
+      compare_dplyr_binding(
+        .input %>%
+          arrow_table() %>%
+          mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
+          collect(),
+        example_data,
+        warning = TRUE
+      )
+    )
+  )
+
+  # ARROW-12778 - `where()` is not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(where(is.double))) %>%
+        collect(),
+      example_data
+    ),
+    "Unsupported selection helper"
+  )
+
+  # gives the right error with window functions
+  expect_warning(
+    arrow_table(example_data) %>%
+      mutate(
+        x = int + 2,
+        across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
+        exp(dbl2)
+      ) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 })

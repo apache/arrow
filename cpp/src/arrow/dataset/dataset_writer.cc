@@ -27,10 +27,12 @@
 #include "arrow/table.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
+using internal::Executor;
 namespace dataset {
 namespace internal {
 
@@ -112,18 +114,34 @@ struct DatasetWriterState {
   std::mutex visitors_mutex;
 };
 
-class DatasetWriterFileQueue : public util::AsyncDestroyable {
+Result<std::shared_ptr<FileWriter>> OpenWriter(
+    const FileSystemDatasetWriteOptions& write_options, std::shared_ptr<Schema> schema,
+    const std::string& filename) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::OutputStream> out_stream,
+                        write_options.filesystem->OpenOutputStream(filename));
+  return write_options.format()->MakeWriter(std::move(out_stream), std::move(schema),
+                                            write_options.file_write_options,
+                                            {write_options.filesystem, filename});
+}
+
+class DatasetWriterFileQueue {
  public:
-  explicit DatasetWriterFileQueue(const Future<std::shared_ptr<FileWriter>>& writer_fut,
+  explicit DatasetWriterFileQueue(const std::shared_ptr<Schema>& schema,
                                   const FileSystemDatasetWriteOptions& options,
                                   DatasetWriterState* writer_state)
-      : options_(options), writer_state_(writer_state) {
-    // If this AddTask call fails (e.g. we're given an already failing future) then we
-    // will get the error later when we try and write to it.
-    ARROW_UNUSED(file_tasks_.AddTask([this, writer_fut] {
-      return writer_fut.Then(
-          [this](const std::shared_ptr<FileWriter>& writer) { writer_ = writer; });
-    }));
+      : options_(options), schema_(schema), writer_state_(writer_state) {}
+
+  void Start(util::AsyncTaskScheduler* scheduler, const std::string& filename) {
+    scheduler_ = scheduler;
+    // Because the scheduler runs one task at a time we know the writer will
+    // be opened before any attempt to write
+    scheduler->AddSimpleTask([this, filename] {
+      Executor* io_executor = options_.filesystem->io_context().executor();
+      return DeferNotOk(io_executor->Submit([this, filename]() {
+        ARROW_ASSIGN_OR_RAISE(writer_, OpenWriter(options_, schema_, filename));
+        return Status::OK();
+      }));
+    });
   }
 
   Result<std::shared_ptr<RecordBatch>> PopStagedBatch() {
@@ -155,20 +173,27 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     return table->CombineChunksToBatch();
   }
 
-  Status ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
-    struct WriteTask {
-      Future<> operator()() { return self->WriteNext(std::move(batch)); }
+  void ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
+    // TODO(ARROW-17110) This task is only here to std::move the batch
+    // It can be a lambda once we adopt C++14
+    struct WriteTask : public util::AsyncTaskScheduler::Task {
+      WriteTask(DatasetWriterFileQueue* self, std::shared_ptr<RecordBatch> batch)
+          : self(self), batch(std::move(batch)) {}
+      Result<Future<>> operator()(util::AsyncTaskScheduler*) {
+        return self->WriteNext(std::move(batch));
+      }
       DatasetWriterFileQueue* self;
       std::shared_ptr<RecordBatch> batch;
     };
-    return file_tasks_.AddTask(WriteTask{this, std::move(batch)});
+    scheduler_->AddTask(
+        ::arrow::internal::make_unique<WriteTask>(this, std::move(batch)));
   }
 
   Result<int64_t> PopAndDeliverStagedBatch() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
     int64_t rows_popped = next_batch->num_rows();
     rows_currently_staged_ -= next_batch->num_rows();
-    ARROW_RETURN_NOT_OK(ScheduleBatch(std::move(next_batch)));
+    ScheduleBatch(std::move(next_batch));
     return rows_popped;
   }
 
@@ -188,12 +213,17 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
     return Status::OK();
   }
 
-  Future<> DoDestroy() override {
+  Status Finish() {
     writer_state_->staged_rows_count -= rows_currently_staged_;
     while (!staged_batches_.empty()) {
       RETURN_NOT_OK(PopAndDeliverStagedBatch());
     }
-    return file_tasks_.End().Then([this] { return DoFinish(); });
+    // At this point all write tasks have been added.  Because the scheduler
+    // is a 1-task FIFO we know this task will run at the very end and can
+    // add it now.
+    scheduler_->AddSimpleTask([this] { return DoFinish(); });
+    scheduler_->End();
+    return Status::OK();
   }
 
  private:
@@ -225,13 +255,14 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
   }
 
   const FileSystemDatasetWriteOptions& options_;
+  const std::shared_ptr<Schema>& schema_;
   DatasetWriterState* writer_state_;
   std::shared_ptr<FileWriter> writer_;
   // Batches are accumulated here until they are large enough to write out at which
   // point they are merged together and added to write_queue_
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
-  util::SerializedAsyncTaskGroup file_tasks_;
+  util::AsyncTaskScheduler* scheduler_ = nullptr;
 };
 
 struct WriteTask {
@@ -239,13 +270,14 @@ struct WriteTask {
   uint64_t num_rows;
 };
 
-class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
+class DatasetWriterDirectoryQueue {
  public:
-  DatasetWriterDirectoryQueue(std::string directory, std::string prefix,
-                              std::shared_ptr<Schema> schema,
+  DatasetWriterDirectoryQueue(util::AsyncTaskScheduler* scheduler, std::string directory,
+                              std::string prefix, std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
                               DatasetWriterState* writer_state)
-      : directory_(std::move(directory)),
+      : scheduler_(scheduler),
+        directory_(std::move(directory)),
         prefix_(std::move(prefix)),
         schema_(std::move(schema)),
         write_options_(write_options),
@@ -291,91 +323,93 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
 
   Status FinishCurrentFile() {
     if (latest_open_file_) {
+      ARROW_RETURN_NOT_OK(latest_open_file_->Finish());
       latest_open_file_ = nullptr;
     }
     rows_written_ = 0;
     return GetNextFilename().Value(&current_filename_);
   }
 
-  Result<std::shared_ptr<FileWriter>> OpenWriter(const std::string& filename) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::OutputStream> out_stream,
-                          write_options_.filesystem->OpenOutputStream(filename));
-    return write_options_.format()->MakeWriter(std::move(out_stream), schema_,
-                                               write_options_.file_write_options,
-                                               {write_options_.filesystem, filename});
-  }
-
-  Result<std::shared_ptr<DatasetWriterFileQueue>> OpenFileQueue(
-      const std::string& filename) {
-    Future<std::shared_ptr<FileWriter>> file_writer_fut =
-        init_future_.Then([this, filename] {
-          ::arrow::internal::Executor* io_executor =
-              write_options_.filesystem->io_context().executor();
-          return DeferNotOk(
-              io_executor->Submit([this, filename]() { return OpenWriter(filename); }));
-        });
-    auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
-        file_writer_fut, write_options_, writer_state_);
-    RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
-        [this] { writer_state_->open_files_throttle.Release(1); },
-        [this](const Status& err) {
-          writer_state_->open_files_throttle.Release(1);
-          return err;
-        })));
-    return file_queue;
+  Result<DatasetWriterFileQueue*> OpenFileQueue(const std::string& filename) {
+    auto file_queue = ::arrow::internal::make_unique<DatasetWriterFileQueue>(
+        schema_, write_options_, writer_state_);
+    DatasetWriterFileQueue* file_queue_view = file_queue.get();
+    std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
+        util::AsyncTaskScheduler::MakeThrottle(1);
+    struct FileFinishTask {
+      Status operator()() {
+        self->writer_state_->open_files_throttle.Release(1);
+        return Status::OK();
+      }
+      DatasetWriterDirectoryQueue* self;
+      std::unique_ptr<DatasetWriterFileQueue> owned_file_queue;
+      std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle;
+    };
+    util::AsyncTaskScheduler::Throttle* throttle_view = throttle.get();
+    util::AsyncTaskScheduler* file_scheduler = scheduler_->MakeSubScheduler(
+        FileFinishTask{this, std::move(file_queue), std::move(throttle)}, throttle_view);
+    if (init_task_) {
+      file_scheduler->AddSimpleTask(init_task_);
+      init_task_ = {};
+    }
+    file_queue_view->Start(file_scheduler, filename);
+    return file_queue_view;
   }
 
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
     if (directory_.empty() || !write_options_.create_dir) {
-      init_future_ = Future<>::MakeFinished();
+      return;
+    }
+    auto create_dir_cb = [this] {
+      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
+    };
+    if (write_options_.existing_data_behavior ==
+        ExistingDataBehavior::kDeleteMatchingPartitions) {
+      init_task_ = [this, create_dir_cb] {
+        return write_options_.filesystem
+            ->DeleteDirContentsAsync(directory_,
+                                     /*missing_dir_ok=*/true)
+            .Then(create_dir_cb);
+      };
     } else {
-      if (write_options_.existing_data_behavior ==
-          ExistingDataBehavior::kDeleteMatchingPartitions) {
-        init_future_ = write_options_.filesystem->DeleteDirContentsAsync(
-            directory_, /*missing_dir_ok=*/true);
-      } else {
-        init_future_ = Future<>::MakeFinished();
-      }
-      init_future_ = init_future_.Then([this] {
-        return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
-            [this]() { return write_options_.filesystem->CreateDir(directory_); }));
-      });
+      init_task_ = [create_dir_cb] { return create_dir_cb(); };
     }
   }
 
-  static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
-                                util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
-  Make(util::AsyncTaskGroup* task_group,
-       const FileSystemDatasetWriteOptions& write_options,
-       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
-       std::string directory, std::string prefix) {
-    auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(directory), std::move(prefix), std::move(schema), write_options,
-        writer_state);
-    RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
+  static Result<std::unique_ptr<DatasetWriterDirectoryQueue>> Make(
+      util::AsyncTaskScheduler* scheduler,
+      const FileSystemDatasetWriteOptions& write_options,
+      DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
+      std::string directory, std::string prefix) {
+    auto dir_queue = ::arrow::internal::make_unique<DatasetWriterDirectoryQueue>(
+        scheduler, std::move(directory), std::move(prefix), std::move(schema),
+        write_options, writer_state);
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
     // std::move required to make RTools 3.5 mingw compiler happy
     return std::move(dir_queue);
   }
 
-  Future<> DoDestroy() override {
-    latest_open_file_.reset();
-    return task_group_.End();
+  Status Finish() {
+    if (latest_open_file_) {
+      return latest_open_file_->Finish();
+    }
+    return Status::OK();
   }
 
  private:
-  util::AsyncTaskGroup task_group_;
+  util::AsyncTaskScheduler* scheduler_ = nullptr;
   std::string directory_;
   std::string prefix_;
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
   DatasetWriterState* writer_state_;
-  Future<> init_future_;
+  std::function<Future<>()> init_task_;
   std::string current_filename_;
-  std::shared_ptr<DatasetWriterFileQueue> latest_open_file_;
+  DatasetWriterFileQueue* latest_open_file_ = nullptr;
   uint64_t rows_written_ = 0;
   uint32_t file_counter_ = 0;
 };
@@ -447,16 +481,17 @@ uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued) {
 
 }  // namespace
 
-class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
+class DatasetWriter::DatasetWriterImpl {
  public:
-  DatasetWriterImpl(FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued)
-      : write_options_(std::move(write_options)),
+  DatasetWriterImpl(FileSystemDatasetWriteOptions write_options,
+                    util::AsyncTaskScheduler* scheduler, uint64_t max_rows_queued)
+      : scheduler_(scheduler),
+        write_options_(std::move(write_options)),
         writer_state_(max_rows_queued, write_options_.max_open_files,
                       CalculateMaxRowsStaged(max_rows_queued)) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                             const std::string& directory, const std::string& prefix) {
-    RETURN_NOT_OK(CheckError());
     if (batch->num_rows() == 0) {
       return Future<>::MakeFinished();
     }
@@ -467,6 +502,13 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     } else {
       return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
     }
+  }
+
+  Status Finish() {
+    for (const auto& directory_queue : directory_queues_) {
+      ARROW_RETURN_NOT_OK(directory_queue.second->Finish());
+    }
+    return Status::OK();
   }
 
  protected:
@@ -490,7 +532,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory + prefix,
             [this, &batch, &directory, &prefix](const std::string& key) {
-              return DatasetWriterDirectoryQueue::Make(&task_group_, write_options_,
+              return DatasetWriterDirectoryQueue::Make(scheduler_, write_options_,
                                                        &writer_state_, batch->schema(),
                                                        directory, prefix);
             }));
@@ -530,22 +572,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     return Future<>::MakeFinished();
   }
 
-  void SetError(Status st) {
-    std::lock_guard<std::mutex> lg(mutex_);
-    err_ = std::move(st);
-  }
-
-  Status CheckError() {
-    std::lock_guard<std::mutex> lg(mutex_);
-    return err_;
-  }
-
-  Future<> DoDestroy() override {
-    directory_queues_.clear();
-    return task_group_.End().Then([this] { return err_; });
-  }
-
-  util::AsyncTaskGroup task_group_;
+  util::AsyncTaskScheduler* scheduler_ = nullptr;
   FileSystemDatasetWriteOptions write_options_;
   DatasetWriterState writer_state_;
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
@@ -555,16 +582,18 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 };
 
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
+                             util::AsyncTaskScheduler* scheduler,
                              uint64_t max_rows_queued)
-    : impl_(util::MakeUniqueAsync<DatasetWriterImpl>(std::move(write_options),
-                                                     max_rows_queued)) {}
+    : impl_(::arrow::internal::make_unique<DatasetWriterImpl>(
+          std::move(write_options), scheduler, max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
-    FileSystemDatasetWriteOptions write_options, uint64_t max_rows_queued) {
+    FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
+    uint64_t max_rows_queued) {
   RETURN_NOT_OK(ValidateOptions(write_options));
   RETURN_NOT_OK(EnsureDestinationValid(write_options));
   return std::unique_ptr<DatasetWriter>(
-      new DatasetWriter(std::move(write_options), max_rows_queued));
+      new DatasetWriter(std::move(write_options), scheduler, max_rows_queued));
 }
 
 DatasetWriter::~DatasetWriter() = default;
@@ -575,11 +604,7 @@ Future<> DatasetWriter::WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
   return impl_->WriteRecordBatch(std::move(batch), directory, prefix);
 }
 
-Future<> DatasetWriter::Finish() {
-  Future<> finished = impl_->on_closed();
-  impl_.reset();
-  return finished;
-}
+Status DatasetWriter::Finish() { return impl_->Finish(); }
 
 }  // namespace internal
 }  // namespace dataset

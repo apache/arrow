@@ -786,6 +786,19 @@ endif()
 if(ARROW_S3)
   list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
+    list(APPEND
+         ARROW_STATIC_INSTALL_INTERFACE_LIBS
+         aws-cpp-sdk-identity-management
+         aws-cpp-sdk-sts
+         aws-cpp-sdk-cognito-identity
+         aws-cpp-sdk-s3
+         aws-cpp-sdk-core)
+  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+    if(UNIX)
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+    endif()
+  endif()
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
@@ -851,6 +864,9 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
   if(ARROW_HDFS OR ARROW_ORC)
+    if(Protobuf_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+    endif()
     if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
@@ -976,9 +992,6 @@ endif()
 if(ARROW_JNI)
   if(ARROW_ORC)
     add_subdirectory(../java/adapter/orc/src/main/cpp ./java/orc/jni)
-  endif()
-  if(ARROW_DATASET)
-    add_subdirectory(../java/dataset/src/main/cpp ./java/dataset/jni)
   endif()
 endif()
 

@@ -196,6 +196,7 @@ type FixedWidthDataType interface {
 
 type BinaryDataType interface {
 	DataType
+	IsUtf8() bool
 	binary()
 }
 

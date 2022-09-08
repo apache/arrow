@@ -73,6 +73,12 @@ type FixedWidthTypes interface {
 		arrow.DayTimeInterval | arrow.MonthDayNanoInterval
 }
 
+type TemporalTypes interface {
+	arrow.Date32 | arrow.Date64 | arrow.Time32 | arrow.Time64 |
+		arrow.Timestamp | arrow.Duration | arrow.DayTimeInterval |
+		arrow.MonthInterval | arrow.MonthDayNanoInterval
+}
+
 // GetSpanValues returns a properly typed slice bye reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
@@ -87,6 +93,10 @@ func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len+1)
 	return ret[span.Offset:]
+}
+
+func GetBytes[T constraints.Integer](in []T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(T(0))))
 }
 
 func Min[T constraints.Ordered](a, b T) T {
