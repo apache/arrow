@@ -244,6 +244,8 @@ public class JdbcToArrowUtils {
     for (int i = 1; i <= columnCount; i++) {
       final String columnName = rsmd.getColumnLabel(i);
 
+      final String columnComment = config.getColumnCommentByColumnIndex() != null ?
+              config.getColumnCommentByColumnIndex().get(i) : null;
       final Map<String, String> metadata;
       if (config.shouldIncludeMetadata()) {
         metadata = new HashMap<>();
@@ -251,9 +253,16 @@ public class JdbcToArrowUtils {
         metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
         metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
         metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
-
+        if (columnComment != null && !columnComment.isEmpty()) {
+          metadata.put(Constants.COMMENT, columnComment);
+        }
       } else {
-        metadata = null;
+        if (columnComment != null && !columnComment.isEmpty()) {
+          metadata = new HashMap<>();
+          metadata.put(Constants.COMMENT, columnComment);
+        } else {
+          metadata = null;
+        }
       }
 
       final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
@@ -277,7 +286,14 @@ public class JdbcToArrowUtils {
       }
     }
 
-    return new Schema(fields, null);
+    final Map<String, String> schemaMetadata;
+    if (config.getSchemaComment() != null && !config.getSchemaComment().isEmpty()) {
+      schemaMetadata = new HashMap<>();
+      schemaMetadata.put(Constants.COMMENT, config.getSchemaComment());
+    } else {
+      schemaMetadata = null;
+    }
+    return new Schema(fields, schemaMetadata);
   }
 
   static JdbcFieldInfo getJdbcFieldInfoForColumn(
