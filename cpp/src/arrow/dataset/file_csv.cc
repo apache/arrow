@@ -214,6 +214,9 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
 
   Future<std::shared_ptr<csv::StreamingReader>> reader_fut;
 
+  // If the file is uncompressed we open the reader with a RandomAccessFile which will
+  // be capable of reading the file in parallel.  If the file is compressed we must use an
+  // input stream and will be read sequentially.
   if (actual_compression == Compression::type::UNCOMPRESSED) {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open())
     reader_fut = DeferNotOk(input->io_context().executor()->Submit(
