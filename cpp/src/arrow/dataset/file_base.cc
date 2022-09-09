@@ -96,7 +96,7 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
                       ((buffer_ != nullptr && other.buffer_ != nullptr) &&
                        (buffer_->address() == other.buffer_->address()));
-  return match_file_system && file_info_.Equals(other.file_info_) && match_buffer &&
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
          compression_ == other.compression_;
 }
 
