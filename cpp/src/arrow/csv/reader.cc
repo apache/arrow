@@ -972,9 +972,6 @@ class StreamingReaderImpl : public ReaderMixin<std::shared_ptr<io::InputStream>>
   std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Base class for streaming readers
-
 class ParallelStreamingReaderImpl
     : public ReaderMixin<std::shared_ptr<io::RandomAccessFile>>,
       public csv::StreamingReader,
