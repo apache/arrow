@@ -155,38 +155,34 @@ Status jemalloc_set_decay_ms(int ms) {
 #undef RETURN_IF_JEMALLOC_ERROR
 
 #ifdef ARROW_JEMALLOC
-Status jemalloc_get_stat(const char* name, size_t& out) {
-  uint64_t epoch;
+Result<uint64_t> jemalloc_get_stat(const char* name) {
   size_t sz = sizeof(uint64_t);
-  mallctl("epoch", &epoch, &sz, &epoch, sz);
-
-  size_t value;
-  sz = sizeof(size_t);
-  int err = mallctl(name, &value, &sz, NULLPTR, 0);
-  out = std::move(value);
-
-  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
-             : Status::OK();
-}
-
-Status jemalloc_get_stat(const char* name, uint64_t& out) {
+  int err;
   uint64_t value;
-  size_t sz = sizeof(uint64_t);
-  int err = mallctl(name, &value, &sz, NULLPTR, 0);
-  out = value;
 
-  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
-             : Status::OK();
-}
+  if (std::strcmp(name, "thread.allocatedp") == 0 ||
+      std::strcmp(name, "thread.deallocatedp") == 0) {
+    uint64_t* tmp_value;
+    err = mallctl(name, &tmp_value, &sz, NULLPTR, 0);
+    value = *tmp_value;
+  } else if (std::strcmp(name, "stats.allocated") == 0 ||
+             std::strcmp(name, "stats.active") == 0 ||
+             std::strcmp(name, "stats.metadata") == 0 ||
+             std::strcmp(name, "stats.resident") == 0 ||
+             std::strcmp(name, "stats.mapped") == 0 ||
+             std::strcmp(name, "stats.retained") == 0) {
+    uint64_t epoch;
+    mallctl("epoch", &epoch, &sz, &epoch, sz);
+    err = mallctl(name, &value, &sz, NULLPTR, 0);
+  } else {
+    err = mallctl(name, &value, &sz, NULLPTR, 0);
+  }
 
-Status jemalloc_get_statp(const char* name, uint64_t& out) {
-  uint64_t* value;
-  size_t sz = sizeof(uint64_t);
-  int err = mallctl(name, &value, &sz, NULLPTR, 0);
-  out = *value;
+  if (err) {
+    return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
+  }
 
-  return err ? arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name)
-             : Status::OK();
+  return value;
 }
 
 Status jemalloc_peak_reset() {

@@ -176,7 +176,7 @@ TEST(Jemalloc, SetDirtyPageDecayMillis) {
 TEST(Jemalloc, GetAllocationStats) {
 #ifdef ARROW_JEMALLOC
   uint8_t* data;
-  size_t allocated, active, metadata, resident, mapped, retained, allocated0, active0,
+  uint64_t allocated, active, metadata, resident, mapped, retained, allocated0, active0,
       metadata0, resident0, mapped0, retained0;
   uint64_t thread_allocatedp, thread_deallocatedp, thread_allocatedp0,
       thread_deallocatedp0, thread_allocated, thread_deallocated, thread_peak_read,
@@ -186,17 +186,17 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_EQ("jemalloc", pool->backend_name());
 
   // Record stats before allocating
-  ASSERT_OK(jemalloc_get_stat("stats.allocated", allocated0));
-  ASSERT_OK(jemalloc_get_stat("stats.active", active0));
-  ASSERT_OK(jemalloc_get_stat("stats.metadata", metadata0));
-  ASSERT_OK(jemalloc_get_stat("stats.resident", resident0));
-  ASSERT_OK(jemalloc_get_stat("stats.mapped", mapped0));
-  ASSERT_OK(jemalloc_get_stat("stats.retained", retained0));
-  ASSERT_OK(jemalloc_get_stat("thread.allocated", thread_allocated0));
-  ASSERT_OK(jemalloc_get_stat("thread.deallocated", thread_deallocated0));
-  ASSERT_OK(jemalloc_get_stat("thread.peak.read", thread_peak_read0));
-  ASSERT_OK(jemalloc_get_statp("thread.allocatedp", thread_allocatedp0));
-  ASSERT_OK(jemalloc_get_statp("thread.deallocatedp", thread_deallocatedp0));
+  ASSERT_OK_AND_ASSIGN(allocated0, jemalloc_get_stat("stats.allocated"));
+  ASSERT_OK_AND_ASSIGN(active0, jemalloc_get_stat("stats.active"));
+  ASSERT_OK_AND_ASSIGN(metadata0, jemalloc_get_stat("stats.metadata"));
+  ASSERT_OK_AND_ASSIGN(resident0, jemalloc_get_stat("stats.resident"));
+  ASSERT_OK_AND_ASSIGN(mapped0, jemalloc_get_stat("stats.mapped"));
+  ASSERT_OK_AND_ASSIGN(retained0, jemalloc_get_stat("stats.retained"));
+  ASSERT_OK_AND_ASSIGN(thread_allocated0, jemalloc_get_stat("thread.allocated"));
+  ASSERT_OK_AND_ASSIGN(thread_deallocated0, jemalloc_get_stat("thread.deallocated"));
+  ASSERT_OK_AND_ASSIGN(thread_peak_read0, jemalloc_get_stat("thread.peak.read"));
+  ASSERT_OK_AND_ASSIGN(thread_allocatedp0, jemalloc_get_stat("thread.allocatedp"));
+  ASSERT_OK_AND_ASSIGN(thread_deallocatedp0, jemalloc_get_stat("thread.deallocatedp"));
 
   // Allocate memory
   ASSERT_OK(jemalloc_set_decay_ms(10000));
@@ -206,17 +206,17 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_EQ(1214, pool->bytes_allocated());
 
   // Record stats after allocating
-  ASSERT_OK(jemalloc_get_stat("stats.allocated", allocated));
-  ASSERT_OK(jemalloc_get_stat("stats.active", active));
-  ASSERT_OK(jemalloc_get_stat("stats.metadata", metadata));
-  ASSERT_OK(jemalloc_get_stat("stats.resident", resident));
-  ASSERT_OK(jemalloc_get_stat("stats.mapped", mapped));
-  ASSERT_OK(jemalloc_get_stat("stats.retained", retained));
-  ASSERT_OK(jemalloc_get_stat("thread.allocated", thread_allocated));
-  ASSERT_OK(jemalloc_get_stat("thread.deallocated", thread_deallocated));
-  ASSERT_OK(jemalloc_get_stat("thread.peak.read", thread_peak_read));
-  ASSERT_OK(jemalloc_get_statp("thread.allocatedp", thread_allocatedp));
-  ASSERT_OK(jemalloc_get_statp("thread.deallocatedp", thread_deallocatedp));
+  ASSERT_OK_AND_ASSIGN(allocated, jemalloc_get_stat("stats.allocated"));
+  ASSERT_OK_AND_ASSIGN(active, jemalloc_get_stat("stats.active"));
+  ASSERT_OK_AND_ASSIGN(metadata, jemalloc_get_stat("stats.metadata"));
+  ASSERT_OK_AND_ASSIGN(resident, jemalloc_get_stat("stats.resident"));
+  ASSERT_OK_AND_ASSIGN(mapped, jemalloc_get_stat("stats.mapped"));
+  ASSERT_OK_AND_ASSIGN(retained, jemalloc_get_stat("stats.retained"));
+  ASSERT_OK_AND_ASSIGN(thread_allocated, jemalloc_get_stat("thread.allocated"));
+  ASSERT_OK_AND_ASSIGN(thread_deallocated, jemalloc_get_stat("thread.deallocated"));
+  ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
+  ASSERT_OK_AND_ASSIGN(thread_allocatedp, jemalloc_get_stat("thread.allocatedp"));
+  ASSERT_OK_AND_ASSIGN(thread_deallocatedp, jemalloc_get_stat("thread.deallocatedp"));
 
   // Reading stats via value return is equivalent to pointer passing
   ASSERT_EQ(thread_allocated, thread_allocatedp);
@@ -246,22 +246,20 @@ TEST(Jemalloc, GetAllocationStats) {
 
   // Resetting thread peak read metric
   ASSERT_OK(pool->Allocate(12560, &data));
-  ASSERT_OK(jemalloc_get_stat("thread.peak.read", thread_peak_read));
+  ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
   ASSERT_EQ(15616, thread_peak_read);
   ASSERT_OK(jemalloc_peak_reset());
   ASSERT_OK(pool->Allocate(1256, &data));
-  ASSERT_OK(jemalloc_get_stat("thread.peak.read", thread_peak_read));
+  ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
   ASSERT_EQ(1280, thread_peak_read);
 
   // Print statistics to stdout
   ASSERT_OK(jemalloc_stats_print("ax"));
 #else
-  size_t allocated;
-  uint64_t thread_peak_read, stats_allocated, stats_allocatedp;
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("thread.peak.read", &thread_peak_read));
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated", &allocated));
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated", &stats_allocated));
-  ASSERT_RAISES(Invalid, jemalloc_get_statp("stats.allocatedp", &stats_allocatedp));
+  ASSERT_RAISES(Invalid, jemalloc_get_stat("thread.peak.read"));
+  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated"));
+  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated"));
+  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocatedp"));
   ASSERT_RAISES(Invalid, jemalloc_peak_reset());
   ASSERT_RAISES(Invalid, jemalloc_stats_print("ax"));
 #endif

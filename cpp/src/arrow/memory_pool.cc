@@ -670,15 +670,7 @@ Status jemalloc_set_decay_ms(int ms) {
   return Status::Invalid("jemalloc support is not built");
 }
 
-Status jemalloc_get_stat(const char* name, size_t& out) {
-  return Status::Invalid("jemalloc support is not built");
-}
-
-Status jemalloc_get_stat(const char* name, uint64_t& out) {
-  return Status::Invalid("jemalloc support is not built");
-}
-
-Status jemalloc_get_statp(const char* name, uint64_t& out) {
+Result<uint64_t> jemalloc_get_stat(const char* name) {
   return Status::Invalid("jemalloc support is not built");
 }
 
