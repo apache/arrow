@@ -244,7 +244,7 @@ such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
 
 A quick way of testing: attach to the process with a debugger and call
-malloc_trim, or call :func:`ReleaseUnused <arrow::MemoryPool::ReleaseUnused>`
+``malloc_trim``, or call :func:`ReleaseUnused <arrow::MemoryPool::ReleaseUnused>`
 on the system pool. If memory usage drops, then likely, there is memory
 allocated by gRPC or by the application that the system allocator was holding
 on to. This can be adjusted in platform-specific ways; see an investigation
@@ -289,7 +289,7 @@ consistent quality of service.
 Limiting DoPut Batch Size
 --------------------------
 
-You may wish to limit the maximum size a client can submit to a server through
+You may wish to limit the maximum batch size a client can submit to a server through
 DoPut, to prevent a request from taking up too much memory on the server. On
 the client-side, set :member:`arrow::flight::FlightClientOptions::write_size_limit_bytes`.
 On the server-side, set the gRPC option ``GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH``.
