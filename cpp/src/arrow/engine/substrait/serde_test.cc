@@ -2188,7 +2188,11 @@ TEST(Substrait, ProjectRel) {
   // creating a dummy dataset using a dummy table
   auto input_table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
-      [3, 4, 20]
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
   ])"});
 
   std::string substrait_json = R"({
@@ -2210,8 +2214,7 @@ TEST(Substrait, ProjectRel) {
                   }
                 }
               }
-            },
-            {
+            }, {
               "value": {
                 "selection": {
                   "directReference": {
@@ -2223,7 +2226,10 @@ TEST(Substrait, ProjectRel) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         ],
@@ -2252,7 +2258,7 @@ TEST(Substrait, ProjectRel) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -2260,17 +2266,21 @@ TEST(Substrait, ProjectRel) {
       {"extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "add"
+        "name": "equal"
       }}
     ]
   })";
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   auto output_schema = schema({field("A", int32()), field("B", int32()),
-                               field("C", int32()), field("ADD", int32())});
+                               field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
-    [1, 1, 10, 2],
-    [3, 4, 20, 7]
+    [1, 1, 10, true],
+    [3, 5, 20, false],
+    [4, 1, 30, false],
+    [2, 1, 40, false],
+    [5, 5, 50, true],
+    [2, 2, 60, true]
   ])"});
 
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
@@ -2297,7 +2307,11 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
   // creating a dummy dataset using a dummy table
   auto input_table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
-      [3, 4, 20]
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
   ])"});
 
   std::string substrait_json = R"({
@@ -2336,7 +2350,10 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         ],
@@ -2365,7 +2382,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -2373,17 +2390,21 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
       {"extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "add"
+        "name": "equal"
       }}
     ]
   })";
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   auto output_schema =
-      schema({field("A", int32()), field("C", int32()), field("add", int32())});
+      schema({field("A", int32()), field("C", int32()), field("equal", boolean())});
   auto expected_table = TableFromJSON(output_schema, {R"([
-      [1, 10, 2],
-      [3, 20, 7]
+      [1, 10, true],
+      [3, 20, false],
+      [4, 30, false],
+      [2, 40, false],
+      [5, 50, true],
+      [2, 60, true]
   ])"});
   NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
     std::shared_ptr<compute::ExecNodeOptions> options =
