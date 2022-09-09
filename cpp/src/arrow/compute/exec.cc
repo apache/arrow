@@ -33,6 +33,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
@@ -1297,28 +1298,16 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 
 Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
     const std::string& func_name, const std::vector<Datum>& args,
-    const FunctionOptions* options, ExecContext* ctx) {
+    const FunctionOptions* options, FunctionRegistry* func_registry) {
+  if (func_registry == NULLPTR) {
+    func_registry = GetFunctionRegistry();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto inputs, internal::GetFunctionArgumentTypes(args));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
-                        ctx->func_registry()->GetFunction(func_name));
-  return func->BestExecutor(args, options, ctx);
-}
-
-Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
-    const std::string& func_name, const std::vector<Datum>& args, ExecContext* ctx) {
-  return GetFunctionExecutor(func_name, args, /*options=*/nullptr, ctx);
-}
-
-Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
-    const std::string& func_name, const ExecBatch& batch, const FunctionOptions* options,
-    ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
-                        ctx->func_registry()->GetFunction(func_name));
-  return func->BestExecutor(batch, options, ctx);
-}
-
-Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
-    const std::string& func_name, const ExecBatch& batch, ExecContext* ctx) {
-  return GetFunctionExecutor(func_name, batch, /*options=*/nullptr, ctx);
+                        func_registry->GetFunction(func_name));
+  ARROW_ASSIGN_OR_RAISE(auto func_exec, func->GetBestExecutor(inputs));
+  ARROW_RETURN_NOT_OK(func_exec->Init(options));
+  return func_exec;
 }
 
 }  // namespace compute

@@ -161,7 +161,13 @@ struct ARROW_EXPORT FunctionDoc {
 
 /// \brief An executor of a function with a preconfigured kernel
 struct ARROW_EXPORT FunctionExecutor {
-  virtual ~FunctionExecutor() {}
+  virtual ~FunctionExecutor() = default;
+  /// \brief Initialize a preconfigured kernel
+  ///
+  /// This method may be called zero or more times. By default, the kernel is initialized
+  /// with default function options and exec context.
+  virtual Status Init(const FunctionOptions* options = NULLPTR,
+                      ExecContext* exec_ctx = NULLPTR) = 0;
   /// \brief Execute the preconfigured kernel with arguments that must fit it
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 int64_t passed_length = -1) = 0;
@@ -234,13 +240,8 @@ class ARROW_EXPORT Function {
   virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
 
   /// \brief Get a function executor with a best-matching kernel
-  virtual Result<std::shared_ptr<FunctionExecutor>> BestExecutor(
-      const std::vector<Datum>& args, const FunctionOptions* options,
-      ExecContext* ctx) const;
-
-  /// \brief Get a function executor with a best-matching kernel
-  virtual Result<std::shared_ptr<FunctionExecutor>> BestExecutor(
-      const ExecBatch& batch, const FunctionOptions* options, ExecContext* ctx) const;
+  virtual Result<std::shared_ptr<FunctionExecutor>> GetBestExecutor(
+      std::vector<TypeHolder>& inputs) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken

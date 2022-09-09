@@ -31,6 +31,7 @@
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -98,16 +99,6 @@ Status Function::CheckArity(size_t num_args) const {
 }
 
 namespace {
-
-Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
-  for (const auto& value : values) {
-    if (!value.is_value()) {
-      return Status::Invalid("Tried executing function with non-value type: ",
-                             value.ToString());
-    }
-  }
-  return Status::OK();
-}
 
 Status CheckOptions(const Function& function, const FunctionOptions* options) {
   if (options == nullptr && function.doc().options_required) {
@@ -191,39 +182,55 @@ const Kernel* DispatchExactImpl(const Function* func,
 
 struct FunctionExecutorImpl : public FunctionExecutor {
   FunctionExecutorImpl(std::vector<TypeHolder> in_types, const Kernel* kernel,
-                       ExecContext* ctx, std::unique_ptr<detail::KernelExecutor> executor,
-                       Function::Kind func_kind, const std::string& func_name)
+                       std::unique_ptr<detail::KernelExecutor> executor,
+                       const Function& func)
       : in_types(std::move(in_types)),
         kernel(kernel),
-        kernel_ctx(ctx, kernel),
+        kernel_ctx(),
         executor(std::move(executor)),
-        func_kind(func_kind),
-        func_name(func_name),
+        func(func),
         state(),
         options(NULLPTR) {}
   virtual ~FunctionExecutorImpl() {}
 
-  Status Init(const FunctionOptions* options) {
+  Status KernelInit(const FunctionOptions* options) {
+    if (!kernel_ctx) {
+      return Status::Invalid("function executor with null kernel context");
+    }
+    if (options == nullptr) {
+      RETURN_NOT_OK(CheckOptions(func, options));
+      options = func.default_options();
+    }
     if (kernel->init) {
       ARROW_ASSIGN_OR_RAISE(state,
-                            kernel->init(&kernel_ctx, {kernel, in_types, options}));
-      kernel_ctx.SetState(state.get());
+                            kernel->init(kernel_ctx.get(), {kernel, in_types, options}));
+      kernel_ctx->SetState(state.get());
     }
 
-    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
+    RETURN_NOT_OK(executor->Init(kernel_ctx.get(), {kernel, in_types, options}));
     this->options = options;
     return Status::OK();
+  }
+
+  Status Init(const FunctionOptions* options, ExecContext* exec_ctx) override {
+    kernel_ctx.reset(new KernelContext{exec_ctx, kernel});
+    return KernelInit(options);
   }
 
   Result<Datum> Execute(const std::vector<Datum>& args, int64_t passed_length) override {
     util::tracing::Span span;
 
+    auto func_kind = func.kind();
+    auto func_name = func.name();
     START_COMPUTE_SPAN(span, func_name,
                        {{"function.name", func_name},
                         {"function.options", options ? options->ToString() : "<NULLPTR>"},
                         {"function.kind", func_kind}});
 
-    ExecContext* ctx = kernel_ctx.exec_context();
+    if (!kernel_ctx) {
+      ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
+    }
+    ExecContext* ctx = kernel_ctx->exec_context();
     // Cast arguments if necessary
     std::vector<Datum> args_with_cast;
     for (size_t i = 0; i != args.size(); ++i) {
@@ -269,10 +276,9 @@ struct FunctionExecutorImpl : public FunctionExecutor {
 
   std::vector<TypeHolder> in_types;
   const Kernel* kernel;
-  KernelContext kernel_ctx;
+  std::unique_ptr<KernelContext> kernel_ctx;
   std::unique_ptr<detail::KernelExecutor> executor;
-  Function::Kind func_kind;
-  std::string func_name;
+  const Function& func;
   std::unique_ptr<KernelState> state;
   const FunctionOptions* options;
 };
@@ -297,25 +303,8 @@ Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) co
   return DispatchExact(*values);
 }
 
-Result<std::shared_ptr<FunctionExecutor>> Function::BestExecutor(
-    const std::vector<Datum>& args, const FunctionOptions* options,
-    ExecContext* ctx) const {
-  if (options == nullptr) {
-    RETURN_NOT_OK(CheckOptions(*this, options));
-    options = default_options();
-  }
-  if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return BestExecutor(args, options, &default_ctx);
-  }
-
-  // type-check Datum arguments here. Really we'd like to avoid this as much as
-  // possible
-  RETURN_NOT_OK(CheckAllArrayOrScalar(args));
-  std::vector<TypeHolder> inputs(args.size());
-  for (size_t i = 0; i != args.size(); ++i) {
-    inputs[i] = TypeHolder(args[i].type());
-  }
+Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(
+    std::vector<TypeHolder>& inputs) const {
 
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
@@ -330,15 +319,8 @@ Result<std::shared_ptr<FunctionExecutor>> Function::BestExecutor(
 
   ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
 
-  auto func_exec = std::make_shared<detail::FunctionExecutorImpl>(
-      std::move(inputs), kernel, ctx, std::move(executor), kind(), name_);
-  RETURN_NOT_OK(func_exec->Init(options));
-  return func_exec;
-}
-
-Result<std::shared_ptr<FunctionExecutor>> Function::BestExecutor(
-    const ExecBatch& batch, const FunctionOptions* options, ExecContext* ctx) const {
-  return BestExecutor(batch.values, options, ctx);
+  return std::make_shared<detail::FunctionExecutorImpl>(
+      std::move(inputs), kernel, std::move(executor), *this);
 }
 
 namespace {
@@ -346,13 +328,10 @@ namespace {
 Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
                               int64_t passed_length, const FunctionOptions* options,
                               ExecContext* ctx) {
-  if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return ExecuteInternal(func, args, passed_length, options, &default_ctx);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto executor, func.BestExecutor(args, options, ctx));
-  return executor->Execute(args, passed_length);
+  ARROW_ASSIGN_OR_RAISE(auto inputs, internal::GetFunctionArgumentTypes(args));
+  ARROW_ASSIGN_OR_RAISE(auto func_exec, func.GetBestExecutor(inputs));
+  ARROW_RETURN_NOT_OK(func_exec->Init(options, ctx));
+  return func_exec->Execute(args, passed_length);
 }
 
 }  // namespace
