@@ -105,13 +105,19 @@ struct RunLengthEncodeExec
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
     if (this->input_array.length == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto run_ends_buffer,
+                            AllocateBitmap(0, this->kernel_context->memory_pool()));
       output_array_data->length = 0;
       output_array_data->offset = 0;
+      output_array_data->null_count = 0;
       output_array_data->buffers = {NULLPTR};
+      output_array_data->child_data.resize(2);
       output_array_data->child_data[0] =
-          ArrayData::Make(this->input_array.type->GetSharedPtr(),
+          ArrayData::Make(int32(),
                           /*length =*/0,
-                          /*buffers =*/{NULLPTR, NULLPTR});
+                          /*buffers =*/{NULLPTR, run_ends_buffer},
+                          /*null_count =*/0);
+      output_array_data->child_data[1] = this->input_array.ToArrayData();
       return Status::OK();
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
@@ -174,7 +180,7 @@ struct RunLengthEncodeExec
     run_ends_array_data->buffers.push_back(NULLPTR);
     run_ends_array_data->buffers.push_back(std::move(run_lengths_buffer));
 
-    output_array_data->null_count.store(input_null_count);
+    output_array_data->null_count.store(0);
     values_array_data->null_count = output_null_count;
 
     // set mutable pointers for output; `WriteValue` uses member `output_` variables
@@ -244,13 +250,6 @@ struct RunLengthDecodeExec
 
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
-    if (this->input_array.length == 0) {
-      output_array_data->length = 0;
-      output_array_data->offset = 0;
-      output_array_data->buffers = {NULLPTR, NULLPTR};
-      return Status::OK();
-    }
-
     const ArraySpan& data_array = rle_util::ValuesArray(this->input_array);
     this->input_validity = data_array.buffers[0].data;
     this->input_values = data_array.buffers[1].data;

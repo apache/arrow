@@ -94,7 +94,7 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_EQ(encoded->length, data.input->length());
   ASSERT_EQ(encoded->offset, 0);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
-  ASSERT_EQ(encoded->null_count, data.input->null_count());
+  ASSERT_EQ(encoded->null_count, 0);
 
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
@@ -171,7 +171,10 @@ INSTANTIATE_TEST_SUITE_P(
                           {2, 3}, 2),
         RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
                           "[null, false]", {1, 2}, 5),
-        RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
+        RLETestData::JSON(float64(), "[]", "[]", {}),
+        RLETestData::JSON(boolean(), "[]", "[]", {}),
+
+      RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
         RLETestData::TypeMinMaxNull<Int16Type>(),
         RLETestData::TypeMinMaxNull<UInt16Type>(),
         RLETestData::TypeMinMaxNull<Int32Type>(),
