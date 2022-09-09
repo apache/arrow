@@ -217,8 +217,8 @@ Don’t round-robin load balance
 every server, causing an unexpected number of open connections and depleting
 server resources.
 
-Debugging disconnects
----------------------
+Debugging connection issues
+---------------------------
 
 When facing unexpected disconnects on long running connections use netstat to
 monitor the number of open connections. If number of connections is much
@@ -235,7 +235,7 @@ Hence, to detect connection errors when creating a client, some sort
 of dummy RPC should be made.
 
 Memory management
------------------------
+-----------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
 data copies. However, this means that those allocations may not
@@ -248,9 +248,8 @@ A quick way of testing: attach to the process with a debugger and call
 on the system pool. If memory usage drops, then likely, there is memory
 allocated by gRPC or by the application that the system allocator was holding
 on to. This can be adjusted in platform-specific ways; see an investigation
-in JIRA for an example of how this works on Linux/glibc.
-
-glibc malloc can be explicitly told to dump caches. See ARROW-16697_ as an example.
+in ARROW-16697_ for an example of how this works on Linux/glibc. glibc malloc
+can be explicitly told to dump caches.
 
 Excessive traffic
 -----------------
@@ -301,9 +300,9 @@ against impolite clients.
 Closing unresponsive connections
 --------------------------------
 
-1. A stale connection can be closed using
+1. A stale call can be closed using
    :member:`arrow::flight::FlightClientOptions::stop_token`. This requires recording the
-   stop token at connection establishment time.
+   stop token at call establishment time.
 
    .. tab-set::
 
