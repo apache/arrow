@@ -143,9 +143,9 @@ final class ArrayImporter {
       if (bufferPtr != NULL) {
         // TODO(roee88): an API for getting the size for each buffer is not yet
         // available
-        int length = Integer.MAX_VALUE;
-        buffer = new ArrowBuf(referenceManager, null, length, bufferPtr);
-        buffer.writerIndex(length);
+        int capacity = Integer.MAX_VALUE;
+        buffer = new ArrowBuf(referenceManager, null, capacity, bufferPtr);
+        buffer.writerIndex(capacity);
       }
       result.add(buffer);
     }
