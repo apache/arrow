@@ -209,11 +209,9 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   // If the file is uncompressed we open the reader with a RandomAccessFile which will
   // be capable of reading the file in parallel.  If the file is compressed we must use an
   // input stream and will be read sequentially.
-  if (actual_compression == Compression::type::UNCOMPRESSED) {
+  if (actual_compression == Compression::type::UNCOMPRESSED &&
+      !(fragment_scan_options->stream_transform_func)) {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open())
-    if (fragment_scan_options->stream_transform_func) {
-      ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
-    }
     reader_fut = DeferNotOk(input->io_context().executor()->Submit(
         [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
           ARROW_ASSIGN_OR_RAISE(auto temp_first_block,
