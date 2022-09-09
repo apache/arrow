@@ -305,7 +305,6 @@ Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) co
 
 Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(
     std::vector<TypeHolder>& inputs) const {
-
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
@@ -319,8 +318,8 @@ Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(
 
   ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
 
-  return std::make_shared<detail::FunctionExecutorImpl>(
-      std::move(inputs), kernel, std::move(executor), *this);
+  return std::make_shared<detail::FunctionExecutorImpl>(std::move(inputs), kernel,
+                                                        std::move(executor), *this);
 }
 
 namespace {
