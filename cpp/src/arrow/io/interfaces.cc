@@ -164,7 +164,7 @@ Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
     if (pos >= state->total_size) {
       return AsyncGeneratorEnd<std::shared_ptr<Buffer>>();
     }
-    // idx is guaranteed to be smaller than total size, but you might not be able to read
+    // pos is guaranteed to be smaller than total size, but you might not be able to read
     // a full block
     if (pos + state->block_size > state->total_size) {
       return state->file->ReadAsync(pos, state->total_size - pos);
