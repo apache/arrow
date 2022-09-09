@@ -186,12 +186,14 @@ Status jemalloc_get_stat(const char* name, uint64_t& out);
 /// This is useful for avoiding the overhead of repeated copy calls.
 Status jemalloc_get_statp(const char* name, uint64_t& out);
 
-/// \brief Resets the counter for bytes allocated in the calling thread to zero.
+/// \brief Reset the counter for peak bytes allocated in the calling thread to zero.
 /// This affects subsequent calls to thread.peak.read, but not the values returned by
 /// thread.allocated or thread.deallocated.
 Status jemalloc_peak_reset();
 
-/// \brief Prints summary statistics in human-readable form. See malloc_stats_print
+/// \brief Print summary statistics in human-readable form.
+///
+/// See malloc_stats_print
 /// documentation in jemalloc project documentation for available opt flags.
 ARROW_EXPORT Status jemalloc_stats_print(const char* opts = "");
 
