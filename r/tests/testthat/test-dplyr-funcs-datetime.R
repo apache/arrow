@@ -262,7 +262,7 @@ test_that("strptime works for individual formats", {
 
 })
 
-test_that("timestampt round trip correctly via strftime and strptime", {
+test_that("timestamp round trip correctly via strftime and strptime", {
   # strptime format support is not consistent across platforms
   skip_on_cran()
 
