@@ -147,9 +147,9 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   return Loop(LoopBody{std::move(generator), std::move(vec)});
 }
 
-/// \brief this is just like a MapGenerator but the map fun returns a thing instead of a
-/// future. Then we will launch each map fun as an independent task, instead of piggy
-/// backing it to the future from the source.
+/// \brief Similar to MapGenerator but applies the map function in a new thread task
+/// This is similar to combining a map generator and transfer generator but the former
+/// would not be able to guarantee the map task runs on a new thread.
 template <typename T, typename ApplyFn,
           typename Applied = arrow::detail::result_of_t<ApplyFn(const T&)>,
           typename V = typename EnsureResult<Applied>::type::ValueType>
