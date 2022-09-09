@@ -234,31 +234,30 @@ test_that("strptime works for individual formats", {
   )
 
   # Some formats are not supported on Windows
-  if (!tolower(Sys.info()[["sysname"]]) == "windows") {
-    expect_equal(
-      strptime_test_df %>%
-        arrow_table() %>%
-          mutate(
-            parsed_a = strptime(string_a, format = "%Y-%m-%d-%a"),
-            parsed_A = strptime(string_A, format = "%Y-%m-%d-%A"),
-            parsed_b = strptime(string_b, format = "%Y-%m-%d-%b"),
-            parsed_B = strptime(string_B, format = "%Y-%m-%d-%B"),
-            parsed_p = strptime(string_p, format = "%Y-%m-%d-%p"),
-            parsed_r = strptime(string_r, format = "%Y-%m-%d-%r")
-          ) %>%
-          collect(),
-      strptime_test_df %>%
+  skip_on_os("windows")
+  expect_equal(
+    strptime_test_df %>%
+      arrow_table() %>%
         mutate(
-          parsed_a = as.POSIXct(strptime(string_a, format = "%Y-%m-%d-%a")),
-          parsed_A = as.POSIXct(strptime(string_A, format = "%Y-%m-%d-%A")),
-          parsed_b = as.POSIXct(strptime(string_b, format = "%Y-%m-%d-%b")),
-          parsed_B = as.POSIXct(strptime(string_B, format = "%Y-%m-%d-%B")),
-          parsed_p = as.POSIXct(strptime(string_p, format = "%Y-%m-%d-%p")),
-          parsed_r = as.POSIXct(strptime(string_r, format = "%Y-%m-%d-%r"))
+          parsed_a = strptime(string_a, format = "%Y-%m-%d-%a"),
+          parsed_A = strptime(string_A, format = "%Y-%m-%d-%A"),
+          parsed_b = strptime(string_b, format = "%Y-%m-%d-%b"),
+          parsed_B = strptime(string_B, format = "%Y-%m-%d-%B"),
+          parsed_p = strptime(string_p, format = "%Y-%m-%d-%p"),
+          parsed_r = strptime(string_r, format = "%Y-%m-%d-%r")
         ) %>%
-        collect()
-    )
-  }
+        collect(),
+    strptime_test_df %>%
+      mutate(
+        parsed_a = as.POSIXct(strptime(string_a, format = "%Y-%m-%d-%a")),
+        parsed_A = as.POSIXct(strptime(string_A, format = "%Y-%m-%d-%A")),
+        parsed_b = as.POSIXct(strptime(string_b, format = "%Y-%m-%d-%b")),
+        parsed_B = as.POSIXct(strptime(string_B, format = "%Y-%m-%d-%B")),
+        parsed_p = as.POSIXct(strptime(string_p, format = "%Y-%m-%d-%p")),
+        parsed_r = as.POSIXct(strptime(string_r, format = "%Y-%m-%d-%r"))
+      ) %>%
+      collect()
+  )
 
 })
 
@@ -298,10 +297,10 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(x = strptime(x, format = fmt)) %>%
+          mutate(!!fmt := strptime(x, format = fmt)) %>%
           collect(),
       test_df %>%
-        mutate(x = as.POSIXct(strptime(x, format = fmt))) %>%
+        mutate(!!fmt := as.POSIXct(strptime(x, format = fmt))) %>%
         collect()
     )
   }
@@ -313,10 +312,10 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(x = strptime(x, format = fmt2)) %>%
+          mutate(!!fmt := strptime(x, format = fmt2)) %>%
           collect(),
       test_df %>%
-        mutate(x = as.POSIXct(strptime(x, format = fmt2))) %>%
+        mutate(!!fmt := as.POSIXct(strptime(x, format = fmt2))) %>%
         collect()
     )
   }
