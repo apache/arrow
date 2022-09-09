@@ -574,6 +574,8 @@ func BitmapEquals(left, right []byte, lOffset, rOffset int64, length int64) bool
 	return true
 }
 
+// OptionalBitIndexer is a convenience wrapper for getting bits from
+// a bitmap which may or may not be nil.
 type OptionalBitIndexer struct {
 	Bitmap []byte
 	Offset int

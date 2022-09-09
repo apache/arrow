@@ -45,6 +45,8 @@ var (
 		})
 )
 
+// RegisterVectorSelection registers functions that select specific
+// values from arrays such as Take and Filter
 func RegisterVectorSelection(reg FunctionRegistry) {
 	reg.AddFunction(filterMetaFunc, false)
 	filterKernels, _ := kernels.GetVectorSelectionKernels()
@@ -65,10 +67,17 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 	reg.AddFunction(vfunc, false)
 }
 
+// Filter is a wrapper convenience that is equivalent to calling
+// CallFunction(ctx, "filter", &options, values, filter) for filtering
+// an input array (values) by a boolean array (filter). The two inputs
+// must be the same length.
 func Filter(ctx context.Context, values, filter Datum, options FilterOptions) (Datum, error) {
 	return CallFunction(ctx, "filter", &options, values, filter)
 }
 
+// FilterArray is a convenience method for calling Filter without having
+// to manually construct the intervening Datum objects (they will be
+// created for you internally here).
 func FilterArray(ctx context.Context, values, filter arrow.Array, options FilterOptions) (arrow.Array, error) {
 	valDatum := NewDatum(values)
 	filterDatum := NewDatum(filter)
