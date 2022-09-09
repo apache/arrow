@@ -396,8 +396,7 @@ class RangeDataEqualsImpl {
     for (auto it = rle_util::MergedRunsIterator<2>(left_span, right_span);
          it != rle_util::MergedRunsIterator<2>(); ++it) {
       RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[1],
-                               *right_.child_data[1],
-                               it.index_into_array(0),
+                               *right_.child_data[1], it.index_into_array(0),
                                it.index_into_array(1), 1);
       if (!impl.Compare()) {
         result_ = false;

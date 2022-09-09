@@ -283,16 +283,19 @@ TEST(RunLengthEncodedArray, Compare) {
   ASSERT_ARRAYS_EQUAL(*empty_array, *MakeArray(empty_array->data()->Copy()));
 
   // threee different slices that have the value [3, 3, 3, 4, 4, 4, 4]
-  ASSERT_OK_AND_ASSIGN(auto different_offsets_a,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[2, 5, 12, 58, 60]"),
-                                                   ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]"), 60));
-  ASSERT_OK_AND_ASSIGN(auto different_offsets_b,
-                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[81, 86, 99, 100]"),
-                                                   ArrayFromJSON(int64(), "[2, 3, 4, 5]"), 100));
+  ASSERT_OK_AND_ASSIGN(
+      auto different_offsets_a,
+      RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[2, 5, 12, 58, 60]"),
+                                  ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]"), 60));
+  ASSERT_OK_AND_ASSIGN(
+      auto different_offsets_b,
+      RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[81, 86, 99, 100]"),
+                                  ArrayFromJSON(int64(), "[2, 3, 4, 5]"), 100));
   ASSERT_OK_AND_ASSIGN(auto different_offsets_c,
                        RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[3, 7]"),
                                                    ArrayFromJSON(int64(), "[3, 4]"), 7));
-  ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7), *different_offsets_b->Slice(83, 7));
+  ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7),
+                      *different_offsets_b->Slice(83, 7));
   ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7), *different_offsets_c);
   ASSERT_ARRAYS_EQUAL(*different_offsets_b->Slice(83, 7), *different_offsets_c);
 }
