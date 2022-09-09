@@ -688,7 +688,7 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   Result<std::shared_ptr<io::OutputStream>> maybe_stream;
   if (direct) {
 #if defined(__linux__)
-    long sector_size = pathconf(path.c_str(), _PC_REC_XFER_ALIGN);
+    int64_t sector_size = pathconf(path.c_str(), _PC_REC_XFER_ALIGN);
     maybe_stream = io::DirectFileOutputStream::Open(raw_fd, sector_size);
 #else
     return Status::NotImplemented("Direct IO only works on Linux");
