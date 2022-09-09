@@ -108,7 +108,7 @@ Maven
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
         $ mvn clean generate-resources -Pgenerate-cdata-dylib_so -N
-        $ ls ../java-dist/lib
+        $ ls -latr ../java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
 - To build other JNI libraries:
@@ -118,7 +118,7 @@ Maven
 CMake
 ~~~~~
 
-- To build only the C Data Interface library:
+- To build only the JNI C Data Interface library:
 
     .. code-block::
 
@@ -137,26 +137,7 @@ CMake
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
-- To build only the Dataset library (needs Arrow Dataset module):
-
-    .. code-block::
-
-        $ cd arrow
-        $ mkdir -p java-dist java-jni
-        $ cmake \
-            -S java \
-            -B java-jni \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-            -DCMAKE_PREFIX_PATH=java-dist \
-            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
-            -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
-            -DBUILD_TESTING=OFF
-        $ cmake --build java-jni --target install
-        $ ls -latr java-dist/lib
-        |__ libarrow_cdata_jni.dylib
-
-- To build other JNI libraries:
+- To build JNI ORC & Gandiva libraries:
 
     .. code-block::
 
@@ -184,6 +165,7 @@ CMake
             -DARROW_PLASMA=ON \
             -DARROW_PLASMA_JAVA_CLIENT=ON \
             -DARROW_S3=ON \
+            -DARROW_USE_CCACHE=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DCMAKE_INSTALL_PREFIX=java-dist \
@@ -193,6 +175,25 @@ CMake
         $ ls -latr  java-dist/lib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
+
+- To build only the Dataset library:
+
+    .. code-block::
+
+        $ cd arrow
+        $ mkdir -p java-dist java-jni
+        $ cmake \
+            -S java \
+            -B java-jni \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=java-dist/lib \
+            -DCMAKE_PREFIX_PATH=java-dist/lib \
+            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
+            -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
+            -DBUILD_TESTING=OFF
+        $ cmake --build java-jni --target install
+        $ ls -latr java-dist/lib
+        |__ libarrow_dataset_jni.dylib
 
 Archery
 ~~~~~~~
@@ -211,80 +212,16 @@ Archery
 Building Java JNI Modules
 -------------------------
 
-<<<<<<< HEAD
-Maven
-~~~~~
-=======
-First, you need to build Apache Arrow C++:
->>>>>>> master
-
 - To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
-<<<<<<< HEAD
     .. code-block::
-=======
-    $ cd arrow
-    $ brew bundle --file=cpp/Brewfile
-    Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ brew uninstall aws-sdk-cpp
-    (We can't use aws-sdk-cpp installed by Homebrew because it has
-    an issue: https://github.com/aws/aws-sdk-cpp/issues/1809 )
-    $ export JAVA_HOME=<absolute path to your java home>
-    $ mkdir -p java-dist cpp-jni
-    $ cmake \
-        -S cpp \
-        -B cpp-jni \
-        -DARROW_CSV=ON \
-        -DARROW_DATASET=ON \
-        -DARROW_DEPENDENCY_USE_SHARED=OFF \
-        -DARROW_FILESYSTEM=ON \
-        -DARROW_GANDIVA=ON \
-        -DARROW_GANDIVA_JAVA=ON \
-        -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-        -DARROW_JNI=ON \
-        -DARROW_ORC=ON \
-        -DARROW_PARQUET=ON \
-        -DARROW_PLASMA=ON \
-        -DARROW_PLASMA_JAVA_CLIENT=ON \
-        -DARROW_S3=ON \
-        -DAWSSDK_SOURCE=BUNDLED \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=java-dist \
-        -DCMAKE_UNITY_BUILD=ON \
-        -Dre2_SOURCE=BUNDLED
-    $ cmake --build cpp-jni --target install
-    $ ls -latr  ../java-dist/lib
-    |__ libarrow_orc_jni.dylib
-    |__ libgandiva_jni.dylib
-    |__ libplasma_java.dylib
-
-Then, you can build JNI libraries:
-
-.. code-block::
-
-    $ mkdir -p java-jni
-    $ cmake \
-        -S java \
-        -B java-jni \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-        -DCMAKE_PREFIX_PATH=java-dist
-    $ cmake --build java-jni --target install
-    $ ls -latr ../java-dist/lib
-    |__ libarrow_cdata_jni.dylib
-    |__ libarrow_dataset_jni.dylib
->>>>>>> master
 
         $ cd arrow/java
         $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
-<<<<<<< HEAD
 - To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
     .. code-block::
-=======
->>>>>>> master
 
         $ cd arrow/java
         $ mvn -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-jni clean install

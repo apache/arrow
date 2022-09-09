@@ -908,7 +908,7 @@
     <profile>
       <id>generate-cdata-dylib_so</id>
       <properties>
-        <arrow.c.jni.dist.dir>../java-dist/lib</arrow.c.jni.dist.dir>
+        <arrow.c.jni.dist.dir>java-dist/lib</arrow.c.jni.dist.dir>
       </properties>
       <build>
         <plugins>
@@ -925,7 +925,7 @@
                 </goals>
                 <configuration>
                   <executable>mkdir</executable>
-                  <commandlineArgs>-p java-dist java-native-c</commandlineArgs>
+                  <commandlineArgs>-p java-dist java-jni</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
@@ -938,11 +938,16 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    -DCMAKE_BUILD_TYPE=release
-                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
-                    ../java
+                    -S java \
+                    -B java-jni \
+                    -DCMAKE_BUILD_TYPE=Release \
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir} \
+                    -DCMAKE_PREFIX_PATH=java-dist \
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
+                    -DARROW_JAVA_JNI_ENABLE_C=ON \
+                    -DBUILD_TESTING=OFF
                   </commandlineArgs>
-                  <workingDirectory>../java-native-c</workingDirectory>
+                  <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
               <execution>
@@ -954,9 +959,9 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    --build . --target install --config release
+                    --build java-jni --target install --config release
                   </commandlineArgs>
-                  <workingDirectory>../java-native-c</workingDirectory>
+                  <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
             </executions>
