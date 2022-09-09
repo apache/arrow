@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -327,6 +328,13 @@ class ARROW_EXPORT RecordBatchReader {
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+
+  /// \brief Create a RecordBatchReader from an Iterator of RecordBatch.
+  ///
+  /// \param[in] batches an iterator of RecordBatch to read from.
+  /// \param[in] schema schema that each record batch in iterator will conform to.
+  static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
+      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 
 }  // namespace arrow

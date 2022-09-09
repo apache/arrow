@@ -144,6 +144,17 @@ Join Relations
    join key is supported.
  * The ``post_join_filter`` property is not supported and will be ignored.
 
+Aggregate Relations
+^^^^^^^^^^^^^^^^^^^
+
+ * At most one grouping set is supported.
+ * Each grouping expression must be a direct reference.
+ * Each measure's arguments must be direct references.
+ * A measure may not have a filter
+ * A measure may not have sorts
+ * A measure's invocation must be AGGREGATION_INVOCATION_ALL
+ * A measure's phase must be AGGREGATION_PHASE_INITIAL_TO_RESULT
+
 Expressions (general)
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -152,20 +163,128 @@ Expressions (general)
    grouping set.  Acero typically expects these expressions to be direct references.
    Planners should extract the implicit projection into a formal project relation
    before delivering the plan to Acero.
+ * Older versions of Isthmus would omit optional arguments instead of including them
+   as unspecified enums.  Acero will not support these plans.
 
 Literals
 ^^^^^^^^
 
  * A literal with non-default nullability will cause a plan to be rejected.
 
+Types
+^^^^^
+
+ * Acero does not have full support for non-nullable types and may allow input
+   to have nulls without rejecting it.
+ * The table below shows the mapping between Arrow types and Substrait type
+   classes that are currently supported
+
+.. list-table:: Substrait / Arrow Type Mapping
+   :widths: 25 25
+   :header-rows: 1
+
+   * - Substrait Type
+     - Arrow Type
+     - Caveat
+   * - boolean
+     - boolean
+     - 
+   * - i8
+     - int8
+     - 
+   * - i16
+     - int16
+     - 
+   * - i16
+     - int16
+     - 
+   * - i32
+     - int32
+     - 
+   * - i64
+     - int64
+     - 
+   * - fp32
+     - float32
+     - 
+   * - fp64
+     - float64
+     - 
+   * - string
+     - string
+     - 
+   * - binary
+     - binary
+     - 
+   * - timestamp
+     - timestamp<MICRO,"">
+     - 
+   * - timestamp_tz
+     - timestamp<MICRO,"UTC">
+     - 
+   * - date
+     - date32<DAY>
+     - 
+   * - time
+     - time64<MICRO>
+     - 
+   * - interval_year
+     - 
+     - Not currently supported
+   * - interval_day
+     - 
+     - Not currently supported
+   * - uuid
+     - 
+     - Not currently supported
+   * - FIXEDCHAR<L>
+     - 
+     - Not currently supported
+   * - VARCHAR<L>
+     - 
+     - Not currently supported
+   * - FIXEDBINARY<L>
+     - fixed_size_binary<L>
+     - 
+   * - DECIMAL<P,S>
+     - decimal128<P,S>
+     - 
+   * - STRUCT<T1...TN>
+     - struct<T1...TN>
+     - Arrow struct fields will have no name (empty string)
+   * - NSTRUCT<N:T1...N:Tn>
+     - 
+     - Not currently supported
+   * - LIST<T>
+     - list<T>
+     - 
+   * - MAP<K,V>
+     - map<K,V>
+     - K must not be nullable
+
 Functions
 ^^^^^^^^^
 
- * The only functions currently supported by Acero are:
+ * Acero does not support the legacy ``args`` style of declaring arguments
+ * The following functions have caveats or are not supported at all.  Note that
+   this is not a comprehensive list.  Functions are being added to Substrait at
+   a rapid pace and new functions may be missing.
 
-   * add
-   * equal
-   * is_not_distinct_from
+   * Acero does not support the SATURATE option for overflow
+   * Acero does not support kernels that take more than two arguments
+     for the functions ``and``, ``or``, ``xor``
+   * Acero does not support temporal arithmetic
+   * Acero does not support the following standard functions:
+
+     * ``is_not_distinct_from``
+     * ``like``
+     * ``substring``
+     * ``starts_with``
+     * ``ends_with``
+     * ``contains``
+     * ``count``
+     * ``count_distinct``
+     * ``approx_count_distinct``
 
  * The functions above must be referenced using the URI
    ``https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml``

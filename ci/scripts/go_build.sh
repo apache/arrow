@@ -22,7 +22,7 @@ set -ex
 source_dir=${1}/go
 ARCH=`uname -m`
 
-# Arm64 CI is triggered by travis and run in arm64v8/golang:1.16-bullseye
+# Arm64 CI is triggered by travis and run in arm64v8/golang:1.17-bullseye
 if [ "aarch64" == "$ARCH" ]; then
 # Install `staticcheck`
   GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
@@ -36,17 +36,15 @@ if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
         go clean -cache
         go clean -testcache        
     fi
-    TAGS="-tags assert,test,ccalloc"
+    TAGS="-tags assert,test,ccalloc"    
 fi
 
-go get -d -t -v ./...
 go install $TAGS -v ./...
 
 popd
 
 pushd ${source_dir}/parquet
 
-go get -d -t -v ./...
 go install -v ./...
 
 popd

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
 library(dplyr, warn.conflicts = FALSE)
@@ -241,4 +239,40 @@ test_that("query_on_dataset handles collapse()", {
       collapse() %>%
       select(int)
   ))
+})
+
+test_that("collapse doesn't unnecessarily add ProjectNodes", {
+  plan <- capture.output(
+    tab %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  # There should be no projections
+  expect_length(grep("ProjectNode", plan), 0)
+
+  plan <- capture.output(
+    tab %>%
+      select(int, chr) %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  # There should be just one projection
+  expect_length(grep("ProjectNode", plan), 1)
+
+  skip_if_not_available("dataset")
+  # We need one ProjectNode on dataset queries to handle augmented fields
+
+  tf <- tempfile()
+  write_dataset(tab, tf, partitioning = "lgl")
+  ds <- open_dataset(tf)
+
+  plan <- capture.output(
+    ds %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  expect_length(grep("ProjectNode", plan), 1)
 })

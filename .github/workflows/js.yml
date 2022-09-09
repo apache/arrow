@@ -68,7 +68,7 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}
+    name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
     runs-on: macos-latest
     if: github.event_name == 'push'
     timeout-minutes: 60

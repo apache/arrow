@@ -116,6 +116,21 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "docs/source/_static/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"10.0 (dev)\",",
+            "+        \"name\": \"11.0 (dev)\",",
+            "-        \"name\": \"9.0 (stable)\",",
+            "+        \"name\": \"10.0 (stable)\",",
+            "+    {",
+            "+        \"name\": \"9.0\",",
+            "+        \"version\": \"9.0/\"",
+            "+    },",
+          ],
+        ],
+      },
+      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -127,6 +142,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         hunks: [
           ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
            "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
+        ],
+      },
+      {
+        path: "python/pyarrow/src/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_PYTHON_VERSION \"#{@next_snapshot_version}\")"],
         ],
       },
       {
@@ -152,9 +174,49 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+# arrow #{@release_version}",],
         ],
       },
+      {
+        path: "r/pkgdown/assets/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"9.0.0.9000 (dev)\",",
+            "+        \"name\": \"10.0.0.9000 (dev)\",",
+            "-        \"name\": \"9.0.0 (release)\",",
+            "+        \"name\": \"10.0.0 (release)\",",
+            "+    {",
+            "+        \"name\": \"9.0.0\",",
+            "+        \"version\": \"9.0/\"",
+            "+    },",
+          ],
+        ],
+      },
     ]
 
     Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+      if path == "go/arrow/doc.go"
+        expected_changes << {
+          path: path,
+          hunks: [
+          [
+            "-const PkgVersion = \"#{@snapshot_version}\"",
+            "+const PkgVersion = \"#{@next_snapshot_version}\"",
+          ],
+        ]}
+        next
+      elsif path == "go/arrow/compute/go.mod"
+        expected_changes << {
+          path: path,
+          hunks: [
+          [
+            "-module github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/compute",
+            "+module github.com/apache/arrow/go/v#{@next_major_version}/arrow/compute",
+            "-replace github.com/apache/arrow/go/v#{@snapshot_major_version} => ../../",
+            "+replace github.com/apache/arrow/go/v#{@next_major_version} => ../../",
+            "-\tgithub.com/apache/arrow/go/v#{@snapshot_major_version} v#{@snapshot_major_version}.0.0-00010101000000-000000000000",
+            "+\tgithub.com/apache/arrow/go/v#{@next_major_version} v#{@next_major_version}.0.0-00010101000000-000000000000",
+          ],
+        ]}
+        next
+      end
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
       lines = File.readlines(path, chomp: true)
       target_lines = lines.grep(/#{Regexp.escape(import_path)}/)

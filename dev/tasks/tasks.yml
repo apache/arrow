@@ -61,6 +61,7 @@ groups:
     - java-jars
     - nuget
     - python-sdist
+    - r-binary-packages
     - ubuntu-*
     - wheel-*
     - test-ubuntu-default-docs
@@ -204,13 +205,18 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      # ARROW-17395: Enable this again when grpc is updated.
+      # -e ARROW_CONAN_WITH_FLIGHT_RPC=True
       flags: >-
         -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_BROTLI=True
+        -e ARROW_CONAN_WITH_BZ2=True
         -e ARROW_CONAN_WITH_GLOG=True
         -e ARROW_CONAN_WITH_JEMALLOC=True
+        -e ARROW_CONAN_WITH_JSON=True
         -e ARROW_CONAN_WITH_LZ4=True
         -e ARROW_CONAN_WITH_SNAPPY=True
+        -e ARROW_CONAN_WITH_ZSTD=True
       image: conan
 
   ########################### Python Minimal ############################
@@ -472,9 +478,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
-                                                              ("10.13", "high-sierra", "ON", "ON")] %}
+{% for macos_version, macos_codename in [("10.13", "high-sierra")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -483,8 +487,6 @@ tasks:
     params:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      arrow_s3: "{{ arrow_s3 }}"
-      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -579,6 +581,7 @@ tasks:
         - .dsc
         - .orig.tar.gz
     artifacts:
+      - arrow-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - apache-arrow-apt-source_{no_rc_version}-1.debian.tar.xz
       - apache-arrow-apt-source_{no_rc_version}-1.dsc
@@ -597,67 +600,62 @@ tasks:
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python-flight900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma-glib900_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma1000_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
@@ -712,7 +710,7 @@ tasks:
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
+    {% if not is_rhel7_based and architecture == "amd64" %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -738,18 +736,12 @@ tasks:
       - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if target != "amazon-linux-2" %}
-      - arrow-python-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% if not is_rhel7_based %}
-      - arrow-python-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% endif %}
-      - arrow[0-9]+-python-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
     {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
+    {% endif %}
+      - arrow-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
     {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -771,6 +763,10 @@ tasks:
       - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - parquet-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -951,6 +947,8 @@ tasks:
   r-binary-packages:
     ci: github
     template: r/github.packages.yml
+    params:
+      custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
@@ -1022,7 +1020,7 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-10.15"
+      github_runner: "macos-latest"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -1038,7 +1036,7 @@ tasks:
     template: verify-rc/github.macos.amd64.yml
     params:
       target: {{ target }}
-      github_runner: "macos-10.15"
+      github_runner: "macos-latest"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -1062,7 +1060,7 @@ tasks:
       github_runner: ["self-hosted", "macOS", "arm64"]
   {% endfor %}
 
-  {% for macos_version in ["10.15", "11"] %}
+  {% for macos_version in ["11", "12"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.amd64.yml
@@ -1110,7 +1108,8 @@ tasks:
 
 ############################## Docker tests ##################################
 
-{% for image in ["conda-cpp",
+{% for image in ["alpine-linux-cpp",
+                 "conda-cpp",
                  "debian-c-glib",
                  "ubuntu-c-glib",
                  "debian-ruby",
@@ -1450,13 +1449,13 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-11-go-1.16:
+  test-debian-11-go-1.17:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
-        GO: 1.16
+        GO: 1.17
       image: debian-go
 
   test-ubuntu-default-docs:
@@ -1588,3 +1587,13 @@ tasks:
       type: minimal_build
       run: {{ kind }}
 {% endfor %}
+
+############################## Utility tasks ############################
+  preview-docs:
+    ci: github
+    template: docs/github.linux.yml
+    params:
+      pr_number: Unset
+      artifacts: "build/docs.tar.gz"
+      flags: "-v $PWD/build/:/build/"
+      image: ubuntu-docs

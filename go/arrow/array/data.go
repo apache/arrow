@@ -22,9 +22,9 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // Data represents the memory and metadata of an Arrow array.
@@ -74,6 +74,19 @@ func NewDataWithDictionary(dtype arrow.DataType, length int, buffers []*memory.B
 		dict.Retain()
 	}
 	data.dictionary = dict
+	return data
+}
+
+func (d *Data) Copy() *Data {
+	// don't pass the slices directly, otherwise it retains the connection
+	// we need to make new slices and populate them with the same pointers
+	bufs := make([]*memory.Buffer, len(d.buffers))
+	copy(bufs, d.buffers)
+	children := make([]arrow.ArrayData, len(d.childData))
+	copy(children, d.childData)
+
+	data := NewData(d.dtype, d.length, bufs, children, d.nulls, d.offset)
+	data.SetDictionary(d.dictionary)
 	return data
 }
 
@@ -145,6 +158,8 @@ func (d *Data) Release() {
 
 // DataType returns the DataType of the data.
 func (d *Data) DataType() arrow.DataType { return d.dtype }
+
+func (d *Data) SetNullN(n int) { d.nulls = n }
 
 // NullN returns the number of nulls.
 func (d *Data) NullN() int { return d.nulls }

@@ -158,6 +158,8 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
 
+  define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 

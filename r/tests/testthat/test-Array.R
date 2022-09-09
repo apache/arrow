@@ -180,6 +180,11 @@ test_that("Array support null type (ARROW-7064)", {
   expect_array_roundtrip(vctrs::unspecified(10), null())
 })
 
+test_that("Array support 0-length NULL vectors (Arrow-17543)", {
+  expect_type_equal(Array$create(c()), null())
+  expect_type_equal(Array$create(NULL), null())
+})
+
 test_that("Array supports logical vectors (ARROW-3341)", {
   # with NA
   x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)

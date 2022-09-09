@@ -89,6 +89,10 @@ arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
   switch (file_format_id) {
     case 0:
       return std::make_shared<arrow::dataset::ParquetFileFormat>();
+    case 1:
+      return std::make_shared<arrow::dataset::IpcFileFormat>();
+    case 2:
+      return std::make_shared<arrow::dataset::OrcFileFormat>();
     default:
       std::string error_message =
           "illegal file format id: " + std::to_string(file_format_id);

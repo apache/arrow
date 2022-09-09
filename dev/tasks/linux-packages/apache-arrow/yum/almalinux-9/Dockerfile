@@ -39,7 +39,6 @@ RUN \
     git \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     json-devel \
     libarchive \
     libzstd-devel \
@@ -52,8 +51,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python3 \
-    python3-devel \
-    python3-numpy \
     python3-pip \
     re2-devel \
     rapidjson-devel \

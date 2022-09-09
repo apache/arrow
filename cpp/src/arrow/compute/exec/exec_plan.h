@@ -38,6 +38,9 @@ namespace arrow {
 
 namespace compute {
 
+/// \addtogroup execnode-components
+/// @{
+
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
   // This allows operators to rely on signed 16-bit indices
@@ -116,6 +119,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \param task_group_id The ID  of the task group to run
   /// \param num_tasks The number of times to run the task
   Status StartTaskGroup(int task_group_id, int64_t num_tasks);
+
+  util::AsyncTaskScheduler* async_scheduler();
 
   /// The initial inputs
   const NodeVector& sources() const;
@@ -533,6 +538,8 @@ ARROW_EXPORT
 Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

@@ -36,6 +36,7 @@ namespace arrow {
 
 using ValueType = int64_t;
 using VectorType = std::vector<ValueType>;
+
 constexpr int64_t kNumberOfElements = 256 * 512;
 
 static VectorType AlmostU8CompressibleVector() {

@@ -28,6 +28,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Components
 option(ARROW_JAVA_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
 option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
+option(ARROW_JAVA_JNI_ENABLE_DATASET "Enable dataset" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 
 # ccache
 option(ARROW_JAVA_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
@@ -54,6 +55,18 @@ include(UseJava)
 add_library(jni INTERFACE IMPORTED)
 set_target_properties(jni PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${JNI_INCLUDE_DIRS}")
 
+include(CTest)
+if(BUILD_TESTING)
+  find_package(ArrowTesting REQUIRED)
+  find_package(GTest REQUIRED)
+  add_library(arrow_java_test INTERFACE IMPORTED)
+  target_link_libraries(arrow_java_test INTERFACE ArrowTesting::arrow_testing_static
+                                                  GTest::gtest_main)
+endif()
+
 if(ARROW_JAVA_JNI_ENABLE_C)
   add_subdirectory(c)
+endif()
+if(ARROW_JAVA_JNI_ENABLE_DATASET)
+  add_subdirectory(dataset)
 endif()

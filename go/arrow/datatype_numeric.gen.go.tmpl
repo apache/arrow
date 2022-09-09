@@ -23,6 +23,7 @@ func (t *{{.Name}}Type) ID() Type            { return {{.Name|upper}} }
 func (t *{{.Name}}Type) Name() string        { return "{{.Name|lower}}" }
 func (t *{{.Name}}Type) String() string      { return "{{.Name|lower}}" }
 func (t *{{.Name}}Type) BitWidth() int       { return {{.Size}} }
+func (t *{{.Name}}Type) Bytes() int      { return {{.Name}}SizeBytes }
 func (t *{{.Name}}Type) Fingerprint() string { return typeFingerprint(t) }
 func (t *{{.Name}}Type) Layout() DataTypeLayout { 
         return DataTypeLayout{Buffers: []BufferSpec{

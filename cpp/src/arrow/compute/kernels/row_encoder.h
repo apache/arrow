@@ -280,6 +280,7 @@ class ARROW_EXPORT RowEncoder {
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;
   std::vector<uint8_t> encoded_nulls_;
+  std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
 
 }  // namespace internal

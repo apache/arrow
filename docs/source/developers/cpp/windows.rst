@@ -52,7 +52,7 @@ Using conda-forge for build dependencies
 ========================================
 
 `Miniconda <https://conda.io/miniconda.html>`_ is a minimal Python distribution
-including the `conda <https://conda.io>`_ package manager. Some memers of the
+including the `conda <https://conda.io>`_ package manager. Some members of the
 Apache Arrow community participate in the maintenance of `conda-forge
 <https://conda-forge.org/>`_, a community-maintained cross-platform package
 repository for conda.

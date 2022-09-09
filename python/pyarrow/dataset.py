@@ -26,6 +26,7 @@ from pyarrow._dataset import (  # noqa
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
+    FeatherFileFormat,
     FilenamePartitioning,
     FileFormat,
     FileFragment,
@@ -284,8 +285,10 @@ def _ensure_format(obj):
         if not _parquet_available:
             raise ValueError(_parquet_msg)
         return ParquetFileFormat()
-    elif obj in {"ipc", "arrow", "feather"}:
+    elif obj in {"ipc", "arrow"}:
         return IpcFileFormat()
+    elif obj == "feather":
+        return FeatherFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
     elif obj == "orc":
@@ -964,7 +967,7 @@ Table/RecordBatch, or iterable of RecordBatch
     # was converted to one of those two. So we can grab the schema
     # to build the partitioning object from Dataset.
     if isinstance(data, Scanner):
-        partitioning_schema = data.dataset_schema
+        partitioning_schema = data.projected_schema
     else:
         partitioning_schema = data.schema
     partitioning = _ensure_write_partitioning(partitioning,

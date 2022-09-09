@@ -36,13 +36,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"runtime/cgo"
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/endian"
-	"github.com/apache/arrow/go/v9/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -151,8 +152,12 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return fmt.Sprintf("d:%d,%d", dt.Precision, dt.Scale)
 	case *arrow.BinaryType:
 		return "z"
+	case *arrow.LargeBinaryType:
+		return "Z"
 	case *arrow.StringType:
 		return "u"
+	case *arrow.LargeStringType:
+		return "U"
 	case *arrow.Date32Type:
 		return "tdD"
 	case *arrow.Date64Type:
@@ -212,6 +217,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "tin"
 	case *arrow.ListType:
 		return "+l"
+	case *arrow.LargeListType:
+		return "+L"
 	case *arrow.FixedSizeListType:
 		return fmt.Sprintf("+w:%d", dt.Len())
 	case *arrow.StructType:
@@ -234,6 +241,9 @@ func (exp *schemaExporter) export(field arrow.Field) {
 
 	switch dt := field.Type.(type) {
 	case *arrow.ListType:
+		exp.children = make([]schemaExporter, 1)
+		exp.children[0].export(dt.ElemField())
+	case *arrow.LargeListType:
 		exp.children = make([]schemaExporter, 1)
 		exp.children[0].export(dt.ElemField())
 	case *arrow.StructType:
@@ -353,7 +363,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&buffers[0]))
 	}
 
-	out.private_data = unsafe.Pointer(storeData(arr.Data()))
+	arr.Data().Retain()
+	h := cgo.NewHandle(arr.Data())
+	out.private_data = unsafe.Pointer(&h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case *array.List:
@@ -390,4 +402,26 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		out.n_children = 0
 		out.children = nil
 	}
+}
+
+type cRecordReader struct {
+	rdr array.RecordReader
+}
+
+func (rr cRecordReader) getSchema(out *CArrowSchema) int {
+	ExportArrowSchema(rr.rdr.Schema(), out)
+	return 0
+}
+
+func (rr cRecordReader) next(out *CArrowArray) int {
+	if rr.rdr.Next() {
+		ExportArrowRecordBatch(rr.rdr.Record(), out, nil)
+		return 0
+	}
+	releaseArr(out)
+	return 0
+}
+
+func (rr cRecordReader) release() {
+	rr.rdr.Release()
 }

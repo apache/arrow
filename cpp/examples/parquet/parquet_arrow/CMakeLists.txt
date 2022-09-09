@@ -24,7 +24,7 @@ include(ExternalProject)
 include(FindPkgConfig)
 include(GNUInstallDirs)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
+option(PARQUET_LINK_SHARED "Link to the Parquet shared library" ON)
 
 # This ensures that things like gnu++11 get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
@@ -35,8 +35,11 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Look for installed packages the system
-find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
 add_executable(parquet-arrow-example reader_writer.cc)
-target_link_libraries(parquet-arrow-example parquet_shared arrow_shared)
+if(PARQUET_LINK_SHARED)
+  target_link_libraries(parquet-arrow-example Parquet::parquet_shared)
+else()
+  target_link_libraries(parquet-arrow-example Parquet::parquet_static)
+endif()

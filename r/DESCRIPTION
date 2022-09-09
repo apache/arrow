@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 8.0.0.9000
+Version: 9.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -31,6 +31,7 @@ Biarch: true
 Imports:
     assertthat,
     bit64 (>= 0.9-7),
+    glue,
     methods,
     purrr,
     R6,
@@ -91,6 +92,7 @@ Collate:
     'dataset-scan.R'
     'dataset-write.R'
     'dictionary.R'
+    'dplyr-across.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
@@ -98,6 +100,7 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
     'dplyr-funcs-math.R'

@@ -654,6 +654,16 @@ class BaseTestCSV(abc.ABC):
         expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
         assert parse_opts.invalid_row_handler.rows == expected_rows
 
+        # Test ser/de
+        parse_opts.invalid_row_handler = InvalidRowHandler('skip')
+        parse_opts = pickle.loads(pickle.dumps(parse_opts))
+
+        table = self.read_bytes(rows, parse_options=parse_opts)
+        assert table.to_pydict() == {
+            'a': ["d", "i"],
+            'b': ["e", "j"],
+        }
+
 
 class BaseCSVTableRead(BaseTestCSV):
 

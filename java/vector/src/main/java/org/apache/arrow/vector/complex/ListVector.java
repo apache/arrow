@@ -76,13 +76,13 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;
   private CallBack callBack;
-  private final FieldType fieldType;
-  private int validityAllocationSizeInBytes;
+  protected final FieldType fieldType;
+  protected int validityAllocationSizeInBytes;
 
   /**
    * The maximum index that is actually set.
    */
-  private int lastSet;
+  protected int lastSet;
 
   /**
    * Constructs a new instance.
@@ -276,7 +276,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     return true;
   }
 
-  private void allocateValidityBuffer(final long size) {
+  protected void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
     validityBuffer.readerIndex(0);
@@ -296,7 +296,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     super.reAlloc();
   }
 
-  private void reallocValidityAndOffsetBuffers() {
+  protected void reallocValidityAndOffsetBuffers() {
     reallocOffsetBuffer();
     reallocValidityBuffer();
   }

@@ -81,6 +81,8 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="ARROW-17172: currently fails on windows")
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """
@@ -138,7 +140,6 @@ def test_cython_api(tmpdir):
         subprocess_env[var] = delim.join(
             pa.get_library_dirs() + [subprocess_env.get(var, '')]
         )
-
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)
