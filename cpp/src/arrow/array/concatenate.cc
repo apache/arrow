@@ -229,6 +229,10 @@ class ConcatenateImpl {
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
 
+  Status Visit(const BinaryViewType&) {
+    return Status::NotImplemented("binary / string view");
+  }
+
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));

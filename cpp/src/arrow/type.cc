@@ -60,9 +60,13 @@ constexpr Type::type FixedSizeListType::type_id;
 
 constexpr Type::type BinaryType::type_id;
 
+constexpr Type::type BinaryViewType::type_id;
+
 constexpr Type::type LargeBinaryType::type_id;
 
 constexpr Type::type StringType::type_id;
+
+constexpr Type::type StringViewType::type_id;
 
 constexpr Type::type LargeStringType::type_id;
 
@@ -190,7 +194,9 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(INTERVAL_MONTHS)
     TO_STRING_CASE(DURATION)
     TO_STRING_CASE(STRING)
+    TO_STRING_CASE(STRING_VIEW)
     TO_STRING_CASE(BINARY)
+    TO_STRING_CASE(BINARY_VIEW)
     TO_STRING_CASE(LARGE_STRING)
     TO_STRING_CASE(LARGE_BINARY)
     TO_STRING_CASE(FIXED_SIZE_BINARY)
@@ -593,9 +599,13 @@ std::string FixedSizeListType::ToString() const {
 
 std::string BinaryType::ToString() const { return "binary"; }
 
+std::string BinaryViewType::ToString() const { return "binary_view"; }
+
 std::string LargeBinaryType::ToString() const { return "large_binary"; }
 
 std::string StringType::ToString() const { return "string"; }
+
+std::string StringViewType::ToString() const { return "string_view"; }
 
 std::string LargeStringType::ToString() const { return "large_string"; }
 
@@ -2320,8 +2330,10 @@ PARAMETER_LESS_FINGERPRINT(HalfFloat)
 PARAMETER_LESS_FINGERPRINT(Float)
 PARAMETER_LESS_FINGERPRINT(Double)
 PARAMETER_LESS_FINGERPRINT(Binary)
+PARAMETER_LESS_FINGERPRINT(BinaryView)
 PARAMETER_LESS_FINGERPRINT(LargeBinary)
 PARAMETER_LESS_FINGERPRINT(String)
+PARAMETER_LESS_FINGERPRINT(StringView)
 PARAMETER_LESS_FINGERPRINT(LargeString)
 PARAMETER_LESS_FINGERPRINT(Date32)
 PARAMETER_LESS_FINGERPRINT(Date64)
@@ -2527,8 +2539,10 @@ TYPE_FACTORY(float16, HalfFloatType)
 TYPE_FACTORY(float32, FloatType)
 TYPE_FACTORY(float64, DoubleType)
 TYPE_FACTORY(utf8, StringType)
+TYPE_FACTORY(utf8_view, StringViewType)
 TYPE_FACTORY(large_utf8, LargeStringType)
 TYPE_FACTORY(binary, BinaryType)
+TYPE_FACTORY(binary_view, BinaryViewType)
 TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
@@ -2782,7 +2796,7 @@ void InitStaticData() {
   // * Time32
   // * Time64
   // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64()};
+  g_primitive_types = {null(), boolean(), date32(), date64(), binary_view(), utf8_view()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
 }

@@ -479,10 +479,14 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
+    return view.ParseString(obj);
+  }
+
+  static Status Convert(const BinaryViewType*, const O&, I obj, PyBytesView& view) {
     return view.ParseString(obj);
   }
 
@@ -672,12 +676,9 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
   PyBytesView view_;
 };
 
-template <typename T>
-class PyPrimitiveConverter<T, enable_if_base_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
+template <typename T, typename OffsetType>
+class PyBinaryConverter : public PrimitiveConverter<T, PyConverter> {
  public:
-  using OffsetType = typename T::offset_type;
-
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
@@ -701,7 +702,7 @@ class PyPrimitiveConverter<T, enable_if_base_binary<T>>
   Result<std::shared_ptr<Array>> ToArray() override {
     ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::ToArray()));
     if (observed_binary_) {
-      // if we saw any non-unicode, cast results to BinaryArray
+      // if we saw any non-unicode, cast results to BinaryArray/BinaryViewArray
       auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
       return array->View(binary_type);
     } else {
@@ -713,6 +714,14 @@ class PyPrimitiveConverter<T, enable_if_base_binary<T>>
   PyBytesView view_;
   bool observed_binary_ = false;
 };
+
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
+    : public PyBinaryConverter<T, typename T::offset_type> {};
+
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_binary_view_like<T>>
+    : public PyBinaryConverter<T, int64_t> {};
 
 template <typename U>
 class PyDictionaryConverter<U, enable_if_has_c_type<U>>

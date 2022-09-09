@@ -108,6 +108,11 @@ class BinaryArray;
 class BinaryBuilder;
 struct BinaryScalar;
 
+class BinaryViewType;
+class BinaryViewArray;
+class BinaryViewBuilder;
+struct BinaryViewScalar;
+
 class LargeBinaryType;
 class LargeBinaryArray;
 class LargeBinaryBuilder;
@@ -122,6 +127,11 @@ class StringType;
 class StringArray;
 class StringBuilder;
 struct StringScalar;
+
+class StringViewType;
+class StringViewArray;
+class StringViewBuilder;
+struct StringViewScalar;
 
 class LargeStringType;
 class LargeStringArray;
@@ -413,6 +423,13 @@ struct Type {
     /// Run-end encoded data.
     RUN_END_ENCODED,
 
+    /// String (UTF8) view type with 4-byte prefix and inline small string
+    /// optimization
+    STRING_VIEW,
+
+    /// Bytes view type with 4-byte prefix and inline small string optimization
+    BINARY_VIEW,
+
     // Leave this at the end
     MAX_ID
   };
@@ -454,10 +471,14 @@ ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
+/// \brief Return a StringViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8_view();
 /// \brief Return a LargeStringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& binary();
+/// \brief Return a BinaryViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& binary_view();
 /// \brief Return a LargeBinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance

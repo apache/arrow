@@ -48,6 +48,19 @@ struct UTF8DataValidator {
     return Status::NotImplemented("");
   }
 
+  Status Visit(const StringViewType&) {
+    util::InitializeUTF8();
+
+    const auto* values = data.GetValues<StringHeader>(1);
+    for (int64_t i = 0; i < data.length; ++i) {
+      if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(
+              reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()))) {
+        return Status::Invalid("Invalid UTF8 sequence at string index ", i);
+      }
+    }
+    return Status::OK();
+  }
+
   template <typename StringType>
   enable_if_string<StringType, Status> Visit(const StringType&) {
     util::InitializeUTF8();
@@ -247,6 +260,10 @@ struct ValidateArrayImpl {
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }
 
   Status Visit(const LargeBinaryType& type) { return ValidateBinaryLike(type); }
+
+  Status Visit(const BinaryViewType& type) {
+    return Status::NotImplemented("binary / string view");
+  }
 
   Status Visit(const ListType& type) { return ValidateListLike(type); }
 
@@ -796,7 +813,8 @@ Status ValidateArrayFull(const Array& array) { return ValidateArrayFull(*array.d
 
 ARROW_EXPORT
 Status ValidateUTF8(const ArrayData& data) {
-  DCHECK(data.type->id() == Type::STRING || data.type->id() == Type::LARGE_STRING);
+  DCHECK(data.type->id() == Type::STRING || data.type->id() == Type::STRING_VIEW ||
+         data.type->id() == Type::LARGE_STRING);
   UTF8DataValidator validator{data};
   return VisitTypeInline(*data.type, &validator);
 }

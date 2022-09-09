@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -210,6 +211,63 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
                    const std::shared_ptr<Buffer>& data,
                    const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                    int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
+};
+
+// ----------------------------------------------------------------------
+// BinaryView and StringView
+
+/// Concrete Array class for variable-size binary view data using the
+/// StringHeader struct to reference in-line or out-of-line string values
+class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
+ public:
+  using TypeClass = BinaryViewType;
+  using IteratorType = stl::ArrayIterator<BinaryViewArray>;
+
+  explicit BinaryViewArray(const std::shared_ptr<ArrayData>& data);
+
+  BinaryViewArray(int64_t length, const std::shared_ptr<Buffer>& data,
+                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                  int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : PrimitiveArray(binary_view(), length, data, null_bitmap, null_count, offset) {}
+
+  const StringHeader* raw_values() const {
+    return reinterpret_cast<const StringHeader*>(raw_values_) + data_->offset;
+  }
+
+  StringHeader Value(int64_t i) const { return raw_values()[i]; }
+
+  // For API compatibility with BinaryArray etc.
+  std::string_view GetView(int64_t i) const { return std::string_view(Value(i)); }
+
+  // EXPERIMENTAL
+  std::optional<std::string_view> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
+
+  IteratorType begin() const { return IteratorType(*this); }
+  IteratorType end() const { return IteratorType(*this, length()); }
+
+ protected:
+  using PrimitiveArray::PrimitiveArray;
+};
+
+/// Concrete Array class for variable-size string view (utf-8) data using
+/// StringHeader to reference in-line or out-of-line string values
+class ARROW_EXPORT StringViewArray : public BinaryViewArray {
+ public:
+  using TypeClass = StringViewType;
+
+  explicit StringViewArray(const std::shared_ptr<ArrayData>& data);
+
+  StringViewArray(int64_t length, const std::shared_ptr<Buffer>& data,
+                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                  int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : BinaryViewArray(utf8_view(), length, data, null_bitmap, null_count, offset) {}
 
   /// \brief Validate that this array contains only valid UTF8 entries
   ///

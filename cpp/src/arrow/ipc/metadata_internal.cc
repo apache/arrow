@@ -534,6 +534,16 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewType& type) {
+    // BinaryView will be written to IPC as a normal binary array
+    return Visit(BinaryType());
+  }
+
+  Status Visit(const StringViewType& type) {
+    // StringView will be written to IPC as a normal UTF8 string array
+    return Visit(StringType());
+  }
+
   Status Visit(const LargeBinaryType& type) {
     fb_type_ = flatbuf::Type::LargeBinary;
     type_offset_ = flatbuf::CreateLargeBinary(fbb_).Union();

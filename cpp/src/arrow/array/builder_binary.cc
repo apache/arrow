@@ -41,6 +41,92 @@ namespace arrow {
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
+// Binary/StringView
+
+Status BinaryViewBuilder::AppendValues(const std::vector<std::string>& values,
+                                       const uint8_t* valid_bytes) {
+  // We only need to allocate memory for the out-of-line strings
+  std::size_t out_of_line_total = std::accumulate(
+      values.begin(), values.end(), 0ULL, [](uint64_t sum, const std::string& str) {
+        size_t length = str.size();
+        return sum + (length > StringHeader::kInlineSize ? length : 0);
+      });
+  RETURN_NOT_OK(Reserve(values.size()));
+  RETURN_NOT_OK(ReserveData(out_of_line_total));
+
+  if (valid_bytes != nullptr) {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      if (valid_bytes[i]) {
+        UnsafeAppend(values[i]);
+      } else {
+        UnsafeAppendNull();
+      }
+    }
+  } else {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      UnsafeAppend(values[i]);
+    }
+  }
+  UnsafeAppendToBitmap(valid_bytes, values.size());
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
+                                           int64_t length) {
+  auto bitmap = array.GetValues<uint8_t>(0, 0);
+  auto values = array.GetValues<StringHeader>(1) + offset;
+
+  int64_t out_of_line_total = 0;
+  for (int64_t i = 0; i < length; i++) {
+    if (!values[i].IsInline()) {
+      out_of_line_total += static_cast<int64_t>(values[i].size());
+    }
+  }
+  RETURN_NOT_OK(Reserve(length));
+  RETURN_NOT_OK(ReserveData(out_of_line_total));
+  for (int64_t i = 0; i < length; i++) {
+    if (!bitmap || bit_util::GetBit(bitmap, array.offset + offset + i)) {
+      if (values[i].IsInline()) {
+        UnsafeAppend(values[i]);
+      } else {
+        UnsafeAppend(values[i].data(), values[i].size());
+      }
+    } else {
+      UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, null_bitmap_builder_.FinishWithLength(length_));
+  ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
+  BufferVector buffers = {null_bitmap, data};
+  for (auto&& buffer : data_heap_builder_.Finish()) {
+    buffers.push_back(std::move(buffer));
+  }
+  *out = ArrayData::Make(type(), length_, std::move(buffers), null_count_);
+  capacity_ = length_ = null_count_ = 0;
+  Reset();
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::ReserveData(int64_t length) {
+  if (ARROW_PREDICT_FALSE(length > ValueSizeLimit())) {
+    return Status::CapacityError(
+        "BinaryView or StringView elements cannot reference "
+        "strings larger than 4GB");
+  }
+  return data_heap_builder_.Reserve(length);
+}
+
+void BinaryViewBuilder::Reset() {
+  ArrayBuilder::Reset();
+  data_builder_.Reset();
+  data_heap_builder_.Reset();
+}
+
+// ----------------------------------------------------------------------
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,

@@ -267,6 +267,14 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  template <typename T>
+  enable_if_t<std::is_same<BinaryViewType, T>::value ||
+                  std::is_same<StringViewType, T>::value,
+              Status>
+  Visit(const T& type) {
+    return Status::NotImplemented("Binary / string view");
+  }
+
   Status Visit(const ListType& type) {
     RETURN_NOT_OK(SwapOffsets<int32_t>(1));
     return Status::OK();
@@ -641,6 +649,11 @@ class RepeatedArrayFactory {
     out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
                                                                values_buffer);
     return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_binary_view_like<T, Status> Visit(const T&) {
+    return Status::NotImplemented("binary / string view");
   }
 
   template <typename T>

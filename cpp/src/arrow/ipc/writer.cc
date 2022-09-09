@@ -425,6 +425,10 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewArray& array) {
+    return Status::NotImplemented("Binary / string view type");
+  }
+
   Status Visit(const FixedSizeListArray& array) {
     --max_recursion_depth_;
     auto size = array.list_type()->list_size();

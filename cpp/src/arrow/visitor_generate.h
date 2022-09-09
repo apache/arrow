@@ -40,7 +40,9 @@ namespace arrow {
   ACTION(Boolean);                              \
   ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
   ACTION(String);                               \
+  ACTION(StringView);                           \
   ACTION(Binary);                               \
+  ACTION(BinaryView);                           \
   ACTION(LargeString);                          \
   ACTION(LargeBinary);                          \
   ACTION(FixedSizeBinary);                      \

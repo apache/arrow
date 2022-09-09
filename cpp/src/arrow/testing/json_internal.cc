@@ -227,8 +227,9 @@ class SchemaWriter {
 
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-              is_base_binary_type<T>::value || is_base_list_type<T>::value ||
-              is_struct_type<T>::value || is_run_end_encoded_type<T>::value>
+              is_base_binary_type<T>::value || is_binary_view_like_type<T>::value ||
+              is_base_list_type<T>::value || is_struct_type<T>::value ||
+              is_run_end_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -386,6 +387,8 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
+  Status Visit(const StringViewType& type) { return WritePrimitive("utf8_view", type); }
+  Status Visit(const BinaryViewType& type) { return WritePrimitive("binary_view", type); }
   Status Visit(const LargeStringType& type) { return WriteVarBytes("largeutf8", type); }
   Status Visit(const LargeBinaryType& type) { return WriteVarBytes("largebinary", type); }
   Status Visit(const FixedSizeBinaryType& type) {
@@ -1365,6 +1368,10 @@ class ArrayReader {
       }
     }
     return FinishBuilder(&builder);
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    return Status::NotImplemented("Binary / string view");
   }
 
   Status Visit(const DayTimeIntervalType& type) {

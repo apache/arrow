@@ -1894,7 +1894,7 @@ This project includes code from the autobrew project.
 The following files are based on code from the autobrew project:
 * r/tools/autobrew
 * dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb
-* dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb 
+* dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb
 
 Copyright (c) 2019, Jeroen Ooms
 License: MIT
@@ -1972,6 +1972,20 @@ is based on Folly's
 
 Copyright: Copyright (c) Facebook, Inc. and its affiliates.
 Home page: https://github.com/facebook/folly
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+This project includes code from Velox.
+
+ * cpp/src/arrow/util/bytes_header.h
+
+is based on Velox's
+
+ * velox/type/StringView.h
+
+Copyright: Copyright (c) Facebook, Inc. and its affiliates.
+Home page: https://github.com/facebookincubator/velox
 License: http://www.apache.org/licenses/LICENSE-2.0
 
 --------------------------------------------------------------------------------

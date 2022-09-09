@@ -89,6 +89,18 @@ LargeStringArray::LargeStringArray(int64_t length,
 
 Status LargeStringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
+BinaryViewArray::BinaryViewArray(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::BINARY_VIEW);
+  SetData(data);
+}
+
+StringViewArray::StringViewArray(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
+  SetData(data);
+}
+
+Status StringViewArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
+
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);
 }

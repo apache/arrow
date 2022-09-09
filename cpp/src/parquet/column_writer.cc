@@ -134,6 +134,7 @@ struct ValueBufferSlicer {
   NOT_IMPLEMENTED_VISIT(Dictionary);
   NOT_IMPLEMENTED_VISIT(RunEndEncoded);
   NOT_IMPLEMENTED_VISIT(Extension);
+  NOT_IMPLEMENTED_VISIT(BinaryView);
 
 #undef NOT_IMPLEMENTED_VISIT
 

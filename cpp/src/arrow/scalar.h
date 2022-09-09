@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/string_header.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_type_inline.h"
 
@@ -284,6 +285,34 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
   explicit StringScalar(std::string s);
 
   StringScalar() : StringScalar(utf8()) {}
+};
+
+struct ARROW_EXPORT BinaryViewScalar : public internal::PrimitiveScalarBase {
+  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
+  using TypeClass = BinaryViewType;
+
+  explicit BinaryViewScalar(StringHeader value, std::shared_ptr<DataType> type)
+      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
+
+  explicit BinaryViewScalar(StringHeader value)
+      : BinaryViewScalar(value, binary_view()) {}
+
+  BinaryViewScalar() : internal::PrimitiveScalarBase(binary_view(), false) {}
+
+  void* mutable_data() override { return reinterpret_cast<void*>(&this->value); }
+
+  std::string_view view() const override { return std::string_view(this->value); }
+
+  StringHeader value;
+};
+
+struct ARROW_EXPORT StringViewScalar : public BinaryViewScalar {
+  using TypeClass = StringViewType;
+
+  explicit StringViewScalar(StringHeader value)
+      : BinaryViewScalar(std::move(value), utf8_view()) {}
+
+  StringViewScalar() : BinaryViewScalar(utf8_view()) {}
 };
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {

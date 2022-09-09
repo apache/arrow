@@ -261,6 +261,11 @@ class RangeDataEqualsImpl {
   // Also matches StringType
   Status Visit(const BinaryType& type) { return CompareBinary(type); }
 
+  // Also matches StringViewType
+  Status Visit(const BinaryViewType& type) {
+    return Status::NotImplemented("Binary / string view");
+  }
+
   // Also matches LargeStringType
   Status Visit(const LargeBinaryType& type) { return CompareBinary(type); }
 
@@ -625,7 +630,7 @@ class TypeEqualsVisitor {
 
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-                  is_base_binary_type<T>::value,
+                  is_base_binary_type<T>::value || is_binary_view_like_type<T>::value,
               Status>
   Visit(const T&) {
     result_ = true;
@@ -806,6 +811,12 @@ class ScalarEqualsVisitor {
   Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryViewScalar& left) {
+    const auto& right = checked_cast<const BinaryViewScalar&>(right_);
+    result_ = left.value == right.value;
     return Status::OK();
   }
 

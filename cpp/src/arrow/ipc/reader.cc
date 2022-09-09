@@ -348,6 +348,11 @@ class ArrayLoader {
     return LoadBinary<T>(type.id());
   }
 
+  Status Visit(const BinaryViewType& type) {
+    DCHECK(false);
+    return Status::NotImplemented("Reading IPC format to binary view is not supported");
+  }
+
   Status Visit(const FixedSizeBinaryType& type) {
     out_->buffers.resize(2);
     RETURN_NOT_OK(LoadCommon(type.id()));

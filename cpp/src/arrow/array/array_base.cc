@@ -87,6 +87,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.GetString(index_));
   }
 
+  Status Visit(const BinaryViewArray& a) {
+    return Status::NotImplemented("ScalarFromArraySlot -> BinaryView");
+  }
+
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
 
   Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }

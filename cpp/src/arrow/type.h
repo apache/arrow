@@ -33,6 +33,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_header.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
@@ -710,6 +711,33 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
 
+/// \brief Concrete type class for variable-size binary view data using
+/// StringHeader structs
+class ARROW_EXPORT BinaryViewType : public DataType {
+ public:
+  static constexpr Type::type type_id = Type::BINARY_VIEW;
+  static constexpr bool is_utf8 = false;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr const char* type_name() { return "binary_view"; }
+
+  BinaryViewType() : BinaryViewType(Type::BINARY_VIEW) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout(
+        {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(StringHeader))});
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "binary_view"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  // Allow subclasses like StringType to change the logical type.
+  explicit BinaryViewType(Type::type logical_type) : DataType(logical_type) {}
+};
+
 /// \brief Concrete type class for large variable-size binary data
 class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
  public:
@@ -751,6 +779,24 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for variable-size string data, utf8-encoded
+class ARROW_EXPORT StringViewType : public BinaryViewType {
+ public:
+  static constexpr Type::type type_id = Type::STRING_VIEW;
+  static constexpr bool is_utf8 = true;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr const char* type_name() { return "utf8_view"; }
+
+  StringViewType() : BinaryViewType(Type::STRING_VIEW) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "utf8_view"; }
 
  protected:
   std::string ComputeFingerprint() const override;

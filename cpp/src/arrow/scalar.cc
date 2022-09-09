@@ -71,6 +71,12 @@ struct ScalarHashImpl {
 
   Status Visit(const BaseBinaryScalar& s) { return BufferHash(*s.value); }
 
+  Status Visit(const BinaryViewScalar& s) {
+    const StringHeader& v = s.value;
+    hash_ ^= internal::ComputeStringHash<1>(v.data(), v.size());
+    return Status::OK();
+  }
+
   template <typename T>
   Status Visit(const TemporalScalar<T>& s) {
     return ValueHash(s);
@@ -262,6 +268,14 @@ struct ScalarValidateImpl {
   Status Visit(const BaseBinaryScalar& s) { return ValidateBinaryScalar(s); }
 
   Status Visit(const StringScalar& s) { return ValidateStringScalar(s); }
+
+  Status Visit(const BinaryViewScalar& s) {
+    return Status::NotImplemented("Binary view");
+  }
+
+  Status Visit(const StringViewScalar& s) {
+    return Status::NotImplemented("String view");
+  }
 
   Status Visit(const LargeStringScalar& s) { return ValidateStringScalar(s); }
 
