@@ -132,6 +132,24 @@ func (f *FilterKernelTestSuite) assertFilterJSON(dt arrow.DataType, values, filt
 	f.assertFilter(valuesArr, filterArr, expectedArr)
 }
 
+func (f *FilterKernelTestSuite) TestNoValidityBitmapButUnknownNullCount() {
+	values := f.getArr(arrow.PrimitiveTypes.Int32, `[1, 2, 3, 4]`)
+	defer values.Release()
+	filter := f.getArr(arrow.FixedWidthTypes.Boolean, `[true, true, false, true]`)
+	defer filter.Release()
+
+	expected, err := compute.FilterArray(context.TODO(), values, filter, *compute.DefaultFilterOptions())
+	f.Require().NoError(err)
+	defer expected.Release()
+
+	filter.Data().(*array.Data).SetNullN(array.UnknownNullCount)
+	result, err := compute.FilterArray(context.TODO(), values, filter, *compute.DefaultFilterOptions())
+	f.Require().NoError(err)
+	defer result.Release()
+
+	assertArraysEqual(f.T(), expected, result)
+}
+
 type FilterKernelWithNull struct {
 	FilterKernelTestSuite
 }
@@ -384,10 +402,55 @@ func (f *FilterKernelNumeric) TestCompareScalarAndFilterRandom() {
 	}
 }
 
+type FilterKernelWithDecimal struct {
+	FilterKernelTestSuite
+
+	dt arrow.DataType
+}
+
+func (f *FilterKernelWithDecimal) TestFilterDecimalNumeric() {
+	f.assertFilterJSON(f.dt, `[]`, `[]`, `[]`)
+
+	f.assertFilterJSON(f.dt, `["9.00"]`, `[false]`, `[]`)
+	f.assertFilterJSON(f.dt, `["9.00"]`, `[true]`, `["9.00"]`)
+	f.assertFilterJSON(f.dt, `["9.00"]`, `[null]`, `[null]`)
+	f.assertFilterJSON(f.dt, `[null]`, `[false]`, `[]`)
+	f.assertFilterJSON(f.dt, `[null]`, `[true]`, `[null]`)
+	f.assertFilterJSON(f.dt, `[null]`, `[null]`, `[null]`)
+
+	f.assertFilterJSON(f.dt, `["7.12", "8.00", "9.87"]`, `[false, true, false]`, `["8.00"]`)
+	f.assertFilterJSON(f.dt, `["7.12", "8.00", "9.87"]`, `[true, false, true]`, `["7.12", "9.87"]`)
+	f.assertFilterJSON(f.dt, `[null, "8.00", "9.87"]`, `[false, true, false]`, `["8.00"]`)
+	f.assertFilterJSON(f.dt, `["7.12", "8.00", "9.87"]`, `[null, true, false]`, `[null, "8.00"]`)
+	f.assertFilterJSON(f.dt, `["7.12", "8.00", "9.87"]`, `[true, null, true]`, `["7.12", null, "9.87"]`)
+
+	val := f.getArr(f.dt, `["7.12", "8.00", "9.87"]`)
+	defer val.Release()
+	filter := f.getArr(arrow.FixedWidthTypes.Boolean, `[false, true, true, true, false, true]`)
+	defer filter.Release()
+	filter = array.NewSlice(filter, 3, 6)
+	defer filter.Release()
+	exp := f.getArr(f.dt, `["7.12", "9.87"]`)
+	defer exp.Release()
+
+	f.assertFilter(val, filter, exp)
+
+	invalidFilter := f.getArr(arrow.FixedWidthTypes.Boolean, `[]`)
+	defer invalidFilter.Release()
+
+	_, err := compute.FilterArray(context.TODO(), val, invalidFilter, f.emitNulls)
+	f.ErrorIs(err, arrow.ErrInvalid)
+	_, err = compute.FilterArray(context.TODO(), val, invalidFilter, f.dropOpts)
+	f.ErrorIs(err, arrow.ErrInvalid)
+}
+
 func TestFilterKernels(t *testing.T) {
 	suite.Run(t, new(FilterKernelWithNull))
 	suite.Run(t, new(FilterKernelWithBoolean))
 	for _, dt := range numericTypes {
 		suite.Run(t, &FilterKernelNumeric{dt: dt})
+	}
+	for _, dt := range []arrow.DataType{&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal256Type{Precision: 3, Scale: 2}} {
+		suite.Run(t, &FilterKernelWithDecimal{dt: dt})
 	}
 }

@@ -366,6 +366,180 @@ func NullFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult)
 	return nil
 }
 
+func filterExec(ctx *exec.KernelCtx, outputLen int64, values, selection *exec.ArraySpan, out *exec.ExecResult, visitValid func(idx int64) error, visitNull func() error) error {
+	var (
+		nullSelection = ctx.State.(FilterState).NullSelection
+		filterData    = selection.Buffers[1].Buf
+		filterIsValid = selection.Buffers[0].Buf
+		filterOffset  = selection.Offset
+
+		// we use 3 block counters for fast scanning
+		//
+		// values valid counter: for values null/not-null
+		// filter valid counter: for filter null/not-null
+		// filter counter: for filter true/false
+		valuesIsValid      = bitutil.OptionalBitIndexer{Bitmap: values.Buffers[0].Buf, Offset: int(values.Offset)}
+		valuesValidCounter = bitutils.NewOptionalBitBlockCounter(values.Buffers[0].Buf, values.Offset, values.Len)
+		filterValidCounter = bitutils.NewOptionalBitBlockCounter(filterIsValid, filterOffset, selection.Len)
+		filterCounter      = bitutils.NewBitBlockCounter(filterData, filterOffset, selection.Len)
+		inPos              int64
+
+		validityBuilder = validityBuilder{mem: exec.GetAllocator(ctx.Ctx)}
+	)
+
+	validityBuilder.Reserve(outputLen)
+
+	appendNotNull := func(idx int64) error {
+		validityBuilder.UnsafeAppend(true)
+		return visitValid(idx)
+	}
+
+	appendNull := func() error {
+		validityBuilder.UnsafeAppend(false)
+		return visitNull()
+	}
+
+	appendMaybeNull := func(idx int64) error {
+		if valuesIsValid.GetBit(int(idx)) {
+			return appendNotNull(idx)
+		}
+		return appendNull()
+	}
+
+	for inPos < selection.Len {
+		filterValidBlock := filterValidCounter.NextWord()
+		valuesValidBlock := valuesValidCounter.NextWord()
+		filterBlock := filterCounter.NextWord()
+
+		switch {
+		case filterBlock.NoneSet() && nullSelection == DropNulls:
+			// for this exceedingly common case in low-selectivity filters
+			// we can skip further analysis of the data and move onto the next block
+			inPos += int64(filterBlock.Len)
+		case filterValidBlock.AllSet():
+			// simpler path: no filter values are null
+			if filterBlock.AllSet() {
+				// fastest path, filter values are all true and not null
+				if valuesValidBlock.AllSet() {
+					// values aren't null either
+					validityBuilder.UnsafeAppendN(int64(filterBlock.Len), true)
+					for i := 0; i < int(filterBlock.Len); i++ {
+						if err := visitValid(inPos); err != nil {
+							return err
+						}
+						inPos++
+					}
+				} else {
+					// some values are null in this block
+					for i := 0; i < int(filterBlock.Len); i++ {
+						if err := appendMaybeNull(inPos); err != nil {
+							return err
+						}
+						inPos++
+					}
+				}
+			} else { // !filterBlock.AllSet()
+				// some filter values are false, but all not null
+				if valuesValidBlock.AllSet() {
+					// all the values are not-null, so we can skip null checking for them
+					for i := 0; i < int(filterBlock.Len); i++ {
+						if bitutil.BitIsSet(filterData, int(filterOffset+inPos)) {
+							if err := appendNotNull(inPos); err != nil {
+								return err
+							}
+						}
+						inPos++
+					}
+				} else {
+					// some of the values in the block are null
+					// gotta check each one :(
+					for i := 0; i < int(filterBlock.Len); i++ {
+						if bitutil.BitIsSet(filterData, int(filterOffset+inPos)) {
+							if err := appendMaybeNull(inPos); err != nil {
+								return err
+							}
+						}
+						inPos++
+					}
+				}
+			}
+		default:
+			// !filterValidBlock.AllSet()
+			// some filter values are null, so we have to handle drop
+			// versus emit null
+			if nullSelection == DropNulls {
+				// filter null values are treated as false
+				for i := 0; i < int(filterBlock.Len); i++ {
+					if bitutil.BitIsSet(filterIsValid, int(filterOffset+inPos)) &&
+						bitutil.BitIsSet(filterData, int(filterOffset+inPos)) {
+						if err := appendMaybeNull(inPos); err != nil {
+							return err
+						}
+					}
+					inPos++
+				}
+			} else {
+				// filter null values are appended to output as null
+				// whether the value in the corresponding slot is valid
+				// or not
+				var err error
+				for i := 0; i < int(filterBlock.Len); i++ {
+					filterNotNull := bitutil.BitIsSet(filterIsValid, int(filterOffset+inPos))
+					if filterNotNull && bitutil.BitIsSet(filterData, int(filterOffset+inPos)) {
+						err = appendMaybeNull(inPos)
+					} else if !filterNotNull {
+						// emit null case
+						err = appendNull()
+					}
+					if err != nil {
+						return err
+					}
+					inPos++
+				}
+			}
+		}
+	}
+
+	out.Len = int64(validityBuilder.bitLength)
+	out.Nulls = int64(validityBuilder.falseCount)
+	out.Buffers[0].WrapBuffer(validityBuilder.Finish())
+	return nil
+}
+
+func FilterFSB(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	var (
+		values       = &batch.Values[0].Array
+		selection    = &batch.Values[1].Array
+		outputLength = getFilterOutputSize(selection, ctx.State.(FilterState).NullSelection)
+		valueSize    = int64(values.Type.(arrow.FixedWidthDataType).Bytes())
+		valueData    = values.Buffers[1].Buf[values.Offset*valueSize:]
+	)
+
+	out.Buffers[1].WrapBuffer(ctx.Allocate(int(valueSize * outputLength)))
+	buf := out.Buffers[1].Buf
+
+	err := filterExec(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			start := idx * int64(valueSize)
+			copy(buf, valueData[start:start+valueSize])
+			buf = buf[valueSize:]
+			return nil
+		},
+		func() error {
+			buf = buf[valueSize:]
+			return nil
+		})
+
+	if err != nil {
+		out.Buffers[1].Buf = nil
+		out.Buffers[1].Owner.Release()
+		out.Buffers[1].Owner = nil
+		return err
+	}
+
+	return nil
+}
+
 type SelectionKernelData struct {
 	In   exec.InputType
 	Exec exec.ArrayKernelExec
@@ -375,6 +549,8 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 	filterkernels = []SelectionKernelData{
 		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveFilter},
 		{In: exec.NewExactInput(arrow.Null), Exec: NullFilter},
+		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: FilterFSB},
+		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: FilterFSB},
 	}
 
 	return

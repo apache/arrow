@@ -573,3 +573,12 @@ func BitmapEquals(left, right []byte, lOffset, rOffset int64, length int64) bool
 	}
 	return true
 }
+
+type OptionalBitIndexer struct {
+	Bitmap []byte
+	Offset int
+}
+
+func (b *OptionalBitIndexer) GetBit(i int) bool {
+	return b.Bitmap == nil || BitIsSet(b.Bitmap, b.Offset+i)
+}
