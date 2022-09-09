@@ -39,10 +39,9 @@ cdef CDeclaration _create_named_table_provider(dict named_args, const std_vector
         c_name = names[i]
         py_names.append(frombytes(c_name))
 
-    py_table = named_args["provider"](py_names)    
+    py_table = named_args["provider"](py_names)
     c_in_table = pyarrow_unwrap_table(py_table)
-    c_tablesourceopts = make_shared[CTableSourceNodeOptions](
-        c_in_table, 1 << 20)
+    c_tablesourceopts = make_shared[CTableSourceNodeOptions](c_in_table)
     c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
         c_tablesourceopts)
     return CDeclaration(tobytes("table_source"),
