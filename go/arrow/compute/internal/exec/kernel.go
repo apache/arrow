@@ -598,3 +598,44 @@ func (s *ScalarKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error
 func (s ScalarKernel) GetNullHandling() NullHandling { return s.NullHandling }
 func (s ScalarKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
 func (s ScalarKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }
+
+type ChunkedExec func(*KernelCtx, []*arrow.Chunked, *ExecResult) ([]*ExecResult, error)
+type FinalizeFunc func(*KernelCtx, []*ArraySpan) ([]*ArraySpan, error)
+
+type VectorKernel struct {
+	kernel
+
+	ExecFn              ArrayKernelExec
+	ExecChunked         ChunkedExec
+	Finalize            FinalizeFunc
+	NullHandling        NullHandling
+	MemAlloc            MemAlloc
+	CanWriteIntoSlices  bool
+	CanExecuteChunkWise bool
+	OutputChunked       bool
+}
+
+func NewVectorKernel(inTypes []InputType, outType OutputType, exec ArrayKernelExec, init KernelInitFn) VectorKernel {
+	return NewVectorKernelWithSig(&KernelSignature{
+		InputTypes: inTypes, OutType: outType}, exec, init)
+}
+
+func NewVectorKernelWithSig(sig *KernelSignature, exec ArrayKernelExec, init KernelInitFn) VectorKernel {
+	return VectorKernel{
+		kernel:              kernel{Signature: sig, Init: init, Parallelizable: true},
+		ExecFn:              exec,
+		CanWriteIntoSlices:  true,
+		CanExecuteChunkWise: true,
+		OutputChunked:       true,
+		NullHandling:        NullComputedNoPrealloc,
+		MemAlloc:            MemNoPrealloc,
+	}
+}
+
+func (s *VectorKernel) Exec(ctx *KernelCtx, sp *ExecSpan, out *ExecResult) error {
+	return s.ExecFn(ctx, sp, out)
+}
+
+func (s VectorKernel) GetNullHandling() NullHandling { return s.NullHandling }
+func (s VectorKernel) GetMemAlloc() MemAlloc         { return s.MemAlloc }
+func (s VectorKernel) CanFillSlices() bool           { return s.CanWriteIntoSlices }

@@ -446,3 +446,5 @@ var OutputTargetType = exec.NewComputedOutputType(ResolveOutputFromOptions)
 func resolveToFirstType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 	return args[0], nil
 }
+
+var OutputFirstType = exec.NewComputedOutputType(resolveToFirstType)

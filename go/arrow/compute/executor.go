@@ -802,4 +802,242 @@ var (
 	scalarExecPool = sync.Pool{
 		New: func() any { return &scalarExecutor{} },
 	}
+	vectorExecPool = sync.Pool{
+		New: func() any { return &vectorExecutor{} },
+	}
 )
+
+func checkCanExecuteChunked(k *exec.VectorKernel) error {
+	if k.ExecChunked == nil {
+		return fmt.Errorf("%w: vector kernel cannot execute chunkwise and no chunked exec function defined", arrow.ErrInvalid)
+	}
+
+	if k.NullHandling == exec.NullIntersection {
+		return fmt.Errorf("%w: null pre-propagation is unsupported for chunkedarray execution in vector kernels", arrow.ErrInvalid)
+	}
+	return nil
+}
+
+type vectorExecutor struct {
+	nonAggExecImpl
+
+	iter    spanIterator
+	results []*exec.ArraySpan
+	iterLen int64
+
+	allScalars bool
+}
+
+func (v *vectorExecutor) Execute(ctx context.Context, batch *ExecBatch, data chan<- Datum) (err error) {
+	final := v.kernel.(*exec.VectorKernel).Finalize
+	if final != nil {
+		if v.results == nil {
+			v.results = make([]*exec.ArraySpan, 0, 1)
+		} else {
+			v.results = v.results[:0]
+		}
+	}
+	// some vector kernels have a separate code path for handling chunked
+	// arrays (VectorKernel.ExecChunked) so we check for any chunked
+	// arrays. If we do and an ExecChunked function is defined
+	// then we call that.
+	hasChunked := haveChunkedArray(batch.Values)
+	v.numOutBuf = len(v.outType.Layout().Buffers)
+	v.preallocValidity = v.kernel.GetNullHandling() != exec.NullComputedNoPrealloc &&
+		v.kernel.GetNullHandling() != exec.NullNoOutput
+	if v.kernel.GetMemAlloc() == exec.MemPrealloc {
+		v.dataPrealloc = addComputeDataPrealloc(v.outType, v.dataPrealloc)
+	}
+
+	if v.kernel.(*exec.VectorKernel).CanExecuteChunkWise {
+		v.allScalars, v.iter, err = iterateExecSpans(batch, v.ectx.ChunkSize, true)
+		v.iterLen = batch.Len
+
+		var (
+			input exec.ExecSpan
+			next  bool
+		)
+		if v.iterLen == 0 {
+			input.Values = make([]exec.ExecValue, batch.NumValues())
+			for i, v := range batch.Values {
+				exec.FillZeroLength(v.(ArrayLikeDatum).Type(), &input.Values[i].Array)
+			}
+			err = v.exec(&input, data)
+		}
+		for err == nil {
+			if input, _, next = v.iter(); !next {
+				break
+			}
+			err = v.exec(&input, data)
+		}
+		if err != nil {
+			return
+		}
+	} else {
+		// kernel cannot execute chunkwise. if we have any chunked arrays,
+		// then execchunked must be defined or we raise an error
+		if hasChunked {
+			if err = v.execChunked(batch, data); err != nil {
+				return
+			}
+		} else {
+			// no chunked arrays. we pack the args into an execspan
+			// and call regular exec code path
+			span := ExecSpanFromBatch(batch)
+			if checkIfAllScalar(batch) {
+				exec.PromoteExecSpanScalars(*span)
+			}
+			if err = v.exec(span, data); err != nil {
+				return
+			}
+		}
+	}
+
+	if final != nil {
+		// intermediate results require post-processing after execution is
+		// completed (possibly involving some accumulated state)
+		output, err := final(v.ctx, v.results)
+		if err != nil {
+			return err
+		}
+
+		for _, r := range output {
+			d := r.MakeData()
+			defer d.Release()
+			data <- NewDatum(d)
+		}
+	}
+
+	return nil
+}
+
+func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasChunked bool) Datum {
+	// if kernel doesn't output chunked, just grab the one output and return it
+	if !v.kernel.(*exec.VectorKernel).OutputChunked {
+		select {
+		case <-ctx.Done():
+			return nil
+		case output := <-out:
+			return output
+		}
+	}
+
+	// if execution yielded multiple chunks then the result is a chunked array
+	var (
+		output Datum
+		acc    []arrow.Array
+	)
+
+	toChunked := func() {
+		acc = output.(ArrayLikeDatum).Chunks()
+		if output.Kind() != KindChunked {
+			output.Release()
+		}
+		output = nil
+	}
+
+	// get first output
+	select {
+	case <-ctx.Done():
+		return nil
+	case output = <-out:
+		// if the inputs contained at least one chunked array
+		// then we want to return chunked output
+		if hasChunked {
+			toChunked()
+		}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			// context is done, either cancelled or a timeout.
+			// either way, we end early and return what we've got so far.
+			return output
+		case o, ok := <-out:
+			if !ok { // channel closed, wrap it up
+				if output != nil {
+					return output
+				}
+
+				for _, c := range acc {
+					defer c.Release()
+				}
+
+				chkd := arrow.NewChunked(v.outType, acc)
+				defer chkd.Release()
+				return NewDatum(chkd)
+			}
+
+			// if we get multiple batches of output, then we need
+			// to return it as a chunked array.
+			if acc == nil {
+				toChunked()
+			}
+
+			defer o.Release()
+			if o.Len() == 0 { // skip any empty batches
+				continue
+			}
+
+			acc = append(acc, o.(*ArrayDatum).MakeArray())
+		}
+	}
+}
+
+func (v *vectorExecutor) exec(span *exec.ExecSpan, data chan<- Datum) (err error) {
+	out := v.prepareOutput(int(span.Len))
+	if v.kernel.GetNullHandling() == exec.NullIntersection {
+		if err = propagateNulls(v.ctx, span, out); err != nil {
+			return
+		}
+	}
+	if err = v.kernel.Exec(v.ctx, span, out); err != nil {
+		return
+	}
+	return v.emitResult(out, data)
+}
+
+func (v *vectorExecutor) emitResult(result *exec.ArraySpan, data chan<- Datum) (err error) {
+	if v.kernel.(*exec.VectorKernel).Finalize == nil {
+		d := result.MakeData()
+		defer d.Release()
+		data <- NewDatum(d)
+	} else {
+		v.results = append(v.results, result)
+	}
+	return nil
+}
+
+func (v *vectorExecutor) execChunked(batch *ExecBatch, out chan<- Datum) error {
+	if err := checkCanExecuteChunked(v.kernel.(*exec.VectorKernel)); err != nil {
+		return err
+	}
+
+	output := v.prepareOutput(int(batch.Len))
+	input := make([]*arrow.Chunked, len(batch.Values))
+	for i, v := range batch.Values {
+		switch val := v.(type) {
+		case *ArrayDatum:
+			chks := val.Chunks()
+			input[i] = arrow.NewChunked(val.Type(), chks)
+			chks[0].Release()
+			defer input[i].Release()
+		case *ChunkedDatum:
+			input[i] = val.Value
+		default:
+			return fmt.Errorf("%w: handling with exec chunked", arrow.ErrNotImplemented)
+		}
+	}
+	result, err := v.kernel.(*exec.VectorKernel).ExecChunked(v.ctx, input, output)
+	if err != nil {
+		return err
+	}
+
+	for _, r := range result {
+		if err := v.emitResult(r, out); err != nil {
+			return err
+		}
+	}
+	return nil
+}

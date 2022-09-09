@@ -18,12 +18,15 @@ package exec
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
 	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/constraints"
 )
 
@@ -56,6 +59,12 @@ type FloatTypes interface {
 	float16.Num | constraints.Float
 }
 
+// NumericTypes is a type constraint for just signed/unsigned integers
+// and float32/float64.
+type NumericTypes interface {
+	IntTypes | UintTypes | constraints.Float
+}
+
 // DecimalTypes is a type constraint for raw values representing larger
 // decimal type values in Arrow, specifically decimal128 and decimal256.
 type DecimalTypes interface {
@@ -83,6 +92,9 @@ type TemporalTypes interface {
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
 func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
+	if len(span.Buffers[i].Buf) == 0 {
+		return nil
+	}
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len)
 	return ret[span.Offset:]
 }
@@ -97,6 +109,10 @@ func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 
 func GetBytes[T constraints.Integer](in []T) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(T(0))))
+}
+
+func GetData[T NumericTypes](in []byte) []T {
+	return unsafe.Slice((*T)(unsafe.Pointer(&in[0])), len(in)/int(unsafe.Sizeof(T(0))))
 }
 
 func Min[T constraints.Ordered](a, b T) T {
@@ -119,4 +135,40 @@ func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) 
 
 	return nil, fmt.Errorf("%w: attempted to initialize kernel state from invalid function options",
 		arrow.ErrInvalid)
+}
+
+var typMap = map[reflect.Type]arrow.DataType{
+	reflect.TypeOf(int8(0)):         arrow.PrimitiveTypes.Int8,
+	reflect.TypeOf(int16(0)):        arrow.PrimitiveTypes.Int16,
+	reflect.TypeOf(int32(0)):        arrow.PrimitiveTypes.Int32,
+	reflect.TypeOf(int64(0)):        arrow.PrimitiveTypes.Int64,
+	reflect.TypeOf(uint8(0)):        arrow.PrimitiveTypes.Uint8,
+	reflect.TypeOf(uint16(0)):       arrow.PrimitiveTypes.Uint16,
+	reflect.TypeOf(uint32(0)):       arrow.PrimitiveTypes.Uint32,
+	reflect.TypeOf(uint64(0)):       arrow.PrimitiveTypes.Uint64,
+	reflect.TypeOf(float32(0)):      arrow.PrimitiveTypes.Float32,
+	reflect.TypeOf(float64(0)):      arrow.PrimitiveTypes.Float64,
+	reflect.TypeOf(string("")):      arrow.BinaryTypes.String,
+	reflect.TypeOf(arrow.Date32(0)): arrow.FixedWidthTypes.Date32,
+	reflect.TypeOf(arrow.Date64(0)): arrow.FixedWidthTypes.Date64,
+	reflect.TypeOf(true):            arrow.FixedWidthTypes.Boolean,
+}
+
+func GetDataType[T NumericTypes | bool | string]() arrow.DataType {
+	var z T
+	return typMap[reflect.TypeOf(z)]
+}
+
+type arrayBuilder[T NumericTypes] interface {
+	array.Builder
+	Append(T)
+	AppendValues([]T, []bool)
+}
+
+func ArrayFromSlice[T NumericTypes](mem memory.Allocator, data []T) arrow.Array {
+	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
+	defer bldr.Release()
+
+	bldr.AppendValues(data, nil)
+	return bldr.NewArray()
 }
