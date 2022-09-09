@@ -56,56 +56,35 @@ using internal::checked_cast;
 using internal::hash_combine;
 namespace engine {
 
-Status WriteIpcData(const std::string& path,
-                    const std::shared_ptr<fs::FileSystem> file_system,
-                    const std::shared_ptr<Table> input) {
+void WriteIpcData(const std::string& path,
+                  const std::shared_ptr<fs::FileSystem> file_system,
+                  const std::shared_ptr<Table> input) {
   EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
-  ARROW_ASSIGN_OR_RAISE(
+  ASSERT_OK_AND_ASSIGN(
       auto file_writer,
       MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
   TableBatchReader reader(input);
   std::shared_ptr<RecordBatch> batch;
   while (true) {
-    RETURN_NOT_OK(reader.ReadNext(&batch));
+    ASSERT_OK(reader.ReadNext(&batch));
     if (batch == nullptr) {
       break;
     }
-    RETURN_NOT_OK(file_writer->WriteRecordBatch(*batch));
+    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
   }
-  RETURN_NOT_OK(file_writer->Close());
-  return Status::OK();
+  ASSERT_OK(file_writer->Close());
 }
 
 Result<std::shared_ptr<Table>> GetTableFromPlan(
-    compute::Declaration& declarations,
-    arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
-    compute::ExecContext& exec_context, std::shared_ptr<Schema>& output_schema) {
+    compute::Declaration& other_declrs, compute::ExecContext& exec_context,
+    const std::shared_ptr<Schema>& output_schema) {
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-  ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
 
-  RETURN_NOT_OK(decl->Validate());
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
+  auto declarations = compute::Declaration::Sequence({other_declrs, sink_declaration});
 
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      output_schema, std::move(sink_gen), exec_context.memory_pool());
-
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-  return arrow::Table::FromRecordBatchReader(sink_reader.get());
-}
-
-Status WriteParquetData(const std::string& path,
-                        const std::shared_ptr<fs::FileSystem> file_system,
-                        const std::shared_ptr<Table> input) {
-  EXPECT_OK_AND_ASSIGN(auto buffer_writer, file_system->OpenOutputStream(path));
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*input, arrow::default_memory_pool(),
-                                                  buffer_writer, /*chunk_size*/ 1));
-  return buffer_writer->Close();
-}
-
-Result<std::shared_ptr<Table>> GetTableFromPlan(
-    std::shared_ptr<compute::ExecPlan>& plan, compute::Declaration& declarations,
-    arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
-    compute::ExecContext& exec_context, const std::shared_ptr<Schema>& output_schema) {
   ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
 
   RETURN_NOT_OK(decl->Validate());
@@ -194,29 +173,6 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-// TODO: complete this interface
-struct TempDataGenerator {
-  TempDataGenerator(const std::shared_ptr<Table> input_table,
-                    const std::string& file_prefix,
-                    std::unique_ptr<arrow::internal::TemporaryDir>& tempdir)
-      : input_table(input_table), file_prefix(file_prefix), tempdir(tempdir) {}
-
-  Status operator()() {
-    auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-    auto filesystem = std::make_shared<fs::LocalFileSystem>();
-    const std::string file_name = file_prefix + ".parquet";
-    ARROW_ASSIGN_OR_RAISE(auto file_path, tempdir->path().Join(file_name));
-    data_file_path = file_path.ToString();
-    ARROW_EXPECT_OK(WriteParquetData(data_file_path, filesystem, input_table));
-    return Status::OK();
-  }
-
-  std::shared_ptr<Table> input_table;
-  std::string file_prefix;
-  std::unique_ptr<arrow::internal::TemporaryDir>& tempdir;
-  std::string data_file_path;
-};
-
 void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                           const std::shared_ptr<Table> expected_table,
                           compute::ExecContext& exec_context,
@@ -230,14 +186,9 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
   auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-  auto declarations = compute::Declaration::Sequence({*other_declrs, sink_declaration});
-  ASSERT_OK_AND_ASSIGN(auto acero_plan, compute::ExecPlan::Make(&exec_context));
-  ASSERT_OK_AND_ASSIGN(
-      auto output_table,
-      GetTableFromPlan(acero_plan, declarations, sink_gen, exec_context, output_schema));
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(*other_declrs, exec_context, output_schema));
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
@@ -1977,7 +1928,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
 
-  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+  WriteIpcData(file_path_str, filesystem, table);
 
   std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {file_path_str};
@@ -2089,7 +2040,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
 
-  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+  WriteIpcData(file_path_str, filesystem, table);
 
   std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {file_path_str};
@@ -2111,16 +2062,13 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   auto comp_right_value = compute::field_ref(filter_col_right);
   auto filter = compute::equal(comp_left_value, comp_right_value);
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
-       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
 
-  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
-                                                             exec_context, dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto expected_table,
+                       GetTableFromPlan(declarations, exec_context, dummy_schema));
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -2165,15 +2113,8 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
         checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
     EXPECT_TRUE(l_frag->Equals(*r_frag));
   }
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> rnd_trp_sink_gen;
-  auto rnd_trp_sink_node_options = compute::SinkNodeOptions{&rnd_trp_sink_gen};
-  auto rnd_trp_sink_declaration =
-      compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
-  auto rnd_trp_declarations =
-      compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
-  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                       GetTableFromPlan(rnd_trp_declarations, rnd_trp_sink_gen,
-                                        exec_context, dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table, GetTableFromPlan(*roundtripped_filter,
+                                                            exec_context, dummy_schema));
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
@@ -2500,14 +2441,6 @@ TEST(Substrait, FilterRelWithEmit) {
       [20, 6, 20, 2],
       [30, 7, 30, 1]
   ])"});
-
-  ASSERT_OK_AND_ASSIGN(auto tempdir,
-                       arrow::internal::TemporaryDir::Make("substrait_read_tempdir"));
-  std::string file_prefix = "serde_read_emit_test";
-
-  TempDataGenerator datagen(input_table, file_prefix, tempdir);
-  ASSERT_OK(datagen());
-  std::string substrait_file_uri = "file://" + datagen.data_file_path;
 
   std::string substrait_json = R"({
   "relations": [{

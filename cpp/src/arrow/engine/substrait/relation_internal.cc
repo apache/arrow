@@ -42,14 +42,6 @@ using internal::make_unique;
 namespace engine {
 
 template <typename RelMessage>
-bool HasEmit(const RelMessage& rel) {
-  if (rel.has_common()) {
-    return rel.common().has_emit();
-  }
-  return false;
-}
-
-template <typename RelMessage>
 Result<std::vector<compute::Expression>> GetEmitInfo(
     const RelMessage& rel, const std::shared_ptr<Schema>& schema) {
   const auto& emit = rel.common().emit();
@@ -143,10 +135,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
-        ARROW_ASSIGN_OR_RAISE(compute::Declaration no_emit_declaration,
+        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
         return ProcessEmit(std::move(read),
-                           DeclarationInfo{std::move(no_emit_declaration), base_schema},
+                           DeclarationInfo{std::move(source_decl), base_schema},
                            std::move(base_schema));
       }
 
@@ -261,11 +253,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(base_schema));
 
-      DeclarationInfo no_emit_declaration = {
+      DeclarationInfo scan_declaration = {
           compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
-      return ProcessEmit(std::move(read), std::move(no_emit_declaration),
+      return ProcessEmit(std::move(read), std::move(scan_declaration),
                          std::move(base_schema));
     }
 
@@ -284,14 +276,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
       ARROW_ASSIGN_OR_RAISE(auto condition,
                             FromProto(filter.condition(), ext_set, conversion_options));
-      DeclarationInfo no_emit_declaration{
+      DeclarationInfo filter_declaration{
           compute::Declaration::Sequence({
               std::move(input.declaration),
               {"filter", compute::FilterNodeOptions{std::move(condition)}},
           }),
           input.output_schema};
 
-      return ProcessEmit(std::move(filter), std::move(no_emit_declaration),
+      return ProcessEmit(std::move(filter), std::move(filter_declaration),
                          input.output_schema);
     }
 
@@ -340,14 +332,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         expressions.emplace_back(des_expr);
       }
 
-      DeclarationInfo no_emit_declaration{
+      DeclarationInfo project_declaration{
           compute::Declaration::Sequence({
               std::move(input.declaration),
               {"project", compute::ProjectNodeOptions{std::move(expressions)}},
           }),
           project_schema};
 
-      return ProcessEmit(std::move(project), std::move(no_emit_declaration),
+      return ProcessEmit(std::move(project), std::move(project_declaration),
                          std::move(project_schema));
     }
 
@@ -428,14 +420,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       // Create output schema from left, right relations and join keys
-      std::shared_ptr<Schema> join_schema = left.output_schema;
-      std::shared_ptr<Schema> right_schema = right.output_schema;
-
-      for (const auto& field : right_schema->fields()) {
-        ARROW_ASSIGN_OR_RAISE(
-            join_schema, join_schema->AddField(
-                             static_cast<int>(join_schema->fields().size()) - 1, field));
-      }
+      FieldVector combined_fields = left.output_schema->fields();
+      const FieldVector& right_fields = right.output_schema->fields();
+      combined_fields.insert(combined_fields.end(), right_fields.begin(),
+                             right_fields.end());
+      std::shared_ptr<Schema> join_schema = schema(std::move(combined_fields));
 
       compute::HashJoinNodeOptions join_options{{std::move(*left_keys)},
                                                 {std::move(*right_keys)}};
@@ -445,9 +434,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
 
-      DeclarationInfo no_emit_declaration{std::move(join_dec), join_schema};
+      DeclarationInfo join_declaration{std::move(join_dec), join_schema};
 
-      return ProcessEmit(std::move(join), std::move(no_emit_declaration),
+      return ProcessEmit(std::move(join), std::move(join_declaration),
                          std::move(join_schema));
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
@@ -536,13 +525,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
 
-      DeclarationInfo no_emit_declaration{
+      DeclarationInfo aggregate_declaration{
           compute::Declaration::Sequence(
               {std::move(input.declaration),
                {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
           aggregate_schema};
 
-      return ProcessEmit(std::move(aggregate), std::move(no_emit_declaration),
+      return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
                          std::move(aggregate_schema));
     }
 
