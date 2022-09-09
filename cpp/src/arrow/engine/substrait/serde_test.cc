@@ -1076,17 +1076,15 @@ TEST(Substrait, GetRecordBatchReader) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  PythonTableProvider table_provider;
-  test_with_registries(
-      [&substrait_json, table_provider](ExtensionIdRegistry* ext_id_reg,
-                                        compute::FunctionRegistry* func_registry) {
-        ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
-        ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf, table_provider));
-        ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
-        // Note: assuming the binary.parquet file contains fixed amount of records
-        // in case of a test failure, re-evalaute the content in the file
-        EXPECT_EQ(table->num_rows(), 12);
-      });
+  test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
+                                         compute::FunctionRegistry* func_registry) {
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+    // Note: assuming the binary.parquet file contains fixed amount of records
+    // in case of a test failure, re-evalaute the content in the file
+    EXPECT_EQ(table->num_rows(), 12);
+  });
 #endif
 }
 
@@ -1095,13 +1093,11 @@ TEST(Substrait, InvalidPlan) {
     "relations": [
     ]
   })";
-  PythonTableProvider table_provider;
-  test_with_registries(
-      [&substrait_json, table_provider](ExtensionIdRegistry* ext_id_reg,
-                                        compute::FunctionRegistry* func_registry) {
-        ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
-        ASSERT_RAISES(Invalid, ExecuteSerializedPlan(*buf, table_provider));
-      });
+  test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
+                                         compute::FunctionRegistry* func_registry) {
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_RAISES(Invalid, ExecuteSerializedPlan(*buf));
+  });
 }
 
 TEST(Substrait, JoinPlanBasic) {

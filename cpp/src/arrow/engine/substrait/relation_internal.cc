@@ -140,6 +140,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
         ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
                               named_table_provider(table_names));
+        if (!source_decl.IsValid()) {
+          return Status::Invalid("Invalid NamedTable Source");
+        }
         return ProcessEmit(std::move(read),
                            DeclarationInfo{std::move(source_decl), base_schema},
                            std::move(base_schema));

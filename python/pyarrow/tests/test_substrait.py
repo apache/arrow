@@ -247,7 +247,7 @@ def test_named_table_invalid_table_name():
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    exec_message = "TableSourceNode requires table which is not null"
+    exec_message = "Invalid NamedTable Source"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider)
 

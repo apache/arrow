@@ -117,37 +117,6 @@ class SubstraitExecutor {
 }  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer, const PythonTableProvider& table_provider,
-    const ExtensionIdRegistry* registry, compute::FunctionRegistry* func_registry) {
-  // TODO(ARROW-15732)
-  // retrieve input table from table provider
-  ConversionOptions conversion_options;
-  if (table_provider) {
-    NamedTableProvider named_table_provider =
-        [table_provider](
-            const std::vector<std::string>& names) -> Result<compute::Declaration> {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> input_table, table_provider(names));
-      std::shared_ptr<compute::ExecNodeOptions> options =
-          std::make_shared<compute::TableSourceNodeOptions>(input_table);
-      return compute::Declaration("table_source", {}, options,
-                                  "substrait_table_provider_source");
-    };
-
-    conversion_options.named_table_provider = std::move(named_table_provider);
-  }
-
-  compute::ExecContext exec_context(arrow::default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-  SubstraitExecutor executor(std::move(plan), exec_context, conversion_options);
-  RETURN_NOT_OK(executor.Init(substrait_buffer, registry));
-  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
-  // check closing here, not in destructor, to expose error to caller
-  RETURN_NOT_OK(executor.Close());
-  return sink_reader;
-}
-
-Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
     compute::FunctionRegistry* func_registry,
     const ConversionOptions& conversion_options) {

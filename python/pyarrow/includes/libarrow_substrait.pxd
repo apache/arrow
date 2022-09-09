@@ -22,13 +22,13 @@ from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-ctypedef CResult[shared_ptr[CTable]] named_table_provider(const std_vector[c_string]&)
+# ctypedef CResult[shared_ptr[CTable]] named_table_provider(const std_vector[c_string]&)
 
 ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
     cdef enum ConversionStrictness \
-            "arrow::engine::ConversionStrictness" :
+            "arrow::engine::ConversionStrictness":
         EXACT_ROUNDTRIP \
             "arrow::engine::ConversionStrictness::EXACT_ROUNDTRIP"
         PRESERVE_STRUCTURE \
@@ -51,8 +51,6 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
 
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
-    CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer,
-        const function[named_table_provider] table_provider)
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(
         const CBuffer& substrait_buffer, const ExtensionIdRegistry* registry,
         CFunctionRegistry* func_registry, const CConversionOptions& conversion_options)
