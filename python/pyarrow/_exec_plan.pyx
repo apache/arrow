@@ -92,7 +92,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             node_factory = "table_source"
             c_in_table = pyarrow_unwrap_table(ipt)
             c_tablesourceopts = make_shared[CTableSourceNodeOptions](
-                c_in_table, 1 << 20)
+                c_in_table)
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
                 c_tablesourceopts)
         elif isinstance(ipt, Dataset):
