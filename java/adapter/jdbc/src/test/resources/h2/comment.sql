@@ -1,5 +1,5 @@
 create table table1(
-  id bigint auto_increment primary key,
+  id bigint primary key,
   name varchar(255),
   column1 boolean,
   columnN int

@@ -30,8 +30,10 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -92,13 +94,28 @@ public class JdbcToArrowCommentMetadataTest {
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
         Map<Integer, String> columnCommentByColumnIndex = getColumnComments(metaData, resultSetMetaData);
 
-        final String tableComment = getTableComment(metaData, "TABLE1");
+        String tableName = getTableNameFromResultSetMetaData(resultSetMetaData);
+        String tableComment = getTableComment(metaData, tableName);
         JdbcToArrowConfig config = new JdbcToArrowConfigBuilder()
                 .setAllocator(new RootAllocator()).setSchemaComment(tableComment)
                 .setColumnCommentByColumnIndex(columnCommentByColumnIndex).setIncludeMetadata(includeMetadata).build();
         return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, config);
       }
     }
+  }
+
+  private String getTableNameFromResultSetMetaData(ResultSetMetaData resultSetMetaData) throws SQLException {
+    Set<String> tablesFromQuery = new HashSet<>();
+    for (int idx = 1, columnCount = resultSetMetaData.getColumnCount(); idx <= columnCount; idx++) {
+      String tableName = resultSetMetaData.getTableName(idx);
+      if (tableName != null && !tableName.isEmpty()) {
+        tablesFromQuery.add(tableName);
+      }
+    }
+    if (tablesFromQuery.size() == 1) {
+      return tablesFromQuery.iterator().next();
+    }
+    throw new RuntimeException("Table metadata is absent or ambiguous");
   }
 
   private Map<Integer, String> getColumnComments(DatabaseMetaData metaData,
@@ -115,10 +132,22 @@ public class JdbcToArrowCommentMetadataTest {
   }
 
   private String getTableComment(DatabaseMetaData metaData, String tableName) throws SQLException {
+    if (tableName == null || tableName.isEmpty()) {
+      return null;
+    }
+    String comment = null;
+    int rowCount = 0;
     try (ResultSet tableMetadata = metaData.getTables("%", "%", tableName, null)) {
       if (tableMetadata.next()) {
-        return tableMetadata.getString("REMARKS");
+        comment = tableMetadata.getString("REMARKS");
+        rowCount++;
       }
+    }
+    if (rowCount == 1) {
+      return comment;
+    }
+    if (rowCount > 1) {
+      throw new RuntimeException("Multiple tables found for table name");
     }
     throw new RuntimeException("Table comment not found");
   }
