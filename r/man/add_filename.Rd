@@ -3,6 +3,9 @@
 \name{add_filename}
 \alias{add_filename}
 \title{Add the data filename as a column}
+\usage{
+add_filename()
+}
 \value{
 A \code{FieldRef} \code{Expression} that refers to the filename augmented
 column.

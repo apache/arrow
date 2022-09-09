@@ -20,6 +20,8 @@
 #' This function only exists inside `arrow` `dplyr` queries, and it only is
 #' valid when quering on a `FileSystemDataset`.
 #'
+#' @usage add_filename()
+#'
 #' @return A `FieldRef` `Expression` that refers to the filename augmented
 #' column.
 #' @examples

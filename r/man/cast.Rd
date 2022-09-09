@@ -3,6 +3,9 @@
 \name{cast}
 \alias{cast}
 \title{Change the type of an array or column}
+\usage{
+cast(x, target_type, safe = TRUE, ...)
+}
 \arguments{
 \item{x}{an \code{Expression}}
 

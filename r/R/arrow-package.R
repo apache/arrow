@@ -31,7 +31,7 @@
 #' @keywords internal
 "_PACKAGE"
 
-# Include notes about features not supported here.
+# TODO(ARROW-17666): Include notes about features not supported here.
 supported_dplyr_methods <- list(
   select = NULL,
   filter = NULL,

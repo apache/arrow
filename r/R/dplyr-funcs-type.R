@@ -30,6 +30,7 @@ register_bindings_type <- function() {
 #' a `mutate()` call. To cast an `Array` or `ChunkedArray` outside of a query,
 #' call the `$cast()` method on the object, which has the same semantics.
 #'
+#' @usage cast(x, target_type, safe = TRUE, ...)
 #' @param x an `Expression`
 #' @param target_type [DataType] to cast to
 #' @param safe logical: only allow the type conversion if no data is lost
