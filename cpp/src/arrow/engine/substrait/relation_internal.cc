@@ -276,7 +276,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             } else if (file_info.type() == fs::FileType::Directory) {
               RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
             }
-
             break;
           }
 
