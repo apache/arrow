@@ -239,15 +239,17 @@ register_bindings_string_regex <- function() {
     out
   })
 
-  register_binding("stringr::str_like", function(string,
-                                                 pattern,
-                                                 ignore_case = TRUE) {
-    Expression$create(
-      "match_like",
-      string,
-      options = list(pattern = pattern, ignore_case = ignore_case)
-    )
-  })
+  register_binding(
+    "stringr::str_like",
+    function(string, pattern, ignore_case = TRUE) {
+      Expression$create(
+        "match_like",
+        string,
+        options = list(pattern = pattern, ignore_case = ignore_case)
+      )
+    },
+    notes = "not yet in a released version of `stringr`, but it is supported in `arrow`"
+  )
 
   register_binding("stringr::str_count", function(string, pattern) {
     opts <- get_stringr_pattern_options(enexpr(pattern))

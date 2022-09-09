@@ -4,14 +4,58 @@
 \alias{arrow-dplyr-functions}
 \title{Functions available in Arrow dplyr queries}
 \description{
-The \code{arrow} package contains mappings of 195 R functions to the corresponding
-functions in the Arrow compute library. This allows you to write code inside
+The \code{arrow} package contains methods for 32 \code{dplyr} table functions, many of
+which are "verbs" that do transformations to one or more tables.
+The package also has mappings of 204 R functions to the corresponding
+functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
 on the Arrow query engine (Acero). This document lists all of the mapped
 functions.
 }
-\details{
+\section{\code{dplyr} verbs}{
+Most verb functions return an \code{arrow_dplyr_query} object, similar in spirit
+to a \code{dbplyr::tbl_lazy}. This means that the verbs do not eagerly evaluate
+the query on the data. To run the query, call either \code{compute()},
+which returns an \code{arrow} \link{Table}, or \code{collect()}, which pulls the resulting
+Table into an R \code{data.frame}.
+\itemize{
+\item \link[dplyr:filter-joins]{anti_join}
+\item \link[dplyr:arrange]{arrange}
+\item \link[dplyr:compute]{collapse}
+\item \link[dplyr:compute]{collect}
+\item \link[dplyr:compute]{compute}
+\item \link[dplyr:count]{count}
+\item \link[dplyr:distinct]{distinct}
+\item \link[dplyr:explain]{explain}
+\item \link[dplyr:filter]{filter}
+\item \link[dplyr:mutate-joins]{full_join}
+\item \link[dplyr:glimpse]{glimpse}
+\item \link[dplyr:group_by]{group_by}
+\item \link[dplyr:group_by_drop_default]{group_by_drop_default}
+\item \link[dplyr:group_data]{group_vars}
+\item \link[dplyr:group_data]{groups}
+\item \link[dplyr:mutate-joins]{inner_join}
+\item \link[dplyr:mutate-joins]{left_join}
+\item \link[dplyr:mutate]{mutate}
+\item \link[dplyr:pull]{pull}
+\item \link[dplyr:relocate]{relocate}
+\item \link[dplyr:rename]{rename}
+\item \link[dplyr:rename]{rename_with}
+\item \link[dplyr:mutate-joins]{right_join}
+\item \link[dplyr:select]{select}
+\item \link[dplyr:filter-joins]{semi_join}
+\item \link[dplyr:explain]{show_query}
+\item \link[dplyr:summarise]{summarise}
+\item \link[dplyr:count]{tally}
+\item \link[dplyr:mutate]{transmute}
+\item \link[dplyr:group_by]{ungroup}
+\item \link[dplyr:reexports]{union}
+\item \link[dplyr:setops]{union_all}
+}
+}
+
+\section{Function mappings}{
 In the list below, any differences in behavior or support between Acero and
 the R function are listed. If no notes follow the function name, then you
 can assume that the function works in Acero just as it does in R.
@@ -61,7 +105,6 @@ as \code{arrow_ascii_is_decimal}.
 \item \link[base:as.Date]{as.Date}
 \item \link[base:difftime]{as.difftime}
 \item \link[base:double]{as.double}
-\item \link[base:factor]{as.factor}
 \item \link[base:integer]{as.integer}
 \item \link[base:logical]{as.logical}
 \item \link[base:numeric]{as.numeric}
@@ -132,6 +175,7 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{dplyr}{
 \itemize{
+\item \link[dplyr:across]{across}: only supported inside \code{mutate()}; purrr-style lambda functions not yet supported
 \item \link[dplyr:between]{between}
 \item \link[dplyr:case_when]{case_when}
 \item \link[dplyr:coalesce]{coalesce}
@@ -257,7 +301,7 @@ as \code{arrow_ascii_is_decimal}.
 \item \link[stringr:str_dup]{str_dup}
 \item \link[stringr:str_starts]{str_ends}
 \item \link[stringr:str_length]{str_length}
-\item \link[stringr:str_like]{str_like}
+\item \code{str_like}: not yet in a released version of \code{stringr}, but it is supported in \code{arrow}
 \item \link[stringr:str_pad]{str_pad}
 \item \link[stringr:str_replace]{str_replace}
 \item \link[stringr:str_replace]{str_replace_all}
@@ -276,4 +320,19 @@ as \code{arrow_ascii_is_decimal}.
 \item \link[tibble:tibble]{tibble}
 }
 }
+
+\subsection{tidyselect}{
+\itemize{
+\item \link[tidyselect:all_of]{all_of}
+\item \link[tidyselect:starts_with]{contains}
+\item \link[tidyselect:starts_with]{ends_with}
+\item \link[tidyselect:everything]{everything}
+\item \link[tidyselect:everything]{last_col}
+\item \link[tidyselect:starts_with]{matches}
+\item \link[tidyselect:starts_with]{num_range}
+\item \link[tidyselect:one_of]{one_of}
+\item \link[tidyselect:starts_with]{starts_with}
 }
+}
+}
+

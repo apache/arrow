@@ -19,12 +19,57 @@
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains mappings of 195 R functions to the corresponding
-#' functions in the Arrow compute library. This allows you to write code inside
+#' The `arrow` package contains methods for 32 `dplyr` table functions, many of
+#' which are "verbs" that do transformations to one or more tables.
+#' The package also has mappings of 204 R functions to the corresponding
+#' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
 #' on the Arrow query engine (Acero). This document lists all of the mapped
 #' functions.
+#'
+#' # `dplyr` verbs
+#'
+#' Most verb functions return an `arrow_dplyr_query` object, similar in spirit
+#' to a `dbplyr::tbl_lazy`. This means that the verbs do not eagerly evaluate
+#' the query on the data. To run the query, call either `compute()`,
+#' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
+#' Table into an R `data.frame`.
+#'
+#' * [anti_join][dplyr::anti_join()]
+#' * [arrange][dplyr::arrange()]
+#' * [collapse][dplyr::collapse()]
+#' * [collect][dplyr::collect()]
+#' * [compute][dplyr::compute()]
+#' * [count][dplyr::count()]
+#' * [distinct][dplyr::distinct()]
+#' * [explain][dplyr::explain()]
+#' * [filter][dplyr::filter()]
+#' * [full_join][dplyr::full_join()]
+#' * [glimpse][dplyr::glimpse()]
+#' * [group_by][dplyr::group_by()]
+#' * [group_by_drop_default][dplyr::group_by_drop_default()]
+#' * [group_vars][dplyr::group_vars()]
+#' * [groups][dplyr::groups()]
+#' * [inner_join][dplyr::inner_join()]
+#' * [left_join][dplyr::left_join()]
+#' * [mutate][dplyr::mutate()]
+#' * [pull][dplyr::pull()]
+#' * [relocate][dplyr::relocate()]
+#' * [rename][dplyr::rename()]
+#' * [rename_with][dplyr::rename_with()]
+#' * [right_join][dplyr::right_join()]
+#' * [select][dplyr::select()]
+#' * [semi_join][dplyr::semi_join()]
+#' * [show_query][dplyr::show_query()]
+#' * [summarise][dplyr::summarise()]
+#' * [tally][dplyr::tally()]
+#' * [transmute][dplyr::transmute()]
+#' * [ungroup][dplyr::ungroup()]
+#' * [union][dplyr::union()]
+#' * [union_all][dplyr::union_all()]
+#'
+#' # Function mappings
 #'
 #' In the list below, any differences in behavior or support between Acero and
 #' the R function are listed. If no notes follow the function name, then you
@@ -74,7 +119,6 @@
 #' * [as.Date][base::as.Date()]
 #' * [as.difftime][base::as.difftime()]
 #' * [as.double][base::as.double()]
-#' * [as.factor][base::as.factor()]
 #' * [as.integer][base::as.integer()]
 #' * [as.logical][base::as.logical()]
 #' * [as.numeric][base::as.numeric()]
@@ -141,6 +185,7 @@
 #'
 #' ## dplyr
 #' 
+#' * [across][dplyr::across()]: only supported inside `mutate()`; purrr-style lambda functions not yet supported
 #' * [between][dplyr::between()]
 #' * [case_when][dplyr::case_when()]
 #' * [coalesce][dplyr::coalesce()]
@@ -254,7 +299,7 @@
 #' * [str_dup][stringr::str_dup()]
 #' * [str_ends][stringr::str_ends()]
 #' * [str_length][stringr::str_length()]
-#' * [str_like][stringr::str_like()]
+#' * `str_like`: not yet in a released version of `stringr`, but it is supported in `arrow`
 #' * [str_pad][stringr::str_pad()]
 #' * [str_replace][stringr::str_replace()]
 #' * [str_replace_all][stringr::str_replace_all()]
@@ -269,6 +314,18 @@
 #' ## tibble
 #' 
 #' * [tibble][tibble::tibble()]
+#'
+#' ## tidyselect
+#' 
+#' * [all_of][tidyselect::all_of()]
+#' * [contains][tidyselect::contains()]
+#' * [ends_with][tidyselect::ends_with()]
+#' * [everything][tidyselect::everything()]
+#' * [last_col][tidyselect::last_col()]
+#' * [matches][tidyselect::matches()]
+#' * [num_range][tidyselect::num_range()]
+#' * [one_of][tidyselect::one_of()]
+#' * [starts_with][tidyselect::starts_with()]
 #'
 #' @name arrow-dplyr-functions
 NULL

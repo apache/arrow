@@ -39,12 +39,26 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains mappings of %s R functions to the corresponding
-#' functions in the Arrow compute library. This allows you to write code inside
+#' The `arrow` package contains methods for %s `dplyr` table functions, many of
+#' which are \"verbs\" that do transformations to one or more tables.
+#' The package also has mappings of %s R functions to the corresponding
+#' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
 #' on the Arrow query engine (Acero). This document lists all of the mapped
 #' functions.
+#'
+#' # `dplyr` verbs
+#'
+#' Most verb functions return an `arrow_dplyr_query` object, similar in spirit
+#' to a `dbplyr::tbl_lazy`. This means that the verbs do not eagerly evaluate
+#' the query on the data. To run the query, call either `compute()`,
+#' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
+#' Table into an R `data.frame`.
+#'
+%s
+#'
+#' # Function mappings
 #'
 #' In the list below, any differences in behavior or support between Acero and
 #' the R function are listed. If no notes follow the function name, then you
@@ -70,26 +84,18 @@ NULL"
 library(dplyr)
 library(purrr)
 
-docs <- arrow:::.cache$docs
-
-docs_df <- tibble::tibble(
-  pkg_fun = names(docs),
-  notes = docs
-) %>%
-  mutate(
-    has_pkg = grepl("::", pkg_fun),
-    fun = sub("^.*?:{+}", "", pkg_fun),
-    pkg = sub(":{+}.*$", "", pkg_fun),
-    # We will list operators under "base" (everything else must be pkg::fun)
-    pkg = if_else(has_pkg, pkg, "base"),
-    # Flatten notes to a single string
-    notes = map_chr(notes, ~ paste(., collapse = " "))
-  ) %>%
-  arrange(pkg, fun)
+# Functions that for whatever reason cause xref problems, so don't hyperlink
+do_not_link <- c(
+  "stringr::str_like" # Still only in the unreleased version
+)
 
 # Vectorized function to make entries for each function
 render_fun <- function(fun, pkg_fun, notes) {
-  out <- paste0("* [", fun, "][", pkg_fun, "()]")
+  out <- ifelse(
+    pkg_fun %in% do_not_link,
+    paste0("* `", fun, "`"),
+    paste0("* [", fun, "][", pkg_fun, "()]")
+  )
   has_notes <- nzchar(notes)
   out[has_notes] <- paste0(out[has_notes], ": ", notes[has_notes])
   out
@@ -109,15 +115,67 @@ render_pkg <- function(df, pkg) {
   paste("#'", bullets, collapse = "\n")
 }
 
+docs <- arrow:::.cache$docs
+
+# Add some functions
+
+# across() is handled by manipulating the quosures, not by nse_funcs
+docs[["dplyr::across"]] <- c(
+  "only supported inside `mutate()`;", # TODO(ARROW-17362, ARROW-17387)
+  "purrr-style lambda functions not yet supported" # TODO(ARROW-17366)
+)
+
+# add tidyselect helpers by parsing the reexports file
+tidyselect <- grep("^tidyselect::", readLines("R/reexports-tidyselect.R"), value = TRUE)
+
+docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
+
+# TODO: add doc pages for add_filename() and cast()
+
+fun_df <- tibble::tibble(
+  pkg_fun = names(docs),
+  notes = docs
+) %>%
+  mutate(
+    has_pkg = grepl("::", pkg_fun),
+    fun = sub("^.*?:{+}", "", pkg_fun),
+    pkg = sub(":{+}.*$", "", pkg_fun),
+    # We will list operators under "base" (everything else must be pkg::fun)
+    pkg = if_else(has_pkg, pkg, "base"),
+    # Flatten notes to a single string
+    notes = map_chr(notes, ~ paste(., collapse = " "))
+  ) %>%
+  arrange(pkg, fun)
+
 # Group by package name and render the lists
-doclets <- imap_chr(split(docs_df, docs_df$pkg), render_pkg)
+fun_doclets <- imap_chr(split(fun_df, fun_df$pkg), render_pkg)
+
+dplyr_verbs <- c(
+  arrow:::supported_dplyr_methods,
+  # Because this only has a method for arrow_dplyr_query, it's not in the main list
+  tbl_vars = NULL
+)
+
+verb_bullets <- tibble::tibble(
+  fun = names(dplyr_verbs),
+  notes = dplyr_verbs
+) %>%
+  mutate(
+    pkg_fun = paste0("dplyr::", fun),
+    notes = map_chr(notes, ~ paste(., collapse = " "))
+  ) %>%
+  arrange(fun) %>%
+  transmute(render_fun(fun, pkg_fun, notes)) %>%
+  pull()
 
 writeLines(
   sprintf(
     file_template,
+    length(dplyr_verbs),
     length(docs),
+    paste("#'", verb_bullets, collapse = "\n"),
     length(arrow::list_compute_functions()),
-    paste(doclets, collapse = "\n#'\n")
+    paste(fun_doclets, collapse = "\n#'\n")
   ),
   "R/dplyr-funcs-doc.R"
 )
