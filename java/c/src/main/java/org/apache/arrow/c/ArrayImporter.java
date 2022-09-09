@@ -141,8 +141,7 @@ final class ArrayImporter {
     for (long bufferPtr : buffers) {
       ArrowBuf buffer = null;
       if (bufferPtr != NULL) {
-        // TODO(roee88): an API for getting the size for each buffer is not yet
-        // available
+        // See ARROW-17657: [C++] C data interface: Add field for byte length of buffers in ArrowArray
         int capacity = Integer.MAX_VALUE;
         buffer = new ArrowBuf(referenceManager, null, capacity, bufferPtr);
         buffer.writerIndex(capacity);
