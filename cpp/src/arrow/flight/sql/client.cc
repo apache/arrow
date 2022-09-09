@@ -532,6 +532,7 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
                           ReadSchema(&parameter_schema_reader, &in_memo));
   }
   auto handle = prepared_statement_result.prepared_statement_handle();
+  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
 
   return std::make_shared<PreparedStatement>(client, handle, dataset_schema,
                                              parameter_schema);

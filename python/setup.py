@@ -167,6 +167,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+        self.with_flight_sql = self.with_flight and strtobool(
+            os.environ.get('PYARROW_WITH_FLIGHT_SQL', '0'))
         self.with_dataset = strtobool(
             os.environ.get('PYARROW_WITH_DATASET', '0'))
         self.with_parquet = strtobool(
@@ -209,6 +211,7 @@ class build_ext(_build_ext):
         '_compute',
         '_cuda',
         '_flight',
+        '_flight_sql',
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
@@ -284,6 +287,7 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
             append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
+            append_cmake_bool(self.with_flight_sql, 'PYARROW_BUILD_FLIGHT_SQL')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
@@ -369,6 +373,8 @@ class build_ext(_build_ext):
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_flight' and not self.with_flight:
+            return True
+        if name == '_flight_sql' and not self.with_flight_sql:
             return True
         if name == '_substrait' and not self.with_substrait:
             return True

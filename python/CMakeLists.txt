@@ -112,6 +112,7 @@ endif()
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
+  option(PYARROW_BUILD_FLIGHT_SQL "Build the PyArrow Flight SQL ADBC driver" OFF)
   option(PYARROW_BUILD_SUBSTRAIT "Build the PyArrow Substrait integration" OFF)
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
@@ -377,6 +378,12 @@ install(TARGETS arrow_python
         RUNTIME DESTINATION .)
 
 set(PYARROW_CPP_FLIGHT_SRCS ${PYARROW_CPP_SOURCE_DIR}/flight.cc)
+
+if(PYARROW_BUILD_FLIGHT_SQL)
+  set(ARROW_FLIGHT_SQL TRUE)
+  set(PYARROW_BUILD_FLIGHT TRUE)
+endif()
+
 if(PYARROW_BUILD_FLIGHT)
   if(NOT ARROW_FLIGHT)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_FLIGHT=ON")
@@ -657,6 +664,24 @@ else()
   set(FLIGHT_LINK_LIBS "")
 endif()
 
+# Flight SQL
+if(PYARROW_BUILD_FLIGHT_SQL)
+  # Arrow Flight SQL
+  find_package(ArrowFlightSql REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(${ARROW_FLIGHT_SQL_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(${ARROW_FLIGHT_SQL_IMPORT_LIB})
+    endif()
+  endif()
+
+  set(FLIGHT_SQL_LINK_LIBS ArrowFlightSql::arrow_flight_sql_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight_sql)
+else()
+  set(FLIGHT_SQL_LINK_LIBS "")
+endif()
+
 # Substrait
 if(PYARROW_BUILD_SUBSTRAIT)
   if(NOT ARROW_SUBSTRAIT)
@@ -776,6 +801,10 @@ endif()
 
 if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_FLIGHT_SQL)
+  target_link_libraries(_flight_sql PRIVATE ${FLIGHT_SQL_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_SUBSTRAIT)

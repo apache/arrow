@@ -45,6 +45,7 @@ set(ARROW_RE2_LINKAGE
 
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
+    AdbcValidation
     AWSSDK
     benchmark
     Boost
@@ -59,6 +60,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     jemalloc
     LLVM
     lz4
+    nanoarrow
     nlohmann_json
     opentelemetry-cpp
     ORC
@@ -149,6 +151,8 @@ endforeach()
 macro(build_dependency DEPENDENCY_NAME)
   if("${DEPENDENCY_NAME}" STREQUAL "absl")
     build_absl()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "AdbcValidation")
+    build_adbc_validation()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
@@ -175,6 +179,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "nanoarrow")
+    build_nanoarrow()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
     build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
@@ -345,6 +351,11 @@ if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
 endif()
 
+if(ARROW_FLIGHT_SQL AND ARROW_BUILD_TESTS)
+  set(ARROW_WITH_ADBC_VALIDATION ON)
+  set(ARROW_WITH_NANOARROW ON)
+endif()
+
 if(ARROW_WITH_GRPC)
   set(ARROW_WITH_RE2 ON)
   set(ARROW_WITH_ZLIB ON)
@@ -428,6 +439,14 @@ if(DEFINED ENV{ARROW_ABSL_URL})
 else()
   set_urls(ABSL_SOURCE_URL
            "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_ADBC_URL})
+  set(ADBC_SOURCE_URL "$ENV{ARROW_ADBC_URL}")
+else()
+  set_urls(ADBC_SOURCE_URL
+           "https://github.com/apache/arrow-adbc/archive/${ARROW_ADBC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -575,6 +594,14 @@ else()
   set_urls(MIMALLOC_SOURCE_URL
            "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_NANOARROW_URL})
+  set(NANOARROW_SOURCE_URL "$ENV{ARROW_NANOARROW_URL}")
+else()
+  set_urls(NANOARROW_SOURCE_URL
+           "https://github.com/apache/arrow-nanoarrow/archive/${ARROW_NANOARROW_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_NLOHMANN_JSON_URL})
@@ -4582,6 +4609,99 @@ if(ARROW_WITH_OPENTELEMETRY)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
+# nanoarrow (only used for tests)
+
+macro(build_nanoarrow)
+  message(STATUS "Building nanoarrow from source")
+  set(NANOARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nanoarrow_ep-install")
+  set(NANOARROW_INCLUDE_DIR "${NANOARROW_PREFIX}/include")
+  set(NANOARROW_LIB_DIR "lib")
+
+  set(NANOARROW_COMMON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_LIBDIR=${NANOARROW_LIB_DIR}"
+      "-DCMAKE_INSTALL_PREFIX=${NANOARROW_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${NANOARROW_PREFIX}"
+      "-DCMAKE_UNITY_BUILD=ON")
+  set(NANOARROW_STATIC_LIBRARY
+      "${NANOARROW_PREFIX}/${NANOARROW_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}nanoarrow${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  file(MAKE_DIRECTORY ${NANOARROW_INCLUDE_DIR})
+
+  add_library(nanoarrow STATIC IMPORTED)
+  set_target_properties(nanoarrow
+                        PROPERTIES IMPORTED_LOCATION "${NANOARROW_STATIC_LIBRARY}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${NANOARROW_INCLUDE_DIR}")
+  externalproject_add(nanoarrow_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${NANOARROW_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_NANOARROW_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${NANOARROW_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${NANOARROW_STATIC_LIBRARY}")
+  set(NANOARROW_LINK_LIBRARIES nanoarrow)
+  add_dependencies(nanoarrow nanoarrow_ep)
+endmacro()
+
+if(ARROW_WITH_NANOARROW)
+  set(nanoarrow_SOURCE "AUTO")
+  resolve_dependency(nanoarrow HAVE_ALT FALSE)
+
+  message(STATUS "Found nanoarrow headers: ${NANOARROW_INCLUDE_DIR}")
+  message(STATUS "Found nanoarrow libraries: ${NANOARROW_LINK_LIBRARIES}")
+endif()
+
+# ----------------------------------------------------------------------
+# ADBC validation suite (only used for tests)
+
+macro(build_adbc_validation)
+  message(STATUS "Building ADBC validation suite from source")
+  set(ADBC_VALIDATION_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/adbcvalidation_ep-install")
+  set(ADBC_VALIDATION_INCLUDE_DIR "${ADBC_VALIDATION_PREFIX}/include")
+  set(ADBC_VALIDATION_LIB_DIR "lib")
+
+  set(ADBC_VALIDATION_COMMON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_LIBDIR=${ADBC_VALIDATION_LIB_DIR}"
+      "-DCMAKE_INSTALL_PREFIX=${ADBC_VALIDATION_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${ADBC_VALIDATION_PREFIX}"
+      "-DCMAKE_UNITY_BUILD=ON")
+  set(ADBC_VALIDATION_STATIC_LIBRARY
+      "${ADBC_VALIDATION_PREFIX}/${ADBC_VALIDATION_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}adbc_validation${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  file(MAKE_DIRECTORY ${ADBC_VALIDATION_INCLUDE_DIR})
+
+  add_library(AdbcValidation::adbc_validation STATIC IMPORTED)
+  set_target_properties(AdbcValidation::adbc_validation
+                        PROPERTIES IMPORTED_LOCATION "${ADBC_VALIDATION_STATIC_LIBRARY}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${ADBC_VALIDATION_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES nanoarrow
+                                   GTest::gtest GTest::gmock)
+  externalproject_add(adbcvalidation_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ADBC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_ADBC_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${ADBC_VALIDATION_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${ADBC_VALIDATION_STATIC_LIBRARY}"
+                      SOURCE_SUBDIR c/validation)
+  add_dependencies(AdbcValidation::adbc_validation nanoarrow_ep)
+  set(ADBCVALIDATION_LINK_LIBRARIES AdbcValidation::adbc_validation)
+  add_dependencies(AdbcValidation::adbc_validation adbcvalidation_ep)
+endmacro()
+
+if(ARROW_WITH_ADBC_VALIDATION)
+  set(AdbcValidation_SOURCE "AUTO")
+  resolve_dependency(AdbcValidation HAVE_ALT FALSE)
+
+  message(STATUS "Found ADBC validation suite headers: ${ADBC_VALIDATION_INCLUDE_DIR}")
+  message(STATUS "Found ADBC validation suite libraries: ${ADBC_VALIDATION_LINK_LIBRARIES}"
+  )
 endif()
 
 # ----------------------------------------------------------------------

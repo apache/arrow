@@ -37,6 +37,8 @@ set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENER
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
 set(ARROW_FLIGHT_SQL_SRCS
+    adbc_driver.cc
+    adbc_driver_internal.cc
     server.cc
     sql_info_internal.cc
     column_metadata.cc
@@ -94,7 +96,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_SRCS adbc_driver_test.cc server_test.cc)
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
 
@@ -124,8 +126,15 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 nanoarrow
+                 AdbcValidation::adbc_validation
+                 # Needs to come twice since the validation library
+                 # also uses ADBC symbols, which get provided by
+                 # libarrow_flight_sql here.
+                 ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  EXTRA_INCLUDES
-                 "${CMAKE_CURRENT_BINARY_DIR}/../"
+                 # adbc_validation.h needs adbc.h
+                 "${CMAKE_SOURCE_DIR}/../format/"
                  LABELS
                  "arrow_flight_sql")
 

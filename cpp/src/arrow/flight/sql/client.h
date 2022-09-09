@@ -28,6 +28,11 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
+// Forward declaration
+extern "C" {
+struct AdbcError;
+}
+
 namespace arrow {
 namespace flight {
 namespace sql {
@@ -449,6 +454,15 @@ class ARROW_FLIGHT_SQL_EXPORT Transaction {
  private:
   std::string transaction_id_;
 };
+
+/// \brief ADBC entry point.
+///
+/// A pointer to this function can be passed to the ADBC driver
+/// manager to initialize an ADBC connection using the Flight SQL
+/// driver.  Applications should generally not call this function
+/// directly.
+ARROW_FLIGHT_SQL_EXPORT
+uint8_t AdbcDriverInit(int version, void* raw_driver, struct AdbcError* error);
 
 }  // namespace sql
 }  // namespace flight

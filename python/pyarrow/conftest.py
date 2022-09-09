@@ -45,6 +45,7 @@ groups = [
     'substrait',
     'tensorflow',
     'flight',
+    'flight_sql',
     'slow',
     'requires_testing_data',
     'zstd',
@@ -57,6 +58,7 @@ defaults = {
     'dataset': False,
     'fastparquet': False,
     'flight': False,
+    'flight_sql': False,
     'gandiva': False,
     'gcs': False,
     'gdb': True,
@@ -146,6 +148,12 @@ try:
     import pyarrow.flight  # noqa
     defaults['flight'] = True
 except ImportError:
+    pass
+
+try:
+    from pyarrow.flight_sql import connect  # noqa
+    defaults['flight_sql'] = True
+except (ImportError, RuntimeError):
     pass
 
 try:
