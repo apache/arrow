@@ -150,6 +150,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             const c_string& serialized)
 
     cdef cppclass CSchemaResult" arrow::flight::SchemaResult":
+        CSchemaResult()
         CSchemaResult(CSchemaResult result)
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         bint operator==(CSchemaResult)

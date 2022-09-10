@@ -375,7 +375,7 @@ cdef class Result(_Weakrefable):
         return result
 
     def __eq__(self, Result other):
-        return self.result.get() == other.result.get()
+        return deref(self.result.get()) == deref(other.result.get())
 
 
 cdef class BasicAuth(_Weakrefable):
@@ -418,7 +418,7 @@ cdef class BasicAuth(_Weakrefable):
         return GetResultValue(self.basic_auth.get().SerializeToString())
 
     def __eq__(self, BasicAuth other):
-        return self.basic_auth.get() == other.basic_auth.get()
+        return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
 
 
 class DescriptorType(enum.Enum):
@@ -813,10 +813,13 @@ cdef class SchemaResult(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        # cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
-        # result.result.reset(new CSchemaResult(GetResultValue(
-        #     CSchemaResult.Deserialize(tobytes(serialized)))))
-        # return result
+        cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
+        result.result.reset(new CSchemaResult(GetResultValue(
+            CSchemaResult.Deserialize(tobytes(serialized)))))
+        return result
+
+    def __eq__(self, SchemaResult other):
+        return deref(self.result.get()) == deref(other.result.get())
 
 
 cdef class FlightInfo(_Weakrefable):

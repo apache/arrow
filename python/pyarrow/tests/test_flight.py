@@ -1567,16 +1567,14 @@ def test_roundtrip_types():
     assert ticket == flight.Ticket.deserialize(ticket.serialize())
 
     result = flight.Result(b"result1")
-    result2 = flight.Result.deserialize(result.serialize())
-    assert result.body == result2.body
+    assert result == flight.Result.deserialize(result.serialize())
 
     basic_auth = flight.BasicAuth("username1", "password1")
-    basic_auth2 = flight.BasicAuth.deserialize(basic_auth.serialize())
-    assert basic_auth.username == basic_auth2.username
-    assert basic_auth.password == basic_auth2.password
+    assert basic_auth == flight.BasicAuth.deserialize(basic_auth.serialize())
 
     schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
-    # schema_result2 = flight.SchemaResult.deserialize(schema_result.serialize())
+    assert schema_result == flight.SchemaResult.deserialize(
+        schema_result.serialize())
 
     desc = flight.FlightDescriptor.for_command("test")
     assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
