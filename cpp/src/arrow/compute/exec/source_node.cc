@@ -324,39 +324,6 @@ struct SchemaSourceNode : public SourceNode {
 
     return Status::OK();
   }
-
-  template <typename Item>
-  static Iterator<Enumerated<Item>> MakeEnumeratedIterator(Iterator<Item> it) {
-    // TODO: Should Enumerated<>.index be changed to int64_t? Currently, this change
-    // causes dataset unit-test failures
-    using index_t = decltype(Enumerated<Item>{}.index);
-    struct {
-      index_t index = 0;
-      Enumerated<Item> operator()(const Item& item) {
-        return Enumerated<Item>{item, index++, false};
-      }
-    } enumerator;
-    return MakeMapIterator(std::move(enumerator), std::move(it));
-  }
-
-  template <typename Item>
-  static arrow::AsyncGenerator<Item> MakeUnenumeratedGenerator(
-      const arrow::AsyncGenerator<Enumerated<Item>>& enum_gen) {
-    using Enum = Enumerated<Item>;
-    return MakeMappedGenerator(enum_gen, [](const Enum& e) { return e.value; });
-  }
-
-  template <typename Item>
-  static arrow::AsyncGenerator<Item> MakeOrderedGenerator(
-      const arrow::AsyncGenerator<Enumerated<Item>>& unordered_gen) {
-    using Enum = Enumerated<Item>;
-    auto enum_gen = MakeSequencingGenerator(
-        unordered_gen,
-        /*compare=*/[](const Enum& a, const Enum& b) { return a.index > b.index; },
-        /*is_next=*/[](const Enum& a, const Enum& b) { return a.index + 1 == b.index; },
-        /*initial_value=*/Enum{{}, 0});
-    return MakeUnenumeratedGenerator(enum_gen);
-  }
 };
 
 struct RecordBatchSourceNode
@@ -384,10 +351,7 @@ struct RecordBatchSourceNode
       return util::optional<ExecBatch>(ExecBatch(*batch));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
-    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
-    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
-                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
-    return MakeUnenumeratedGenerator(std::move(enum_gen));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
   static const char kKindName[];
@@ -417,10 +381,7 @@ struct ExecBatchSourceNode
       return batch == NULLPTR ? util::nullopt : util::optional<ExecBatch>(*batch);
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
-    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
-    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
-                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
-    return MakeUnenumeratedGenerator(std::move(enum_gen));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
   static const char kKindName[];
@@ -458,10 +419,7 @@ struct ArrayVectorSourceNode
           ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
-    auto enum_it = MakeEnumeratedIterator(std::move(exec_batch_it));
-    ARROW_ASSIGN_OR_RAISE(auto enum_gen,
-                          MakeBackgroundGenerator(std::move(enum_it), io_executor));
-    return MakeUnenumeratedGenerator(std::move(enum_gen));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
   static const char kKindName[];
