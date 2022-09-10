@@ -318,8 +318,8 @@ TEST(ExecPlanExecution, ArrayVectorSourceSink) {
                   })
                   .AddToPlan(plan.get()));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-    ASSERT_EQ(res, exp_batches.batches);
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
   }
 }
 
@@ -365,8 +365,8 @@ TEST(ExecPlanExecution, ExecBatchSourceSink) {
                   })
                   .AddToPlan(plan.get()));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-    ASSERT_EQ(res, exp_batches.batches);
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
   }
 }
 
@@ -412,8 +412,8 @@ TEST(ExecPlanExecution, RecordBatchSourceSink) {
                                     })
                   .AddToPlan(plan.get()));
 
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-    ASSERT_EQ(res, exp_batches.batches);
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
   }
 }
 
