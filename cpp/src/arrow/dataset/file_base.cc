@@ -93,8 +93,11 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return match_file_system && file_info_.Equals(other.file_info_) &&
-         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+  bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
+                      ((buffer_ != nullptr && other.buffer_ != nullptr) &&
+                       (buffer_->address() == other.buffer_->address()));
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
+         compression_ == other.compression_;
 }
 
 Future<util::optional<int64_t>> FileFormat::CountRows(
