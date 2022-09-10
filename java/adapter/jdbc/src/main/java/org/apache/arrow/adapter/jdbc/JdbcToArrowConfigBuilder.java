@@ -231,17 +231,17 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
-   * Set comment for schema as metadata 'comment' entry.
+   * Set metadata for schema.
    */
-  public JdbcToArrowConfigBuilder setSchemaComment(Map<String, String> schemaMetadata) {
+  public JdbcToArrowConfigBuilder setSchemaMetadata(Map<String, String> schemaMetadata) {
     this.schemaMetadata = schemaMetadata;
     return this;
   }
 
   /**
-   * Set comment from columnIndex->comment map to metadata 'comment' entry on per field basis.
+   * Set metadata from columnIndex->meta map on per field basis.
    */
-  public JdbcToArrowConfigBuilder setColumnCommentByColumnIndex(
+  public JdbcToArrowConfigBuilder setColumnMetadataByColumnIndex(
           Map<Integer, Map<String, String>> columnMetadataByColumnIndex) {
     this.columnMetadataByColumnIndex = columnMetadataByColumnIndex;
     return this;

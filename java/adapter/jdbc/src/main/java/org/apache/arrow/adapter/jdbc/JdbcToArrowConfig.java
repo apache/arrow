@@ -321,14 +321,14 @@ public final class JdbcToArrowConfig {
   }
 
   /**
-   * Return schema level comment or null if not provided.
+   * Return schema level metadata or null if not provided.
    */
   public Map<String, String> getSchemaMetadata() {
     return schemaMetadata;
   }
 
   /**
-   * Return comment from columnIndex->comment map to metadata 'comment' entry on per field basis
+   * Return metadata from columnIndex->meta map on per field basis
    * or null if not provided.
    */
   public Map<Integer, Map<String, String>> getColumnMetadataByColumnIndex() {

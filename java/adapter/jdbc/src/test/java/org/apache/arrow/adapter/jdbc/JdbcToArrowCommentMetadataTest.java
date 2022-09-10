@@ -105,8 +105,8 @@ public class JdbcToArrowCommentMetadataTest {
         String tableName = getTableNameFromResultSetMetaData(resultSetMetaData);
         String tableComment = getTableComment(metaData, tableName);
         JdbcToArrowConfig config = new JdbcToArrowConfigBuilder()
-                .setAllocator(new RootAllocator()).setSchemaComment(Collections.singletonMap(COMMENT, tableComment))
-                .setColumnCommentByColumnIndex(columnCommentByColumnIndex).setIncludeMetadata(includeMetadata).build();
+                .setAllocator(new RootAllocator()).setSchemaMetadata(Collections.singletonMap(COMMENT, tableComment))
+                .setColumnMetadataByColumnIndex(columnCommentByColumnIndex).setIncludeMetadata(includeMetadata).build();
         return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, config);
       }
     }
