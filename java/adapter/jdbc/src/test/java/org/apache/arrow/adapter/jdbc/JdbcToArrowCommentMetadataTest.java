@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -46,6 +47,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 
 public class JdbcToArrowCommentMetadataTest {
 
+  private static final String COMMENT = "comment"; //use this metadata key for interoperability with Spark StructType
   private final ObjectWriter schemaSerializer = ObjectMapperFactory.newObjectMapper().writerWithDefaultPrettyPrinter();
   private Connection conn = null;
 
@@ -84,6 +86,12 @@ public class JdbcToArrowCommentMetadataTest {
     boolean includeMetadata = true;
     String schemaJson = schemaSerializer.writeValueAsString(getSchemaWithCommentFromQuery(includeMetadata));
     String expectedSchema = getExpectedSchema("/h2/expectedSchemaWithCommentsAndJdbcMeta.json");
+    /* corresponding Apache Spark DDL after conversion:
+        ID BIGINT NOT NULL COMMENT 'Record identifier',
+        NAME STRING COMMENT 'Name of record',
+        COLUMN1 BOOLEAN,
+        COLUMNN INT COMMENT 'Informative description of columnN'
+     */
     assertThat(schemaJson).isEqualTo(expectedSchema);
   }
 
@@ -92,12 +100,12 @@ public class JdbcToArrowCommentMetadataTest {
     try (Statement statement = conn.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery("select * from table1")) {
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
-        Map<Integer, String> columnCommentByColumnIndex = getColumnComments(metaData, resultSetMetaData);
+        Map<Integer, Map<String, String>> columnCommentByColumnIndex = getColumnComments(metaData, resultSetMetaData);
 
         String tableName = getTableNameFromResultSetMetaData(resultSetMetaData);
         String tableComment = getTableComment(metaData, tableName);
         JdbcToArrowConfig config = new JdbcToArrowConfigBuilder()
-                .setAllocator(new RootAllocator()).setSchemaComment(tableComment)
+                .setAllocator(new RootAllocator()).setSchemaComment(Collections.singletonMap(COMMENT, tableComment))
                 .setColumnCommentByColumnIndex(columnCommentByColumnIndex).setIncludeMetadata(includeMetadata).build();
         return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, config);
       }
@@ -118,14 +126,14 @@ public class JdbcToArrowCommentMetadataTest {
     throw new RuntimeException("Table metadata is absent or ambiguous");
   }
 
-  private Map<Integer, String> getColumnComments(DatabaseMetaData metaData,
+  private Map<Integer, Map<String, String>> getColumnComments(DatabaseMetaData metaData,
                                                  ResultSetMetaData resultSetMetaData) throws SQLException {
-    Map<Integer, String> columnCommentByColumnIndex = new HashMap<>();
+    Map<Integer, Map<String, String>> columnCommentByColumnIndex = new HashMap<>();
     for (int columnIdx = 1, columnCount = resultSetMetaData.getColumnCount(); columnIdx <= columnCount; columnIdx++) {
       String columnComment = getColumnComment(metaData, resultSetMetaData.getTableName(columnIdx),
               resultSetMetaData.getColumnName(columnIdx));
       if (columnComment != null && !columnComment.isEmpty()) {
-        columnCommentByColumnIndex.put(columnIdx, columnComment);
+        columnCommentByColumnIndex.put(columnIdx, Collections.singletonMap(COMMENT, columnComment));
       }
     }
     return columnCommentByColumnIndex;

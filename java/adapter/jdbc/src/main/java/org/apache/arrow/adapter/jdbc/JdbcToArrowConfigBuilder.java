@@ -40,8 +40,8 @@ public class JdbcToArrowConfigBuilder {
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
   private Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> explicitTypesByColumnName;
-  private String schemaComment;
-  private Map<Integer, String> columnCommentByColumnIndex;
+  private Map<String, String> schemaMetadata;
+  private Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
   private RoundingMode bigDecimalRoundingMode;
@@ -60,8 +60,8 @@ public class JdbcToArrowConfigBuilder {
     this.arraySubTypesByColumnName = null;
     this.explicitTypesByColumnIndex = null;
     this.explicitTypesByColumnName = null;
-    this.schemaComment = null;
-    this.columnCommentByColumnIndex = null;
+    this.schemaMetadata = null;
+    this.columnMetadataByColumnIndex = null;
     this.bigDecimalRoundingMode = null;
   }
 
@@ -233,16 +233,17 @@ public class JdbcToArrowConfigBuilder {
   /**
    * Set comment for schema as metadata 'comment' entry.
    */
-  public JdbcToArrowConfigBuilder setSchemaComment(String schemaComment) {
-    this.schemaComment = schemaComment;
+  public JdbcToArrowConfigBuilder setSchemaComment(Map<String, String> schemaMetadata) {
+    this.schemaMetadata = schemaMetadata;
     return this;
   }
 
   /**
    * Set comment from columnIndex->comment map to metadata 'comment' entry on per field basis.
    */
-  public JdbcToArrowConfigBuilder setColumnCommentByColumnIndex(Map<Integer, String> columnCommentByColumnIndex) {
-    this.columnCommentByColumnIndex = columnCommentByColumnIndex;
+  public JdbcToArrowConfigBuilder setColumnCommentByColumnIndex(
+          Map<Integer, Map<String, String>> columnMetadataByColumnIndex) {
+    this.columnMetadataByColumnIndex = columnMetadataByColumnIndex;
     return this;
   }
 
@@ -275,8 +276,8 @@ public class JdbcToArrowConfigBuilder {
         jdbcToArrowTypeConverter,
         explicitTypesByColumnIndex,
         explicitTypesByColumnName,
-        schemaComment,
-        columnCommentByColumnIndex,
+        schemaMetadata,
+        columnMetadataByColumnIndex,
         bigDecimalRoundingMode);
   }
 }

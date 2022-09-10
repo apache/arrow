@@ -60,8 +60,8 @@ public final class JdbcToArrowConfig {
   private final Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
   private final Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
   private final Map<String, JdbcFieldInfo> explicitTypesByColumnName;
-  private final String schemaComment;
-  private final Map<Integer, String> columnCommentByColumnIndex;
+  private final Map<String, String> schemaMetadata;
+  private final Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private final RoundingMode bigDecimalRoundingMode;
   /**
    * The maximum rowCount to read each time when partially convert data.
@@ -192,8 +192,8 @@ public final class JdbcToArrowConfig {
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
       Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
       Map<String, JdbcFieldInfo> explicitTypesByColumnName,
-      String schemaComment,
-      Map<Integer, String> columnCommentByColumnIndex,
+      Map<String, String> schemaMetadata,
+      Map<Integer, Map<String, String>> columnMetadataByColumnIndex,
       RoundingMode bigDecimalRoundingMode) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     this.allocator = allocator;
@@ -205,8 +205,8 @@ public final class JdbcToArrowConfig {
     this.targetBatchSize = targetBatchSize;
     this.explicitTypesByColumnIndex = explicitTypesByColumnIndex;
     this.explicitTypesByColumnName = explicitTypesByColumnName;
-    this.schemaComment = schemaComment;
-    this.columnCommentByColumnIndex = columnCommentByColumnIndex;
+    this.schemaMetadata = schemaMetadata;
+    this.columnMetadataByColumnIndex = columnMetadataByColumnIndex;
     this.bigDecimalRoundingMode = bigDecimalRoundingMode;
 
     // set up type converter
@@ -323,16 +323,16 @@ public final class JdbcToArrowConfig {
   /**
    * Return schema level comment or null if not provided.
    */
-  public String getSchemaComment() {
-    return schemaComment;
+  public Map<String, String> getSchemaMetadata() {
+    return schemaMetadata;
   }
 
   /**
    * Return comment from columnIndex->comment map to metadata 'comment' entry on per field basis
    * or null if not provided.
    */
-  public Map<Integer, String> getColumnCommentByColumnIndex() {
-    return columnCommentByColumnIndex;
+  public Map<Integer, Map<String, String>> getColumnMetadataByColumnIndex() {
+    return columnMetadataByColumnIndex;
   }
 
   public RoundingMode getBigDecimalRoundingMode() {
