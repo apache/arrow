@@ -21,13 +21,7 @@ project(ArrowMinimalExample)
 
 option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
 
-#find_package(Arrow REQUIRED)
-find_package(ArrowCUDA REQUIRED)
-find_package(ArrowDataset REQUIRED)
-#find_package(ArrowTesting REQUIRED)
-find_package(ArrowFlight REQUIRED)
-#find_package(ArrowFlightSql REQUIRED)
-#find_package(Gandiva REQUIRED)
+find_package(Arrow REQUIRED)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 11)
