@@ -284,14 +284,7 @@ public class JdbcToArrowUtils {
         fields.add(new Field(columnName, fieldType, children));
       }
     }
-
-    final Map<String, String> schemaMetadata;
-    if (config.getSchemaMetadata() != null && !config.getSchemaMetadata().isEmpty()) {
-      schemaMetadata = config.getSchemaMetadata();
-    } else {
-      schemaMetadata = null;
-    }
-    return new Schema(fields, schemaMetadata);
+    return new Schema(fields, config.getSchemaMetadata());
   }
 
   static JdbcFieldInfo getJdbcFieldInfoForColumn(
