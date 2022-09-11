@@ -36,4 +36,4 @@ arrow_keep_backward_compatibility(Gandiva gandiva)
 
 check_required_components(Gandiva)
 
-arrow_show_details(gandiva)
+arrow_show_details(Gandiva GANDIVA)

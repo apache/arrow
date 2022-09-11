@@ -35,4 +35,4 @@ arrow_keep_backward_compatibility(ArrowFlightSql arrow_flight_sql)
 
 check_required_components(ArrowFlightSql)
 
-arrow_show_details(arrow_flight_sql)
+arrow_show_details(ArrowFlightSql ARROW_FLIGHT_SQL)

@@ -173,15 +173,17 @@ arrow_keep_backward_compatibility(Arrow arrow)
 
 check_required_components(Arrow)
 
-function(arrow_show_details PACKAGE_NAME)
-  if(NOT ${PACKAGE_NAME}_FIND_QUIETLY)
-    string(TOUPPER ${PACKAGE_NAME} package_name_upper)
-    message(STATUS "${PACKAGE_NAME} version: ${${package_name_upper}_VERSION}")
-    message(STATUS "Found the ${PACKAGE_NAME} shared library: ${${package_name_upper}_SHARED_LIB}")
-    message(STATUS "Found the ${PACKAGE_NAME} import library: ${${package_name_upper}_IMPORT_LIB}")
-    message(STATUS "Found the ${PACKAGE_NAME} static library: ${${package_name_upper}_STATIC_LIB}")
+macro(arrow_show_details package_name variable_prefix)
+  if(NOT ${package_name}_FIND_QUIETLY AND NOT ${package_name}_SHOWED_DETAILS)
+    message(STATUS "${package_name} version: ${${package_name}_VERSION}")
+    message(STATUS "Found the ${package_name} shared library: ${${variable_prefix}_SHARED_LIB}"
+    )
+    message(STATUS "Found the ${package_name} import library: ${${variable_prefix}_IMPORT_LIB}"
+    )
+    message(STATUS "Found the ${package_name} static library: ${${variable_prefix}_STATIC_LIB}"
+    )
+    set(${package_name}_SHOWED_DETAILS TRUE)
   endif()
-endfunction()
+endmacro()
 
-arrow_show_details(arrow)
-
+arrow_show_details(Arrow ARROW)

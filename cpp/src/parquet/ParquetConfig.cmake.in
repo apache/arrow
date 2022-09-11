@@ -42,4 +42,4 @@ arrow_keep_backward_compatibility(Parquet parquet)
 
 check_required_components(Parquet)
 
-arrow_show_details(parquet)
+arrow_show_details(Parquet PARQUET)

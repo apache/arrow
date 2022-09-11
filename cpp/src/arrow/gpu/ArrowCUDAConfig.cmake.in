@@ -35,4 +35,4 @@ arrow_keep_backward_compatibility(ArrowCUDA arrow_cuda)
 
 check_required_components(ArrowCUDA)
 
-arrow_show_details(arrow_cuda)
+arrow_show_details(ArrowCUDA ARROW_CUDA)

@@ -35,4 +35,4 @@ arrow_keep_backward_compatibility(ArrowFlight arrow_flight)
 
 check_required_components(ArrowFlight)
 
-arrow_show_details(arrow_flight)
+arrow_show_details(ArrowFlight ARROW_FLIGHT)

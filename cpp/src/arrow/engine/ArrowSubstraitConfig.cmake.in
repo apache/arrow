@@ -37,4 +37,4 @@ arrow_keep_backward_compatibility(ArrowSubstrait arrow_substrait)
 
 check_required_components(ArrowSubstrait)
 
-arrow_show_details(arrow_substrait)
+arrow_show_details(ArrowSubstrait ARROW_SUBSTRAIT)

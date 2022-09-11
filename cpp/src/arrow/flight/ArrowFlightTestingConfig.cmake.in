@@ -36,4 +36,4 @@ arrow_keep_backward_compatibility(ArrowFlightTetsing arrow_flight_testing)
 
 check_required_components(ArrowFlightTesting)
 
-arrow_show_details(arrow_flight_testing)
+arrow_show_details(ArrowFlightTesting ARROW_FLIGHT_TESTING)
