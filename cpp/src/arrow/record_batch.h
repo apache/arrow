@@ -217,7 +217,7 @@ struct ARROW_EXPORT RecordBatchWithMetadata {
 };
 
 /// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader {
+class ARROW_EXPORT RecordBatchReader : public Iterator<std::shared_ptr<RecordBatch>> {
  public:
   using ValueType = std::shared_ptr<RecordBatch>;
 
