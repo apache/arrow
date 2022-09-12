@@ -692,7 +692,8 @@ class FileMetaData::FileMetaDataImpl {
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
     auto diff_msg = std::make_shared<std::stringstream>();
     if (!schema()->Equals(*other->schema(), diff_msg)) {
-      throw ParquetException(diff_msg->str());
+      auto msg = "AppendRowGroups requires equal schemas.\n" + diff_msg->str();
+      throw ParquetException(msg);
     }
 
     // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop

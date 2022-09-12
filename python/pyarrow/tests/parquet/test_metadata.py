@@ -434,7 +434,9 @@ def test_write_metadata(tempdir):
     assert parquet_meta_mult.num_row_groups == 2
 
     # append metadata with different schema raises an error
-    with pytest.raises(RuntimeError, match="These two columns differ:"):
+    msg = ("AppendRowGroups requires equal schemas.\n"
+           "These two columns differ at index: 0")
+    with pytest.raises(RuntimeError, match=msg):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
             path, metadata_collector=[parquet_meta, parquet_meta]
@@ -585,7 +587,8 @@ def test_metadata_equals():
 
 @pytest.mark.parametrize("t1,t2,expected", (
     ({'col1': range(10)}, {'col1': range(10)}, None),
-    ({'col1': range(10)}, {'col2': range(10)}, "These two columns differ:"),
+    ({'col1': range(10)}, {'col2': range(10)},
+     "These two columns differ at index: 0"),
     ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
      "This schema has 2 columns, other has 1")
 ))
@@ -604,7 +607,9 @@ def test_metadata_append_row_groups_diff(t1, t2, expected):
     meta2 = pq.ParquetFile(buf2).metadata
 
     if expected:
-        with pytest.raises(RuntimeError, match=expected):
+        # Error clearly defines it's happening at append row groups call
+        prefix = "AppendRowGroups requires equal schemas.\n"
+        with pytest.raises(RuntimeError, match=prefix + expected):
             meta1.append_row_groups(meta2)
     else:
         meta1.append_row_groups(meta2)

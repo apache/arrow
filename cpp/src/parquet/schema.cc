@@ -812,7 +812,7 @@ bool SchemaDescriptor::Equals(
   for (int i = 0; i < this->num_columns(); ++i) {
     if (!this->Column(i)->Equals(*other.Column(i))) {
       if (diff_msg != nullptr) {
-        *diff_msg.get() << "These two columns differ:" << std::endl
+        *diff_msg.get() << "These two columns differ at index: " << i << std::endl
                         << this->Column(i)->ToString() << std::endl
                         << other.Column(i)->ToString();
       }
