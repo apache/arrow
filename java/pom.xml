@@ -929,7 +929,7 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    -DARROW_*_USE_SHARED=OFF
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_JNI=ON
                     -DARROW_PARQUET=ON
                     -DARROW_FILESYSTEM=ON
@@ -957,7 +957,7 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    --build . --target install --config release
+                    --build . --target install --config Release
                   </commandlineArgs>
                   <workingDirectory>../java-native-cpp</workingDirectory>
                 </configuration>
