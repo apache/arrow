@@ -18,6 +18,7 @@ package kernels
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
@@ -512,4 +513,135 @@ func (v *validityBuilder) Finish() (buf *memory.Buffer) {
 	buf = v.buffer
 	v.buffer = nil
 	return
+}
+
+type execBufBuilder struct {
+	mem    memory.Allocator
+	buffer *memory.Buffer
+	data   []byte
+	sz     int
+}
+
+func (bldr *execBufBuilder) resize(newcap int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	bldr.buffer.ResizeNoShrink(newcap)
+	bldr.data = bldr.buffer.Bytes()
+}
+
+func (bldr *execBufBuilder) reserve(additional int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	mincap := bldr.sz + additional
+	if mincap <= cap(bldr.data) {
+		return
+	}
+	bldr.buffer.ResizeNoShrink(mincap)
+	bldr.data = bldr.buffer.Buf()
+}
+
+func (bldr *execBufBuilder) unsafeAppend(data []byte) {
+	copy(bldr.data[bldr.sz:], data)
+	bldr.sz += len(data)
+}
+
+func (bldr *execBufBuilder) unsafeAppendN(n int, val byte) {
+	bldr.data[bldr.sz] = val
+	for i := 1; i < n; i *= 2 {
+		copy(bldr.data[bldr.sz+i:], bldr.data[bldr.sz:bldr.sz+i])
+	}
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) append(data []byte) {
+	if bldr.sz+len(data) > cap(bldr.data) {
+		bldr.resize(bldr.sz + len(data))
+	}
+	bldr.unsafeAppend(data)
+}
+
+func (bldr *execBufBuilder) appendN(n int, val byte) {
+	bldr.reserve(n)
+	bldr.unsafeAppendN(n, val)
+}
+
+func (bldr *execBufBuilder) advance(n int) {
+	bldr.reserve(n)
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) unsafeAdvance(n int) {
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
+	bldr.buffer.Resize(bldr.sz)
+	buf = bldr.buffer
+	bldr.buffer, bldr.sz = nil, 0
+	return
+}
+
+type bufferBuilder[T exec.FixedWidthTypes] struct {
+	execBufBuilder
+	zero T
+}
+
+func newBufferBuilder[T exec.FixedWidthTypes](mem memory.Allocator) *bufferBuilder[T] {
+	return &bufferBuilder[T]{
+		execBufBuilder: execBufBuilder{
+			mem: mem,
+		},
+	}
+}
+
+func (b *bufferBuilder[T]) reserve(additional int) {
+	b.execBufBuilder.reserve(additional * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) resize(newcap int) {
+	b.execBufBuilder.resize(newcap * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) unsafeAppend(value T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) unsafeAppendN(n int, value T) {
+	data := exec.GetData[T](b.data)[b.len():]
+	b.execBufBuilder.unsafeAdvance(n * int(unsafe.Sizeof(value)))
+	data[0] = value
+	for i := 1; i < n; i *= 2 {
+		copy(data[i:], data[:i])
+	}
+}
+
+func (b *bufferBuilder[T]) unsafeAppendSlice(values []T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) advance(n int) {
+	b.execBufBuilder.advance(n * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) append(value T) {
+	b.execBufBuilder.append(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) len() int { return b.sz / int(unsafe.Sizeof(b.zero)) }
+
+func (b *bufferBuilder[T]) appendN(n int, value T) {
+	b.reserve(n + b.len())
+	b.unsafeAppendN(n, value)
+}
+
+func (b *bufferBuilder[T]) appendSlice(values []T) {
+	b.execBufBuilder.append(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) cap() int {
+	return cap(b.data) / int(unsafe.Sizeof(b.zero))
 }
