@@ -58,7 +58,7 @@ Includes
 ^^^^^^^^
 
 Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's 
-compute functionality for each file type we'll work with in this article: 
+compute functionality: 
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/compute_example.cc
   :language: cpp
