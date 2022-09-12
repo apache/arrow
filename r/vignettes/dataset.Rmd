@@ -56,18 +56,19 @@ you may need to increase R's download timeout from the default of 60 seconds, e.
 
 ```{r, eval = FALSE}
 bucket <- "https://voltrondata-labs-datasets.s3.us-east-2.amazonaws.com"
-for (year in 2009:2019) {
-  if (year == 2019) {
-    # We only have through June 2019 there
-    months <- 1:6
+for (year in 2009:2022) {
+  if (year == 2022) {
+    # We only have through Feb 2022 there
+    months <- 1:2
   } else {
     months <- 1:12
   }
-  for (month in sprintf("%02d", months)) {
-    dir.create(file.path("nyc-taxi", year, month), recursive = TRUE)
+  for (month in months) {
+    dataset_path <- file.path("nyc-taxi", paste0("year=", year), paste0("month=", month))
+    dir.create(dataset_path, recursive = TRUE)
     try(download.file(
-      paste(bucket, "nyc-taxi", paste0("year=", year), paste0("month=", month), "data.parquet", sep = "/"),
-      file.path("nyc-taxi", paste0("year=", year), paste0("month=", month), "data.parquet"),
+      paste(bucket, dataset_path, "part-0.parquet", sep = "/"),
+      file.path(dataset_path, "part-0.parquet"),
       mode = "wb"
     ), silent = TRUE)
   }
@@ -129,8 +130,8 @@ For more information on the usage of these parameters, see `?read_delim_arrow()`
 [Hive](https://hive.apache.org/)-style partitioning structure is self-describing, with file paths like
 
 ```
-year=2009/month=1/data.parquet
-year=2009/month=2/data.parquet
+year=2009/month=1/part-0.parquet
+year=2009/month=2/part-0.parquet
 ...
 ```
 
@@ -138,15 +139,15 @@ But sometimes the directory partitioning isn't self describing; that is, it does
 contain field names. For example, if instead we had file paths like
 
 ```
-2009/01/data.parquet
-2009/02/data.parquet
+2009/01/part-0.parquet
+2009/02/part-0.parquet
 ...
 ```
 
 then `open_dataset()` would need some hints as to how to use the file paths. In this
 case, you could provide `c("year", "month")` to the `partitioning` argument, 
 saying that the first path segment gives the value for `year`, and the second 
-segment is `month`. Every row in `2009/01/data.parquet` has a value of 2009 for `year`
+segment is `month`. Every row in `2009/01/part-0.parquet` has a value of 2009 for `year`
 and 1 for `month`, even though those columns may not be present in the file.
 
 In either case, when you look at the dataset, you can see that in addition to the columns present
