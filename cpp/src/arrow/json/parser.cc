@@ -328,15 +328,6 @@ class RawArrayBuilder<Kind::kObject> {
 
   Status AppendNull(int64_t count) { return null_bitmap_builder_.Append(count, false); }
 
-  std::string FieldName(int i) const {
-    for (const auto& name_index : name_to_index_) {
-      if (name_index.second == i) {
-        return name_index.first;
-      }
-    }
-    return "";
-  }
-
   int GetFieldIndex(const std::string& name) const {
     auto it = name_to_index_.find(name);
     if (it == name_to_index_.end()) {
@@ -346,17 +337,22 @@ class RawArrayBuilder<Kind::kObject> {
   }
 
   int AddField(std::string name, BuilderPtr builder) {
-    auto index = num_fields();
-    field_builders_.push_back(builder);
-    name_to_index_.emplace(std::move(name), index);
-    return index;
+    auto result = name_to_index_.emplace(std::move(name), num_fields());
+    const auto& kv = *result.first;
+    // Only append the field if a new insertion happened
+    if (ARROW_PREDICT_TRUE(result.second)) {
+      field_infos_.push_back({kv.first, builder});
+    }
+    return kv.second;
   }
 
-  int num_fields() const { return static_cast<int>(field_builders_.size()); }
+  int num_fields() const { return static_cast<int>(field_infos_.size()); }
 
-  BuilderPtr field_builder(int index) const { return field_builders_[index]; }
+  string_view field_name(int index) const { return field_infos_[index].name; }
 
-  void field_builder(int index, BuilderPtr builder) { field_builders_[index] = builder; }
+  BuilderPtr field_builder(int index) const { return field_infos_[index].builder; }
+
+  void field_builder(int index, BuilderPtr builder) { field_infos_[index].builder = builder; }
 
   Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
                 std::shared_ptr<Array>* out) {
@@ -365,19 +361,15 @@ class RawArrayBuilder<Kind::kObject> {
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-    std::vector<std::string_view> field_names(num_fields());
-    for (const auto& name_index : name_to_index_) {
-      field_names[name_index.second] = name_index.first;
-    }
-
     std::vector<std::shared_ptr<Field>> fields(num_fields());
     std::vector<std::shared_ptr<ArrayData>> child_data(num_fields());
     for (int i = 0; i < num_fields(); ++i) {
+      const auto& info = field_infos_[i];
       std::shared_ptr<Array> field_values;
-      RETURN_NOT_OK(finish_child(field_builders_[i], &field_values));
+      RETURN_NOT_OK(finish_child(info.builder, &field_values));
       child_data[i] = field_values->data();
-      fields[i] = field(std::string(field_names[i]), field_values->type(),
-                        field_builders_[i].nullable, Kind::Tag(field_builders_[i].kind));
+      fields[i] = field(std::string(info.name), field_values->type(),
+                        info.builder.nullable, Kind::Tag(info.builder.kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -388,7 +380,12 @@ class RawArrayBuilder<Kind::kObject> {
   int64_t length() { return null_bitmap_builder_.length(); }
 
  private:
-  std::vector<BuilderPtr> field_builders_;
+  struct FieldInfo {
+    string_view name;  // Backed by key's allocation in name_to_index_
+    BuilderPtr builder;
+  };
+
+  std::vector<FieldInfo> field_infos_;
   std::unordered_map<std::string, int> name_to_index_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
@@ -698,7 +695,7 @@ class HandlerBase : public BlockParser,
         if (i + 1 < field_index_stack_.size()) {
           field_index = field_index_stack_[i + 1];
         }
-        path += "/" + struct_builder->FieldName(field_index);
+        path += "/" + std::string(struct_builder->field_name(field_index));
       }
     }
     return path;
@@ -777,9 +774,16 @@ class HandlerBase : public BlockParser,
   /// there is no field with that name
   bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
-    field_index_ = parent->GetFieldIndex(std::string(key));
-    if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
-      return false;
+    DCHECK(field_index_ >= -1 && field_index_ < parent->num_fields());
+    // Predict that this field is known and immediately follows the last one. Otherwise,
+    // fall back to the hash table lookup
+    ++field_index_;
+    if (ARROW_PREDICT_FALSE(field_index_ == parent->num_fields() ||
+                            key != parent->field_name(field_index_))) {
+      field_index_ = parent->GetFieldIndex(std::string(key));
+      if (field_index_ == -1) {
+        return false;
+      }
     }
     if (field_index_ < absent_fields_stack_.TopSize()) {
       *duplicate_keys = !absent_fields_stack_[field_index_];
