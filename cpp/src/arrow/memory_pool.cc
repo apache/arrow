@@ -676,9 +676,15 @@ Result<uint64_t> jemalloc_get_stat(const char* name) {
 
 Status jemalloc_peak_reset() { return Status::Invalid("jemalloc support is not built"); }
 
-Status jemalloc_stats_print(const char* opts) {
+Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+                            const char* opts) {
   return Status::Invalid("jemalloc support is not built");
 }
+
+Result<std::string> jemalloc_stats_print(const char* opts) {
+  return Status::Invalid("jemalloc support is not built");
+}
+
 #endif
 
 ///////////////////////////////////////////////////////////////////////

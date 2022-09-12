@@ -179,18 +179,26 @@ Status jemalloc_set_decay_ms(int ms);
 /// \brief Get basic statistics from jemalloc's mallctl.
 /// See the MALLCTL NAMESPACE section in jemalloc project documentation for
 /// available stats.
+ARROW_EXPORT
 Result<uint64_t> jemalloc_get_stat(const char* name);
 
 /// \brief Reset the counter for peak bytes allocated in the calling thread to zero.
 /// This affects subsequent calls to thread.peak.read, but not the values returned by
 /// thread.allocated or thread.deallocated.
+ARROW_EXPORT
 Status jemalloc_peak_reset();
 
-/// \brief Print summary statistics in human-readable form.
-///
+/// \brief Print summary statistics in human-readable form to stderr.
 /// See malloc_stats_print documentation in jemalloc project documentation for
 /// available opt flags.
-ARROW_EXPORT Status jemalloc_stats_print(const char* opts = "");
+ARROW_EXPORT
+Status jemalloc_stats_print(void (*write_cb)(void* opaque, const char* buf),
+                            void* cbopaque, const char* opts = "");
+
+/// \brief Get summary statistics in human-readable form.
+/// See malloc_stats_print documentation in jemalloc project documentation for
+/// available opt flags.
+Result<std::string> jemalloc_stats_print(const char* opts = "");
 
 /// \brief Return a process-wide memory pool based on mimalloc.
 ///

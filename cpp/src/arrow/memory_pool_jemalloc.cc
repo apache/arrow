@@ -160,23 +160,17 @@ Result<uint64_t> jemalloc_get_stat(const char* name) {
   int err;
   uint64_t value;
 
-  if (std::strcmp(name, "thread.allocatedp") == 0 ||
-      std::strcmp(name, "thread.deallocatedp") == 0) {
-    uint64_t* tmp_value;
-    err = mallctl(name, &tmp_value, &sz, NULLPTR, 0);
-    value = *tmp_value;
-  } else if (std::strcmp(name, "stats.allocated") == 0 ||
-             std::strcmp(name, "stats.active") == 0 ||
-             std::strcmp(name, "stats.metadata") == 0 ||
-             std::strcmp(name, "stats.resident") == 0 ||
-             std::strcmp(name, "stats.mapped") == 0 ||
-             std::strcmp(name, "stats.retained") == 0) {
+  if (std::strcmp(name, "stats.allocated") == 0 ||
+      std::strcmp(name, "stats.active") == 0 ||
+      std::strcmp(name, "stats.metadata") == 0 ||
+      std::strcmp(name, "stats.resident") == 0 ||
+      std::strcmp(name, "stats.mapped") == 0 ||
+      std::strcmp(name, "stats.retained") == 0) {
     uint64_t epoch;
     mallctl("epoch", &epoch, &sz, &epoch, sz);
-    err = mallctl(name, &value, &sz, NULLPTR, 0);
-  } else {
-    err = mallctl(name, &value, &sz, NULLPTR, 0);
   }
+
+  err = mallctl(name, &value, &sz, NULLPTR, 0);
 
   if (err) {
     return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
@@ -191,8 +185,40 @@ Status jemalloc_peak_reset() {
              : Status::OK();
 }
 
-Status jemalloc_stats_print(const char* opts) {
-  malloc_stats_print(NULLPTR, NULLPTR, opts);
+typedef struct {
+  char* buf;
+  size_t len;
+} parser_t;
+
+void write_cb(void* opaque, const char* str) {
+  parser_t* parser = reinterpret_cast<parser_t*>(opaque);
+  size_t len = strlen(str);
+  char* buf = (parser->buf == NULL)
+                  ? reinterpret_cast<char*>(mallocx(len + 1, MALLOCX_TCACHE_NONE))
+                  : reinterpret_cast<char*>(
+                        rallocx(parser->buf, parser->len + len + 1, MALLOCX_TCACHE_NONE));
+  if (buf == NULL) {
+    ARROW_LOG(ERROR) << "Unexpected input appending failure";
+  }
+  memcpy(&buf[parser->len], str, len + 1);
+  parser->buf = buf;
+  parser->len += len;
+}
+
+Result<std::string> jemalloc_stats_print(const char* opts) {
+  parser_t parser = parser_t{NULL, 0};
+  malloc_stats_print(write_cb, static_cast<void*>(&parser), opts);
+  std::string stats = parser.buf;
+  if (parser.buf != NULL) {
+    dallocx(parser.buf, MALLOCX_TCACHE_NONE);
+  }
+  return stats;
+}
+
+Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+                            const char* opts) {
+  malloc_stats_print(reinterpret_cast<void (*)(void*, const char*)>(write_cb), cbopaque,
+                     opts);
   return Status::OK();
 }
 #endif
