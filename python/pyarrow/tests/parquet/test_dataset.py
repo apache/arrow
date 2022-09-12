@@ -588,7 +588,8 @@ def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
 
     # Using Expression in legacy dataset not supported
     if use_legacy_dataset and isinstance(filters, pc.Expression):
-        with pytest.raises(ValueError, match="Malformed filters"):
+        msg = "Expressions as filter not supported for legacy dataset"
+        with pytest.raises(TypeError, match=msg):
             read(base_path, **kwargs)
     else:
         table = read(base_path, **kwargs)

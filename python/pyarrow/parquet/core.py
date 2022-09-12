@@ -89,9 +89,7 @@ def _check_filters(filters, check_null_strings=True):
     Check if filters are well-formed.
     """
     if filters is not None:
-        if not hasattr(filters, '__len__') \
-                or len(filters) == 0 \
-                or any(len(f) == 0 for f in filters):
+        if len(filters) == 0 or any(len(f) == 0 for f in filters):
             raise ValueError("Malformed filters")
         if isinstance(filters[0][0], str):
             # We have encountered the situation where we have one nesting level
@@ -1805,6 +1803,9 @@ Examples
             raise NotImplementedError("split_row_groups not yet implemented")
 
         if filters is not None:
+            if hasattr(filters, "cast"):
+                raise TypeError(
+                    "Expressions as filter not supported for legacy dataset")
             filters = _check_filters(filters)
             self._filter(filters)
 
@@ -2340,7 +2341,9 @@ class _ParquetDatasetV2:
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
 
-        self._filter_expression = filters and _filters_to_expression(filters)
+        self._filter_expression = None
+        if filters is not None:
+            self._filter_expression = _filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
