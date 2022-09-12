@@ -177,7 +177,8 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
   if (is_rle) {
     auto& rle_filter = dynamic_cast<RunLengthEncodedArray&>(*filter);
     return RunLengthEncodedArray::Make(rle_filter.run_ends_array(),
-                                       out_datum.make_array(), rle_filter.length())
+                                       out_datum.make_array(), rle_filter.length(),
+                                       rle_filter.offset())
         .ValueOrDie();
   } else {
     return out_datum.make_array();
@@ -256,8 +257,25 @@ class TestFilterKernel : public ::testing::Test {
       auto values_rle_sliced = values_rle.array()->Copy();
       rle_util::AddArtificialOffsetInChildArray(values_rle_sliced.get(), 2);
       auto filter_rle_sliced = filter_rle.array()->Copy();
-      //  rle_util::AddArtificialOffsetInChildArray(filter_rle_sliced.get(), 1000);
+      rle_util::AddArtificialOffsetInChildArray(filter_rle_sliced.get(), 1000);
       DoAssertFilter(values_rle.make_array(), filter_rle.make_array(),
+                     expected_rle.make_array());
+    }
+    {
+      ARROW_SCOPED_TRACE("for sliced run-length encoded arrays");
+      auto values_pad = ArrayFromJSON(values->type(), "[null, null]");
+      auto filter_pad = ArrayFromJSON(boolean(), "[true, true]");
+      ASSERT_OK_AND_ASSIGN(auto values_padded,
+                           Concatenate({values_pad, values, values_pad}));
+      ASSERT_OK_AND_ASSIGN(auto filter_padded,
+                           Concatenate({filter_pad, filter, filter_pad}));
+      ASSERT_OK_AND_ASSIGN(auto values_padded_rle, RunLengthEncode(values_padded));
+      ASSERT_OK_AND_ASSIGN(auto filter_padded_rle, RunLengthEncode(filter_padded));
+      int64_t originial_length = values->length();
+      ASSERT_ARRAYS_EQUAL(*filter_padded_rle.make_array()->Slice(2, originial_length),
+                          *filter_rle.make_array());
+      DoAssertFilter(values_padded_rle.make_array()->Slice(2, originial_length),
+                     filter_padded_rle.make_array()->Slice(2, originial_length),
                      expected_rle.make_array());
     }
   }
