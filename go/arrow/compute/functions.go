@@ -183,7 +183,7 @@ func (b *baseFunction) checkArity(nargs int) error {
 //
 // Currently only ScalarKernels are allowed to be used.
 type kernelType interface {
-	exec.ScalarKernel
+	exec.ScalarKernel | exec.VectorKernel
 
 	// specifying the Kernel interface here allows us to utilize
 	// the methods of the Kernel interface on the generic
@@ -305,6 +305,69 @@ func (s *ScalarFunction) AddKernel(k exec.ScalarKernel) error {
 // If opts is nil, then the DefaultOptions() will be used.
 func (s *ScalarFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 	return execInternal(ctx, s, opts, -1, args...)
+}
+
+type VectorFunction struct {
+	funcImpl[exec.VectorKernel]
+}
+
+func NewVectorFunction(name string, arity Arity, doc FunctionDoc) *VectorFunction {
+	return &VectorFunction{
+		funcImpl: funcImpl[exec.VectorKernel]{
+			baseFunction: baseFunction{
+				name:  name,
+				arity: arity,
+				doc:   doc,
+				kind:  FuncVector,
+			},
+		},
+	}
+}
+
+func (f *VectorFunction) SetDefaultOptions(opts FunctionOptions) {
+	f.defaultOpts = opts
+}
+
+func (f *VectorFunction) DispatchExact(vals ...arrow.DataType) (exec.Kernel, error) {
+	return f.funcImpl.DispatchExact(vals...)
+}
+
+func (f *VectorFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
+	return f.DispatchExact(vals...)
+}
+
+func (f *VectorFunction) AddNewKernel(inTypes []exec.InputType, outType exec.OutputType, execFn exec.ArrayKernelExec, init exec.KernelInitFn) error {
+	if err := f.checkArity(len(inTypes)); err != nil {
+		return err
+	}
+
+	if f.arity.IsVarArgs && len(inTypes) != 1 {
+		return fmt.Errorf("%w: varags signatures must have exactly one input type", arrow.ErrInvalid)
+	}
+
+	sig := &exec.KernelSignature{
+		InputTypes: inTypes,
+		OutType:    outType,
+		IsVarArgs:  f.arity.IsVarArgs,
+	}
+	f.kernels = append(f.kernels, exec.NewVectorKernelWithSig(sig, execFn, init))
+	return nil
+}
+
+func (f *VectorFunction) AddKernel(kernel exec.VectorKernel) error {
+	if err := f.checkArity(len(kernel.Signature.InputTypes)); err != nil {
+		return err
+	}
+
+	if f.arity.IsVarArgs && !kernel.Signature.IsVarArgs {
+		return fmt.Errorf("%w: function accepts varargs but kernel signature does not", arrow.ErrInvalid)
+	}
+	f.kernels = append(f.kernels, kernel)
+	return nil
+}
+
+func (f *VectorFunction) Execute(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+	return execInternal(ctx, f, opts, -1, args...)
 }
 
 // MetaFunctionImpl is the signature needed for implementing a MetaFunction
