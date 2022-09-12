@@ -33,6 +33,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -40,6 +41,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
+
 namespace arrow {
 
 using internal::checked_pointer_cast;
