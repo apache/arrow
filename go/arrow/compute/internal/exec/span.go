@@ -94,12 +94,14 @@ func (a *ArraySpan) MayHaveNulls() bool {
 // number of nulls if the current null count is unknown, otherwise it just
 // returns the value of a.Nulls
 func (a *ArraySpan) UpdateNullCount() int64 {
-	if a.Nulls != array.UnknownNullCount {
-		return atomic.LoadInt64(&a.Nulls)
+	curNulls := atomic.LoadInt64(&a.Nulls)
+	if curNulls != array.UnknownNullCount {
+		return curNulls
 	}
 
-	atomic.StoreInt64(&a.Nulls, a.Len-int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len))))
-	return atomic.LoadInt64(&a.Nulls)
+	newNulls := a.Len - int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len)))
+	atomic.StoreInt64(&a.Nulls, newNulls)
+	return newNulls
 }
 
 // Dictionary returns a pointer to the array span for the dictionary which
