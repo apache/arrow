@@ -19,7 +19,7 @@ package arrow_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
 )
 
 func TestBinaryType(t *testing.T) {
@@ -48,6 +48,36 @@ func TestStringType(t *testing.T) {
 	}
 
 	if got, want := nt.String(), "utf8"; got != want {
+		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
+	}
+}
+
+func TestLargeBinaryType(t *testing.T) {
+	var nt *arrow.LargeBinaryType
+	if got, want := nt.ID(), arrow.LARGE_BINARY; got != want {
+		t.Fatalf("invalid binary type id. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.Name(), "large_binary"; got != want {
+		t.Fatalf("invalid binary type name. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.String(), "large_binary"; got != want {
+		t.Fatalf("invalid binary type stringer. got=%v, want=%v", got, want)
+	}
+}
+
+func TestLargeStringType(t *testing.T) {
+	var nt *arrow.LargeStringType
+	if got, want := nt.ID(), arrow.LARGE_STRING; got != want {
+		t.Fatalf("invalid string type id. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.Name(), "large_utf8"; got != want {
+		t.Fatalf("invalid string type name. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.String(), "large_utf8"; got != want {
 		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
 	}
 }

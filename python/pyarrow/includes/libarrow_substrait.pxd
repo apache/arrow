@@ -17,10 +17,20 @@
 
 # distutils: language = c++
 
+from libcpp.vector cimport vector as std_vector
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine::substrait" nogil:
+cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
+
+cdef extern from "arrow/engine/substrait/extension_set.h" \
+        namespace "arrow::engine" nogil:
+
+    cdef cppclass ExtensionIdRegistry:
+        std_vector[c_string] GetSupportedSubstraitFunctions()
+
+    ExtensionIdRegistry* default_extension_id_registry()

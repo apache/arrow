@@ -1131,7 +1131,6 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   delete_arrow_array_stream(stream_ptr)
 })
 
-
 test_that("Filter parquet dataset with is.na ARROW-15312", {
   ds_path <- make_temp_dir()
 
@@ -1347,5 +1346,98 @@ test_that("FileSystemFactoryOptions input validation", {
       'of file paths: "selector_ignore_prefixes"'
     ),
     fixed = TRUE
+  )
+})
+
+test_that("can add in augmented fields", {
+  ds <- open_dataset(hive_dir)
+
+  observed <- ds %>%
+    mutate(file_name = add_filename()) %>%
+    collect()
+
+  expect_named(
+    observed,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
+  )
+
+  expect_equal(
+    sort(unique(observed$file_name)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  error_regex <- paste(
+    "`add_filename()` or use of the `__filename` augmented field can only",
+    "be used with with Dataset objects, and can only be added before doing",
+    "an aggregation or a join."
+  )
+
+  # errors appropriately with ArrowTabular objects
+  expect_error(
+    arrow_table(mtcars) %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # errors appropriately with aggregation
+  expect_error(
+    ds %>%
+      summarise(max_int = max(int)) %>%
+      mutate(file_name = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # joins to tables
+  another_table <- select(example_data, int, dbl2)
+  expect_error(
+    ds %>%
+      left_join(another_table, by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # and on joins to datasets
+  another_dataset <- write_dataset(another_table, "another_dataset")
+  expect_error(
+    ds %>%
+      left_join(open_dataset("another_dataset"), by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex,
+    fixed = TRUE
+  )
+
+  # this hits the implicit_schema path by joining afterwards
+  join_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    left_join(open_dataset("another_dataset"), by = "int") %>%
+    collect()
+
+  expect_named(
+    join_after,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file", "dbl2")
+  )
+
+  expect_equal(
+    sort(unique(join_after$file)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  # another test on the explicit_schema path
+  summarise_after <- ds %>%
+    mutate(file = add_filename()) %>%
+    group_by(file) %>%
+    summarise(max_int = max(int)) %>%
+    collect()
+
+  expect_equal(
+    sort(summarise_after$file),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
 })

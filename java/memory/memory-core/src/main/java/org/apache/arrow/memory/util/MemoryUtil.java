@@ -133,7 +133,11 @@ public class MemoryUtil {
       }
       DIRECT_BUFFER_CONSTRUCTOR = directBufferConstructor;
     } catch (Throwable e) {
-      throw new RuntimeException("Failed to initialize MemoryUtil.", e);
+      // This exception will get swallowed, but it's necessary for the static analysis that ensures
+      // the static fields above get initialized
+      final RuntimeException failure = new RuntimeException("Failed to initialize MemoryUtil", e);
+      failure.printStackTrace();
+      throw failure;
     }
   }
 

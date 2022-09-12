@@ -34,17 +34,29 @@ fi
 if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
   conan_args+=(--options arrow:with_brotli=${ARROW_CONAN_WITH_BROTLI})
 fi
+if [ -n "${ARROW_CONAN_WITH_BZ2:-}" ]; then
+  conan_args+=(--options arrow:with_bz2=${ARROW_CONAN_WITH_BZ2})
+fi
+if [ -n "${ARROW_CONAN_WITH_FLIGHT_RPC:-}" ]; then
+  conan_args+=(--options arrow:with_flight_rpc=${ARROW_CONAN_WITH_FLIGHT_RPC})
+fi
 if [ -n "${ARROW_CONAN_WITH_GLOG:-}" ]; then
   conan_args+=(--options arrow:with_glog=${ARROW_CONAN_WITH_GLOG})
 fi
 if [ -n "${ARROW_CONAN_WITH_JEMALLOC:-}" ]; then
   conan_args+=(--options arrow:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC})
 fi
+if [ -n "${ARROW_CONAN_WITH_JSON:-}" ]; then
+  conan_args+=(--options arrow:with_json=${ARROW_CONAN_WITH_JSON})
+fi
 if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
   conan_args+=(--options arrow:with_lz4=${ARROW_CONAN_WITH_LZ4})
 fi
 if [ -n "${ARROW_CONAN_WITH_SNAPPY:-}" ]; then
   conan_args+=(--options arrow:with_snappy=${ARROW_CONAN_WITH_SNAPPY})
+fi
+if [ -n "${ARROW_CONAN_WITH_ZSTD:-}" ]; then
+  conan_args+=(--options arrow:with_zstd=${ARROW_CONAN_WITH_ZSTD})
 fi
 
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \

@@ -131,6 +131,30 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+Testing PyArrow C++
+-------------------
+
+Most of the tests for PyArrow are part of the ``pytest``-based test suite mentioned above,
+but a few low-level tests are written directly in C++ for historical reasons.
+Those tests can be run using ``ctest``, but you first will need to build Arrow C++
+with ``-DARROW_BUILD_TESTS=ON``.
+
+.. note::
+
+   Currently, building the PyArrow C++ unit tests does not work with the
+   googletest package from conda-forge. If you are in this situation, please
+   add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
+   when building Arrow C++.
+
+After Arrow C++ and PyArrow are built, you can navigate to the ``python/build/dist``
+folder and run ``ctest``:
+
+.. code-block::
+
+   $ pushd arrow/python/build/dist
+   $ ctest
+   $ popd
+
 Benchmarking
 ------------
 
@@ -388,8 +412,15 @@ Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
 need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
 variable to 1.
 
-To set the number of threads used to compile PyArrow's C++/Cython components, 
+To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
+
+.. note::
+
+   If you used a different directory name for building Arrow C++ (by default it is
+   named "build"), then you should also set the environment variable
+   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
+   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
@@ -604,3 +635,30 @@ Caveats
 -------
 
 The Plasma component is not supported on Windows.
+
+Installing Nightly Packages
+===========================
+
+.. warning::
+    These packages are not official releases. Use them at your own risk.
+
+PyArrow has nightly wheels and Conda packages for testing purposes.
+
+These may be suitable for downstream libraries in their continuous integration
+setup to maintain compatibility with the upcoming PyArrow features,
+deprecations and/or feature removals.
+
+Install the development version of PyArrow from `arrow-nightlies
+<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
+
+.. code-block:: bash
+
+    conda install -c arrow-nightlies pyarrow
+
+Install the development version from an `alternative PyPI
+<https://gemfury.com/arrow-nightlies>`_ index:
+
+.. code-block:: bash
+
+    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
+        --prefer-binary --pre pyarrow

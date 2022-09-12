@@ -78,11 +78,3 @@ if(ARROW_BUILD_OPENMP_BENCHMARKS)
                            PRIVATE "-openmp:experimental -openmp:llvm")
   endif()
 endif()
-
-add_arrow_compute_test(ir_test
-                       PREFIX
-                       "arrow-compute"
-                       EXTRA_LINK_LIBS
-                       ${GFLAGS_LIBRARIES}
-                       TEST_ARGUMENTS
-                       "--computeir_dir=${CMAKE_SOURCE_DIR}/../experimental/computeir")

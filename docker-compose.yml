@@ -96,6 +96,7 @@ x-hierarchy:
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
+  - alpine-linux-cpp
   - centos-cpp-static
   - conda:
     - conda-cpp:
@@ -121,7 +122,6 @@ x-hierarchy:
     - debian-go-cgo
     - debian-go-cgo-python
   - debian-java
-  - debian-java-jni
   - debian-js
   - fedora-cpp:
     - fedora-python
@@ -162,6 +162,8 @@ x-hierarchy:
 volumes:
   almalinux-ccache:
     name: ${ARCH}-almalinux-ccache
+  alpine-linux-ccache:
+    name: ${ARCH}-alpine-linux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
   debian-ccache:
@@ -191,6 +193,36 @@ services:
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
+
+  alpine-linux-cpp:
+    # Usage:
+    #   docker-compose build alpine-linux-cpp
+    #   docker-compose run --rm alpine-linux-cpp
+    # Parameters:
+    #   ALPINE_LINUX: 3.16
+    #   ARCH: amd64, arm64v8, ...
+    image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/alpine-linux-${ALPINE_LINUX}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: &shm-size 2G
+    ulimits: &ulimits
+      core: ${ULIMIT_CORE}
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
+    volumes: &alpine-linux-volumes
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}alpine-linux-ccache:/ccache:delegated
+    command: >-
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   conda:
     # Base image for conda builds.
@@ -229,9 +261,8 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-    shm_size: &shm-size 2G
-    ulimits: &ulimits
-      core: ${ULIMIT_CORE}
+    shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_BUILD_BENCHMARKS: "ON"
@@ -455,9 +486,16 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
-    environment:
+    environment: &cuda-environment
       <<: *ccache
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_CUDA: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+      ARROW_WITH_OPENTELEMETRY: "OFF"
     volumes: *ubuntu-volumes
     command: *cpp-command
 
@@ -736,10 +774,10 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
+        numba: ${NUMBA}
     shm_size: *shm-size
     environment:
-      <<: *ccache
-      ARROW_CUDA: "ON"
+      <<: [ *ccache, *cuda-environment ]
     volumes: *ubuntu-volumes
     command: &python-command >
       /bin/bash -c "
@@ -960,10 +998,14 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
-      ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
+      ["pip install -e /arrow/dev/archery && \
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
+        source /opt/rh/rh-maven35/enable && \
+        /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
+        /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
 
@@ -1391,6 +1433,7 @@ services:
       args:
         arch: ${ARCH}
         go: ${GO}
+        staticcheck: ${STATICCHECK}
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-command >
@@ -1501,34 +1544,6 @@ services:
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
-  debian-java-jni:
-    # Includes plasma test, jni for gandiva and orc, and C data interface.
-    # Usage:
-    #   docker-compose build debian-java
-    #   docker-compose build debian-java-jni
-    #   docker-compose run debian-java-jni
-    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-jni.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
-      args:
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    command:
-      /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/java_dist &&
-        /arrow/ci/scripts/java_build.sh /arrow /build /tmp/java_dist &&
-        /arrow/ci/scripts/java_test.sh /arrow /build /tmp/java_dist"
-
   oracle-java:
     # Usage:
     #   docker-compose build oracle-java
@@ -1599,6 +1614,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
       <<: *ccache
+      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_CUDA: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"

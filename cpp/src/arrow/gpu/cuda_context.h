@@ -76,7 +76,7 @@ class ARROW_EXPORT CudaDeviceManager {
   static std::unique_ptr<CudaDeviceManager> instance_;
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 
   friend class CudaContext;
   friend class CudaDevice;
@@ -146,7 +146,7 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// \endcond
 
   explicit CudaDevice(Impl);
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 };
 
 /// \brief Return whether a device instance is a CudaDevice
@@ -297,7 +297,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
                                    uintptr_t dst, uintptr_t src, int64_t nbytes);
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 
   friend class CudaBuffer;
   friend class CudaBufferReader;

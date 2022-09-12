@@ -22,6 +22,19 @@ import subprocess
 from .git import git
 
 
+ARROW_ROOT_DEFAULT = os.environ.get(
+    'ARROW_ROOT',
+    Path(__file__).resolve().parents[4]
+)
+
+
+def arrow_path(path):
+    """
+    Return full path to a file given its path inside the Arrow repo.
+    """
+    return os.path.join(ARROW_ROOT_DEFAULT, path)
+
+
 class InvalidArrowSource(Exception):
     pass
 

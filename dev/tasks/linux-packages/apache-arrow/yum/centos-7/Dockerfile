@@ -39,7 +39,6 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    jemalloc-devel \
     json-devel \
     libzstd-devel \
     lz4-devel \
@@ -48,8 +47,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python36 \
-    python36-devel \
-    python36-numpy \
     rapidjson-devel \
     rpmdevtools \
     snappy-devel \

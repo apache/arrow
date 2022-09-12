@@ -48,7 +48,7 @@ stateless and return output with the same shape (i.e., the same number
 of rows) as the input.
 }
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() && identical(Sys.getenv("NOT_CRAN"), "true")) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 library(dplyr, warn.conflicts = FALSE)
 
 some_model <- lm(mpg ~ disp + cyl, data = mtcars)

@@ -74,13 +74,12 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   }
 
   for (uint32_t anchor = 0; anchor < ext_set.num_functions(); ++anchor) {
-    ARROW_ASSIGN_OR_RAISE(auto function_record, ext_set.DecodeFunction(anchor));
-    if (function_record.id.empty()) continue;
+    ARROW_ASSIGN_OR_RAISE(Id function_id, ext_set.DecodeFunction(anchor));
 
     auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
-    fn->set_extension_uri_reference(map[function_record.id.uri]);
+    fn->set_extension_uri_reference(map[function_id.uri]);
     fn->set_function_anchor(anchor);
-    fn->set_name(function_record.id.name.to_string());
+    fn->set_name(function_id.name.to_string());
 
     auto ext_decl = internal::make_unique<ExtDecl>();
     ext_decl->set_allocated_extension_function(fn.release());
@@ -103,8 +102,6 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
   // will only store views to memory owned by registry.
-
-  using Id = ExtensionSet::Id;
 
   std::unordered_map<uint32_t, Id> type_ids, function_ids;
   for (const auto& ext : plan.extensions()) {

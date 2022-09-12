@@ -147,26 +147,32 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     if (command.is(CommandStatementQuery.class)) {
       return getSchemaStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+    } else if (command.is(CommandPreparedStatementQuery.class)) {
+      return getSchemaPreparedStatement(
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
+    } else if (command.is(CommandGetCrossReference.class)) {
+      return new SchemaResult(Schemas.GET_CROSS_REFERENCE_SCHEMA);
     } else if (command.is(CommandGetDbSchemas.class)) {
       return new SchemaResult(Schemas.GET_SCHEMAS_SCHEMA);
+    } else if (command.is(CommandGetExportedKeys.class)) {
+      return new SchemaResult(Schemas.GET_EXPORTED_KEYS_SCHEMA);
+    } else if (command.is(CommandGetImportedKeys.class)) {
+      return new SchemaResult(Schemas.GET_IMPORTED_KEYS_SCHEMA);
+    } else if (command.is(CommandGetPrimaryKeys.class)) {
+      return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
     } else if (command.is(CommandGetTables.class)) {
-      return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
+      if (FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class).getIncludeSchema()) {
+        return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
+      }
+      return new SchemaResult(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA);
     } else if (command.is(CommandGetTableTypes.class)) {
       return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
     } else if (command.is(CommandGetXdbcTypeInfo.class)) {
       return new SchemaResult(Schemas.GET_TYPE_INFO_SCHEMA);
-    } else if (command.is(CommandGetPrimaryKeys.class)) {
-      return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
-    } else if (command.is(CommandGetImportedKeys.class)) {
-      return new SchemaResult(Schemas.GET_IMPORTED_KEYS_SCHEMA);
-    } else if (command.is(CommandGetExportedKeys.class)) {
-      return new SchemaResult(Schemas.GET_EXPORTED_KEYS_SCHEMA);
-    } else if (command.is(CommandGetCrossReference.class)) {
-      return new SchemaResult(Schemas.GET_CROSS_REFERENCE_SCHEMA);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
@@ -336,15 +342,30 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                             CallContext context, FlightDescriptor descriptor);
 
   /**
-   * Gets schema about a particular SQL query based data stream.
+   * Get the schema of the result set of a query.
    *
-   * @param command    The sql command to generate the data stream.
+   * @param command    The SQL query.
    * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
-   * @return Schema for the stream.
+   * @return the schema of the result set.
    */
   SchemaResult getSchemaStatement(CommandStatementQuery command, CallContext context,
                                   FlightDescriptor descriptor);
+
+  /**
+   * Get the schema of the result set of a prepared statement.
+   *
+   * @param command    The prepared statement handle.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return the schema of the result set.
+   */
+  default SchemaResult getSchemaPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
+                                  FlightDescriptor descriptor) {
+    throw CallStatus.UNIMPLEMENTED
+        .withDescription("GetSchema with CommandPreparedStatementQuery is not implemented")
+        .toRuntimeException();
+  }
 
   /**
    * Returns data for a SQL query based data stream.

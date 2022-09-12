@@ -47,7 +47,7 @@ find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
   arrow_find_package(ARROW_PYTHON
-                     "${ARROW_HOME}"
+                     "${PYARROW_CPP_HOME}"
                      arrow_python
                      arrow/python/api.h
                      ArrowPython

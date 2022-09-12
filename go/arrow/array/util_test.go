@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 )
@@ -127,6 +127,27 @@ func TestStringsJSON(t *testing.T) {
 			defer expected.Release()
 
 			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String, strings.NewReader(tt.jsonstring))
+			assert.NoError(t, err)
+			defer arr.Release()
+
+			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+			data, err := json.Marshal(arr)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.jsonstring, string(data))
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run("large json "+tt.jsonstring, func(t *testing.T) {
+			bldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+			defer bldr.Release()
+
+			bldr.AppendValues(tt.values, tt.valids)
+			expected := bldr.NewLargeStringArray()
+			defer expected.Release()
+
+			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.LargeString, strings.NewReader(tt.jsonstring))
 			assert.NoError(t, err)
 			defer arr.Release()
 

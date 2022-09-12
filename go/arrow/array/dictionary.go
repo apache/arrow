@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/hashing"
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/hashing"
+	"github.com/apache/arrow/go/v10/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -382,7 +382,7 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewFloat32MemoTable(0)
 	case arrow.FLOAT64:
 		ret = hashing.NewFloat64MemoTable(0)
-	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
+	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 	case arrow.STRING:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
@@ -620,6 +620,13 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.DECIMAL256:
+		ret := &Decimal256DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Decimal256)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.LIST:
 	case arrow.STRUCT:
 	case arrow.SPARSE_UNION:
@@ -656,6 +663,8 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Dictio
 	return NewDictionaryBuilderWithDict(mem, dt, nil)
 }
 
+func (b *dictionaryBuilder) Type() arrow.DataType { return b.dt }
+
 func (b *dictionaryBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
@@ -673,6 +682,11 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.length += 1
 	b.nulls += 1
 	b.idxBuilder.AppendNull()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValue() {
+	b.length += 1
+	b.idxBuilder.AppendEmptyValue()
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {
@@ -728,19 +742,24 @@ func (b *dictionaryBuilder) NewArray() arrow.Array {
 	return b.NewDictionaryArray()
 }
 
-func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
-	a := &Dictionary{}
-	a.refCount = 1
-
+func (b *dictionaryBuilder) newData() *Data {
 	indices, dict, err := b.newWithDictOffset(0)
 	if err != nil {
 		panic(err)
 	}
-	defer indices.Release()
 
 	indices.dtype = b.dt
 	indices.dictionary = dict
+	return indices
+}
+
+func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
+	a := &Dictionary{}
+	a.refCount = 1
+
+	indices := b.newData()
 	a.setData(indices)
+	indices.Release()
 	return a
 }
 
@@ -1226,6 +1245,24 @@ func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err err
 			break
 		}
 		data = data[arrow.Decimal128SizeBytes:]
+	}
+	return
+}
+
+type Decimal256DictionaryBuilder struct {
+	dictionaryBuilder
+}
+
+func (b *Decimal256DictionaryBuilder) Append(v decimal128.Num) error {
+	return b.appendValue((*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&v)))[:])
+}
+func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err error) {
+	data := arrow.Decimal256Traits.CastToBytes(arr.values)
+	for len(data) > 0 {
+		if err = b.insertDictValue(data[:arrow.Decimal256SizeBytes]); err != nil {
+			break
+		}
+		data = data[arrow.Decimal256SizeBytes:]
 	}
 	return
 }

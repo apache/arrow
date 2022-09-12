@@ -905,7 +905,7 @@ test_that("str_like", {
   )
 
   # This will give an error until a new version of stringr with str_like has been released
-  skip_if_not(packageVersion("stringr") > "1.4.0")
+  skip_if_not(packageVersion("stringr") > "1.5.0")
   compare_dplyr_binding(
     .input %>%
       mutate(x = str_like(x, "%baz%")) %>%

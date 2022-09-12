@@ -125,6 +125,14 @@ def test_infinite_iterator():
     assert arr1.equals(expected)
 
 
+def test_failing_iterator():
+    with pytest.raises(ZeroDivisionError):
+        pa.array((1 // 0 for x in range(10)))
+    # ARROW-17253
+    with pytest.raises(ZeroDivisionError):
+        pa.array((1 // 0 for x in range(10)), size=10)
+
+
 def _as_list(xs):
     return xs
 
