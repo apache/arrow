@@ -38,14 +38,13 @@ class ApacheArrowGlib < Formula
     formula "apache-arrow"
   end
 
-  depends_on "glib-utils" => :build
+  depends_on "glib" => :build
   depends_on "gobject-introspection" => :build
   depends_on "meson" => :build
   depends_on "ninja" => :build
   depends_on "pkg-config" => :build
   depends_on "vala" => :build
   depends_on "apache-arrow"
-  depends_on "glib"
 
   on_linux do
     depends_on "gcc"
