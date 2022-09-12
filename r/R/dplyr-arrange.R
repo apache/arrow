@@ -20,7 +20,8 @@
 
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
-  exprs <- quos(...)
+  exprs <- expand_across(.data, quos(...))
+
   if (.by_group) {
     # when the data is is grouped and .by_group is TRUE, order the result by
     # the grouping columns first
