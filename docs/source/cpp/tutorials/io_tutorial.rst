@@ -201,8 +201,8 @@ with our target file, to create a :class:`ipc::RecordBatchWriter`. The
 
 2. the :class:`Schema` for our :class:`RecordBatch` (in case we need to write more :class:`RecordBatches <RecordBatch>` of the same format.)
 
-The :class:`Schema` comes from our existing :class:`RecordBatch`, and the target file is
-just a name – in this case, test_out.arrow.
+The :class:`Schema` comes from our existing :class:`RecordBatch` and the target file is
+the output stream we just created.
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
   :language: cpp
@@ -217,7 +217,7 @@ file:
   :start-after: (Doc section: Arrow Write)
   :end-before: (Doc section: Arrow Write)
 
-For IPC in particular, the writer has to be closed, so do that:
+For IPC in particular, the writer has to be closed since it anticipates more than one batch may be written. To do that:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
   :language: cpp
@@ -369,7 +369,7 @@ With a prepared :class:`parquet::arrow::FileReader` in hand, we can read to a
 Writing a Parquet File from Table
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Writing a Parquet file does not need a writer object. Instead, we give
+For single-shot writes, writing a Parquet file does not need a writer object. Instead, we give
 it our table, point to the memory pool it will use for any necessary
 memory consumption, tell it where to write, and the chunk size if it
 needs to break up the file at all:
