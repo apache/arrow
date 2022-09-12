@@ -258,9 +258,9 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderForRangeAs
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
-    if (fragment_scan_options->stream_transform_func) {
-      ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
-    }
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       auto buffered_input,
