@@ -649,6 +649,9 @@ func (s *scalarExecutor) emitResult(resultData *exec.ArraySpan, data chan<- Datu
 		if err != nil {
 			return err
 		}
+		if r, ok := sc.(scalar.Releasable); ok {
+			defer r.Release()
+		}
 		output = NewDatum(sc)
 	} else {
 		d := resultData.MakeData()

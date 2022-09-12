@@ -32,7 +32,7 @@ echo "=== Building Arrow C++ libraries ==="
 devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
-: ${ARROW_BUILD_TESTS:=OFF}
+: ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -43,10 +43,9 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
-: ${ARROW_PYTHON:=OFF}
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
-: ${CMAKE_BUILD_TYPE:=Release}
+: ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_UNITY_BUILD:=ON}
 : ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
@@ -66,36 +65,26 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
-  -DARROW_BOOST_USE_SHARED=OFF \
-  -DARROW_BROTLI_USE_SHARED=OFF \
-  -DARROW_BUILD_SHARED=ON \
-  -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
+  -DARROW_BUILD_SHARED=OFF \
+  -DARROW_BUILD_TESTS=ON \
   -DARROW_BUILD_UTILITIES=OFF \
-  -DARROW_BZ2_USE_SHARED=OFF \
+  -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
+  -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
-  -DARROW_GRPC_USE_SHARED=OFF \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
   -DARROW_JNI=ON \
-  -DARROW_LZ4_USE_SHARED=OFF \
-  -DARROW_OPENSSL_USE_SHARED=OFF \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
-  -DARROW_PROTOBUF_USE_SHARED=OFF \
-  -DARROW_PYTHON=${ARROW_PYTHON} \
   -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
   -DARROW_S3=${ARROW_S3} \
-  -DARROW_SNAPPY_USE_SHARED=OFF \
-  -DARROW_THRIFT_USE_SHARED=OFF \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
-  -DARROW_UTF8PROC_USE_SHARED=OFF \
-  -DARROW_ZSTD_USE_SHARED=OFF \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
@@ -105,16 +94,22 @@ cmake \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
-  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-  -DPythonInterp_FIND_VERSION=ON \
   -DVCPKG_MANIFEST_MODE=OFF \
   -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
   -GNinja \
   ${arrow_dir}/cpp
 ninja install
 
-if [ $ARROW_BUILD_TESTS = "ON" ]; then
+if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
+  # MinIO is required
+  exclude_tests="arrow-s3fs-test"
+  # unstable
+  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-dataset-scanner-test"
+  # strptime
+  exclude_tests="${exclude_tests}|arrow-utility-test"
   ctest \
+    --exclude-regex "${exclude_tests}" \
     --label-regex unittest \
     --output-on-failure \
     --parallel $(nproc) \
@@ -125,11 +120,12 @@ popd
 
 
 JAVA_JNI_CMAKE_ARGS=""
-JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_MANIFEST_MODE=OFF"
+JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
 JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
 export JAVA_JNI_CMAKE_ARGS
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
+  ${ARROW_HOME} \
   ${build_dir} \
   ${dist_dir}
 
@@ -140,7 +136,6 @@ fi
 
 
 echo "=== Copying libraries to the distribution folder ==="
-cp -L ${ARROW_HOME}/lib/libarrow_dataset_jni.so ${dist_dir}
 cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
 cp -L ${ARROW_HOME}/lib/libgandiva_jni.so ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}

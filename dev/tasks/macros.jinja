@@ -111,7 +111,7 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - name: Upload package to Gemfury
     shell: bash
     run: |
@@ -157,7 +157,7 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - task: CondaEnvironment@1
     inputs:
       packageSpecs: 'anaconda-client'
@@ -216,7 +216,7 @@ on:
 {% endmacro %}
 
 {%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - |
     WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
     curl \
@@ -243,7 +243,7 @@ on:
           continue
         fi
         # Pin the current commit in the formula to test so that
-        # we're not always pulling from master
+        # we're not always pulling from the tip of the default branch
         sed -i '' -E \
           -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}
@@ -284,7 +284,7 @@ on:
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
-  source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+  source("https://raw.githubusercontent.com/apache/arrow/HEAD/ci/etc/rprofile")
 
   install.packages(
     "arrow",

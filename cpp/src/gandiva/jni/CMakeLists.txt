@@ -76,9 +76,11 @@ add_arrow_lib(gandiva_jni
               ${GANDIVA_JNI_SOURCES}
               OUTPUTS
               GANDIVA_JNI_LIBRARIES
-              SHARED_PRIVATE_LINK_LIBS
-              ${GANDIVA_LINK_LIBS}
-              STATIC_LINK_LIBS
+              BUILD_SHARED
+              ON
+              BUILD_STATIC
+              OFF
+              SHARED_LINK_LIBS
               ${GANDIVA_LINK_LIBS}
               DEPENDENCIES
               ${GANDIVA_LINK_LIBS}

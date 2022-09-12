@@ -43,6 +43,7 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
+        "boost-process",
         "gtest"
       ]
     },

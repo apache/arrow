@@ -536,6 +536,9 @@ cdef shared_ptr[CInputStream] native_transcoding_input_stream(
     shared_ptr[CInputStream] stream, src_encoding,
     dest_encoding) except *
 
+cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
+    src_encoding, dest_encoding) except *
+
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
 

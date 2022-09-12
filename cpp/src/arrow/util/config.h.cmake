@@ -46,6 +46,8 @@
 #cmakedefine ARROW_JEMALLOC
 #cmakedefine ARROW_JEMALLOC_VENDORED
 #cmakedefine ARROW_JSON
+#cmakedefine ARROW_ORC
+#cmakedefine ARROW_PARQUET
 
 #cmakedefine ARROW_GCS
 #cmakedefine ARROW_S3
