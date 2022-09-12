@@ -441,3 +441,10 @@ Which means that now we have to be able to process this data without
 pulling it all into memory at once. For this, we’ll use Acero.
 
 <LINK TO NEXT ARTICLE>
+
+.. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
+  :language: cpp
+  :start-after: (Doc section: Dataset Example)
+  :end-before: (Doc section: Dataset Example)
+  :linenos:
+  :lineno-match:
