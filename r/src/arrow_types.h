@@ -99,7 +99,7 @@ static inline Status StatusUnwindProtect(SEXP token, std::string message) {
 
 class MoreUsefulUnwindException : public cpp11::unwind_exception {
  public:
-  MoreUsefulUnwindException(SEXP token, std::string message = "")
+  explicit MoreUsefulUnwindException(SEXP token, std::string message = "")
       : cpp11::unwind_exception(token) {}
 
   const char* what() const noexcept { return message_.c_str(); }
