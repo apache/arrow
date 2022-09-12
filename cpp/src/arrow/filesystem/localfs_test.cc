@@ -155,6 +155,7 @@ class TestLocalFSGenericMMap : public TestLocalFSGeneric<CommonPathFormatter> {
   }
 };
 
+#if defined(__linux__)
 class TestLocalFSGenericDirectIO : public TestLocalFSGeneric<CommonPathFormatter> {
  protected:
   bool allow_append_to_file() const override { return false; }
@@ -164,9 +165,12 @@ class TestLocalFSGenericDirectIO : public TestLocalFSGeneric<CommonPathFormatter
     return options;
   }
 };
+#endif
 
 GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
+#if defined(__linux__)
 GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericDirectIO);
+#endif
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests
