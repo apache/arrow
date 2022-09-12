@@ -25,7 +25,6 @@
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_fwd.h"
@@ -343,6 +342,9 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
 ARROW_EXPORT
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size);
+
+template <typename T>
+using AsyncGenerator = std::function<Future<T>()>;
 
 ARROW_EXPORT
 Result<AsyncGenerator<std::shared_ptr<Buffer>>> MakeRandomAccessFileGenerator(
