@@ -184,6 +184,9 @@ jobs:
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
 
+          # always remove arrow (mainly for self-hosted runners)
+          try(remove.packages("arrow"), silent = TRUE)
+
           cat("Install arrow from dev repo.\n")
           install.packages(
             "arrow",

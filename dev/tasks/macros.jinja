@@ -286,6 +286,9 @@ on:
 {%- macro github_test_r_src_pkg() -%}
   source("https://raw.githubusercontent.com/apache/arrow/HEAD/ci/etc/rprofile")
 
+  # always remove arrow (mainly for self-hosted runners)
+  try(remove.packages("arrow"), silent = TRUE)
+
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
