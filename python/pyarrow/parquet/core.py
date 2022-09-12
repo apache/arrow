@@ -2340,10 +2340,7 @@ class _ParquetDatasetV2:
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
 
-        # map filters to Expressions if not already
-        if not isinstance(filters, ds.Expression):
-            filters = filters and _filters_to_expression(filters)
-        self._filter_expression = filters
+        self._filter_expression = filters and _filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
