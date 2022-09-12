@@ -21,7 +21,6 @@ from concurrent import futures
 from contextlib import nullcontext
 from functools import partial, reduce
 
-import sys
 import json
 from collections.abc import Collection
 import numpy as np
@@ -3506,6 +3505,30 @@ def read_schema(where, memory_map=False, decryption_properties=None,
         return file.schema.to_arrow_schema()
 
 
-# re-export everything
-# std `from . import *` ignores symbols with leading `_`
-__all__ = list(sys.modules[__name__].__dict__)
+__all__ = (
+    "ColumnChunkMetaData",
+    "ColumnSchema",
+    "FileDecryptionProperties",
+    "FileEncryptionProperties",
+    "FileMetaData",
+    "ParquetDataset",
+    "ParquetDatasetPiece",
+    "ParquetFile",
+    "ParquetLogicalType",
+    "ParquetManifest",
+    "ParquetPartitions",
+    "ParquetReader",
+    "ParquetSchema",
+    "ParquetWriter",
+    "PartitionSet",
+    "RowGroupMetaData",
+    "Statistics",
+    "read_metadata",
+    "read_pandas",
+    "read_schema",
+    "read_table",
+    "write_metadata",
+    "write_table",
+    "write_to_dataset",
+    "_filters_to_expression",
+)
