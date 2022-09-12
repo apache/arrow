@@ -18,6 +18,7 @@ package kernels
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
@@ -512,4 +513,189 @@ func (v *validityBuilder) Finish() (buf *memory.Buffer) {
 	buf = v.buffer
 	v.buffer = nil
 	return
+}
+
+type execBufBuilder struct {
+	mem    memory.Allocator
+	buffer *memory.Buffer
+	data   []byte
+	sz     int
+}
+
+func (bldr *execBufBuilder) resize(newcap int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	bldr.buffer.ResizeNoShrink(newcap)
+	bldr.data = bldr.buffer.Bytes()
+}
+
+func (bldr *execBufBuilder) reserve(additional int) {
+	if bldr.buffer == nil {
+		bldr.buffer = memory.NewResizableBuffer(bldr.mem)
+	}
+
+	mincap := bldr.sz + additional
+	if mincap <= cap(bldr.data) {
+		return
+	}
+	bldr.buffer.ResizeNoShrink(mincap)
+	bldr.data = bldr.buffer.Buf()
+}
+
+func (bldr *execBufBuilder) unsafeAppend(data []byte) {
+	copy(bldr.data[bldr.sz:], data)
+	bldr.sz += len(data)
+}
+
+func (bldr *execBufBuilder) unsafeAppendN(n int, val byte) {
+	bldr.data[bldr.sz] = val
+	for i := 1; i < n; i *= 2 {
+		copy(bldr.data[bldr.sz+i:], bldr.data[bldr.sz:bldr.sz+i])
+	}
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) append(data []byte) {
+	if bldr.sz+len(data) > cap(bldr.data) {
+		bldr.resize(bldr.sz + len(data))
+	}
+	bldr.unsafeAppend(data)
+}
+
+func (bldr *execBufBuilder) appendN(n int, val byte) {
+	bldr.reserve(n)
+	bldr.unsafeAppendN(n, val)
+}
+
+func (bldr *execBufBuilder) advance(n int) {
+	bldr.reserve(n)
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) unsafeAdvance(n int) {
+	bldr.sz += n
+}
+
+func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
+	bldr.buffer.Resize(bldr.sz)
+	buf = bldr.buffer
+	bldr.buffer, bldr.sz = nil, 0
+	return
+}
+
+type bufferBuilder[T exec.FixedWidthTypes] struct {
+	execBufBuilder
+	zero T
+}
+
+func newBufferBuilder[T exec.FixedWidthTypes](mem memory.Allocator) *bufferBuilder[T] {
+	return &bufferBuilder[T]{
+		execBufBuilder: execBufBuilder{
+			mem: mem,
+		},
+	}
+}
+
+func (b *bufferBuilder[T]) reserve(additional int) {
+	b.execBufBuilder.reserve(additional * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) resize(newcap int) {
+	b.execBufBuilder.resize(newcap * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) unsafeAppend(value T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) unsafeAppendN(n int, value T) {
+	data := exec.GetData[T](b.data)[b.len():]
+	b.execBufBuilder.unsafeAdvance(n * int(unsafe.Sizeof(value)))
+	data[0] = value
+	for i := 1; i < n; i *= 2 {
+		copy(data[i:], data[:i])
+	}
+}
+
+func (b *bufferBuilder[T]) unsafeAppendSlice(values []T) {
+	b.execBufBuilder.unsafeAppend(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) advance(n int) {
+	b.execBufBuilder.advance(n * int(unsafe.Sizeof(b.zero)))
+}
+
+func (b *bufferBuilder[T]) append(value T) {
+	b.execBufBuilder.append(exec.GetBytes([]T{value}))
+}
+
+func (b *bufferBuilder[T]) len() int { return b.sz / int(unsafe.Sizeof(b.zero)) }
+
+func (b *bufferBuilder[T]) appendN(n int, value T) {
+	b.reserve(n + b.len())
+	b.unsafeAppendN(n, value)
+}
+
+func (b *bufferBuilder[T]) appendSlice(values []T) {
+	b.execBufBuilder.append(exec.GetBytes(values))
+}
+
+func (b *bufferBuilder[T]) cap() int {
+	return cap(b.data) / int(unsafe.Sizeof(b.zero))
+}
+
+func checkIndexBoundsImpl[T exec.IntTypes | exec.UintTypes](values *exec.ArraySpan, upperLimit uint64) error {
+	// for unsigned integers, if the values array is larger
+	// than the maximum index value, then there's no need to bounds check
+	isSigned := !arrow.IsUnsignedInteger(values.Type.ID())
+	if !isSigned && upperLimit > uint64(MaxOf[T]()) {
+		return nil
+	}
+
+	valuesData := exec.GetSpanValues[T](values, 1)
+	bitmap := values.Buffers[0].Buf
+	isOutOfBounds := func(val T) bool {
+		return ((isSigned && val < 0) || val >= 0 && uint64(val) >= upperLimit)
+	}
+	return bitutils.VisitSetBitRuns(bitmap, values.Offset, values.Len,
+		func(pos, length int64) error {
+			outOfBounds := false
+			for i := int64(0); i < length; i++ {
+				outOfBounds = outOfBounds || isOutOfBounds(valuesData[pos+i])
+			}
+			if outOfBounds {
+				for i := int64(0); i < length; i++ {
+					if isOutOfBounds(valuesData[pos+i]) {
+						return fmt.Errorf("%w: %d out of bounds",
+							arrow.ErrIndex, valuesData[pos+i])
+					}
+				}
+			}
+			return nil
+		})
+}
+
+func checkIndexBounds(values *exec.ArraySpan, upperLimit uint64) error {
+	switch values.Type.ID() {
+	case arrow.INT8:
+		return checkIndexBoundsImpl[int8](values, upperLimit)
+	case arrow.UINT8:
+		return checkIndexBoundsImpl[uint8](values, upperLimit)
+	case arrow.INT16:
+		return checkIndexBoundsImpl[int16](values, upperLimit)
+	case arrow.UINT16:
+		return checkIndexBoundsImpl[uint16](values, upperLimit)
+	case arrow.INT32:
+		return checkIndexBoundsImpl[int32](values, upperLimit)
+	case arrow.UINT32:
+		return checkIndexBoundsImpl[uint32](values, upperLimit)
+	case arrow.INT64:
+		return checkIndexBoundsImpl[int64](values, upperLimit)
+	case arrow.UINT64:
+		return checkIndexBoundsImpl[uint64](values, upperLimit)
+	default:
+		return fmt.Errorf("%w: invalid index type for bounds checking", arrow.ErrInvalid)
+	}
 }

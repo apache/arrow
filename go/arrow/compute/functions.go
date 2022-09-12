@@ -389,7 +389,7 @@ type MetaFunction struct {
 // impl for dispatching with the expected arity.
 //
 // Will panic if impl is nil.
-func NewMetaFunction(name string, arity Arity, doc FunctionDoc, impl MetaFunctionImpl) Function {
+func NewMetaFunction(name string, arity Arity, doc FunctionDoc, impl MetaFunctionImpl) *MetaFunction {
 	if impl == nil {
 		panic("arrow/compute: cannot construct MetaFunction with nil impl")
 	}
