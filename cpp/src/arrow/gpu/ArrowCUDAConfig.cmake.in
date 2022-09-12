@@ -34,3 +34,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowCUDATargets.cmake")
 arrow_keep_backward_compatibility(ArrowCUDA arrow_cuda)
 
 check_required_components(ArrowCUDA)
+
+arrow_show_details(ArrowCUDA ARROW_CUDA)
