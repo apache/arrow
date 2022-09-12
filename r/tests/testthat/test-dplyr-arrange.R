@@ -201,3 +201,18 @@ test_that("arrange() with bad inputs", {
     fixed = TRUE
   )
 })
+
+test_that("Can use across() within arrange()", {
+  compare_dplyr_binding(
+    .input %>%
+      arrange(across(starts_with("d"))) %>%
+      collect(),
+    example_data
+  )
+  compare_dplyr_binding(
+    .input %>%
+      arrange(across(starts_with("d"), desc)) %>%
+      collect(),
+    example_data
+  )
+})
