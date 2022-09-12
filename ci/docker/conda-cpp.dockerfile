@@ -26,14 +26,12 @@ RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-# XXX(ARROW-17410,ARROW-17645): pin zlib due to bug in zlib 1.2.12
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
-        valgrind \
-        zlib=1.2.11 && \
+        valgrind && \
     mamba clean --all
 
 # We want to install the GCS testbench using the same Python binary that the Conda code will use.
