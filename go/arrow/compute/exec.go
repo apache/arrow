@@ -85,6 +85,12 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 			executor.clear()
 			scalarExecPool.Put(executor.(*scalarExecutor))
 		}()
+	case FuncVector:
+		executor = vectorExecPool.Get().(*vectorExecutor)
+		defer func() {
+			executor.clear()
+			vectorExecPool.Put(executor.(*vectorExecutor))
+		}()
 	default:
 		return nil, fmt.Errorf("%w: direct execution of %s", arrow.ErrNotImplemented, fn.Kind())
 	}
@@ -113,13 +119,18 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 			input.Len = passedLen
 		}
 	} else {
-		inferred, _ := inferBatchLength(input.Values)
+		inferred, allSame := inferBatchLength(input.Values)
 		input.Len = inferred
 		switch fn.Kind() {
 		case FuncScalar:
 			if passedLen != -1 && passedLen != inferred {
 				return nil, fmt.Errorf("%w: passed batch length for execution did not match actual length for scalar fn execution",
 					arrow.ErrInvalid)
+			}
+		case FuncVector:
+			vkernel := k.(*exec.VectorKernel)
+			if !(allSame || !vkernel.CanExecuteChunkWise) {
+				return nil, fmt.Errorf("%w: vector kernel arguments must all be the same length", arrow.ErrInvalid)
 			}
 		}
 	}

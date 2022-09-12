@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 	"golang.org/x/exp/constraints"
 )
@@ -445,4 +446,70 @@ var OutputTargetType = exec.NewComputedOutputType(ResolveOutputFromOptions)
 
 func resolveToFirstType(_ *exec.KernelCtx, args []arrow.DataType) (arrow.DataType, error) {
 	return args[0], nil
+}
+
+var OutputFirstType = exec.NewComputedOutputType(resolveToFirstType)
+
+type validityBuilder struct {
+	mem    memory.Allocator
+	buffer *memory.Buffer
+
+	data       []byte
+	bitLength  int
+	falseCount int
+}
+
+func (v *validityBuilder) Resize(n int64) {
+	if v.buffer == nil {
+		v.buffer = memory.NewResizableBuffer(v.mem)
+	}
+
+	v.buffer.ResizeNoShrink(int(bitutil.BytesForBits(n)))
+	v.data = v.buffer.Bytes()
+}
+
+func (v *validityBuilder) Reserve(n int64) {
+	if v.buffer == nil {
+		v.buffer = memory.NewResizableBuffer(v.mem)
+	}
+
+	v.buffer.Reserve(v.buffer.Cap() + int(bitutil.BytesForBits(n)))
+	v.data = v.buffer.Buf()
+}
+
+func (v *validityBuilder) UnsafeAppend(val bool) {
+	bitutil.SetBitTo(v.data, v.bitLength, val)
+	if !val {
+		v.falseCount++
+	}
+	v.bitLength++
+}
+
+func (v *validityBuilder) UnsafeAppendN(n int64, val bool) {
+	bitutil.SetBitsTo(v.data, int64(v.bitLength), n, val)
+	if !val {
+		v.falseCount += int(n)
+	}
+	v.bitLength += int(n)
+}
+
+func (v *validityBuilder) Append(val bool) {
+	v.Reserve(1)
+	v.UnsafeAppend(val)
+}
+
+func (v *validityBuilder) AppendN(n int64, val bool) {
+	v.Reserve(n)
+	v.UnsafeAppendN(n, val)
+}
+
+func (v *validityBuilder) Finish() (buf *memory.Buffer) {
+	if v.bitLength > 0 {
+		v.buffer.Resize(int(bitutil.BytesForBits(int64(v.bitLength))))
+	}
+
+	v.bitLength, v.falseCount = 0, 0
+	buf = v.buffer
+	v.buffer = nil
+	return
 }
