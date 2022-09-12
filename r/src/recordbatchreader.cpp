@@ -130,9 +130,9 @@ class RecordBatchReaderHead : public arrow::RecordBatchReader {
                         int64_t num_rows)
       : schema_(reader->schema()), reader_(reader), num_rows_(num_rows) {}
 
-  std::shared_ptr<arrow::Schema> schema() const { return schema_; }
+  std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
 
-  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) {
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
     if (!reader_) {
       // Close() has been called
       batch_out = nullptr;
@@ -160,7 +160,7 @@ class RecordBatchReaderHead : public arrow::RecordBatchReader {
     return arrow::Status::OK();
   }
 
-  arrow::Status Close() {
+  arrow::Status Close() override {
     if (reader_) {
       arrow::Status result = reader_->Close();
       reader_.reset();

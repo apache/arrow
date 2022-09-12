@@ -75,7 +75,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen)
       : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
 
-  std::string PlanStatus() {
+  std::string PlanStatus() const {
     switch (status_) {
       case PLAN_NOT_STARTED:
         return "PLAN_NOT_STARTED";
@@ -88,9 +88,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     }
   }
 
-  std::shared_ptr<arrow::Schema> schema() const { return schema_; }
+  std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
 
-  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) {
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
     // TODO(ARROW-11841) check a StopToken to potentially cancel this plan
 
     // If this is the first batch getting pulled, tell the exec plan to
@@ -126,12 +126,12 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     return arrow::Status::OK();
   }
 
-  arrow::Status Close() {
+  arrow::Status Close() override {
     StopProducing();
     return arrow::Status::OK();
   }
 
-  const std::shared_ptr<arrow::compute::ExecPlan>& Plan() { return plan_; }
+  const std::shared_ptr<arrow::compute::ExecPlan>& Plan() const { return plan_; }
 
   ~ExecPlanReader() { StopProducing(); }
 
