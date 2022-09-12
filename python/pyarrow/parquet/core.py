@@ -140,7 +140,7 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
     """
 
 
-def _filters_to_expression(filters):
+def filters_to_expression(filters):
     """
     Check if filters are well-formed.
 
@@ -188,6 +188,11 @@ def _filters_to_expression(filters):
         disjunction_members.append(reduce(operator.and_, conjunction_members))
 
     return reduce(operator.or_, disjunction_members)
+
+
+_filters_to_expression = _deprecate_api(
+    "_filters_to_expression", "filters_to_expression",
+    filters_to_expression, "10.0.0")
 
 
 # ----------------------------------------------------------------------
@@ -3531,4 +3536,5 @@ __all__ = (
     "write_table",
     "write_to_dataset",
     "_filters_to_expression",
+    "filters_to_expression",
 )
