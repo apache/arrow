@@ -20,7 +20,8 @@
 // (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/dataset/api.h>
-// We use Parquet headers for setting up examples; they are not required for using datasets.
+// We use Parquet headers for setting up examples; they are not required for using
+// datasets.
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 
