@@ -137,35 +137,44 @@ jobs:
       matrix:
         platform:
           - windows-latest
-          # This is newer than what CRAN builds on, but Travis is no longer an option for us, so...
-          - macos-10.15
+          - macos-10.13 # self-hosted
           # - devops-managed # No M1 until the runner application runs native
         r_version:
           - { rtools: 40, r: "4.1" }
           - { rtools: 42, r: "4.2" }
     steps:
       - uses: r-lib/actions/setup-r@v2
+        if: matrix.platform != 'macos-10.13'
         with:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
+      - name: Setup R Self-Hosted
+        if: matrix.platform == 'macos-10.13'
+        run: |
+          # rig is a system utility that allows for switching
+          # between pre-installed R version on the self-hosted runners
+          rig default {{ '${{ matrix.r_version.r }}' }}
+          rig system setup-user-lib
+          rig system add-pak 
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
+      - name: Prepare Dependency Installation
+
+        shell: bash
+        run: |
+          tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+           working-directory: 'arrow'
+           extra-packages: cpp11
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
+          NOT_CRAN: "true" # actions/setup-r sets this implicitly
           ARROW_R_DEV: TRUE
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-
-          # Install dependencies by installing (yesterday's) binary, then removing it
-          install.packages(c("arrow", "cpp11"),
-            type = "binary",
-            repos = c("https://nightlies.apache.org/arrow/r", "https://cloud.r-project.org")
-          )
-
-          cat("Remove old arrow version.\n")
-          remove.packages("arrow")
 
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
@@ -174,6 +183,9 @@ jobs:
             # Windows doesn't support the --strip arg
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
+
+          # always remove arrow (mainly for self-hosted runners)
+          try(remove.packages("arrow"), silent = TRUE)
 
           cat("Install arrow from dev repo.\n")
           install.packages(
