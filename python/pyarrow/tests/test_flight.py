@@ -1603,7 +1603,9 @@ def test_roundtrip_types():
     assert info.endpoints == info2.endpoints
 
     endpoint = flight.FlightEndpoint(
-        ticket, ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)])
+        ticket,
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+    )
     assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 
 
