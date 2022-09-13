@@ -57,6 +57,42 @@ TEST(TestRleUtil, ArtificalOffset) {
 }
 
 TEST(TestRleUtil, MergedRunsInterator) {
+  /* Construct the following two test arrays with a lot of different offstes to test the
+   * RLE iterator: left:
+   *
+   *          child offset: 0
+   *                 |
+   *                 +---+---+---+---+---+---+---+---+---+----+----+----+----+----+-----+
+   * run_ends        | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |1000|1005|1015|1020|1025|30000|
+   * (Int32Array)    +---+---+---+---+---+---+---+---+---+----+----+----+----+----+-----+
+   *              ---+---+---+---+---+---+---+---+---+---+----+----+----+----+----+-----+
+   * values      ... |   |   |   |   |   |   |   |   |   |    |    |    |    |    |     |
+   * (NullArray)  ---+---+---+---+---+---+---+---+---+---+----+----+----+----+----+-----+
+   *                 |<--------------- slice of NullArray------------------------------>|
+   *                 |                                        |  logical length: 50  |
+   *         child offset: 100                                |<-------------------->|
+   *                                                          |  physical length: 5  |
+   *                                                          |                      |
+   *                                                logical offset: 1000
+   *                                                physical offset: 10
+   *
+   * right:
+   *           child offset: 0
+   *                  |
+   *                  +---+---+---+---+---+------+------+------+------+
+   *  run_ends        | 1 | 2 | 3 | 4 | 5 | 2005 | 2009 | 2025 | 2050 |
+   *  (Int32Array)    +---+---+---+---+---+------+------+------+------+
+   *               ---+---+---+---+---+---+------+------+------+------+
+   *  values      ... |   |   |   |   |   |      |      |      |      |
+   *  (NullArray)  ---+---+---+---+---+---+------+------+------+------+
+   *                  |<-------- slice of NullArray------------------>|
+   *                  |                        |  logical length: 50  |
+   *         child offset: 200                 |<-------------------->|
+   *                                           |  physical length: 4
+   *                                           |
+   *                                 logical offset: 2000
+   *                                  physical offset: 5
+   */
   const auto left_run_ends = ArrayFromJSON(
       int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
   const auto right_run_ends =
