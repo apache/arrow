@@ -70,7 +70,8 @@ jobs:
         config:
           - { os: ubuntu, version: "18.04" }
           - { os: ubuntu, version: "22.04" }
-          - { os: centos, version: "7" }
+          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
+          #- { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
@@ -240,7 +241,8 @@ jobs:
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
           - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
-          - {image: "rstudio/r-base:4.2-centos7"}
+          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
+          #- {image: "rstudio/r-base:4.2-centos7"}
           # Even with devtoolset-8, binaries fail because glibc is older than
           # what we build with on ubuntu-18.04 (uncomment to see the error)
           # TODO(ARROW-16976): build binaries with older glibc

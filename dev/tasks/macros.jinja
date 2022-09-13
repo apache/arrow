@@ -314,7 +314,8 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+    # TODO(ARROW-17594): re-enable centos-7 here
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04"] %}
   - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:

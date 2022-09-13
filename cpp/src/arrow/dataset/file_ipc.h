@@ -90,7 +90,8 @@ class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
   std::shared_ptr<const KeyValueMetadata> metadata;
 
  protected:
-  using FileWriteOptions::FileWriteOptions;
+  explicit IpcFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
 
   friend class IpcFileFormat;
 };
