@@ -101,6 +101,7 @@ enum class StatusCode : char {
   CodeGenError = 40,
   ExpressionValidationError = 41,
   ExecutionError = 42,
+  ParseError = 43,
   // Continue generic codes.
   AlreadyExists = 45
 };

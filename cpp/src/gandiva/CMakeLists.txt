@@ -39,6 +39,19 @@ set(GANDIVA_PRECOMPILED_CC_IN_PATH
 # add_arrow_lib will look for this not yet existing file, so flag as generated
 set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED TRUE)
 
+find_package(FLEX 2.5 REQUIRED)
+find_package(BISON 3.2 REQUIRED)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+set(GANDIVA_LEX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lex.ll")
+set(GANDIVA_GRAMMAR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/grammar.yy")
+set(GANDIVA_LEX_GENERATED_PATH "${CMAKE_CURRENT_BINARY_DIR}/lex.cc")
+set(GANDIVA_GRAMMAR_GENERATED_PATH "${CMAKE_CURRENT_BINARY_DIR}/grammar.cc")
+flex_target(gandiva_lex ${GANDIVA_LEX_PATH} ${GANDIVA_LEX_GENERATED_PATH})
+bison_target(gandiva_grammar ${GANDIVA_GRAMMAR_PATH} ${GANDIVA_GRAMMAR_GENERATED_PATH})
+
+add_flex_bison_dependency(gandiva_lex gandiva_grammar)
+
 set(SRC_FILES
     annotator.cc
     bitmap_accumulator.cc
@@ -76,6 +89,7 @@ set(SRC_FILES
     llvm_generator.cc
     llvm_types.cc
     literal_holder.cc
+    parser.cc
     projector.cc
     regex_util.cc
     regex_functions_holder.cc
@@ -83,7 +97,9 @@ set(SRC_FILES
     tree_expr_builder.cc
     to_date_holder.cc
     random_generator_holder.cc
-    ${GANDIVA_PRECOMPILED_CC_PATH})
+    ${GANDIVA_PRECOMPILED_CC_PATH}
+    ${GANDIVA_LEX_GENERATED_PATH}
+    ${GANDIVA_GRAMMAR_GENERATED_PATH})
 
 set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
 if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.18)
@@ -246,7 +262,8 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
-                 interval_holder_test.cc)
+                 interval_holder_test.cc
+                 parser_test.cc)
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
