@@ -444,6 +444,20 @@ func (f *FilterKernelWithDecimal) TestFilterDecimalNumeric() {
 	f.ErrorIs(err, arrow.ErrInvalid)
 }
 
+type FilterKernelWithString struct {
+	FilterKernelTestSuite
+
+	dt arrow.DataType
+}
+
+func (f *FilterKernelWithString) TestFilterString() {
+	f.Run(f.dt.String(), func() {
+		f.assertFilterJSON(f.dt, `["YQ==", "Yg==", "Yw=="]`, `[false, true, false]`, `["Yg=="]`)
+		f.assertFilterJSON(f.dt, `[null, "Yg==", "Yw=="]`, `[false, true, false]`, `["Yg=="]`)
+		f.assertFilterJSON(f.dt, `["YQ==", "Yg==", "Yw=="]`, `[null, true, false]`, `[null, "Yg=="]`)
+	})
+}
+
 func TestFilterKernels(t *testing.T) {
 	suite.Run(t, new(FilterKernelWithNull))
 	suite.Run(t, new(FilterKernelWithBoolean))
@@ -452,5 +466,8 @@ func TestFilterKernels(t *testing.T) {
 	}
 	for _, dt := range []arrow.DataType{&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal256Type{Precision: 3, Scale: 2}} {
 		suite.Run(t, &FilterKernelWithDecimal{dt: dt})
+	}
+	for _, dt := range baseBinaryTypes {
+		suite.Run(t, &FilterKernelWithString{dt: dt})
 	}
 }

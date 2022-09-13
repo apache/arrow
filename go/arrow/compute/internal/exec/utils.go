@@ -107,12 +107,14 @@ func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 	return ret[span.Offset:]
 }
 
-func GetBytes[T constraints.Integer](in []T) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(T(0))))
+func GetBytes[T FixedWidthTypes](in []T) []byte {
+	var z T
+	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(z)))
 }
 
-func GetData[T NumericTypes](in []byte) []T {
-	return unsafe.Slice((*T)(unsafe.Pointer(&in[0])), len(in)/int(unsafe.Sizeof(T(0))))
+func GetData[T FixedWidthTypes](in []byte) []T {
+	var z T
+	return unsafe.Slice((*T)(unsafe.Pointer(&in[0])), len(in)/int(unsafe.Sizeof(z)))
 }
 
 func Min[T constraints.Ordered](a, b T) T {
