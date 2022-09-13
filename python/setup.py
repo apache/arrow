@@ -220,6 +220,7 @@ class build_ext(_build_ext):
         '_feather',
         '_parquet',
         '_parquet_encryption',
+        '_pyarrow_cpp_tests',
         '_orc',
         '_plasma',
         '_gcsfs',

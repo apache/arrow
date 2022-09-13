@@ -410,7 +410,8 @@ set(CYTHON_EXTENSIONS
     _feather
     _fs
     _hdfsio
-    _json)
+    _json
+    _pyarrow_cpp_tests)
 
 set(LINK_LIBS ArrowPython::arrow_python_shared)
 
