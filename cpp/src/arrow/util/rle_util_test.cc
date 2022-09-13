@@ -74,7 +74,7 @@ TEST(TestRleUtil, MergedRunsInterator) {
   std::shared_ptr<Array> right_child =
       std::make_shared<NullArray>(right_child_offset + right_run_ends->length());
 
-  left_child = left_child->Slice(left_child_offset, 50);
+  left_child = left_child->Slice(left_child_offset);
   right_child = right_child->Slice(right_child_offset);
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> left_array,
