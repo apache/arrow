@@ -232,7 +232,6 @@ class DefaultBranchName(object):
         if not hasattr(self, 'instance'):
             self.instance = super(DefaultBranchName, self).__new__(self)
             arrow = ArrowSources.find()
-            arrow = ArrowSources.find()
             repo = Repo(arrow.path)
             origin = repo.remotes["origin"]
             origin_refs = origin.refs
