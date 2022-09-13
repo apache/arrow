@@ -941,9 +941,10 @@
                   <commandlineArgs>
                     -S cpp
                     -B cpp-jni
-                    -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_CSV=ON
                     -DARROW_DATASET=ON
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
                     -DARROW_GANDIVA=ON
                     -DARROW_GANDIVA_JAVA=ON
@@ -959,7 +960,6 @@
                     -DCMAKE_INSTALL_LIBDIR=lib
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
-                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
@@ -991,12 +991,12 @@
                   <commandlineArgs>
                     -S java
                     -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_DATASET=ON
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
-                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
-                    -DARROW_JAVA_JNI_ENABLE_DATASET=ON
-                    -DBUILD_TESTING=OFF
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
@@ -1053,9 +1053,10 @@
                   <commandlineArgs>
                     -S cpp
                     -B cpp-jni
-                    -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_CSV=ON
                     -DARROW_DATASET=ON
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
                     -DARROW_GANDIVA=ON
                     -DARROW_GANDIVA_JAVA=ON
@@ -1071,7 +1072,6 @@
                     -DCMAKE_INSTALL_LIBDIR=lib
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
-                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
