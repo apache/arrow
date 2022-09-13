@@ -174,7 +174,7 @@ INSTANTIATE_TEST_SUITE_P(
         RLETestData::JSON(float64(), "[]", "[]", {}),
         RLETestData::JSON(boolean(), "[]", "[]", {}),
 
-      RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
+        RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
         RLETestData::TypeMinMaxNull<Int16Type>(),
         RLETestData::TypeMinMaxNull<UInt16Type>(),
         RLETestData::TypeMinMaxNull<Int32Type>(),
