@@ -77,6 +77,9 @@ RUN apt-get update -y -q && \
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
+COPY /ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV absl_SOURCE=BUNDLED \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
