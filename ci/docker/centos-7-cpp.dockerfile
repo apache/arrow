@@ -18,6 +18,7 @@
 FROM centos:centos7
 
 RUN yum install -y \
+        centos-release-scl \
         curl \
         diffutils \
         gcc-c++ \
@@ -26,6 +27,9 @@ RUN yum install -y \
         openssl-devel \
         wget \
         which
+
+# devtoolset is required for C++17
+RUN yum install -y devtoolset-8
 
 # yum install cmake version is too old
 ARG cmake=3.23.1

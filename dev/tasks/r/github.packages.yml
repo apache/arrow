@@ -70,8 +70,7 @@ jobs:
         config:
           - { os: ubuntu, version: "18.04" }
           - { os: ubuntu, version: "22.04" }
-          # TODO(ARROW-17594): re-enable this with the devtoolset for C++17
-          #- { os: centos, version: "7" }
+          - { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
