@@ -57,7 +57,7 @@ TEST(TestRleUtil, ArtificalOffset) {
 }
 
 TEST(TestRleUtil, MergedRunsInterator) {
-  /* Construct the following two test arrays with a lot of different offstes to test the
+  /* Construct the following two test arrays with a lot of different offsets to test the
    * RLE iterator: left:
    *
    *          child offset: 0
