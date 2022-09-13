@@ -365,8 +365,9 @@ class Repo:
     def default_branch_name(self):
         for remote in self.repo.remotes:
             print(remote.name)
-        for ref in self.repo.references.objects:
-            print(ref.target)
+        # for ref in self.repo.references.objects:
+        #     print(ref.target)
+        print(self.repo.resolve_refish('origin/HEAD'))
         ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
         target_name = ref_obj.target
         target_name_tokenized = target_name.split("/")
