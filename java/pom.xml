@@ -958,7 +958,7 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    --build java-jni --target install --config release
+                    --build java-jni --target install --config Release
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
