@@ -906,12 +906,10 @@
     </profile>
 
     <profile>
-      <id>generate-jnicpp-dylib_so</id>
+      <id>generate-dataset-dylib_so</id>
       <properties>
-        <ARROW_DATASET>OFF</ARROW_DATASET>
-        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
-        <ARROW_ORC>OFF</ARROW_ORC>
-        <arrow.cpp.build.dir>../java-dist</arrow.cpp.build.dir>
+        <arrow.dataset.jni.dist.dir>java-dist/lib</arrow.dataset.jni.dist.dir>
+        <cpp.dependencies.builded>false</cpp.dependencies.builded>
       </properties>
       <build>
         <plugins>
@@ -921,35 +919,19 @@
             <version>3.1.0</version>
             <executions>
               <execution>
-                <id>jnicppdefine</id>
+                <id>datasetdir</id>
                 <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
                 <configuration>
-                  <executable>cmake</executable>
-                  <commandlineArgs>
-                    -DARROW_DEPENDENCY_USE_SHARED=OFF
-                    -DARROW_JNI=ON
-                    -DARROW_PARQUET=ON
-                    -DARROW_FILESYSTEM=ON
-                    -DARROW_DATASET=${ARROW_DATASET}
-                    -DARROW_GANDIVA_JAVA=ON
-                    -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
-                    -DARROW_GANDIVA=${ARROW_GANDIVA}
-                    -DARROW_ORC=${ARROW_ORC}
-                    -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib
-                    -DCMAKE_INSTALL_PREFIX=${arrow.cpp.build.dir}
-                    -DCMAKE_UNITY_BUILD=ON
-                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
-                    ../cpp
-                  </commandlineArgs>
-                  <workingDirectory>../java-native-cpp</workingDirectory>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p cpp-jni java-dist java-jni</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
               <execution>
-                <id>jnicppbuild</id>
+                <id>datasetarrowdependency</id>
                 <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
@@ -957,9 +939,155 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    --build . --target install --config Release
+                    -S cpp
+                    -B cpp-jni
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
+                    -DARROW_CSV=ON
+                    -DARROW_DATASET=ON
+                    -DARROW_FILESYSTEM=ON
+                    -DARROW_GANDIVA=ON
+                    -DARROW_GANDIVA_JAVA=ON
+                    -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_JNI=ON
+                    -DARROW_ORC=ON
+                    -DARROW_PARQUET=ON
+                    -DARROW_PLASMA=ON
+                    -DARROW_PLASMA_JAVA_CLIENT=ON
+                    -DARROW_S3=ON
+                    -DARROW_USE_CCACHE=ON
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=java-dist
+                    -DCMAKE_UNITY_BUILD=ON
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
                   </commandlineArgs>
-                  <workingDirectory>../java-native-cpp</workingDirectory>
+                  <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>datasetarrowdependencybuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build cpp-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                  <skip>${cpp.dependencies.builded}</skip>
+                </configuration>
+              </execution>
+              <execution>
+                <id>datasetdefine</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S java
+                    -B java-jni
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DARROW_JAVA_JNI_ENABLE_DATASET=ON
+                    -DBUILD_TESTING=OFF
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>datasetbuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build java-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>generate-jnicpp-dylib_so</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>jnidir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p java-dist cpp-jni</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jnidefine</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S cpp
+                    -B cpp-jni
+                    -DARROW_DEPENDENCY_USE_SHARED=OFF
+                    -DARROW_CSV=ON
+                    -DARROW_DATASET=ON
+                    -DARROW_FILESYSTEM=ON
+                    -DARROW_GANDIVA=ON
+                    -DARROW_GANDIVA_JAVA=ON
+                    -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_JNI=ON
+                    -DARROW_ORC=ON
+                    -DARROW_PARQUET=ON
+                    -DARROW_PLASMA=ON
+                    -DARROW_PLASMA_JAVA_CLIENT=ON
+                    -DARROW_S3=ON
+                    -DARROW_USE_CCACHE=ON
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_LIBDIR=lib
+                    -DCMAKE_INSTALL_PREFIX=java-dist
+                    -DCMAKE_UNITY_BUILD=ON
+                    -DARROW_DEPENDENCY_SOURCE=BUNDLED
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>jnidefinebuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build cpp-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
             </executions>
