@@ -197,10 +197,10 @@ TEST(Jemalloc, GetAllocationStats) {
 
   // Allocate memory
   ASSERT_OK(jemalloc_set_decay_ms(10000));
-  ASSERT_OK(pool->Allocate(1256, &data));
-  ASSERT_EQ(pool->bytes_allocated(), 1256);
-  ASSERT_OK(pool->Reallocate(1256, 1214, &data));
-  ASSERT_EQ(pool->bytes_allocated(), 1214);
+  ASSERT_OK(pool->Allocate(1025, &data));
+  ASSERT_EQ(pool->bytes_allocated(), 1025);
+  ASSERT_OK(pool->Reallocate(1025, 1023, &data));
+  ASSERT_EQ(pool->bytes_allocated(), 1023);
 
   // Record stats after allocating
   ASSERT_OK_AND_ASSIGN(allocated, jemalloc_get_stat("stats.allocated"));
@@ -222,15 +222,15 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_NEAR(retained0, 0, 100);
 
   // Check allocated stats change due to allocation
-  ASSERT_NEAR(allocated - allocated0, 81920, 1000);
-  ASSERT_NEAR(active - active0, 81920, 1000);
-  ASSERT_NEAR(metadata - metadata0, 384, 100);
-  ASSERT_NEAR(resident - resident0, 98304, 1000);
-  ASSERT_NEAR(mapped - mapped0, 81920, 1000);
+  ASSERT_NEAR(allocated - allocated0, 98304, 1000);
+  ASSERT_NEAR(active - active0, 98304, 1000);
+  ASSERT_NEAR(metadata - metadata0, 768, 100);
+  ASSERT_NEAR(resident - resident0, 114688, 1000);
+  ASSERT_NEAR(mapped - mapped0, 98304, 1000);
   ASSERT_NEAR(retained - retained0, 0, 0);
 
-  ASSERT_EQ(thread_peak_read - thread_peak_read0, 1280);
-  ASSERT_EQ(thread_allocated - thread_allocated0, 2560);
+  ASSERT_EQ(thread_peak_read - thread_peak_read0, 1024);
+  ASSERT_EQ(thread_allocated - thread_allocated0, 2304);
   ASSERT_EQ(thread_deallocated - thread_deallocated0, 1280);
 
   // Resetting thread peak read metric

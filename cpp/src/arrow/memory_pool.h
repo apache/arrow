@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -192,7 +193,7 @@ Status jemalloc_peak_reset();
 /// See malloc_stats_print documentation in jemalloc project documentation for
 /// available opt flags.
 ARROW_EXPORT
-Status jemalloc_stats_print(void (*write_cb)(void* opaque, const char* buf),
+Status jemalloc_stats_print(std::function<void(void*, const char*)>* write_cb,
                             void* cbopaque, const char* opts = "");
 
 /// \brief Get summary statistics in human-readable form.

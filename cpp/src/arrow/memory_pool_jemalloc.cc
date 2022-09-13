@@ -215,8 +215,8 @@ Result<std::string> jemalloc_stats_print(const char* opts) {
   return stats;
 }
 
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
-                            const char* opts) {
+Status jemalloc_stats_print(std::function<void(void* opaque, const char* buf)>* write_cb,
+                            void* cbopaque, const char* opts) {
   malloc_stats_print(reinterpret_cast<void (*)(void*, const char*)>(write_cb), cbopaque,
                      opts);
   return Status::OK();
