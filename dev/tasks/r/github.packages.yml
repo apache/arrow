@@ -119,7 +119,7 @@ jobs:
           Ncpus: 2
       - name: Install sccache
         shell: bash
-        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
@@ -302,7 +302,7 @@ jobs:
         run: |
           curl -s \
             https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
-            bash -s unknown-linux-musl
+            bash -s unknown-linux-musl /usr/local/bin
       - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
