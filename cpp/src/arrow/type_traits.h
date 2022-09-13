@@ -1192,6 +1192,7 @@ static inline bool is_nested(Type::type type_id) {
     case Type::STRUCT:
     case Type::SPARSE_UNION:
     case Type::DENSE_UNION:
+    case Type::RUN_LENGTH_ENCODED:
       return true;
     default:
       break;

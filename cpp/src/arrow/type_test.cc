@@ -1821,6 +1821,27 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
+TEST(TypesTest, TestRunLengthEncodedType) {
+  auto int8_make_shared = std::make_shared<RunLengthEncodedType>(list(int8()));
+  auto int8_factory = run_length_encoded(list(int8()));
+  auto int32_factory = run_length_encoded(list(int32()));
+
+  ASSERT_EQ(*int8_make_shared, *int8_factory);
+  ASSERT_NE(*int8_make_shared, *int32_factory);
+
+  ASSERT_EQ(int8_factory->id(), Type::RUN_LENGTH_ENCODED);
+  ASSERT_EQ(int32_factory->id(), Type::RUN_LENGTH_ENCODED);
+
+  auto int8_rle_type = std::dynamic_pointer_cast<RunLengthEncodedType>(int8_factory);
+  auto int32_rle_type = std::dynamic_pointer_cast<RunLengthEncodedType>(int32_factory);
+
+  ASSERT_EQ(*int8_rle_type->encoded_type(), *list(int8()));
+  ASSERT_EQ(*int32_rle_type->encoded_type(), *list(int32()));
+
+  ASSERT_TRUE(int8_rle_type->field(0)->Equals(Field("run_ends", int32(), false)));
+  ASSERT_TRUE(int8_rle_type->field(1)->Equals(Field("values", list(int8()), true)));
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
