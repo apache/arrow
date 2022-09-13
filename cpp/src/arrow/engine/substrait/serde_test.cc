@@ -130,6 +130,60 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
   return table;
 }
 
+void AssertScanRelation(const compute::Declaration& output_scan,
+                        const std::shared_ptr<dataset::Dataset>& expected_dataset,
+                        const std::shared_ptr<Schema> schema) {
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(output_scan.options));
+  const auto& output_ds = dataset_opts.dataset;
+  ASSERT_TRUE(output_ds->schema()->Equals(*schema));
+  ASSERT_OK_AND_ASSIGN(auto output_frgs, output_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, expected_dataset->GetFragments());
+
+  auto output_frg_vec = IteratorToVector(std::move(output_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  ASSERT_EQ(expected_frg_vec.size(), output_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(output_frg_vec[idx++].get());
+    ASSERT_TRUE(l_frag->Equals(*r_frag));
+  }
+}
+
+void AssertFilterRelation(
+    const compute::Declaration& output_filter, const std::string& filter_func_name,
+    const std::pair<const std::string&, const std::string&>& filter_args,
+    const std::shared_ptr<Schema>& schema) {
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(output_filter.options));
+  auto filter_expr = filter_opts.filter_expression;
+
+  if (auto* call = filter_expr.call()) {
+    EXPECT_EQ(call->function_name, filter_func_name);
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(schema->field_names()[left_index], filter_args.first);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(schema->field_names()[right_index], filter_args.second);
+  }
+}
+
+void AssertPlanExecutionResult(const std::shared_ptr<Table> expected_table,
+                               const compute::Declaration& source_declaration,
+                               const std::shared_ptr<Schema>& schema,
+                               compute::ExecContext& exec_context) {
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
+  auto declarations =
+      compute::Declaration::Sequence({source_declaration, sink_declaration});
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(declarations, sink_gen, exec_context, schema));
+  ASSERT_TRUE(expected_table->Equals(*output_table));
+}
+
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*,
@@ -2146,39 +2200,14 @@ TEST(SubstraitRoundTrip, BasicPlan) {
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // filter declaration
   const auto& roundtripped_filter =
-      std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  const auto& filter_opts =
-      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter.options));
-  auto roundtripped_expr = filter_opts.filter_expression;
-
-  if (auto* call = roundtripped_expr.call()) {
-    EXPECT_EQ(call->function_name, "equal");
-    auto args = call->arguments;
-    auto left_index = args[0].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
-    auto right_index = args[1].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
-  }
-  // scan declaration
-  const auto& roundtripped_scan =
-      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
-  const auto& dataset_opts =
-      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
-  const auto& roundripped_ds = dataset_opts.dataset;
-  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
-  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
-  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
-
-  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
-  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
-  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
-  int64_t idx = 0;
-  for (auto fragment : expected_frg_vec) {
-    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
-    const auto* r_frag =
-        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
-    EXPECT_TRUE(l_frag->Equals(*r_frag));
-  }
+          std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  std::pair<const std::string&, const std::string&> filter_args(filter_col_left,
+                                                                filter_col_right);
+  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_args),
+                       dummy_schema);
+  // assert scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
 }
 
 TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
@@ -2255,43 +2284,111 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
       auto sink_decls,
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-  // filter declaration
+  // assert filter declaration
   auto& roundtripped_filter = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  const auto& filter_opts =
-      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter.options));
-  auto roundtripped_expr = filter_opts.filter_expression;
+  std::pair<const std::string&, const std::string&> filter_args(filter_col_left,
+                                                                filter_col_right);
+  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_args),
+                       dummy_schema);
+  // assert scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
+  // assert results
+  AssertPlanExecutionResult(expected_table, *roundtripped_filter, dummy_schema,
+                            exec_context);
+}
 
-  if (auto* call = roundtripped_expr.call()) {
-    EXPECT_EQ(call->function_name, "equal");
+TEST(Substrait, FilterProjectPlanRoundTripping) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  compute::Expression a_times_2 = compute::call(
+      "multiply", {compute::field_ref("shared"), compute::field_ref("distinct")});
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"project", compute::ProjectNodeOptions{{a_times_2}}, "p"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_project = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& project_opts =
+      checked_cast<const compute::ProjectNodeOptions&>(*(roundtripped_project->options));
+  auto roundtripped_exprs = project_opts.expressions;
+
+  if (auto* call = roundtripped_exprs[0].call()) {
+    EXPECT_EQ(call->function_name, "multiply");
     auto args = call->arguments;
     auto left_index = args[0].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    EXPECT_EQ(dummy_schema->field_names()[left_index], "shared");
     auto right_index = args[1].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+    EXPECT_EQ(dummy_schema->field_names()[right_index], "distinct");
   }
   // scan declaration
-  const auto& roundtripped_scan =
-      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
-  const auto& dataset_opts =
-      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
-  const auto& roundripped_ds = dataset_opts.dataset;
-  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
-  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
-  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
-
-  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
-  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
-  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
-  int64_t idx = 0;
-  for (auto fragment : expected_frg_vec) {
-    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
-    const auto* r_frag =
-        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
-    EXPECT_TRUE(l_frag->Equals(*r_frag));
-  }
-  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                       GetTableFromPlan(roundtripped_filter, exec_context, dummy_schema));
-  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+  auto roundtripped_scan = roundtripped_project->inputs[0].get<compute::Declaration>();
+  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
 }
 
 TEST(SubstraitRoundTrip, FilterNamedTable) {

@@ -702,7 +702,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   if (declr.factory_name == "scan") {
     const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
     bind_schema = opts.dataset->schema();
-  } else if (declr.factory_name == "filter") {
+  } else if (declr.factory_name == "filter" || declr.factory_name == "project") {
     auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
   } else if (declr.factory_name == "named_table") {
@@ -816,6 +816,36 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   return std::move(filter_rel);
 }
 
+Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
+    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
+  auto project_rel = make_unique<substrait::ProjectRel>();
+  const auto& project_node_options =
+      checked_cast<const compute::ProjectNodeOptions&>(*declaration.options);
+
+  if (declaration.inputs.size() == 0) {
+    return Status::Invalid("Project node doesn't have an input.");
+  }
+
+  // handling input
+  auto declr_input = declaration.inputs[0];
+  ARROW_ASSIGN_OR_RAISE(
+      auto input_rel,
+      ToProto(util::get<compute::Declaration>(declr_input), ext_set, conversion_options));
+
+  for (const auto& expr : project_node_options.expressions) {
+    compute::Expression bound_expression;
+    if (!expr.IsBound()) {
+      ARROW_ASSIGN_OR_RAISE(bound_expression, expr.Bind(*schema));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto subs_expr,
+                          ToProto(bound_expression, ext_set, conversion_options));
+    project_rel->mutable_expressions()->AddAllocated(subs_expr.release());
+  }
+  project_rel->set_allocated_input(input_rel.release());
+  return std::move(project_rel);
+}
+
 }  // namespace
 
 Status SerializeAndCombineRelations(const compute::Declaration& declaration,
@@ -842,6 +872,11 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
         auto read_rel,
         NamedTableRelationConverter(schema, declaration, ext_set, conversion_options));
     (*rel)->set_allocated_read(read_rel.release());
+  } else if (factory_name == "project") {
+    ARROW_ASSIGN_OR_RAISE(
+        auto project_rel,
+        ProjectRelationConverter(schema, declaration, ext_set, conversion_options));
+    (*rel)->set_allocated_project(project_rel.release());
   } else if (factory_name == "sink") {
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively
