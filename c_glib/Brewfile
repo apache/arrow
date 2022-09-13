@@ -16,7 +16,6 @@
 # under the License.
 
 brew "autoconf-archive"
-brew "glib-utils"
 brew "gobject-introspection"
 brew "gtk-doc"
 brew "libtool"
