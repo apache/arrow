@@ -207,3 +207,44 @@ func TestRLECompare(t *testing.T) {
 		assert.True(t, array.Equal(sliceB, differentOffsetsC))
 	})
 }
+
+func TestRunLengthEncodedBuilder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewBuilder(mem, arrow.RunLengthEncodedOf(arrow.BinaryTypes.String))
+	defer bldr.Release()
+
+	assert.IsType(t, (*array.RunLengthEncodedBuilder)(nil), bldr)
+	rleBldr := bldr.(*array.RunLengthEncodedBuilder)
+
+	valBldr := rleBldr.ValueBuilder().(*array.StringBuilder)
+
+	rleBldr.Append(100)
+	valBldr.Append("Hello")
+	rleBldr.Append(100)
+	valBldr.Append("beautiful")
+	rleBldr.Append(50)
+	valBldr.Append("world")
+	rleBldr.ContinueRun(50)
+	rleBldr.Append(100)
+	valBldr.Append("of")
+	rleBldr.Append(100)
+	valBldr.Append("RLE")
+	rleBldr.AppendNull()
+
+	rleArray := rleBldr.NewRunLengthEncodedArray()
+	defer rleArray.Release()
+
+	assert.EqualValues(t, 501, rleArray.Len())
+	assert.EqualValues(t, 6, rleArray.GetPhysicalLength())
+	assert.Equal(t, []int32{100, 200, 300, 400, 500, 501}, rleArray.RunEnds())
+
+	strValues := rleArray.Values().(*array.String)
+	assert.Equal(t, "Hello", strValues.Value(0))
+	assert.Equal(t, "beautiful", strValues.Value(1))
+	assert.Equal(t, "world", strValues.Value(2))
+	assert.Equal(t, "of", strValues.Value(3))
+	assert.Equal(t, "RLE", strValues.Value(4))
+	assert.True(t, strValues.IsNull(5))
+}
