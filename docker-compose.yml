@@ -283,8 +283,7 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     command: &conda-cpp-command
-      ["/arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=$$(pwd)/sccache:$$PATH &&
+      ["
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
@@ -349,8 +348,6 @@ services:
     # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=$$(pwd)/sccache:$$PATH &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
@@ -427,8 +424,6 @@ services:
     volumes: *ubuntu-volumes
     command: &arrow-static-cmd
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=$$(pwd)/sccache:$$PATH &&
         cd /arrow && r/inst/build_arrow_static.sh"
 
   centos-cpp-static:
@@ -623,8 +618,7 @@ services:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=$$(pwd)/sccache:$$PATH &&
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
@@ -767,8 +761,7 @@ services:
       <<: [*ccache, *sccache]
     volumes: *conda-volumes
     command: &python-conda-command
-      ["/arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=$$(pwd)/sccache:$$PATH &&
+      ["
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
