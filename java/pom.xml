@@ -938,13 +938,12 @@
                 <configuration>
                   <executable>cmake</executable>
                   <commandlineArgs>
-                    -S java \
-                    -B java-jni \
-                    -DCMAKE_BUILD_TYPE=Release \
-                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir} \
-                    -DCMAKE_PREFIX_PATH=java-dist \
-                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
-                    -DARROW_JAVA_JNI_ENABLE_C=ON \
+                    -S java
+                    -B java-jni
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DARROW_JAVA_JNI_ENABLE_C=ON
                     -DBUILD_TESTING=OFF
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>

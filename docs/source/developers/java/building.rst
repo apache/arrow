@@ -129,11 +129,10 @@ CMake
             -B java-jni \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-            -DCMAKE_PREFIX_PATH=java-dist \
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DARROW_JAVA_JNI_ENABLE_C=ON \
             -DBUILD_TESTING=OFF
-        $ cmake --build java-jni --target install
+        $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
@@ -171,7 +170,7 @@ CMake
             -DCMAKE_INSTALL_PREFIX=java-dist \
             -DCMAKE_UNITY_BUILD=ON \
             -DARROW_DEPENDENCY_SOURCE=BUNDLED
-        $ cmake --build cpp-jni --target install
+        $ cmake --build cpp-jni --target install --config Release
         $ ls -latr  java-dist/lib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
@@ -187,11 +186,11 @@ CMake
             -B java-jni \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-            -DCMAKE_PREFIX_PATH=java-dist/lib \
+            -DCMAKE_PREFIX_PATH=$PWD/java-dist \
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
             -DBUILD_TESTING=OFF
-        $ cmake --build java-jni --target install
+        $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_dataset_jni.dylib
 
