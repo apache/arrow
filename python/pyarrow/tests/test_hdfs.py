@@ -28,12 +28,19 @@ import pytest
 import pyarrow as pa
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import _test_dataframe
-from pyarrow.tests.parquet.test_dataset import (
-    _test_read_common_metadata_files, _test_write_to_dataset_with_partitions,
-    _test_write_to_dataset_no_partitions
-)
 from pyarrow.util import guid
+
+try:
+    import pyarrow.parquet as pq
+except ImportError:
+    pass
+else:
+    from pyarrow.tests.parquet.common import _test_dataframe
+    from pyarrow.tests.parquet.test_dataset import (
+        _test_read_common_metadata_files,
+        _test_write_to_dataset_with_partitions,
+        _test_write_to_dataset_no_partitions
+    )
 
 # ----------------------------------------------------------------------
 # HDFS tests
@@ -283,7 +290,6 @@ class HdfsTestCases:
         assert result == data
 
     def _write_multiple_hdfs_pq_files(self, tmpdir):
-        import pyarrow.parquet as pq
         nfiles = 10
         size = 5
         test_data = []
@@ -325,8 +331,6 @@ class HdfsTestCases:
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_multiple_parquet_files_with_uri(self):
-        import pyarrow.parquet as pq
-
         tmpdir = pjoin(self.tmp_path, 'multi-parquet-uri-' + guid())
 
         self.hdfs.mkdir(tmpdir)
@@ -343,8 +347,6 @@ class HdfsTestCases:
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_write_parquet_files_with_uri(self):
-        import pyarrow.parquet as pq
-
         tmpdir = pjoin(self.tmp_path, 'uri-parquet-' + guid())
         self.hdfs.mkdir(tmpdir)
         path = _get_hdfs_uri(pjoin(tmpdir, 'test.parquet'))
@@ -428,7 +430,6 @@ def test_fastparquet_read_with_hdfs():
     except ImportError:
         pytest.skip('fastparquet test requires snappy')
 
-    import pyarrow.parquet as pq
     fastparquet = pytest.importorskip('fastparquet')
 
     fs = hdfs_test_client()
