@@ -57,7 +57,7 @@ if [ ${R_CUSTOM_CCACHE} = "true" ]; then
 CCACHE=ccache
 CC=\$(CCACHE) gcc\$(VER)
 CXX=\$(CCACHE) g++\$(VER)
-CXX11=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
+CXX17=\$(CCACHE) g++\$(VER)" >> ~/.R/Makevars
 
   mkdir -p ~/.ccache/
   echo "max_size = 5.0G
@@ -69,7 +69,7 @@ fi
 
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
-if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   $PACKAGE_MANAGER install -y centos-release-scl
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
 fi

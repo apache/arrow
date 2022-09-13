@@ -679,4 +679,7 @@ func TestFilterKernels(t *testing.T) {
 	for _, dt := range []arrow.DataType{&arrow.Decimal128Type{Precision: 3, Scale: 2}, &arrow.Decimal256Type{Precision: 3, Scale: 2}} {
 		suite.Run(t, &FilterKernelWithDecimal{dt: dt})
 	}
+	for _, dt := range baseBinaryTypes {
+		suite.Run(t, &FilterKernelWithString{dt: dt})
+	}
 }

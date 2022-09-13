@@ -170,8 +170,11 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Add C++-only flags, like -std=c++11
+# Add C++-only flags, like -std=c++17
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
+
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 if(MSVC)
   # MSVC makes its own output directories based on the build configuration
@@ -212,11 +215,6 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-if(PYARROW_USE_TENSORFLOW)
-  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-endif()
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)

@@ -119,12 +119,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
+          - { org: "rstudio", image: "r-base", tag: "4.0-centos7", devtoolset: "8" }
+          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
+      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -184,11 +185,6 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      # We must enable actions/cache before r-lib/actions/setup-r to ensure
-      # using system tar instead of tar provided by Rtools.
-      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-      # when tar is GNU tar.
       - name: Cache ccache
         uses: actions/cache@v2
         with:
@@ -268,8 +264,6 @@ jobs:
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
-          # RSPM keeps install times short for 3.6
-          use-public-rspm: true
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:

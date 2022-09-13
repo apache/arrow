@@ -208,22 +208,17 @@ if grep raspbian /etc/os-release >/dev/null 2>&1; then
   PKG_LIBS="-latomic $PKG_LIBS"
 fi
 
-# If libarrow uses the old GLIBCXX ABI, so we have to use it too
-if [ "$ARROW_USE_OLD_CXXABI" ]; then
-  PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
-fi
-
 # Set any user-defined CXXFLAGS
 if [ "$ARROW_R_CXXFLAGS" ]; then
   PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
 # Test that we can find libarrow
-CXX11="`${R_HOME}/bin/R CMD config CXX11` -E"
-CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX11FLAGS`
-CXX11STD=`"${R_HOME}"/bin/R CMD config CXX11STD`
+CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
+CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
+CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
-TEST_CMD="${CXX11} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
+TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then

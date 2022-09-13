@@ -185,16 +185,19 @@ endif()
 
 include(GNUInstallDirs)
 
-# This ensures that things like gnu++11 get passed correctly
+# This ensures that things like -std=gnu++... get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Needed compiler flags
 include(SetupCxxFlags)
+
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
