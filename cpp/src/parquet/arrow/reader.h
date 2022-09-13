@@ -188,10 +188,28 @@ class PARQUET_EXPORT FileReader {
                                        const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
 
+  /// \brief Return a RecordBatchReader of row groups selected from
+  /// row_group_indices, whose columns are selected by column_indices.
+  ///
+  /// \param row_group_indices indices of which row groups to include.
+  /// \param column_indices indices of columns to include.
+  ///
+  /// \since 10.0.0
   ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices);
+
+  /// \brief Return a RecordBatchReader of row groups selected from
+  /// row_group_indices, including all columns.
+  ///
+  /// \param row_group_indices indices of which row groups to include.
+  ///
+  /// \since 10.0.0
   ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader(
       const std::vector<int>& row_group_indices);
+
+  /// \brief Return a RecordBatchReader of all row groups and all columns.
+  ///
+  /// \since 10.0.0
   ::arrow::Result<std::shared_ptr<::arrow::RecordBatchReader>> GetRecordBatchReader();
 
   /// \brief Return a generator of record batches.

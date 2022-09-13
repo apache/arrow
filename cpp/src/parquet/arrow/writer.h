@@ -57,12 +57,15 @@ class PARQUET_EXPORT FileWriter {
                               std::shared_ptr<ArrowWriterProperties> arrow_properties,
                               std::unique_ptr<FileWriter>* out);
 
-  /// \brief Create a new FileWriter.
+  /// \brief Try to create an Arrow to Parquet file writer.
+  ///
   /// \param schema schema of data that will be passed.
   /// \param pool memory pool to use.
   /// \param sink output stream to write Parquet data.
   /// \param properties general Parquet writer properties.
   /// \param arrow_properties Arrow-specific writer properties.
+  ///
+  /// \since 10.0.0
   static ::arrow::Result<std::unique_ptr<FileWriter>> Open(
       const ::arrow::Schema& schema, MemoryPool* pool,
       std::shared_ptr<::arrow::io::OutputStream> sink,
