@@ -749,7 +749,6 @@ class ArrayWriter {
   }
 
   Status Visit(const RunLengthEncodedArray& array) {
-    WriteValidityField(array);
     const auto& type = checked_cast<const RunLengthEncodedType&>(*array.type());
     std::vector<std::shared_ptr<Array>> children = {
         array.run_ends_array(),
@@ -1590,6 +1589,7 @@ class ArrayReader {
 
   Status Visit(const RunLengthEncodedType& type) {
     RETURN_NOT_OK(InitializeData(1));
+    RETURN_NOT_OK(GetNullBitmap());
     RETURN_NOT_OK(GetChildren(obj_, type));
     return Status::OK();
   }

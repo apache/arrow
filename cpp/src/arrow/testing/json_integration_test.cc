@@ -750,8 +750,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   std::shared_ptr<Schema> out;
   Status status = json::ReadSchema(d, default_memory_pool(), &in_memo, &out);
   if (!status.ok()) {
-    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status
-           << "\n";
+    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status;
   }
 
   if (!schema.Equals(*out)) {
@@ -890,6 +889,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
     TestArrayRoundTrip(list_array);
   }
 
+
   // LargeList
   std::vector<int64_t> large_offsets = {0, 0, 0, 1, 4, 7};
   std::shared_ptr<Buffer> large_offsets_buffer = Buffer::Wrap(large_offsets);
@@ -926,6 +926,14 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   StructArray struct_array(struct_type, static_cast<int>(struct_is_valid.size()), fields,
                            struct_bitmap, 2);
   TestArrayRoundTrip(struct_array);
+
+  // RLE
+  auto run_ends_array = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500, 600, 700]");
+  ASSERT_OK_AND_ASSIGN(
+      auto rle_array, RunLengthEncodedArray::Make(run_ends_array, i16_values_array, 700));
+  TestArrayRoundTrip(*rle_array);
+  auto sliced_rle_array = rle_array->Slice(150, 300);
+  TestArrayRoundTrip(*sliced_rle_array);
 }
 
 TEST(TestJsonArrayWriter, Unions) {
