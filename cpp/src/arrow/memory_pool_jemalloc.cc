@@ -185,33 +185,12 @@ Status jemalloc_peak_reset() {
              : Status::OK();
 }
 
-typedef struct {
-  char* buf;
-  size_t len;
-} parser_t;
-
-void write_cb(void* opaque, const char* str) {
-  parser_t* parser = reinterpret_cast<parser_t*>(opaque);
-  size_t len = strlen(str);
-  char* buf = (parser->buf == NULL)
-                  ? reinterpret_cast<char*>(mallocx(len + 1, MALLOCX_TCACHE_NONE))
-                  : reinterpret_cast<char*>(
-                        rallocx(parser->buf, parser->len + len + 1, MALLOCX_TCACHE_NONE));
-  if (buf == NULL) {
-    ARROW_LOG(ERROR) << "Unexpected input appending failure";
-  }
-  memcpy(&buf[parser->len], str, len + 1);
-  parser->buf = buf;
-  parser->len += len;
-}
-
 Result<std::string> jemalloc_stats_print(const char* opts) {
-  parser_t parser = parser_t{NULL, 0};
-  malloc_stats_print(write_cb, static_cast<void*>(&parser), opts);
-  std::string stats = parser.buf;
-  if (parser.buf != NULL) {
-    dallocx(parser.buf, MALLOCX_TCACHE_NONE);
-  }
+  std::string stats;
+  auto write_cb = [](void* opaque, const char* str) {
+    reinterpret_cast<std::string*>(opaque)->append(str);
+  };
+  malloc_stats_print(write_cb, &stats, opts);
   return stats;
 }
 

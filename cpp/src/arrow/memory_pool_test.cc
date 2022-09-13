@@ -214,15 +214,15 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
 
   // Check allocated stats pre-allocation
-  ASSERT_NEAR(allocated0, 122624, 100000);
-  ASSERT_NEAR(active0, 131072, 10000);
+  ASSERT_NEAR(allocated0, 120000, 100000);
+  ASSERT_NEAR(active0, 75000, 70000);
   ASSERT_NEAR(metadata0, 3000000, 1000000);
   ASSERT_NEAR(resident0, 3000000, 1000000);
   ASSERT_NEAR(mapped0, 6500000, 1000000);
-  ASSERT_NEAR(retained0, 0, 100);
+  ASSERT_NEAR(retained0, 1500000, 1500000);
 
   // Check allocated stats change due to allocation
-  ASSERT_NEAR(allocated - allocated0, 98304, 1000);
+  ASSERT_NEAR(allocated - allocated0, 70000, 50000);
   ASSERT_NEAR(active - active0, 98304, 1000);
   ASSERT_NEAR(metadata - metadata0, 768, 100);
   ASSERT_NEAR(resident - resident0, 114688, 1000);
