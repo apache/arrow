@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
@@ -556,7 +557,14 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
-def test_filters_read_table(tempdir, use_legacy_dataset):
+@pytest.mark.parametrize("filters",
+                         ([('integers', '<', 3)],
+                          [[('integers', '<', 3)]],
+                          pc.field('integers') < 3,
+                          pc.field('nested', 'a') < 3,
+                          pc.field('nested', 'b').cast(pa.int64()) < 3))
+@pytest.mark.parametrize("read", (pq.read_table, pq.read_pandas))
+def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
     # test that filters keyword is passed through in read_table
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -565,29 +573,27 @@ def test_filters_read_table(tempdir, use_legacy_dataset):
     partition_spec = [
         ['integers', integer_keys],
     ]
-    N = 5
+    N = len(integer_keys)
 
     df = pd.DataFrame({
         'index': np.arange(N),
         'integers': np.array(integer_keys, dtype='i4'),
-    }, columns=['index', 'integers'])
+        'nested': np.array([{'a': i, 'b': str(i)} for i in range(N)])
+    })
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    table = pq.read_table(
-        base_path, filesystem=fs, filters=[('integers', '<', 3)],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
+    kwargs = dict(filesystem=fs, filters=filters,
+                  use_legacy_dataset=use_legacy_dataset)
 
-    table = pq.read_table(
-        base_path, filesystem=fs, filters=[[('integers', '<', 3)]],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
-
-    table = pq.read_pandas(
-        base_path, filters=[('integers', '<', 3)],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
+    # Using Expression in legacy dataset not supported
+    if use_legacy_dataset and isinstance(filters, pc.Expression):
+        msg = "Expressions as filter not supported for legacy dataset"
+        with pytest.raises(TypeError, match=msg):
+            read(base_path, **kwargs)
+    else:
+        table = read(base_path, **kwargs)
+        assert table.num_rows == 3
 
 
 @pytest.mark.pandas
