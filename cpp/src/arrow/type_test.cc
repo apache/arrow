@@ -1840,6 +1840,8 @@ TEST(TypesTest, TestRunLengthEncodedType) {
 
   ASSERT_TRUE(int8_rle_type->field(0)->Equals(Field("run_ends", int32(), false)));
   ASSERT_TRUE(int8_rle_type->field(1)->Equals(Field("values", list(int8()), true)));
+
+  ASSERT_EQ(int8_factory->ToString(), "run_length_encoded<list<item: int8>>");
 }
 
 #define TEST_PREDICATE(all_types, type_predicate)                 \
