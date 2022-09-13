@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/chunked_array.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -158,6 +159,77 @@ TEST(RunLengthEncodedArray, Compare) {
                       *different_offsets_b->Slice(83, 7));
   ASSERT_ARRAYS_EQUAL(*different_offsets_a->Slice(9, 7), *different_offsets_c);
   ASSERT_ARRAYS_EQUAL(*different_offsets_b->Slice(83, 7), *different_offsets_c);
+}
+
+TEST(RunLengthEncodedArray, Printing) {
+  ASSERT_OK_AND_ASSIGN(auto int_array,
+                       RunLengthEncodedArray::Make(int32_values, int32_values, 30));
+  std::stringstream ss;
+  ASSERT_OK(PrettyPrint(*int_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 30)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]");
+
+  ASSERT_OK_AND_ASSIGN(auto string_array,
+                       RunLengthEncodedArray::Make(int32_values, string_values, 30));
+  ss = {};
+  ASSERT_OK(PrettyPrint(*string_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 30)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    \"Hello\",\n"
+            "    \"World\",\n"
+            "    null\n"
+            "  ]");
+
+  auto sliced_array = string_array->Slice(15, 6);
+  ss = {};
+  ASSERT_OK(PrettyPrint(*sliced_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 15, logical length: 6)\n"
+            "  [\n"
+            "    10,\n"
+            "    20,\n"
+            "    30\n"
+            "  ]\n"
+            "-- values:\n"
+            "  [\n"
+            "    \"Hello\",\n"
+            "    \"World\",\n"
+            "    null\n"
+            "  ]");
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunLengthEncodedArray::Make(ArrayFromJSON(int32(), "[]"),
+                                                   ArrayFromJSON(binary(), "[]"), 0));
+
+  ss = {};
+  ASSERT_OK(PrettyPrint(*empty_array, {}, &ss));
+  ASSERT_EQ(ss.str(),
+            "\n"
+            "-- run ends array (offset: 0, logical length: 0)\n"
+            "  []\n"
+            "-- values:\n"
+            "  []");
 }
 
 }  // anonymous namespace
