@@ -560,7 +560,7 @@ type ExecSpan struct {
 
 func getNumBuffers(dt arrow.DataType) int {
 	switch dt.ID() {
-	case arrow.NULL, arrow.STRUCT, arrow.FIXED_SIZE_LIST:
+	case arrow.NULL, arrow.STRUCT, arrow.FIXED_SIZE_LIST, arrow.RUN_LENGTH_ENCODED:
 		return 1
 	case arrow.BINARY, arrow.LARGE_BINARY, arrow.STRING, arrow.LARGE_STRING, arrow.DENSE_UNION:
 		return 3

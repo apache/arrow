@@ -118,6 +118,9 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			}
 		}
 		return true
+	case EncodedType:
+		r := right.(EncodedType)
+		return TypeEqual(l.Encoded(), r.Encoded(), opts...)
 	default:
 		return reflect.DeepEqual(left, right)
 	}
