@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:centos7
+FROM centos:7
+
 
 RUN yum install -y \
         centos-release-scl \
@@ -29,7 +30,7 @@ RUN yum install -y \
         which
 
 # devtoolset is required for C++17
-RUN yum install -y devtoolset-8
+RUN yum install -y devtoolset-7
 
 # yum install cmake version is too old
 ARG cmake=3.23.1
@@ -38,10 +39,10 @@ RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/c
     tar -xzf -  --strip-components=1 -C /opt/cmake-${cmake}
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV PATH=/opt/cmake-${cmake}/bin:$PATH \
-    CC=/usr/bin/gcc \
-    CXX=/usr/bin/g++ \
-    EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX" \
+    CC=/opt/rh/devtoolset-7/root/usr/bin/gcc \
+    CXX=/opt/rh/devtoolset-7/root/usr/bin/g++ \
+    EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX}" \
     ARROW_R_DEV=TRUE \
