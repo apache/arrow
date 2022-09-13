@@ -271,8 +271,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-v2-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-v2-
+          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2022-09-13"
       - name: Build
         shell: cmd
         run: |
