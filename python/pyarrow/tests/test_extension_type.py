@@ -517,10 +517,22 @@ def test_cast_kernel_on_extension_arrays():
     assert isinstance(casted, pa.ChunkedArray)
 
 
-def test_casting_to_extension_type_raises():
+def test_casting_to_extension_type():
     arr = pa.array([1, 2, 3, 4], pa.int64())
-    with pytest.raises(pa.ArrowNotImplementedError):
-        arr.cast(IntegerType())
+    out = arr.cast(IntegerType())
+    assert isinstance(out, pa.ExtensionArray)
+    assert out.to_pylist() == [1, 2, 3, 4]
+
+
+def test_casting_dict_array_to_extension_type():
+    storage = pa.array([b"0123456789abcdef"], type=pa.binary(16))
+    arr = pa.ExtensionArray.from_storage(UuidType(), storage)
+    dict_arr = pa.DictionaryArray.from_arrays(pa.array([0, 0], pa.int32()),
+                                              arr)
+    out = dict_arr.cast(UuidType())
+    assert isinstance(out, pa.ExtensionArray)
+    assert out.to_pylist() == [UUID('30313233-3435-3637-3839-616263646566'),
+                               UUID('30313233-3435-3637-3839-616263646566')]
 
 
 def test_null_storage_type():
