@@ -40,7 +40,7 @@ Before continuing, make sure you have:
 
 1. An Arrow installation
 
-2. An understanding of basic Arrow data structures from <the preceding article>
+2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
 
 3. A directory to run the final application in – this program will generate some files, so be prepared for that.
 
@@ -144,7 +144,7 @@ to new files, so we’ll use this instance throughout the examples:
   :end-before: (Doc section: ReadableFile Definition)
 
 A :class:`io::ReadableFile` does little alone – we actually have it bind to a file
-with :func:`io::ReadableFile::Open`. You can read more on that and its arguments at <link>. For
+with :func:`io::ReadableFile::Open`. For
 our purposes here, the default arguments suffice:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
@@ -272,7 +272,7 @@ Read a CSV File to Table
 
 The CSV reader has option structs which need to be passed – luckily,
 there are defaults for these which we can pass directly. For reference
-on the other options, go here: <link>. This CSV is a standard CSV
+on the other options, go here: :doc:`/cpp/api/formats`.
 without any special delimiters and is small, so we can make our reader
 with defaults:
 

@@ -41,7 +41,7 @@ Before continuing, make sure you have:
 
 1. An Arrow installation
 
-2. An understanding of basic Arrow data structures from <basic data structures>
+2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
 
 Setup
 -----
@@ -87,7 +87,7 @@ Generating Tables for Computation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before we begin, we’ll initialize a :class:`Table` with two columns to play with. We’ll use
-the method from the Arrow data structure tutorial<link>, so look back
+the method from :doc:`/cpp/tutorials/basic_arrow`, so look back
 there if anything’s confusing:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/compute_example.cc
@@ -128,7 +128,7 @@ Here, we’ll get our :class:`Table`, which has columns “A” and “B”, and
 column “A.” For summation, there is a convenience function, called
 :func:`compute::Sum`, which reduces the complexity of the compute interface. We’ll look
 at the more complex version for the next computation. For a given
-function, refer to the API reference<link> to see if there is a
+function, refer to :doc:`/cpp/api/compute` to see if there is a
 convenience function. :func:`compute::Sum` takes in a given :class:`Array` or :class:`ChunkedArray`
 – here, we use :func:`Table::GetColumnByName` to pass in column A. Then, it outputs to
 a :class:`Datum`. Putting that all together, we get this:
@@ -201,6 +201,8 @@ and output to our :class:`Datum`. Put this all together, and we get:
   :start-after: (Doc section: Add Call)
   :end-before: (Doc section: Add Call)
 
+.. seealso:: :ref:`compute-function-list` for a list of other functions to go with :func:`compute::CallFunction`
+
 Get Results from Datum
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -244,8 +246,7 @@ One class of computations remains. :func:`compute::CallFunction` uses a vector f
 inputs, but computation often needs additional arguments to function. In
 order to supply this, computation functions may be associated with
 structs where their arguments can be defined. You can check a given
-function to see which struct it uses here: <link to compute function
-list>. For this example, we’ll search for a value in column “A” using
+function to see which struct it uses :ref:`here <compute-function-list>`. For this example, we’ll search for a value in column “A” using
 the “index” compute function. This process has three steps, as opposed
 to the two from before:
 

@@ -40,10 +40,9 @@ Before continuing, make sure you have:
 
 1. An Arrow installation
 
-2. An understanding of basic Arrow data structures from <basic data structures>
+2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
 
-To witness the differences, it may be useful to have also read the <File
-I/O tutorial>. However, it is not required.
+To witness the differences, it may be useful to have also read the :doc:`/cpp/tutorials/io_tutorial`. However, it is not required.
 
 Setup
 -----
@@ -142,14 +141,15 @@ we’ll be using local disk. So, let’s declare it:
 
 For this example, we’ll have our :class:`FileSystem’s <fs::FileSystem>` base path exist in the
 same directory as the executable. :func:`fs::FileSystemFromUriOrPath` lets us get
-a :class:`fs::FileSystem` object for any of the types of supported filesystems; check
-the API docs for more possibilities<link>. Here, though, we’ll just pass
-our path:
+a :class:`fs::FileSystem` object for any of the types of supported filesystems.
+Here, though, we’ll just pass our path:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
   :language: cpp
   :start-after: (Doc section: FileSystem Init)
   :end-before: (Doc section: FileSystem Init)
+
+.. seealso:: :class:`fs::FileSystem` for the other supported filesystems.
 
 Creating a FileSystemDatasetFactory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -230,8 +230,9 @@ Move Dataset into Table
 
 One way we can do something with :class:`Datasets <dataset::Dataset>` is getting 
 them into a :class:`Table`, where we can do anything we’ve learned we can do to 
-:class:`Tables <Table>` to that :class:`Table`. (For further functionality and avoiding manifesting 
-entire datasets in memory, Acero is best: <Link here>)
+:class:`Tables <Table>` to that :class:`Table`. 
+
+.. seealso:: :doc:`/cpp/streaming_execution` for execution that avoids manifesting the entire dataset in memory.
 
 In order to move a :class:`Dataset’s <dataset::Dataset>` contents into a :class:`Table`, 
 we need a :class:`dataset::Scanner`, which scans the data and outputs it to the :class:`Table`. 
@@ -276,8 +277,7 @@ folders. This process can be broken up into the following steps:
 
 3. Prepare schema, partitioning, and file format options
 
-4. Set up :class:`dataset::FileSystemDatasetWriteOptions` – a struct that configures our
-      writing functions
+4. Set up :class:`dataset::FileSystemDatasetWriteOptions` – a struct that configures our writing functions
 
 5. Write dataset to disk
 
@@ -435,7 +435,8 @@ tutorials.
 With that, you’ve read and written partitioned datasets! This method,
 with some configuration, will work for any supported dataset format. For
 an example of such a dataset, the NYC Taxi dataset is a well-known
-one<link>. Now you can get larger-than-memory data mapped for use!
+one, which you can find `here <https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_. 
+Now you can get larger-than-memory data mapped for use!
 
 Which means that now we have to be able to process this data without
 pulling it all into memory at once. For this, try Acero. 
