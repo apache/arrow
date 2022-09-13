@@ -127,11 +127,11 @@ CMake
         $ cmake \
             -S java \
             -B java-jni \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DARROW_JAVA_JNI_ENABLE_C=ON \
-            -DBUILD_TESTING=OFF
+            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=java-dist/lib
         $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
@@ -151,9 +151,10 @@ CMake
         $ cmake \
             -S cpp \
             -B cpp-jni \
-            -DARROW_DEPENDENCY_USE_SHARED=OFF\
             -DARROW_CSV=ON \
             -DARROW_DATASET=ON \
+            -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+            -DARROW_DEPENDENCY_USE_SHARED=OFF \
             -DARROW_FILESYSTEM=ON \
             -DARROW_GANDIVA=ON \
             -DARROW_GANDIVA_JAVA=ON \
@@ -168,8 +169,7 @@ CMake
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DCMAKE_INSTALL_PREFIX=java-dist \
-            -DCMAKE_UNITY_BUILD=ON \
-            -DARROW_DEPENDENCY_SOURCE=BUNDLED
+            -DCMAKE_UNITY_BUILD=ON
         $ cmake --build cpp-jni --target install --config Release
         $ ls -latr  java-dist/lib
         |__ libarrow_orc_jni.dylib
@@ -184,12 +184,12 @@ CMake
         $ cmake \
             -S java \
             -B java-jni \
+            -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
+            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
+            -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=java-dist/lib \
-            -DCMAKE_PREFIX_PATH=$PWD/java-dist \
-            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
-            -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
-            -DBUILD_TESTING=OFF
+            -DCMAKE_PREFIX_PATH=$PWD/java-dist
         $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_dataset_jni.dylib

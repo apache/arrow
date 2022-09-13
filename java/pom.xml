@@ -940,11 +940,11 @@
                   <commandlineArgs>
                     -S java
                     -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_C=ON
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
-                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
-                    -DARROW_JAVA_JNI_ENABLE_C=ON
-                    -DBUILD_TESTING=OFF
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
