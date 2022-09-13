@@ -57,6 +57,12 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
     util::string_view first_block, MemoryPool* pool) {
+  // Skip BOM when reading column names (ARROW-14644, ARROW-17382)
+  auto size = first_block.length();
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
+  ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+  size = size - static_cast<uint32_t>(data_no_bom - data);
+  first_block = util::string_view(reinterpret_cast<const char*>(data_no_bom), size);
   if (!read_options.column_names.empty()) {
     std::unordered_set<std::string> column_names;
     for (const auto& s : read_options.column_names) {
@@ -98,11 +104,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        // Skip BOM when reading column names (ARROW-14644)
-        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
-        size = size - static_cast<uint32_t>(data_no_bom - data);
-
-        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
+        util::string_view view{reinterpret_cast<const char*>(data), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
