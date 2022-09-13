@@ -35,3 +35,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonFlightTargets.cmake")
 arrow_keep_backward_compatibility(ArrowPythonFlight arrow_python_flight)
 
 check_required_components(ArrowPythonFlight)
+
+arrow_show_details(ArrowPythonFlight ARROW_PYTHON_FLIGHT)

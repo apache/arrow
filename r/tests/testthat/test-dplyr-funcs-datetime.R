@@ -33,6 +33,30 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
 
 test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 
+strptime_test_df <- tibble(
+  string_a = c("2023-12-30-Sat", NA),
+  string_A = c("2023-12-30-Saturday", NA),
+  string_b = c("2023-12-30-Dec", NA),
+  string_B = c("2023-12-30-December", NA),
+  string_H = c("2023-12-30-01", NA),
+  string_I = c("2023-12-30-01", NA),
+  string_j = c("2023-12-30-364", NA),
+  string_M = c("2023-12-30-45", NA),
+  string_p = c("2023-12-30-AM", NA),
+  string_q = c("2023.3", NA),
+  string_S = c("2023-12-30-56", NA),
+  string_OS = c("2023-12-30-12.345678", NA),
+  string_U = c("2023-12-30-52", NA),
+  string_w = c("2023-12-30-6", NA),
+  string_W = c("2023-12-30-52", NA),
+  string_y = c("23-12-30", NA),
+  string_Y = c("2023-12-30", NA),
+  string_m = c("2023-12-30", NA),
+  string_r = c("2023-12-30-01", NA),
+  string_R = c("2023-12-30-01:23", NA),
+  string_T = c("2023-12-30-01:23:45", NA),
+  string_z = c("2023-12-30-01:23:45z", NA)
+)
 
 test_df <- tibble::tibble(
   # test_date + 1 turns the tzone = "" to NULL, which is functionally equivalent
@@ -154,6 +178,97 @@ test_that("strptime", {
   # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
+      ) %>%
+      collect(),
+    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
+  )
+
+})
+
+test_that("strptime works for individual formats", {
+  # strptime format support is not consistent across platforms
+  skip_on_cran()
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  expect_equal(
+    strptime_test_df %>%
+      arrow_table() %>%
+        mutate(
+          parsed_H = strptime(string_H, format = "%Y-%m-%d-%H"),
+          parsed_I = strptime(string_I, format = "%Y-%m-%d-%I"),
+          parsed_j = strptime(string_j, format = "%Y-%m-%d-%j"),
+          parsed_M = strptime(string_M, format = "%Y-%m-%d-%M"),
+          parsed_S = strptime(string_S, format = "%Y-%m-%d-%S"),
+          parsed_U = strptime(string_U, format = "%Y-%m-%d-%U"),
+          parsed_w = strptime(string_w, format = "%Y-%m-%d-%w"),
+          parsed_W = strptime(string_W, format = "%Y-%m-%d-%W"),
+          parsed_y = strptime(string_y, format = "%y-%m-%d"),
+          parsed_Y = strptime(string_Y, format = "%Y-%m-%d"),
+          parsed_R = strptime(string_R, format = "%Y-%m-%d-%R"),
+          parsed_T = strptime(string_T, format = "%Y-%m-%d-%T")
+        ) %>%
+        collect(),
+    strptime_test_df %>%
+      mutate(
+        parsed_H = as.POSIXct(strptime(string_H, format = "%Y-%m-%d-%H")),
+        parsed_I = as.POSIXct(strptime(string_I, format = "%Y-%m-%d-%I")),
+        parsed_j = as.POSIXct(strptime(string_j, format = "%Y-%m-%d-%j")),
+        parsed_M = as.POSIXct(strptime(string_M, format = "%Y-%m-%d-%M")),
+        parsed_S = as.POSIXct(strptime(string_S, format = "%Y-%m-%d-%S")),
+        parsed_U = as.POSIXct(strptime(string_U, format = "%Y-%m-%d-%U")),
+        parsed_w = as.POSIXct(strptime(string_w, format = "%Y-%m-%d-%w")),
+        parsed_W = as.POSIXct(strptime(string_W, format = "%Y-%m-%d-%W")),
+        parsed_y = as.POSIXct(strptime(string_y, format = "%y-%m-%d")),
+        parsed_Y = as.POSIXct(strptime(string_Y, format = "%Y-%m-%d")),
+        parsed_R = as.POSIXct(strptime(string_R, format = "%Y-%m-%d-%R")),
+        parsed_T = as.POSIXct(strptime(string_T, format = "%Y-%m-%d-%T"))
+      ) %>%
+      collect()
+  )
+
+  # Some formats are not supported on Windows
+  skip_on_os("windows")
+  expect_equal(
+    strptime_test_df %>%
+      arrow_table() %>%
+        mutate(
+          parsed_a = strptime(string_a, format = "%Y-%m-%d-%a"),
+          parsed_A = strptime(string_A, format = "%Y-%m-%d-%A"),
+          parsed_b = strptime(string_b, format = "%Y-%m-%d-%b"),
+          parsed_B = strptime(string_B, format = "%Y-%m-%d-%B"),
+          parsed_p = strptime(string_p, format = "%Y-%m-%d-%p"),
+          parsed_r = strptime(string_r, format = "%Y-%m-%d-%r")
+        ) %>%
+        collect(),
+    strptime_test_df %>%
+      mutate(
+        parsed_a = as.POSIXct(strptime(string_a, format = "%Y-%m-%d-%a")),
+        parsed_A = as.POSIXct(strptime(string_A, format = "%Y-%m-%d-%A")),
+        parsed_b = as.POSIXct(strptime(string_b, format = "%Y-%m-%d-%b")),
+        parsed_B = as.POSIXct(strptime(string_B, format = "%Y-%m-%d-%B")),
+        parsed_p = as.POSIXct(strptime(string_p, format = "%Y-%m-%d-%p")),
+        parsed_r = as.POSIXct(strptime(string_r, format = "%Y-%m-%d-%r"))
+      ) %>%
+      collect()
+  )
+
+})
+
+test_that("timestamp round trip correctly via strftime and strptime", {
+  # strptime format support is not consistent across platforms
+  skip_on_cran()
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
   tz <- "Pacific/Marquesas"
   set.seed(42)
   times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
@@ -165,7 +280,7 @@ test_that("strptime", {
     "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%R", "%T"
   )
   formats2 <- c(
-    "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
+    "a", "A", "b", "B", "d", "H", "j", "m", "T", "OS", "Ip",
     "S", "q", "M", "U", "w", "W", "y", "Y", "r", "R", "Tz"
   )
   base_format <- "%Y-%m-%d"
@@ -173,7 +288,7 @@ test_that("strptime", {
 
   # Some formats are not supported on Windows
   if (!tolower(Sys.info()[["sysname"]]) == "windows") {
-    formats <- c(formats, "%a", "%A", "%b", "%B", "%Om", "%OS", "%I%p", "%r", "%T%z")
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%r", "%T%z")
   }
 
   for (fmt in formats) {
@@ -182,10 +297,10 @@ test_that("strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(x = strptime(x, format = fmt)) %>%
+          mutate(!!fmt := strptime(x, format = fmt)) %>%
           collect(),
       test_df %>%
-        mutate(x = as.POSIXct(strptime(x, format = fmt))) %>%
+        mutate(!!fmt := as.POSIXct(strptime(x, format = fmt))) %>%
         collect()
     )
   }
@@ -197,22 +312,13 @@ test_that("strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(x = strptime(x, format = fmt2)) %>%
+          mutate(!!fmt := strptime(x, format = fmt2)) %>%
           collect(),
       test_df %>%
-        mutate(x = as.POSIXct(strptime(x, format = fmt2))) %>%
+        mutate(!!fmt := as.POSIXct(strptime(x, format = fmt2))) %>%
         collect()
     )
   }
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
-      ) %>%
-      collect(),
-    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
-  )
 
 })
 
@@ -2114,29 +2220,6 @@ test_that("parse_date_time's other formats", {
   # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
 
-  # q, OS, Op, z formats are currently not supported by strptime
-  test_df <- tibble(
-    string_a = c("2023-12-30-Sat", NA),
-    string_A = c("2023-12-30-Saturday", NA),
-    string_b = c("2023-12-30-Dec", NA),
-    string_B = c("2023-12-30-December", NA),
-    string_H = c("2023-12-30-01", NA),
-    string_I = c("2023-12-30-01", NA),
-    string_j = c("2023-12-30-364", NA),
-    string_M = c("2023-12-30-00", NA),
-    string_p = c("2023-12-30-AM", NA),
-    string_S = c("2023-12-30-00", NA),
-    string_U = c("2023-12-30-52", NA),
-    string_w = c("2023-12-30-6", NA),
-    string_W = c("2023-12-30-52", NA),
-    string_y = c("23-12-30", NA),
-    string_Y = c("2023-12-30", NA),
-    string_Om = c("2023-01-30", NA),
-    string_r = c("2023-12-30-01", NA),
-    string_R = c("2023-12-30-01:00", NA),
-    string_T = c("2023-12-30-01:00:00", NA)
-  )
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2154,7 +2237,7 @@ test_that("parse_date_time's other formats", {
         parsed_T = parse_date_time(string_T, orders = "%Y-%m-%d-%T")
       ) %>%
       collect(),
-    test_df
+    strptime_test_df
   )
 
   compare_dplyr_binding(
@@ -2174,7 +2257,7 @@ test_that("parse_date_time's other formats", {
         parsed_T = parse_date_time(string_T, orders = "ymdT")
       ) %>%
       collect(),
-    test_df
+    strptime_test_df
   )
 
   # Some formats are not supported on Windows
@@ -2186,12 +2269,11 @@ test_that("parse_date_time's other formats", {
           parsed_A = parse_date_time(string_A, orders = "%Y-%m-%d-%A"),
           parsed_b = parse_date_time(string_b, orders = "%Y-%m-%d-%b"),
           parsed_B = parse_date_time(string_B, orders = "%Y-%m-%d-%B"),
-          parsed_Om = parse_date_time(string_Om, orders = "%Y-%Om-%d"),
           parsed_p = parse_date_time(string_p, orders = "%Y-%m-%d-%p"),
           parsed_r = parse_date_time(string_r, orders = "%Y-%m-%d-%r")
         ) %>%
         collect(),
-      test_df
+      strptime_test_df
     )
 
     compare_dplyr_binding(
@@ -2201,12 +2283,11 @@ test_that("parse_date_time's other formats", {
           parsed_A = parse_date_time(string_A, orders = "ymdA"),
           parsed_b = parse_date_time(string_b, orders = "ymdb"),
           parsed_B = parse_date_time(string_B, orders = "ymdB"),
-          parsed_Om = parse_date_time(string_Om, orders = "yOmd"),
           parsed_p = parse_date_time(string_p, orders = "ymdp"),
           parsed_r = parse_date_time(string_r, orders = "ymdr")
         ) %>%
         collect(),
-      test_df
+      strptime_test_df
     )
 
     compare_dplyr_binding(

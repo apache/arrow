@@ -147,6 +147,12 @@ Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
                         ColumnMetadataFromDataType(array_data->type));
+  return ColumnArrayFromArrayDataAndMetadata(array_data, metadata, start_row, num_rows);
+}
+
+KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+    const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
+    int64_t start_row, int64_t num_rows) {
   KeyColumnArray column_array = KeyColumnArray(
       metadata, array_data->offset + start_row + num_rows,
       array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,

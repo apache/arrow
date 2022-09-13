@@ -34,3 +34,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightTargets.cmake")
 arrow_keep_backward_compatibility(ArrowFlight arrow_flight)
 
 check_required_components(ArrowFlight)
+
+arrow_show_details(ArrowFlight ARROW_FLIGHT)

@@ -698,6 +698,20 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic
       };
 }
 
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessComparison(Id substrait_fn_id) {
+  return
+      [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
+        // nullable=true isn't quite correct but we don't know the nullability of
+        // the inputs
+        SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
+                                     /*nullable=*/true);
+        for (std::size_t i = 0; i < call.arguments.size(); i++) {
+          substrait_call.SetValueArg(static_cast<uint32_t>(i), call.arguments[i]);
+        }
+        return std::move(substrait_call);
+      };
+}
+
 ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessBasicMapping(
     const std::string& function_name, uint32_t max_args) {
   return [function_name,
@@ -872,6 +886,11 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
       DCHECK_OK(
           AddArrowToSubstraitCall(std::string(fn_name) + "_checked",
                                   EncodeOptionlessOverflowableArithmetic<true>(fn_id)));
+    }
+    // Comparison operators
+    for (const auto& fn_name : {"equal", "is_not_distinct_from"}) {
+      Id fn_id{kSubstraitComparisonFunctionsUri, fn_name};
+      DCHECK_OK(AddArrowToSubstraitCall(fn_name, EncodeOptionlessComparison(fn_id)));
     }
   }
 };

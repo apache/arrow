@@ -87,7 +87,7 @@ groups:
     # r-conda tasks
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
-    - conda-win-vs2017-py*-r*
+    - conda-win-vs2019-py*-r*
     - r-binary-packages
 
   ruby:
@@ -408,7 +408,7 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py37-r40:
+  conda-win-vs2019-py37-r40:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -418,7 +418,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py37-r41:
+  conda-win-vs2019-py37-r41:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -428,7 +428,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py38:
+  conda-win-vs2019-py38:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -437,7 +437,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py39:
+  conda-win-vs2019-py39:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -446,7 +446,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py310:
+  conda-win-vs2019-py310:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -1202,7 +1202,7 @@ tasks:
       flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
       image: ubuntu-cpp
 
-{% for cpp_standard in [14, 17] %}
+{% for cpp_standard in [17] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml

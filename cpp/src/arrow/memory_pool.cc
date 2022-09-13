@@ -229,6 +229,8 @@ class DebugAllocator {
       *out = memory_pool::internal::kZeroSizeArea;
     } else {
       ARROW_ASSIGN_OR_RAISE(int64_t raw_size, RawSize(size));
+      DCHECK(raw_size > size) << "bug in raw size computation: " << raw_size
+                              << " for size " << size;
       RETURN_NOT_OK(WrappedAllocator::AllocateAligned(raw_size, out));
       InitAllocatedArea(*out, size);
     }
@@ -250,6 +252,8 @@ class DebugAllocator {
       return Status::OK();
     }
     ARROW_ASSIGN_OR_RAISE(int64_t raw_new_size, RawSize(new_size));
+    DCHECK(raw_new_size > new_size)
+        << "bug in raw size computation: " << raw_new_size << " for size " << new_size;
     RETURN_NOT_OK(
         WrappedAllocator::ReallocateAligned(old_size + kOverhead, raw_new_size, ptr));
     InitAllocatedArea(*ptr, new_size);

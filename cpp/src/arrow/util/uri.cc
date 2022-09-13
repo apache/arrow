@@ -304,5 +304,15 @@ Status Uri::Parse(const std::string& uri_string) {
   return Status::OK();
 }
 
+std::string UriFromAbsolutePath(const std::string& path) {
+#ifdef _WIN32
+  // Path is supposed to start with "X:/..."
+  return "file:///" + path;
+#else
+  // Path is supposed to start with "/..."
+  return "file://" + path;
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow

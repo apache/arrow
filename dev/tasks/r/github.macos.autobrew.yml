@@ -22,7 +22,7 @@
 
 jobs:
   autobrew:
-    name: "Autobrew {{ "${{ matrix.platform }}" }}"
+    name: "Autobrew {{ '${{ matrix.platform }} R ${{ matrix.r-version }}' }}"
     runs-on: {{ "${{ matrix.platform }}" }}
     strategy:
       fail-fast: false
