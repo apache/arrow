@@ -438,7 +438,7 @@ CMakeLists.txt definition file:
    include_directories(${JNI_INCLUDE_DIRS})
    set(CMAKE_CXX_STANDARD 17)
    add_executable(${PROJECT_NAME} main.cpp)
-   target_link_libraries(cdatacpptojava PRIVATE arrow_shared)
+   target_link_libraries(cdatacpptojava PRIVATE Arrow::arrow_shared)
    target_link_libraries(cdatacpptojava PRIVATE ${JNI_LIBRARIES})
 
 **Result**
