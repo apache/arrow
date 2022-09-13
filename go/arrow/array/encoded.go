@@ -19,6 +19,8 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"sync/atomic"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
@@ -166,3 +168,137 @@ func arrayRunLengthEncodedApproxEqual(l, r *RunLengthEncoded, opt equalOption) b
 	return true
 
 }
+
+type RunLengthEncodedBuilder struct {
+	builder
+
+	dt      arrow.DataType
+	runEnds *Int32Builder
+	values  Builder
+}
+
+func NewRunLengthEncodedBuilder(mem memory.Allocator, typ arrow.DataType) *RunLengthEncodedBuilder {
+	return &RunLengthEncodedBuilder{
+		builder: builder{refCount: 1, mem: mem},
+		dt:      arrow.RunLengthEncodedOf(typ),
+		runEnds: NewInt32Builder(mem),
+		values:  NewBuilder(mem, typ),
+	}
+}
+
+func (b *RunLengthEncodedBuilder) Type() arrow.DataType {
+	return b.dt
+}
+
+func (b *RunLengthEncodedBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		b.values.Release()
+		b.runEnds.Release()
+	}
+}
+
+func (b *RunLengthEncodedBuilder) addLength(n uint32) {
+	if b.length+int(n) > math.MaxInt32 {
+		panic(fmt.Errorf("%w: run-length encoded array length must fit in a 32-bit signed integer", arrow.ErrInvalid))
+	}
+
+	b.length += int(n)
+}
+
+func (b *RunLengthEncodedBuilder) finishRun() {
+	if b.length == 0 {
+		return
+	}
+
+	b.runEnds.Append(int32(b.length))
+}
+
+func (b *RunLengthEncodedBuilder) ValueBuilder() Builder { return b.values }
+func (b *RunLengthEncodedBuilder) Append(n uint32) {
+	b.finishRun()
+	b.addLength(n)
+}
+func (b *RunLengthEncodedBuilder) ContinueRun(n uint32) {
+	b.addLength(n)
+}
+func (b *RunLengthEncodedBuilder) AppendNull() {
+	b.finishRun()
+	b.values.AppendNull()
+	b.addLength(1)
+}
+
+func (b *RunLengthEncodedBuilder) NullN() int {
+	return UnknownNullCount
+}
+
+func (b *RunLengthEncodedBuilder) AppendEmptyValue() {
+	b.AppendNull()
+}
+
+func (b *RunLengthEncodedBuilder) Reserve(n int) {
+	b.values.Reserve(n)
+	b.runEnds.Reserve(n)
+}
+
+func (b *RunLengthEncodedBuilder) Resize(n int) {
+	b.values.Resize(n)
+	b.runEnds.Resize(n)
+}
+
+func (b *RunLengthEncodedBuilder) NewRunLengthEncodedArray() *RunLengthEncoded {
+	data := b.newData()
+	defer data.Release()
+	return NewRunLengthEncodedData(data)
+}
+
+func (b *RunLengthEncodedBuilder) NewArray() arrow.Array {
+	return b.NewRunLengthEncodedArray()
+}
+
+func (b *RunLengthEncodedBuilder) newData() (data *Data) {
+	b.finishRun()
+	values := b.values.NewArray()
+	defer values.Release()
+	runEnds := b.runEnds.NewInt32Array()
+	defer runEnds.Release()
+
+	data = NewData(
+		b.dt, b.length, []*memory.Buffer{nil},
+		[]arrow.ArrayData{runEnds.data, values.Data()}, 0, 0)
+	b.reset()
+	return
+}
+
+func (b *RunLengthEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
+	return arrow.ErrNotImplemented
+}
+
+func (b *RunLengthEncodedBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *RunLengthEncodedBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
+}
+
+var (
+	_ arrow.Array = (*RunLengthEncoded)(nil)
+	_ Builder     = (*RunLengthEncodedBuilder)(nil)
+)
