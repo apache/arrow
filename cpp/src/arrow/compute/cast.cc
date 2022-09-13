@@ -187,11 +187,14 @@ Result<const Kernel*> CastFunction::DispatchExact(
 
 Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type) {
   internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(static_cast<int>(to_type.id()));
-  if (it == internal::g_cast_table.end()) {
-    return Status::NotImplemented("Unsupported cast to ", to_type);
+  auto ids = {to_type.id(), to_type.storage_id()};
+  for (auto& id : ids) {
+    auto it = internal::g_cast_table.find(static_cast<int>(id));
+    if (it != internal::g_cast_table.end()) {
+      return it->second;
+    }
   }
-  return it->second;
+  return Status::NotImplemented("Unsupported cast to ", to_type);
 }
 
 }  // namespace internal

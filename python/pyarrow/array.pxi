@@ -916,13 +916,7 @@ cdef class Array(_PandasConvertible):
         -------
         cast : Array
         """
-        if hasattr(target_type, "storage_type"):
-            arr = self.cast(target_type.storage_type, safe, options)
-            return ExtensionArray.from_buffers(target_type, len(arr),
-                                               arr.buffers(), arr.null_count,
-                                               arr.offset)
-        else:
-            return _pc().cast(self, target_type, safe=safe, options=options)
+        return _pc().cast(self, target_type, safe=safe, options=options)
 
     def view(self, object target_type):
         """

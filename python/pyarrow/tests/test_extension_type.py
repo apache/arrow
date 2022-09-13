@@ -520,7 +520,7 @@ def test_cast_kernel_on_extension_arrays():
 def test_casting_to_extension_type():
     arr = pa.array([1, 2, 3, 4], pa.int64())
     out = arr.cast(IntegerType())
-    assert isinstance(out, pa.ExtensionArray)
+    assert isinstance(out, pa.Int64Array)
     assert out.to_pylist() == [1, 2, 3, 4]
 
 
