@@ -424,7 +424,8 @@ services:
     volumes: *ubuntu-volumes
     command: &arrow-static-cmd
       /bin/bash -c "
-        cd /arrow && r/inst/build_arrow_static.sh"
+        cd /arrow &&
+        r/inst/build_arrow_static.sh"
 
   centos-cpp-static:
     image: ${REPO}:centos-7-cpp-static
