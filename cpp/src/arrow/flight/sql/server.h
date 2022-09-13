@@ -21,6 +21,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -29,7 +30,6 @@
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/flight/types.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace flight {
@@ -79,19 +79,19 @@ struct ARROW_FLIGHT_SQL_EXPORT GetSqlInfo {
 /// \brief A request to list database schemas.
 struct ARROW_FLIGHT_SQL_EXPORT GetDbSchemas {
   /// \brief An optional database catalog to filter on.
-  util::optional<std::string> catalog;
+  std::optional<std::string> catalog;
   /// \brief An optional database schema to filter on.
-  util::optional<std::string> db_schema_filter_pattern;
+  std::optional<std::string> db_schema_filter_pattern;
 };
 
 /// \brief A request to list database tables.
 struct ARROW_FLIGHT_SQL_EXPORT GetTables {
   /// \brief An optional database catalog to filter on.
-  util::optional<std::string> catalog;
+  std::optional<std::string> catalog;
   /// \brief An optional database schema to filter on.
-  util::optional<std::string> db_schema_filter_pattern;
+  std::optional<std::string> db_schema_filter_pattern;
   /// \brief An optional table name to filter on.
-  util::optional<std::string> table_name_filter_pattern;
+  std::optional<std::string> table_name_filter_pattern;
   /// \brief A list of table types to filter on.
   std::vector<std::string> table_types;
   /// \brief Whether to include the Arrow schema in the response.
@@ -101,7 +101,7 @@ struct ARROW_FLIGHT_SQL_EXPORT GetTables {
 /// \brief A request to get SQL data type information.
 struct ARROW_FLIGHT_SQL_EXPORT GetXdbcTypeInfo {
   /// \brief A specific SQL type ID to fetch information about.
-  util::optional<int> data_type;
+  std::optional<int> data_type;
 };
 
 /// \brief A request to list primary keys of a table.

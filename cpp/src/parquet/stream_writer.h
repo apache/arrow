@@ -21,10 +21,10 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
@@ -48,11 +48,11 @@ namespace parquet {
 /// Required and optional fields are supported:
 /// - Required fields are written using operator<<(T)
 /// - Optional fields are written using
-///   operator<<(arrow::util::optional<T>).
+///   operator<<(std::optional<T>).
 ///
 /// Note that operator<<(T) can be used to write optional fields.
 ///
-/// Similarly, operator<<(arrow::util::optional<T>) can be used to
+/// Similarly, operator<<(std::optional<T>) can be used to
 /// write required fields.  However if the optional parameter does not
 /// have a value (i.e. it is nullopt) then a ParquetException will be
 /// raised.
@@ -62,7 +62,7 @@ namespace parquet {
 class PARQUET_EXPORT StreamWriter {
  public:
   template <typename T>
-  using optional = ::arrow::util::optional<T>;
+  using optional = ::std::optional<T>;
 
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move

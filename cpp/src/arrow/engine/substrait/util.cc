@@ -29,7 +29,7 @@ namespace {
 class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
  public:
   explicit SubstraitSinkConsumer(
-      arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer producer)
+      arrow::PushGenerator<std::optional<compute::ExecBatch>>::Producer producer)
       : producer_(std::move(producer)) {}
 
   Status Consume(compute::ExecBatch batch) override {
@@ -53,7 +53,7 @@ class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
   std::shared_ptr<Schema> schema() { return schema_; }
 
  private:
-  arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer producer_;
+  arrow::PushGenerator<std::optional<compute::ExecBatch>>::Producer producer_;
   std::shared_ptr<Schema> schema_;
 };
 
@@ -105,7 +105,7 @@ class SubstraitExecutor {
   }
 
  private:
-  arrow::PushGenerator<util::optional<compute::ExecBatch>> generator_;
+  arrow::PushGenerator<std::optional<compute::ExecBatch>> generator_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
   bool plan_started_;

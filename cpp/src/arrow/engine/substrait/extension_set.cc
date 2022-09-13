@@ -78,24 +78,24 @@ Id IdStorage::Emplace(Id id) {
   return {owned_uri, owned_name};
 }
 
-util::optional<Id> IdStorage::Find(Id id) const {
-  util::optional<util::string_view> maybe_owned_uri = FindUri(id.uri);
+std::optional<Id> IdStorage::Find(Id id) const {
+  std::optional<util::string_view> maybe_owned_uri = FindUri(id.uri);
   if (!maybe_owned_uri) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   auto name_itr = names_.find(id.name);
   if (name_itr == names_.end()) {
-    return util::nullopt;
+    return std::nullopt;
   } else {
     return Id{*maybe_owned_uri, *name_itr};
   }
 }
 
-util::optional<util::string_view> IdStorage::FindUri(util::string_view uri) const {
+std::optional<util::string_view> IdStorage::FindUri(util::string_view uri) const {
   auto uri_itr = uris_.find(uri);
   if (uri_itr == uris_.end()) {
-    return util::nullopt;
+    return std::nullopt;
   }
   return *uri_itr;
 }
@@ -111,8 +111,7 @@ util::string_view IdStorage::EmplaceUri(util::string_view uri) {
   return *uri_itr;
 }
 
-Result<util::optional<util::string_view>> SubstraitCall::GetEnumArg(
-    uint32_t index) const {
+Result<std::optional<util::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
   if (index >= size_) {
     return Status::Invalid("Expected Substrait call to have an enum argument at index ",
                            index, " but it did not have enough arguments");
@@ -129,7 +128,7 @@ bool SubstraitCall::HasEnumArg(uint32_t index) const {
   return enum_args_.find(index) != enum_args_.end();
 }
 
-void SubstraitCall::SetEnumArg(uint32_t index, util::optional<std::string> enum_arg) {
+void SubstraitCall::SetEnumArg(uint32_t index, std::optional<std::string> enum_arg) {
   size_ = std::max(size_, index + 1);
   enum_args_[index] = std::move(enum_arg);
 }
@@ -203,7 +202,7 @@ Result<ExtensionSet> ExtensionSet::Make(
   set.registry_ = registry;
 
   for (auto& uri : uris) {
-    util::optional<util::string_view> maybe_uri_internal = registry->FindUri(uri.second);
+    std::optional<util::string_view> maybe_uri_internal = registry->FindUri(uri.second);
     if (maybe_uri_internal) {
       set.uris_[uri.first] = *maybe_uri_internal;
     } else {
@@ -233,7 +232,7 @@ Result<ExtensionSet> ExtensionSet::Make(
   for (const auto& function_id : function_ids) {
     if (function_id.second.empty()) continue;
     RETURN_NOT_OK(set.CheckHasUri(function_id.second.uri));
-    util::optional<Id> maybe_id_internal = registry->FindId(function_id.second);
+    std::optional<Id> maybe_id_internal = registry->FindId(function_id.second);
     if (maybe_id_internal) {
       set.functions_[function_id.first] = *maybe_id_internal;
     } else {
@@ -309,9 +308,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   virtual ~ExtensionIdRegistryImpl() {}
 
-  util::optional<util::string_view> FindUri(util::string_view uri) const override {
+  std::optional<util::string_view> FindUri(util::string_view uri) const override {
     if (parent_) {
-      util::optional<util::string_view> parent_uri = parent_->FindUri(uri);
+      std::optional<util::string_view> parent_uri = parent_->FindUri(uri);
       if (parent_uri) {
         return parent_uri;
       }
@@ -319,9 +318,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return ids_.FindUri(uri);
   }
 
-  util::optional<Id> FindId(Id id) const override {
+  std::optional<Id> FindId(Id id) const override {
     if (parent_) {
-      util::optional<Id> parent_id = parent_->FindId(id);
+      std::optional<Id> parent_id = parent_->FindId(id);
       if (parent_id) {
         return parent_id;
       }
@@ -329,7 +328,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return ids_.Find(id);
   }
 
-  util::optional<TypeRecord> GetType(const DataType& type) const override {
+  std::optional<TypeRecord> GetType(const DataType& type) const override {
     if (auto index = GetIndex(type_to_index_, &type)) {
       return TypeRecord{type_ids_[*index], types_[*index]};
     }
@@ -339,7 +338,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return {};
   }
 
-  util::optional<TypeRecord> GetType(Id id) const override {
+  std::optional<TypeRecord> GetType(Id id) const override {
     if (auto index = GetIndex(id_to_index_, id)) {
       return TypeRecord{type_ids_[*index], types_[*index]};
     }
@@ -605,7 +604,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 template <typename Enum>
-using EnumParser = std::function<Result<Enum>(util::optional<util::string_view>)>;
+using EnumParser = std::function<Result<Enum>(std::optional<util::string_view>)>;
 
 template <typename Enum>
 EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
@@ -613,7 +612,7 @@ EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
   for (std::size_t i = 0; i < options.size(); i++) {
     parse_map[options[i]] = static_cast<Enum>(i + 1);
   }
-  return [parse_map](util::optional<util::string_view> enum_val) -> Result<Enum> {
+  return [parse_map](std::optional<util::string_view> enum_val) -> Result<Enum> {
     if (!enum_val) {
       // Assumes 0 is always kUnspecified in Enum
       return static_cast<Enum>(0);
@@ -640,7 +639,7 @@ static EnumParser<OverflowBehavior> kOverflowParser =
 template <typename Enum>
 Result<Enum> ParseEnumArg(const SubstraitCall& call, uint32_t arg_index,
                           const EnumParser<Enum>& parser) {
-  ARROW_ASSIGN_OR_RAISE(util::optional<util::string_view> enum_arg,
+  ARROW_ASSIGN_OR_RAISE(std::optional<util::string_view> enum_arg,
                         call.GetEnumArg(arg_index));
   return parser(enum_arg);
 }

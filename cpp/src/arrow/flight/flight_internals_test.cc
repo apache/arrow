@@ -359,12 +359,12 @@ class TestCookieParsing : public ::testing::Test {
 
   void VerifyCookieAttributeParsing(
       const std::string cookie_str, std::string::size_type start_pos,
-      const util::optional<std::pair<std::string, std::string>> cookie_attribute,
+      const std::optional<std::pair<std::string, std::string>> cookie_attribute,
       const std::string::size_type start_pos_after) {
-    util::optional<std::pair<std::string, std::string>> attr =
+    std::optional<std::pair<std::string, std::string>> attr =
         internal::Cookie::ParseCookieAttribute(cookie_str, &start_pos);
 
-    if (cookie_attribute == util::nullopt) {
+    if (cookie_attribute == std::nullopt) {
       EXPECT_EQ(cookie_attribute, attr);
     } else {
       EXPECT_EQ(cookie_attribute.value(), attr.value());
@@ -454,7 +454,7 @@ TEST_F(TestCookieParsing, DateConversion) {
 }
 
 TEST_F(TestCookieParsing, ParseCookieAttribute) {
-  VerifyCookieAttributeParsing("", 0, util::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing("", 0, std::nullopt, std::string::npos);
 
   std::string cookie_string = "attr0=0; attr1=1; attr2=2; attr3=3";
   auto attr_length = std::string("attr0=0;").length();
@@ -470,8 +470,8 @@ TEST_F(TestCookieParsing, ParseCookieAttribute) {
   VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
                                std::make_pair("attr3", "3"), std::string::npos);
   VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length - 1)),
-                               util::nullopt, std::string::npos);
-  VerifyCookieAttributeParsing(cookie_string, std::string::npos, util::nullopt,
+                               std::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, std::string::npos, std::nullopt,
                                std::string::npos);
 }
 
@@ -491,28 +491,28 @@ TEST(TransportErrorHandling, ReconstructStatus) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(". Also, server sent unknown or invalid Arrow status code -1"),
-      internal::ReconstructStatus("-1", current, util::nullopt, util::nullopt,
-                                  util::nullopt, /*detail=*/nullptr));
+      internal::ReconstructStatus("-1", current, std::nullopt, std::nullopt, std::nullopt,
+                                  /*detail=*/nullptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           ". Also, server sent unknown or invalid Arrow status code foobar"),
-      internal::ReconstructStatus("foobar", current, util::nullopt, util::nullopt,
-                                  util::nullopt, /*detail=*/nullptr));
+      internal::ReconstructStatus("foobar", current, std::nullopt, std::nullopt,
+                                  std::nullopt, /*detail=*/nullptr));
 
   // Override code
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       AlreadyExists, ::testing::HasSubstr("Base error message"),
       internal::ReconstructStatus(
           std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
-          util::nullopt, util::nullopt, util::nullopt, /*detail=*/nullptr));
+          std::nullopt, std::nullopt, std::nullopt, /*detail=*/nullptr));
 
   // Override message
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       AlreadyExists, ::testing::HasSubstr("Custom error message"),
       internal::ReconstructStatus(
           std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
-          "Custom error message", util::nullopt, util::nullopt, /*detail=*/nullptr));
+          "Custom error message", std::nullopt, std::nullopt, /*detail=*/nullptr));
 
   // With detail
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -521,7 +521,7 @@ TEST(TransportErrorHandling, ReconstructStatus) {
                        ::testing::HasSubstr(". Detail: Detail message")),
       internal::ReconstructStatus(
           std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
-          "Custom error message", "Detail message", util::nullopt, /*detail=*/nullptr));
+          "Custom error message", "Detail message", std::nullopt, /*detail=*/nullptr));
 
   // With detail and bin
   auto reconstructed = internal::ReconstructStatus(

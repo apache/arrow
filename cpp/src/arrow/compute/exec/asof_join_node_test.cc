@@ -222,7 +222,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r1_batches.schema, r1_batches.gen(false, false)}});
 
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
@@ -267,7 +267,7 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
 
   if (fail_on_plan_creation) {
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                   .AddToPlan(plan.get()));
     EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(Invalid,

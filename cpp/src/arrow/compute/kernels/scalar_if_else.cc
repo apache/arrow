@@ -67,7 +67,7 @@ Status CheckIdenticalTypes(const ExecValue* begin, int count) {
 constexpr uint64_t kAllNull = 0;
 constexpr uint64_t kAllValid = ~kAllNull;
 
-util::optional<uint64_t> GetConstantValidityWord(const ExecValue& data) {
+std::optional<uint64_t> GetConstantValidityWord(const ExecValue& data) {
   if (data.is_scalar()) {
     return data.scalar->is_valid ? kAllValid : kAllNull;
   }
@@ -91,7 +91,7 @@ struct IfElseNullPromoter {
 
   enum { COND_CONST = 1, LEFT_CONST = 2, RIGHT_CONST = 4 };
   int64_t constant_validity_flag;
-  util::optional<uint64_t> cond_const, left_const, right_const;
+  std::optional<uint64_t> cond_const, left_const, right_const;
   Bitmap cond_data, cond_valid, left_valid, right_valid;
 
   IfElseNullPromoter(KernelContext* ctx, const ExecValue& cond_d, const ExecValue& left_d,

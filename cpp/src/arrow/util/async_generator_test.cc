@@ -19,6 +19,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <random>
 #include <thread>
 #include <unordered_set>
@@ -31,7 +32,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -1846,7 +1846,7 @@ TEST(PushGenerator, CloseEarly) {
 }
 
 TEST(PushGenerator, DanglingProducer) {
-  util::optional<PushGenerator<TestInt>> gen;
+  std::optional<PushGenerator<TestInt>> gen;
   gen.emplace();
   auto producer = gen->producer();
 

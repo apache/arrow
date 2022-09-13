@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #if defined(sun) || defined(__sun)
 #include <stdlib.h>
@@ -40,7 +41,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
@@ -103,8 +103,8 @@ const std::vector<SupportedBackend>& SupportedBackends() {
 
 // Return the MemoryPoolBackend selected by the user through the
 // ARROW_DEFAULT_MEMORY_POOL environment variable, if any.
-util::optional<MemoryPoolBackend> UserSelectedBackend() {
-  static auto user_selected_backend = []() -> util::optional<MemoryPoolBackend> {
+std::optional<MemoryPoolBackend> UserSelectedBackend() {
+  static auto user_selected_backend = []() -> std::optional<MemoryPoolBackend> {
     auto unsupported_backend = [](const std::string& name) {
       std::vector<std::string> supported;
       for (const auto backend : SupportedBackends()) {

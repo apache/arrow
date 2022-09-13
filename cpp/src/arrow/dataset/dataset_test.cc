@@ -17,6 +17,8 @@
 
 #include "arrow/dataset/dataset.h"
 
+#include <optional>
+
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
@@ -24,7 +26,6 @@
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace dataset {
@@ -485,7 +486,7 @@ inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> na
 
 class TestSchemaUnification : public TestUnionDataset {
  public:
-  using i32 = util::optional<int32_t>;
+  using i32 = std::optional<int32_t>;
   using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
   void SetUp() override {
@@ -595,7 +596,7 @@ class TestSchemaUnification : public TestUnionDataset {
   std::shared_ptr<Dataset> dataset_;
 };
 
-using util::nullopt;
+using std::nullopt;
 
 TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:

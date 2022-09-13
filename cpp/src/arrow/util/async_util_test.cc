@@ -200,9 +200,9 @@ TEST(AsyncTaskScheduler, SubSchedulerNoTasks) {
 
 class CustomThrottle : public AsyncTaskScheduler::Throttle {
  public:
-  virtual util::optional<Future<>> TryAcquire(int amt) {
+  virtual std::optional<Future<>> TryAcquire(int amt) {
     if (gate_.is_finished()) {
-      return nullopt;
+      return std::nullopt;
     } else {
       return gate_;
     }

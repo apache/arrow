@@ -22,6 +22,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -46,7 +47,6 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/utf8_internal.h"
@@ -166,7 +166,7 @@ namespace {
 
 // This is a callable that can be used to transform an iterator.  The source iterator
 // will contain buffers of data and the output iterator will contain delimited CSV
-// blocks.  util::optional is used so that there is an end token (required by the
+// blocks.  std::optional is used so that there is an end token (required by the
 // iterator APIs (e.g. Visit)) even though an empty optional is never used in this code.
 class BlockReader {
  public:
@@ -1212,8 +1212,8 @@ class CSVRowCounter : public ReaderMixin,
     // count_cb must return a value instead of Status/Future<> to work with
     // MakeMappedGenerator, and it must use a type with a valid end value to work with
     // IterationEnd.
-    std::function<Result<util::optional<int64_t>>(const CSVBlock&)> count_cb =
-        [self](const CSVBlock& maybe_block) -> Result<util::optional<int64_t>> {
+    std::function<Result<std::optional<int64_t>>(const CSVBlock&)> count_cb =
+        [self](const CSVBlock& maybe_block) -> Result<std::optional<int64_t>> {
       ARROW_ASSIGN_OR_RAISE(
           auto parser,
           self->Parse(maybe_block.partial, maybe_block.completion, maybe_block.buffer,

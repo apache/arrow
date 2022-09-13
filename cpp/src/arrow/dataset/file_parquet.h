@@ -20,6 +20,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -30,7 +31,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/caching.h"
-#include "arrow/util/optional.h"
 
 namespace parquet {
 class ParquetFileReader;
@@ -99,7 +99,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -167,7 +167,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       compute::Expression partition_expression,
                       std::shared_ptr<Schema> physical_schema,
-                      util::optional<std::vector<int>> row_groups);
+                      std::optional<std::vector<int>> row_groups);
 
   Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
                      std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
@@ -185,13 +185,13 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// Try to count rows matching the predicate using metadata. Expects
   /// metadata to be present, and expects the predicate to have been
   /// simplified against the partition expression already.
-  Result<util::optional<int64_t>> TryCountRows(compute::Expression predicate);
+  Result<std::optional<int64_t>> TryCountRows(compute::Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
   /// Indices of row groups selected by this fragment,
-  /// or util::nullopt if all row groups are selected.
-  util::optional<std::vector<int>> row_groups_;
+  /// or std::nullopt if all row groups are selected.
+  std::optional<std::vector<int>> row_groups_;
 
   std::vector<compute::Expression> statistics_expressions_;
   std::vector<bool> statistics_expressions_complete_;
