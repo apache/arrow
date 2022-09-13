@@ -32,7 +32,7 @@ ENV PATH=/opt/conda/bin:$PATH
 
 # create a conda environment
 ADD ci/conda_env_unix.txt /arrow/ci/
-RUN mamba && mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
+RUN mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
     mamba clean --all
 
 # activate the created environment by default
