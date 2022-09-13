@@ -20,14 +20,15 @@
 set -e
 
 if [  "$#" -lt 1 -o "$#" -gt 3 ]; then
-    echo "Usage: $0 <build> <arch> <version>"
+    echo "Usage: $0 <build> <prefix> <arch> <version>"
     echo "Will default to arch=x86_64 and version=0.3.0 "
     exit 1
 fi
 
 BUILD=$1
-ARCH=${2:-x86_64}
-VERSION=${3:-0.3.0}
+PREFIX=$2
+ARCH=${3:-x86_64}
+VERSION=${4:-0.3.0}
 
 SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v$VERSION-$ARCH-$BUILD.tar.gz"
 SCCACHE_ARCHIVE=sccache.tar.gz
@@ -38,11 +39,11 @@ curl -L $SCCACHE_URL.sha256 --output $SCCACHE_ARCHIVE.sha256
 
 echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
 
-mkdir -p sccache
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache
-chmod u+x sccache/sccache
+mkdir -p $PREFIX/sccache
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX/sccache
+chmod u+x $PREFIX/sccache/sccache
 
-SCCACHE_DIR=$(pwd)/sccache
+SCCACHE_DIR=$PREFIX/sccache
 
 if [ "$GITHUB_ACTIONS" ]; then
     echo "$SCCACHE_DIR" >> $GITHUB_PATH
