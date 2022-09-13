@@ -79,6 +79,27 @@ In most cases, it is recommended to use the Arrow shared libraries.
 If Arrow is installed on a custom path instead of a common system one you
 will have to add the path where Arrow is installed to ``CMAKE_PREFIX_PATH``.
 
+``CMAKE_PREFIX_PATH`` can be defined as a `CMake variable
+<https://cmake.org/cmake/help/latest/variable/CMAKE_PREFIX_PATH.html>`_ or an
+`environment variable <https://cmake.org/cmake/help/latest/envvar/CMAKE_PREFIX_PATH.html>`_.
+
+Your system might already have a ``CMAKE_PREFIX_PATH`` environment variable
+defined, use the following to expand it with the path to your Arrow
+installation. In this case ``ARROW_ROOT`` is expected to contain the
+path to your Arrow installation:
+
+.. code-block:: shell
+
+   export CMAKE_PREFIX_PATH=${ARROW_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
+
+In the case of using a CMake variable you can add it when configuring the
+project like the following to contain the possible existing
+``CMAKE_PREFIX_PATH`` environment variable:
+
+.. code-block:: shell
+
+   cmake ... -DCMAKE_PREFIX_PATH=${ARROW_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
+
 .. note::
    The usage of ``COMPONENTS`` on our ``find_package`` implementation is
    currently not supported.
