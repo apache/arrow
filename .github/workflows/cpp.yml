@@ -257,7 +257,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.2 /usr
+          ci/scripts/install_ccache.sh 4.6.3 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -271,8 +271,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-
+          key: cpp-ccache-windows-v2-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-v2-
       - name: Build
         shell: cmd
         run: |
