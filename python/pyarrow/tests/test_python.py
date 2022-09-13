@@ -15,23 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import importlib
-import sys
+# import importlib
+# import sys
 
-# list of Cython modules containing tests
-cython_test_modules = ["pyarrow._pyarrow_cpp_tests"]
+# # list of Cython modules containing tests
+# cython_test_modules = ["pyarrow._pyarrow_cpp_tests"]
 
-for mod in cython_test_modules:
-    # For each callable in `mod` with name `test_*`,
-    # set the result as an attribute of this module.
-    mod = importlib.import_module(mod)
-    for name in dir(mod):
-        item = getattr(mod, name)
-        if callable(item) and name.startswith("test_"):
-            setattr(sys.modules[__name__], name, item)
+# for mod in cython_test_modules:
+#     # For each callable in `mod` with name `test_*`,
+#     # set the result as an attribute of this module.
+#     mod = importlib.import_module(mod)
+#     for name in dir(mod):
+#         item = getattr(mod, name)
+#         if callable(item) and name.startswith("test_"):
+#             setattr(sys.modules[__name__], name, item)
 
-# from pyarrow._pyarrow_cpp_tests import (test_PythonDecimalToString)  # noqa
+from pyarrow._pyarrow_cpp_tests import (test_PythonDecimalToString)  # noqa
 
-# def test_to_string():
-#     string_out = test_PythonDecimalToString()
-#     assert string_out == str('-39402950693754869342983')
+def test_python_decimal_to_string():
+    test_PythonDecimalToString()

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
+# cython: profile=False, binding=True
 # distutils: language = c++
 
 from pyarrow.includes.common cimport *
@@ -24,32 +24,20 @@ from pyarrow.lib cimport (check_status)
 
 from decimal import Decimal
 
-import functools
-import inspect
-
-def cytest(func):
-    """
-    Wraps `func` in a plain Python function.
-    """
-
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        bound = inspect.signature(func).bind(*args, **kwargs)
-        return func(*bound.args, **bound.kwargs)
-
-    return wrapped
-
 #cdef create_python_decimal(c_string& string_value):
 #    cdef PyObject* decimal_value = DecimalFromString(Decimal, string_value)
 #    return PyObject_to_object(decimal_value)
 
-@cytest
 def test_PythonDecimalToString():
-    cdef c_string decimal_string = b'-39402950693754869342983'
-    cdef PyObject* decimal_value = DecimalFromString(Decimal, decimal_string)
-    cdef c_string string_out
+    cdef:
+        c_string decimal_string = b'-39402950693754869342983'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        c_string string_result
 
     with nogil:
-        check_status(PythonDecimalToString(decimal_value, &string_out))
+        check_status(PythonDecimalToString(
+            python_object,
+            &string_result)
+            )
 
-    assert string_out == decimal_string
+    assert string_result == decimal_string

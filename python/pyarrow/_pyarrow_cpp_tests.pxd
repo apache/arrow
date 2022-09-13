@@ -24,8 +24,8 @@ from pyarrow.includes.libarrow cimport (c_string, CStatus)
 cdef extern from "arrow/python/decimal.h" namespace "arrow::py::internal" nogil:
 
     PyObject* DecimalFromString(
-        Decimal,
-        const c_string decimal_string)
+        PyObject* decimal_constructor,
+        const c_string& decimal_string)
 
     CStatus PythonDecimalToString(
         PyObject* python_decimal,
