@@ -181,7 +181,7 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     ccache -s
 fi
 
-if command -v sccache &> /dev/null then
+if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
   sccache --show-stats
 fi
