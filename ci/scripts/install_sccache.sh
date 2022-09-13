@@ -39,9 +39,9 @@ curl -L $SCCACHE_URL.sha256 --output $SCCACHE_ARCHIVE.sha256
 
 echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
 
-mkdir -p $PREFIX/sccache
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX/sccache
-chmod u+x $PREFIX/sccache/sccache
+mkdir -p $PREFIX
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --wildcards sccache*/sccache 
+chmod u+x $PREFIX/sccache
 
 SCCACHE_DIR=$PREFIX/sccache
 

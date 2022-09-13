@@ -102,7 +102,7 @@ RUN apt-get update -y -q && \
 # ARROW-17051: this build uses static Protobuf, so we must also use
 # static Arrow to run Flight/Flight SQL tests
 
-COPY /ci/scripts/install_sccache.sh /arrow/ci/scripts/
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_BUILD_STATIC=ON \

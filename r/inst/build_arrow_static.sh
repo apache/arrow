@@ -87,7 +87,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
 
 ${CMAKE} --build . --target install
 
-if command -v sccache &> /dev/null then
+if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
   sccache --show-stats
 fi

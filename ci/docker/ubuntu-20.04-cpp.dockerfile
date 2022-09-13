@@ -117,7 +117,7 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh
 
-COPY /ci/scripts/install_sccache.sh /arrow/ci/scripts/
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 # Prioritize system packages and local installation
