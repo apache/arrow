@@ -71,7 +71,7 @@ In addition, it will have created some targets that you can link against
 * ``Arrow::arrow_static`` links to the Arrow static libraries
 
 For backwards compatibility purposes the ``arrow_shared`` and ``arrow_static``
-targets are also available but we recomend using ``Arrow::arrow_shared`` and
+targets are also available but we recommend using ``Arrow::arrow_shared`` and
 ``Arrow::arrow_static`` respectively.
 
 In most cases, it is recommended to use the Arrow shared libraries.
@@ -90,29 +90,29 @@ There are other available packages, they can also be used with the `find_package
 <https://cmake.org/cmake/help/latest/command/find_package.html>`_ directive.
 This is the list of available ones and the respective targets created:
 
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| find_package usage                            | shared target                                      | static target                                   |
-+===============================================+====================================================+=================================================+
-| ``find_package(ArrowCUDA REQUIRED)``          | ArrowCUDA::arrow_cuda_shared                       | ArrowCUDA::arrow_cuda_static                    |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowDataset REQUIRED)``       | ArrowDataset::arrow_dataset_shared                 | ArrowDataset::arrow_dataset_static              |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowFlight REQUIRED)``        | ArrowFlight::arrow_flight_shared                   | ArrowFlight::arrow_flight_static                |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowFlightSql REQUIRED)`      | ArrowFlightSql::arrow_flight_sql_shared            | ArrowFlightSql::arrow_flight_sql_static         |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowFlightTesting REQUIRED)`` | ArrowFlightTesting::arrow_flight_testing_shared    | ArrowFlightTesting::arrow_flight_testing_static |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowSubstrait REQUIRED)``     | ArrowSubstrait::arrow_substrait_shared             | ArrowSubstrait::arrow_substrait_static          |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(ArrowTesting REQUIRED)``       | ArrowTesting::arrow_testing_shared                 | ArrowTesting::arrow_testing_static              |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(Gandiva REQUIRED)``            | Gandiva::gandiva_shared                            | Gandiva::gandiva_static                         |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(Parquet REQUIRED)``            | Parquet::parquet_shared                            | Parquet::parquet_static                         |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
-| ``find_package(Plasma REQUIRED)``             | Plasma::plasma_shared                              | Plasma::plasma_static                           |
-+-----------------------------------------------+----------------------------------------------------+-------------------------------------------------+
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| find_package usage                            | shared target                                          | static target                                       |
++===============================================+========================================================+=====================================================+
+| ``find_package(ArrowCUDA REQUIRED)``          | ``ArrowCUDA::arrow_cuda_shared``                       | ``ArrowCUDA::arrow_cuda_static``                    |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowDataset REQUIRED)``       | ``ArrowDataset::arrow_dataset_shared``                 | ``ArrowDataset::arrow_dataset_static``              |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlight REQUIRED)``        | ``ArrowFlight::arrow_flight_shared``                   | ``ArrowFlight::arrow_flight_static``                |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlightSql REQUIRED)``     | ``ArrowFlightSql::arrow_flight_sql_shared``            | ``ArrowFlightSql::arrow_flight_sql_static``         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlightTesting REQUIRED)`` | ``ArrowFlightTesting::arrow_flight_testing_shared``    | ``ArrowFlightTesting::arrow_flight_testing_static`` |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowSubstrait REQUIRED)``     | ``ArrowSubstrait::arrow_substrait_shared``             | ``ArrowSubstrait::arrow_substrait_static``          |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowTesting REQUIRED)``       | ``ArrowTesting::arrow_testing_shared``                 | ``ArrowTesting::arrow_testing_static``              |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(Gandiva REQUIRED)``            | ``Gandiva::gandiva_shared``                            | ``Gandiva::gandiva_static``                         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(Parquet REQUIRED)``            | ``Parquet::parquet_shared``                            | ``Parquet::parquet_static``                         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(Plasma REQUIRED)``             | ``Plasma::plasma_shared``                              | ``Plasma::plasma_static``                           |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
 
 ``Plasma`` will also expose ``Plasma::plasma-store-server`` for the Plasma store server executable.
 
