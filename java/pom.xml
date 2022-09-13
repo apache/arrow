@@ -905,6 +905,70 @@
       </build>
     </profile>
 
+    <profile>
+      <id>generate-cdata-dylib_so</id>
+      <properties>
+        <arrow.c.jni.dist.dir>java-dist/lib</arrow.c.jni.dist.dir>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>cdatadir</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>mkdir</executable>
+                  <commandlineArgs>-p java-dist java-jni</commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdatadefine</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    -S java
+                    -B java-jni
+                    -DARROW_JAVA_JNI_ENABLE_C=ON
+                    -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+                    -DBUILD_TESTING=OFF
+                    -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+              <execution>
+                <id>cdatabuild</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>cmake</executable>
+                  <commandlineArgs>
+                    --build java-jni --target install --config Release
+                  </commandlineArgs>
+                  <workingDirectory>../</workingDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 
 </project>
