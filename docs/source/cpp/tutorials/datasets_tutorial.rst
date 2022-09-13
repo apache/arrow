@@ -438,9 +438,11 @@ an example of such a dataset, the NYC Taxi dataset is a well-known
 one<link>. Now you can get larger-than-memory data mapped for use!
 
 Which means that now we have to be able to process this data without
-pulling it all into memory at once. For this, we’ll use Acero.
+pulling it all into memory at once. For this, try Acero. 
 
-<LINK TO NEXT ARTICLE>
+.. seealso:: :doc:`/cpp/streaming_execution` for more information on Acero.
+
+Refer to the below for a copy of the complete code:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
   :language: cpp

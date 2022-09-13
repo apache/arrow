@@ -272,9 +272,7 @@ Wrapping Up
 -----------
 
 With that, you’ve created the fundamental data structures in Arrow, and
-can proceed to getting them in and out of a program with file I/O:
-
-<LINK TO NEXT ARTICLE>
+can proceed to getting them in and out of a program with file I/O in the next article.
 
 Refer to the below for a copy of the complete code:
 

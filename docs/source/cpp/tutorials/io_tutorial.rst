@@ -392,9 +392,9 @@ we’re done, and that everything’s okay. Just like in the first tutorial.
 
 With that, you’ve read and written IPC, CSV, and Parquet in Arrow, and
 can properly load data and write output! Now, we can move into
-processing data with compute functions.
+processing data with compute functions in the next article.
 
-<LINK TO NEXT ARTICLE>
+Refer to the below for a copy of the complete code:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
   :language: cpp

@@ -330,9 +330,9 @@ struct. Now you can process any :class:`Table` you need to, and solve whatever
 data problem you have that fits into memory!
 
 Which means that now we have to see how we can work with
-larger-than-memory datasets, via Arrow Datasets.
+larger-than-memory datasets, via Arrow Datasets in the next article.
 
-<LINK TO NEXT ARTICLE>
+Refer to the below for a copy of the complete code:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/compute_example.cc
   :language: cpp
