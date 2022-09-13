@@ -29,8 +29,7 @@ there may be exceptions.
 Language version
 ----------------
 
-Arrow is C++11-compatible.  A few backports are used for newer functionality,
-for example the :class:`std::string_view` class.
+Starting with version 10.0, Arrow C++ is C++17-compatible.
 
 Namespacing
 -----------

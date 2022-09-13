@@ -154,7 +154,7 @@ without writing JNI bindings ourselves.
                    include = {
                            "CDataCppBridge.h"
                    },
-                   compiler = {"cpp11"},
+                   compiler = {"cpp17"},
                    linkpath = {"/arrow/cpp/build/debug/"},
                    link = {"arrow"}
            )
@@ -436,7 +436,7 @@ CMakeLists.txt definition file:
    find_package(Arrow REQUIRED)
    message(STATUS "Arrow version: ${ARROW_VERSION}")
    include_directories(${JNI_INCLUDE_DIRS})
-   set(CMAKE_CXX_STANDARD 11)
+   set(CMAKE_CXX_STANDARD 17)
    add_executable(${PROJECT_NAME} main.cpp)
    target_link_libraries(cdatacpptojava PRIVATE arrow_shared)
    target_link_libraries(cdatacpptojava PRIVATE ${JNI_LIBRARIES})
