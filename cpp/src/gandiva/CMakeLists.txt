@@ -29,8 +29,6 @@ find_package(LLVMAlt REQUIRED)
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
-find_package(OpenSSLAlt REQUIRED)
-
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
