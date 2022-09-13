@@ -228,7 +228,7 @@ class SchemaWriter {
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
               is_base_binary_type<T>::value || is_base_list_type<T>::value ||
-              is_struct_type<T>::value>
+              is_struct_type<T>::value || is_run_length_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -438,7 +438,8 @@ class SchemaWriter {
   Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("run-length encoded type in JSON");
+    WriteName("runlengthencoded", type);
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
@@ -747,8 +748,14 @@ class ArrayWriter {
     return WriteChildren(type.fields(), children);
   }
 
-  Status Visit(const RunLengthEncodedArray& type) {
-    return Status::NotImplemented("run-length encoded array in JSON");
+  Status Visit(const RunLengthEncodedArray& array) {
+    WriteValidityField(array);
+    const auto& type = checked_cast<const RunLengthEncodedType&>(*array.type());
+    std::vector<std::shared_ptr<Array>> children = {
+        array.run_ends_array(),
+        array.values_array(),
+    };
+    return WriteChildren(type.fields(), children);
   }
 
   Status Visit(const ExtensionArray& array) { return VisitArrayValues(*array.storage()); }
@@ -1013,6 +1020,35 @@ Status GetUnion(const RjObject& json_type,
   return Status::OK();
 }
 
+Status GetRunLengthEncoded(const RjObject& json_type,
+                           const std::vector<std::shared_ptr<Field>>& children,
+                           std::shared_ptr<DataType>* type) {
+  if (children.size() != 2) {
+    return Status::Invalid("RLE array must have exactly 2 fields, but got ",
+                           children.size());
+  }
+  if (children[0]->name() != "run_ends") {
+    return Status::Invalid("First child of RLE must be called run_ends, but got: ",
+                           children[0]->name());
+  }
+  if (children[0]->type()->id() != Type::INT32) {
+    return Status::Invalid("Only int32 type is supported as run ends array, but got: ",
+                           children[0]->type());
+  }
+  if (children[0]->nullable()) {
+    return Status::Invalid("Run ends array cannot be nullable");
+  }
+  if (children[1]->name() != "values") {
+    return Status::Invalid("Second child of RLE must be called values, but got: ",
+                           children[1]->name());
+  }
+  if (!children[1]->nullable()) {
+    return Status::Invalid("RLE values array should be nullable, but is not");
+  }
+  *type = run_length_encoded(children[1]->type());
+  return Status::OK();
+}
+
 Status GetType(const RjObject& json_type,
                const std::vector<std::shared_ptr<Field>>& children,
                std::shared_ptr<DataType>* type) {
@@ -1066,6 +1102,8 @@ Status GetType(const RjObject& json_type,
     *type = struct_(children);
   } else if (type_name == "union") {
     return GetUnion(json_type, children, type);
+  } else if (type_name == "runlengthencoded") {
+    return GetRunLengthEncoded(json_type, children, type);
   } else {
     return Status::Invalid("Unrecognized type name: ", type_name);
   }
@@ -1551,7 +1589,9 @@ class ArrayReader {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("run-length encoded array in JSON");
+    RETURN_NOT_OK(InitializeData(1));
+    RETURN_NOT_OK(GetChildren(obj_, type));
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {

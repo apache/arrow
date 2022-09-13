@@ -748,8 +748,10 @@ void TestSchemaRoundTrip(const Schema& schema) {
 
   DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
-  if (!json::ReadSchema(d, default_memory_pool(), &in_memo, &out).ok()) {
-    FAIL() << "Unable to read JSON schema: " << json_schema;
+  Status status = json::ReadSchema(d, default_memory_pool(), &in_memo, &out);
+  if (!status.ok()) {
+    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status
+           << "\n";
   }
 
   if (!schema.Equals(*out)) {
@@ -830,6 +832,7 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
                         {0, 1})),
       field("f19", large_list(uint8())),
       field("f20", null()),
+      field("f21", (run_length_encoded(utf8()))),
   };
 
   Schema schema(fields);
