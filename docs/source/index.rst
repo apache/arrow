@@ -100,4 +100,3 @@ target environment.**
    developers/benchmarks
    developers/documentation
    developers/release
-   developers/computeir
