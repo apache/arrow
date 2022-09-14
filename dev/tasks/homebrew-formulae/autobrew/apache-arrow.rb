@@ -61,6 +61,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=10.14
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DPARQUET_BUILD_EXECUTABLES=ON
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
