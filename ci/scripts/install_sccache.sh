@@ -43,7 +43,7 @@ if [ ! -d $PREFIX ]; then
     mkdir -p $PREFIX
 fi
 
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --wildcards sccache*/sccache 
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --wildcards sccache*/sccache* 
 chmod u+x $PREFIX/sccache
 
 SCCACHE_DIR=$PREFIX/sccache
