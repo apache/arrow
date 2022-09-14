@@ -47,12 +47,12 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
     benchmark
-    bison
+    BISON
     Boost
     Brotli
     BZip2
     c-ares
-    flex
+    FLEX
     gflags
     GLOG
     google_cloud_cpp_storage
@@ -155,7 +155,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_awssdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "bison")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "BISON")
     build_bison()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
     build_boost()
@@ -165,6 +165,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "FLEX")
+    build_flex()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
@@ -175,8 +177,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "flex")
-    build_flex()
   elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
     build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
@@ -2692,7 +2692,7 @@ macro(build_bison)
 endmacro()
 
 if(ARROW_WITH_BISON)
-  resolve_dependency(bison REQUIRED_VERSION "3.2")
+  resolve_dependency(BISON REQUIRED_VERSION "3.2")
   add_definitions(-DARROW_WITH_BISON)
 endif()
 
@@ -2713,7 +2713,7 @@ macro(build_flex)
 endmacro()
 
 if(ARROW_WITH_FLEX)
-  resolve_dependency(flex REQUIRED_VERSION "2.5")
+  resolve_dependency(FLEX REQUIRED_VERSION "2.5")
   add_definitions(-DARROW_WITH_FLEX)
 endif()
 # ----------------------------------------------------------------------
