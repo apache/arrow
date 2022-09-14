@@ -150,6 +150,7 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
+            <exclude>**/flight.properties</exclude>
           </excludes>
         </configuration>
       </plugin>
