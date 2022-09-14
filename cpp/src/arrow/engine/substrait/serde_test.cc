@@ -106,7 +106,7 @@ void WriteIpcData(const std::string& path,
 }
 
 Result<std::shared_ptr<Table>> GetTableFromPlan(
-    compute::Declaration& other_declrs, compute::ExecContext& exec_context,
+    const compute::Declaration& other_declrs, compute::ExecContext& exec_context,
     const std::shared_ptr<Schema>& output_schema) {
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
 
@@ -197,13 +197,8 @@ void AssertPlanExecutionResult(const std::shared_ptr<Table> expected_table,
                                const compute::Declaration& source_declaration,
                                const std::shared_ptr<Schema>& schema,
                                compute::ExecContext& exec_context) {
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
-  auto declarations =
-      compute::Declaration::Sequence({source_declaration, sink_declaration});
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       GetTableFromPlan(declarations, sink_gen, exec_context, schema));
+                       GetTableFromPlan(source_declaration, exec_context, schema));
   ASSERT_TRUE(expected_table->Equals(*output_table));
 }
 
@@ -2290,7 +2285,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter_expr}, "f"})});
 
   ASSERT_OK_AND_ASSIGN(auto expected_table,
                        GetTableFromPlan(declarations, exec_context, dummy_schema));
@@ -2354,7 +2349,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
 
-  ARROW_EXPECT_OK(WriteIpcData(file_path_str, filesystem, table));
+  WriteIpcData(file_path_str, filesystem, table);
 
   std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {file_path_str};
@@ -2382,14 +2377,11 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
       compute::field_ref("distinct"), project_expr};
   std::vector<compute::Expression> substrait_project_exprs = {project_expr};
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-
   auto acero_declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
        compute::Declaration(
-           {"project", compute::ProjectNodeOptions{acero_project_exprs}, "p"}),
-       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+           {"project", compute::ProjectNodeOptions{acero_project_exprs}, "p"})});
 
   // adding the project expression field to schema
   ASSERT_OK_AND_ASSIGN(auto project_schema,
@@ -2398,7 +2390,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expected_table,
-      GetTableFromPlan(acero_declarations, sink_gen, exec_context, project_schema));
+      GetTableFromPlan(acero_declarations, exec_context, project_schema));
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -2411,8 +2403,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
        compute::Declaration(
-           {"project", compute::ProjectNodeOptions{substrait_project_exprs}, "p"}),
-       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+           {"project", compute::ProjectNodeOptions{substrait_project_exprs}, "p"})});
 
   ASSERT_OK_AND_ASSIGN(auto serialized_plan,
                        SerializePlan(substrait_declarations, &ext_set));
