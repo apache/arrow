@@ -43,13 +43,54 @@ var (
 				return CallFunction(ctx, "array_filter", opts, args...)
 			}
 		})
+	takeDoc      FunctionDoc
+	takeMetaFunc = NewMetaFunction("take", Binary(), takeDoc,
+		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
+			indexKind := args[1].Kind()
+			if indexKind != KindArray && indexKind != KindChunked {
+				return nil, fmt.Errorf("%w: unsupported types for take operation: values=%s, indices=%s",
+					arrow.ErrNotImplemented, args[0], args[1])
+			}
+
+			switch args[0].Kind() {
+			case KindArray, KindChunked:
+				return CallFunction(ctx, "array_take", opts, args...)
+			case KindRecord:
+			case KindTable:
+			}
+
+			return nil, fmt.Errorf("%w: unsupported types for take operation: values=%s, indices=%s",
+				arrow.ErrNotImplemented, args[0], args[1])
+		})
 )
+
+func Take(ctx context.Context, opts *TakeOptions, values, indices Datum) (Datum, error) {
+	return CallFunction(ctx, "array_take", opts, values, indices)
+}
+
+func TakeArray(ctx context.Context, values, indices arrow.Array) (arrow.Array, error) {
+	v := NewDatum(values)
+	idx := NewDatum(indices)
+	defer v.Release()
+	defer idx.Release()
+
+	out, err := CallFunction(ctx, "array_take", nil, v, idx)
+	if err != nil {
+		return nil, err
+	}
+	defer out.Release()
+
+	return out.(*ArrayDatum).MakeArray(), nil
+}
 
 // RegisterVectorSelection registers functions that select specific
 // values from arrays such as Take and Filter
 func RegisterVectorSelection(reg FunctionRegistry) {
+	filterMetaFunc.defaultOpts = DefaultFilterOptions()
+	takeMetaFunc.defaultOpts = DefaultTakeOptions()
 	reg.AddFunction(filterMetaFunc, false)
-	filterKernels, _ := kernels.GetVectorSelectionKernels()
+	reg.AddFunction(takeMetaFunc, false)
+	filterKernels, takeKernels := kernels.GetVectorSelectionKernels()
 
 	vfunc := NewVectorFunction("array_filter", Binary(), EmptyFuncDoc)
 	vfunc.defaultOpts = &kernels.FilterOptions{}
@@ -57,6 +98,22 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 	selectionType := exec.NewExactInput(arrow.FixedWidthTypes.Boolean)
 	basekernel := exec.NewVectorKernelWithSig(nil, nil, exec.OptionsInit[kernels.FilterState])
 	for _, kd := range filterKernels {
+		basekernel.Signature = &exec.KernelSignature{
+			InputTypes: []exec.InputType{kd.In, selectionType},
+			OutType:    kernels.OutputFirstType,
+		}
+		basekernel.ExecFn = kd.Exec
+		vfunc.AddKernel(basekernel)
+	}
+	reg.AddFunction(vfunc, false)
+
+	vfunc = NewVectorFunction("array_take", Binary(), EmptyFuncDoc)
+	vfunc.defaultOpts = DefaultTakeOptions()
+
+	selectionType = exec.NewMatchedInput(exec.Integer())
+	basekernel = exec.NewVectorKernelWithSig(nil, nil, exec.OptionsInit[kernels.TakeState])
+	basekernel.CanExecuteChunkWise = false
+	for _, kd := range takeKernels {
 		basekernel.Signature = &exec.KernelSignature{
 			InputTypes: []exec.InputType{kd.In, selectionType},
 			OutType:    kernels.OutputFirstType,

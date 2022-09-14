@@ -50,10 +50,20 @@ type ctxExecKey struct{}
 
 const DefaultMaxChunkSize = math.MaxInt64
 
-// global default ExecCtx object, initialized with the
-// default max chunk size, contiguous preallocations, and
-// the default function registry.
-var defaultExecCtx ExecCtx
+var (
+	// global default ExecCtx object, initialized with the
+	// default max chunk size, contiguous preallocations, and
+	// the default function registry.
+	defaultExecCtx ExecCtx
+
+	// WithAllocator returns a new context with the provided allocator
+	// embedded into the context.
+	WithAllocator = exec.WithAllocator
+	// GetAllocator retrieves the allocator from the context, or returns
+	// memory.DefaultAllocator if there was no allocator in the provided
+	// context.
+	GetAllocator = exec.GetAllocator
+)
 
 func init() {
 	defaultExecCtx.ChunkSize = DefaultMaxChunkSize

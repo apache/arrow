@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -63,7 +64,7 @@ func (f *FilterKernelTestSuite) getArr(dt arrow.DataType, str string) arrow.Arra
 }
 
 func (f *FilterKernelTestSuite) doAssertFilter(values, filter, expected arrow.Array) {
-	ctx := context.TODO()
+	ctx := compute.WithAllocator(context.TODO(), f.mem)
 	valDatum := compute.NewDatum(values)
 	defer valDatum.Release()
 	filterDatum := compute.NewDatum(filter)
@@ -148,6 +149,180 @@ func (f *FilterKernelTestSuite) TestNoValidityBitmapButUnknownNullCount() {
 	defer result.Release()
 
 	assertArraysEqual(f.T(), expected, result)
+}
+
+type TakeKernelTestSuite struct {
+	suite.Suite
+
+	mem *memory.CheckedAllocator
+	ctx context.Context
+}
+
+func (tk *TakeKernelTestSuite) SetupTest() {
+	tk.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	tk.ctx = compute.WithAllocator(context.TODO(), tk.mem)
+}
+
+func (tk *TakeKernelTestSuite) TearDownTest() {
+	tk.mem.AssertSize(tk.T(), 0)
+}
+
+func (tk *TakeKernelTestSuite) assertTakeArrays(values, indices, expected arrow.Array) {
+	actual, err := compute.TakeArray(tk.ctx, values, indices)
+	tk.Require().NoError(err)
+	defer actual.Release()
+	assertArraysEqual(tk.T(), expected, actual)
+}
+
+func (tk *TakeKernelTestSuite) takeJSON(dt arrow.DataType, values string, idxType arrow.DataType, indices string) (arrow.Array, error) {
+	valArr, _, _ := array.FromJSON(tk.mem, dt, strings.NewReader(values), array.WithUseNumber())
+	defer valArr.Release()
+	indArr, _, _ := array.FromJSON(tk.mem, idxType, strings.NewReader(indices))
+	defer indArr.Release()
+
+	return compute.TakeArray(tk.ctx, valArr, indArr)
+}
+
+func (tk *TakeKernelTestSuite) checkTake(dt arrow.DataType, valuesJSON, indicesJSON, expJSON string) {
+	values, _, _ := array.FromJSON(tk.mem, dt, strings.NewReader(valuesJSON), array.WithUseNumber())
+	defer values.Release()
+	expected, _, _ := array.FromJSON(tk.mem, dt, strings.NewReader(expJSON), array.WithUseNumber())
+	defer expected.Release()
+
+	for _, idxType := range []arrow.DataType{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Uint32} {
+		tk.Run(fmt.Sprintf("idxtype %s", idxType), func() {
+			indices, _, _ := array.FromJSON(tk.mem, idxType, strings.NewReader(indicesJSON))
+			defer indices.Release()
+
+			tk.assertTakeArrays(values, indices, expected)
+
+			if dt.ID() != arrow.DENSE_UNION {
+				tk.Run("sliced values", func() {
+					valuesFiller := array.MakeArrayOfNull(tk.mem, dt, 2)
+					defer valuesFiller.Release()
+
+					valuesSliced, _ := array.Concatenate([]arrow.Array{valuesFiller, values, valuesFiller}, tk.mem)
+					defer valuesSliced.Release()
+					valuesSliced = array.NewSlice(valuesSliced, 2, 2+int64(values.Len()))
+					defer valuesSliced.Release()
+
+					tk.assertTakeArrays(valuesSliced, indices, expected)
+				})
+			}
+
+			tk.Run("sliced indices", func() {
+				zero, _ := scalar.MakeScalarParam(0, idxType)
+				indicesFiller, _ := scalar.MakeArrayFromScalar(zero, 3, tk.mem)
+				defer indicesFiller.Release()
+				indicesSliced, _ := array.Concatenate([]arrow.Array{indicesFiller, indices, indicesFiller}, tk.mem)
+				defer indicesSliced.Release()
+				indicesSliced = array.NewSlice(indicesSliced, 3, int64(indices.Len()+3))
+				defer indicesSliced.Release()
+
+				tk.assertTakeArrays(values, indicesSliced, expected)
+			})
+		})
+	}
+}
+
+func (tk *TakeKernelTestSuite) assertTakeNull(values, indices, expected string) {
+	tk.checkTake(arrow.Null, values, indices, expected)
+}
+
+func (tk *TakeKernelTestSuite) assertTakeBool(values, indices, expected string) {
+	tk.checkTake(arrow.FixedWidthTypes.Boolean, values, indices, expected)
+}
+
+func (tk *TakeKernelTestSuite) assertNoValidityBitmapButUnknownNullCount(values, indices arrow.Array) {
+	tk.Zero(values.NullN())
+	tk.Zero(indices.NullN())
+	exp, err := compute.TakeArray(tk.ctx, values, indices)
+	tk.Require().NoError(err)
+	defer exp.Release()
+
+	newValuesData := values.Data().(*array.Data).Copy()
+	newValuesData.SetNullN(array.UnknownNullCount)
+	newValuesData.Buffers()[0].Release()
+	newValuesData.Buffers()[0] = nil
+	defer newValuesData.Release()
+	newValues := array.MakeFromData(newValuesData)
+
+	newIndicesData := indices.Data().(*array.Data).Copy()
+	newIndicesData.SetNullN(array.UnknownNullCount)
+	newIndicesData.Buffers()[0].Release()
+	newIndicesData.Buffers()[0] = nil
+	defer newIndicesData.Release()
+	newIndices := array.MakeFromData(newIndicesData)
+
+	defer newValues.Release()
+	defer newIndices.Release()
+
+	result, err := compute.TakeArray(tk.ctx, newValues, newIndices)
+	tk.Require().NoError(err)
+	defer result.Release()
+
+	assertArraysEqual(tk.T(), exp, result)
+}
+
+func (tk *TakeKernelTestSuite) assertNoValidityBitmapUnknownNullCountJSON(dt arrow.DataType, values, indices string) {
+	vals, _, _ := array.FromJSON(tk.mem, dt, strings.NewReader(values), array.WithUseNumber())
+	defer vals.Release()
+	inds, _, _ := array.FromJSON(tk.mem, arrow.PrimitiveTypes.Int16, strings.NewReader(indices))
+	defer inds.Release()
+	tk.assertNoValidityBitmapButUnknownNullCount(vals, inds)
+}
+
+type TakeKernelTest struct {
+	TakeKernelTestSuite
+}
+
+func (tk *TakeKernelTest) TestTakeNull() {
+	tk.assertTakeNull(`[null, null, null]`, `[0, 1, 0]`, `[null, null, null]`)
+	tk.assertTakeNull(`[null, null, null]`, `[0, 2]`, `[null, null]`)
+
+	_, err := tk.takeJSON(arrow.Null, `[null, null, null]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeJSON(arrow.Null, `[null, null, null]`, arrow.PrimitiveTypes.Int8, `[0, -1, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+}
+
+func (tk *TakeKernelTest) TestInvalidIndexType() {
+	_, err := tk.takeJSON(arrow.Null, `[null, null, null]`, arrow.PrimitiveTypes.Float32, `[0.0, 1.0, 0.1]`)
+	tk.ErrorIs(err, arrow.ErrNotImplemented)
+}
+
+func (tk *TakeKernelTest) TestDefaultOptions() {
+	indArr, _, _ := array.FromJSON(tk.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[null, 2, 0, 3]`))
+	defer indArr.Release()
+	valArr, _, _ := array.FromJSON(tk.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[7, 8, 9, null]`))
+	defer valArr.Release()
+
+	indices, values := compute.NewDatum(indArr), compute.NewDatum(valArr)
+	defer indices.Release()
+	defer values.Release()
+
+	noOptions, err := compute.CallFunction(tk.ctx, "take", nil, values, indices)
+	tk.Require().NoError(err)
+	defer noOptions.Release()
+
+	explicitDefaults, err := compute.CallFunction(tk.ctx, "take", compute.DefaultTakeOptions(), values, indices)
+	tk.Require().NoError(err)
+	defer explicitDefaults.Release()
+
+	assertDatumsEqual(tk.T(), explicitDefaults, noOptions)
+}
+
+func (tk *TakeKernelTest) TestTakeBoolean() {
+	tk.assertTakeBool(`[true, true, true]`, `[]`, `[]`)
+	tk.assertTakeBool(`[true, false, true]`, `[0, 1, 0]`, `[true, false, true]`)
+	tk.assertTakeBool(`[null, false, true]`, `[0, 1, 0]`, `[null, false, null]`)
+	tk.assertTakeBool(`[true, false, true]`, `[null, 1, 0]`, `[null, false, true]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(arrow.FixedWidthTypes.Boolean, `[true, false, true]`, `[1, 0, 0]`)
+	_, err := tk.takeJSON(arrow.FixedWidthTypes.Boolean, `[true, false, true]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeJSON(arrow.FixedWidthTypes.Boolean, `[true, false, true]`, arrow.PrimitiveTypes.Int8, `[0, -1, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
 }
 
 type FilterKernelWithNull struct {
@@ -456,6 +631,43 @@ func (f *FilterKernelWithString) TestFilterString() {
 		f.assertFilterJSON(f.dt, `[null, "Yg==", "Yw=="]`, `[false, true, false]`, `["Yg=="]`)
 		f.assertFilterJSON(f.dt, `["YQ==", "Yg==", "Yw=="]`, `[null, true, false]`, `[null, "Yg=="]`)
 	})
+}
+
+type TakeKernelTestTyped struct {
+	TakeKernelTestSuite
+
+	dt arrow.DataType
+}
+
+func (tk *TakeKernelTestTyped) assertTake(values, indices, expected string) {
+	tk.checkTake(tk.dt, values, indices, expected)
+}
+
+type TakeKernelTestNumeric struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestNumeric) TestTakeNumeric() {
+	tk.Run(tk.dt.String(), func() {
+		tk.assertTake(`[7, 8, 9]`, `[]`, `[]`)
+		tk.assertTake(`[7, 8, 9]`, `[0, 1, 0]`, `[7, 8, 7]`)
+		tk.assertTake(`[null, 8, 9]`, `[0, 1, 0]`, `[null, 8, null]`)
+		tk.assertTake(`[7, 8, 9]`, `[null, 1, 0]`, `[null, 8, 7]`)
+		tk.assertTake(`[null, 8, 9]`, `[]`, `[]`)
+		tk.assertTake(`[7, 8, 9]`, `[0, 0, 0, 0, 0, 0, 2]`, `[7, 7, 7, 7, 7, 7, 9]`)
+
+		_, err := tk.takeJSON(tk.dt, `[7, 8, 9]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+		tk.ErrorIs(err, arrow.ErrIndex)
+		_, err = tk.takeJSON(tk.dt, `[7, 8, 9]`, arrow.PrimitiveTypes.Int8, `[0, -1, 0]`)
+		tk.ErrorIs(err, arrow.ErrIndex)
+	})
+}
+
+func TestTakeKernels(t *testing.T) {
+	suite.Run(t, new(TakeKernelTest))
+	for _, dt := range numericTypes {
+		suite.Run(t, &TakeKernelTestNumeric{TakeKernelTestTyped: TakeKernelTestTyped{dt: dt}})
+	}
 }
 
 func TestFilterKernels(t *testing.T) {

@@ -41,6 +41,14 @@ func (FilterOptions) TypeName() string { return "FilterOptions" }
 
 type FilterState = FilterOptions
 
+type TakeOptions struct {
+	BoundsCheck bool
+}
+
+func (TakeOptions) TypeName() string { return "TakeOptions" }
+
+type TakeState = TakeOptions
+
 func getFilterOutputSize(filter *exec.ArraySpan, nullSelection NullSelectionBehavior) (size int64) {
 	if filter.MayHaveNulls() {
 		counter := bitutils.NewBinaryBitBlockCounter(filter.Buffers[1].Buf,
@@ -356,6 +364,262 @@ func PrimitiveFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecRe
 	}
 
 	primitiveFilterImpl(wr, values, filter, nullSelection, out)
+	return nil
+}
+
+func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) {
+	var (
+		valuesData    = exec.GetSpanValues[ValT](values, 1)
+		valuesIsValid = values.Buffers[0].Buf
+		valuesOffset  = values.Offset
+
+		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
+		indicesIsValid = indices.Buffers[0].Buf
+		indicesOffset  = indices.Offset
+
+		outData    = exec.GetSpanValues[ValT](out, 1)
+		outIsValid = out.Buffers[0].Buf
+		outOffset  = out.Offset
+	)
+
+	pos, validCount := int64(0), int64(0)
+	if values.Nulls == 0 && indices.Nulls == 0 {
+		// values and indices are both never null
+		// this means we didn't allocate the validity bitmap
+		// and can simplify everything
+		for i, idx := range indicesData {
+			outData[i] = valuesData[idx]
+		}
+		out.Nulls = 0
+		return
+	}
+
+	indicesBitCounter := bitutils.NewOptionalBitBlockCounter(indicesIsValid, indicesOffset, indices.Len)
+	for pos < indices.Len {
+		block := indicesBitCounter.NextBlock()
+		if values.Nulls == 0 {
+			// values are never null, so things are easier
+			validCount += int64(block.Popcnt)
+			if block.AllSet() {
+				// fastest path: neither values nor index nulls
+				bitutil.SetBitsTo(outIsValid, outOffset+pos, int64(block.Len), true)
+				for i := 0; i < int(block.Len); i++ {
+					outData[pos] = valuesData[indicesData[pos]]
+					pos++
+				}
+			} else if block.Popcnt > 0 {
+				// slow path: some indices but not all are null
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) {
+						// index is not null
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						outData[pos] = valuesData[indicesData[pos]]
+					}
+					pos++
+				}
+			} else {
+				pos += int64(block.Len)
+			}
+		} else {
+			// values have nulls, so we must do random access into the values bitmap
+			if block.AllSet() {
+				// faster path: indices are not null but values may be
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						// value is not null
+						outData[pos] = valuesData[indicesData[pos]]
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						validCount++
+					}
+					pos++
+				}
+			} else if block.Popcnt > 0 {
+				// slow path: some but not all indices are null. since we
+				// are doing random access in general we have to check the
+				// value nullness one by one
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) &&
+						bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						// index is not null && value is not null
+						outData[pos] = valuesData[indicesData[pos]]
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						validCount++
+					}
+					pos++
+				}
+			} else {
+				pos += int64(block.Len)
+			}
+		}
+	}
+
+	out.Nulls = out.Len - validCount
+}
+
+func booleanTakeImpl[IdxT exec.UintTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) {
+	var (
+		valuesData    = values.Buffers[1].Buf
+		valuesIsValid = values.Buffers[0].Buf
+		valuesOffset  = values.Offset
+
+		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
+		indicesIsValid = indices.Buffers[0].Buf
+		indicesOffset  = indices.Offset
+
+		outData    = out.Buffers[1].Buf
+		outIsValid = out.Buffers[0].Buf
+		outOffset  = out.Offset
+	)
+
+	placeDataBit := func(loc int64, index IdxT) {
+		bitutil.SetBitTo(outData, int(outOffset+loc), bitutil.BitIsSet(valuesData, int(valuesOffset)+int(index)))
+	}
+
+	pos, validCount := int64(0), int64(0)
+	if values.Nulls == 0 && indices.Nulls == 0 {
+		// values and indices are both never null
+		// this means we didn't allocate the validity bitmap
+		// and can simplify everything
+		for i, idx := range indicesData {
+			placeDataBit(int64(i), idx)
+		}
+		out.Nulls = 0
+		return
+	}
+
+	indicesBitCounter := bitutils.NewOptionalBitBlockCounter(indicesIsValid, indicesOffset, indices.Len)
+	for pos < indices.Len {
+		block := indicesBitCounter.NextBlock()
+		if values.Nulls == 0 {
+			// values are never null so things are easier
+			validCount += int64(block.Popcnt)
+			if block.AllSet() {
+				// fastest path: neither values nor index nulls
+				bitutil.SetBitsTo(outIsValid, outOffset+pos, int64(block.Len), true)
+				for i := 0; i < int(block.Len); i++ {
+					placeDataBit(pos, indicesData[pos])
+					pos++
+				}
+			} else if block.Popcnt > 0 {
+				// slow path: some but not all indices are null
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) {
+						// index is not null
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						placeDataBit(pos, indicesData[pos])
+					}
+					pos++
+				}
+			} else {
+				pos += int64(block.Len)
+			}
+		} else {
+			// values have nulls so we must do random access into the values bitmap
+			if block.AllSet() {
+				// faster path: indices are not null but values may be
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						// value is not null
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						placeDataBit(pos, indicesData[pos])
+						validCount++
+					}
+					pos++
+				}
+			} else if block.Popcnt > 0 {
+				// slow path: some but not all indices are null.
+				// we have to check the values one by one
+				for i := 0; i < int(block.Len); i++ {
+					if bitutil.BitIsSet(indicesIsValid, int(indicesOffset+pos)) &&
+						bitutil.BitIsSet(valuesIsValid, int(valuesOffset)+int(indicesData[pos])) {
+						placeDataBit(pos, indicesData[pos])
+						bitutil.SetBit(outIsValid, int(outOffset+pos))
+						validCount++
+					}
+					pos++
+				}
+			} else {
+				pos += int64(block.Len)
+			}
+		}
+	}
+	out.Nulls = out.Len - validCount
+}
+
+func booleanTakeDispatch(values, indices *exec.ArraySpan, out *exec.ExecResult) error {
+	switch indices.Type.(arrow.FixedWidthDataType).Bytes() {
+	case 1:
+		booleanTakeImpl[uint8](values, indices, out)
+	case 2:
+		booleanTakeImpl[uint16](values, indices, out)
+	case 4:
+		booleanTakeImpl[uint32](values, indices, out)
+	case 8:
+		booleanTakeImpl[uint64](values, indices, out)
+	default:
+		return fmt.Errorf("%w: invalid indices byte width", arrow.ErrIndex)
+	}
+	return nil
+}
+
+func takeIdxDispatch[ValT exec.IntTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) error {
+	switch indices.Type.(arrow.FixedWidthDataType).Bytes() {
+	case 1:
+		primitiveTakeImpl[uint8, ValT](values, indices, out)
+	case 2:
+		primitiveTakeImpl[uint16, ValT](values, indices, out)
+	case 4:
+		primitiveTakeImpl[uint32, ValT](values, indices, out)
+	case 8:
+		primitiveTakeImpl[uint64, ValT](values, indices, out)
+	default:
+		return fmt.Errorf("%w: invalid indices byte width", arrow.ErrIndex)
+	}
+	return nil
+}
+
+func PrimitiveTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	var (
+		values  = &batch.Values[0].Array
+		indices = &batch.Values[1].Array
+	)
+
+	if ctx.State.(TakeState).BoundsCheck {
+		if err := checkIndexBounds(indices, uint64(values.Len)); err != nil {
+			return err
+		}
+	}
+
+	bitWidth := values.Type.(arrow.FixedWidthDataType).BitWidth()
+	allocateValidity := values.Nulls != 0 || indices.Nulls != 0
+	preallocateData(ctx, indices.Len, bitWidth, allocateValidity, out)
+
+	switch bitWidth {
+	case 1:
+		return booleanTakeDispatch(values, indices, out)
+	case 8:
+		return takeIdxDispatch[int8](values, indices, out)
+	case 16:
+		return takeIdxDispatch[int16](values, indices, out)
+	case 32:
+		return takeIdxDispatch[int32](values, indices, out)
+	case 64:
+		return takeIdxDispatch[int64](values, indices, out)
+	default:
+		return fmt.Errorf("%w: invalid values byte width for take", arrow.ErrInvalid)
+	}
+}
+
+func NullTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	if ctx.State.(TakeState).BoundsCheck {
+		if err := checkIndexBounds(&batch.Values[1].Array, uint64(batch.Values[0].Array.Len)); err != nil {
+			return err
+		}
+	}
+
+	// batch.length doesn't take into account the take indices
+	out.Len = batch.Values[1].Array.Len
+	out.Type = arrow.Null
 	return nil
 }
 
@@ -819,5 +1083,9 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: FilterBinary},
 	}
 
+	takeKernels = []SelectionKernelData{
+		{In: exec.NewExactInput(arrow.Null), Exec: NullTake},
+		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveTake},
+	}
 	return
 }
