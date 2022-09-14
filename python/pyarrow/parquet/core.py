@@ -541,9 +541,9 @@ class ParquetFile:
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded.
 
-        Returns
+        Yields
         -------
-        iterator of pyarrow.RecordBatch
+        pyarrow.RecordBatch
             Contents of each batch as a record batch
 
         Examples
