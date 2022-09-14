@@ -453,7 +453,8 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // projection
-  cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
+  cp::Expression a_times_2 =
+      cp::call("multiply", {cp::field_ref("a"), cp::field_ref("a")});
   options->projection = cp::project({}, {});
 
   cp::ExecNode* scan;

@@ -153,15 +153,16 @@ void AssertScanRelation(const compute::Declaration& output_scan,
 }
 
 void AssertExpressionCall(const std::shared_ptr<Schema> schema,
- const compute::Expression output_expr, const compute::Expression& expected_expr) {
-   if (auto* out_call = output_expr.call()) {
+                          const compute::Expression output_expr,
+                          const compute::Expression& expected_expr) {
+  if (auto* out_call = output_expr.call()) {
     if (auto* exp_call = expected_expr.call()) {
       ASSERT_EQ(out_call->function_name, exp_call->function_name);
-    auto out_args = out_call->arguments;
-    auto exp_args = exp_call->arguments;
-    ASSERT_EQ(out_args.size(), exp_args.size());
-    int exp_id = 0;
-      for(const auto& arg : exp_args) {
+      auto out_args = out_call->arguments;
+      auto exp_args = exp_call->arguments;
+      ASSERT_EQ(out_args.size(), exp_args.size());
+      int exp_id = 0;
+      for (const auto& arg : exp_args) {
         auto lhs = out_args[exp_id++].field_ref()->field_path()->indices()[0];
         ASSERT_EQ(schema->field_names()[lhs], *(arg.field_ref()->name()));
       }
@@ -169,10 +170,10 @@ void AssertExpressionCall(const std::shared_ptr<Schema> schema,
   }
 }
 
-void AssertFilterRelation(
-    const compute::Declaration& output_filter, const std::string& filter_func_name,
-    const compute::Expression& exp_filter_expr,
-    const std::shared_ptr<Schema>& schema) {
+void AssertFilterRelation(const compute::Declaration& output_filter,
+                          const std::string& filter_func_name,
+                          const compute::Expression& exp_filter_expr,
+                          const std::shared_ptr<Schema>& schema) {
   const auto& filter_opts =
       checked_cast<const compute::FilterNodeOptions&>(*(output_filter.options));
   auto out_filter_expr = filter_opts.filter_expression;
@@ -180,14 +181,14 @@ void AssertFilterRelation(
 }
 
 void AssertProjectRelation(const compute::Declaration& output_projection,
-  const std::vector<compute::Expression>& exp_expressions,
-  const std::shared_ptr<Schema>& schema) {
+                           const std::vector<compute::Expression>& exp_expressions,
+                           const std::shared_ptr<Schema>& schema) {
   const auto& project_opts =
       checked_cast<const compute::ProjectNodeOptions&>(*(output_projection.options));
   auto out_expressions = project_opts.expressions;
   int expr_id = 0;
   ASSERT_EQ(out_expressions.size(), exp_expressions.size());
-  for(const auto& out_expr : out_expressions) {
+  for (const auto& out_expr : out_expressions) {
     AssertExpressionCall(schema, out_expr, exp_expressions[expr_id++]);
   }
 }
@@ -2346,10 +2347,10 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
 
   auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
-  const std::string file_name = "serde_test.arrow";
+  const std::string file_name = "serde_project_test.arrow";
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
-                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-project-"));
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
 
@@ -2369,26 +2370,52 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
-  compute::Expression mul_expr = compute::call(
-      "multiply", {compute::field_ref("shared"), compute::field_ref("distinct")});
-  std::vector<compute::Expression> project_expressions = {mul_expr};
+  compute::Expression project_expr = compute::call(
+      "add", {compute::field_ref("shared"), compute::field_ref("distinct")});
+  // Acero only outputs the expressions mentioned in the projection but Substrait
+  // outputs existing columns plus the expression.
+  // For validation purpose, a project expression with expected projection
+  // field plus existing fields is created for Acero.
+  // And for Substrait just the project expression with expected projection.
+  std::vector<compute::Expression> acero_project_exprs = {
+      compute::field_ref("key"), compute::field_ref("shared"),
+      compute::field_ref("distinct"), project_expr};
+  std::vector<compute::Expression> substrait_project_exprs = {project_expr};
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  auto declarations = compute::Declaration::Sequence(
+  auto acero_declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"project", compute::ProjectNodeOptions{project_expressions}, "p"}),
+       compute::Declaration(
+           {"project", compute::ProjectNodeOptions{acero_project_exprs}, "p"}),
        compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  // adding the project expression field to schema
+  ASSERT_OK_AND_ASSIGN(auto project_schema,
+                       dummy_schema->AddField(dummy_schema->num_fields(),
+                                              field("add(shared,distinct)", int32())));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_table,
+      GetTableFromPlan(acero_declarations, sink_gen, exec_context, project_schema));
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   ExtensionSet ext_set(ext_id_reg);
 
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+  // declaration which Substrait would expect since the idea is to do the projection
+  // which would produce an equivalent result to the declaration created for Acero with
+  // additional project fields.
+  auto substrait_declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration(
+           {"project", compute::ProjectNodeOptions{substrait_project_exprs}, "p"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
 
-  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
-                                                             exec_context, dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan,
+                       SerializePlan(substrait_declarations, &ext_set));
 
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
@@ -2397,12 +2424,16 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
   // project declaration
   auto roundtripped_project = sink_decls[0].inputs[0].get<compute::Declaration>();
   // assert project declaration
-  AssertProjectRelation(*roundtripped_project, project_expressions, dummy_schema);
+  // Note: the provided expressions for Substrait declaration only contains one
+  // expression, but substrait produces expressions for the existing number of fields plus
+  // provided expression. Since the output expressions from the deserialized relation
+  // contains fields which weren't used in the project expression.
+  AssertProjectRelation(*roundtripped_project, acero_project_exprs, project_schema);
   // scan declaration
   auto roundtripped_scan = roundtripped_project->inputs[0].get<compute::Declaration>();
   AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
   // assert results
-  AssertPlanExecutionResult(expected_table, *roundtripped_project, dummy_schema,
+  AssertPlanExecutionResult(expected_table, *roundtripped_project, project_schema,
                             exec_context);
 }
 
