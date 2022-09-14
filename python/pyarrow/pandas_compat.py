@@ -541,7 +541,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         elif _pandas_api.is_extension_array_dtype(values):
-            empty = c.head(0) if isinstance(c, _pandas_api.pd.Series) else c[:0]
+            empty = c.head(0) if isinstance(
+                c, _pandas_api.pd.Series) else c[:0]
             type_ = pa.array(empty, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
