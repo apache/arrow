@@ -127,7 +127,8 @@ struct ARROW_EXPORT DataTypeLayout {
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
 class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
-                              public detail::Fingerprintable {
+                              public detail::Fingerprintable,
+                              public util::EqualityComparable<DataType> {
  public:
   explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
   ~DataType() override;
@@ -271,13 +272,6 @@ std::ostream& operator<<(std::ostream& os, const DataType& type);
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 
-inline bool operator==(const DataType& lhs, const DataType& rhs) {
-  return lhs.Equals(rhs);
-}
-inline bool operator!=(const DataType& lhs, const DataType& rhs) {
-  return !lhs.Equals(rhs);
-}
-
 /// \brief Return the compatible physical data type
 ///
 /// Some types may have distinct logical meanings but the exact same physical
@@ -338,7 +332,8 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
 ///
 /// A field's metadata is represented by a KeyValueMetadata instance,
 /// which holds arbitrary key-value pairs.
-class ARROW_EXPORT Field : public detail::Fingerprintable {
+class ARROW_EXPORT Field : public detail::Fingerprintable,
+                           public util::EqualityComparable<Field> {
  public:
   Field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
@@ -1675,7 +1670,7 @@ class ARROW_EXPORT FieldPath {
 /// matching children:
 ///     auto maybe_match = FieldRef("struct", "field_i32").FindOneOrNone(schema);
 ///     auto maybe_column = FieldRef("struct", "field_i32").GetOne(some_table);
-class ARROW_EXPORT FieldRef {
+class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
  public:
   FieldRef() = default;
 
@@ -1729,8 +1724,6 @@ class ARROW_EXPORT FieldRef {
   std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
-  bool operator==(const FieldRef& other) const { return Equals(other); }
-  bool operator!=(const FieldRef& other) const { return !Equals(other); }
 
   std::string ToString() const;
 
