@@ -1924,7 +1924,6 @@ TEST(Substrait, BasicPlanRoundTripping) {
 
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
-  std::cout << "file_path_str " << tempdir->path().ToString() << std::endl;
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
   std::string file_path_str = file_path.ToString();
 
@@ -2189,7 +2188,7 @@ TEST(Substrait, ProjectRel) {
               }
             },
             "namedTable": {
-                     "names": []
+              "names": ["A"]
             }
           }
         }
@@ -2313,7 +2312,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
               }
             },
             "namedTable": {
-                     "names": []
+              "names": ["A"]
             }
           }
         }
@@ -2396,7 +2395,7 @@ TEST(Substrait, ReadRelWithEmit) {
           }
         },
         "namedTable": {
-          "names" : []
+          "names" : ["A"]
         }
       }
     }
@@ -2501,7 +2500,7 @@ TEST(Substrait, FilterRelWithEmit) {
               }
             },
             "namedTable": {
-              "names" : []
+              "names" : ["A"]
             }
           }
         }
@@ -2885,7 +2884,7 @@ TEST(Substrait, AggregateRel) {
                 }
               },
               "namedTable" : {
-                "names": []
+                "names": ["A"]
               }
             }
           },
@@ -3004,7 +3003,7 @@ TEST(Substrait, AggregateRelEmit) {
                 }
               },
               "namedTable" : {
-                "names" : []
+                "names" : ["A"]
               }
             }
           },

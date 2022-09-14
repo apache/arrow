@@ -451,6 +451,8 @@ inline Result<ExecNode*> MakeExecNode(
 struct ARROW_EXPORT Declaration {
   using Input = util::Variant<ExecNode*, Declaration>;
 
+  Declaration() {}
+
   Declaration(std::string factory_name, std::vector<Input> inputs,
               std::shared_ptr<ExecNodeOptions> options, std::string label)
       : factory_name{std::move(factory_name)},
@@ -513,6 +515,9 @@ struct ARROW_EXPORT Declaration {
 
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
+
+  // Validate a declaration
+  bool IsValid(ExecFactoryRegistry* registry = default_exec_factory_registry()) const;
 
   std::string factory_name;
   std::vector<Input> inputs;

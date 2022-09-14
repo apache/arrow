@@ -643,6 +643,10 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
   return out;
 }
 
+bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
+  return !this->factory_name.empty() && this->options != nullptr;
+}
+
 namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry*);
