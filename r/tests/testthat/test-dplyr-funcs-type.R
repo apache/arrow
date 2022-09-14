@@ -420,12 +420,12 @@ test_that("type checks with is() giving R types", {
         i64_is_chr = is(i64, "character"),
         i64_is_fct = is(i64, "factor"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is(i64, "integer"),
+        # i64_is_int = is(i64, "integer"), # nolint
         i64_is_i64 = is(i64, "integer64"),
         i64_is_lst = is(i64, "list"),
         i64_is_lgl = is(i64, "logical"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_num = is(i64, "numeric"),
+        # i64_is_num = is(i64, "numeric"), # nolint
         lst_is_chr = is(lst, "character"),
         lst_is_fct = is(lst, "factor"),
         lst_is_int = is(lst, "integer"),
@@ -504,10 +504,10 @@ test_that("type checks with is.*()", {
       transmute(
         i64_is_chr = is.character(i64),
         # TODO: investigate why this is not matching when testthat runs it
-        # i64_is_dbl = is.double(i64),
+        # i64_is_dbl = is.double(i64), # nolint
         i64_is_fct = is.factor(i64),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is.integer(i64),
+        # i64_is_int = is.integer(i64), # nolint
         i64_is_i64 = is.integer64(i64),
         i64_is_lst = is.list(i64),
         i64_is_lgl = is.logical(i64),
