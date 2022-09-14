@@ -372,7 +372,7 @@ class ArrowConan(ConanFile):
         if self.options.with_backtrace:
             self.requires("libbacktrace/cci.20210118")
         if self._with_bison():
-            self.requires("bison/3.2")
+            self.requires("bison/3.8")
         if self._with_flex():
             self.requires("flex/2.5")
 

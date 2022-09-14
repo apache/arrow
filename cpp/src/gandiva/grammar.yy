@@ -16,7 +16,7 @@
 // under the License.
 
 %skeleton "lalr1.cc" // -*- C++ -*-
-%require "3.2"
+%require "3.8"
 %header
 
 %define api.token.raw
