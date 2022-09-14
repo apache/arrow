@@ -99,9 +99,11 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       ARROW_RETURN_NOT_OK(StartProducing());
     }
 
-    // If we've closed the reader, this is invalid
+    // If we've closed the reader, keep sending nullptr
+    // (consistent with what most RecordBatchReader subclasses do)
     if (status_ == PLAN_FINISHED) {
-      return arrow::Status::Invalid("ExecPlanReader has been closed");
+      batch_out->reset();
+      return arrow::Status::OK();
     }
 
     auto out = sink_gen_().result();
@@ -149,13 +151,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   void StopProducing() {
     if (status_ == PLAN_RUNNING) {
-      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
-      bool not_finished_yet = plan_->finished().TryAddCallback(
-          [&plan] { return [plan](const arrow::Status&) {}; });
-
-      if (not_finished_yet) {
-        plan_->StopProducing();
-      }
+      plan_->StopProducing();
     }
 
     status_ = PLAN_FINISHED;
