@@ -563,8 +563,9 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
                           pc.field('integers') < 3,
                           pc.field('nested', 'a') < 3,
                           pc.field('nested', 'b').cast(pa.int64()) < 3))
-@pytest.mark.parametrize("read", (pq.read_table, pq.read_pandas))
-def test_filters_read_table(tempdir, use_legacy_dataset, filters, read):
+@pytest.mark.parametrize("read_method", ("read_table", "read_pandas"))
+def test_filters_read_table(tempdir, use_legacy_dataset, filters, read_method):
+    read = getattr(pq, read_method)
     # test that filters keyword is passed through in read_table
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
