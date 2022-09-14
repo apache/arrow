@@ -15,6 +15,10 @@
       ]
     },
     "benchmark",
+    {
+      "name": "bison",
+      "version>=": "3.8"
+    },
     "boost-filesystem",
     "boost-multiprecision",
     "boost-process",
@@ -24,11 +28,15 @@
     "bzip2",
     "c-ares",
     "curl",
+    {
+      "name": "flex",
+      "version>=": "2.5"
+    },
     "flatbuffers",
     "gflags",
     "glog",
     {
-      "name":"google-cloud-cpp",
+      "name": "google-cloud-cpp",
       "version>=": "1.32.1",
       "default-features": false,
       "features": [
@@ -52,7 +60,11 @@
     "zstd"
   ],
   "overrides": [
-    { "name": "gtest", "version": "1.10.0", "port-version": 4 }
+    {
+      "name": "gtest",
+      "version": "1.10.0",
+      "port-version": 4
+    }
   ],
   "builtin-baseline": "3d8f78171a2a37d461077bf8d063256b63e25a4f"
 }

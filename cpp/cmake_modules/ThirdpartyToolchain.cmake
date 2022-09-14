@@ -2694,7 +2694,7 @@ endmacro()
 if(ARROW_WITH_BISON)
   resolve_dependency(BISON
                      REQUIRED_VERSION
-                     "3.2"
+                     "3.8"
                      FORCE_ANY_NEWER_VERSION
                      1)
   add_definitions(-DARROW_WITH_BISON)
