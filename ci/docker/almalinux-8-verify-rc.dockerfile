@@ -31,7 +31,9 @@ RUN dnf -y install 'dnf-command(config-manager)' && \
     dnf -y module enable ruby:2.7 && \
     dnf -y groupinstall "Development Tools" && \
     dnf -y install \
+        bison \
         cmake \
+        flex \
         git \
         gobject-introspection-devel \
         java-1.8.0-openjdk-devel \

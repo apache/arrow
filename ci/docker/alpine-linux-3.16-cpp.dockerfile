@@ -21,6 +21,7 @@ FROM ${arch}/alpine:3.16
 RUN apk add \
         bash \
         benchmark-dev \
+        bison \
         boost-dev \
         brotli-dev \
         bzip2-dev \
@@ -29,6 +30,7 @@ RUN apk add \
         clang \
         cmake \
         curl-dev \
+        flex \
         g++ \
         gcc \
         gdb \

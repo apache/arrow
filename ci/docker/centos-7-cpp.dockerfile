@@ -19,7 +19,9 @@ FROM centos:centos7
 
 RUN yum install -y \
         curl \
+        bison \
         diffutils \
+        flex \
         gcc-c++ \
         libcurl-devel \
         make \

@@ -65,10 +65,12 @@ RUN latest_system_llvm=14 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bison \
         ca-certificates \
         ccache \
         cmake \
         curl \
+        flex \
         gdb \
         git \
         libbenchmark-dev \

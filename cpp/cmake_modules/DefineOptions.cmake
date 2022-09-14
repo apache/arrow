@@ -408,6 +408,12 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_RE2
                 "Build with support for regular expressions using the re2 library;(only used if ARROW_COMPUTE or ARROW_GANDIVA is ON)"
                 ON)
+  define_option(ARROW_WITH_BISON
+                "Build with support for parser using the bison library;(only used if ARROW_GANDIVA is ON)"
+                ON)
+  define_option(ARROW_WITH_FLEX
+                "Build with support for lexer using the flex library;(only used if ARROW_GANDIVA is ON)"
+                ON)
 
   #----------------------------------------------------------------------
   if(MSVC_TOOLCHAIN)

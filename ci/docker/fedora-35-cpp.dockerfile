@@ -23,6 +23,7 @@ ARG arch
 RUN dnf update -y && \
     dnf install -y \
         autoconf \
+        bison \
         boost-devel \
         brotli-devel \
         bzip2-devel \
@@ -33,6 +34,7 @@ RUN dnf update -y && \
         curl \
         curl-devel \
         flatbuffers-devel \
+        flex \
         gcc \
         gcc-c++ \
         gflags-devel \
