@@ -119,7 +119,7 @@ jobs:
           Ncpus: 2
       - name: Install sccache
         shell: bash
-        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
