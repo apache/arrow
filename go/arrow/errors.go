@@ -23,4 +23,5 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 	ErrType           = errors.New("type error")
 	ErrKey            = errors.New("key error")
+	ErrIndex          = errors.New("index error")
 )

@@ -645,3 +645,57 @@ func (b *bufferBuilder[T]) appendSlice(values []T) {
 func (b *bufferBuilder[T]) cap() int {
 	return cap(b.data) / int(unsafe.Sizeof(b.zero))
 }
+
+func checkIndexBoundsImpl[T exec.IntTypes | exec.UintTypes](values *exec.ArraySpan, upperLimit uint64) error {
+	// for unsigned integers, if the values array is larger
+	// than the maximum index value, then there's no need to bounds check
+	isSigned := !arrow.IsUnsignedInteger(values.Type.ID())
+	if !isSigned && upperLimit > uint64(MaxOf[T]()) {
+		return nil
+	}
+
+	valuesData := exec.GetSpanValues[T](values, 1)
+	bitmap := values.Buffers[0].Buf
+	isOutOfBounds := func(val T) bool {
+		return ((isSigned && val < 0) || val >= 0 && uint64(val) >= upperLimit)
+	}
+	return bitutils.VisitSetBitRuns(bitmap, values.Offset, values.Len,
+		func(pos, length int64) error {
+			outOfBounds := false
+			for i := int64(0); i < length; i++ {
+				outOfBounds = outOfBounds || isOutOfBounds(valuesData[pos+i])
+			}
+			if outOfBounds {
+				for i := int64(0); i < length; i++ {
+					if isOutOfBounds(valuesData[pos+i]) {
+						return fmt.Errorf("%w: %d out of bounds",
+							arrow.ErrIndex, valuesData[pos+i])
+					}
+				}
+			}
+			return nil
+		})
+}
+
+func checkIndexBounds(values *exec.ArraySpan, upperLimit uint64) error {
+	switch values.Type.ID() {
+	case arrow.INT8:
+		return checkIndexBoundsImpl[int8](values, upperLimit)
+	case arrow.UINT8:
+		return checkIndexBoundsImpl[uint8](values, upperLimit)
+	case arrow.INT16:
+		return checkIndexBoundsImpl[int16](values, upperLimit)
+	case arrow.UINT16:
+		return checkIndexBoundsImpl[uint16](values, upperLimit)
+	case arrow.INT32:
+		return checkIndexBoundsImpl[int32](values, upperLimit)
+	case arrow.UINT32:
+		return checkIndexBoundsImpl[uint32](values, upperLimit)
+	case arrow.INT64:
+		return checkIndexBoundsImpl[int64](values, upperLimit)
+	case arrow.UINT64:
+		return checkIndexBoundsImpl[uint64](values, upperLimit)
+	default:
+		return fmt.Errorf("%w: invalid index type for bounds checking", arrow.ErrInvalid)
+	}
+}

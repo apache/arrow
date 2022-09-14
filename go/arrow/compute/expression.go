@@ -484,17 +484,21 @@ const (
 	SelectionDropNulls = kernels.DropNulls
 )
 
-type FilterOptions = kernels.FilterOptions
-
-func DefaultFilterOptions() *FilterOptions { return &FilterOptions{} }
-
 type ArithmeticOptions struct {
 	CheckOverflow bool `compute:"check_overflow"`
 }
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
 
-type CastOptions = kernels.CastOptions
+type (
+	CastOptions   = kernels.CastOptions
+	FilterOptions = kernels.FilterOptions
+	TakeOptions   = kernels.TakeOptions
+)
+
+func DefaultFilterOptions() *FilterOptions { return &FilterOptions{} }
+
+func DefaultTakeOptions() *TakeOptions { return &TakeOptions{BoundsCheck: true} }
 
 func DefaultCastOptions(safe bool) *CastOptions {
 	if safe {
