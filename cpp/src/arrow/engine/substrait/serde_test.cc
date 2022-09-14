@@ -152,21 +152,43 @@ void AssertScanRelation(const compute::Declaration& output_scan,
   }
 }
 
+void AssertExpressionCall(const std::shared_ptr<Schema> schema,
+ const compute::Expression output_expr, const compute::Expression& expected_expr) {
+   if (auto* out_call = output_expr.call()) {
+    if (auto* exp_call = expected_expr.call()) {
+      ASSERT_EQ(out_call->function_name, exp_call->function_name);
+    auto out_args = out_call->arguments;
+    auto exp_args = exp_call->arguments;
+    ASSERT_EQ(out_args.size(), exp_args.size());
+    int exp_id = 0;
+      for(const auto& arg : exp_args) {
+        auto lhs = out_args[exp_id++].field_ref()->field_path()->indices()[0];
+        ASSERT_EQ(schema->field_names()[lhs], *(arg.field_ref()->name()));
+      }
+    }
+  }
+}
+
 void AssertFilterRelation(
     const compute::Declaration& output_filter, const std::string& filter_func_name,
-    const std::pair<const std::string&, const std::string&>& filter_args,
+    const compute::Expression& exp_filter_expr,
     const std::shared_ptr<Schema>& schema) {
   const auto& filter_opts =
       checked_cast<const compute::FilterNodeOptions&>(*(output_filter.options));
-  auto filter_expr = filter_opts.filter_expression;
+  auto out_filter_expr = filter_opts.filter_expression;
+  AssertExpressionCall(schema, out_filter_expr, exp_filter_expr);
+}
 
-  if (auto* call = filter_expr.call()) {
-    EXPECT_EQ(call->function_name, filter_func_name);
-    auto args = call->arguments;
-    auto left_index = args[0].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(schema->field_names()[left_index], filter_args.first);
-    auto right_index = args[1].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(schema->field_names()[right_index], filter_args.second);
+void AssertProjectRelation(const compute::Declaration& output_projection,
+  const std::vector<compute::Expression>& exp_expressions,
+  const std::shared_ptr<Schema>& schema) {
+  const auto& project_opts =
+      checked_cast<const compute::ProjectNodeOptions&>(*(output_projection.options));
+  auto out_expressions = project_opts.expressions;
+  int expr_id = 0;
+  ASSERT_EQ(out_expressions.size(), exp_expressions.size());
+  for(const auto& out_expr : out_expressions) {
+    AssertExpressionCall(schema, out_expr, exp_expressions[expr_id++]);
   }
 }
 
@@ -2178,14 +2200,14 @@ TEST(SubstraitRoundTrip, BasicPlan) {
   const std::string filter_col_right = "distinct";
   auto comp_left_value = compute::field_ref(filter_col_left);
   auto comp_right_value = compute::field_ref(filter_col_right);
-  auto filter = compute::equal(comp_left_value, comp_right_value);
+  auto filter_expr = compute::equal(comp_left_value, comp_right_value);
 
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter_expr}, "f"}),
        compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
@@ -2201,9 +2223,7 @@ TEST(SubstraitRoundTrip, BasicPlan) {
   // filter declaration
   const auto& roundtripped_filter =
           std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  std::pair<const std::string&, const std::string&> filter_args(filter_col_left,
-                                                                filter_col_right);
-  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_args),
+  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_expr),
                        dummy_schema);
   // assert scan declaration
   auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
@@ -2264,7 +2284,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   const std::string filter_col_right = "distinct";
   auto comp_left_value = compute::field_ref(filter_col_left);
   auto comp_right_value = compute::field_ref(filter_col_right);
-  auto filter = compute::equal(comp_left_value, comp_right_value);
+  auto filter_expr = compute::equal(comp_left_value, comp_right_value);
 
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(
@@ -2286,9 +2306,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // assert filter declaration
   auto& roundtripped_filter = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
-  std::pair<const std::string&, const std::string&> filter_args(filter_col_left,
-                                                                filter_col_right);
-  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_args),
+  AssertFilterRelation(roundtripped_filter, "equal", std::move(filter_expr),
                        dummy_schema);
   // assert scan declaration
   auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
@@ -2351,15 +2369,16 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
-  compute::Expression a_times_2 = compute::call(
+  compute::Expression mul_expr = compute::call(
       "multiply", {compute::field_ref("shared"), compute::field_ref("distinct")});
+  std::vector<compute::Expression> project_expressions = {mul_expr};
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(
            {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"project", compute::ProjectNodeOptions{{a_times_2}}, "p"}),
+       compute::Declaration({"project", compute::ProjectNodeOptions{project_expressions}, "p"}),
        compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
@@ -2368,27 +2387,23 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
 
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
 
+  ASSERT_OK_AND_ASSIGN(auto expected_table, GetTableFromPlan(declarations, sink_gen,
+                                                             exec_context, dummy_schema));
+
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-  // filter declaration
+  // project declaration
   auto roundtripped_project = sink_decls[0].inputs[0].get<compute::Declaration>();
-  const auto& project_opts =
-      checked_cast<const compute::ProjectNodeOptions&>(*(roundtripped_project->options));
-  auto roundtripped_exprs = project_opts.expressions;
-
-  if (auto* call = roundtripped_exprs[0].call()) {
-    EXPECT_EQ(call->function_name, "multiply");
-    auto args = call->arguments;
-    auto left_index = args[0].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[left_index], "shared");
-    auto right_index = args[1].field_ref()->field_path()->indices()[0];
-    EXPECT_EQ(dummy_schema->field_names()[right_index], "distinct");
-  }
+  // assert project declaration
+  AssertProjectRelation(*roundtripped_project, project_expressions, dummy_schema);
   // scan declaration
   auto roundtripped_scan = roundtripped_project->inputs[0].get<compute::Declaration>();
   AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
+  // assert results
+  AssertPlanExecutionResult(expected_table, *roundtripped_project, dummy_schema,
+                            exec_context);
 }
 
 TEST(SubstraitRoundTrip, FilterNamedTable) {
