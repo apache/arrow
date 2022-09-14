@@ -619,7 +619,7 @@ services:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
+        sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
