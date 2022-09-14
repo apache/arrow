@@ -1,0 +1,51 @@
+{
+  "fields" : [ {
+    "name" : "ID",
+    "nullable" : false,
+    "type" : {
+      "name" : "int",
+      "bitWidth" : 64,
+      "isSigned" : true
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Record identifier",
+      "key" : "comment"
+    } ]
+  }, {
+    "name" : "NAME",
+    "nullable" : true,
+    "type" : {
+      "name" : "utf8"
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Name of record",
+      "key" : "comment"
+    } ]
+  }, {
+    "name" : "COLUMN1",
+    "nullable" : true,
+    "type" : {
+      "name" : "bool"
+    },
+    "children" : [ ]
+  }, {
+    "name" : "COLUMNN",
+    "nullable" : true,
+    "type" : {
+      "name" : "int",
+      "bitWidth" : 32,
+      "isSigned" : true
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Informative description of columnN",
+      "key" : "comment"
+    } ]
+  } ],
+  "metadata" : [ {
+    "value" : "This is super special table with valuable data",
+    "key" : "comment"
+  } ]
+}
