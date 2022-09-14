@@ -644,7 +644,7 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
 }
 
 bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
-  return registry->GetFactory(this->factory_name).ok() && this->options != nullptr;
+  return !this->factory_name.empty() && this->options != nullptr;
 }
 
 namespace internal {

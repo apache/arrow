@@ -107,8 +107,12 @@ def run_query(plan, table_provider=None):
     ...         }
     ... '''
     >>> buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    >>> pa.substrait.run_query_with_provider(buf, table_provider)
-    <pyarrow.lib.RecordBatchReader object at 0x100dcaf10>
+    >>> reader = pa.substrait.run_query(buf, table_provider)
+    >>> reader.read_all()
+    pyarrow.Table
+    x: int64
+    ----
+    x: [[1,2,3]]
     """
 
     cdef:

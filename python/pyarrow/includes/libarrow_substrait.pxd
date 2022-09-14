@@ -22,8 +22,6 @@ from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-# ctypedef CResult[shared_ptr[CTable]] named_table_provider(const std_vector[c_string]&)
-
 ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
