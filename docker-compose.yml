@@ -611,6 +611,7 @@ services:
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
     image: conanio/${CONAN}
+    user: root:root
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -619,7 +620,7 @@ services:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
-        sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
