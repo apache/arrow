@@ -780,6 +780,51 @@ func (tk *TakeKernelLists) TestFixedSizeListInt32() {
 	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[[1, null, 3], [4, 5, 6], [7, 8, null]]`, `[0, 1, 0]`)
 }
 
+type TakeKernelDenseUnion struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelDenseUnion) TestTakeUnion() {
+	tk.dt = arrow.DenseUnionOf([]arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}, []arrow.UnionTypeCode{2, 5})
+
+	unionJSON := `[
+		[2, null],
+		[2, 222],
+		[5, "hello"],
+		[5, "eh"],
+		[2, null],
+		[2, 111],
+		[5, null]
+	]`
+	tk.checkTake(tk.dt, unionJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, unionJSON, `[3, 1, 3, 1, 3]`, `[
+		[5, "eh"],
+		[2, 222],
+		[5, "eh"],
+		[2, 222],
+		[5, "eh"]
+	]`)
+	tk.checkTake(tk.dt, unionJSON, `[4, 2, 1, 6]`, `[
+		[2, null],
+		[5, "hello"],
+		[2, 222],
+		[5, null]
+	]`)
+	tk.checkTake(tk.dt, unionJSON, `[0, 1, 2, 3, 4, 5, 6]`, unionJSON)
+	tk.checkTake(tk.dt, unionJSON, `[0, 2, 2, 2, 2, 2, 2]`, `[
+		[2, null],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"]
+	]`)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {

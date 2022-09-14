@@ -1265,6 +1265,61 @@ func FSLImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out 
 	return nil
 }
 
+func DenseUnionImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		mem               = exec.GetAllocator(ctx.Ctx)
+		valueOffsetBldr   = newBufferBuilder[int32](mem)
+		childIdBldr       = newBufferBuilder[int8](mem)
+		typeCodes         = values.Type.(arrow.UnionType).TypeCodes()
+		childIndicesBldrs = make([]*array.Int32Builder, len(typeCodes))
+	)
+
+	for i := range childIndicesBldrs {
+		childIndicesBldrs[i] = array.NewInt32Builder(mem)
+	}
+
+	childIdBldr.reserve(int(outputLength))
+	valueOffsetBldr.reserve(int(outputLength))
+
+	typedValues := values.MakeArray().(*array.DenseUnion)
+	defer typedValues.Release()
+
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			childID := typedValues.ChildID(int(idx))
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffset := typedValues.ValueOffset(int(idx))
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].Append(valueOffset)
+			return nil
+		}, func() error {
+			childID := 0
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].AppendNull()
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	out.Type = typedValues.DataType()
+	out.Buffers[1].WrapBuffer(childIdBldr.finish())
+	out.Buffers[2].WrapBuffer(valueOffsetBldr.finish())
+
+	out.Children = make([]exec.ArraySpan, len(childIndicesBldrs))
+	for i, b := range childIndicesBldrs {
+		arr := b.NewArray()
+		out.Children[i].TakeOwnership(arr.Data())
+		arr.Release()
+		b.Release()
+	}
+	return nil
+}
+
 func FilterBinary(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	var (
 		nullSelect = ctx.State.(FilterState).NullSelection
