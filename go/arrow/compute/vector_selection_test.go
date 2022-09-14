@@ -835,6 +835,7 @@ func TestTakeKernels(t *testing.T) {
 		suite.Run(t, &TakeKernelTestString{TakeKernelTestTyped: TakeKernelTestTyped{dt: dt}})
 	}
 	suite.Run(t, new(TakeKernelLists))
+	suite.Run(t, new(TakeKernelDenseUnion))
 }
 
 func TestFilterKernels(t *testing.T) {
