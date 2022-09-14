@@ -23,6 +23,22 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 )
 
+func GetPhysicalOffset(data arrow.ArrayData) int {
+	runEnds := arrow.Int32Traits.CastFromBytes(data.Children()[0].Buffers()[1].Bytes())
+	return FindPhysicalOffset(runEnds, data.Offset())
+}
+
+func GetPhysicalLength(data arrow.ArrayData) int {
+	if data.Len() == 0 {
+		return 0
+	}
+
+	// find the offset of the last element and add 1
+	runEnds := arrow.Int32Traits.CastFromBytes(data.Children()[0].Buffers()[1].Bytes())
+	physOffset := FindPhysicalOffset(runEnds, data.Offset())
+	return FindPhysicalOffset(runEnds[physOffset:], data.Offset()+data.Len()-1) + 1
+}
+
 func FindPhysicalOffset(runEnds []int32, logicalOffset int) int {
 	return sort.Search(len(runEnds), func(i int) bool { return runEnds[i] > int32(logicalOffset) })
 }

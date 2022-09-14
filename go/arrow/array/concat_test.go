@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -567,4 +568,60 @@ func TestConcatDictionaryNullSlots(t *testing.T) {
 	defer actual.Release()
 
 	assert.Truef(t, array.Equal(actual, expected), "got: %s, expected: %s", actual, expected)
+}
+
+func TestConcatRunLengthEncoded(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	arrs := make([]arrow.Array, 0)
+	bldr := array.NewRunLengthEncodedBuilder(mem, arrow.BinaryTypes.String)
+	defer bldr.Release()
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+
+	bldr.Append(1)
+	valBldr.Append("Hello")
+	bldr.AppendNull()
+	bldr.ContinueRun(9)
+
+	bldr.Append(100)
+	valBldr.Append("World")
+	arrs = append(arrs, bldr.NewArray())
+
+	bldr.Append(100)
+	valBldr.Append("Goku")
+	bldr.Append(100)
+	valBldr.Append("Gohan")
+	bldr.Append(100)
+	valBldr.Append("Goten")
+	arrs = append(arrs, bldr.NewArray())
+
+	bldr.AppendNull()
+	bldr.ContinueRun(99)
+	bldr.Append(100)
+	valBldr.Append("Vegeta")
+	bldr.Append(100)
+	valBldr.Append("Trunks")
+	next := bldr.NewArray()
+	defer next.Release()
+	// remove the initial null with an offset and dig into the next run
+	arrs = append(arrs, array.NewSlice(next, 111, int64(next.Len())))
+
+	for _, a := range arrs {
+		defer a.Release()
+	}
+
+	result, err := array.Concatenate(arrs, mem)
+	assert.NoError(t, err)
+	defer result.Release()
+
+	rle := result.(*array.RunLengthEncoded)
+	assert.EqualValues(t, 8, rle.GetPhysicalLength())
+	assert.EqualValues(t, 0, rle.GetPhysicalOffset())
+	assert.Equal(t, []int32{1, 11, 111, 211, 311, 411, 500, 600}, rle.RunEnds())
+
+	expectedValues, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String,
+		strings.NewReader(`["Hello", null, "World", "Goku", "Gohan", "Goten", "Vegeta", "Trunks"]`))
+	defer expectedValues.Release()
+	assert.Truef(t, array.Equal(expectedValues, rle.Values()), "expected: %s\ngot: %s", expectedValues, rle.Values())
 }

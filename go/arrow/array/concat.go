@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/rle"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 	"github.com/apache/arrow/go/v10/internal/utils"
 )
@@ -42,7 +43,12 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, 
 
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = fmt.Errorf("arrow/concat: unknown error: %v", pErr)
+			switch e := pErr.(type) {
+			case error:
+				err = fmt.Errorf("arrow/concat: %w", e)
+			default:
+				err = fmt.Errorf("arrow/concat: unknown error: %v", pErr)
+			}
 		}
 	}()
 
@@ -512,6 +518,78 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 		if err != nil {
 			return nil, err
 		}
+	case *arrow.RunLengthEncodedType:
+		physicalLength, overflow := int32(0), false
+		// we can't use gatherChildren because the Offset and Len of
+		// data doesn't correspond to the physical length or offset
+		runs := make([]arrow.ArrayData, len(data))
+		values := make([]arrow.ArrayData, len(data))
+		for i, d := range data {
+			plen := rle.GetPhysicalLength(d)
+			off := rle.GetPhysicalOffset(d)
+
+			runs[i] = NewSliceData(d.Children()[0], int64(off), int64(off+plen))
+			defer runs[i].Release()
+			values[i] = NewSliceData(d.Children()[1], int64(off), int64(off+plen))
+			defer values[i].Release()
+
+			physicalLength, overflow = addOvf32(physicalLength, int32(plen))
+			if overflow {
+				return nil, fmt.Errorf("%w: run length encoded array length must fit into a 32-bit signed integer",
+					arrow.ErrInvalid)
+			}
+		}
+
+		runEndsBuffers := gatherFixedBuffers(runs, 1, arrow.Int32SizeBytes)
+		outRunEndsLen := int(physicalLength) * arrow.Int32SizeBytes
+		outRunEndsBuf := memory.NewResizableBuffer(mem)
+		outRunEndsBuf.Resize(outRunEndsLen)
+		defer outRunEndsBuf.Release()
+
+		outRunEnds := arrow.Int32Traits.CastFromBytes(outRunEndsBuf.Bytes())
+		// for now we will not attempt to optimize by checking if we
+		// can fold the end and beginning of each array we're concatenating
+		// into a single run
+		pos := 0
+		for i, buf := range runEndsBuffers {
+			if buf.Len() == 0 {
+				continue
+			}
+			src := arrow.Int32Traits.CastFromBytes(buf.Bytes())
+			if pos == 0 {
+				pos += copy(outRunEnds, src)
+				continue
+			}
+
+			lastEnd := outRunEnds[pos-1]
+			// we can check the last runEnd in the src and add it to the
+			// last value that we're adjusting them all by to see if we
+			// are going to overflow
+			if int64(lastEnd)+int64(src[len(src)-1]-int32(data[i].Offset())) > math.MaxInt32 {
+				return nil, fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+			}
+
+			// adjust all of the run ends by first normalizing them (e - data[i].offset)
+			// then adding the previous value we ended on. Since the offset
+			// is a logical length offset it should be accurate to just subtract
+			// it from each value.
+			for j, e := range src {
+				outRunEnds[pos+j] = lastEnd + (e - int32(data[i].Offset()))
+			}
+			pos += len(src)
+		}
+
+		out.childData = make([]arrow.ArrayData, 2)
+		out.childData[0] = NewData(arrow.PrimitiveTypes.Int32, int(physicalLength),
+			[]*memory.Buffer{nil, outRunEndsBuf}, nil, 0, 0)
+
+		var err error
+		out.childData[1], err = concat(values, mem)
+		if err != nil {
+			out.childData[0].Release()
+			return nil, err
+		}
+
 	default:
 		return nil, fmt.Errorf("concatenate not implemented for type %s", dt)
 	}
@@ -530,6 +608,12 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 func addOvf(x, y int) (int, bool) {
 	sum := x + y
 	return sum, ((x&y)|((x|y)&^sum))>>(bits.UintSize-2) == 1
+}
+
+// like addOvf but explicitly for int32
+func addOvf32(x, y int32) (int32, bool) {
+	sum := x + y
+	return sum, ((x&y)|((x|y)&^sum))>>30 == 1
 }
 
 // concatenate bitmaps together and return a buffer with the combined bitmaps
