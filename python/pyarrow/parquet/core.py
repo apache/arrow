@@ -1803,6 +1803,9 @@ Examples
             raise NotImplementedError("split_row_groups not yet implemented")
 
         if filters is not None:
+            if hasattr(filters, "cast"):
+                raise TypeError(
+                    "Expressions as filter not supported for legacy dataset")
             filters = _check_filters(filters)
             self._filter(filters)
 
@@ -2338,9 +2341,9 @@ class _ParquetDatasetV2:
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
 
-        # map filters to Expressions
-        self._filters = filters
-        self._filter_expression = filters and _filters_to_expression(filters)
+        self._filter_expression = None
+        if filters is not None:
+            self._filter_expression = _filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:

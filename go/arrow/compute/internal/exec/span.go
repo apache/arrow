@@ -18,6 +18,7 @@ package exec
 
 import (
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -85,16 +86,22 @@ type ArraySpan struct {
 	Children []ArraySpan
 }
 
+func (a *ArraySpan) MayHaveNulls() bool {
+	return atomic.LoadInt64(&a.Nulls) != 0 && a.Buffers[0].Buf != nil
+}
+
 // UpdateNullCount will count the bits in the null bitmap and update the
 // number of nulls if the current null count is unknown, otherwise it just
 // returns the value of a.Nulls
 func (a *ArraySpan) UpdateNullCount() int64 {
-	if a.Nulls != array.UnknownNullCount {
-		return a.Nulls
+	curNulls := atomic.LoadInt64(&a.Nulls)
+	if curNulls != array.UnknownNullCount {
+		return curNulls
 	}
 
-	a.Nulls = a.Len - int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len)))
-	return a.Nulls
+	newNulls := a.Len - int64(bitutil.CountSetBits(a.Buffers[0].Buf, int(a.Offset), int(a.Len)))
+	atomic.StoreInt64(&a.Nulls, newNulls)
+	return newNulls
 }
 
 // Dictionary returns a pointer to the array span for the dictionary which
@@ -126,7 +133,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	}
 
 	var (
-		nulls    = int(a.Nulls)
+		nulls    = int(atomic.LoadInt64(&a.Nulls))
 		length   = int(a.Len)
 		off      = int(a.Offset)
 		dt       = a.Type
@@ -178,7 +185,9 @@ func (a *ArraySpan) MakeArray() arrow.Array {
 func (a *ArraySpan) SetSlice(off, length int64) {
 	a.Offset, a.Len = off, length
 	if a.Type.ID() != arrow.NULL {
-		a.Nulls = array.UnknownNullCount
+		if a.Nulls != 0 {
+			a.Nulls = array.UnknownNullCount
+		}
 	} else {
 		a.Nulls = a.Len
 	}

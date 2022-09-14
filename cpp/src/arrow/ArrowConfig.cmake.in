@@ -172,3 +172,18 @@ endmacro()
 arrow_keep_backward_compatibility(Arrow arrow)
 
 check_required_components(Arrow)
+
+macro(arrow_show_details package_name variable_prefix)
+  if(NOT ${package_name}_FIND_QUIETLY AND NOT ${package_name}_SHOWED_DETAILS)
+    message(STATUS "${package_name} version: ${${package_name}_VERSION}")
+    message(STATUS "Found the ${package_name} shared library: ${${variable_prefix}_SHARED_LIB}"
+    )
+    message(STATUS "Found the ${package_name} import library: ${${variable_prefix}_IMPORT_LIB}"
+    )
+    message(STATUS "Found the ${package_name} static library: ${${variable_prefix}_STATIC_LIB}"
+    )
+    set(${package_name}_SHOWED_DETAILS TRUE)
+  endif()
+endmacro()
+
+arrow_show_details(Arrow ARROW)

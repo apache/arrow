@@ -244,6 +244,8 @@ public class JdbcToArrowUtils {
     for (int i = 1; i <= columnCount; i++) {
       final String columnName = rsmd.getColumnLabel(i);
 
+      final Map<String, String> columnMetadata = config.getColumnMetadataByColumnIndex() != null ?
+              config.getColumnMetadataByColumnIndex().get(i) : null;
       final Map<String, String> metadata;
       if (config.shouldIncludeMetadata()) {
         metadata = new HashMap<>();
@@ -251,9 +253,15 @@ public class JdbcToArrowUtils {
         metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
         metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
         metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
-
+        if (columnMetadata != null && !columnMetadata.isEmpty()) {
+          metadata.putAll(columnMetadata);
+        }
       } else {
-        metadata = null;
+        if (columnMetadata != null && !columnMetadata.isEmpty()) {
+          metadata = columnMetadata;
+        } else {
+          metadata = null;
+        }
       }
 
       final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
@@ -276,8 +284,7 @@ public class JdbcToArrowUtils {
         fields.add(new Field(columnName, fieldType, children));
       }
     }
-
-    return new Schema(fields, null);
+    return new Schema(fields, config.getSchemaMetadata());
   }
 
   static JdbcFieldInfo getJdbcFieldInfoForColumn(

@@ -21,7 +21,7 @@ message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 project(arrow-java-jni)
 
 if("${CMAKE_CXX_STANDARD}" STREQUAL "")
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

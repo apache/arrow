@@ -290,3 +290,128 @@ func VisitBitBlocksShort(bitmap []byte, offset, length int64, visitValid func(po
 	}
 	return nil
 }
+
+type bitOp struct {
+	bit  func(bool, bool) bool
+	word func(uint64, uint64) uint64
+}
+
+var (
+	bitBlockAnd = bitOp{
+		bit:  func(a, b bool) bool { return a && b },
+		word: func(a, b uint64) uint64 { return a & b },
+	}
+	bitBlockAndNot = bitOp{
+		bit:  func(a, b bool) bool { return a && !b },
+		word: func(a, b uint64) uint64 { return a &^ b },
+	}
+	bitBlockOr = bitOp{
+		bit:  func(a, b bool) bool { return a || b },
+		word: func(a, b uint64) uint64 { return a | b },
+	}
+	bitBlockOrNot = bitOp{
+		bit:  func(a, b bool) bool { return a || !b },
+		word: func(a, b uint64) uint64 { return a | ^b },
+	}
+)
+
+// BinaryBitBlockCounter computes popcounts on the result of bitwise
+// operations between two bitmaps, 64 bits at a time. A 64-bit word
+// is loaded from each bitmap, then the popcount is computed on
+// e.g. the bitwise-and of the two words
+type BinaryBitBlockCounter struct {
+	left                    []byte
+	right                   []byte
+	bitsRemaining           int64
+	leftOffset, rightOffset int64
+
+	bitsRequiredForWords int64
+}
+
+// NewBinaryBitBlockCounter constructs a binary bit block counter for
+// computing the popcounts on the results of operations between
+// the passed in bitmaps, with their respective offsets.
+func NewBinaryBitBlockCounter(left, right []byte, leftOffset, rightOffset int64, length int64) *BinaryBitBlockCounter {
+	ret := &BinaryBitBlockCounter{
+		left:          left[leftOffset/8:],
+		right:         right[rightOffset/8:],
+		leftOffset:    leftOffset % 8,
+		rightOffset:   rightOffset % 8,
+		bitsRemaining: length,
+	}
+
+	leftBitsReq := int64(64)
+	if ret.leftOffset != 0 {
+		leftBitsReq = 64 + (64 - ret.leftOffset)
+	}
+	rightBitsReq := int64(64)
+	if ret.rightOffset != 0 {
+		rightBitsReq = 64 + (64 - ret.rightOffset)
+	}
+
+	if leftBitsReq > rightBitsReq {
+		ret.bitsRequiredForWords = leftBitsReq
+	} else {
+		ret.bitsRequiredForWords = rightBitsReq
+	}
+
+	return ret
+}
+
+// NextAndWord returns the popcount of the bitwise-and of the next run
+// of available bits, up to 64. The returned pair contains the size of
+// the run and the number of true values. the last block will have a
+// length less than 64 if the bitmap length is not a multiple of 64,
+// and will return 0-length blocks in subsequent invocations
+func (b *BinaryBitBlockCounter) NextAndWord() BitBlockCount { return b.nextWord(bitBlockAnd) }
+
+// NextAndNotWord is like NextAndWord but performs x &^ y on each run
+func (b *BinaryBitBlockCounter) NextAndNotWord() BitBlockCount { return b.nextWord(bitBlockAndNot) }
+
+// NextOrWord is like NextAndWord but performs x | y on each run
+func (b *BinaryBitBlockCounter) NextOrWord() BitBlockCount { return b.nextWord(bitBlockOr) }
+
+// NextOrWord is like NextAndWord but performs x | ^y on each run
+func (b *BinaryBitBlockCounter) NextOrNotWord() BitBlockCount { return b.nextWord(bitBlockOrNot) }
+
+func (b *BinaryBitBlockCounter) nextWord(op bitOp) BitBlockCount {
+	if b.bitsRemaining == 0 {
+		return BitBlockCount{}
+	}
+
+	// when offset is >0, we need there to be a word beyond the last
+	// aligned word in the bitmap for the bit shifting logic
+	if b.bitsRemaining < b.bitsRequiredForWords {
+		runLength := int16(b.bitsRemaining)
+		if runLength > int16(wordBits) {
+			runLength = int16(wordBits)
+		}
+
+		var popcount int16
+		for i := int16(0); i < runLength; i++ {
+			if op.bit(bitutil.BitIsSet(b.left, int(b.leftOffset)+int(i)),
+				bitutil.BitIsSet(b.right, int(b.rightOffset)+int(i))) {
+				popcount++
+			}
+		}
+		// this code path should trigger _at most_ 2 times. in the "two times"
+		// case, the first time the run length will be a multiple of 8.
+		b.left = b.left[runLength/8:]
+		b.right = b.right[runLength/8:]
+		b.bitsRemaining -= int64(runLength)
+		return BitBlockCount{Len: runLength, Popcnt: popcount}
+	}
+
+	var popcount int
+	if b.leftOffset == 0 && b.rightOffset == 0 {
+		popcount = bits.OnesCount64(op.word(loadWord(b.left), loadWord(b.right)))
+	} else {
+		leftWord := shiftWord(loadWord(b.left), loadWord(b.left[8:]), b.leftOffset)
+		rightWord := shiftWord(loadWord(b.right), loadWord(b.right[8:]), b.rightOffset)
+		popcount = bits.OnesCount64(op.word(leftWord, rightWord))
+	}
+	b.left = b.left[wordBits/8:]
+	b.right = b.right[wordBits/8:]
+	b.bitsRemaining -= wordBits
+	return BitBlockCount{Len: int16(wordBits), Popcnt: int16(popcount)}
+}

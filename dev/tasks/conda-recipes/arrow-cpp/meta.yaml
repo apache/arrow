@@ -75,7 +75,10 @@ outputs:
         - c-ares
         - gflags
         - glog
-        - google-cloud-cpp
+        # On macOS and Windows, GCS support fails linking due to ABI
+        # issues with abseil-cpp
+        # (see https://github.com/conda-forge/abseil-cpp-feedstock/issues/45)
+        - google-cloud-cpp  # [linux]
         - grpc-cpp
         - libprotobuf
         - clangdev 10  # [not (osx and arm64)]
@@ -217,7 +220,7 @@ outputs:
         - pyarrow.parquet
         - pyarrow.plasma   # [unix]
         - pyarrow.fs
-        - pyarrow._s3fs
+        - pyarrow._s3fs    # [linux]
         - pyarrow._hdfs
         # We can only test importing cuda package but cannot run when a
         # CUDA device is not available, for instance, when building from CI.

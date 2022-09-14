@@ -477,18 +477,12 @@ type StrptimeOptions struct {
 
 func (StrptimeOptions) TypeName() string { return "StrptimeOptions" }
 
-type NullSelectionBehavior int8
+type NullSelectionBehavior = kernels.NullSelectionBehavior
 
 const (
-	DropNulls NullSelectionBehavior = iota
-	EmitNulls
+	SelectionEmitNulls = kernels.EmitNulls
+	SelectionDropNulls = kernels.DropNulls
 )
-
-type FilterOptions struct {
-	NullSelection NullSelectionBehavior `compute:"null_selection_behavior"`
-}
-
-func (FilterOptions) TypeName() string { return "FilterOptions" }
 
 type ArithmeticOptions struct {
 	CheckOverflow bool `compute:"check_overflow"`
@@ -496,7 +490,15 @@ type ArithmeticOptions struct {
 
 func (ArithmeticOptions) TypeName() string { return "ArithmeticOptions" }
 
-type CastOptions = kernels.CastOptions
+type (
+	CastOptions   = kernels.CastOptions
+	FilterOptions = kernels.FilterOptions
+	TakeOptions   = kernels.TakeOptions
+)
+
+func DefaultFilterOptions() *FilterOptions { return &FilterOptions{} }
+
+func DefaultTakeOptions() *TakeOptions { return &TakeOptions{BoundsCheck: true} }
 
 func DefaultCastOptions(safe bool) *CastOptions {
 	if safe {
