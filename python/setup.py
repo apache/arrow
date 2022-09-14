@@ -257,8 +257,8 @@ class build_ext(_build_ext):
                 '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
                 '-DCMAKE_INSTALL_LIBDIR=lib',
                 '-DCMAKE_INSTALL_PREFIX=' + str(pyarrow_cpp_home),
-                '-DPYTHON_EXECUTABLE=' + str(sys.executable),
-                '-DPython3_EXECUTABLE=' + str(sys.executable),
+                '-DPYTHON_EXECUTABLE=' + sys.executable,
+                '-DPython3_EXECUTABLE=' + sys.executable,
                 '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
             ]
 
@@ -338,8 +338,8 @@ class build_ext(_build_ext):
             static_lib_option = ''
 
             cmake_options = [
-                '-DPYTHON_EXECUTABLE=' + str(sys.executable),
-                '-DPython3_EXECUTABLE=' + str(sys.executable),
+                '-DPYTHON_EXECUTABLE=' + sys.executable,
+                '-DPython3_EXECUTABLE=' + sys.executable,
                 '-DPYARROW_CPP_HOME=' + str(pyarrow_cpp_home),
                 '-DPYARROW_CXXFLAGS=' + str(self.cmake_cxxflags),
                 static_lib_option,
