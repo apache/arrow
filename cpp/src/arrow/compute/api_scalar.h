@@ -1715,7 +1715,7 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// \param[in] ctx         function execution context, optional
 /// \return elementwise hash values
 ARROW_EXPORT
-Result<Datum> FastHash64(const Datum& input_array, ExecContext* ctx = NULLPTR);
+Result<Datum> Hash64(const Datum& input_array, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
