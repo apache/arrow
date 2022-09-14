@@ -60,25 +60,15 @@ test_that("ExecPlanReader evaluates head() lazily", {
 })
 
 test_that("ExecPlanReader evaluates head() lazily", {
-  # make a 500-row RecordBatchReader
+  # Make a rather long RecordBatchReader
   reader <- RecordBatchReader$create(
     batches = rep(
-      list(
-        record_batch(
-          line = c(
-            "this is the RecordBatchReader that never ends",
-            "yes it goes on and on my friends",
-            "some ExecPlan started pulling from it",
-            "not knowing what it was, and hopefully won't",
-            "continue pulling on forever just because"
-          )
-        )
-      ),
+      list(record_batch(line = letters)),
       100L
     )
   )
 
-  # But only get 10 rows from it
+  # ...But only get 10 rows from it
   query <- head(as_adq(reader), 10)
   expect_identical(as_arrow_table(query)$num_rows, 10L)
 
