@@ -363,9 +363,11 @@ class Repo:
 
     @property
     def default_branch_name(self):
-        print("Remotes:")
-        for remote in self.repo.remotes:
-            print(remote.name)
+        default_branch_name = os.getenv("DEFAULT_BRANCH")
+        print("**********default_branch_name" + default_branch_name)
+        # print("Remotes:")
+        # for remote in self.repo.remotes:
+        #     print(remote.name)
         # for ref in self.repo.references.objects:
         #     print(ref.target)
         #     print(ref.raw_target)
@@ -373,12 +375,13 @@ class Repo:
         #     print(ref.raw_shorthand)
         #     print(ref.name)
         #     print("\n")
-        for branch in self.repo.branches:
-            print(branch)
-        ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
-        target_name = ref_obj.target
-        target_name_tokenized = target_name.split("/")
-        return target_name_tokenized[-1]
+        # for branch in self.repo.branches:
+        #     print(branch)
+        # ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
+        # target_name = ref_obj.target
+        # target_name_tokenized = target_name.split("/")
+        # return target_name_tokenized[-1]
+        return default_branch_name
 
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
