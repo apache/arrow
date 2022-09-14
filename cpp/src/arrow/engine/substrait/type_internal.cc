@@ -398,7 +398,7 @@ struct DataTypeToProtoImpl {
   template <typename T>
   Status EncodeUserDefined(const T& t) {
     ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(t));
-    auto user_defined = internal::make_unique<::substrait::Type_UserDefined>();
+    auto user_defined = internal::make_unique<::substrait::Type::UserDefined>();
     user_defined->set_type_reference(anchor);
     user_defined->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
                                             : ::substrait::Type::NULLABILITY_REQUIRED);

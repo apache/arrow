@@ -1011,7 +1011,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().literal_type_case() ==
-                                             substrait::Expression_Literal::kI32) {
+                                             substrait::Expression::Literal::kI32) {
         return MakeListElementReference(std::move(arguments[0]),
                                         arguments[1]->literal().i32());
       }
