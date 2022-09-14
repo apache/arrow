@@ -56,60 +56,26 @@ The Parquet :class:`arrow::FileReader` requires a
 :class:`::arrow::io::RandomAccessFile` instance representing the input
 file.
 
-.. code-block:: cpp
-
-   #include "arrow/parquet/arrow/reader.h"
-
-   {
-      // ...
-      arrow::Status st;
-      arrow::MemoryPool* pool = default_memory_pool();
-      std::shared_ptr<arrow::io::RandomAccessFile> input = ...;
-
-      // Open Parquet file reader
-      std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-      ARROW_RETURN_NOT_OK(parquet::arrow::OpenFile(input, pool, &arrow_reader));
-
-      // Read entire file as a single Arrow table
-      std::shared_ptr<arrow::Table> table;
-      ARROW_RETURN_NOT_OK(arrow_reader->ReadTable(&table));
-   }
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status ReadFullFile(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 9-10,14
+   :dedent: 2
 
 Finer-grained options are available through the
 :class:`arrow::FileReaderBuilder` helper class, and the :class:`ReaderProperties`
 and :class:`ArrowReaderProperties` classes.
 
-For reading as a stream of batches, use the :meth:`arrow::FileReader::GetRecordBatchReader`.
+For reading as a stream of batches, use the :func:`arrow::FileReader::GetRecordBatchReader`.
 It will use the batch size set in :class:`ArrowReaderProperties`.
 
-.. code-block:: cpp
-
-   arrow::MemoryPool *pool = arrow::default_memory_pool();
-
-   // Configure general Parquet reader settings
-   auto reader_properties = parquet::ReaderProperties(pool);
-   reader_properties.set_buffer_size(settings.buffer_size);
-   reader_properties.enable_buffered_stream();
-
-   // Configure Arrow-specific Parquet reader settings
-   auto arrow_reader_props = parquet::ArrowReaderProperties();
-   arrow_reader_props.set_batch_size(128 * 1024); // default 64 * 1024
-
-   arrow::FileReaderBuilder reader_builder;
-   ARROW_RETURN_NOT_OK(reader_builder.OpenFile("example.parquet", /*memory_map*/=false, reader_properties));
-   reader_builder.memory_pool(pool);
-   reader_builder.properties(arrow_reader_props);
-   
-   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-   ARROW_ASSIGN_OR_RAISE(arrow_reader, reader_builder.Build());
-   
-   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-   ARROW_ASSIGN_OR_RAISE(rb_reader, arrow_reader->GetRecordBatchReader());
-   
-   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
-     // Operate on each batch...
-   }
-
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status ReadInBatches(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 25
+   :dedent: 2
 
 Performance and Memory Efficiency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -131,7 +97,7 @@ decoding is off by default. Enable it in the constructor of :class:`ArrowReaderP
 
 If memory efficiency is more important than performance, then:
 
-#. Do not turn on read coalescing (prebuffering).
+#. Do not turn on read coalescing (pre-buffering).
 #. Read data in batches.
 #. Turn off ``use_buffered_stream``.
 
@@ -194,49 +160,26 @@ WriteTable
 The :func:`arrow::WriteTable` function writes an entire
 :class:`::arrow::Table` to an output file.
 
-.. code-block:: cpp
-
-   #include "parquet/arrow/writer.h"
-
-   {
-      std::shared_ptr<arrow::io::FileOutputStream> outfile;
-      PARQUET_ASSIGN_OR_THROW(
-         outfile,
-         arrow::io::FileOutputStream::Open("test.parquet"));
-
-      PARQUET_THROW_NOT_OK(
-         parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
-   }
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status WriteFullFile(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 8-9
+   :dedent: 2
 
 .. warning::
 
    Column compression is off by default in C++. See below for how to choose a
-   compression codec.
+   compression codec in the writer properties.
 
 To write out data batch-by-batch, use :class:`arrow::FileWriter`.
 
-.. code-block:: cpp
-
-   #include "parquet/arrow/writer.h"
-
-   // Data is in RBR
-   std::shared_ptr<arrow::RecordBatchReader> batch_stream;
-   batch_stream = ...
-
-   // Create a writer
-   std::shared_ptr<arrow::io::FileOutputStream> outfile;
-   std::unique_ptr<FileWriter> writer;
-   ARROW_ASSIGN_OR_RAISE(writer, parquet::arrow::FileWriter::Open(batch_stream->schema(), arrow::default_memory_pool(), outfile));
-
-   // Write each batch as a row_group
-   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
-     ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-     ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batch->schema(), {batch}));
-     writer->WriteTable(table, batch->num_rows());
-   }
-
-   // Write file footer and close
-   ARROW_RETURN_NOT_OK(writer->Close());
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status WriteInBatches(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 12-13,20,24
+   :dedent: 2
 
 .. seealso::
 
