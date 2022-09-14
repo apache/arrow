@@ -5,6 +5,10 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
+    {
+      "name": "bison",
+      "version>=": "3.2"
+    },
     "boost-filesystem",
     {
       "name": "boost-multiprecision",
@@ -18,6 +22,10 @@
     "bzip2",
     "curl",
     "flatbuffers",
+    {
+      "name": "flex",
+      "version>=": "2.5"
+    },
     "gflags",
     "glog",
     "lz4",
