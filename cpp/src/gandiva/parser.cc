@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parser.h"
+#include "gandiva/parser.h"
 
 #include "arrow/status.h"
 
