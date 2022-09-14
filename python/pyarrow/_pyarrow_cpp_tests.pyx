@@ -34,10 +34,41 @@ def test_PythonDecimalToString():
         PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
         c_string string_result
 
-    with nogil:
-        check_status(PythonDecimalToString(
-            python_object,
-            &string_result)
-            )
+    # Should a check be added here that python_object != nullptr ?
+
+    check_status(PythonDecimalToString(
+        python_object,
+        &string_result)
+        )
 
     assert string_result == decimal_string
+
+def test_InferPrecisionAndScale():
+    cdef:
+        c_string decimal_string = b'-394029506937548693.42983'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        DecimalMetadata metadata
+        int32_t expected_precision = <int32_t>(decimal_string.size()) - 2 # 1 for -, 1 for .
+        int32_t expected_scale = 5
+
+    check_status(metadata.Update(
+        python_object)
+        )
+
+    assert expected_precision == metadata.precision()
+    assert expected_scale == metadata.scale()
+
+def test_InferPrecisionAndNegativeScale():
+    cdef:
+        c_string decimal_string = b'-3.94042983E+10'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        DecimalMetadata metadata
+        int32_t expected_precision = 11
+        int32_t expected_scale = 0
+
+    check_status(metadata.Update(
+        python_object)
+        )
+
+    assert expected_precision == metadata.precision()
+    assert expected_scale == metadata.scale()

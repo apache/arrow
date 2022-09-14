@@ -30,3 +30,13 @@ cdef extern from "arrow/python/decimal.h" namespace "arrow::py::internal" nogil:
     CStatus PythonDecimalToString(
         PyObject* python_decimal,
         c_string* out);
+
+    cdef cppclass DecimalMetadata:
+        DecimalMetadata()
+        DecimalMetadata(int32_t precision, int32_t scale)
+
+        CStatus Update(int32_t suggested_precision, int32_t suggested_scale)
+        CStatus Update(PyObject* object)
+
+        int32_t precision()
+        int32_t scale()
