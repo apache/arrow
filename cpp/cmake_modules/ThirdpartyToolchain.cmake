@@ -47,10 +47,12 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
     benchmark
+    bison
     Boost
     Brotli
     BZip2
     c-ares
+    flex
     gflags
     GLOG
     google_cloud_cpp_storage
@@ -153,6 +155,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_awssdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "bison")
+    build_bison()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
     build_boost()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Brotli")
@@ -171,6 +175,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "flex")
+    build_flex()
   elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
     build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
@@ -377,6 +383,11 @@ if((NOT ARROW_COMPUTE)
   set(ARROW_WITH_RE2 OFF)
 endif()
 
+if(ARROW_GANDIVA)
+  set(ARROW_WTIH_FLEX ON)
+  set(ARROW_WTIH_BISON ON)
+endif()
+
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
@@ -456,6 +467,14 @@ else()
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_BISON_URL})
+  set(BISON_SOURCE_URL "$ENV{ARROW_BISON_URL}")
+else()
+  set_urls(BISON_SOURCE_URL
+           "https://ftp.gnu.org/gnu/bison/bison-${ARROW_BISON_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/bison-${ARROW_BISON_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
@@ -503,6 +522,14 @@ else()
   set_urls(CRC32C_SOURCE_URL
            "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
   )
+endif()
+
+if(DEFINED ENV{ARROW_FLEX_URL})
+  set(FLEX_SOURCE_URL "$ENV{ARROW_FLEX_URL}")
+else()
+  set_urls(FLEX_SOURCE_URL
+           "https://github.com/westes/flex/releases/download/v${ARROW_FLEX_BUILD_VERSION}/flex-${ARROW_FLEX_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/flex-${ARROW_FLEX_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -2647,6 +2674,49 @@ macro(build_cares)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
 endmacro()
 
+# ----------------------------------------------------------------------
+# Bison and Flex (required for Gandiva)
+macro(build_bison)
+  message(STATUS "Building bison from source")
+  set(BISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/bison_ep-install")
+  set(BISON_CONFIGURE_COMMAND ./configure)
+
+  externalproject_add(bison_ep
+                      ${EP_LOG_OPTIONS}
+                      INSTALL_DIR ${BISON_PREFIX}
+                      URL ${BISON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_BISON_BUILD_SHA256_CHECKSUM}"
+                      CONFIGURE_COMMAND ${BISON_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${MAKE}
+                      BUILD_IN_SOURCE 1
+                      INSTALL_COMMAND ${MAKE} install)
+endmacro()
+
+if(ARROW_WITH_BISON)
+  resolve_dependency(bison REQUIRED_VERSION "3.2")
+  add_definitions(-DARROW_WITH_BISON)
+endif()
+
+macro(build_flex)
+  message(STATUS "Building flex from source")
+  set(FLEX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flex_ep-install")
+  set(FLEX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
+
+  externalproject_add(flex_ep
+                      ${EP_LOG_OPTIONS}
+                      INSTALL_DIR ${FLEX_PREFIX}
+                      URL ${FLEX_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_FLEX_BUILD_SHA256_CHECKSUM}"
+                      CONFIGURE_COMMAND ${FLEX_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${MAKE}
+                      BUILD_IN_SOURCE 1
+                      INSTALL_COMMAND ${MAKE} install)
+endmacro()
+
+if(ARROW_WITH_FLEX)
+  resolve_dependency(flex REQUIRED_VERSION "2.5")
+  add_definitions(-DARROW_WITH_FLEX)
+endif()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 

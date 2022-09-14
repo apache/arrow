@@ -79,6 +79,8 @@ class ArrowConan(ConanFile):
         "with_snappy": [True, False],
         "with_zlib": [True, False],
         "with_zstd": [True, False],
+        "with_bison": ["auto", True, False],
+        "with_flex": ["auto", True, False],
     }
     default_options = {
         "shared": False,
@@ -123,6 +125,8 @@ class ArrowConan(ConanFile):
         "with_snappy": False,
         "with_zlib": False,
         "with_zstd": False,
+        "with_bison": "auto",
+        "with_flex": "auto",
     }
     generators = "cmake", "cmake_find_package_multi"
     short_paths = True
@@ -187,6 +191,10 @@ class ArrowConan(ConanFile):
             raise ConanInvalidConfiguration("with_openssl options is required (or choose auto)")
         if self.options.with_llvm == False and self._with_llvm(True):
             raise ConanInvalidConfiguration("with_llvm options is required (or choose auto)")
+        if self.options.with_bison == False and self._with_bison(True):
+            raise ConanInvalidConfiguration("with_bison options is required (or choose auto)")
+        if self.options.with_flex == False and self._with_flex(True):
+            raise ConanInvalidConfiguration("with_flex options is required (or choose auto)")
         if self.options.with_cuda:
             raise ConanInvalidConfiguration("CCI has no cuda recipe (yet)")
         if self.options.with_orc:
@@ -298,6 +306,18 @@ class ArrowConan(ConanFile):
         else:
             return bool(self.options.with_openssl)
 
+    def _with_bison(self, required=False):
+        if required or self.options.with_bison == "auto":
+            return bool(self.options.gandiva)
+        else:
+            return bool(self.options.with_bison)
+
+    def _with_flex(self, required=False):
+        if required or self.options.with_flex == "auto":
+            return bool(self.options.gandiva)
+        else:
+            return bool(self.options.with_flex)
+
     def requirements(self):
         if self._with_thrift():
             self.requires("thrift/0.16.0")
@@ -351,6 +371,10 @@ class ArrowConan(ConanFile):
             self.requires("utf8proc/2.7.0")
         if self.options.with_backtrace:
             self.requires("libbacktrace/cci.20210118")
+        if self._with_bison():
+            self.requires("bison/3.2")
+        if self._with_flex():
+            self.requires("flex/2.5")
 
     def source(self):
         # START
@@ -631,6 +655,10 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libgandiva"].requires.append("re2::re2")
         if self._with_llvm():
             self.cpp_info.components["libgandiva"].requires.append("llvm-core::llvm-core")
+        if self._with_bison():
+            self.cpp_info.components["libgandiva"].requires.append("bison::bison")
+        if self._with_flex():
+            self.cpp_info.components["libgandiva"].requires.append("flex::flex")
         if self._with_protobuf():
             self.cpp_info.components["libarrow"].requires.append("protobuf::protobuf")
         if self._with_utf8proc():

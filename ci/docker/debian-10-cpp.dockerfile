@@ -37,9 +37,11 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bison \
         ccache \
         clang-${llvm} \
         cmake \
+        flex \
         g++ \
         gcc \
         gdb \
