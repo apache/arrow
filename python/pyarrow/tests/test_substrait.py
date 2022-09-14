@@ -32,6 +32,10 @@ except ImportError:
 # Ignore these with pytest ... -m 'not substrait'
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
+_base_ext_uri = "https://github.com/substrait-io" \
+    + "/substrait/blob/main/extensions"
+_kAggregateURI = _base_ext_uri + "/functions_aggregate_generic.yaml"
+
 
 def _write_dummy_data_to_disk(tmpdir, file_name, table):
     path = os.path.join(str(tmpdir), file_name)
@@ -165,3 +169,106 @@ def test_get_supported_functions():
                         'functions_arithmetic.yaml', 'add')
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'sum')
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="ARROW-16392: file based URI is" +
+                    " not fully supported for Windows")
+def test_run_aggregate_query(tmpdir):
+    substrait_query = """
+    {
+        "relations": [{
+        "rel": {
+            "aggregate": {
+            "input": {
+                "read": {
+                "base_schema": {
+                    "names": ["A", "B", "C"],
+                    "struct": {
+                    "types": [{
+                        "i64": {}
+                    }, {
+                        "i64": {}
+                    }, {
+                        "i64": {}
+                    }]
+                    }
+                },
+                "local_files": {
+                    "items": [
+                    {
+                        "uri_file": "file://FILENAME_PLACEHOLDER",
+                        "arrow": {}
+                    }
+                    ]
+                }
+                }
+            },
+            "groupings": [{
+                "groupingExpressions": [{
+                "selection": {
+                    "directReference": {
+                    "structField": {
+                        "field": 0
+                    }
+                    }
+                }
+                }]
+            }],
+            "measures": [{
+                "measure": {
+                "functionReference": 0,
+                "arguments": [{
+                    "value": {
+                    "selection": {
+                        "directReference": {
+                        "structField": {
+                            "field": 1
+                        }
+                        }
+                    }
+                    }
+                }],
+                "sorts": [],
+                "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                "invocation": "AGGREGATION_INVOCATION_ALL",
+                "outputType": {
+                    "i64": {}
+                }
+                }
+            }]
+            }
+        }
+        }],
+        "extensionUris": [{
+        "extension_uri_anchor": 0,
+        "uri": "AGGREGATE_URI_PLACEHOLDER"
+        }],
+        "extensions": [{
+        "extension_function": {
+            "extension_uri_reference": 0,
+            "function_anchor": 0,
+            "name": "count"
+        }
+        }]
+    }
+    """
+
+    file_name = "read_agg_data.arrow"
+    table = pa.Table.from_arrays([[1, 2, 3, 2, 3, 1, 1],
+                                  [10, 20, 30, 40, 50, 60, 70],
+                                  [3, 4, 5, 1, 2, 0, 20]],
+                                 names=['A', 'B', 'C'])
+    path = _write_dummy_data_to_disk(tmpdir, file_name, table)
+
+    query_with_path = substrait_query.replace("FILENAME_PLACEHOLDER", path)
+    query_with_ext_uri = query_with_path.replace(
+        "AGGREGATE_URI_PLACEHOLDER", _kAggregateURI)
+    query = tobytes(query_with_ext_uri)
+
+    buf = pa._substrait._parse_json_plan(query)
+
+    reader = substrait.run_query(buf)
+    res_tb = reader.read_all()
+
+    print(res_tb)
