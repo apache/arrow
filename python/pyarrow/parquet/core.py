@@ -645,7 +645,8 @@ class ParquetFile:
 
         Returns
         -------
-        num_rows : number of rows in file
+        num_rows : int
+            Number of rows in file
 
         Examples
         --------
@@ -1186,6 +1187,7 @@ class ParquetDatasetPiece:
         Returns
         -------
         metadata : FileMetaData
+            The file's metadata
         """
         with self.open() as parquet:
             return parquet.metadata
@@ -1222,6 +1224,7 @@ class ParquetDatasetPiece:
         Returns
         -------
         table : pyarrow.Table
+            The pierce as a pyarrow.Table
         """
         if self.open_file_func is not None:
             reader = self.open()
@@ -3560,6 +3563,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
     Returns
     -------
     metadata : FileMetaData
+        The metadata of the Parquet file
 
     Examples
     --------
@@ -3609,6 +3613,7 @@ def read_schema(where, memory_map=False, decryption_properties=None,
     Returns
     -------
     schema : pyarrow.Schema
+        The schema of the Parquet file
 
     Examples
     --------
