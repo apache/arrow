@@ -352,7 +352,9 @@ class RawArrayBuilder<Kind::kObject> {
 
   BuilderPtr field_builder(int index) const { return field_infos_[index].builder; }
 
-  void field_builder(int index, BuilderPtr builder) { field_infos_[index].builder = builder; }
+  void field_builder(int index, BuilderPtr builder) {
+    field_infos_[index].builder = builder;
+  }
 
   Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
                 std::shared_ptr<Array>* out) {
