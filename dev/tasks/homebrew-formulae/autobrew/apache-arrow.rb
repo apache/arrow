@@ -42,6 +42,7 @@ class ApacheArrow < Formula
   def install
     ENV.cxx11
     args = %W[
+      -DARROW_CXXFLAGS="-D_LIBCPP_DISABLE_AVAILABILITY"
       -DARROW_BUILD_SHARED=OFF
       -DARROW_BUILD_UTILITIES=ON
       -DARROW_COMPUTE=ON
@@ -61,7 +62,6 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
-      -DCMAKE_OSX_DEPLOYMENT_TARGET=10.14
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DPARQUET_BUILD_EXECUTABLES=ON
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
