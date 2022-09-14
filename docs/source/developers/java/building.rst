@@ -100,7 +100,7 @@ for that architecture. See, for example, the `Azul JDK <https://www.azul.com/dow
 Maven
 ~~~~~
 
-- To build only the C Data Interface library:
+- To build only the JNI C Data Interface library:
 
     .. code-block::
 
@@ -111,9 +111,28 @@ Maven
         $ ls -latr ../java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
-- To build other JNI libraries:
+- To build JNI ORC & JNI Gandiva libraries:
 
-    Not options available on Maven.
+    .. code-block::
+
+        $ cd arrow/java
+        $ export JAVA_HOME=<absolute path to your java home>
+        $ java --version
+        $ mvn clean generate-resources -Pgenerate-jnicpp-dylib_so -N
+        $ ls -latr  java-dist/lib
+        |__ libarrow_orc_jni.dylib
+        |__ libgandiva_jni.dylib
+
+- To build only the JNI Dataset library:
+
+    .. code-block::
+
+        $ cd arrow/java
+        $ export JAVA_HOME=<absolute path to your java home>
+        $ java --version
+        $ mvn clean generate-resources -Pgenerate-dataset-dylib_so -N
+        $ ls -latr java-dist/lib
+        |__ libarrow_dataset_jni.dylib
 
 CMake
 ~~~~~
@@ -175,7 +194,7 @@ CMake
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
 
-- To build only the Dataset library:
+- To build only the JNI Dataset library:
 
     .. code-block::
 
