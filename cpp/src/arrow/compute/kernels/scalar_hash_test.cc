@@ -33,7 +33,7 @@ TEST(TestScalarHash, FastHash64Primitive) {
   for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
     auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
 
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {input_arr}));
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {input_arr}));
   }
 }
 
@@ -41,7 +41,7 @@ TEST(TestScalarHash, FastHash64Strings) {
   auto test_strarr = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A",
                                                "first-B", "second-B", "third-B"])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_strarr}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_strarr}));
 }
 
 TEST(TestScalarHash, FastHash64List) {
@@ -49,7 +49,7 @@ TEST(TestScalarHash, FastHash64List) {
                                  R"([["first-A", "second-A", "third-A"],
                                      ["first-B", "second-B", "third-B"]])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_list}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_list}));
 }
 
 TEST(TestScalarHash, FastHash64Map) {
@@ -58,7 +58,7 @@ TEST(TestScalarHash, FastHash64Map) {
                                     [["first-B", 10], ["second-B", 20], ["third-B", 30]]
                                     ])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_64", {test_map}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
 }
 
 }  // namespace compute

@@ -40,7 +40,7 @@ namespace internal {
 namespace {
 
 // Function documentation
-const FunctionDoc fast_hash_64_doc{
+const FunctionDoc hash_64_doc{
     "Construct a hash for every element of the input argument",
     ("An element-wise function that uses an xxHash-like algorithm.\n"
      "This function is not suitable for cryptographic purposes.\n"
@@ -113,24 +113,24 @@ struct FastHashScalar {
 // Function construction and kernel registration
 std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Create function instance
-  auto fn_fast_hash_64 =
-      std::make_shared<ScalarFunction>("fast_hash_64", Arity::Unary(), fast_hash_64_doc);
+  auto fn_hash_64 =
+      std::make_shared<ScalarFunction>("hash_64", Arity::Unary(), hash_64_doc);
 
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
-    DCHECK_OK(fn_fast_hash_64->AddKernel({InputType(simple_inputtype)},
-                                         OutputType(uint64()), FastHashScalar<>::Exec));
+    DCHECK_OK(fn_hash_64->AddKernel({InputType(simple_inputtype)}, OutputType(uint64()),
+                                    FastHashScalar<>::Exec));
   }
 
   for (const auto nested_type :
        {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION, Type::LIST,
         Type::FIXED_SIZE_LIST, Type::MAP, Type::DICTIONARY}) {
-    DCHECK_OK(fn_fast_hash_64->AddKernel({InputType(nested_type)}, OutputType(uint64()),
-                                         FastHashScalar<>::Exec));
+    DCHECK_OK(fn_hash_64->AddKernel({InputType(nested_type)}, OutputType(uint64()),
+                                    FastHashScalar<>::Exec));
   }
 
   // Return function to be registered
-  return fn_fast_hash_64;
+  return fn_hash_64;
 }
 
 }  // namespace
