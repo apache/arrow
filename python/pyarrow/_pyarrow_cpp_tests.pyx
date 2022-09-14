@@ -40,6 +40,7 @@ def test_PythonDecimalToString():
 
     assert string_result == decimal_string
 
+
 def test_InferPrecisionAndScale():
     cdef:
         c_string decimal_string = b'-394029506937548693.42983'
@@ -55,12 +56,61 @@ def test_InferPrecisionAndScale():
     assert expected_precision == metadata.precision()
     assert expected_scale == metadata.scale()
 
+
 def test_InferPrecisionAndNegativeScale():
     cdef:
         c_string decimal_string = b'-3.94042983E+10'
         PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
         DecimalMetadata metadata
         int32_t expected_precision = 11
+        int32_t expected_scale = 0
+
+    check_status(metadata.Update(
+        python_object)
+    )
+
+    assert expected_precision == metadata.precision()
+    assert expected_scale == metadata.scale()
+
+
+def test_TestInferAllLeadingZeros():
+    cdef:
+        c_string decimal_string = b'0.001'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        DecimalMetadata metadata
+        int32_t expected_precision = 3
+        int32_t expected_scale = 3
+
+    check_status(metadata.Update(
+        python_object)
+    )
+
+    assert expected_precision == metadata.precision()
+    assert expected_scale == metadata.scale()
+
+
+def test_TestInferAllLeadingZerosExponentialNotationPositive():
+    cdef:
+        c_string decimal_string = b'0.01E5'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        DecimalMetadata metadata
+        int32_t expected_precision = 4
+        int32_t expected_scale = 0
+
+    check_status(metadata.Update(
+        python_object)
+    )
+
+    assert expected_precision == metadata.precision()
+    assert expected_scale == metadata.scale()
+
+
+def test_TestInferAllLeadingZerosExponentialNotationNegative():
+    cdef:
+        c_string decimal_string = b'0.01E3'
+        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
+        DecimalMetadata metadata
+        int32_t expected_precision = 2
         int32_t expected_scale = 0
 
     check_status(metadata.Update(

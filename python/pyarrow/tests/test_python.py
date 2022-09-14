@@ -30,18 +30,28 @@
 #         if callable(item) and name.startswith("test_"):
 #             setattr(sys.modules[__name__], name, item)
 
-from pyarrow._pyarrow_cpp_tests import (test_PythonDecimalToString,  # noqa
-                                        test_InferPrecisionAndScale,
-                                        test_InferPrecisionAndNegativeScale)
+import pyarrow._pyarrow_cpp_tests as t # noqa
 
 
 def test_python_decimal_to_string():
-    test_PythonDecimalToString()
+    t.test_PythonDecimalToString()
 
 
 def test_infer_precision_and_scale():
-    test_InferPrecisionAndScale()
+    t.test_InferPrecisionAndScale()
 
 
 def test_infer_precision_and_negative_scale():
-    test_InferPrecisionAndNegativeScale()
+    t.test_InferPrecisionAndNegativeScale()
+
+
+def test_infer_all_leading_zeros():
+    t.test_TestInferAllLeadingZeros()
+
+
+def test_infer_all_leading_zeros_e_pos():
+    t.test_TestInferAllLeadingZerosExponentialNotationPositive()
+
+
+def test_infer_all_leading_zeros_e_neg():
+    t.test_TestInferAllLeadingZerosExponentialNotationNegative()
