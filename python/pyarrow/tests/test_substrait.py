@@ -165,3 +165,129 @@ def test_get_supported_functions():
                         'functions_arithmetic.yaml', 'add')
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'sum')
+
+
+def test_named_table():
+    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+    test_table_2 = pa.Table.from_pydict({"x": [4, 5, 6]})
+
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table_1
+        elif names[1] == "t2":
+            return test_table_2
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": ["t1"]
+            }
+            }
+        }}
+        ]
+    }
+    """
+
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+    reader = pa.substrait.run_query(buf, table_provider)
+    res_tb = reader.read_all()
+    assert res_tb == test_table_1
+
+
+def test_named_table_invalid_table_name():
+    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table_1
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": ["t3"]
+            }
+            }
+        }}
+        ]
+    }
+    """
+
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+    exec_message = "Invalid NamedTable Source"
+    with pytest.raises(ArrowInvalid, match=exec_message):
+        substrait.run_query(buf, table_provider)
+
+
+def test_named_table_empty_names():
+    test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
+
+    def table_provider(names):
+        if not names:
+            raise Exception("No names provided")
+        elif names[0] == "t1":
+            return test_table_1
+        else:
+            raise Exception("Unrecognized table name")
+
+    substrait_query = """
+    {
+        "relations": [
+        {"rel": {
+            "read": {
+            "base_schema": {
+                "struct": {
+                "types": [
+                            {"i64": {}}
+                        ]
+                },
+                "names": [
+                        "x"
+                        ]
+            },
+            "namedTable": {
+                    "names": []
+            }
+            }
+        }}
+        ]
+    }
+    """
+    query = tobytes(substrait_query)
+    buf = pa._substrait._parse_json_plan(tobytes(query))
+    exec_message = "names for NamedTable not provided"
+    with pytest.raises(ArrowInvalid, match=exec_message):
+        substrait.run_query(buf, table_provider)
