@@ -170,6 +170,8 @@ def test_get_supported_functions():
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'sum')
 
+# TODO: add a test suite to check the integrated functions
+
 
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="ARROW-16392: file based URI is" +
