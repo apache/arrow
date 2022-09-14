@@ -2352,14 +2352,13 @@ cdef class Scanner(_Weakrefable):
         return self.wrapped
 
     @staticmethod
-    def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, object use_async=None,
-                     MemoryPool memory_pool=None,
-                     object columns=None, Expression filter=None,
-                     int batch_size=_DEFAULT_BATCH_SIZE,
+    def from_dataset(Dataset dataset not None, *, object columns=None,
+                     Expression filter=None, int batch_size=_DEFAULT_BATCH_SIZE,
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
-                     FragmentScanOptions fragment_scan_options=None):
+                     FragmentScanOptions fragment_scan_options=None,
+                     bint use_threads=True, object use_async=None,
+                     MemoryPool memory_pool=None):
         """
         Create Scanner from Dataset,
 
@@ -2367,16 +2366,6 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
-        use_threads : bool, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        use_async : bool, default True
-            This flag is deprecated and is being kept for this release for
-            backwards compatibility.  It will be removed in the next
-            release.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
         columns : list of str, default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -2406,9 +2395,25 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. Increasing this number
+            will increase RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
         fragment_scan_options : FragmentScanOptions, default None
             Options specific to a particular scan and fragment type, which
             can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2431,13 +2436,13 @@ cdef class Scanner(_Weakrefable):
         return Scanner.wrap(scanner)
 
     @staticmethod
-    def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, object use_async=None,
-                      MemoryPool memory_pool=None,
+    def from_fragment(Fragment fragment not None, *, Schema schema=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       int batch_readahead=_DEFAULT_BATCH_READAHEAD,
-                      FragmentScanOptions fragment_scan_options=None):
+                      FragmentScanOptions fragment_scan_options=None,
+                      bint use_threads=True, object use_async=None,
+                      MemoryPool memory_pool=None,):
         """
         Create Scanner from Fragment,
 
@@ -2447,16 +2452,6 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
-        use_threads : bool, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        use_async : bool, default True
-            This flag is deprecated and is being kept for this release for
-            backwards compatibility.  It will be removed in the next
-            release.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
         columns : list of str, default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -2486,9 +2481,22 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. Increasing this number
+            will increase RAM usage but could also improve IO utilization.
         fragment_scan_options : FragmentScanOptions, default None
             Options specific to a particular scan and fragment type, which
             can change between different scans of the same dataset.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
@@ -2515,11 +2523,11 @@ cdef class Scanner(_Weakrefable):
         return Scanner.wrap(scanner)
 
     @staticmethod
-    def from_batches(source, Schema schema=None, bint use_threads=True,
-                     object use_async=None, MemoryPool memory_pool=None,
-                     object columns=None, Expression filter=None,
-                     int batch_size=_DEFAULT_BATCH_SIZE,
-                     FragmentScanOptions fragment_scan_options=None):
+    def from_batches(source, *, Schema schema=None, object columns=None,
+                     Expression filter=None, int batch_size=_DEFAULT_BATCH_SIZE,
+                     FragmentScanOptions fragment_scan_options=None,
+                     bint use_threads=True, object use_async=None,
+                     MemoryPool memory_pool=None):
         """
         Create a Scanner from an iterator of batches.
 
@@ -2534,6 +2542,14 @@ cdef class Scanner(_Weakrefable):
             The iterator of Batches.
         schema : Schema
             The schema of the batches.
+        columns : list of str or dict, default None
+                The columns to project.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+        batch_size : int, default 128Ki
+            The maximum row count for scanned record batches.
+        fragment_scan_options : FragmentScanOptions
+            The fragment scan options.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2544,14 +2560,6 @@ cdef class Scanner(_Weakrefable):
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
-        columns : list of str or dict, default None
-                The columns to project.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-        batch_size : int, default 128Ki
-            The maximum row count for scanned record batches.
-        fragment_scan_options : FragmentScanOptions
-            The fragment scan options.
         """
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
