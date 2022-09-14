@@ -55,9 +55,7 @@ jobs:
           fetch-depth: 0
       - name: Git Fixup
         shell: bash
-        run: |
-          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
-          git branch $DEFAULT_BRANCH origin/$DEFAULT_BRANCH || true
+        run: git branch $DEFAULT_BRANCH origin/$DEFAULT_BRANCH || true
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -68,7 +66,7 @@ jobs:
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
-        run: pytest -rs --enable-integration -v archery
+        run: pytest -v archery
       - name: Archery Docker Validation
         run: archery docker check-config
       - name: Crossbow Check Config
