@@ -38,11 +38,11 @@ group_by.arrow_dplyr_query <- function(.data,
   }
 
   if (.add) {
-    gv <- dplyr::union(.data$group_by_vars, names(new_groups))
+    gv <- dplyr::union(dplyr::group_vars(.data), names(new_groups))
   } else {
     gv <- names(new_groups)
   }
-  .data$group_by_vars <- gv
+  .data$group_by_vars <- gv %||% character()
   .data$drop_empty_groups <- ifelse(length(gv), .drop, dplyr::group_by_drop_default(.data))
   .data
 }
