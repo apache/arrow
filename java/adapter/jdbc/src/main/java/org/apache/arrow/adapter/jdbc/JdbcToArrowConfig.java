@@ -20,7 +20,7 @@ package org.apache.arrow.adapter.jdbc;
 import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -75,7 +75,7 @@ public final class JdbcToArrowConfig {
    */
   private final int targetBatchSize;
 
-  private final Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private final BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -102,7 +102,7 @@ public final class JdbcToArrowConfig {
           Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
           Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
           int targetBatchSize,
-          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+          BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
     this(allocator, calendar, includeMetadata, reuseVectorSchemaRoot, arraySubTypesByColumnIndex,
         arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, null);
   }
@@ -162,7 +162,7 @@ public final class JdbcToArrowConfig {
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
-      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
       RoundingMode bigDecimalRoundingMode) {
 
     this(
@@ -189,7 +189,7 @@ public final class JdbcToArrowConfig {
       Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
-      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
       Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
       Map<String, JdbcFieldInfo> explicitTypesByColumnName,
       Map<String, String> schemaMetadata,
@@ -211,7 +211,7 @@ public final class JdbcToArrowConfig {
 
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
-        jdbcFieldInfo -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
+        (columnIdx, jdbcFieldInfo) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
   }
 
   /**
@@ -260,7 +260,7 @@ public final class JdbcToArrowConfig {
   /**
    * Gets the mapping between JDBC type information to Arrow type.
    */
-  public Function<JdbcFieldInfo, ArrowType> getJdbcToArrowTypeConverter() {
+  public BiFunction<Integer, JdbcFieldInfo, ArrowType> getJdbcToArrowTypeConverter() {
     return jdbcToArrowTypeConverter;
   }
 
