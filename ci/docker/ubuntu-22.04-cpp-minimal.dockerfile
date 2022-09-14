@@ -31,6 +31,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         git \
+        libtool \
         libssl-dev \
         libcurl4-openssl-dev \
         m4 \
