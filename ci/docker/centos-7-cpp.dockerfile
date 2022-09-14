@@ -25,6 +25,7 @@ RUN yum install -y \
         gcc-c++ \
         libcurl-devel \
         make \
+        m4 \
         openssl-devel \
         wget \
         which
