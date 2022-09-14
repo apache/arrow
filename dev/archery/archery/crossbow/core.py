@@ -364,7 +364,7 @@ class Repo:
     @property
     def default_branch_name(self):
         default_branch_name = os.getenv("DEFAULT_BRANCH")
-        print("**********default_branch_name" + default_branch_name)
+        print(default_branch_name)
         # print("Remotes:")
         # for remote in self.repo.remotes:
         #     print(remote.name)
