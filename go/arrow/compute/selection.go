@@ -64,8 +64,8 @@ var (
 		})
 )
 
-func Take(ctx context.Context, opts *TakeOptions, values, indices Datum) (Datum, error) {
-	return CallFunction(ctx, "array_take", opts, values, indices)
+func Take(ctx context.Context, opts TakeOptions, values, indices Datum) (Datum, error) {
+	return CallFunction(ctx, "array_take", &opts, values, indices)
 }
 
 func TakeArray(ctx context.Context, values, indices arrow.Array) (arrow.Array, error) {
@@ -83,6 +83,51 @@ func TakeArray(ctx context.Context, values, indices arrow.Array) (arrow.Array, e
 	return out.(*ArrayDatum).MakeArray(), nil
 }
 
+func TakeArrayOpts(ctx context.Context, values, indices arrow.Array, opts TakeOptions) (arrow.Array, error) {
+	v := NewDatum(values)
+	idx := NewDatum(indices)
+	defer v.Release()
+	defer idx.Release()
+
+	out, err := CallFunction(ctx, "array_take", &opts, v, idx)
+	if err != nil {
+		return nil, err
+	}
+	defer out.Release()
+
+	return out.(*ArrayDatum).MakeArray(), nil
+}
+
+type listArr interface {
+	arrow.Array
+	ListValues() arrow.Array
+}
+
+func takeListImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if err := fn(ctx, batch, out); err != nil {
+			return err
+		}
+
+		// out.Children[0] contains the child indexes of values that we
+		// want to take after processing.
+		values := batch.Values[0].Array.MakeArray().(listArr)
+		defer values.Release()
+
+		childIndices := out.Children[0].MakeArray()
+		defer childIndices.Release()
+
+		takenChild, err := TakeArrayOpts(ctx.Ctx, values.ListValues(), childIndices, kernels.TakeOptions{BoundsCheck: false})
+		if err != nil {
+			return err
+		}
+		defer takenChild.Release()
+
+		out.Children[0].TakeOwnership(takenChild.Data())
+		return nil
+	}
+}
+
 // RegisterVectorSelection registers functions that select specific
 // values from arrays such as Take and Filter
 func RegisterVectorSelection(reg FunctionRegistry) {
@@ -91,6 +136,12 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 	reg.AddFunction(filterMetaFunc, false)
 	reg.AddFunction(takeMetaFunc, false)
 	filterKernels, takeKernels := kernels.GetVectorSelectionKernels()
+
+	takeKernels = append(takeKernels, []kernels.SelectionKernelData{
+		{In: exec.NewIDInput(arrow.LIST), Exec: takeListImpl(kernels.TakeExec(kernels.ListImpl[int32]))},
+		{In: exec.NewIDInput(arrow.LARGE_LIST), Exec: takeListImpl(kernels.TakeExec(kernels.ListImpl[int64]))},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: takeListImpl(kernels.TakeExec(kernels.FSLImpl))},
+	}...)
 
 	vfunc := NewVectorFunction("array_filter", Binary(), EmptyFuncDoc)
 	vfunc.defaultOpts = &kernels.FilterOptions{}
@@ -118,6 +169,7 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 			InputTypes: []exec.InputType{kd.In, selectionType},
 			OutType:    kernels.OutputFirstType,
 		}
+
 		basekernel.ExecFn = kd.Exec
 		vfunc.AddKernel(basekernel)
 	}
