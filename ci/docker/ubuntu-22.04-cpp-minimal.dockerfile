@@ -25,6 +25,8 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 
 RUN apt-get update -y -q && \
     apt-get install -y -q \
+        autoconf \
+        automake \
         build-essential \
         ccache \
         cmake \
@@ -32,6 +34,7 @@ RUN apt-get update -y -q && \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
+        m4 \
         python3-pip \
         wget && \
     apt-get clean && \
