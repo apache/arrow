@@ -1095,6 +1095,55 @@ func TakeExec(impl implFn, fn outputFn) exec.ArrayKernelExec {
 	}
 }
 
+func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn outputFn) error {
+	var (
+		values        = &batch.Values[0].Array
+		selection     = &batch.Values[1].Array
+		rawOffsets    = exec.GetSpanOffsets[OffsetT](values, 1)
+		rawData       = values.Buffers[2].Buf
+		offsetBuilder = newBufferBuilder[OffsetT](exec.GetAllocator(ctx.Ctx))
+		dataBuilder   = newBufferBuilder[uint8](exec.GetAllocator(ctx.Ctx))
+	)
+
+	// presize the data builder with a rough estimate of the required data size
+	if values.Len > 0 {
+		dataLength := rawOffsets[values.Len] - rawOffsets[0]
+		meanValueLen := float64(dataLength) / float64(values.Len)
+		dataBuilder.reserve(int(meanValueLen))
+	}
+
+	offsetBuilder.reserve(int(outputLength) + 1)
+	spaceAvail := dataBuilder.cap()
+	var offset OffsetT
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offsetBuilder.unsafeAppend(offset)
+			valOffset := rawOffsets[idx]
+			valSize := rawOffsets[idx+1] - valOffset
+
+			offset += valSize
+			if valSize > OffsetT(spaceAvail) {
+				dataBuilder.reserve(int(valSize))
+				spaceAvail = dataBuilder.cap() - dataBuilder.len()
+			}
+			dataBuilder.unsafeAppendSlice(rawData[valOffset : valOffset+valSize])
+			spaceAvail -= int(valSize)
+			return nil
+		}, func() error {
+			offsetBuilder.unsafeAppend(offset)
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	offsetBuilder.unsafeAppend(offset)
+	out.Buffers[1].WrapBuffer(offsetBuilder.finish())
+	out.Buffers[2].WrapBuffer(dataBuilder.finish())
+	return nil
+}
+
 func FSBImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn outputFn) error {
 	var (
 		values    = &batch.Values[0].Array
@@ -1192,6 +1241,8 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: TakeExec(FSBImpl, takeExec)},
 		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: TakeExec(FSBImpl, takeExec)},
 		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: TakeExec(FSBImpl, takeExec)},
+		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: TakeExec(VarBinaryImpl[int32], takeExec)},
+		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: TakeExec(VarBinaryImpl[int64], takeExec)},
 	}
 	return
 }
