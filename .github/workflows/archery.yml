@@ -68,7 +68,7 @@ jobs:
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
-        run: pytest -v archery
+        run: pytest -rs -v archery
       - name: Archery Docker Validation
         run: archery docker check-config
       - name: Crossbow Check Config
