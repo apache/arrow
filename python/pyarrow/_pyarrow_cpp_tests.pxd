@@ -29,7 +29,7 @@ cdef extern from "arrow/python/decimal.h" namespace "arrow::py::internal" nogil:
 
     CStatus PythonDecimalToString(
         PyObject* python_decimal,
-        c_string* out);
+        c_string* out)
 
     cdef cppclass DecimalMetadata:
         DecimalMetadata()

@@ -24,9 +24,6 @@ from pyarrow.lib cimport (check_status)
 
 from decimal import Decimal
 
-#cdef create_python_decimal(c_string& string_value):
-#    cdef PyObject* decimal_value = DecimalFromString(Decimal, string_value)
-#    return PyObject_to_object(decimal_value)
 
 def test_PythonDecimalToString():
     cdef:
@@ -39,7 +36,7 @@ def test_PythonDecimalToString():
     check_status(PythonDecimalToString(
         python_object,
         &string_result)
-        )
+    )
 
     assert string_result == decimal_string
 
@@ -53,7 +50,7 @@ def test_InferPrecisionAndScale():
 
     check_status(metadata.Update(
         python_object)
-        )
+    )
 
     assert expected_precision == metadata.precision()
     assert expected_scale == metadata.scale()
@@ -68,7 +65,7 @@ def test_InferPrecisionAndNegativeScale():
 
     check_status(metadata.Update(
         python_object)
-        )
+    )
 
     assert expected_precision == metadata.precision()
     assert expected_scale == metadata.scale()
