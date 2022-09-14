@@ -576,6 +576,28 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     return Status::Invalid(
         "Can only convert scan node with FileSystemDataset to a Substrait plan.");
   }
+
+  // set filter
+  compute::Expression filter_expr = scan_node_options.scan_options->filter;
+  compute::Expression bound_filter_expr;
+  if (!filter_expr.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(bound_filter_expr, filter_expr.Bind(*schema));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto subs_filter_expr,
+                        ToProto(bound_filter_expr, ext_set, conversion_options));
+  read_rel->set_allocated_filter(subs_filter_expr.release());
+
+  // set projection
+  compute::Expression project_expr = scan_node_options.scan_options->projection;
+  compute::Expression bound_project_expr;
+  if (!project_expr.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(bound_project_expr, project_expr.Bind(*schema));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto subs_project_expr,
+                        ToProto(bound_project_expr, ext_set, conversion_options));
+  // TODO : figure out how to support substrait::MaskExpression
+  // read_rel->set_allocated_projection(subs_project_expr.release());
+
   // set schema
   ARROW_ASSIGN_OR_RAISE(auto named_struct,
                         ToProto(*dataset->schema(), ext_set, conversion_options));
