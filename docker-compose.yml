@@ -526,6 +526,8 @@ services:
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_FLIGHT: "OFF"  # Reduce build times
+      ARROW_FLIGHT_SQL: "OFF"  # Reduce build times
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
