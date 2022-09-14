@@ -2002,7 +2002,7 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                     names=["n_legs", "animals"])
         >>> batch.serialize()
-        <pyarrow.lib.Buffer object at ...>
+        <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
@@ -3401,6 +3401,9 @@ cdef class Table(_PandasConvertible):
                              .format(self.schema.names, target_schema.names))
 
         for column, field in zip(self.itercolumns(), target_schema):
+            if not field.nullable and column.null_count > 0:
+                raise ValueError("Casting field {!r} with null values to non-nullable"
+                                 .format(field.name))
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 

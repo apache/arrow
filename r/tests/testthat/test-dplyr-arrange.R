@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
 # randomize order of rows in test data
@@ -201,5 +199,20 @@ test_that("arrange() with bad inputs", {
       arrange(desc(int, chr)),
     "expects only one argument",
     fixed = TRUE
+  )
+})
+
+test_that("Can use across() within arrange()", {
+  compare_dplyr_binding(
+    .input %>%
+      arrange(across(starts_with("d"))) %>%
+      collect(),
+    example_data
+  )
+  compare_dplyr_binding(
+    .input %>%
+      arrange(across(starts_with("d"), desc)) %>%
+      collect(),
+    example_data
   )
 })

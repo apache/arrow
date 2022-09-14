@@ -24,7 +24,7 @@
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-#ifdef ARROW_STATIC
+#ifdef ARROW_PYTHON_STATIC
 #define ARROW_PYTHON_EXPORT
 #elif defined(ARROW_PYTHON_EXPORTING)
 #define ARROW_PYTHON_EXPORT __declspec(dllexport)

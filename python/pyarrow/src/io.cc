@@ -370,5 +370,15 @@ std::shared_ptr<::arrow::io::InputStream> MakeTransformInputStream(
   return std::make_shared<TransformInputStream>(std::move(wrapped), std::move(transform));
 }
 
+std::shared_ptr<StreamWrapFunc> MakeStreamTransformFunc(TransformInputStreamVTable vtable,
+                                                        PyObject* handler) {
+  TransformInputStream::TransformFunc transform(
+      TransformFunctionWrapper{std::move(vtable.transform), handler});
+  StreamWrapFunc func = [transform](std::shared_ptr<::arrow::io::InputStream> wrapped) {
+    return std::make_shared<TransformInputStream>(wrapped, transform);
+  };
+  return std::make_shared<StreamWrapFunc>(func);
+}
+
 }  // namespace py
 }  // namespace arrow

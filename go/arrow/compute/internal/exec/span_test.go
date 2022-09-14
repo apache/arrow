@@ -459,7 +459,8 @@ func TestArraySpan_SetSlice(t *testing.T) {
 		wantNulls int64
 	}{
 		{"null type", fields{Type: arrow.Null}, args{5, 10}, 10},
-		{"not-null type", fields{Type: arrow.PrimitiveTypes.Int8}, args{5, 10}, array.UnknownNullCount},
+		{"not-null type", fields{Type: arrow.PrimitiveTypes.Int8}, args{5, 10}, 0},
+		{"not-null type with nulls", fields{Type: arrow.PrimitiveTypes.Int8, Nulls: -1}, args{5, 10}, array.UnknownNullCount},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

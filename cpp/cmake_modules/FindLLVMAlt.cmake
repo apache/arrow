@@ -19,6 +19,10 @@
 #
 #  find_package(LLVMAlt)
 
+if(LLVMAlt_FOUND)
+  return()
+endif()
+
 if(DEFINED LLVM_ROOT)
   # if llvm source is set to conda then prefer conda llvm over system llvm even
   # if the system one is newer
@@ -37,8 +41,21 @@ endif()
 
 if(NOT LLVM_FOUND)
   set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-  if(LLVM_BREW_PREFIX)
-    list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+  if(APPLE)
+    find_program(BREW brew)
+    if(BREW)
+      execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(NOT LLVM_BREW_PREFIX)
+        execute_process(COMMAND ${BREW} --prefix llvm
+                        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      endif()
+      if(LLVM_BREW_PREFIX)
+        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+      endif()
+    endif()
   endif()
 
   foreach(HINT ${LLVM_HINTS})
@@ -76,12 +93,14 @@ if(LLVM_FOUND)
                      clang-${LLVM_VERSION_MAJOR} clang
                HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
-
-  set_target_properties(LLVM::LLVM_INTERFACE
+  add_library(LLVM::LLVM_HEADERS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_HEADERS
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
+                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}")
+
+  add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "${LLVM_LIBS}")
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)

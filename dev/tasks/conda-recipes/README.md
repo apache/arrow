@@ -64,4 +64,4 @@ copied to the upstream feedstocks.
 
 [arrow-cpp-feedstock]: https://github.com/conda-forge/arrow-cpp-feedstock
 [parquet-cpp-feedstock]: https://github.com/conda-forge/parquet-cpp-feedstock
-[matrix-definition]: https://github.com/conda-forge/arrow-cpp-feedstock/blob/master/.azure-pipelines/azure-pipelines-linux.yml#L12
+[matrix-definition]: https://github.com/conda-forge/arrow-cpp-feedstock/blob/main/.azure-pipelines/azure-pipelines-linux.yml#L12

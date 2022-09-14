@@ -698,6 +698,20 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic
       };
 }
 
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessComparison(Id substrait_fn_id) {
+  return
+      [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
+        // nullable=true isn't quite correct but we don't know the nullability of
+        // the inputs
+        SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
+                                     /*nullable=*/true);
+        for (std::size_t i = 0; i < call.arguments.size(); i++) {
+          substrait_call.SetValueArg(static_cast<uint32_t>(i), call.arguments[i]);
+        }
+        return std::move(substrait_call);
+      };
+}
+
 ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessBasicMapping(
     const std::string& function_name, uint32_t max_args) {
   return [function_name,
@@ -846,6 +860,12 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
                                       DecodeTemporalExtractionMapping()));
     DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, "concat"},
                                       DecodeConcatMapping()));
+    DCHECK_OK(
+        AddSubstraitCallToArrow({kSubstraitComparisonFunctionsUri, "is_null"},
+                                DecodeOptionlessBasicMapping("is_null", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitComparisonFunctionsUri, "is_not_null"},
+        DecodeOptionlessBasicMapping("is_valid", /*max_args=*/1)));
 
     // --------------- Substrait -> Arrow Aggregates --------------
     for (const auto& fn_name : {"sum", "min", "max"}) {
@@ -854,6 +874,9 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     }
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
                                            DecodeBasicAggregate("mean")));
+    DCHECK_OK(
+        AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
+                                     DecodeBasicAggregate("count")));
 
     // --------------- Arrow -> Substrait Functions ---------------
     for (const auto& fn_name : {"add", "subtract", "multiply", "divide"}) {
@@ -863,6 +886,11 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
       DCHECK_OK(
           AddArrowToSubstraitCall(std::string(fn_name) + "_checked",
                                   EncodeOptionlessOverflowableArithmetic<true>(fn_id)));
+    }
+    // Comparison operators
+    for (const auto& fn_name : {"equal", "is_not_distinct_from"}) {
+      Id fn_id{kSubstraitComparisonFunctionsUri, fn_name};
+      DCHECK_OK(AddArrowToSubstraitCall(fn_name, EncodeOptionlessComparison(fn_id)));
     }
   }
 };

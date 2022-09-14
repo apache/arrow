@@ -209,12 +209,16 @@ def _git_ssh_to_https(url):
 
 
 def _parse_github_user_repo(remote_url):
-    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    # TODO: use a proper URL parser instead?
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git|/)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -557,7 +561,8 @@ class Repo:
                 if title in pull.title:
                     return pull
             raise CrossbowError(
-                f"Pull request with Title: {title} not found"
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
             )
 
 
@@ -741,6 +746,9 @@ class Target(Serializable):
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        # TODO(ARROW-17552): Remove "master" from default_branch after
+        #                    migration to "main".
+        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -777,6 +785,11 @@ class Target(Serializable):
 
         return cls(head=head, email=email, branch=branch, remote=remote,
                    version=version)
+
+    def is_default_branch(self):
+        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
+        #                    once "master" is removed from "default_branch".
+        return self.branch in self.default_branch
 
 
 class Task(Serializable):

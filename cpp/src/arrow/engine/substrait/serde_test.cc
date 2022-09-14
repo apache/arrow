@@ -23,16 +23,27 @@
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
+#include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/util.h"
+
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/io/compressed.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
+
+#include "parquet/arrow/writer.h"
+
+#include "arrow/util/hash_util.h"
+#include "arrow/util/hashing.h"
 
 using testing::ElementsAre;
 using testing::Eq;
@@ -42,8 +53,49 @@ using testing::UnorderedElementsAre;
 namespace arrow {
 
 using internal::checked_cast;
-
+using internal::hash_combine;
 namespace engine {
+
+void WriteIpcData(const std::string& path,
+                  const std::shared_ptr<fs::FileSystem> file_system,
+                  const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  ASSERT_OK_AND_ASSIGN(
+      auto file_writer,
+      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  TableBatchReader reader(input);
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ASSERT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(file_writer->Close());
+}
+
+Result<std::shared_ptr<Table>> GetTableFromPlan(
+    compute::Declaration& other_declrs, compute::ExecContext& exec_context,
+    const std::shared_ptr<Schema>& output_schema) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
+  auto declarations = compute::Declaration::Sequence({other_declrs, sink_declaration});
+
+  ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
+
+  RETURN_NOT_OK(decl->Validate());
+
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      output_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+  return arrow::Table::FromRecordBatchReader(sink_reader.get());
+}
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
@@ -119,6 +171,29 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
     arg = UseBoringRefs(arg);
   }
   return compute::Expression{std::move(modified_call)};
+}
+
+void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
+                          const std::shared_ptr<Table> expected_table,
+                          compute::ExecContext& exec_context,
+                          std::shared_ptr<Buffer>& buf,
+                          const std::vector<int>& include_columns = {},
+                          const ConversionOptions& conversion_options = {}) {
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set, conversion_options));
+  auto other_declrs = sink_decls[0].inputs[0].get<compute::Declaration>();
+
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       GetTableFromPlan(*other_declrs, exec_context, output_schema));
+  if (!include_columns.empty()) {
+    ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
+  }
+  ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
+  EXPECT_TRUE(expected_table->Equals(*output_table));
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -866,6 +941,7 @@ Result<std::string> GetSubstraitJSON() {
   auto file_name =
       arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
   auto file_path = file_name->ToString();
+
   std::string substrait_json = R"({
     "relations": [
       {"rel": {
@@ -1812,6 +1888,1195 @@ TEST(Substrait, AggregateBadPhase) {
   })"));
 
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, BasicPlanRoundTripping) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  std::cout << "file_path_str " << tempdir->path().ToString() << std::endl;
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  WriteIpcData(file_path_str, filesystem, table);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
+
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+  }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
+  }
+}
+
+TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 4]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 1],
+      [3, 1, 3],
+      [1, 2, 2]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 3]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  WriteIpcData(file_path_str, filesystem, table);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  const std::string filter_col_left = "shared";
+  const std::string filter_col_right = "distinct";
+  auto comp_left_value = compute::field_ref(filter_col_left);
+  auto comp_right_value = compute::field_ref(filter_col_right);
+  auto filter = compute::equal(comp_left_value, comp_right_value);
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table,
+                       GetTableFromPlan(declarations, exec_context, dummy_schema));
+
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  // filter declaration
+  auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& filter_opts =
+      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+  auto roundtripped_expr = filter_opts.filter_expression;
+
+  if (auto* call = roundtripped_expr.call()) {
+    EXPECT_EQ(call->function_name, "equal");
+    auto args = call->arguments;
+    auto left_index = args[0].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[left_index], filter_col_left);
+    auto right_index = args[1].field_ref()->field_path()->indices()[0];
+    EXPECT_EQ(dummy_schema->field_names()[right_index], filter_col_right);
+  }
+  // scan declaration
+  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+  const auto& dataset_opts =
+      checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+  const auto& roundripped_ds = dataset_opts.dataset;
+  EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+  auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+  auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+  EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+  int64_t idx = 0;
+  for (auto fragment : expected_frg_vec) {
+    const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+    const auto* r_frag =
+        checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+    EXPECT_TRUE(l_frag->Equals(*r_frag));
+  }
+  ASSERT_OK_AND_ASSIGN(auto rnd_trp_table, GetTableFromPlan(*roundtripped_filter,
+                                                            exec_context, dummy_schema));
+  EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
+}
+
+TEST(Substrait, ProjectRel) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "project": {
+        "expressions": [{
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        ],
+        "input" : {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+                "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+                     "names": []
+            }
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("A", int32()), field("B", int32()),
+                               field("C", int32()), field("equal", boolean())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+    [1, 1, 10, true],
+    [3, 5, 20, false],
+    [4, 1, 30, false],
+    [2, 1, 40, false],
+    [5, 5, 50, true],
+    [2, 2, 60, true]
+  ])"});
+
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, ProjectRelOnFunctionWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 5, 20],
+      [4, 1, 30],
+      [2, 1, 40],
+      [5, 5, 50],
+      [2, 2, 60]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "project": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 2, 3]
+          }
+        },
+        "expressions": [{
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        ],
+        "input" : {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+                "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+                     "names": []
+            }
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema =
+      schema({field("A", int32()), field("C", int32()), field("equal", boolean())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 10, true],
+      [3, 20, false],
+      [4, 30, false],
+      [2, 40, false],
+      [5, 50, true],
+      [2, 60, true]
+  ])"});
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, ReadRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "read": {
+        "common": {
+          "emit": {
+            "outputMapping": [1, 2]
+          }
+        },
+        "base_schema": {
+          "names": ["A", "B", "C"],
+            "struct": {
+            "types": [{
+              "i32": {}
+            }, {
+              "i32": {}
+            }, {
+              "i32": {}
+            }]
+          }
+        },
+        "namedTable": {
+          "names" : []
+        }
+      }
+    }
+  }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("B", int32()), field("C", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [1, 10],
+      [4, 20]
+  ])"});
+
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, FilterRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema = schema({field("A", int32()), field("B", int32()),
+                              field("C", int32()), field("D", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80, 7],
+      [20, 2, 70, 6],
+      [30, 3, 30, 5],
+      [40, 4, 20, 4],
+      [40, 5, 40, 3],
+      [20, 6, 20, 2],
+      [30, 7, 30, 1]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "filter": {
+        "common": {
+          "emit": {
+            "outputMapping": [1, 3]
+          }
+        },
+        "condition": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 2
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        "input" : {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C", "D"],
+                "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                },{
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+              "names" : []
+            }
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("B", int32()), field("D", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [3, 5],
+      [5, 3],
+      [6, 2],
+      [7, 1]
+  ])"});
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, JoinRelEndToEnd) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto right_schema = schema({field("X", int32()), field("Y", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1],
+      [20, 2],
+      [30, 3]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 11],
+      [80, 21],
+      [31, 31]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+              "names" : ["left"]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable": {
+              "names" : ["right"]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  // include these columns for comparison
+  auto output_schema = schema({
+      field("A", int32()),
+      field("B", int32()),
+      field("X", int32()),
+      field("Y", int32()),
+  });
+
+  auto expected_table = TableFromJSON(std::move(output_schema), {R"([
+      [10, 1, 10, 11]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, JoinRelWithEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto right_schema = schema({field("X", int32()), field("Y", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1],
+      [20, 2],
+      [30, 3]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 11],
+      [80, 21],
+      [31, 31]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 1, 3]
+          }
+        },
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable" : {
+              "names" : ["left"]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "namedTable" : {
+              "names" : ["right"]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({
+      field("A", int32()),
+      field("B", int32()),
+      field("Y", int32()),
+  });
+
+  auto expected_table = TableFromJSON(std::move(output_schema), {R"([
+      [10, 1, 11]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, AggregateRel) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30],
+      [40, 4, 20],
+      [40, 5, 40],
+      [20, 6, 20],
+      [30, 7, 30]
+  ])"});
+
+  std::string substrait_json = R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "namedTable" : {
+                "names": []
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 2
+                      }
+                    }
+                  }
+                }
+            }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("aggregates", int64()), field("keys", int32())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [80, 10],
+      [90, 20],
+      [60, 30],
+      [60, 40]
+  ])"});
+
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, AggregateRelEmit) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 80],
+      [20, 2, 70],
+      [30, 3, 30],
+      [40, 4, 20],
+      [40, 5, 40],
+      [20, 6, 20],
+      [30, 7, 30]
+  ])"});
+
+  // TODO: fixme https://issues.apache.org/jira/browse/ARROW-17484
+  std::string substrait_json = R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "common": {
+          "emit": {
+            "outputMapping": [0]
+          }
+        },
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "namedTable" : {
+                "names" : []
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 2
+                      }
+                    }
+                  }
+                }
+            }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({field("aggregates", int64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [80],
+      [90],
+      [60],
+      [60]
+  ])"});
+
+  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(input_table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
 }
 
 }  // namespace engine

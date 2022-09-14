@@ -120,6 +120,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \param num_tasks The number of times to run the task
   Status StartTaskGroup(int task_group_id, int64_t num_tasks);
 
+  util::AsyncTaskScheduler* async_scheduler();
+
   /// The initial inputs
   const NodeVector& sources() const;
 

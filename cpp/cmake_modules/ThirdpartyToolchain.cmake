@@ -40,12 +40,6 @@ set(ARROW_RE2_LINKAGE
     "static"
     CACHE STRING "How to link the re2 library. static|shared (default static)")
 
-if(ARROW_PROTOBUF_USE_SHARED)
-  set(Protobuf_USE_STATIC_LIBS OFF)
-else()
-  set(Protobuf_USE_STATIC_LIBS ON)
-endif()
-
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
@@ -220,7 +214,7 @@ macro(provide_find_module PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
     message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}")
+    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
   endif()
   unset(module_)
 endmacro()
@@ -1248,52 +1242,22 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
-if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
-                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if(OPENSSL11_BREW_PREFIX)
-    set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-  else()
-    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
-                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
-    endif()
-  endif()
-endif()
-
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
    OR ARROW_S3)
-  # OpenSSL is required
-  if(ARROW_OPENSSL_USE_SHARED)
-    # Find shared OpenSSL libraries.
-    set(OpenSSL_USE_STATIC_LIBS OFF)
-    # Seems that different envs capitalize this differently?
-    set(OPENSSL_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static OpenSSL headers and libs
-    set(OpenSSL_USE_STATIC_LIBS ON)
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
-  endif()
+  set(OpenSSL_SOURCE "SYSTEM")
+  resolve_dependency(OpenSSL
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_OPENSSL_REQUIRED_VERSION})
   set(ARROW_USE_OPENSSL ON)
 endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-
-  list(APPEND ARROW_SYSTEM_DEPENDENCIES OpenSSL)
 else()
   message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
@@ -1532,6 +1496,7 @@ macro(build_thrift)
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
+  set(THRIFT_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
 endmacro()
@@ -1669,6 +1634,8 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
   resolve_dependency(Protobuf
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
@@ -2121,7 +2088,7 @@ macro(build_benchmark)
   endif()
 
   if(NOT MSVC)
-    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
+    set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++17")
   endif()
 
   if(APPLE AND (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID
@@ -4064,7 +4031,10 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  if(NOT OpenSSL_FOUND)
+    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
+                       ${ARROW_OPENSSL_REQUIRED_VERSION})
+  endif()
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -4772,49 +4742,7 @@ macro(build_awssdk)
 endmacro()
 
 if(ARROW_S3)
-  # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
-
-  # Workaround to force AWS CMake configuration to look for shared libraries
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(DEFINED BUILD_SHARED_LIBS)
-      set(BUILD_SHARED_LIBS_WAS_SET TRUE)
-      set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
-    else()
-      set(BUILD_SHARED_LIBS_WAS_SET FALSE)
-    endif()
-    set(BUILD_SHARED_LIBS "ON")
-  endif()
-
-  # Need to customize the find_package() call, so cannot call resolve_dependency()
-  if(AWSSDK_SOURCE STREQUAL "AUTO")
-    find_package(AWSSDK
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-    if(NOT AWSSDK_FOUND)
-      build_awssdk()
-    endif()
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    build_awssdk()
-  elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    find_package(AWSSDK REQUIRED
-                 COMPONENTS config
-                            s3
-                            transfer
-                            identity-management
-                            sts)
-  endif()
-
-  # Restore previous value of BUILD_SHARED_LIBS
-  if(DEFINED ENV{CONDA_PREFIX})
-    if(BUILD_SHARED_LIBS_WAS_SET)
-      set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
-    else()
-      unset(BUILD_SHARED_LIBS)
-    endif()
-  endif()
+  resolve_dependency(AWSSDK HAVE_ALT TRUE)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")

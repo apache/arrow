@@ -32,7 +32,7 @@
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-#ifdef ARROW_STATIC
+#ifdef ARROW_PYTHON_STATIC
 #define ARROW_PYFLIGHT_EXPORT
 #elif defined(ARROW_PYFLIGHT_EXPORTING)
 #define ARROW_PYFLIGHT_EXPORT __declspec(dllexport)

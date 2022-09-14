@@ -82,7 +82,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
-  /// How many batches to read ahead within a file
+  /// How many batches to read ahead within a fragment.
   ///
   /// Set to 0 to disable batch readahead
   ///
@@ -373,9 +373,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
 
-  /// \brief Limit how many fragments the scanner will read at once
-  Status FragmentReadahead(int fragment_readahead);
-
   /// \brief Set the maximum number of rows per RecordBatch.
   ///
   /// \param[in] batch_size the maximum number of rows.
@@ -383,6 +380,24 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
+
+  /// \brief Set the number of batches to read ahead within a fragment.
+  ///
+  /// \param[in] batch_readahead How many batches to read ahead within a fragment
+  /// \returns an error if this number is less than 0.
+  ///
+  /// This option provides a control on the RAM vs I/O tradeoff.
+  /// It might not be supported by all file formats, in which case it will
+  /// simply be ignored.
+  Status BatchReadahead(int32_t batch_readahead);
+
+  /// \brief Set the number of fragments to read ahead
+  ///
+  /// \param[in] fragment_readahead How many fragments to read ahead
+  /// \returns an error if this number is less than 0.
+  ///
+  /// This option provides a control on the RAM vs I/O tradeoff.
+  Status FragmentReadahead(int32_t fragment_readahead);
 
   /// \brief Set the pool from which materialized and scanned arrays will be allocated.
   Status Pool(MemoryPool* pool);

@@ -75,78 +75,70 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
     |__ libarrow_dataset_jni.so
     |__ libarrow_orc_jni.so
     |__ libgandiva_jni.so
+    |__ libplasma_java.so
 
 Building JNI Libraries on MacOS
 -------------------------------
 Note: If you are building on Apple Silicon, be sure to use a JDK version that was compiled for that architecture. See, for example, the `Azul JDK <https://www.azul.com/downloads/?os=macos&architecture=arm-64-bit&package=jdk>`_.
 
-To build only the C Data Interface library:
+First, you need to build Apache Arrow C++:
 
 .. code-block::
 
     $ cd arrow
     $ brew bundle --file=cpp/Brewfile
     Homebrew Bundle complete! 25 Brewfile dependencies now installed.
+    $ brew uninstall aws-sdk-cpp
+    (We can't use aws-sdk-cpp installed by Homebrew because it has
+    an issue: https://github.com/aws/aws-sdk-cpp/issues/1809 )
     $ export JAVA_HOME=<absolute path to your java home>
-    $ mkdir -p java-dist java-native-c
-    $ cd java-native-c
+    $ mkdir -p java-dist cpp-jni
     $ cmake \
+        -S cpp \
+        -B cpp-jni \
+        -DARROW_CSV=ON \
+        -DARROW_DATASET=ON \
+        -DARROW_DEPENDENCY_USE_SHARED=OFF \
+        -DARROW_FILESYSTEM=ON \
+        -DARROW_GANDIVA=ON \
+        -DARROW_GANDIVA_JAVA=ON \
+        -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
+        -DARROW_JNI=ON \
+        -DARROW_ORC=ON \
+        -DARROW_PARQUET=ON \
+        -DARROW_PLASMA=ON \
+        -DARROW_PLASMA_JAVA_CLIENT=ON \
+        -DARROW_S3=ON \
+        -DAWSSDK_SOURCE=BUNDLED \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=../java-dist/lib \
-        ../java
-    $ cmake --build . --target install
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_INSTALL_PREFIX=java-dist \
+        -DCMAKE_UNITY_BUILD=ON \
+        -Dre2_SOURCE=BUNDLED
+    $ cmake --build cpp-jni --target install
+    $ ls -latr  ../java-dist/lib
+    |__ libarrow_orc_jni.dylib
+    |__ libgandiva_jni.dylib
+    |__ libplasma_java.dylib
+
+Then, you can build JNI libraries:
+
+.. code-block::
+
+    $ mkdir -p java-jni
+    $ cmake \
+        -S java \
+        -B java-jni \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=java-dist/lib \
+        -DCMAKE_PREFIX_PATH=java-dist
+    $ cmake --build java-jni --target install
     $ ls -latr ../java-dist/lib
     |__ libarrow_cdata_jni.dylib
+    |__ libarrow_dataset_jni.dylib
 
 To build other JNI libraries:
 
-.. code-block::
-
-    $ cd arrow
-    $ brew bundle --file=cpp/Brewfile
-    Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ export JAVA_HOME=<absolute path to your java home>
-    $ mkdir -p java-dist java-native-cpp
-    $ cd java-native-cpp
-    $ cmake \
-        -DARROW_BOOST_USE_SHARED=OFF \
-        -DARROW_BROTLI_USE_SHARED=OFF \
-        -DARROW_BZ2_USE_SHARED=OFF \
-        -DARROW_GFLAGS_USE_SHARED=OFF \
-        -DARROW_GRPC_USE_SHARED=OFF \
-        -DARROW_LZ4_USE_SHARED=OFF \
-        -DARROW_OPENSSL_USE_SHARED=OFF \
-        -DARROW_PROTOBUF_USE_SHARED=OFF \
-        -DARROW_SNAPPY_USE_SHARED=OFF \
-        -DARROW_THRIFT_USE_SHARED=OFF \
-        -DARROW_UTF8PROC_USE_SHARED=OFF \
-        -DARROW_ZSTD_USE_SHARED=OFF \
-        -DARROW_JNI=ON \
-        -DARROW_PARQUET=ON \
-        -DARROW_FILESYSTEM=ON \
-        -DARROW_DATASET=ON \
-        -DARROW_GANDIVA_JAVA=ON \
-        -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-        -DARROW_GANDIVA=ON \
-        -DARROW_ORC=ON \
-        -DARROW_PLASMA_JAVA_CLIENT=ON \
-        -DARROW_PLASMA=ON \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=../java-dist \
-        -DCMAKE_UNITY_BUILD=ON \
-        -Dre2_SOURCE=BUNDLED \
-        -DBoost_SOURCE=BUNDLED \
-        -Dutf8proc_SOURCE=BUNDLED \
-        -DSnappy_SOURCE=BUNDLED \
-        -DORC_SOURCE=BUNDLED \
-        -DZLIB_SOURCE=BUNDLED \
-        ../cpp
-    $ cmake --build . --target install
-    $ ls -latr  ../java-dist/lib
-    |__ libarrow_dataset_jni.dylib
-    |__ libarrow_orc_jni.dylib
-    |__ libgandiva_jni.dylib
 
 Building Arrow JNI Modules
 --------------------------

@@ -109,7 +109,7 @@ static void TableJoinOverhead(benchmark::State& state,
 
 static void AsOfJoinOverhead(benchmark::State& state) {
   int64_t tolerance = 0;
-  AsofJoinNodeOptions options = AsofJoinNodeOptions(kTimeCol, kKeyCol, tolerance);
+  AsofJoinNodeOptions options = AsofJoinNodeOptions(kTimeCol, {kKeyCol}, tolerance);
   TableJoinOverhead(
       state,
       TableGenerationProperties{int(state.range(0)), int(state.range(1)),

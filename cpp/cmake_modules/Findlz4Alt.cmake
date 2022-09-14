@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(lz4Alt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(lz4Alt_FIND_VERSION)
   list(APPEND find_package_args ${lz4Alt_FIND_VERSION})

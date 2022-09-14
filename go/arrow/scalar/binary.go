@@ -40,8 +40,18 @@ type Binary struct {
 	Value *memory.Buffer
 }
 
-func (b *Binary) Retain()            { b.Value.Retain() }
-func (b *Binary) Release()           { b.Value.Release() }
+func (b *Binary) Retain() {
+	if b.Value != nil {
+		b.Value.Retain()
+	}
+}
+
+func (b *Binary) Release() {
+	if b.Value != nil {
+		b.Value.Release()
+	}
+}
+
 func (b *Binary) value() interface{} { return b.Value }
 func (b *Binary) Data() []byte       { return b.Value.Bytes() }
 func (b *Binary) equals(rhs Scalar) bool {

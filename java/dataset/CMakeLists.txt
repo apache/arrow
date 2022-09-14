@@ -15,28 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-# arrow_dataset_java
-#
+find_package(ArrowDataset REQUIRED)
 
-# Headers: top level
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
-project(arrow_dataset_java)
-
-# Find java/jni
-include(FindJava)
-include(UseJava)
-include(FindJNI)
-
-message("generating headers to ${JNI_HEADERS_DIR}")
-
-add_jar(arrow_dataset_java
+add_jar(arrow_java_jni_dataset_jar
         src/main/java/org/apache/arrow/dataset/jni/JniLoader.java
         src/main/java/org/apache/arrow/dataset/jni/JniWrapper.java
         src/main/java/org/apache/arrow/dataset/file/JniWrapper.java
         src/main/java/org/apache/arrow/dataset/jni/NativeMemoryPool.java
         src/main/java/org/apache/arrow/dataset/jni/ReservationListener.java
         GENERATE_NATIVE_HEADERS
-        arrow_dataset_java-native
-        DESTINATION
-        ${JNI_HEADERS_DIR})
+        arrow_java_jni_dataset_headers)
+
+add_library(arrow_java_jni_dataset SHARED src/main/cpp/jni_wrapper.cc
+                                          src/main/cpp/jni_util.cc)
+set_property(TARGET arrow_java_jni_dataset PROPERTY OUTPUT_NAME "arrow_dataset_jni")
+target_link_libraries(arrow_java_jni_dataset arrow_java_jni_dataset_headers jni
+                      ArrowDataset::arrow_dataset_static)
+
+if(BUILD_TESTING)
+  add_executable(arrow-java-jni-dataset-test src/main/cpp/jni_util_test.cc
+                                             src/main/cpp/jni_util.cc)
+  target_link_libraries(arrow-java-jni-dataset-test arrow_java_test)
+  add_test(NAME arrow-java-jni-dataset-test COMMAND arrow-java-jni-dataset-test)
+endif()
+
+install(TARGETS arrow_java_jni_dataset DESTINATION ${CMAKE_INSTALL_PREFIX})

@@ -2278,7 +2278,7 @@ func (b *TimestampBuilder) unmarshalOne(dec *json.Decoder) error {
 		b.AppendNull()
 	case string:
 		loc, _ := b.dtype.GetZone()
-		tm, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
+		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
 
 		if err != nil {
 			return &json.UnmarshalTypeError{
