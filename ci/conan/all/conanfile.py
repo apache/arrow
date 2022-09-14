@@ -186,7 +186,7 @@ class ArrowConan(ConanFile):
         if self.options.with_openssl == False and self._with_openssl(True):
             raise ConanInvalidConfiguration("with_openssl options is required (or choose auto)")
         if self.options.with_llvm == False and self._with_llvm(True):
-            raise ConanInvalidConfiguration("with_openssl options is required (or choose auto)")
+            raise ConanInvalidConfiguration("with_llvm options is required (or choose auto)")
         if self.options.with_cuda:
             raise ConanInvalidConfiguration("CCI has no cuda recipe (yet)")
         if self.options.with_orc:
