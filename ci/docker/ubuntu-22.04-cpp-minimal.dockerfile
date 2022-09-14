@@ -32,6 +32,7 @@ RUN apt-get update -y -q && \
         cmake \
         curl \
         git \
+        libtool \
         libssl-dev \
         libcurl4-openssl-dev \
         m4 \
