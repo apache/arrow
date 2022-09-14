@@ -384,8 +384,8 @@ if((NOT ARROW_COMPUTE)
 endif()
 
 if(NOT ARROW_GANDIVA)
-  set(ARROW_WTIH_FLEX OFF)
-  set(ARROW_WTIH_BISON OFF)
+  set(ARROW_WITH_BISON OFF)
+  set(ARROW_WITH_BISON OFF)
 endif()
 
 # ----------------------------------------------------------------------
