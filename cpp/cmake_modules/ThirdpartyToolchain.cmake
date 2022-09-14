@@ -2693,7 +2693,11 @@ macro(build_bison)
 endmacro()
 
 if(ARROW_WITH_BISON)
-  resolve_dependency(BISON REQUIRED_VERSION "3.2")
+  resolve_dependency(BISON
+                     REQUIRED_VERSION
+                     "3.2"
+                     FORCE_ANY_NEWER_VERSION
+                     1)
   add_definitions(-DARROW_WITH_BISON)
 endif()
 
@@ -2714,7 +2718,11 @@ macro(build_flex)
 endmacro()
 
 if(ARROW_WITH_FLEX)
-  resolve_dependency(FLEX REQUIRED_VERSION "2.5")
+  resolve_dependency(FLEX
+                     REQUIRED_VERSION
+                     "2.5"
+                     FORCE_ANY_NEWER_VERSION
+                     1)
   add_definitions(-DARROW_WITH_FLEX)
 endif()
 # ----------------------------------------------------------------------
