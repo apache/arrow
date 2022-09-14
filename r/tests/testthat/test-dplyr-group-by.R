@@ -166,3 +166,36 @@ test_that("group_by() with namespaced functions", {
     tbl
   )
 })
+
+test_that("Can use across() within group_by()", {
+  test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across()) %>%
+      collect(),
+    example_with_logical_factors
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(starts_with("s"))) %>%
+      collect(),
+    example_with_logical_factors
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across({{test_groups}})) %>%
+      collect(),
+    example_with_logical_factors
+  )
+
+  # ARROW-12778 - `where()` is not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(across(where(is.double))) %>%
+        collect(),
+      example_data
+    ),
+    "Unsupported selection helper"
+  )
+})
