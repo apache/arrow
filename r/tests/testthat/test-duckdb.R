@@ -198,7 +198,7 @@ test_that("to_arrow roundtrip, with dataset (without wrapping)", {
 # we need to create a connection separate from the ephemeral one that is made
 # with arrow_duck_connection()
 con <- dbConnect(duckdb::duckdb())
-dbExecute(con, "PRAGMA threads=1")
+dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
