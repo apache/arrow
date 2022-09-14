@@ -28,13 +28,11 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/hashing.h"
 
-#include "arrow/compute/exec.h"
 #include "arrow/array/array_nested.h"
-
+#include "arrow/compute/exec.h"
 
 namespace arrow {
 namespace internal {
-
 
 // ------------------------------
 // Anonymous namespace with global params
@@ -46,7 +44,6 @@ constexpr double null_prob = 0.2;
 
 static random::RandomArrayGenerator hashing_rng(kSeed);
 }  // namespace
-
 
 // ------------------------------
 // Convenience functions
@@ -64,7 +61,6 @@ static Result<std::shared_ptr<StructArray>> MakeStructArray(int64_t n_values,
                          arrow::field("second", arrow::utf8()),
                          arrow::field("third", arrow::int64())});
 }
-
 
 // ------------------------------
 // Benchmark implementations
@@ -176,7 +172,6 @@ static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
   state.SetBytesProcessed(state.iterations() * (total_key_size + total_val_size));
   state.SetItemsProcessed(state.iterations() * 2 * test_size);
 }
-
 
 // ------------------------------
 // Benchmark declarations

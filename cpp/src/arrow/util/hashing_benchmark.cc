@@ -31,7 +31,6 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/key_hash.h"
 
-
 namespace arrow {
 namespace internal {
 
@@ -209,7 +208,6 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
   state.SetItemsProcessed(state.iterations() * test_vals->length());
 }
-
 
 // ----------------------------------------------------------------------
 // Benchmark declarations
