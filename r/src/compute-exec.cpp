@@ -151,7 +151,17 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   void StopProducing() {
     if (status_ == PLAN_RUNNING) {
-      plan_->StopProducing();
+      // We're done with the plan, but it may still need some time
+      // to finish and clean up after itself. To do this, we give a
+      // callable with its own copy of the shared_ptr<ExecPlan> so
+      // that it can delete itself when it is safe to do so.
+      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+      bool not_finished_yet = plan_->finished().TryAddCallback(
+          [&plan] { return [plan](const arrow::Status&) {}; });
+
+      if (not_finished_yet) {
+        plan_->StopProducing();
+      }
     }
 
     status_ = PLAN_FINISHED;
