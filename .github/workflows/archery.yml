@@ -65,7 +65,9 @@ jobs:
         run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
-        run: pytest -v archery
+        run: |
+          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
+          pytest -v archery
       - name: Archery Docker Validation
         run: archery docker check-config
       - name: Crossbow Check Config
