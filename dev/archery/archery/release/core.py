@@ -22,6 +22,7 @@ import re
 import pathlib
 import shelve
 import warnings
+import os
 
 from git import Repo
 from jira import JIRA
@@ -231,18 +232,35 @@ class DefaultBranchName(object):
     def __new__(self):
         if not hasattr(self, 'instance'):
             self.instance = super(DefaultBranchName, self).__new__(self)
-            arrow = ArrowSources.find()
-            repo = Repo(arrow.path)
-            origin = repo.remotes["origin"]
-            origin_refs = origin.refs
-            # git.RemoteReference object to origin/HEAD
-            origin_head = origin_refs["HEAD"]
-            # git.RemoteReference object to origin/main
-            origin_head_reference = origin_head.reference
-            # Should return "origin/main" or "origin/master"
-            origin_head_name = origin_head_reference.name
-            origin_head_name_tokenized = origin_head_name.split("/")
-            self.default_branch_name = origin_head_name_tokenized[-1]
+
+            default_branch_name = os.getenv("DEFAULT_BRANCH")
+
+            if default_branch_name == None:
+                try:
+                    # Set up repo object 
+                    arrow = ArrowSources.find()
+                    repo = Repo(arrow.path)
+                    origin = repo.remotes["origin"]
+                    origin_refs = origin.refs
+
+                    # git.RemoteReference object to origin/HEAD
+                    origin_head = origin_refs["HEAD"]
+
+                    # git.RemoteReference object to origin/main or origin/master
+                    origin_head_reference = origin_head.reference
+
+                    # Should return "origin/main" or "origin/master"
+                    origin_head_name = origin_head_reference.name
+                    origin_head_name_tokenized = origin_head_name.split("/")
+
+                    # The last token is the default branch name
+                    default_branch_name = origin_head_name_tokenized[-1]
+                except:
+                    raise RuntimeError('DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
+
+            # Set default branch as class property
+            self.default_branch_name = default_branch_name
+            
         return self.instance
 
     @property
