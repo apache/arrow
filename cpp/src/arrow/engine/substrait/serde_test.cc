@@ -2412,7 +2412,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
       auto sink_decls,
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
-  // project declaration
+  // assert project declaration
   auto roundtripped_project = sink_decls[0].inputs[0].get<compute::Declaration>();
   // assert project declaration
   // Note: the provided expressions for Substrait declaration only contains one
@@ -2420,7 +2420,7 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
   // provided expression. Since the output expressions from the deserialized relation
   // contains fields which weren't used in the project expression.
   AssertProjectRelation(*roundtripped_project, acero_project_exprs, project_schema);
-  // scan declaration
+  // assert scan declaration
   auto roundtripped_scan = roundtripped_project->inputs[0].get<compute::Declaration>();
   AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
   // assert results
