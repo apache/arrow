@@ -167,6 +167,37 @@ test_that("group_by() with namespaced functions", {
   )
 })
 
+test_that("group_by() with .add", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by() %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Can use across() within group_by()", {
   test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
   compare_dplyr_binding(
