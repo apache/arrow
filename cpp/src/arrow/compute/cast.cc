@@ -62,6 +62,7 @@ void InitCastTable() {
   AddCastFunctions(GetNumericCasts());
   AddCastFunctions(GetTemporalCasts());
   AddCastFunctions(GetDictionaryCasts());
+  AddCastFunctions(GetExtensionCasts());
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
@@ -187,14 +188,11 @@ Result<const Kernel*> CastFunction::DispatchExact(
 
 Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type) {
   internal::EnsureInitCastTable();
-  auto ids = {to_type.id(), to_type.storage_id()};
-  for (auto& id : ids) {
-    auto it = internal::g_cast_table.find(static_cast<int>(id));
-    if (it != internal::g_cast_table.end()) {
-      return it->second;
-    }
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type.id()));
+  if (it == internal::g_cast_table.end()) {
+    return Status::NotImplemented("Unsupported cast to ", to_type);
   }
-  return Status::NotImplemented("Unsupported cast to ", to_type);
+  return it->second;
 }
 
 }  // namespace internal
