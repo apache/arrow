@@ -2678,7 +2678,7 @@ endmacro()
 macro(build_bison)
   message(STATUS "Building bison from source")
   set(BISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/bison_ep-install")
-  set(BISON_ROOT ${BISON_PREFIX})
+  set(BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
   set(BISON_CONFIGURE_COMMAND ./configure --prefix=${BISON_PREFIX})
 
   externalproject_add(bison_ep
@@ -2692,6 +2692,7 @@ macro(build_bison)
                       INSTALL_COMMAND ${MAKE} install)
   add_dependencies(toolchain bison_ep)
   add_dependencies(toolchain-tests bison_ep)
+  include(BisonTarget)
 endmacro()
 
 if(ARROW_WITH_BISON)
@@ -2706,7 +2707,7 @@ endif()
 macro(build_flex)
   message(STATUS "Building flex from source")
   set(FLEX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flex_ep-install")
-  set(FLEX_ROOT ${FLEX_PREFIX})
+  set(FLEX_EXECUTABLE "${FLEX_PREFIX}/bin/flex")
   set(FLEX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure --prefix=${FLEX_PREFIX})
 
   externalproject_add(flex_ep
@@ -2720,6 +2721,7 @@ macro(build_flex)
                       INSTALL_COMMAND ${MAKE} install)
   add_dependencies(toolchain flex_ep)
   add_dependencies(toolchain-tests flex_ep)
+  include(FlexTarget)
 endmacro()
 
 if(ARROW_WITH_FLEX)

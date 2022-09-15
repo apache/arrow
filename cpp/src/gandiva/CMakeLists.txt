@@ -39,9 +39,6 @@ set(GANDIVA_PRECOMPILED_CC_IN_PATH
 # add_arrow_lib will look for this not yet existing file, so flag as generated
 set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED TRUE)
 
-find_package(FLEX 2.5 REQUIRED)
-find_package(BISON 3.8 REQUIRED)
-
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(GANDIVA_LEX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lex.ll")
 set(GANDIVA_GRAMMAR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/grammar.yy")
