@@ -19,6 +19,7 @@
 
 #include <vector>
 #include "gandiva/function_registry_common.h"
+#include "gandiva/function_signature.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 #include "gandiva/visibility.h"
@@ -37,11 +38,16 @@ class GANDIVA_EXPORT FunctionRegistry {
   iterator end() const;
   iterator back() const;
 
+  const std::vector<const FunctionSignature*>& GetSignaturesByFunctionName(
+      std::string_view func_name) const;
+
  private:
   static SignatureMap InitPCMap();
 
   static std::vector<NativeFunction> pc_registry_;
   static SignatureMap pc_registry_map_;
+  static std::unordered_map<std::string_view, std::vector<const FunctionSignature*>>
+      name_signature_map_;
 };
 
 }  // namespace gandiva

@@ -22,6 +22,7 @@
 #include "gandiva/function_registry_math_ops.h"
 #include "gandiva/function_registry_string.h"
 #include "gandiva/function_registry_timestamp_arithmetic.h"
+#include "gandiva/function_signature.h"
 
 #include <iterator>
 #include <utility>
@@ -41,7 +42,21 @@ FunctionRegistry::iterator FunctionRegistry::back() const {
   return &(pc_registry_.back());
 }
 
+const std::vector<const FunctionSignature*>&
+FunctionRegistry::GetSignaturesByFunctionName(std::string_view func_name) const {
+  auto iter = name_signature_map_.find(func_name);
+  if (iter != name_signature_map_.end()) {
+    return iter->second;
+  } else {
+    static std::vector<const FunctionSignature*> empty_vec;
+    return empty_vec;
+  }
+}
+
 std::vector<NativeFunction> FunctionRegistry::pc_registry_;
+
+std::unordered_map<std::string_view, std::vector<const FunctionSignature*>>
+    FunctionRegistry::name_signature_map_;
 
 SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 
@@ -67,6 +82,7 @@ SignatureMap FunctionRegistry::InitPCMap() {
   for (auto& elem : pc_registry_) {
     for (auto& func_signature : elem.signatures()) {
       map.insert(std::make_pair(&(func_signature), &elem));
+      name_signature_map_[func_signature.base_name()].emplace_back(&func_signature);
     }
   }
 
