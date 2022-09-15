@@ -23,8 +23,6 @@ if(LLVMAlt_FOUND)
   return()
 endif()
 
-set(LLVM_ENABLE_ZSTD OFF) # Need to turn off LLVM_ENABLE_ZSTD due to ARROW-17728
-
 if(DEFINED LLVM_ROOT)
   # if llvm source is set to conda then prefer conda llvm over system llvm even
   # if the system one is newer
