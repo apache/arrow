@@ -56,16 +56,6 @@ TEST_F(TestParser, TestLiteral) {
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const uint16) 65535");
 
-  // status_ = parser_.parse("-2147483648i32", &expr_);
-  // EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  // EXPECT_EQ(expr_->ToString(), "(const int32) -2147483648");
-
-  // status_ = parser_.parse("-2147483648u64", &expr_);
-  // EXPECT_FALSE(status_.ok());
-  // EXPECT_EQ(status_.message(), "-2147483648u64:1.2-14: wrong suffix for nagative
-  // number");
-
   status_ = parser_.parse("100000000000000000000", &expr_);
   EXPECT_FALSE(status_.ok());
   EXPECT_EQ(status_.message(), "100000000000000000000:1.1-21: out of range");
@@ -94,16 +84,6 @@ TEST_F(TestParser, TestLiteral) {
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const float) 79 raw(429e0000)");
-
-  // status_ = parser_.parse("-0.123", &expr_);
-  // EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  // EXPECT_EQ(expr_->ToString(), "(const untyped) -0.123");
-
-  // status_ = parser_.parse("-0.123f32", &expr_);
-  // EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  // EXPECT_EQ(expr_->ToString(), "(const float) -0.123 raw(bdfbe76d)");
 
   status_ = parser_.parse("\"Hello World\"", &expr_);
   EXPECT_TRUE(status_.ok());
