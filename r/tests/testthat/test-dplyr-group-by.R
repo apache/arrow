@@ -171,7 +171,7 @@ test_that("group_by() with .add", {
   compare_dplyr_binding(
     .input %>%
       group_by(dbl2) %>%
-      group_by() %>%
+      group_by(.add = FALSE) %>%
       collect(),
     tbl
   )
@@ -185,7 +185,7 @@ test_that("group_by() with .add", {
   compare_dplyr_binding(
     .input %>%
       group_by(dbl2) %>%
-      group_by(chr) %>%
+      group_by(chr, .add = FALSE) %>%
       collect(),
     tbl
   )
@@ -195,6 +195,22 @@ test_that("group_by() with .add", {
       group_by(chr, .add = TRUE) %>%
       collect(),
     tbl
+  )
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    "The `add` argument of `group_by\\(\\)` is deprecated"
+  )
+  expect_error(
+    suppressWarnings(
+      tbl %>%
+        arrow_table() %>%
+        group_by(add = dbl2) %>%
+        collect()
+    ),
+    "object 'dbl2' not found"
   )
 })
 
@@ -214,7 +230,7 @@ test_that("Can use across() within group_by()", {
   )
   compare_dplyr_binding(
     .input %>%
-      group_by(across({{test_groups}})) %>%
+      group_by(across({{ test_groups }})) %>%
       collect(),
     tbl
   )
