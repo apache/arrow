@@ -1560,8 +1560,21 @@ def test_cancel_do_get_threaded():
 
 def test_roundtrip_types():
     """Make sure serializable types round-trip."""
+    action = flight.Action("action1", b"action1-body")
+    assert action == flight.Action.deserialize(action.serialize())
+
     ticket = flight.Ticket("foo")
     assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    result = flight.Result(b"result1")
+    assert result == flight.Result.deserialize(result.serialize())
+
+    basic_auth = flight.BasicAuth("username1", "password1")
+    assert basic_auth == flight.BasicAuth.deserialize(basic_auth.serialize())
+
+    schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
+    assert schema_result == flight.SchemaResult.deserialize(
+        schema_result.serialize())
 
     desc = flight.FlightDescriptor.for_command("test")
     assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
@@ -1588,6 +1601,12 @@ def test_roundtrip_types():
     assert info.total_bytes == info2.total_bytes
     assert info.total_records == info2.total_records
     assert info.endpoints == info2.endpoints
+
+    endpoint = flight.FlightEndpoint(
+        ticket,
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+    )
+    assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 
 
 def test_roundtrip_errors():
