@@ -317,26 +317,17 @@ void TestGlobFiles(const std::string& base_dir) {
   CreateFile(fs.get(), base_dir + "AB/CD/ab/c.txt", "data");
 
   FileInfoVector infos;
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?b*.txt"));
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, base_dir + "A*/CD/?b*.txt"));
   ASSERT_EQ(infos.size(), 2);
-  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
+  check_entries(infos, {base_dir + "A/CD/ab.txt", base_dir + "AB/CD/abc.txt"});
 
-  // Leading slash is optional but doesn't change behavior
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "/A*/CD/?b*.txt"));
-  ASSERT_EQ(infos.size(), 2);
-  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
-
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?/b*.txt"));
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, base_dir + "A*/CD/?/b*.txt"));
   ASSERT_EQ(infos.size(), 0);
 }
 
-TEST(InternalUtil, GlobFilesWithoutLeadingSlash) {
-  TestGlobFiles("");
-}
+TEST(InternalUtil, GlobFilesWithoutLeadingSlash) { TestGlobFiles(""); }
 
-TEST(InternalUtil, GlobFilesWithLeadingSlash) {
-  TestGlobFiles("/");
-}
+TEST(InternalUtil, GlobFilesWithLeadingSlash) { TestGlobFiles("/"); }
 
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
