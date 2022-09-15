@@ -302,7 +302,7 @@ Closing unresponsive connections
 --------------------------------
 
 1. A stale call can be closed using
-   :member:`arrow::flight::FlightClientOptions::stop_token`. This requires recording the
+   :member:`arrow::flight::FlightCallOptions::stop_token`. This requires recording the
    stop token at call establishment time.
 
    .. tab-set::
