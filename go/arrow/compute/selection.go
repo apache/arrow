@@ -196,6 +196,68 @@ func extensionTakeImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.Exec
 	return nil
 }
 
+func structFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	// transform filter to selection indices and use take
+	indices, err := kernels.GetTakeIndices(exec.GetAllocator(ctx.Ctx),
+		&batch.Values[1].Array, ctx.State.(kernels.FilterState).NullSelection)
+	if err != nil {
+		return err
+	}
+	defer indices.Release()
+
+	filter := NewDatum(indices)
+	defer filter.Release()
+
+	valData := batch.Values[0].Array.MakeData()
+	defer valData.Release()
+
+	vals := NewDatum(valData)
+	defer vals.Release()
+
+	result, err := Take(ctx.Ctx, kernels.TakeOptions{BoundsCheck: false}, vals, filter)
+	if err != nil {
+		return err
+	}
+	defer result.Release()
+
+	out.TakeOwnership(result.(*ArrayDatum).Value)
+	return nil
+}
+
+func structTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	// generate top level validity bitmap
+	if err := kernels.TakeExec(kernels.StructImpl)(ctx, batch, out); err != nil {
+		return err
+	}
+
+	values := batch.Values[0].Array.MakeArray().(*array.Struct)
+	defer values.Release()
+
+	// select from children without bounds checking
+	out.Children = make([]exec.ArraySpan, values.NumField())
+	eg, cctx := errgroup.WithContext(ctx.Ctx)
+	eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
+
+	selection := batch.Values[1].Array.MakeArray()
+	defer selection.Release()
+
+	for i := range out.Children {
+		i := i
+		eg.Go(func() error {
+			taken, err := TakeArrayOpts(cctx, values.Field(i), selection, kernels.TakeOptions{BoundsCheck: false})
+			if err != nil {
+				return err
+			}
+			defer taken.Release()
+
+			out.Children[i].TakeOwnership(taken.Data())
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
 // RegisterVectorSelection registers functions that select specific
 // values from arrays such as Take and Filter
 func RegisterVectorSelection(reg FunctionRegistry) {
@@ -211,6 +273,7 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: selectListImpl(kernels.FilterExec(kernels.FSLImpl))},
 		{In: exec.NewIDInput(arrow.DENSE_UNION), Exec: denseUnionImpl(kernels.FilterExec(kernels.DenseUnionImpl))},
 		{In: exec.NewIDInput(arrow.EXTENSION), Exec: extensionFilterImpl},
+		{In: exec.NewIDInput(arrow.STRUCT), Exec: structFilter},
 	}...)
 
 	takeKernels = append(takeKernels, []kernels.SelectionKernelData{
@@ -219,6 +282,7 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: selectListImpl(kernels.TakeExec(kernels.FSLImpl))},
 		{In: exec.NewIDInput(arrow.DENSE_UNION), Exec: denseUnionImpl(kernels.TakeExec(kernels.DenseUnionImpl))},
 		{In: exec.NewIDInput(arrow.EXTENSION), Exec: extensionTakeImpl},
+		{In: exec.NewIDInput(arrow.STRUCT), Exec: structTake},
 	}...)
 
 	vfunc := NewVectorFunction("array_filter", Binary(), EmptyFuncDoc)

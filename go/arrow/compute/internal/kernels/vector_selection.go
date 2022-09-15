@@ -18,11 +18,14 @@ package kernels
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 )
 
@@ -85,6 +88,149 @@ func preallocateData(ctx *exec.KernelCtx, length int64, bitWidth int, allocateVa
 	} else {
 		out.Buffers[1].WrapBuffer(ctx.Allocate(int(length) * (bitWidth / 8)))
 	}
+}
+
+type builder[T any] interface {
+	array.Builder
+	Append(T)
+	UnsafeAppend(T)
+	UnsafeAppendBoolToBitmap(bool)
+}
+
+func getTakeIndices[T exec.IntTypes | exec.UintTypes](mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) arrow.ArrayData {
+	var (
+		filterData      = filter.Buffers[1].Buf
+		haveFilterNulls = filter.MayHaveNulls()
+		filterIsValid   = filter.Buffers[0].Buf
+		idxType         = exec.GetDataType[T]()
+	)
+
+	if haveFilterNulls && nullSelect == EmitNulls {
+		// Most complex case: the filter may have nulls and we don't drop them.
+		// The logic is ternary:
+		// - filter is null: emit null
+		// - filter is valid and true: emit index
+		// - filter is valid and false: don't emit anything
+
+		bldr := array.NewBuilder(mem, idxType).(builder[T])
+		defer bldr.Release()
+
+		// position relative to start of filter
+		var pos T
+		// current position taking the filter offset into account
+		posWithOffset := filter.Offset
+
+		// to count blocks where filterData[i] || !filterIsValid[i]
+		filterCounter := bitutils.NewBinaryBitBlockCounter(filterData, filterIsValid, filter.Offset, filter.Offset, filter.Len)
+		isValidCounter := bitutils.NewBitBlockCounter(filterIsValid, filter.Offset, filter.Len)
+		for int64(pos) < filter.Len {
+			// true OR NOT valid
+			selectedOrNullBlock := filterCounter.NextOrNotWord()
+			if selectedOrNullBlock.NoneSet() {
+				pos += T(selectedOrNullBlock.Len)
+				posWithOffset += int64(selectedOrNullBlock.Len)
+				continue
+			}
+			bldr.Reserve(int(selectedOrNullBlock.Popcnt))
+
+			// if the values are all valid and the selectedOrNullBlock
+			// is full, then we can infer that all the values are true
+			// and skip the bit checking
+			isValidBlock := isValidCounter.NextWord()
+			if selectedOrNullBlock.AllSet() && isValidBlock.AllSet() {
+				// all the values are selected and non-null
+				for i := 0; i < int(selectedOrNullBlock.Len); i++ {
+					bldr.UnsafeAppend(pos)
+					pos++
+				}
+				posWithOffset += int64(selectedOrNullBlock.Len)
+			} else {
+				// some of the values are false or null
+				for i := 0; i < int(selectedOrNullBlock.Len); i++ {
+					if bitutil.BitIsSet(filterIsValid, int(posWithOffset)) {
+						if bitutil.BitIsSet(filterData, int(posWithOffset)) {
+							bldr.UnsafeAppend(pos)
+						}
+					} else {
+						// null slot, append null
+						bldr.UnsafeAppendBoolToBitmap(false)
+					}
+					pos++
+					posWithOffset++
+				}
+			}
+		}
+
+		result := bldr.NewArray()
+		defer result.Release()
+		result.Data().Retain()
+		return result.Data()
+	}
+
+	bldr := newBufferBuilder[T](mem)
+	if haveFilterNulls {
+		// the filter may have nulls, so we scan the validity bitmap
+		// and the filter data bitmap together
+		debug.Assert(nullSelect == DropNulls, "incorrect nullselect logic")
+
+		// position relative to start of the filter
+		var pos T
+		// current position taking the filter offset into account
+		posWithOffset := filter.Offset
+
+		filterCounter := bitutils.NewBinaryBitBlockCounter(filterData, filterIsValid, filter.Offset, filter.Offset, filter.Len)
+		for int64(pos) < filter.Len {
+			andBlock := filterCounter.NextAndWord()
+			bldr.reserve(int(andBlock.Popcnt))
+			if andBlock.AllSet() {
+				// all the values are selected and non-null
+				for i := 0; i < int(andBlock.Len); i++ {
+					bldr.unsafeAppend(pos)
+					pos++
+				}
+				posWithOffset += int64(andBlock.Len)
+			} else if !andBlock.NoneSet() {
+				// some values are false or null
+				for i := 0; i < int(andBlock.Len); i++ {
+					if bitutil.BitIsSet(filterIsValid, int(posWithOffset)) && bitutil.BitIsSet(filterData, int(posWithOffset)) {
+						bldr.unsafeAppend(pos)
+					}
+					pos++
+					posWithOffset++
+				}
+			} else {
+				pos += T(andBlock.Len)
+				posWithOffset += int64(andBlock.Len)
+			}
+		}
+	} else {
+		// filter has no nulls, so we only need to look for true values
+		bitutils.VisitSetBitRuns(filterData, filter.Offset, filter.Len,
+			func(pos, length int64) error {
+				// append consecutive run of indices
+				bldr.reserve(int(length))
+				for i := int64(0); i < length; i++ {
+					bldr.unsafeAppend(T(pos + i))
+				}
+				return nil
+			})
+	}
+
+	length := bldr.len()
+	outBuf := bldr.finish()
+	defer outBuf.Release()
+	return array.NewData(idxType, length, []*memory.Buffer{nil, outBuf}, nil, 0, 0)
+}
+
+func GetTakeIndices(mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) (arrow.ArrayData, error) {
+	debug.Assert(filter.Type.ID() == arrow.BOOL, "filter should be a boolean array")
+	if filter.Len < math.MaxUint16 {
+		return getTakeIndices[uint16](mem, filter, nullSelect), nil
+	} else if filter.Len < math.MaxUint32 {
+		return getTakeIndices[uint32](mem, filter, nullSelect), nil
+	}
+	return nil, fmt.Errorf("%w: filter length exceeds UINT32_MAX, consider a different strategy for selecting elements",
+		arrow.ErrNotImplemented)
 }
 
 type writeFiltered interface {
@@ -1121,6 +1267,9 @@ func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecS
 			valOffset := rawOffsets[idx]
 			valSize := rawOffsets[idx+1] - valOffset
 
+			if valSize == 0 {
+				return nil
+			}
 			offset += valSize
 			if valSize > OffsetT(spaceAvail) {
 				dataBuilder.reserve(int(valSize))
@@ -1360,6 +1509,19 @@ func FilterBinary(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResul
 	}
 
 	return fmt.Errorf("%w: invalid type for binary filter", arrow.ErrInvalid)
+}
+
+func visitNoop() error         { return nil }
+func visitIdxNoop(int64) error { return nil }
+
+func StructImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+	)
+
+	// nothing we need to do other than generate the validity bitmap
+	return fn(ctx, outputLength, values, selection, out, visitIdxNoop, visitNoop)
 }
 
 type SelectionKernelData struct {

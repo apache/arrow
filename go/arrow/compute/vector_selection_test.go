@@ -789,6 +789,31 @@ func (f *FilterKernelWithUnion) TestDenseUnion() {
 	f.assertFilter(values, filter, expected)
 }
 
+type FilterKernelWithStruct struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithStruct) TestStruct() {
+	dt := arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true})
+
+	structJSON := `[
+		null,
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	f.assertFilterJSON(dt, structJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, structJSON, `[false, true, true, null]`, `[
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		null
+	]`)
+	f.assertFilterJSON(dt, structJSON, `[true, true, true, true]`, structJSON)
+	f.assertFilterJSON(dt, structJSON, `[true, false, true, false]`, `[null, {"a": 2, "b": "hello"}]`)
+}
+
 type TakeKernelTestTyped struct {
 	TakeKernelTestSuite
 
@@ -1003,6 +1028,48 @@ func (tk *TakeKernelDenseUnion) TestTakeUnion() {
 	]`)
 }
 
+type TakeKernelStruct struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelStruct) TestStruct() {
+	tk.dt = arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true})
+
+	structJSON := `[
+		null,
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	tk.checkTake(tk.dt, structJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, structJSON, `[3, 1, 3, 1, 3]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"}
+	]`)
+	tk.checkTake(tk.dt, structJSON, `[3, 1, 0]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		null
+	]`)
+	tk.checkTake(tk.dt, structJSON, `[0, 1, 2, 3]`, structJSON)
+	tk.checkTake(tk.dt, structJSON, `[0, 2, 2, 2, 2, 2, 2]`, `[
+		null,
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"}
+	]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[{"a": 1}, {"a": 2, "b": "hello"}]`, `[0, 1, 0]`)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
@@ -1015,6 +1082,7 @@ func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelLists))
 	suite.Run(t, new(TakeKernelDenseUnion))
 	suite.Run(t, new(TakeKernelTestExtension))
+	suite.Run(t, new(TakeKernelStruct))
 }
 
 func TestFilterKernels(t *testing.T) {
@@ -1032,4 +1100,5 @@ func TestFilterKernels(t *testing.T) {
 	suite.Run(t, new(FilterKernelWithList))
 	suite.Run(t, new(FilterKernelWithUnion))
 	suite.Run(t, new(FilterKernelExtension))
+	suite.Run(t, new(FilterKernelWithStruct))
 }
