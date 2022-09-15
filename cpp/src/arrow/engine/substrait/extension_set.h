@@ -78,7 +78,7 @@ struct IdHashEq {
 /// storage.
 class IdStorage {
  public:
-  virtual ~IdStorage();
+  virtual ~IdStorage() = default;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// This operation will copy the ids into storage if they do not already exist
