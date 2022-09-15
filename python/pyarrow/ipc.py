@@ -181,6 +181,7 @@ def open_stream(source, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchStreamReader
@@ -223,6 +224,7 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchFileReader
