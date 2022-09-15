@@ -18,13 +18,13 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
@@ -838,9 +838,9 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
 /// \brief A SQL %table reference, optionally containing table's catalog and db_schema.
 struct ARROW_FLIGHT_SQL_EXPORT TableRef {
   /// \brief The table's catalog.
-  util::optional<std::string> catalog;
+  std::optional<std::string> catalog;
   /// \brief The table's database schema.
-  util::optional<std::string> db_schema;
+  std::optional<std::string> db_schema;
   /// \brief The table name.
   std::string table;
 };

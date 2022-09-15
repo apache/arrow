@@ -257,7 +257,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.2 /usr
+          ci/scripts/install_ccache.sh 4.6.3 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -271,8 +271,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-
+          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2022-09-13"
       - name: Build
         shell: cmd
         run: |

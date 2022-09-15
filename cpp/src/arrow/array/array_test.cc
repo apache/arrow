@@ -2290,7 +2290,7 @@ TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
   auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
 
   ASSERT_EQ("abc", (*fsba)[0].value());
-  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ(std::nullopt, (*fsba)[1]);
   ASSERT_EQ("def", (*fsba)[2].value());
 }
 
@@ -3538,7 +3538,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
       ASSERT_EQ(this->values_[i], res.value());
     } else {
       ASSERT_FALSE(res.has_value());
-      ASSERT_EQ(res, util::nullopt);
+      ASSERT_EQ(res, std::nullopt);
     }
   }
 }

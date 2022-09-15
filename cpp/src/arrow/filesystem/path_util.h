@@ -17,12 +17,12 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -79,8 +79,8 @@ ARROW_EXPORT
 bool IsAncestorOf(util::string_view ancestor, util::string_view descendant);
 
 ARROW_EXPORT
-util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
-                                                 util::string_view descendant);
+std::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
+                                                util::string_view descendant);
 
 /// Return a vector of ancestors between a base path and a descendant.
 /// For example,

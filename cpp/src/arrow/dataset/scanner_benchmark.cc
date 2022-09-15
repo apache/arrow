@@ -149,7 +149,7 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
                             compute::ProjectNodeOptions{{a_times_2}, {}, async_mode}));
 
   // finally, pipe the project node into a sink node
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
                        compute::MakeExecNode("sink", plan.get(), {project},
                                              compute::SinkNodeOptions{&sink_gen}));

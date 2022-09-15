@@ -327,9 +327,9 @@ TEST(Subtree, GetSubtreeExpression) {
   const auto code_a = tree.GetOrInsert(expr_a);
   const auto code_b = tree.GetOrInsert(expr_b);
   ASSERT_EQ(expr_a,
-            tree.GetSubtreeExpression(SubtreeImpl::Encoded{util::nullopt, {code_a}}));
+            tree.GetSubtreeExpression(SubtreeImpl::Encoded{std::nullopt, {code_a}}));
   ASSERT_EQ(expr_b, tree.GetSubtreeExpression(
-                        SubtreeImpl::Encoded{util::nullopt, {code_a, code_b}}));
+                        SubtreeImpl::Encoded{std::nullopt, {code_a, code_b}}));
 }
 
 class FakeFragment {
@@ -363,14 +363,14 @@ TEST(Subtree, EncodeFragments) {
   EXPECT_THAT(
       encoded,
       testing::UnorderedElementsAreArray({
-          SubtreeImpl::Encoded{util::make_optional<int>(0),
+          SubtreeImpl::Encoded{std::make_optional<int>(0),
                                SubtreeImpl::expression_codes({0, 1})},
-          SubtreeImpl::Encoded{util::make_optional<int>(1),
+          SubtreeImpl::Encoded{std::make_optional<int>(1),
                                SubtreeImpl::expression_codes({2, 3})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0, 1})},
-          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2, 3})},
+          SubtreeImpl::Encoded{std::nullopt, SubtreeImpl::expression_codes({0})},
+          SubtreeImpl::Encoded{std::nullopt, SubtreeImpl::expression_codes({2})},
+          SubtreeImpl::Encoded{std::nullopt, SubtreeImpl::expression_codes({0, 1})},
+          SubtreeImpl::Encoded{std::nullopt, SubtreeImpl::expression_codes({2, 3})},
       }));
 }
 }  // namespace compute

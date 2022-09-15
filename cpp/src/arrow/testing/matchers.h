@@ -220,14 +220,14 @@ class ResultMatcher {
 class ErrorMatcher {
  public:
   explicit ErrorMatcher(StatusCode code,
-                        util::optional<testing::Matcher<std::string>> message_matcher)
+                        std::optional<testing::Matcher<std::string>> message_matcher)
       : code_(code), message_matcher_(std::move(message_matcher)) {}
 
   template <typename Res>
   operator testing::Matcher<Res>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const Res&> {
       explicit Impl(StatusCode code,
-                    util::optional<testing::Matcher<std::string>> message_matcher)
+                    std::optional<testing::Matcher<std::string>> message_matcher)
           : code_(code), message_matcher_(std::move(message_matcher)) {}
 
       void DescribeTo(::std::ostream* os) const override {
@@ -270,7 +270,7 @@ class ErrorMatcher {
       }
 
       const StatusCode code_;
-      const util::optional<testing::Matcher<std::string>> message_matcher_;
+      const std::optional<testing::Matcher<std::string>> message_matcher_;
     };
 
     return testing::Matcher<Res>(new Impl(code_, message_matcher_));
@@ -278,7 +278,7 @@ class ErrorMatcher {
 
  private:
   const StatusCode code_;
-  const util::optional<testing::Matcher<std::string>> message_matcher_;
+  const std::optional<testing::Matcher<std::string>> message_matcher_;
 };
 
 class OkMatcher {
@@ -324,7 +324,7 @@ inline OkMatcher Ok() { return {}; }
 
 // Returns a matcher that matches the StatusCode of a Status or Result<T>.
 // Do not use Raises(StatusCode::OK) to match a non error code.
-inline ErrorMatcher Raises(StatusCode code) { return ErrorMatcher(code, util::nullopt); }
+inline ErrorMatcher Raises(StatusCode code) { return ErrorMatcher(code, std::nullopt); }
 
 // Returns a matcher that matches the StatusCode and message of a Status or Result<T>.
 template <typename MessageMatcher>
@@ -421,7 +421,7 @@ template <typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
           typename BuilderType = typename TypeTraits<T>::BuilderType,
           typename ValueType =
               typename ::arrow::stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
-DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
+DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& values) {
   // FIXME(bkietz) broken until DataType is move constructible
   BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
   DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
@@ -453,7 +453,7 @@ inline DataEqMatcher DataEqScalar(const std::shared_ptr<DataType>& type,
 /// Constructs a scalar against which arguments are matched
 template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
           typename ValueType = typename ScalarType::ValueType>
-DataEqMatcher DataEqScalar(T type, util::optional<ValueType> value) {
+DataEqMatcher DataEqScalar(T type, std::optional<ValueType> value) {
   ScalarType expected(std::make_shared<T>(std::move(type)));
 
   if (value) {

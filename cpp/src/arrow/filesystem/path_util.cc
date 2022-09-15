@@ -189,10 +189,10 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   return descendant.starts_with(std::string{kSep});
 }
 
-util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
-                                                 util::string_view descendant) {
+std::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
+                                                util::string_view descendant) {
   if (!IsAncestorOf(ancestor, descendant)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   auto relative_to_ancestor = descendant.substr(ancestor.size());

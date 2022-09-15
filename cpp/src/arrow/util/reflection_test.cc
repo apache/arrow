@@ -79,7 +79,7 @@ struct FromStringImpl {
     props.ForEach(*this);
   }
 
-  void Fail() { obj_ = util::nullopt; }
+  void Fail() { obj_ = std::nullopt; }
 
   void Init(util::string_view class_name, util::string_view repr, size_t num_properties) {
     if (!repr.starts_with(class_name)) return Fail();
@@ -116,7 +116,7 @@ struct FromStringImpl {
     prop.set(&*obj_, std::move(value));
   }
 
-  util::optional<Class> obj_ = Class{};
+  std::optional<Class> obj_ = Class{};
   std::vector<util::string_view> members_;
 };
 
@@ -146,7 +146,7 @@ std::string ToString(const Person& obj) {
 
 void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
 
-util::optional<Person> PersonFromString(util::string_view repr) {
+std::optional<Person> PersonFromString(util::string_view repr) {
   return FromStringImpl<Person>("Person", repr, kPersonProperties).obj_;
 }
 
@@ -174,23 +174,23 @@ TEST(Reflection, FromStringToDataMembers) {
 
   EXPECT_EQ(PersonFromString(ToString(genos)), genos);
 
-  EXPECT_EQ(PersonFromString(""), util::nullopt);
-  EXPECT_EQ(PersonFromString("Per"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos"), util::nullopt);
+  EXPECT_EQ(PersonFromString(""), std::nullopt);
+  EXPECT_EQ(PersonFromString("Per"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos"), std::nullopt);
 
-  EXPECT_EQ(PersonFromString("Person{name:Genos"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos,extra:Cyborg}"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{name:Genos,age:19"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{name:Genos"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos,extra:Cyborg}"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{name:Genos,age:19"), std::nullopt);
 
-  EXPECT_EQ(PersonFromString("Fake{age:19,name:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Fake{age:19,name:Genos}"), std::nullopt);
 
-  EXPECT_EQ(PersonFromString("Person{age,name:Genos}"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{age:nineteen,name:Genos}"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{age:19 ,name:Genos}"), util::nullopt);
-  EXPECT_EQ(PersonFromString("Person{age:19,moniker:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age,name:Genos}"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:nineteen,name:Genos}"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19 ,name:Genos}"), std::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,moniker:Genos}"), std::nullopt);
 
-  EXPECT_EQ(PersonFromString("Person{age: 19, name: Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age: 19, name: Genos}"), std::nullopt);
 }
 
 enum class PersonType : int8_t {

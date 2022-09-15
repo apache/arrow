@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -100,7 +100,7 @@ TEST_F(CancelTest, Unstoppable) {
 
 TEST_F(CancelTest, SourceVanishes) {
   {
-    util::optional<StopSource> source{StopSource()};
+    std::optional<StopSource> source{StopSource()};
     StopToken token = source->token();
     ASSERT_FALSE(token.IsStopRequested());
     ASSERT_OK(token.Poll());
@@ -110,7 +110,7 @@ TEST_F(CancelTest, SourceVanishes) {
     ASSERT_OK(token.Poll());
   }
   {
-    util::optional<StopSource> source{StopSource()};
+    std::optional<StopSource> source{StopSource()};
     StopToken token = source->token();
     source->RequestStop();
 
@@ -125,7 +125,7 @@ static void noop_signal_handler(int signum) {
 }
 
 #ifndef _WIN32
-static util::optional<StopSource> signal_stop_source;
+static std::optional<StopSource> signal_stop_source;
 
 static void signal_handler(int signum) {
   signal_stop_source->RequestStopFromSignal(signum);
@@ -207,8 +207,8 @@ class SignalCancelTest : public CancelTest {
 #else
   const int expected_signal_ = SIGALRM;
 #endif
-  util::optional<SignalHandlerGuard> guard_;
-  util::optional<StopToken> stop_token_;
+  std::optional<SignalHandlerGuard> guard_;
+  std::optional<StopToken> stop_token_;
 };
 
 TEST_F(SignalCancelTest, Register) {

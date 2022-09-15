@@ -182,11 +182,11 @@ std::string AsciiToUpper(util::string_view value) {
   return result;
 }
 
-util::optional<std::string> Replace(util::string_view s, util::string_view token,
-                                    util::string_view replacement) {
+std::optional<std::string> Replace(util::string_view s, util::string_view token,
+                                   util::string_view replacement) {
   size_t token_start = s.find(token);
   if (token_start == std::string::npos) {
-    return util::nullopt;
+    return std::nullopt;
   }
   return s.substr(0, token_start).to_string() + replacement.to_string() +
          s.substr(token_start + token.size()).to_string();

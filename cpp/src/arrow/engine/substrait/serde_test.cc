@@ -80,7 +80,7 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
     const std::shared_ptr<Schema>& output_schema) {
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
   auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
   auto declarations = compute::Declaration::Sequence({other_declrs, sink_declaration});
@@ -1949,7 +1949,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   auto comp_right_value = compute::field_ref(filter_col_right);
   auto filter = compute::equal(comp_left_value, comp_right_value);
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto declarations = compute::Declaration::Sequence(
       {compute::Declaration(

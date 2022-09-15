@@ -534,26 +534,26 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto source = this->GetFileSource(reader.get());
 
     auto fragment = this->MakeFragment(*source);
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(literal(true), options));
 
     fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(literal(true), options));
 
     auto predicate = equal(field_ref("part"), literal(1));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(0),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("part"), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
+    ASSERT_FINISHES_OK_AND_EQ(std::nullopt, fragment->CountRows(predicate, options));
   }
   void TestFragmentEquals() {
     auto options = std::make_shared<ScanOptions>();

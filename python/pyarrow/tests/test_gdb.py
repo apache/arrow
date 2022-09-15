@@ -297,13 +297,6 @@ def test_buffer_heap(gdb_arrow):
                     'arrow::Buffer of size 3, mutable, "abc"')
 
 
-def test_optionals(gdb_arrow):
-    check_stack_repr(gdb_arrow, "int_optional",
-                     "arrow::util::optional<int>(42)")
-    check_stack_repr(gdb_arrow, "null_int_optional",
-                     "arrow::util::optional<int>(nullopt)")
-
-
 def test_variants(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "int_variant",

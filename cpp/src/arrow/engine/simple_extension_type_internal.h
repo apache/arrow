@@ -18,13 +18,13 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "arrow/extension_type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
 
@@ -106,7 +106,7 @@ class SimpleExtensionType : public ExtensionType {
       kProperties->ForEach(*this);
     }
 
-    void Fail() { params_ = util::nullopt; }
+    void Fail() { params_ = std::nullopt; }
 
     void Init(util::string_view class_name, util::string_view repr,
               size_t num_properties) {
@@ -144,7 +144,7 @@ class SimpleExtensionType : public ExtensionType {
       prop.set(&*params_, std::move(value));
     }
 
-    util::optional<Params> params_;
+    std::optional<Params> params_;
     std::vector<util::string_view> members_;
   };
   Result<std::shared_ptr<DataType>> Deserialize(

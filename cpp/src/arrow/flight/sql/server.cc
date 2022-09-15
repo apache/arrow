@@ -33,7 +33,7 @@
 #include "arrow/util/checked_cast.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
-  COMMAND.has_##PROPERTY() ? util::make_optional(COMMAND.PROPERTY()) : util::nullopt
+  COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
 namespace arrow {
 namespace flight {

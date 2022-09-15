@@ -290,11 +290,11 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   return generator;
 }
 
-Future<util::optional<int64_t>> CsvFileFormat::CountRows(
+Future<std::optional<int64_t>> CsvFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
   ARROW_ASSIGN_OR_RAISE(
@@ -309,7 +309,7 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
-      .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
+      .Then([](int64_t count) { return std::make_optional<int64_t>(count); });
 }
 
 //

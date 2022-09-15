@@ -50,7 +50,7 @@ using TableNodeFn = Result<ExecNode*> (TpchGen::*)(std::vector<std::string>);
 constexpr double kDefaultScaleFactor = 0.1;
 
 Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
-                             AsyncGenerator<util::optional<ExecBatch>>& sink_gen,
+                             AsyncGenerator<std::optional<ExecBatch>>& sink_gen,
                              TableNodeFn table) {
   ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.*table)({})));
   Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
@@ -64,7 +64,7 @@ Result<std::vector<ExecBatch>> GenerateTable(TableNodeFn table,
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
                         TpchGen::Make(plan.get(), scale_factor));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_RETURN_NOT_OK(AddTableAndSinkToPlan(*plan, *gen, sink_gen, table));
   auto fut = StartAndCollect(plan.get(), sink_gen);
   return fut.MoveResult();
@@ -618,7 +618,7 @@ TEST(TpchNode, AllTables) {
       &VerifyOrders,   &VerifyLineitem, &VerifyNation,   &VerifyRegion,
   };
 
-  std::array<AsyncGenerator<util::optional<ExecBatch>>, kNumTables> gens;
+  std::array<AsyncGenerator<std::optional<ExecBatch>>, kNumTables> gens;
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen,

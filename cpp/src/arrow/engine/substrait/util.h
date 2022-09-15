@@ -18,11 +18,12 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+
 #include "arrow/compute/registry.h"
 #include "arrow/engine/substrait/api.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 

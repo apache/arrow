@@ -16,6 +16,7 @@
 // under the License.
 
 #include <mutex>
+#include <optional>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -31,7 +32,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
@@ -47,7 +47,7 @@ namespace {
 
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-             AsyncGenerator<util::optional<ExecBatch>> generator)
+             AsyncGenerator<std::optional<ExecBatch>> generator)
       : ExecNode(plan, {}, {}, std::move(output_schema),
                  /*num_outputs=*/1),
         generator_(std::move(generator)) {}
@@ -112,7 +112,7 @@ struct SourceNode : ExecNode {
                  lock.unlock();
 
                  return generator_().Then(
-                     [=](const util::optional<ExecBatch>& maybe_morsel)
+                     [=](const std::optional<ExecBatch>& maybe_morsel)
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_morsel) || stop_requested_) {
@@ -221,7 +221,7 @@ struct SourceNode : ExecNode {
   bool stop_requested_{false};
   bool started_ = false;
   int batch_count_{0};
-  AsyncGenerator<util::optional<ExecBatch>> generator_;
+  AsyncGenerator<std::optional<ExecBatch>> generator_;
 };
 
 struct TableSourceNode : public SourceNode {
@@ -257,13 +257,13 @@ struct TableSourceNode : public SourceNode {
     return Status::OK();
   }
 
-  static arrow::AsyncGenerator<util::optional<ExecBatch>> TableGenerator(
+  static arrow::AsyncGenerator<std::optional<ExecBatch>> TableGenerator(
       const Table& table, const int64_t batch_size) {
     auto batches = ConvertTableToExecBatches(table, batch_size);
     auto opt_batches =
-        MapVector([](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+        MapVector([](ExecBatch batch) { return std::make_optional(std::move(batch)); },
                   std::move(batches));
-    AsyncGenerator<util::optional<ExecBatch>> gen;
+    AsyncGenerator<std::optional<ExecBatch>> gen;
     gen = MakeVectorGenerator(std::move(opt_batches));
     return gen;
   }
