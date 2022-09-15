@@ -256,9 +256,8 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
             function_converter,
             ext_set.registry()->GetSubstraitCallToArrowFallback(function_id.name));
       } else {
-        ARROW_ASSIGN_OR_RAISE(
-            ExtensionIdRegistry::SubstraitCallToArrow function_converter,
-            ext_set.registry()->GetSubstraitCallToArrow(function_id));
+        ARROW_ASSIGN_OR_RAISE(function_converter,
+                              ext_set.registry()->GetSubstraitCallToArrow(function_id));
       }
       ARROW_ASSIGN_OR_RAISE(
           SubstraitCall substrait_call,

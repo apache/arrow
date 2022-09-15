@@ -95,7 +95,10 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
 
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
-  return arrow::Table::FromRecordBatchReader(sink_reader.get());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+  RETURN_NOT_OK(plan->finished().status());
+  return table;
 }
 
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
