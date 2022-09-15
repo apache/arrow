@@ -103,6 +103,8 @@
   GREATER_THAN                ">" 
   GREATER_THAN_OR_EQUAL_TO    ">="
   COMMA                       ","
+  LBRACKET                    "{"
+  RBRACKET                    "}"
 ;
 
 %token <std::string> IDENTIFIER "identifier";
@@ -120,6 +122,8 @@
 %nterm <NodePtr> named_function;
 %nterm <NodeVector> args;
 %nterm <NodePtr> arg;
+%nterm <NodePtr> if;
+%nterm <NodePtr> boolean;
 
 %%
 %start exp;
@@ -143,6 +147,8 @@ term:
   literal {$$ = std::move($1);}
 | field {$$ = std::move($1);}
 | function {$$ = std::move($1);}
+| if {$$ = std::move($1);}
+| boolean {$$ = std::move($1);}
 | "(" term ")" {$$ = std::move($2);}
 
 literal:
@@ -223,6 +229,16 @@ args:
 
 arg:
   term {$$ = std::move($1);}
+;
+
+if:
+  "if" "(" term "," term "," term ")" {$$ = std::make_shared<gandiva::IfNode>($3, $5, $7, nullptr);}
+| "if" "(" term ")" "{" term "}" "else" "{" term "}" {$$ = std::make_shared<gandiva::IfNode>($3, $6, $10, nullptr);}
+;
+
+boolean:
+  term "and" term {$$ = std::make_shared<gandiva::BooleanNode>(gandiva::BooleanNode::AND, gandiva::NodeVector{$1, $3});}
+| term "or" term {$$ = std::make_shared<gandiva::BooleanNode>(gandiva::BooleanNode::OR, gandiva::NodeVector{$1, $3});}
 %%
 
 void gandiva::grammar::error (const location_type& l, const std::string& m) {

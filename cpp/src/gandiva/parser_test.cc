@@ -185,4 +185,40 @@ TEST_F(TestParser, TestNamedFunction) {
       "6), untyped greater_than_or_equal_to((const untyped) 7, (const untyped) 8)))");
 }
 
+TEST_F(TestParser, TestIf) {
+  status_ = parser_.parse("if(x == 7, x + 5, x - 6)", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(
+      expr_->ToString(),
+      "if (untyped equal((int32) x, (const untyped) 7)) { untyped add((int32) x, (const "
+      "untyped) 5) } else { untyped substract((int32) x, (const untyped) 6) }");
+
+  status_ = parser_.parse("if(x == 7) {x + 5} else {x - 6}", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(
+      expr_->ToString(),
+      "if (untyped equal((int32) x, (const untyped) 7)) { untyped add((int32) x, (const "
+      "untyped) 5) } else { untyped substract((int32) x, (const untyped) 6) }");
+}
+
+TEST_F(TestParser, TestBoolean) {
+  status_ = parser_.parse("x <= 7 and x > 2", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "untyped less_than_or_equal_to((int32) x, (const untyped) 7) && untyped "
+            "greater_than((int32) x, (const untyped) 2)");
+
+  status_ = parser_.parse("(x <= 7 && x > 2) || (x < 0 && !(x < -10))", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "untyped less_than_or_equal_to((int32) x, (const untyped) 7) && untyped "
+            "greater_than((int32) x, (const untyped) 2) || untyped less_than((int32) x, "
+            "(const untyped) 0) && untyped not(untyped less_than((int32) x, untyped "
+            "negative((const untyped) 10)))");
+}
+
 }  // namespace gandiva

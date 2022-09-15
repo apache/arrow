@@ -146,6 +146,8 @@ blank [ \t\r]
 ">"           return gandiva::grammar::make_GREATER_THAN                (loc);
 ">="          return gandiva::grammar::make_GREATER_THAN_OR_EQUAL_TO    (loc);
 ","           return gandiva::grammar::make_COMMA                       (loc);
+"{"           return gandiva::grammar::make_LBRACKET                    (loc);
+"}"           return gandiva::grammar::make_RBRACKET                    (loc);
 
 {id}       return gandiva::grammar::make_IDENTIFIER (yytext, loc);
 
