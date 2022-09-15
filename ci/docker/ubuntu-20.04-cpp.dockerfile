@@ -65,7 +65,6 @@ RUN latest_system_llvm=10 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ca-certificates \
         ccache \
         cmake \
@@ -169,4 +168,5 @@ ENV absl_SOURCE=BUNDLED \
     Protobuf_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
-    xsimd_SOURCE=BUNDLED
+    xsimd_SOURCE=BUNDLED \
+    BISON_SOURCE=BUNDLED 
