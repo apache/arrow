@@ -14,11 +14,9 @@
 // limitations under the License.
 
 using Apache.Arrow.Ipc;
-using Apache.Arrow.Memory;
-using Apache.Arrow.Types;
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -171,5 +169,41 @@ namespace Apache.Arrow.Tests
             recordBatch.Dispose();
         }
 
+        [Theory]
+        [InlineData("ipc_lz4_compression.arrow")]
+        [InlineData("ipc_zstd_compression.arrow")]
+        public void CanReadCompressedIpcFile(string fileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream($"Apache.Arrow.Tests.Resources.{fileName}");
+            var compressionProvider = new Compression.CompressionProvider();
+            using var reader = new ArrowFileReader(stream, compressionProvider);
+
+            var batch = reader.ReadNextRecordBatch();
+
+            var intArray = (Int32Array) batch.Column("integers");
+            var floatArray = (FloatArray) batch.Column("floats");
+
+            const int numRows = 100;
+            Assert.Equal(intArray.Length, numRows);
+            Assert.Equal(floatArray.Length, numRows);
+
+            for (var i = 0; i < numRows; ++i)
+            {
+                Assert.Equal(intArray.GetValue(i), i);
+                Assert.True(Math.Abs(floatArray.GetValue(i).Value - 0.1f * i) < 1.0e-6);
+            }
+        }
+
+        [Fact]
+        public void ErrorReadingCompressedFileWithoutCompressionProvider()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream("Apache.Arrow.Tests.Resources.ipc_lz4_compression.arrow");
+            using var reader = new ArrowFileReader(stream);
+
+            var exception = Assert.Throws<Exception>(() => reader.ReadNextRecordBatch());
+            Assert.Contains("no ICompressionProvider has been configured", exception.Message);
+        }
     }
 }
