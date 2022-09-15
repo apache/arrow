@@ -111,11 +111,11 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
-  
-  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
-takes precdence over ccache if a storage backend is configured" ON)
-  
+
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
+
+  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
+takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 

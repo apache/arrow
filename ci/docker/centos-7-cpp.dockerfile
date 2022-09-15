@@ -18,9 +18,9 @@
 FROM centos:centos7
 
 RUN yum install -y \
+        curl \
         diffutils \
         gcc-c++ \
-        curl \
         libcurl-devel \
         make \
         openssl-devel \

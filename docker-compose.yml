@@ -422,7 +422,7 @@ services:
       LIBARROW_MINIMAL: "false"
       ARROW_MIMALLOC: "ON"
     volumes: *ubuntu-volumes
-    command: &arrow-static-cmd
+    command: &cpp-static-command
       /bin/bash -c "
         cd /arrow &&
         r/inst/build_arrow_static.sh"
@@ -446,7 +446,7 @@ services:
       ARROW_GCS: "OFF"
       ARROW_MIMALLOC: "OFF"
       ARROW_S3: "OFF"
-    command: *arrow-static-cmd
+    command: *cpp-static-command
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies

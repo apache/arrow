@@ -30,7 +30,7 @@ PREFIX=$2
 ARCH=${3:-x86_64}
 VERSION=${4:-0.3.0}
 
-SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v$VERSION-$ARCH-$BUILD.tar.gz"
+SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v$VERSION/sccache-v$VERSION-$ARCH-$BUILD.tar.gz"
 SCCACHE_ARCHIVE=sccache.tar.gz
 
 # Download archive and checksum
