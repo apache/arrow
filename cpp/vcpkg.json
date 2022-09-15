@@ -15,10 +15,7 @@
       ]
     },
     "benchmark",
-    {
-      "name": "bison",
-      "version>=": "3.8"
-    },
+    "bison",
     "boost-filesystem",
     "boost-multiprecision",
     "boost-process",
@@ -28,10 +25,7 @@
     "bzip2",
     "c-ares",
     "curl",
-    {
-      "name": "flex",
-      "version>=": "2.5"
-    },
+    "flex",
     "flatbuffers",
     "gflags",
     "glog",
