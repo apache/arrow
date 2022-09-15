@@ -60,7 +60,7 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
                                " function needs to be an integer literal to indicate "
                                "whether to suppress the error");
       }
-      suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
+      suppress_errors = std::get<int>(literal_suppress_errors->holder());
     }
 
     return Make(suppress_errors, holder);

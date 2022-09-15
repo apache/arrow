@@ -22,13 +22,13 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/small_vector.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace compute {
@@ -127,7 +127,7 @@ class ARROW_EXPORT Expression {
   explicit Expression(Parameter parameter);
 
  private:
-  using Impl = util::Variant<Datum, Parameter, Call>;
+  using Impl = std::variant<Datum, Parameter, Call>;
   std::shared_ptr<Impl> impl_;
 
   ARROW_EXPORT friend bool Identical(const Expression& l, const Expression& r);

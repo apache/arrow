@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/result.h"
@@ -32,7 +33,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
@@ -1735,23 +1735,23 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   explicit operator bool() const { return Equals(FieldPath{}); }
   bool operator!() const { return !Equals(FieldPath{}); }
 
-  bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
-  bool IsName() const { return util::holds_alternative<std::string>(impl_); }
+  bool IsFieldPath() const { return std::holds_alternative<FieldPath>(impl_); }
+  bool IsName() const { return std::holds_alternative<std::string>(impl_); }
   bool IsNested() const {
     if (IsName()) return false;
-    if (IsFieldPath()) return util::get<FieldPath>(impl_).indices().size() > 1;
+    if (IsFieldPath()) return std::get<FieldPath>(impl_).indices().size() > 1;
     return true;
   }
 
   const FieldPath* field_path() const {
-    return IsFieldPath() ? &util::get<FieldPath>(impl_) : NULLPTR;
+    return IsFieldPath() ? &std::get<FieldPath>(impl_) : NULLPTR;
   }
   const std::string* name() const {
-    return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+    return IsName() ? &std::get<std::string>(impl_) : NULLPTR;
   }
   const std::vector<FieldRef>* nested_refs() const {
-    return util::holds_alternative<std::vector<FieldRef>>(impl_)
-               ? &util::get<std::vector<FieldRef>>(impl_)
+    return std::holds_alternative<std::vector<FieldRef>>(impl_)
+               ? &std::get<std::vector<FieldRef>>(impl_)
                : NULLPTR;
   }
 
@@ -1843,7 +1843,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
  private:
   void Flatten(std::vector<FieldRef> children);
 
-  util::Variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
+  std::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 
   ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };

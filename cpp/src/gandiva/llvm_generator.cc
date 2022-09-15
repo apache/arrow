@@ -664,44 +664,44 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
   switch (dex.type()->id()) {
     case arrow::Type::BOOL:
-      value = types->i1_constant(arrow::util::get<bool>(dex.holder()));
+      value = types->i1_constant(std::get<bool>(dex.holder()));
       break;
 
     case arrow::Type::UINT8:
-      value = types->i8_constant(arrow::util::get<uint8_t>(dex.holder()));
+      value = types->i8_constant(std::get<uint8_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT16:
-      value = types->i16_constant(arrow::util::get<uint16_t>(dex.holder()));
+      value = types->i16_constant(std::get<uint16_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT32:
-      value = types->i32_constant(arrow::util::get<uint32_t>(dex.holder()));
+      value = types->i32_constant(std::get<uint32_t>(dex.holder()));
       break;
 
     case arrow::Type::UINT64:
-      value = types->i64_constant(arrow::util::get<uint64_t>(dex.holder()));
+      value = types->i64_constant(std::get<uint64_t>(dex.holder()));
       break;
 
     case arrow::Type::INT8:
-      value = types->i8_constant(arrow::util::get<int8_t>(dex.holder()));
+      value = types->i8_constant(std::get<int8_t>(dex.holder()));
       break;
 
     case arrow::Type::INT16:
-      value = types->i16_constant(arrow::util::get<int16_t>(dex.holder()));
+      value = types->i16_constant(std::get<int16_t>(dex.holder()));
       break;
 
     case arrow::Type::FLOAT:
-      value = types->float_constant(arrow::util::get<float>(dex.holder()));
+      value = types->float_constant(std::get<float>(dex.holder()));
       break;
 
     case arrow::Type::DOUBLE:
-      value = types->double_constant(arrow::util::get<double>(dex.holder()));
+      value = types->double_constant(std::get<double>(dex.holder()));
       break;
 
     case arrow::Type::STRING:
     case arrow::Type::BINARY: {
-      const std::string& str = arrow::util::get<std::string>(dex.holder());
+      const std::string& str = std::get<std::string>(dex.holder());
 
       value = ir_builder()->CreateGlobalStringPtr(str.c_str());
       len = types->i32_constant(static_cast<int32_t>(str.length()));
@@ -712,7 +712,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::DATE32:
     case arrow::Type::TIME32:
     case arrow::Type::INTERVAL_MONTHS:
-      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
+      value = types->i32_constant(std::get<int32_t>(dex.holder()));
       break;
 
     case arrow::Type::INT64:
@@ -720,12 +720,12 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::TIME64:
     case arrow::Type::TIMESTAMP:
     case arrow::Type::INTERVAL_DAY_TIME:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
+      value = types->i64_constant(std::get<int64_t>(dex.holder()));
       break;
 
     case arrow::Type::DECIMAL: {
       // build code for struct
-      auto scalar = arrow::util::get<DecimalScalar128>(dex.holder());
+      auto scalar = std::get<DecimalScalar128>(dex.holder());
       // ConstantInt doesn't have a get method that takes int128 or a pair of int64. so,
       // passing the string representation instead.
       auto int128_value =
