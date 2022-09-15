@@ -253,6 +253,20 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \return A converter function or an invalid status if no converter is registered
   virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
       Id substrait_function_id) const = 0;
+
+  /// \brief Similar to \see GetSubstraitCallToArrow but only uses the name
+  ///
+  /// There may be multiple functions with the same name and this will return
+  /// the first.  This is slower than GetSubstraitCallToArrow and should only
+  /// be used when the plan does not include a URI (or the URI is "/")
+  virtual Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
+      util::string_view function_name) const = 0;
+
+  /// \brief Similar to \see GetSubstraitAggregateToArrow but only uses the name
+  ///
+  /// \see GetSubstraitCallToArrowFallback for details on the fallback behavior
+  virtual Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
+      util::string_view function_name) const = 0;
 };
 
 constexpr std::string_view kArrowExtTypesUri =

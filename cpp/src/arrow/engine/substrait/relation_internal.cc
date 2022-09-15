@@ -505,9 +505,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           ARROW_ASSIGN_OR_RAISE(
               SubstraitCall aggregate_call,
               FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
-          ARROW_ASSIGN_OR_RAISE(
-              ExtensionIdRegistry::SubstraitAggregateToArrow converter,
-              ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          ExtensionIdRegistry::SubstraitAggregateToArrow converter;
+          if (aggregate_call.id().uri.empty() || aggregate_call.id().uri[0] == '/') {
+            ARROW_ASSIGN_OR_RAISE(
+                converter, ext_set.registry()->GetSubstraitAggregateToArrowFallback(
+                               aggregate_call.id().name));
+          } else {
+            ARROW_ASSIGN_OR_RAISE(
+                converter,
+                ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          }
           ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
 
           // find aggregate field ids from schema

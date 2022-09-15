@@ -534,6 +534,21 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return maybe_converter->second;
   }
 
+  Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
+      util::string_view function_name) const override {
+    for (const auto& converter_item : substrait_to_arrow_) {
+      if (converter_item.first.name == function_name) {
+        return converter_item.second;
+      }
+    }
+    if (parent_) {
+      return parent_->GetSubstraitCallToArrowFallback(function_name);
+    }
+    return Status::NotImplemented(
+        "No conversion function exists to convert the Substrait function ", function_name,
+        " to an Arrow call expression");
+  }
+
   Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrow(
       Id substrait_function_id) const override {
     auto maybe_converter = substrait_to_arrow_agg_.find(substrait_function_id);
@@ -547,6 +562,21 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
           " to an Arrow aggregate");
     }
     return maybe_converter->second;
+  }
+
+  Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
+      util::string_view function_name) const override {
+    for (const auto& converter_item : substrait_to_arrow_agg_) {
+      if (converter_item.first.name == function_name) {
+        return converter_item.second;
+      }
+    }
+    if (parent_) {
+      return parent_->GetSubstraitAggregateToArrowFallback(function_name);
+    }
+    return Status::NotImplemented(
+        "No conversion function exists to convert the Substrait aggregate function ",
+        function_name, " to an Arrow call expression");
   }
 
   Result<ArrowToSubstraitCall> GetArrowToSubstraitCall(
