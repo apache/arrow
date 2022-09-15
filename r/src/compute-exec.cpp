@@ -72,7 +72,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   ExecPlanReader(
       const std::shared_ptr<arrow::compute::ExecPlan>& plan,
       const std::shared_ptr<arrow::Schema>& schema,
-      arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen)
+      arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
       : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
 
   std::string PlanStatus() const {
@@ -140,7 +140,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
  private:
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen_;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
   int status_;
 
   arrow::Status StartProducing() {
@@ -166,7 +166,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
     status_ = PLAN_FINISHED;
     plan_.reset();
-    sink_gen_ = arrow::MakeEmptyGenerator<arrow::util::optional<compute::ExecBatch>>();
+    sink_gen_ = arrow::MakeEmptyGenerator<std::optional<compute::ExecBatch>>();
   }
 };
 
