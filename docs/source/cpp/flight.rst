@@ -180,7 +180,7 @@ Best practices
 gRPC
 ----
 
-When using default gRPC transport options can be passed to it via
+When using the default gRPC transport, options can be passed to it via
 :member:`arrow::flight::FlightClientOptions::generic_options`. For example:
 
 .. tab-set::
@@ -208,7 +208,8 @@ Re-use clients whenever possible
 
 Creating and closing clients requires setup and teardown on the client and
 server side which can take away from actually handling RPCs. Reuse clients
-whenever possible to avoid this. Note that clients are thread-safe.
+whenever possible to avoid this. Note that clients are thread-safe, so a
+single client can be shared across multiple threads.
 
 Don’t round-robin load balance
 ------------------------------
@@ -347,7 +348,7 @@ Closing unresponsive connections
    be hard to choose a timeout for the entire operation. Instead, what is often
    desired is a per-read or per-write timeout so that the operation fails if it
    isn't making progress. This can be implemented with a background thread that
-   calls cancel() on a timer, with the main thread resetting the timer every time
+   calls Cancel() on a timer, with the main thread resetting the timer every time
    an operation completes successfully. For a fully-worked out example, see the
    Cookbook.
    
