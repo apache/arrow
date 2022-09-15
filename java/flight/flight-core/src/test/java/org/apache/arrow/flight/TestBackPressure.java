@@ -30,9 +30,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 
@@ -43,7 +43,7 @@ public class TestBackPressure {
   /**
    * Make sure that failing to consume one stream doesn't block other streams.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureIndependentSteams() throws Exception {
     ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location)));
@@ -52,7 +52,7 @@ public class TestBackPressure {
   /**
    * Make sure that failing to consume one stream doesn't block other streams.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureIndependentSteamsWithCallbacks() throws Exception {
     ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location,
@@ -62,7 +62,7 @@ public class TestBackPressure {
   /**
    * Test to make sure stream doesn't go faster than the consumer is consuming.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureWaitUntilProceed() throws Exception {
     ensureWaitUntilProceed(new PollingBackpressureStrategy(), false);
@@ -72,7 +72,7 @@ public class TestBackPressure {
    * Test to make sure stream doesn't go faster than the consumer is consuming using a callback-based
    * backpressure strategy.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureWaitUntilProceedWithCallbacks() throws Exception {
     ensureWaitUntilProceed(new RecordingCallbackBackpressureStrategy(), true);
@@ -177,9 +177,14 @@ public class TestBackPressure {
           root.clear();
         }
         long expected = wait - epsilon;
-        Assert.assertTrue(
-            String.format("Expected a sleep of at least %dms but only slept for %d", expected,
-                bpStrategy.getSleepTime()), bpStrategy.getSleepTime() > expected);
+        Assertions.assertTrue(
+            bpStrategy.getSleepTime() > expected,
+            String.format(
+                "Expected a sleep of at least %dms but only slept for %d",
+                expected,
+                bpStrategy.getSleepTime()
+            )
+        );
 
       }
     }
