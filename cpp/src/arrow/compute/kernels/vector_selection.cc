@@ -269,7 +269,9 @@ template <>
 struct PrimitiveGetter<ArraySpan, bool> {
   // For boolean, we can't add offset at beginning because values is a bitmap.
   explicit PrimitiveGetter(ArraySpan&& array)
-      : inner(std::move(array)), values(array.GetValues<uint8_t>(1)) {}
+      : inner(std::move(array)), values(array.GetValues<uint8_t>(1)) {
+    inner.GetNullCount();
+  }
 
   bool IsValid(int64_t i) const {
     return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
@@ -287,7 +289,9 @@ struct PrimitiveGetter<ArraySpan, bool> {
 template <typename ValueType>
 struct PrimitiveGetter<ArraySpan, ValueType> {
   explicit PrimitiveGetter(ArraySpan&& array)
-      : inner(std::move(array)), values(array.GetValues<ValueType>(1) + array.offset) {}
+      : inner(std::move(array)), values(array.GetValues<ValueType>(1)) {
+    inner.GetNullCount();
+  }
 
   bool IsValid(int64_t i) const {
     return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
@@ -319,8 +323,13 @@ struct PrimitiveGetter<ChunkedArray, bool> {
 
   bool IsValid(int64_t i) const {
     ChunkLocation loc = resolver.Resolve(i);
-    return bit_util::GetBit(values_is_valid[loc.chunk_index],
-                            values_offset[loc.chunk_index] + loc.index_in_chunk);
+    const uint8_t* validity_bitmap = values_is_valid[loc.chunk_index];
+    if (validity_bitmap == nullptr) {
+      return true;
+    } else {
+      return bit_util::GetBit(validity_bitmap,
+                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+    }
   }
 
   bool GetValue(int64_t i) const {
@@ -440,8 +449,13 @@ struct PrimitiveTakeImpl {
 
     bool GetValidity(int64_t i) {
       ChunkLocation loc = resolver.Resolve(i);
-      return bit_util::GetBit(values_is_valid[loc.chunk_index],
-                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+      const uint8_t* validity_bitmap = values_is_valid[loc.chunk_index];
+      if (validity_bitmap == nullptr) {
+        return true;
+      } else {
+        return bit_util::GetBit(validity_bitmap,
+                                values_offset[loc.chunk_index] + loc.index_in_chunk);
+      }
     }
 
     ChunkResolver resolver;
@@ -913,8 +927,9 @@ class PrimitiveFilterImpl {
       : values_getter_(values_getter),
         filter_is_valid_(filter.buffers[0].data),
         filter_data_(filter.buffers[1].data),
-        filter_null_count_(filter.null_count),
+        filter_null_count_(filter.GetNullCount()),
         filter_offset_(filter.offset),
+        filter_length_(filter.length),
         null_selection_(null_selection) {
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
@@ -942,7 +957,7 @@ class PrimitiveFilterImpl {
     if constexpr (std::is_same<ArrayKind, ChunkedArray>::value) {
       // The chunked array may be longer than the filter, since we applying the
       // filter one filter chunk at a time.
-      int64_t remaining_length = out_length_;
+      int64_t remaining_length = filter_length_;
       for (const std::shared_ptr<Array>& chunk : values_getter_.inner.chunks()) {
         ArraySpan span = ArraySpan(*chunk->data().get());
         int64_t length = std::min(span.length, remaining_length);
@@ -952,7 +967,7 @@ class PrimitiveFilterImpl {
       }
     } else {
       // We can assume the values and filter are exactly the same length
-      ExecChunk(values_getter_.inner, in_position, out_length_);
+      ExecChunk(values_getter_.inner, in_position, filter_length_);
     }
   }
 
@@ -1183,6 +1198,7 @@ class PrimitiveFilterImpl {
   const uint8_t* filter_data_;
   int64_t filter_null_count_;
   int64_t filter_offset_;
+  int64_t filter_length_;
   FilterOptions::NullSelectionBehavior null_selection_;
   uint8_t* out_is_valid_;
   T* out_data_;
@@ -1207,6 +1223,10 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   const ArraySpan& filter = batch[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
+
+  // Make sure we compute the null counts
+  values.GetNullCount();
+  filter.GetNullCount();
 
   int64_t output_length = GetFilterOutputSize(filter, null_selection);
 
@@ -2492,11 +2512,12 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> values_array,
                           Concatenate(values.chunks(), ctx->memory_pool()));
     // Match the chunking structure of the indices.
-    for (const std::shared_ptr<Array>& ind_chunk : indices.chunks()) {
+    for (int i = 0; i < indices.num_chunks(); ++i) {
+      const std::shared_ptr<Array>& ind_chunk = indices.chunk(i);
       std::shared_ptr<ArrayData> result_chunk;
       ARROW_ASSIGN_OR_RAISE(
           result_chunk, TakeAA(values_array->data(), ind_chunk->data(), options, ctx));
-      out_arrays.push_back(MakeArray(result_chunk));
+      out_arrays[i] = MakeArray(result_chunk);
     }
 
     return std::make_shared<ChunkedArray>(std::move(out_arrays));
