@@ -889,7 +889,6 @@ TEST(TestJsonArrayWriter, NestedTypes) {
     TestArrayRoundTrip(list_array);
   }
 
-
   // LargeList
   std::vector<int64_t> large_offsets = {0, 0, 0, 1, 4, 7};
   std::shared_ptr<Buffer> large_offsets_buffer = Buffer::Wrap(large_offsets);
