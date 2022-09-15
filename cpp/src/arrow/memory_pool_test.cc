@@ -223,10 +223,10 @@ TEST(Jemalloc, GetAllocationStats) {
 
   // Check allocated stats change due to allocation
   ASSERT_NEAR(allocated - allocated0, 70000, 50000);
-  ASSERT_NEAR(active - active0, 98304, 1000);
-  ASSERT_NEAR(metadata - metadata0, 768, 100);
-  ASSERT_NEAR(resident - resident0, 114688, 1000);
-  ASSERT_NEAR(mapped - mapped0, 98304, 1000);
+  ASSERT_NEAR(active - active0, 100000, 90000);
+  ASSERT_NEAR(metadata - metadata0, 400, 300);
+  ASSERT_NEAR(resident - resident0, 120000, 40000);
+  ASSERT_NEAR(mapped - mapped0, 100000, 50000);
   ASSERT_NEAR(retained - retained0, 0, 0);
 
   ASSERT_EQ(thread_peak_read - thread_peak_read0, 1024);
@@ -255,6 +255,7 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated"));
   ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocatedp"));
   ASSERT_RAISES(Invalid, jemalloc_peak_reset());
+  ASSERT_RAISES(Invalid, jemalloc_stats_print(NULLPTR, NULLPTR, "J"));
   ASSERT_RAISES(Invalid, jemalloc_stats_print("ax"));
 #endif
 }

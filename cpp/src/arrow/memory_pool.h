@@ -199,6 +199,7 @@ Status jemalloc_stats_print(std::function<void(void*, const char*)>* write_cb,
 /// \brief Get summary statistics in human-readable form.
 /// See malloc_stats_print documentation in jemalloc project documentation for
 /// available opt flags.
+ARROW_EXPORT
 Result<std::string> jemalloc_stats_print(const char* opts = "");
 
 /// \brief Return a process-wide memory pool based on mimalloc.
