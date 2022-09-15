@@ -26,6 +26,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/forest_internal.h"
+#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
