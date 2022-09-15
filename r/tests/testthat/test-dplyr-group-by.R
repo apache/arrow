@@ -196,6 +196,22 @@ test_that("group_by() with .add", {
       collect(),
     tbl
   )
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = FALSE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
   expect_warning(
     tbl %>%
       arrow_table() %>%
