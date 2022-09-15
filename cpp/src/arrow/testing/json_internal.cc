@@ -750,9 +750,11 @@ class ArrayWriter {
 
   Status Visit(const RunLengthEncodedArray& array) {
     const auto& type = checked_cast<const RunLengthEncodedType&>(*array.type());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> run_ends_array,
+                          array.logical_run_ends_array());
     std::vector<std::shared_ptr<Array>> children = {
-        array.run_ends_array(),
-        array.values_array(),
+        std::move(run_ends_array),
+        array.logical_values_array(),
     };
     return WriteChildren(type.fields(), children);
   }
