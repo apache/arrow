@@ -25,14 +25,12 @@ register_bindings_type <- function() {
 
 #' Change the type of an array or column
 #'
-#' The `cast()` function only exists inside of `arrow` `dplyr` queries. Use it
-#' as a more convenient way of changing the type of a value or field inside of
-#' a `mutate()` call. To cast an `Array` or `ChunkedArray` outside of a query,
-#' call the `$cast()` method on the object, which has the same semantics.
+#' This is a wrapper around the `$cast()` method that many Arrow objects have.
+#' It is more convenient to call inside `dplyr` pipelines than the method.
 #'
-#' @usage cast(x, target_type, safe = TRUE, ...)
-#' @param x an `Expression`
-#' @param target_type [DataType] to cast to
+#' @param x an `Array`, `Table`, `Expression`, or similar Arrow data object.
+#' @param to [DataType] to cast to; for [Table] and [RecordBatch],
+#' it should be a [Schema].
 #' @param safe logical: only allow the type conversion if no data is lost
 #' (truncation, overflow, etc.). Default is `TRUE`
 #' @param ... specific `CastOptions` to set
@@ -45,17 +43,14 @@ register_bindings_type <- function() {
 #'   mutate(cyl = cast(cyl, string()))
 #' }
 #' @keywords internal
-#' @name cast
 #' @seealso https://arrow.apache.org/docs/cpp/api/compute.html for the list of
 #' supported CastOptions.
-NULL
+cast <- function(x, to, safe = TRUE, ...) {
+  x$cast(to, safe = safe, ...)
+}
 
 register_bindings_type_cast <- function() {
-  register_binding("arrow::cast", function(x, target_type, safe = TRUE, ...) {
-    opts <- cast_options(safe, ...)
-    opts$to_type <- as_type(target_type)
-    Expression$create("cast", x, options = opts)
-  })
+  register_binding("arrow::cast", cast)
 
   # as.* type casting functions
   # as.factor() is mapped in expression.R

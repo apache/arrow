@@ -20,8 +20,6 @@
 #' This function only exists inside `arrow` `dplyr` queries, and it only is
 #' valid when quering on a `FileSystemDataset`.
 #'
-#' @usage add_filename()
-#'
 #' @return A `FieldRef` `Expression` that refers to the filename augmented
 #' column.
 #' @examples
@@ -30,11 +28,8 @@
 #'   mutate(file = add_filename())
 #' }
 #' @keywords internal
-#' @name add_filename
-NULL
+add_filename <- function() Expression$field_ref("__filename")
 
 register_bindings_augmented <- function() {
-  register_binding("arrow::add_filename", function() {
-    Expression$field_ref("__filename")
-  })
+  register_binding("arrow::add_filename", add_filename)
 }

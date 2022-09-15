@@ -4,12 +4,13 @@
 \alias{cast}
 \title{Change the type of an array or column}
 \usage{
-cast(x, target_type, safe = TRUE, ...)
+cast(x, to, safe = TRUE, ...)
 }
 \arguments{
-\item{x}{an \code{Expression}}
+\item{x}{an \code{Array}, \code{Table}, \code{Expression}, or similar Arrow data object.}
 
-\item{target_type}{\link{DataType} to cast to}
+\item{to}{\link{DataType} to cast to; for \link{Table} and \link{RecordBatch},
+it should be a \link{Schema}.}
 
 \item{safe}{logical: only allow the type conversion if no data is lost
 (truncation, overflow, etc.). Default is \code{TRUE}}
@@ -20,10 +21,8 @@ cast(x, target_type, safe = TRUE, ...)
 an \code{Expression}
 }
 \description{
-The \code{cast()} function only exists inside of \code{arrow} \code{dplyr} queries. Use it
-as a more convenient way of changing the type of a value or field inside of
-a \code{mutate()} call. To cast an \code{Array} or \code{ChunkedArray} outside of a query,
-call the \verb{$cast()} method on the object, which has the same semantics.
+This is a wrapper around the \verb{$cast()} method that many Arrow objects have.
+It is more convenient to call inside \code{dplyr} pipelines than the method.
 }
 \examples{
 \dontrun{
