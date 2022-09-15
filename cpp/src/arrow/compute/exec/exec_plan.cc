@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -33,7 +34,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -339,12 +339,12 @@ const ExecPlanImpl* ToDerived(const ExecPlan* ptr) {
   return checked_cast<const ExecPlanImpl*>(ptr);
 }
 
-util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
-                                 const ExecNode* node) {
+std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
+                                const ExecNode* node) {
   for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
     if (nodes[i] == node) return i;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace
@@ -569,8 +569,8 @@ void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema> schema,
-    std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
+    std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,
+    MemoryPool* pool) {
   struct Impl : RecordBatchReader {
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -596,7 +596,7 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
 
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;
-    Iterator<util::optional<ExecBatch>> iterator_;
+    Iterator<std::optional<ExecBatch>> iterator_;
   };
 
   auto out = std::make_shared<Impl>();
@@ -703,12 +703,12 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
     int max_q, int q_restart) {
   auto batch_it = MakeMapIterator(
       [](std::shared_ptr<RecordBatch> batch) {
-        return util::make_optional(ExecBatch(*batch));
+        return std::make_optional(ExecBatch(*batch));
       },
       MakeIteratorFromReader(reader));
 

@@ -299,9 +299,9 @@ Status TransportStatus::ToStatus() const {
 }
 
 Status ReconstructStatus(const std::string& code_str, const Status& current_status,
-                         util::optional<std::string> message,
-                         util::optional<std::string> detail_message,
-                         util::optional<std::string> detail_bin,
+                         std::optional<std::string> message,
+                         std::optional<std::string> detail_message,
+                         std::optional<std::string> detail_bin,
                          std::shared_ptr<FlightStatusDetail> detail) {
   // Bounce through std::string to get a proper null-terminated C string
   StatusCode status_code = current_status.code();

@@ -640,7 +640,7 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "int%"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "int%"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetPrimaryKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
@@ -664,7 +664,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "intTable"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "intTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetImportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
@@ -696,7 +696,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "foreignTable"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "foreignTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetExportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
@@ -728,8 +728,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetCrossReference) {
   FlightCallOptions options = {};
-  TableRef pk_table_ref = {util::nullopt, util::nullopt, "foreignTable"};
-  TableRef fk_table_ref = {util::nullopt, util::nullopt, "intTable"};
+  TableRef pk_table_ref = {std::nullopt, std::nullopt, "foreignTable"};
+  TableRef fk_table_ref = {std::nullopt, std::nullopt, "intTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCrossReference(
                                              options, pk_table_ref, fk_table_ref));
 

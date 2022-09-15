@@ -115,18 +115,18 @@ bool UnwrapUuid(const DataType& t) {
   return false;
 }
 
-util::optional<int32_t> UnwrapFixedChar(const DataType& t) {
+std::optional<int32_t> UnwrapFixedChar(const DataType& t) {
   if (auto params = FixedCharType::GetIf(t)) {
     return params->length;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
-util::optional<int32_t> UnwrapVarChar(const DataType& t) {
+std::optional<int32_t> UnwrapVarChar(const DataType& t) {
   if (auto params = VarCharType::GetIf(t)) {
     return params->length;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
 bool UnwrapIntervalYear(const DataType& t) {

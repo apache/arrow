@@ -22,6 +22,7 @@
 #include <cstring>
 #include <deque>
 #include <limits>
+#include <optional>
 #include <queue>
 
 #include "arrow/util/async_util.h"
@@ -30,7 +31,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/queue.h"
 #include "arrow/util/thread_pool.h"
 
@@ -498,7 +498,7 @@ class TransformingGenerator {
     }
 
     // See comment on TransformingIterator::Pump
-    Result<util::optional<V>> Pump() {
+    Result<std::optional<V>> Pump() {
       if (!finished_ && last_value_.has_value()) {
         ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
         if (next.ReadyForNext()) {
@@ -517,12 +517,12 @@ class TransformingGenerator {
       if (finished_) {
         return IterationTraits<V>::End();
       }
-      return util::nullopt;
+      return std::nullopt;
     }
 
     AsyncGenerator<T> generator_;
     Transformer<T, V> transformer_;
-    util::optional<T> last_value_;
+    std::optional<T> last_value_;
     bool finished_;
   };
 
@@ -839,7 +839,7 @@ class PushGenerator {
 
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
-    util::optional<Future<T>> consumer_fut;
+    std::optional<Future<T>> consumer_fut;
     bool finished = false;
   };
 
@@ -1726,7 +1726,7 @@ class BackgroundGenerator {
     bool should_shutdown;
     // If the queue is empty, the consumer will create a waiting future and wait for it
     std::queue<Result<T>> queue;
-    util::optional<Future<T>> waiting_future;
+    std::optional<Future<T>> waiting_future;
     // Every background task is given a future to complete when it is entirely finished
     // processing and ready for the next task to start or for State to be destroyed
     Future<> task_finished;

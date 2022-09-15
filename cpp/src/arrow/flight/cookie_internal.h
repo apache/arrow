@@ -21,13 +21,13 @@
 
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 
 #include "arrow/flight/client_middleware.h"
 #include "arrow/result.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -65,7 +65,7 @@ class ARROW_FLIGHT_EXPORT Cookie {
   /// function returns.
   ///
   /// \return Optional cookie key value pair.
-  static arrow::util::optional<std::pair<std::string, std::string>> ParseCookieAttribute(
+  static std::optional<std::pair<std::string, std::string>> ParseCookieAttribute(
       const std::string& cookie_header_value, std::string::size_type* start_pos);
 
   /// \brief Function to fix cookie format date string so it is accepted by Windows

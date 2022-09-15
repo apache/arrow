@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,7 +31,6 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
@@ -530,7 +530,7 @@ struct ARROW_EXPORT Declaration {
 /// The RecordBatchReader does not impose any ordering on emitted batches.
 ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    std::shared_ptr<Schema>, std::function<Future<std::optional<ExecBatch>>()>,
     MemoryPool*);
 
 constexpr int kDefaultBackgroundMaxQ = 32;
@@ -540,7 +540,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 ///
 /// Useful as a source node for an Exec plan
 ARROW_EXPORT
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
 

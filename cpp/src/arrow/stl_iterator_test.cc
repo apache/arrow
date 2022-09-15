@@ -30,8 +30,8 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::nullopt;
-using util::optional;
+using std::nullopt;
+using std::optional;
 
 namespace stl {
 

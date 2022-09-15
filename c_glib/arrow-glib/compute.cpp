@@ -938,7 +938,7 @@ garrow_source_node_options_new_record_batch_reader(
     arrow_reader->schema(),
     [arrow_reader]() {
       using ExecBatch = arrow::compute::ExecBatch;
-      using ExecBatchOptional = arrow::util::optional<ExecBatch>;
+      using ExecBatchOptional = std::optional<ExecBatch>;
       auto arrow_record_batch_result = arrow_reader->Next();
       if (!arrow_record_batch_result.ok()) {
         return arrow::AsyncGeneratorEnd<ExecBatchOptional>();
@@ -979,7 +979,7 @@ garrow_source_node_options_new_record_batch(GArrowRecordBatch *record_batch)
     state->record_batch->schema(),
     [state]() {
       using ExecBatch = arrow::compute::ExecBatch;
-      using ExecBatchOptional = arrow::util::optional<ExecBatch>;
+      using ExecBatchOptional = std::optional<ExecBatch>;
       if (!state->generated) {
         state->generated = true;
         return arrow::Future<ExecBatchOptional>::MakeFinished(
@@ -1296,7 +1296,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
 
 
 typedef struct GArrowSinkNodeOptionsPrivate_ {
-  arrow::AsyncGenerator<arrow::util::optional<arrow::compute::ExecBatch>> generator;
+  arrow::AsyncGenerator<std::optional<arrow::compute::ExecBatch>> generator;
   GArrowRecordBatchReader *reader;
 } GArrowSinkNodeOptionsPrivate;
 
@@ -1333,7 +1333,7 @@ garrow_sink_node_options_init(GArrowSinkNodeOptions *object)
 {
   auto priv = GARROW_SINK_NODE_OPTIONS_GET_PRIVATE(object);
   new(&(priv->generator))
-    arrow::AsyncGenerator<arrow::util::optional<arrow::compute::ExecBatch>>();
+    arrow::AsyncGenerator<std::optional<arrow::compute::ExecBatch>>();
 }
 
 static void

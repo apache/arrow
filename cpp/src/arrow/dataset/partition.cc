@@ -330,12 +330,12 @@ Result<PartitionPathFormat> KeyValuePartitioning::Format(
   return FormatValues(values);
 }
 
-inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
+inline std::optional<int> NextValid(const ScalarVector& values, int first_null) {
   auto it = std::find_if(values.begin() + first_null + 1, values.end(),
                          [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
 
   if (it == values.end()) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   return static_cast<int>(it - values.begin());
@@ -473,7 +473,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     return it_inserted.first->second;
   }
 
-  Status InsertRepr(const std::string& name, util::optional<string_view> repr) {
+  Status InsertRepr(const std::string& name, std::optional<string_view> repr) {
     auto field_index = GetOrInsertField(name);
     if (repr.has_value()) {
       return InsertRepr(field_index, *repr);
@@ -715,12 +715,12 @@ bool FilenamePartitioning::Equals(const Partitioning& other) const {
   return KeyValuePartitioning::Equals(other);
 }
 
-Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
+Result<std::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
     const std::string& segment, const HivePartitioningOptions& options) {
   auto name_end = string_view(segment).find_first_of('=');
   // Not round-trippable
   if (name_end == string_view::npos) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   // Static method, so we have no better place for it
@@ -750,7 +750,7 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
   }
 
   if (value == options.null_fallback) {
-    return Key{std::move(name), util::nullopt};
+    return Key{std::move(name), std::nullopt};
   }
   return Key{std::move(name), std::move(value)};
 }

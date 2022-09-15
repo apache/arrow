@@ -17,6 +17,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -36,7 +37,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -99,11 +99,11 @@ class ConcurrentQueue {
     queue_ = std::queue<T>();
   }
 
-  util::optional<T> TryPop() {
+  std::optional<T> TryPop() {
     // Try to pop the oldest value from the queue (or return nullopt if none)
     std::unique_lock<std::mutex> lock(mutex_);
     if (queue_.empty()) {
-      return util::nullopt;
+      return std::nullopt;
     } else {
       auto item = queue_.front();
       queue_.pop();
@@ -156,10 +156,10 @@ struct MemoStore {
     e.time = time;
   }
 
-  util::optional<const Entry*> GetEntryForKey(ByType key) const {
+  std::optional<const Entry*> GetEntryForKey(ByType key) const {
     auto e = entries_.find(key);
-    if (entries_.end() == e) return util::nullopt;
-    return util::optional<const Entry*>(&e->second);
+    if (entries_.end() == e) return std::nullopt;
+    return std::optional<const Entry*>(&e->second);
   }
 
   void RemoveEntriesWithLesserTime(OnType ts) {
@@ -263,7 +263,7 @@ class InputState {
     return dst_offset;
   }
 
-  const util::optional<col_index_t>& MapSrcToDst(col_index_t src) const {
+  const std::optional<col_index_t>& MapSrcToDst(col_index_t src) const {
     return src_to_dst_[src];
   }
 
@@ -436,16 +436,16 @@ class InputState {
     return Status::OK();
   }
 
-  util::optional<const MemoStore::Entry*> GetMemoEntryForKey(ByType key) {
+  std::optional<const MemoStore::Entry*> GetMemoEntryForKey(ByType key) {
     return memo_.GetEntryForKey(key);
   }
 
-  util::optional<OnType> GetMemoTimeForKey(ByType key) {
+  std::optional<OnType> GetMemoTimeForKey(ByType key) {
     auto r = GetMemoEntryForKey(key);
     if (r.has_value()) {
       return (*r)->time;
     } else {
-      return util::nullopt;
+      return std::nullopt;
     }
   }
 
@@ -492,7 +492,7 @@ class InputState {
   // Stores latest known values for the various keys
   MemoStore memo_;
   // Mapping of source columns to destination columns
-  std::vector<util::optional<col_index_t>> src_to_dst_;
+  std::vector<std::optional<col_index_t>> src_to_dst_;
 };
 
 template <size_t MAX_TABLES>
@@ -555,7 +555,7 @@ class CompositeReferenceTable {
     // Get the state for that key from all on the RHS -- assumes it's up to date
     // (the RHS state comes from the memoized row references)
     for (size_t i = 1; i < in.size(); ++i) {
-      util::optional<const MemoStore::Entry*> opt_entry = in[i]->GetMemoEntryForKey(key);
+      std::optional<const MemoStore::Entry*> opt_entry = in[i]->GetMemoEntryForKey(key);
       if (opt_entry.has_value()) {
         DCHECK(*opt_entry);
         if ((*opt_entry)->time + tolerance >= lhs_latest_time) {
@@ -588,7 +588,7 @@ class CompositeReferenceTable {
       int n_src_cols = state.at(i_table)->get_schema()->num_fields();
       {
         for (col_index_t i_src_col = 0; i_src_col < n_src_cols; ++i_src_col) {
-          util::optional<col_index_t> i_dst_col_opt =
+          std::optional<col_index_t> i_dst_col_opt =
               state[i_table]->MapSrcToDst(i_src_col);
           if (!i_dst_col_opt) continue;
           col_index_t i_dst_col = *i_dst_col_opt;

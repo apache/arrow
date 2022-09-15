@@ -213,7 +213,7 @@ TEST_F(TestFlightSqlClient, TestGetExported) {
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  TableRef table_ref = {std::make_optional(catalog), std::make_optional(schema), table};
   ASSERT_OK(sql_client_.GetExportedKeys(call_options_, table_ref));
 }
 
@@ -231,7 +231,7 @@ TEST_F(TestFlightSqlClient, TestGetImported) {
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  TableRef table_ref = {std::make_optional(catalog), std::make_optional(schema), table};
   ASSERT_OK(sql_client_.GetImportedKeys(call_options_, table_ref));
 }
 
@@ -249,7 +249,7 @@ TEST_F(TestFlightSqlClient, TestGetPrimary) {
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  TableRef table_ref = {util::make_optional(catalog), util::make_optional(schema), table};
+  TableRef table_ref = {std::make_optional(catalog), std::make_optional(schema), table};
   ASSERT_OK(sql_client_.GetPrimaryKeys(call_options_, table_ref));
 }
 
@@ -273,10 +273,10 @@ TEST_F(TestFlightSqlClient, TestGetCrossReference) {
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  TableRef pk_table_ref = {util::make_optional(pk_catalog),
-                           util::make_optional(pk_schema), pk_table};
-  TableRef fk_table_ref = {util::make_optional(fk_catalog),
-                           util::make_optional(fk_schema), fk_table};
+  TableRef pk_table_ref = {std::make_optional(pk_catalog), std::make_optional(pk_schema),
+                           pk_table};
+  TableRef fk_table_ref = {std::make_optional(fk_catalog), std::make_optional(fk_schema),
+                           fk_table};
   ASSERT_OK(sql_client_.GetCrossReference(call_options_, pk_table_ref, fk_table_ref));
 }
 

@@ -478,7 +478,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-{% for macos_version, macos_codename in [("10.13", "high-sierra")] %}
+{% for macos_version, macos_codename in [("10.14", "mojave")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -538,9 +538,9 @@ tasks:
     params:
       arch: universal2
       python_version: "{{ python_version }}"
-      macos_deployment_target: "10.13"
+      macos_deployment_target: "10.14"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_13_universal2.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_14_universal2.whl
 {% endfor %}
 
 {############################ Python sdist ####################################}

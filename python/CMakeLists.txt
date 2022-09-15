@@ -59,7 +59,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use

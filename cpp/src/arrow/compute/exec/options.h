@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,13 +30,12 @@
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
 
-using AsyncExecBatchGenerator = AsyncGenerator<util::optional<ExecBatch>>;
+using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
 /// \addtogroup execnode-options
 /// @{
@@ -51,14 +51,14 @@ class ARROW_EXPORT ExecNodeOptions {
 class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
  public:
   SourceNodeOptions(std::shared_ptr<Schema> output_schema,
-                    std::function<Future<util::optional<ExecBatch>>()> generator)
+                    std::function<Future<std::optional<ExecBatch>>()> generator)
       : output_schema(std::move(output_schema)), generator(std::move(generator)) {}
 
   static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
                                                               arrow::internal::Executor*);
 
   std::shared_ptr<Schema> output_schema;
-  std::function<Future<util::optional<ExecBatch>>()> generator;
+  std::function<Future<std::optional<ExecBatch>>()> generator;
 };
 
 /// \brief An extended Source node which accepts a table
@@ -166,7 +166,7 @@ struct ARROW_EXPORT BackpressureOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+  explicit SinkNodeOptions(std::function<Future<std::optional<ExecBatch>>()>* generator,
                            BackpressureOptions backpressure = {},
                            BackpressureMonitor** backpressure_monitor = NULLPTR)
       : generator(generator),
@@ -178,7 +178,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   /// This will be set when the node is added to the plan and should be used to consume
   /// data from the plan.  If this function is not called frequently enough then the sink
   /// node will start to accumulate data and may apply backpressure.
-  std::function<Future<util::optional<ExecBatch>>()>* generator;
+  std::function<Future<std::optional<ExecBatch>>()>* generator;
   /// \brief Options to control when to apply backpressure
   ///
   /// This is optional, the default is to never apply backpressure.  If the plan is not
@@ -250,7 +250,7 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
  public:
   explicit OrderBySinkNodeOptions(
       SortOptions sort_options,
-      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      std::function<Future<std::optional<ExecBatch>>()>* generator)
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
@@ -427,7 +427,7 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
  public:
   explicit SelectKSinkNodeOptions(
       SelectKOptions select_k_options,
-      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      std::function<Future<std::optional<ExecBatch>>()>* generator)
       : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
 
   /// SelectK options

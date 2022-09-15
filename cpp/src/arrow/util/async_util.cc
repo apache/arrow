@@ -34,14 +34,14 @@ class ThrottleImpl : public AsyncTaskScheduler::Throttle {
  public:
   explicit ThrottleImpl(int max_concurrent_cost) : available_cost_(max_concurrent_cost) {}
 
-  util::optional<Future<>> TryAcquire(int amt) override {
+  std::optional<Future<>> TryAcquire(int amt) override {
     std::lock_guard<std::mutex> lk(mutex_);
     if (backoff_.is_valid()) {
       return backoff_;
     }
     if (amt <= available_cost_) {
       available_cost_ -= amt;
-      return nullopt;
+      return std::nullopt;
     }
     backoff_ = Future<>::Make();
     return backoff_;
@@ -151,7 +151,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         queue_->Push(std::move(task));
         return true;
       }
-      util::optional<Future<>> maybe_backoff = throttle_->TryAcquire(task->cost());
+      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(task->cost());
       if (maybe_backoff) {
         queue_->Push(std::move(task));
         lk.unlock();
@@ -238,7 +238,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
   void ContinueTasksUnlocked(std::unique_lock<std::mutex>&& lk) {
     while (!queue_->Empty()) {
       int next_cost = queue_->Peek().cost();
-      util::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
+      std::optional<Future<>> maybe_backoff = throttle_->TryAcquire(next_cost);
       if (maybe_backoff) {
         lk.unlock();
         if (!maybe_backoff->TryAddCallback([this] {
