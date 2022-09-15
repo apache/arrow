@@ -23,6 +23,8 @@
 /// takes a batch in and returns a batch.  This simple parallel runner also needs an
 /// executor (use simple synchronous runner if there is no executor)
 
+#pragma once
+
 #include <cstdint>
 #include <functional>
 #include <memory>
