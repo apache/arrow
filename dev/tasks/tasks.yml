@@ -958,6 +958,8 @@ tasks:
       - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
       - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_[0-9\.]+\.tgz
       - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
@@ -1085,7 +1087,6 @@ tasks:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       github_runner: ["self-hosted", "macOS", "arm64"]
-      arch_emulation: arm64
       target: "wheels"
 
   ######################## Windows verification ##############################

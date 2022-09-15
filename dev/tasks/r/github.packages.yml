@@ -131,31 +131,36 @@ jobs:
 
   r-packages:
     needs: [source, windows-cpp]
-    name: {{ '${{ matrix.platform }} ${{ matrix.r_version.r }}' }}
-    runs-on: {{ '${{ matrix.platform }}' }}
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - windows-latest
-          - macos-10.13 # self-hosted
-          # - devops-managed # No M1 until the runner application runs native
+          - { runs_on: 'windows-latest', name: "Windows"}
+          - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
         r_version:
-          - { rtools: 40, r: "4.1" }
-          - { rtools: 42, r: "4.2" }
+          - { rtools: "{{ macros.r_release.rt }}", r: "{{ macros.r_release.ver }}" }
+          - { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
     steps:
       - uses: r-lib/actions/setup-r@v2
-        if: matrix.platform != 'macos-10.13'
+        # expression marker prevents the ! being parsed as yaml tag
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         with:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
       - name: Setup R Self-Hosted
-        if: matrix.platform == 'macos-10.13'
+        if: contains(matrix.platform.runs_on, 'self-hosted')
         run: |
+          if [ "{{ "${{ contains(matrix.platform.runs_on, 'arm64') }}" }}" == "true" ]; then
+            rig_arch="-arm64"
+          fi
           # rig is a system utility that allows for switching
           # between pre-installed R version on the self-hosted runners
-          rig default {{ '${{ matrix.r_version.r }}' }}
+          rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
+
           rig system setup-user-lib
           rig system add-pak 
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
@@ -164,7 +169,8 @@ jobs:
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
