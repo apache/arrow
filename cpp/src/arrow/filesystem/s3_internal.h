@@ -43,7 +43,7 @@ namespace internal {
 enum class S3Backend { Amazon, Minio, Other };
 
 // Detect the S3 backend type from the S3 server's response headers
-S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
+inline S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
   const auto it = headers.find("server");
   if (it != headers.end()) {
     const auto& value = util::string_view(it->second);
@@ -58,7 +58,7 @@ S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
 }
 
 template <typename Error>
-S3Backend DetectS3Backend(const Aws::Client::AWSError<Error>& error) {
+inline S3Backend DetectS3Backend(const Aws::Client::AWSError<Error>& error) {
   return DetectS3Backend(error.GetResponseHeaders());
 }
 
@@ -152,10 +152,14 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
   // XXX Handle fine-grained error types
   // See
   // https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_s3.html#ae3f82f8132b619b6e91c88a9f1bde371
-  return Status::IOError(
-      prefix, "AWS Error ",
-      S3ErrorToString(static_cast<Aws::S3::S3Errors>(error.GetErrorType())), " during ",
-      operation, " operation: ", error.GetMessage());
+  auto error_type = static_cast<Aws::S3::S3Errors>(error.GetErrorType());
+  std::stringstream ss;
+  ss << S3ErrorToString(error_type);
+  if (error_type == Aws::S3::S3Errors::UNKNOWN) {
+    ss << " (HTTP status " << static_cast<int>(error.GetResponseCode()) << ")";
+  }
+  return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
+                         " operation: ", error.GetMessage());
 }
 
 template <typename ErrorType, typename... Args>

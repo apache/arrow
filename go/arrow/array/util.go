@@ -448,6 +448,10 @@ func (n *nullArrayFactory) createChild(dt arrow.DataType, i, length int) *Data {
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
 func MakeArrayOfNull(mem memory.Allocator, dt arrow.DataType, length int) arrow.Array {
+	if dt.ID() == arrow.NULL {
+		return NewNull(length)
+	}
+
 	data := (&nullArrayFactory{mem: mem, dt: dt, len: length}).create()
 	defer data.Release()
 	return MakeFromData(data)

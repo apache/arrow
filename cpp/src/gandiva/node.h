@@ -66,6 +66,11 @@ class GANDIVA_EXPORT LiteralNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
+    if (return_type_ == NULLPTR) {
+      ss << "(const untyped) " << gandiva::ToString(holder_);
+      return ss.str();
+    }
+
     ss << "(const " << return_type()->ToString() << ") ";
     if (is_null()) {
       ss << std::string("null");
@@ -128,7 +133,9 @@ class GANDIVA_EXPORT FunctionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << descriptor()->return_type()->ToString() << " " << descriptor()->name() << "(";
+    ss << ((return_type() == NULLPTR) ? "untyped"
+                                      : descriptor()->return_type()->ToString())
+       << " " << descriptor()->name() << "(";
     bool skip_comma = true;
     for (auto& child : children()) {
       if (skip_comma) {

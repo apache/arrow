@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/result.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -74,8 +74,8 @@ std::string AsciiToUpper(util::string_view value);
 /// \brief Search for the first instance of a token and replace it or return nullopt if
 /// the token is not found.
 ARROW_EXPORT
-util::optional<std::string> Replace(util::string_view s, util::string_view token,
-                                    util::string_view replacement);
+std::optional<std::string> Replace(util::string_view s, util::string_view token,
+                                   util::string_view replacement);
 
 /// \brief Get boolean value from string
 ///

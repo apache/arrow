@@ -519,7 +519,14 @@ func init() {
 		arrow.INTERVAL_MONTH_DAY_NANO: func(dt arrow.DataType) Scalar { return &MonthDayNanoInterval{scalar: scalar{dt, false}} },
 		arrow.DECIMAL128:              func(dt arrow.DataType) Scalar { return &Decimal128{scalar: scalar{dt, false}} },
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
-		arrow.STRUCT:                  func(dt arrow.DataType) Scalar { return &Struct{scalar: scalar{dt, false}} },
+		arrow.STRUCT: func(dt arrow.DataType) Scalar {
+			typ := dt.(*arrow.StructType)
+			values := make([]Scalar, len(typ.Fields()))
+			for i, f := range typ.Fields() {
+				values[i] = MakeNullScalar(f.Type)
+			}
+			return &Struct{scalar: scalar{dt, false}, Value: values}
+		},
 		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.SparseUnionType)
 			if len(typ.Fields()) == 0 {
@@ -631,6 +638,11 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
 		defer slice.Release()
 		return NewListScalar(slice), nil
+	case *array.LargeList:
+		offsets := arr.Offsets()
+		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))
+		defer slice.Release()
+		return NewLargeListScalar(slice), nil
 	case *array.Map:
 		offsets := arr.Offsets()
 		slice := array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))

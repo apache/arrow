@@ -18,16 +18,16 @@
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
                     ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
-add_jar(arrow_cdata_jar
+add_jar(arrow_java_jni_cdata_jar
         src/main/java/org/apache/arrow/c/jni/CDataJniException.java
         src/main/java/org/apache/arrow/c/jni/JniLoader.java
         src/main/java/org/apache/arrow/c/jni/JniWrapper.java
         src/main/java/org/apache/arrow/c/jni/PrivateData.java
         GENERATE_NATIVE_HEADERS
-        arrow_cdata_jni_headers)
+        arrow_java_jni_cdata_headers)
 
-set(ARROW_CDATA_JNI_SOURCES src/main/cpp/jni_wrapper.cc)
-add_library(arrow_cdata_jni SHARED ${ARROW_CDATA_JNI_SOURCES})
-target_link_libraries(arrow_cdata_jni arrow_cdata_jni_headers jni)
+add_library(arrow_java_jni_cdata SHARED src/main/cpp/jni_wrapper.cc)
+set_property(TARGET arrow_java_jni_cdata PROPERTY OUTPUT_NAME "arrow_cdata_jni")
+target_link_libraries(arrow_java_jni_cdata arrow_java_jni_cdata_headers jni)
 
-install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS arrow_java_jni_cdata DESTINATION ${CMAKE_INSTALL_PREFIX})

@@ -55,9 +55,9 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
   return physical_schema_;
 }
 
-Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
-                                                    const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+Future<std::optional<int64_t>> Fragment::CountRows(compute::Expression,
+                                                   const std::shared_ptr<ScanOptions>&) {
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
@@ -129,16 +129,16 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
                    options->batch_size);
 }
 
-Future<util::optional<int64_t>> InMemoryFragment::CountRows(
+Future<std::optional<int64_t>> InMemoryFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   int64_t total = 0;
   for (const auto& batch : record_batches_) {
     total += batch->num_rows();
   }
-  return Future<util::optional<int64_t>>::MakeFinished(total);
+  return Future<std::optional<int64_t>>::MakeFinished(total);
 }
 
 Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)

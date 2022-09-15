@@ -31,7 +31,9 @@
 // includes windows.h. boost/process/args.hpp is included before
 // boost/process/async.h that includes
 // boost/asio/detail/socket_types.hpp implicitly is included.
+#ifdef __MINGW32__
 #include <boost/asio/io_context.hpp>
+#endif
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.

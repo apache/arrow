@@ -260,6 +260,7 @@ public class TestFlightSql {
                   new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("INTEGER")
                           .schemaName("APP")
                           .tableName("FOREIGNTABLE")
                           .precision(10)
@@ -269,6 +270,7 @@ public class TestFlightSql {
                   new Field("FOREIGNNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("VARCHAR")
                           .schemaName("APP")
                           .tableName("FOREIGNTABLE")
                           .precision(100)
@@ -278,6 +280,7 @@ public class TestFlightSql {
                   new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("INTEGER")
                           .schemaName("APP")
                           .tableName("FOREIGNTABLE")
                           .precision(10)
@@ -293,6 +296,7 @@ public class TestFlightSql {
                   new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("INTEGER")
                           .schemaName("APP")
                           .tableName("INTTABLE")
                           .precision(10)
@@ -302,6 +306,7 @@ public class TestFlightSql {
                   new Field("KEYNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("VARCHAR")
                           .schemaName("APP")
                           .tableName("INTTABLE")
                           .precision(100)
@@ -311,6 +316,7 @@ public class TestFlightSql {
                   new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("INTEGER")
                           .schemaName("APP")
                           .tableName("INTTABLE")
                           .precision(10)
@@ -320,6 +326,7 @@ public class TestFlightSql {
                   new Field("FOREIGNID", new FieldType(true, MinorType.INT.getType(), null,
                       new FlightSqlColumnMetadata.Builder()
                           .catalogName("")
+                          .typeName("INTEGER")
                           .schemaName("APP")
                           .tableName("INTTABLE")
                           .precision(10)

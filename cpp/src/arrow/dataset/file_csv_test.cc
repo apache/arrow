@@ -103,6 +103,24 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
   }
 };
 
+TEST_P(TestCsvFileFormat, BOMQuoteInHeader) {
+  // ARROW-17382: quoted headers after a BOM should be parsed correctly
+  auto source = GetFileSource("\xef\xbb\xbf\"ab\",\"cd\"\nef,gh\nij,kl\n");
+  auto fields = {field("ab", utf8()), field("cd", utf8())};
+  SetSchema(fields);
+  auto fragment = MakeFragment(*source);
+
+  int64_t row_count = 0;
+
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    AssertSchemaEqual(batch->schema(), schema(fields));
+    row_count += batch->num_rows();
+  }
+
+  ASSERT_EQ(row_count, 2);
+}
+
 // Basic scanning tests (to exercise compression support); see the parameterized test
 // below for more comprehensive testing of scan behaviors
 TEST_P(TestCsvFileFormat, ScanRecordBatchReader) {

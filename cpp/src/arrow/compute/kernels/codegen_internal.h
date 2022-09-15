@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,7 +47,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 

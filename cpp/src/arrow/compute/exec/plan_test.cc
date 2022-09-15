@@ -220,7 +220,7 @@ TEST(ExecPlanExecution, SourceSink) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto basic_data = MakeBasicBatches();
 
@@ -239,7 +239,7 @@ TEST(ExecPlanExecution, SourceSink) {
 }
 
 TEST(ExecPlanExecution, UseSinkAfterExecution) {
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     auto basic_data = MakeBasicBatches();
@@ -260,7 +260,7 @@ TEST(ExecPlanExecution, UseSinkAfterExecution) {
 TEST(ExecPlanExecution, TableSourceSink) {
   for (int batch_size : {1, 4}) {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     auto exp_batches = MakeBasicBatches();
     ASSERT_OK_AND_ASSIGN(auto table,
@@ -281,7 +281,7 @@ TEST(ExecPlanExecution, TableSourceSink) {
 
 TEST(ExecPlanExecution, TableSourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(auto table,
@@ -297,7 +297,7 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
 }
 
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
-  util::optional<ExecBatch> batch =
+  std::optional<ExecBatch> batch =
       ExecBatchFromJSON({int32(), boolean()},
                         "[[4, false], [5, null], [6, false], [7, false], [null, true]]");
   constexpr uint32_t kPauseIfAbove = 4;
@@ -307,8 +307,8 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
   uint32_t resume_if_below_bytes =
       kResumeIfBelow * static_cast<uint32_t>(batch->TotalBufferSize());
   EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
-  PushGenerator<util::optional<ExecBatch>> batch_producer;
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  PushGenerator<std::optional<ExecBatch>> batch_producer;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   BackpressureMonitor* backpressure_monitor;
   BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
   std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
@@ -349,14 +349,14 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
   ASSERT_FALSE(backpressure_monitor->is_paused());
 
   // Cleanup
-  batch_producer.producer().Push(IterationEnd<util::optional<ExecBatch>>());
+  batch_producer.producer().Push(IterationEnd<std::optional<ExecBatch>>());
   plan->StopProducing();
   ASSERT_FINISHES_OK(plan->finished());
 }
 
 TEST(ExecPlan, ToString) {
   auto basic_data = MakeBasicBatches();
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   ASSERT_OK(Declaration::Sequence(
@@ -462,7 +462,7 @@ TEST(ExecPlanExecution, SourceOrderBy) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto basic_data = MakeBasicBatches();
 
@@ -483,16 +483,16 @@ TEST(ExecPlanExecution, SourceOrderBy) {
 
 TEST(ExecPlanExecution, SourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   auto basic_data = MakeBasicBatches();
   auto it = basic_data.batches.begin();
-  AsyncGenerator<util::optional<ExecBatch>> error_source_gen =
-      [&]() -> Result<util::optional<ExecBatch>> {
+  AsyncGenerator<std::optional<ExecBatch>> error_source_gen =
+      [&]() -> Result<std::optional<ExecBatch>> {
     if (it == basic_data.batches.end()) {
       return Status::Invalid("Artificial error");
     }
-    return util::make_optional(*it++);
+    return std::make_optional(*it++);
   };
 
   ASSERT_OK(Declaration::Sequence(
@@ -693,7 +693,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
       int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(
           schema({field("a", int32()), field("b", boolean())}), num_batches);
@@ -723,7 +723,7 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
       int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(input_schema, num_batches);
 
@@ -760,7 +760,7 @@ TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
       int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(input_schema, num_batches);
 
@@ -795,7 +795,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
       int num_batches = (slow && !parallel) ? 30 : 300;
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       auto random_data = MakeRandomBatches(
           schema({field("a", int32()), field("b", boolean())}), num_batches);
@@ -823,7 +823,7 @@ TEST(ExecPlanExecution, SourceFilterSink) {
   auto basic_data = MakeBasicBatches();
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence(
                 {
@@ -845,7 +845,7 @@ TEST(ExecPlanExecution, SourceProjectSink) {
   auto basic_data = MakeBasicBatches();
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence(
                 {
@@ -911,7 +911,7 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
     auto input = MakeGroupableBatches(/*multiplicity=*/parallel ? 100 : 1);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ASSERT_OK(
         Declaration::Sequence(
@@ -945,7 +945,7 @@ TEST(ExecPlanExecution, SourceMinMaxScalar) {
                         R"({"min": -8, "max": 12})")});
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     // NOTE: Test `ScalarAggregateNode` by omitting `keys` attribute
     ASSERT_OK(Declaration::Sequence(
@@ -976,7 +976,7 @@ TEST(ExecPlanExecution, NestedSourceFilter) {
 ])");
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ASSERT_OK(Declaration::Sequence(
                   {
@@ -1005,7 +1005,7 @@ TEST(ExecPlanExecution, NestedSourceProjectGroupedSum) {
 ])");
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ASSERT_OK(
         Declaration::Sequence(
@@ -1037,7 +1037,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
     auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ASSERT_OK(
         Declaration::Sequence(
@@ -1076,7 +1076,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
     auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     SortOptions options({SortKey("str", SortOrder::Descending)});
     ASSERT_OK(
@@ -1116,7 +1116,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
     auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     SelectKOptions options = SelectKOptions::TopKDefault(/*k=*/1, {"str"});
     ASSERT_OK(Declaration::Sequence(
@@ -1145,7 +1145,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumTopK) {
 
 TEST(ExecPlanExecution, SourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   auto basic_data = MakeBasicBatches();
 
@@ -1175,7 +1175,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
   // and need to keep a copy/strong reference to function options
   {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     auto basic_data = MakeBasicBatches();
 
@@ -1202,7 +1202,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
   }
   {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     auto data = MakeGroupableBatches(/*multiplicity=*/100);
 
@@ -1234,7 +1234,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   // ARROW-9056: scalar aggregation can be done over scalars, taking
   // into account batch.length > 1 (e.g. a partition column)
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
@@ -1280,7 +1280,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
   // ARROW-14630: ensure grouped aggregation with a scalar key/array input doesn't error
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
@@ -1321,7 +1321,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
     ExecNode* right_source;
@@ -1378,7 +1378,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
     ExecNode* right_source;
@@ -1428,7 +1428,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
 TEST(ExecPlan, RecordBatchReaderSourceSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   // set up a RecordBatchReader:
   auto input = MakeBasicBatches();
@@ -1464,7 +1464,7 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
       schema({field("a", int32()), field("b", boolean())}), /*num_batches=*/3,
       /*batch_size=*/static_cast<int32_t>(std::floor(ExecPlan::kMaxBatchSize * 3.5)));
 
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence(
                 {

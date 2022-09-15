@@ -225,6 +225,15 @@ func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema
 	exportArray(arr, out, outSchema)
 }
 
+// ExportRecordReader populates the CArrowArrayStream that is passed in with the appropriate
+// callbacks to be a working ArrowArrayStream utilizing the passed in RecordReader. The
+// CArrowArrayStream takes ownership of the RecordReader until the consumer calls the release
+// callback, as such it is unnecesary to call Release on the passed in reader unless it has
+// previously been retained.
+func ExportRecordReader(reader array.RecordReader, out *CArrowArrayStream) {
+	exportStream(reader, out)
+}
+
 // ReleaseCArrowArray calls ArrowArrayRelease on the passed in cdata array
 func ReleaseCArrowArray(arr *CArrowArray) { releaseArr(arr) }
 

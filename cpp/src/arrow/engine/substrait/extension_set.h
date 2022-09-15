@@ -20,6 +20,7 @@
 #pragma once
 
 #include <list>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -31,7 +32,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -86,11 +86,11 @@ class IdStorage {
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// If no id is found then nullopt will be returned
-  util::optional<Id> Find(Id id) const;
+  std::optional<Id> Find(Id id) const;
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then nullopt will be returned
-  util::optional<util::string_view> FindUri(util::string_view uri) const;
+  std::optional<util::string_view> FindUri(util::string_view uri) const;
 
  private:
   std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
@@ -119,8 +119,8 @@ class SubstraitCall {
   bool is_hash() const { return is_hash_; }
 
   bool HasEnumArg(uint32_t index) const;
-  Result<util::optional<util::string_view>> GetEnumArg(uint32_t index) const;
-  void SetEnumArg(uint32_t index, util::optional<std::string> enum_arg);
+  Result<std::optional<util::string_view>> GetEnumArg(uint32_t index) const;
+  void SetEnumArg(uint32_t index, std::optional<std::string> enum_arg);
   Result<compute::Expression> GetValueArg(uint32_t index) const;
   bool HasValueArg(uint32_t index) const;
   void SetValueArg(uint32_t index, compute::Expression value_arg);
@@ -133,7 +133,7 @@ class SubstraitCall {
   // Only needed when converting from Substrait -> Arrow aggregates.  The
   // Arrow function name depends on whether or not there are any groups
   bool is_hash_;
-  std::unordered_map<uint32_t, util::optional<std::string>> enum_args_;
+  std::unordered_map<uint32_t, std::optional<std::string>> enum_args_;
   std::unordered_map<uint32_t, compute::Expression> value_args_;
   uint32_t size_ = 0;
 };
@@ -174,13 +174,13 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \brief Return a uri view owned by this registry
   ///
   /// If the URI has never been emplaced it will return nullopt
-  virtual util::optional<util::string_view> FindUri(util::string_view uri) const = 0;
+  virtual std::optional<util::string_view> FindUri(util::string_view uri) const = 0;
   /// \brief Return a id view owned by this registry
   ///
   /// If the id has never been emplaced it will return nullopt
-  virtual util::optional<Id> FindId(Id id) const = 0;
-  virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
-  virtual util::optional<TypeRecord> GetType(Id) const = 0;
+  virtual std::optional<Id> FindId(Id id) const = 0;
+  virtual std::optional<TypeRecord> GetType(const DataType&) const = 0;
+  virtual std::optional<TypeRecord> GetType(Id) const = 0;
   virtual Status CanRegisterType(Id, const std::shared_ptr<DataType>& type) const = 0;
   virtual Status RegisterType(Id, std::shared_ptr<DataType>) = 0;
   /// \brief Register a converter that converts an Arrow call to a Substrait call

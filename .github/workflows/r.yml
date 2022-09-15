@@ -119,12 +119,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
+          - { org: "rstudio", image: "r-base", tag: "4.0-centos7", devtoolset: "8" }
+          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
+      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -170,8 +171,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 35, arch: 'mingw32' }
-        - { rtools: 35, arch: 'mingw64' }
         - { rtools: 40, arch: 'mingw32' }
         - { rtools: 40, arch: 'mingw64' }
         - { rtools: 40, arch: 'ucrt64' }
@@ -186,11 +185,6 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      # We must enable actions/cache before r-lib/actions/setup-r to ensure
-      # using system tar instead of tar provided by Rtools.
-      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-      # when tar is GNU tar.
       - name: Cache ccache
         uses: actions/cache@v2
         with:
@@ -199,18 +193,10 @@ jobs:
           restore-keys: |
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.1"
           rtools-version: 40
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.config.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: "3.6"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -226,11 +212,6 @@ jobs:
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
   windows-r:
     needs: [windows-cpp]
@@ -242,7 +223,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
         - { rtools: 42, rversion: "4.2" }
         - { rtools: 42, rversion: "devel" }
@@ -284,8 +264,6 @@ jobs:
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
-          # RSPM keeps install times short for 3.6
-          use-public-rspm: true
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:

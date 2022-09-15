@@ -466,10 +466,10 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
-                                                   const ChunkedArray& actual) {
+Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   std::stringstream ss;

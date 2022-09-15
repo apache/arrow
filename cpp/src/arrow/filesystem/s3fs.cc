@@ -24,6 +24,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -90,7 +91,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
@@ -657,7 +657,7 @@ class S3Client : public Aws::S3::S3Client {
     // We work around the issue by registering a DataReceivedEventHandler
     // which parses the XML response for embedded errors.
 
-    util::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
+    std::optional<AWSError<Aws::Client::CoreErrors>> aws_error;
 
     auto handler = [&](const Aws::Http::HttpRequest* http_req,
                        Aws::Http::HttpResponse* http_resp,
@@ -762,7 +762,7 @@ class ClientBuilder {
   Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
 
   Result<std::shared_ptr<S3Client>> BuildClient(
-      util::optional<io::IOContext> io_context = util::nullopt) {
+      std::optional<io::IOContext> io_context = std::nullopt) {
     credentials_provider_ = options_.credentials_provider;
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
@@ -1708,7 +1708,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   ClientBuilder builder_;
   io::IOContext io_context_;
   std::shared_ptr<S3Client> client_;
-  util::optional<S3Backend> backend_;
+  std::optional<S3Backend> backend_;
 
   const int32_t kListObjectsMaxKeys = 1000;
   // At most 1000 keys per multiple-delete request

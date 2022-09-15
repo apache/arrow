@@ -111,7 +111,7 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - name: Upload package to Gemfury
     shell: bash
     run: |
@@ -157,7 +157,7 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - task: CondaEnvironment@1
     inputs:
       packageSpecs: 'anaconda-client'
@@ -216,7 +216,7 @@ on:
 {% endmacro %}
 
 {%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - |
     WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
     curl \
@@ -243,7 +243,7 @@ on:
           continue
         fi
         # Pin the current commit in the formula to test so that
-        # we're not always pulling from master
+        # we're not always pulling from the tip of the default branch
         sed -i '' -E \
           -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}
@@ -284,7 +284,10 @@ on:
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
-  source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+  source("https://raw.githubusercontent.com/apache/arrow/HEAD/ci/etc/rprofile")
+
+  # always remove arrow (mainly for self-hosted runners)
+  try(remove.packages("arrow"), silent = TRUE)
 
   install.packages(
     "arrow",
@@ -311,7 +314,8 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+    # TODO(ARROW-17594): re-enable centos-7 here
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04"] %}
   - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:
@@ -350,8 +354,8 @@ on:
   {# use filter to cast to string and convert to lowercase to match yaml boolean #}
   {% set is_fork = (not is_upstream_b)|lower %}
 
-{% set r_release = '4.2' %}
-{% set r_oldrel = '4.1' %}
+{% set r_release = {"ver": "4.2", "rt" : "42"} %}
+{% set r_oldrel = {"ver": "4.1", "rt" : "40"} %}
 
 {%- macro github_set_env(env) -%}
   {% if env is defined %}

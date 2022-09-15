@@ -65,7 +65,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
 }
 
 Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
-    util::optional<Compression::type> compression) const {
+    std::optional<Compression::type> compression) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
   auto actual_compression = Compression::type::UNCOMPRESSED;
   if (!compression.has_value()) {
@@ -93,14 +93,17 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return match_file_system && file_info_.Equals(other.file_info_) &&
-         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+  bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
+                      ((buffer_ != nullptr && other.buffer_ != nullptr) &&
+                       (buffer_->address() == other.buffer_->address()));
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
+         compression_ == other.compression_;
 }
 
-Future<util::optional<int64_t>> FileFormat::CountRows(
+Future<std::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -132,12 +135,12 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-Future<util::optional<int64_t>> FileFragment::CountRows(
+Future<std::optional<int64_t>> FileFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
-    return Future<util::optional<int64_t>>::MakeFinished(0);
+    return Future<std::optional<int64_t>>::MakeFinished(0);
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);

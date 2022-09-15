@@ -47,7 +47,7 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
-using CookiePair = arrow::util::optional<std::pair<std::string, std::string>>;
+using CookiePair = std::optional<std::pair<std::string, std::string>>;
 using CookieHeaderPair =
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&;
 
@@ -139,7 +139,7 @@ CookiePair Cookie::ParseCookieAttribute(const std::string& cookie_header_value,
   if (std::string::npos == equals_pos) {
     // No cookie attribute.
     *start_pos = std::string::npos;
-    return arrow::util::nullopt;
+    return std::nullopt;
   }
 
   std::string::size_type semi_col_pos = cookie_header_value.find(';', equals_pos);

@@ -60,11 +60,11 @@ struct BatchesWithSchema {
   std::vector<ExecBatch> batches;
   std::shared_ptr<Schema> schema;
 
-  AsyncGenerator<util::optional<ExecBatch>> gen(bool parallel, bool slow) const {
+  AsyncGenerator<std::optional<ExecBatch>> gen(bool parallel, bool slow) const {
     auto opt_batches = ::arrow::internal::MapVector(
-        [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
+        [](ExecBatch batch) { return std::make_optional(std::move(batch)); }, batches);
 
-    AsyncGenerator<util::optional<ExecBatch>> gen;
+    AsyncGenerator<std::optional<ExecBatch>> gen;
 
     if (parallel) {
       // emulate batches completing initial decode-after-scan on a cpu thread
@@ -81,7 +81,7 @@ struct BatchesWithSchema {
 
     if (slow) {
       gen =
-          MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
+          MakeMappedGenerator(std::move(gen), [](const std::optional<ExecBatch>& batch) {
             SleepABit();
             return batch;
           });
@@ -96,7 +96,7 @@ Future<> StartAndFinish(ExecPlan* plan);
 
 ARROW_TESTING_EXPORT
 Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen);
+    ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBasicBatches();

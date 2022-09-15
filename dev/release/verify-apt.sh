@@ -151,7 +151,7 @@ pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
 ./arrow-example
 popd
 echo "::endgroup::"

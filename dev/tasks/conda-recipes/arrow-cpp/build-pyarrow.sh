@@ -17,7 +17,7 @@ if [[ "${target_platform}" == "osx-arm64" ]]; then
 else
     export PYARROW_WITH_GANDIVA=1
 fi
-export PYARROW_WITH_GCS=1
+export PYARROW_WITH_GCS=0
 export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
@@ -27,6 +27,10 @@ export PYARROW_WITH_S3=1
 export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_CMAKE_OPTIONS="-DARROW_SIMD_LEVEL=NONE"
 BUILD_EXT_FLAGS=""
+
+if [ "$(uname)" == "Linux" ]; then
+    export PYARROW_WITH_GCS=1
+fi
 
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]; then
@@ -39,6 +43,9 @@ fi
 if [[ "${target_platform}" == "linux-aarch64" ]]; then
     export PYARROW_CMAKE_OPTIONS="-DARROW_ARMV8_ARCH=armv8-a ${PYARROW_CMAKE_OPTIONS}"
 fi
+
+# See https://conda-forge.org/docs/maintainer/knowledge_base.html#newer-c-features-with-old-sdk
+export CXXFLAGS="${CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
 
 cd python
 

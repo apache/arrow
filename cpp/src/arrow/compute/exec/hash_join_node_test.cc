@@ -85,7 +85,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
                                                                   /*slow=*/false)}});
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
@@ -915,7 +915,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
       ExecNode * join,
       MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
 
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
@@ -964,7 +964,7 @@ TEST(HashJoin, Suffix) {
   ExecContext exec_ctx;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
   ExecNode* right_source;
@@ -1335,7 +1335,7 @@ void TestHashJoinDictionaryHelper(
                                                      {(swap_sides ? r_source : l_source),
                                                       (swap_sides ? l_source : r_source)},
                                                      join_options));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
@@ -1756,7 +1756,7 @@ TEST(HashJoin, DictNegative) {
     ASSERT_OK_AND_ASSIGN(
         ExecNode * join,
         MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {join},
                                                    SinkNodeOptions{&sink_gen}));
 
@@ -1806,7 +1806,7 @@ void TestSimpleJoinHelper(BatchesWithSchema input_left, BatchesWithSchema input_
                           BatchesWithSchema expected) {
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
   ExecNode* right_source;
@@ -2001,7 +2001,7 @@ TEST(HashJoin, ResidualFilter) {
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
     ExecNode* right_source;
@@ -2079,7 +2079,7 @@ TEST(HashJoin, TrivialResidualFilter) {
           parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       ExecNode* left_source;
       ExecNode* right_source;
@@ -2242,7 +2242,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
       ASSERT_OK_AND_ASSIGN(joins[i],
                            MakeExecNode("hashjoin", plan.get(), inputs, opts[i]));
     }
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK(
         MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
     ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
