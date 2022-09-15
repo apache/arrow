@@ -118,7 +118,7 @@ jobs:
         run: |
           set -e
           pushd arrow/java
-          mvn versions:set -DnewVersion={{ arrow.no_rc_version }}
+          mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }}
           popd
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
