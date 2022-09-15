@@ -55,6 +55,7 @@ mamba update -q -y -c conda-forge --all || exit /B
 @rem Create conda environment
 @rem
 
+set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
 set CONDA_PACKAGES=
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
