@@ -240,7 +240,7 @@ Making a Table
 
 One particularly useful thing we can do with the :class:`ChunkedArrays <ChunkedArray>` from the previous section is creating 
 :class:`Tables <Table>`. Much like a :class:`RecordBatch`, a :class:`Table` stores tabular data. However, a 
-:class:`Table` does not guarantee contiguity, due to being made up of :class:`ChunkedArrays <ChunkedArray>` 
+:class:`Table` does not guarantee contiguity, due to being made up of :class:`ChunkedArrays <ChunkedArray>`.
 This can be useful for logic, paralellizing work, for fitting chunks into cache, or exceeding the 2,147,483,647 row limit
 present in :class:`Array` and, thus, :class:`RecordBatch`.
 
