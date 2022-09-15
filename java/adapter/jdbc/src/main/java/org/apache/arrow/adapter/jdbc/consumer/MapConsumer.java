@@ -81,16 +81,20 @@ public class MapConsumer extends BaseConsumer<MapVector> {
     writer.startMap();
     map.forEach((key, value) -> {
       byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-      byte[] valueBytes = value.getBytes(StandardCharsets.UTF_8);
+      byte[] valueBytes = value != null ? value.getBytes(StandardCharsets.UTF_8) : null;
       try (
               ArrowBuf keyBuf = allocator.buffer(keyBytes.length);
-              ArrowBuf valueBuf = allocator.buffer(valueBytes.length);
+              ArrowBuf valueBuf = valueBytes != null ? allocator.buffer(valueBytes.length) : null;
       ) {
         writer.startEntry();
         keyBuf.writeBytes(keyBytes);
-        valueBuf.writeBytes(valueBytes);
         writer.key().varChar().writeVarChar(0, keyBytes.length, keyBuf);
-        writer.value().varChar().writeVarChar(0, valueBytes.length, valueBuf);
+        if (valueBytes != null) {
+          valueBuf.writeBytes(valueBytes);
+          writer.value().varChar().writeVarChar(0, valueBytes.length, valueBuf);
+        } else {
+          writer.value().varChar().writeNull();
+        }
         writer.endEntry();
       }
     });

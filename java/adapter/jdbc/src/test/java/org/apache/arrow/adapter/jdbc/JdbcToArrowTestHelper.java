@@ -28,9 +28,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -263,8 +263,9 @@ public class JdbcToArrowTestHelper {
         Map<String, String> actualMap = null;
         if (actualSource != null && !actualSource.isEmpty()) {
           actualMap = actualSource.stream().map(entry ->
-            new AbstractMap.SimpleEntry<>(entry.get("key").toString(), entry.get("value").toString()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            new AbstractMap.SimpleEntry<>(entry.get("key").toString(),
+                    entry.get("value") != null ? entry.get("value").toString() : null))
+          .collect(HashMap::new, (collector, val) -> collector.put(val.getKey(), val.getValue()), HashMap::putAll);
         }
         assertEquals(values[j], actualMap);
       }
