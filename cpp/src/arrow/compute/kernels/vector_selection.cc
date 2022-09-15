@@ -269,7 +269,7 @@ template <>
 struct PrimitiveGetter<ArraySpan, bool> {
   // For boolean, we can't add offset at beginning because values is a bitmap.
   explicit PrimitiveGetter(ArraySpan&& array)
-      : inner(std::move(array)), values(array.GetValues<uint8_t>(1)){};
+      : inner(std::move(array)), values(array.GetValues<uint8_t>(1)) {}
 
   bool IsValid(int64_t i) const {
     return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
@@ -287,7 +287,7 @@ struct PrimitiveGetter<ArraySpan, bool> {
 template <typename ValueType>
 struct PrimitiveGetter<ArraySpan, ValueType> {
   explicit PrimitiveGetter(ArraySpan&& array)
-      : inner(std::move(array)), values(array.GetValues<ValueType>(1) + array.offset){};
+      : inner(std::move(array)), values(array.GetValues<ValueType>(1) + array.offset) {}
 
   bool IsValid(int64_t i) const {
     return bit_util::GetBit(inner.buffers[0].data, inner.offset + i);
@@ -1105,7 +1105,9 @@ class PrimitiveFilterImpl {
       std::memcpy(out_data_ + out_position_, values_getter_.values + in_start,
                   length * sizeof(T));
       out_position_ += length;
-    } else if constexpr (std::is_same<ArrayKind, ChunkedArray>::value &&
+      // We can remove NOLINT when we update cpplint
+      // https://github.com/cpplint/cpplint/issues/135
+    } else if constexpr (std::is_same<ArrayKind, ChunkedArray>::value &&  // NOLINT
                          !is_boolean_type<ArrowType>::value) {
       // Find initial chunk
       ChunkLocation loc = values_getter_.resolver.Resolve(in_start);
@@ -1122,7 +1124,7 @@ class PrimitiveFilterImpl {
         loc.index_in_chunk = 0;
       }
       out_position_ += length;
-    } else if constexpr (std::is_same<ArrayKind, ArraySpan>::value &&
+    } else if constexpr (std::is_same<ArrayKind, ArraySpan>::value &&  // NOLINT
                          is_boolean_type<ArrowType>::value) {
       CopyBitmap(values_getter_.values, values_getter_.inner.offset + in_start, length,
                  out_data_, out_offset_ + out_position_);
@@ -2465,6 +2467,8 @@ class FilterMetaFunction : public MetaFunction {
 // R -> RecordBatch
 // T -> Table
 
+bool chunked_take_supported(const DataType& type) { return is_primitive(type); }
+
 Result<std::shared_ptr<ArrayData>> TakeAA(const std::shared_ptr<ArrayData>& values,
                                           const std::shared_ptr<ArrayData>& indices,
                                           const TakeOptions& options, ExecContext* ctx) {
@@ -2477,10 +2481,26 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
                                              const ChunkedArray& indices,
                                              const TakeOptions& options,
                                              ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result,
-      CallFunction("array_take", {Datum(values), Datum(indices)}, &options, ctx));
-  return result.chunked_array();
+  if (chunked_take_supported(*values.type().get())) {
+    ARROW_ASSIGN_OR_RAISE(
+        Datum result,
+        CallFunction("array_take", {Datum(values), Datum(indices)}, &options, ctx));
+    return result.chunked_array();
+  } else {
+    ArrayVector out_arrays(indices.num_chunks());
+    // Concatenate values into one array, so we can use TakeAA.
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> values_array,
+                          Concatenate(values.chunks(), ctx->memory_pool()));
+    // Match the chunking structure of the indices.
+    for (const std::shared_ptr<Array>& ind_chunk : indices.chunks()) {
+      std::shared_ptr<ArrayData> result_chunk;
+      ARROW_ASSIGN_OR_RAISE(
+          result_chunk, TakeAA(values_array->data(), ind_chunk->data(), options, ctx));
+      out_arrays.push_back(MakeArray(result_chunk));
+    }
+
+    return std::make_shared<ChunkedArray>(std::move(out_arrays));
+  }
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
@@ -2505,10 +2525,20 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                           TakeAA(current_chunk->data(), indices->data(), options, ctx));
     std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
     return std::make_shared<ChunkedArray>(std::move(chunks));
-    // Case 3:
-  } else {
+    // Case 3: We have support for take on chunked arrays
+  } else if (chunked_take_supported(*values.type().get())) {
     ChunkedArray indices_chunked(indices);
     return TakeCC(values, indices_chunked, options, ctx);
+    // Case 4: We don't directly support chunked array take, so concat.
+  } else {
+    // Concatenate values into one array, so we can use TakeAA.
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> values_array,
+                          Concatenate(values.chunks(), ctx->memory_pool()));
+    std::shared_ptr<ArrayData> result_chunk;
+    ARROW_ASSIGN_OR_RAISE(result_chunk,
+                          TakeAA(values_array->data(), indices->data(), options, ctx));
+
+    return std::make_shared<ChunkedArray>(MakeArray(result_chunk));
   }
 }
 
