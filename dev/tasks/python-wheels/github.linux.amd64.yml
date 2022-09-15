@@ -47,7 +47,7 @@ jobs:
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
 
-      {% if arrow.branch == 'master' %}
+      {% if arrow.is_default_branch() %}
       - name: Push Docker Image
         shell: bash
         run: |

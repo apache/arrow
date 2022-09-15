@@ -275,12 +275,12 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 		// what got me the closest equivalent values with the values
 		// that I tested with, and there isn't a good way to push
 		// an option all the way down here to control it.
-		out, _, err = big.ParseFloat(v, 10, 256, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v, 10, 255, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
 	case json.Number:
-		out, _, err = big.ParseFloat(v.String(), 10, 256, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v.String(), 10, 255, big.ToNearestAway)
 		if err != nil {
 			return err
 		}

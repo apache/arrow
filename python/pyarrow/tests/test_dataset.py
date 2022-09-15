@@ -424,6 +424,13 @@ def test_dataset(dataset, dataset_reader):
 
 
 @pytest.mark.parquet
+def test_scanner_options(dataset):
+    scanner = dataset.to_batches(fragment_readahead=16, batch_readahead=8)
+    batch = next(scanner)
+    assert batch.num_columns == 7
+
+
+@pytest.mark.parquet
 def test_scanner(dataset, dataset_reader):
     scanner = dataset_reader.scanner(
         dataset, memory_pool=pa.default_memory_pool())
@@ -3130,6 +3137,55 @@ def test_csv_fragment_options(tempdir, dataset_reader):
         pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
 
+def test_encoding(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+
+    for encoding, input_rows in [
+        ('latin-1', b"a,b\nun,\xe9l\xe9phant"),
+        ('utf16', b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
+         b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00'),
+    ]:
+
+        with open(path, 'wb') as sink:
+            sink.write(input_rows)
+
+        # Interpret as utf8:
+        expected_schema = pa.schema([("a", pa.string()), ("b", pa.string())])
+        expected_table = pa.table({'a': ["un"],
+                                   'b': ["éléphant"]}, schema=expected_schema)
+
+        read_options = pa.csv.ReadOptions(encoding=encoding)
+        file_format = ds.CsvFileFormat(read_options=read_options)
+        dataset_transcoded = ds.dataset(path, format=file_format)
+        assert dataset_transcoded.schema.equals(expected_schema)
+        assert dataset_transcoded.to_table().equals(expected_table)
+
+
+# Test if a dataset with non-utf8 chars in the column names is properly handled
+def test_column_names_encoding(tempdir, dataset_reader):
+    path = str(tempdir / 'test.csv')
+
+    with open(path, 'wb') as sink:
+        sink.write(b"\xe9,b\nun,\xe9l\xe9phant")
+
+    # Interpret as utf8:
+    expected_schema = pa.schema([("é", pa.string()), ("b", pa.string())])
+    expected_table = pa.table({'é': ["un"],
+                               'b': ["éléphant"]}, schema=expected_schema)
+
+    # Reading as string without specifying encoding should produce an error
+    dataset = ds.dataset(path, format='csv', schema=expected_schema)
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match="invalid UTF8"):
+        dataset_reader.to_table(dataset)
+
+    # Setting the encoding in the read_options should transcode the data
+    read_options = pa.csv.ReadOptions(encoding='latin-1')
+    file_format = ds.CsvFileFormat(read_options=read_options)
+    dataset_transcoded = ds.dataset(path, format=file_format)
+    assert dataset_transcoded.schema.equals(expected_schema)
+    assert dataset_transcoded.to_table().equals(expected_table)
+
+
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -3599,7 +3655,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
 
-    ds.write_dataset(dataset, base_dir, format="feather",
+    ds.write_dataset(dataset, base_dir, format="arrow",
                      partitioning=partitioning, use_threads=False)
 
     # check that all files are present
@@ -3608,7 +3664,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
 
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
-        base_dir_path, format="feather", partitioning=partitioning)
+        base_dir_path, format="arrow", partitioning=partitioning)
 
     assert _sort_table(dataset2.to_table(), sort_col).equals(
         _sort_table(dataset.to_table(), sort_col))
@@ -3624,12 +3680,12 @@ def test_write_dataset(tempdir):
 
     # full string path
     target = tempdir / 'single-file-target'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
     # TODO
@@ -3646,7 +3702,7 @@ def test_write_dataset(tempdir):
     dataset = ds.dataset(directory)
 
     target = tempdir / 'single-directory-target'
-    expected_files = [target / "part-0.feather"]
+    expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, 'a', target)
 
 
@@ -3661,8 +3717,8 @@ def test_write_dataset_partitioned(tempdir):
     # hive partitioning
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
-        target / "part=a", target / "part=a" / "part-0.feather",
-        target / "part=b", target / "part=b" / "part-0.feather"
+        target / "part=a", target / "part=a" / "part-0.arrow",
+        target / "part=b", target / "part=b" / "part-0.arrow"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -3673,8 +3729,8 @@ def test_write_dataset_partitioned(tempdir):
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-0.feather"
+        target / "a", target / "a" / "part-0.arrow",
+        target / "b", target / "b" / "part-0.arrow"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
@@ -4081,8 +4137,8 @@ def test_write_dataset_partitioned_dict(tempdir):
         partitioning=ds.HivePartitioning.discover(infer_dictionary=True))
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "part-0.feather",
-        target / "b", target / "b" / "part-0.feather"
+        target / "a", target / "a" / "part-0.arrow",
+        target / "b", target / "b" / "part-0.arrow"
     ]
     partitioning = ds.partitioning(pa.schema([
         dataset.schema.field('part')]),

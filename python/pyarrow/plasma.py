@@ -64,7 +64,7 @@ def build_plasma_tensorflow_op():
         tf_cflags = tf.sysconfig.get_compile_flags()
         if sys.platform == 'darwin':
             tf_cflags = ["-undefined", "dynamic_lookup"] + tf_cflags
-        cmd = ["g++", "-std=c++11", "-g", "-shared", cc_path,
+        cmd = ["g++", "-std=c++17", "-g", "-shared", cc_path,
                "-o", so_path, "-DNDEBUG", "-I" + pa.get_include()]
         cmd += ["-L" + dir for dir in pa.get_library_dirs()]
         cmd += ["-lplasma", "-larrow_python", "-larrow", "-fPIC"]

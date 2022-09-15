@@ -52,14 +52,24 @@ set(PLASMA_STORE_SRCS
     store.cc
     thirdparty/ae/ae.c)
 
-set(PLASMA_LINK_LIBS arrow::flatbuffers arrow_shared)
-set(PLASMA_STATIC_LINK_LIBS arrow::flatbuffers arrow_static)
+set(PLASMA_SHARED_LINK_LIBS arrow::flatbuffers)
+set(PLASMA_STATIC_LINK_LIBS arrow::flatbuffers)
+set(PLASMA_SHARED_INSTALL_INTERFACE_LIBS)
+set(PLASMA_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_CUDA)
-  list(INSERT PLASMA_LINK_LIBS 0 arrow_cuda_shared)
-  list(INSERT PLASMA_STATIC_LINK_LIBS 0 arrow_cuda_static)
+  list(APPEND PLASMA_SHARED_LINK_LIBS arrow_cuda_shared)
+  list(APPEND PLASMA_STATIC_LINK_LIBS arrow_cuda_static)
+  list(APPEND PLASMA_SHARED_INSTALL_INTERFACE_LIBS ArrowCUDA::arrow_cuda_shared)
+  list(APPEND PLASMA_STATIC_INSTALL_INTERFACE_LIBS ArrowCUDA::arrow_cuda_static)
   add_definitions(-DPLASMA_CUDA)
+else()
+  list(APPEND PLASMA_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  list(APPEND PLASMA_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 endif()
+
+list(APPEND PLASMA_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PLASMA_STATIC_LINK_LIBS arrow_static)
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PLASMA_SHARED_LINK_FLAGS
@@ -78,9 +88,13 @@ add_arrow_lib(plasma
               SHARED_LINK_FLAGS
               ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
-              ${PLASMA_LINK_LIBS}
+              ${PLASMA_SHARED_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              ${PLASMA_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
-              ${PLASMA_STATIC_LINK_LIBS})
+              ${PLASMA_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              ${PLASMA_STATIC_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(plasma ${PLASMA_LIBRARIES})
 
@@ -154,6 +168,7 @@ install(FILES common.h
 # Plasma store
 set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL}
+        EXPORT plasma_targets
         DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(ARROW_PLASMA_JAVA_CLIENT)
@@ -217,7 +232,7 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
 endfunction()
 
 if(ARROW_BUILD_SHARED)
-  set(PLASMA_TEST_LIBS plasma_shared ${PLASMA_LINK_LIBS})
+  set(PLASMA_TEST_LIBS plasma_shared ${PLASMA_SHARED_LINK_LIBS})
 else()
   set(PLASMA_TEST_LIBS plasma_static ${PLASMA_STATIC_LINK_LIBS})
 endif()

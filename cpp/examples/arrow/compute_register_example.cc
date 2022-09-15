@@ -149,7 +149,7 @@ arrow::Status RunComputeRegister(int argc, char** argv) {
   ARROW_RETURN_NOT_OK(maybe_plan.status());
   ARROW_ASSIGN_OR_RAISE(auto plan, maybe_plan);
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> source_gen, sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> source_gen, sink_gen;
   ARROW_RETURN_NOT_OK(
       cp::Declaration::Sequence(
           {

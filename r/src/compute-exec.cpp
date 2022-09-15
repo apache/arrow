@@ -25,10 +25,10 @@
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
-#include <arrow/util/optional.h>
 #include <arrow/util/thread_pool.h>
 
 #include <iostream>
+#include <optional>
 
 namespace compute = ::arrow::compute;
 
@@ -66,7 +66,7 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
 
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {
@@ -170,7 +170,7 @@ std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan
 
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
-  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {

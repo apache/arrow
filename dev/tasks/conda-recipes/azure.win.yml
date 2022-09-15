@@ -13,28 +13,6 @@ jobs:
     UPLOAD_PACKAGES: False
 
   steps:
-    - script: |
-        choco install vcpython27 -fdv -y --debug
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Install vcpython27.msi (if needed)
-
-    - powershell: |
-        Set-PSDebug -Trace 1
-        $batchcontent = @"
-        ECHO ON
-        SET vcpython=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0
-        DIR "%vcpython%"
-        CALL "%vcpython%\vcvarsall.bat" %*
-        "@
-        $batchDir = "C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC"
-        $batchPath = "$batchDir" + "\vcvarsall.bat"
-        New-Item -Path $batchPath -ItemType "file" -Force
-        Set-Content -Value $batchcontent -Path $batchPath
-        Get-ChildItem -Path $batchDir
-        Get-ChildItem -Path ($batchDir + '\..')
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Patch vs2008 (if needed)
-
     - task: PythonScript@0
       displayName: 'Download Miniforge'
       inputs:
@@ -48,6 +26,7 @@ jobs:
     - script: |
         start /wait "" %BUILD_ARTIFACTSTAGINGDIRECTORY%\Miniforge.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\Miniforge
       displayName: Install Miniforge
+
     - powershell: Write-Host "##vso[task.prependpath]C:\Miniforge\Scripts"
       displayName: Add conda to PATH
 
@@ -83,7 +62,6 @@ jobs:
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         PYTHONUNBUFFERED: 1
-      condition: not(contains(variables['CONFIG'], 'vs2008'))
 
     - script: |
         call activate base

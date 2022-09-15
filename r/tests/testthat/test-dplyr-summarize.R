@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 withr::local_options(list(
   arrow.summarise.sort = TRUE,
   rlib_warning_verbosity = "verbose",
@@ -1124,5 +1122,26 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
   expect_project_nodes(
     tab %>% count(lgl),
     2
+  )
+})
+
+test_that("Can use across() within summarise()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(lgl) %>%
+      summarise(across(starts_with("dbl"), sum, .names = "sum_{.col}")) %>%
+      arrange(lgl) %>%
+      collect(),
+    example_data
+  )
+
+  # across() doesn't work in summarise when input expressions evaluate to bare field references
+  expect_warning(
+    example_data %>%
+      arrow_table() %>%
+      group_by(lgl) %>%
+      summarise(across(everything())) %>%
+      collect(),
+    regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
 })

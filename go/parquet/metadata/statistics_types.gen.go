@@ -1755,7 +1755,9 @@ func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
 }
 
 func (s *ByteArrayStatistics) plainEncode(src parquet.ByteArray) []byte {
-	return src
+	out := make([]byte, len(src))
+	copy(out, src)
+	return out
 }
 
 func (s *ByteArrayStatistics) plainDecode(src []byte) parquet.ByteArray {

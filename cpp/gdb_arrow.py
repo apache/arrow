@@ -2175,28 +2175,6 @@ class StringViewPrinter:
             return f"arrow::util::string_view of size {size}, {data}"
 
 
-class OptionalPrinter:
-    """
-    Pretty-printer for arrow::util::optional.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        data_type = self.val.type.template_argument(0)
-        # XXX We rely on internal details of our vendored optional<T>
-        # implementation, as inlined methods may not be callable from gdb.
-        if not self.val['has_value_']:
-            inner = "nullopt"
-        else:
-            data_ptr = self.val['contained']['data'].address
-            assert data_ptr
-            inner = data_ptr.reinterpret_cast(
-                data_type.pointer()).dereference()
-        return f"arrow::util::optional<{data_type}>({inner})"
-
-
 class VariantPrinter:
     """
     Pretty-printer for arrow::util::Variant.
@@ -2436,10 +2414,8 @@ printers = {
     "arrow::SimpleTable": TablePrinter,
     "arrow::Status": StatusPrinter,
     "arrow::Table": TablePrinter,
-    "arrow::util::optional": OptionalPrinter,
     "arrow::util::string_view": StringViewPrinter,
     "arrow::util::Variant": VariantPrinter,
-    "nonstd::optional_lite::optional": OptionalPrinter,
     "nonstd::sv_lite::basic_string_view": StringViewPrinter,
 }
 

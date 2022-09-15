@@ -128,6 +128,12 @@ TEST(TestField, Equals) {
   AssertFieldEqual(f0, f0_with_meta1);
   AssertFieldEqual(f0, f0_with_meta2);
   AssertFieldEqual(f0_with_meta1, f0_with_meta2);
+
+  // operator==(), where check_metadata == false
+  ASSERT_EQ(f0, f0_other);
+  ASSERT_NE(f0, f0_nn);
+  ASSERT_EQ(f0, f0_with_meta1);
+  ASSERT_EQ(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -472,6 +478,8 @@ TEST_F(TestSchema, Basics) {
   auto schema3 = std::make_shared<Schema>(fields3);
   AssertSchemaEqual(schema, schema2);
   AssertSchemaNotEqual(schema, schema3);
+  ASSERT_EQ(*schema, *schema2);
+  ASSERT_NE(*schema, *schema3);
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());

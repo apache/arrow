@@ -89,7 +89,7 @@ arrow::Status DoHashJoin() {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   cp::ExecNode* left_source;
   cp::ExecNode* right_source;

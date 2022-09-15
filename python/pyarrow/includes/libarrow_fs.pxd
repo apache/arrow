@@ -223,7 +223,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
-        c_optional[double] retry_limit_seconds
+        optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)
 

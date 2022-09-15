@@ -104,12 +104,13 @@ class PARQUET_EXPORT PageReader {
   virtual ~PageReader() = default;
 
   static std::unique_ptr<PageReader> Open(
-      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
+      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
       Compression::type codec, bool always_compressed = false,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
   static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
-                                          int64_t total_num_rows, Compression::type codec,
+                                          int64_t total_num_values,
+                                          Compression::type codec,
                                           const ReaderProperties& properties,
                                           bool always_compressed = false,
                                           const CryptoContext* ctx = NULLPTR);
@@ -218,9 +219,15 @@ class TypedColumnReader : public ColumnReader {
                                   int64_t valid_bits_offset, int64_t* levels_read,
                                   int64_t* values_read, int64_t* null_count) = 0;
 
-  // Skip reading levels
-  // Returns the number of levels skipped
-  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+  // Skip reading values. This method will work for both repeated and
+  // non-repeated fields. Note that this method is skipping values and not
+  // records. This distinction is important for repeated fields, meaning that
+  // we are not skipping over the values to the next record. For example,
+  // consider the following two consecutive records containing one repeated field:
+  // {[1, 2, 3]}, {[4, 5]}. If we Skip(2), our next read value will be 3, which
+  // is inside the first record.
+  // Returns the number of values skipped.
+  virtual int64_t Skip(int64_t num_values_to_skip) = 0;
 
   // Read a batch of repetition levels, definition levels, and indices from the
   // column. And read the dictionary if a dictionary page is encountered during

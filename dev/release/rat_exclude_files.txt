@@ -129,6 +129,7 @@ dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
+go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/internal/flight/Flight.pb.go

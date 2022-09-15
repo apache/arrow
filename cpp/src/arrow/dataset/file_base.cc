@@ -65,7 +65,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
 }
 
 Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
-    util::optional<Compression::type> compression) const {
+    std::optional<Compression::type> compression) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
   auto actual_compression = Compression::type::UNCOMPRESSED;
   if (!compression.has_value()) {
@@ -93,14 +93,17 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return match_file_system && file_info_.Equals(other.file_info_) &&
-         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+  bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
+                      ((buffer_ != nullptr && other.buffer_ != nullptr) &&
+                       (buffer_->address() == other.buffer_->address()));
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
+         compression_ == other.compression_;
 }
 
-Future<util::optional<int64_t>> FileFormat::CountRows(
+Future<std::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -132,12 +135,12 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-Future<util::optional<int64_t>> FileFragment::CountRows(
+Future<std::optional<int64_t>> FileFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
-    return Future<util::optional<int64_t>>::MakeFinished(0);
+    return Future<std::optional<int64_t>>::MakeFinished(0);
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
@@ -340,6 +343,8 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
       schema_ = schema;
     }
     backpressure_control_ = backpressure_control;
+    scheduler_throttle_ = util::AsyncTaskScheduler::MakeThrottle(1);
+    scheduler_ = util::AsyncTaskScheduler::Make(scheduler_throttle_.get());
     return Status::OK();
   }
 
@@ -350,8 +355,14 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   }
 
   Future<> Finish() override {
-    RETURN_NOT_OK(task_group_.AddTask([this] { return dataset_writer_->Finish(); }));
-    return task_group_.End();
+    scheduler_->AddSimpleTask([this]() -> Result<Future<>> {
+      ARROW_RETURN_NOT_OK(dataset_writer_->Finish());
+      // Finish is actually synchronous but we add it to the scheduler because we want to
+      // make sure it happens after all the write calls.
+      return Future<>::MakeFinished();
+    });
+    scheduler_->End();
+    return scheduler_->OnFinished();
   }
 
  private:
@@ -361,7 +372,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
         batch, guarantee, write_options_,
         [this](std::shared_ptr<RecordBatch> next_batch,
                const PartitionPathFormat& destination) {
-          return task_group_.AddTask([this, next_batch, destination] {
+          scheduler_->AddSimpleTask([this, next_batch, destination] {
             Future<> has_room = dataset_writer_->WriteRecordBatch(
                 next_batch, destination.directory, destination.filename);
             if (!has_room.is_finished()) {
@@ -374,13 +385,15 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
             }
             return has_room;
           });
+          return Status::OK();
         });
   }
 
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  util::SerializedAsyncTaskGroup task_group_;
+  std::unique_ptr<util::AsyncTaskScheduler> scheduler_;
+  std::unique_ptr<util::AsyncTaskScheduler::Throttle> scheduler_throttle_;
   std::shared_ptr<Schema> schema_ = nullptr;
   compute::BackpressureControl* backpressure_control_;
 };
@@ -440,8 +453,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
     return Status::Invalid("Must provide partitioning");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                        internal::DatasetWriter::Make(write_options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset_writer, internal::DatasetWriter::Make(
+                                                 write_options, plan->async_scheduler()));
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
       std::make_shared<DatasetWritingSinkNodeConsumer>(
@@ -465,7 +478,17 @@ class TeeNode : public compute::MapNode {
           FileSystemDatasetWriteOptions write_options, bool async_mode)
       : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
         dataset_writer_(std::move(dataset_writer)),
-        write_options_(std::move(write_options)) {}
+        write_options_(std::move(write_options)) {
+    std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
+        util::AsyncTaskScheduler::MakeThrottle(1);
+    struct DestroyThrottle {
+      Status operator()() { return Status::OK(); }
+      std::unique_ptr<util::AsyncTaskScheduler::Throttle> owned_throttle;
+    };
+    util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
+    serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
+        DestroyThrottle{std::move(serial_throttle)}, serial_throttle_view);
+  }
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
                                          std::vector<compute::ExecNode*> inputs,
@@ -477,8 +500,9 @@ class TeeNode : public compute::MapNode {
     const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
     const std::shared_ptr<Schema> schema = inputs[0]->output_schema();
 
-    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                          internal::DatasetWriter::Make(write_options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto dataset_writer,
+        internal::DatasetWriter::Make(write_options, plan->async_scheduler()));
 
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
                                       std::move(dataset_writer), std::move(write_options),
@@ -488,13 +512,17 @@ class TeeNode : public compute::MapNode {
   const char* kind_name() const override { return "TeeNode"; }
 
   void Finish(Status finish_st) override {
-    dataset_writer_->Finish().AddCallback([this, finish_st](const Status& dw_status) {
-      // Need to wait for the task group to complete regardless of dw_status
-      task_group_.End().AddCallback(
-          [this, dw_status, finish_st](const Status& tg_status) {
-            finished_.MarkFinished(dw_status & finish_st & tg_status);
-          });
-    });
+    if (!finish_st.ok()) {
+      MapNode::Finish(std::move(finish_st));
+      return;
+    }
+    Status writer_finish_st = dataset_writer_->Finish();
+    if (!writer_finish_st.ok()) {
+      MapNode::Finish(std::move(writer_finish_st));
+      return;
+    }
+    serial_scheduler_->End();
+    MapNode::Finish(Status::OK());
   }
 
   Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
@@ -509,7 +537,7 @@ class TeeNode : public compute::MapNode {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
                              const PartitionPathFormat& destination) {
-                        return task_group_.AddTask([this, next_batch, destination] {
+                        serial_scheduler_->AddSimpleTask([this, next_batch, destination] {
                           util::tracing::Span span;
                           Future<> has_room = dataset_writer_->WriteRecordBatch(
                               next_batch, destination.directory, destination.filename);
@@ -519,6 +547,7 @@ class TeeNode : public compute::MapNode {
                           }
                           return has_room;
                         });
+                        return Status::OK();
                       });
   }
 
@@ -551,7 +580,10 @@ class TeeNode : public compute::MapNode {
  private:
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  util::SerializedAsyncTaskGroup task_group_;
+  // We use a serial scheduler to submit tasks to the dataset writer.  The dataset writer
+  // only returns an unfinished future when it needs backpressure.  Using a serial
+  // scheduler here ensures we pause while we wait for backpressure to clear
+  util::AsyncTaskScheduler* serial_scheduler_;
   int32_t backpressure_counter_ = 0;
 };
 

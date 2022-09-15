@@ -274,7 +274,7 @@ Status HeadersFrame::GetStatus(Status* out) {
   *out = transport_status.ToStatus();
 
   util::string_view detail_str, bin_str;
-  util::optional<std::string> message, detail_message, detail_bin;
+  std::optional<std::string> message, detail_message, detail_bin;
   if (!Get(kHeaderStatusCode).Value(&code_str).ok()) {
     // No Arrow status sent, go with the transport status
     return Status::OK();

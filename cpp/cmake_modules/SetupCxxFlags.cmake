@@ -122,12 +122,14 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++11 get passed correctly
+# This ensures that things like c++17 get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
+elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 17)
+  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 17")
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions
@@ -440,11 +442,11 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-    # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
-    # the default standard library which does not support C++11. libc++ is the
-    # default from 10.9 onward.
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+  # for details.
+  if(APPLE)
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
   endif()
 endif()
 

@@ -87,7 +87,7 @@ groups:
     # r-conda tasks
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
-    - conda-win-vs2017-py*-r*
+    - conda-win-vs2019-py*-r*
     - r-binary-packages
 
   ruby:
@@ -408,7 +408,7 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py37-r40:
+  conda-win-vs2019-py37-r40:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -418,7 +418,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py37-r41:
+  conda-win-vs2019-py37-r41:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -428,7 +428,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py38:
+  conda-win-vs2019-py38:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -437,7 +437,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py39:
+  conda-win-vs2019-py39:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -446,7 +446,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py310:
+  conda-win-vs2019-py310:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -478,9 +478,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
-                                                              ("10.13", "high-sierra", "ON", "ON")] %}
+{% for macos_version, macos_codename in [("10.14", "mojave")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -489,8 +487,6 @@ tasks:
     params:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      arrow_s3: "{{ arrow_s3 }}"
-      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -542,9 +538,9 @@ tasks:
     params:
       arch: universal2
       python_version: "{{ python_version }}"
-      macos_deployment_target: "10.13"
+      macos_deployment_target: "10.14"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_13_universal2.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_14_universal2.whl
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -1206,7 +1202,7 @@ tasks:
       flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
       image: ubuntu-cpp
 
-{% for cpp_standard in [14, 17] %}
+{% for cpp_standard in [17] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1453,13 +1449,13 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-11-go-1.16:
+  test-debian-11-go-1.17:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
-        GO: 1.16
+        GO: 1.17
       image: debian-go
 
   test-ubuntu-default-docs:

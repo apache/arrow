@@ -75,7 +75,7 @@ class BaseBinaryArray : public FlatArray {
                              raw_value_offsets_[i + 1] - pos);
   }
 
-  util::optional<util::string_view> operator[](int64_t i) const {
+  std::optional<util::string_view> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 
@@ -240,7 +240,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
     return util::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
   }
 
-  util::optional<util::string_view> operator[](int64_t i) const {
+  std::optional<util::string_view> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 

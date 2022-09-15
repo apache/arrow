@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
@@ -101,10 +101,10 @@ struct TestInt32Type {
 namespace arrow {
 
 using optional_types_tuple =
-    std::tuple<util::optional<int8_t>, util::optional<int16_t>, util::optional<int32_t>,
-               util::optional<int64_t>, util::optional<uint8_t>, util::optional<uint16_t>,
-               util::optional<uint32_t>, util::optional<uint64_t>, util::optional<bool>,
-               util::optional<std::string>>;
+    std::tuple<std::optional<int8_t>, std::optional<int16_t>, std::optional<int32_t>,
+               std::optional<int64_t>, std::optional<uint8_t>, std::optional<uint16_t>,
+               std::optional<uint32_t>, std::optional<uint64_t>, std::optional<bool>,
+               std::optional<std::string>>;
 
 template <>
 struct CTypeTraits<CustomOptionalTypeMock> {
@@ -291,9 +291,8 @@ TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
   std::vector<types_tuple> rows{
       types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
       types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")),
-      types_tuple(util::nullopt, util::nullopt, util::nullopt, util::nullopt,
-                  util::nullopt, util::nullopt, util::nullopt, util::nullopt,
-                  util::nullopt, util::nullopt),
+      types_tuple(std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                  std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt),
   };
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));

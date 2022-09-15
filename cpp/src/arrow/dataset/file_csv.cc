@@ -57,6 +57,12 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
     util::string_view first_block, MemoryPool* pool) {
+  // Skip BOM when reading column names (ARROW-14644, ARROW-17382)
+  auto size = first_block.length();
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
+  ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+  size = size - static_cast<uint32_t>(data_no_bom - data);
+  first_block = util::string_view(reinterpret_cast<const char*>(data_no_bom), size);
   if (!read_options.column_names.empty()) {
     std::unordered_set<std::string> column_names;
     for (const auto& s : read_options.column_names) {
@@ -98,11 +104,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        // Skip BOM when reading column names (ARROW-14644)
-        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
-        size = size - static_cast<uint32_t>(data_no_bom - data);
-
-        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
+        util::string_view view{reinterpret_cast<const char*>(data), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
@@ -183,9 +185,15 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   auto tracer = arrow::internal::tracing::GetTracer();
   auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
 #endif
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
@@ -282,19 +290,26 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   return generator;
 }
 
-Future<util::optional<int64_t>> CsvFileFormat::CountRows(
+Future<std::optional<int64_t>> CsvFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
-  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, options.get(), self->default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
+  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
-      .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
+      .Then([](int64_t count) { return std::make_optional<int64_t>(count); });
 }
 
 //

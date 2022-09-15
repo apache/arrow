@@ -34,7 +34,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/variant.h"
 
@@ -121,10 +120,6 @@ void TestSession() {
   auto ok_result = Result<int>(42);
   auto error_result = Result<int>(error_status);
   auto error_detail_result = Result<int>(error_detail_status);
-
-  // Optionals
-  util::optional<int> int_optional{42};
-  util::optional<int> null_int_optional{};
 
   // Variants
   using VariantType = util::Variant<int, bool, std::string>;
