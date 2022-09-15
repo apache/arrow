@@ -411,7 +411,7 @@ cdef class MessageReader(_Weakrefable):
 
         Parameters
         ----------
-        source
+        source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
             A readable source, like an InputStream
         """
         cdef:
