@@ -111,28 +111,19 @@ Maven
         $ ls -latr ../java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
-- To build JNI ORC & JNI Gandiva libraries:
+- To build all JNI libraries except the JNI C Data Interface library:
 
     .. code-block::
 
         $ cd arrow/java
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
-        $ mvn clean generate-resources -Pgenerate-jnicpp-dylib_so -N
-        $ ls -latr  java-dist/lib
-        |__ libarrow_orc_jni.dylib
-        |__ libgandiva_jni.dylib
-
-- To build only the JNI Dataset library:
-
-    .. code-block::
-
-        $ cd arrow/java
-        $ export JAVA_HOME=<absolute path to your java home>
-        $ java --version
-        $ mvn clean generate-resources -Pgenerate-dataset-dylib_so -N
+        $ mvn clean generate-resources -Pgenerate-jni-dylib_so -N
         $ ls -latr java-dist/lib
         |__ libarrow_dataset_jni.dylib
+        |__ libarrow_orc_jni.dylib
+        |__ libgandiva_jni.dylib
+        |__ libplasma_java.dylib
 
 CMake
 ~~~~~
@@ -142,7 +133,7 @@ CMake
     .. code-block::
 
         $ cd arrow
-        $ mkdir -p java-dist java-jni
+        $ mkdir -p java-dist java-cdata
         $ cmake \
             -S java \
             -B java-jni \
@@ -155,7 +146,7 @@ CMake
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
 
-- To build JNI ORC & Gandiva libraries:
+- To build all JNI libraries except the JNI C Data Interface library:
 
     .. code-block::
 
@@ -176,7 +167,6 @@ CMake
             -DARROW_DEPENDENCY_USE_SHARED=OFF \
             -DARROW_FILESYSTEM=ON \
             -DARROW_GANDIVA=ON \
-            -DARROW_GANDIVA_JAVA=ON \
             -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
             -DARROW_JNI=ON \
             -DARROW_ORC=ON \
@@ -190,21 +180,11 @@ CMake
             -DCMAKE_INSTALL_PREFIX=java-dist \
             -DCMAKE_UNITY_BUILD=ON
         $ cmake --build cpp-jni --target install --config Release
-        $ ls -latr  java-dist/lib
-        |__ libarrow_orc_jni.dylib
-        |__ libgandiva_jni.dylib
-
-- To build only the JNI Dataset library:
-
-    .. code-block::
-
-        $ cd arrow
-        $ mkdir -p java-dist java-jni
         $ cmake \
             -S java \
             -B java-jni \
-            -DARROW_JAVA_JNI_ENABLE_DATASET=ON \
-            -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
+            -DARROW_JAVA_JNI_ENABLE_C=OFF \
+            -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=java-dist/lib \
@@ -212,6 +192,9 @@ CMake
         $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_dataset_jni.dylib
+        |__ libarrow_orc_jni.dylib
+        |__ libgandiva_jni.dylib
+        |__ libplasma_java.dylib
 
 Archery
 ~~~~~~~

@@ -26,6 +26,7 @@ add_custom_target(gandiva-benchmarks)
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVMAlt REQUIRED)
+provide_find_module(LLVMAlt "Gandiva")
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
