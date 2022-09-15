@@ -69,10 +69,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
  public:
   enum ExecPlanReaderStatus { PLAN_NOT_STARTED, PLAN_RUNNING, PLAN_FINISHED };
 
-  ExecPlanReader(
-      const std::shared_ptr<arrow::compute::ExecPlan>& plan,
-      const std::shared_ptr<arrow::Schema>& schema,
-      arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
+  ExecPlanReader(const std::shared_ptr<arrow::compute::ExecPlan>& plan,
+                 const std::shared_ptr<arrow::Schema>& schema,
+                 arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
       : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(PLAN_NOT_STARTED) {}
 
   std::string PlanStatus() const {
