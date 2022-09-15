@@ -21,8 +21,18 @@
 group_by.arrow_dplyr_query <- function(.data,
                                        ...,
                                        .add = FALSE,
-                                       add = .add,
+                                       add = NULL,
                                        .drop = dplyr::group_by_drop_default(.data)) {
+  if (!missing(add)) {
+    .Deprecated(
+      msg = paste(
+        "The `add` argument of `group_by()` is deprecated.",
+        "Please use the `.add` argument instead."
+      )
+    )
+    .add <- add
+  }
+
   .data <- as_adq(.data)
   expression_list <- expand_across(.data, quos(...))
   new_groups <- ensure_named_exprs(expression_list)
@@ -32,13 +42,8 @@ group_by.arrow_dplyr_query <- function(.data,
     .data <- dplyr::mutate(.data, !!!new_groups)
   }
 
-  if (!".add" %in% names(formals(dplyr::group_by))) {
-    # For compatibility with dplyr < 1.0
-    .add <- add
-  }
-
   if (.add) {
-    gv <- dplyr::union(dplyr::group_vars(.data), names(new_groups))
+    gv <- union(dplyr::group_vars(.data), names(new_groups))
   } else {
     gv <- names(new_groups)
   }
