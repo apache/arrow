@@ -56,10 +56,8 @@ mamba update -q -y -c conda-forge --all || exit /B
 @rem
 
 @rem Workaround for ARROW-17172
-@rem Due to failing test_cython_api() import of an external module in the
-@rem subprocess this env var is added for os.add_dll_directory to work as
-@rem expected in the conda environment and for the import to succeed.
-@rem See: https://github.com/ContinuumIO/anaconda-issues/issues/12475
+@rem This seems necessary for test_cython.py to succeed, otherwise
+@rem the extension module being built would fail loading in a subprocess.
 set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
 set CONDA_PACKAGES=
 
