@@ -16,7 +16,6 @@
 // under the License.
 
 // Implementation of casting to integer, floating point, or decimal types
-#include <iostream>
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
@@ -26,6 +25,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -773,29 +773,24 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
 
 Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
-
   DCHECK(batch[0].is_array());
   std::shared_ptr<Array> array = batch[0].array.ToArray();
   std::shared_ptr<Array> result;
-  auto ext_ty = GetExtensionType(kOutputTargetType.type()->name());
-  if (ext_ty == nullptr) {
-    return Status::Invalid("Could not find extension type: " + kOutputTargetType.type()->name());
-  }
-  auto out_ty = ext_ty->storage_type();
+
+  auto out_ty = GetExtensionType("arrow.py_integer_type")->storage_type();
   RETURN_NOT_OK(Cast(*array, out_ty, options,
                      ctx->exec_context())
                     .Value(&result));
-  ExtensionArray extension(ext_ty, result);
+  
+  ExtensionArray extension(options.to_type.GetSharedPtr(), result);
   out->value = std::move(extension.data());
   return Status::OK();
 }
 
 std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), Type::EXTENSION);
-  auto out_ty = kOutputTargetType.type();
-  std::cout << "About to add to kernel" << std::endl;
   DCHECK_OK(func->AddKernel(Type::INT64, {InputType(Type::INT64)}, 
-                            out_ty, CastToExtension));
+                            kOutputTargetType, CastToExtension));
   return func;
 }
 
