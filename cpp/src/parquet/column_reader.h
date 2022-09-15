@@ -163,7 +163,7 @@ class TypedColumnReader : public ColumnReader {
   // may be less than the number of repetition and definition levels. With
   // nested data this is almost certainly true.
   //
-  // Set def_levels or rep_levels to nullptr if you want to skip reading them.
+  // Set def_levels or rep_levels to nullptr if you want to reading them.
   // This is only safe if you know through some other source that there are no
   // undefined values.
   //
@@ -272,6 +272,10 @@ class RecordReader {
   /// \brief Attempt to read indicated number of records from column chunk
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
+  
+  /// \brief Attempt to skip indicated number of records from column chunk
+  /// \return number of records skipped
+  virtual int64_t SkipRecords(int64_t num_records) = 0;
 
   /// \brief Pre-allocate space for data. Results in better flat read performance
   virtual void Reserve(int64_t num_values) = 0;
@@ -292,7 +296,8 @@ class RecordReader {
   /// process
   virtual bool HasMoreData() const = 0;
 
-  /// \brief Advance record reader to the next row group
+  /// \brief Advance record reader to the next row group. Must be set before
+  /// any records could be read/skipped.
   /// \param[in] reader obtained from RowGroupReader::GetColumnPageReader
   virtual void SetPageReader(std::unique_ptr<PageReader> reader) = 0;
 
@@ -319,10 +324,13 @@ class RecordReader {
   int64_t levels_position() const { return levels_position_; }
 
   /// \brief Number of definition / repetition levels that have been written
-  /// internally in the reader
+  /// internally in the reader. This may be larger than values_written() because
+  // for repeated fields, we need to look at the levels in advance to figure out
+  // the record boundaries. Once we found the boundaries, we know exactly how
+  // many values to read. So we do not have buffering for the values.
   int64_t levels_written() const { return levels_written_; }
 
-  /// \brief Number of nulls in the leaf
+  /// \brief Number of nulls in the leaf that we have read so far.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
@@ -332,27 +340,49 @@ class RecordReader {
   bool read_dictionary() const { return read_dictionary_; }
 
  protected:
+   // Indicates if we can have nullable values.
   bool nullable_values_;
 
   bool at_record_start_;
   int64_t records_read_;
 
+  // Stores values. These values are populated based on each ReadRecords call.
+  // No extra values are buffered for the next call. SkipRecords will not
+  // add any value to this buffer.
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+  // In the case of false (BYTE_ARRAY), don't allocate the values buffer
+  // (when we directly read into builder classes).
+  bool uses_values_;
+
+  // Values that we have read into 'values_' + 'null_count_'.
   int64_t values_written_;
   int64_t values_capacity_;
   int64_t null_count_;
 
+  // Each element corresponds to one element in 'values_' and specifies if it
+  // is null or not null.
+  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
+  
+  // Buffers for repetition and definition levels. These buffers may have
+  // more levels than is actually read. This is because we read levels ahead to
+  // figure our record boundaries for repeated fields. 'levels_written_' shows
+  // the total number of levels that is in the buffer. 'levels_position_' points
+  // to the next level that should be read. ReadRecords and SkipRecords both
+  // advance 'levels_written_' and 'levels_position_'.
+  // For flat required fields, 'def_levels_' and 'rep_levels_' are not
+  // populated. For non-repeated fields 'rep_levels_' is not populated.
+  // 'def_levels_' and 'rep_levels_' must be of the same size if present.
+  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
+  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
+  
+  /// \brief Number of definition / repetition levels that have been written
+  /// internally in the reader. This may be larger than values_written() because
+  // for repeated fields, we need to look at the levels in advance to figure out
+  // the record boundaries. Once we found the boundaries, we know exactly how
+  // many values to read. So we do not have buffering for the values.
   int64_t levels_written_;
   int64_t levels_position_;
   int64_t levels_capacity_;
-
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-  // In the case of false, don't allocate the values buffer (when we directly read into
-  // builder classes).
-  bool uses_values_;
-
-  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
-  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
 
   bool read_dictionary_ = false;
 };
