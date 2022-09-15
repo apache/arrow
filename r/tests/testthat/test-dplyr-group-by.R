@@ -196,6 +196,20 @@ test_that("group_by() with .add", {
       collect(),
     tbl
   )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
   suppressWarnings(compare_dplyr_binding(
     .input %>%
       group_by(dbl2) %>%
