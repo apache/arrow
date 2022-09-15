@@ -66,9 +66,9 @@
 
 %locations
 
-%define parse.trace
+/* %define parse.trace
 %define parse.error detailed
-%define parse.lac full
+%define parse.lac full */
 
 %code {
   #include "gandiva/parser.h"
@@ -77,22 +77,32 @@
 
 %define api.token.prefix {TOK_}
 %token
-  IF      "if"
-  ELSE    "else"
-  IN      "in"
-  NOT     "not"
-  AND     "and"
-  OR      "or"
-  TRUE    "true"
-  FALSE   "false"
-  MINUS   "-"
-  PLUS    "+"
-  STAR    "*"
-  SLASH   "/"
-  LPAREN  "("
-  RPAREN  ")"
-  MODOLO  "%"
-  POWER   "^"
+  IF                          "if"
+  ELSE                        "else"
+  IN                          "in"
+  NOT                         "not"
+  AND                         "and"
+  OR                          "or"
+  TRUE                        "true"
+  FALSE                       "false"
+  MINUS                       "-"
+  PLUS                        "+"
+  STAR                        "*"
+  SLASH                       "/"
+  LPAREN                      "("
+  RPAREN                      ")"
+  MODOLO                      "%"
+  BITWISE_OR                  "|"
+  BITWISE_XOR                 "^"
+  BITWISE_AND                 "&"
+  BITWISE_NOT                 "~"
+  EQUAL                       "==" 
+  NOT_EQUAL                   "!="
+  LESS_THAN                   "<" 
+  LESS_THAN_OR_EQUAL_TO       "<=" 
+  GREATER_THAN                ">" 
+  GREATER_THAN_OR_EQUAL_TO    ">="
+  COMMA                       ","
 ;
 
 %token <std::string> IDENTIFIER "identifier";
@@ -102,24 +112,38 @@
 %token <FloatLiteralWithSuffix> FLOAT_LITERAL_WITH_SUFFIX "float_literal_with_suffix";
 %token <std::string> STRING_LITERAL "string_literal";
 %nterm <NodePtr> exp;
+%nterm <NodePtr> term;
 %nterm <NodePtr> literal;
 %nterm <NodePtr> field;
+%nterm <NodePtr> function;
+%nterm <NodePtr> infix_function;
+%nterm <NodePtr> named_function;
+%nterm <NodeVector> args;
+%nterm <NodePtr> arg;
 
 %%
 %start exp;
 
-%left "-";
-%left "+";
-%left "*";
-%left "/";
-%precedence NEG;
+%left "or";
+%left "and";
+%left "|";
 %left "^";
+%left "&";
+
+%left "==" "!=";
+%left "<" "<=" ">" ">=";
+%left "-" "+";
+%left "*" "/" "%";
+%precedence NEG;
 %left "(" ")";
 
-exp:
-  literal { *parser.node_ptr_ = $1; }
-| field { *parser.node_ptr_ = $1; }
-;
+exp: term {*parser.node_ptr_ = std::move($1);}
+
+term:
+  literal {$$ = std::move($1);}
+| field {$$ = std::move($1);}
+| function {$$ = std::move($1);}
+| "(" term ")" {$$ = std::move($2);}
 
 literal:
   INT_LITERAL { MAKE_LITERAL_NODE($$, $1, uint64_t, nullptr, std::stoull, @1); }
@@ -159,6 +183,46 @@ field:
     $$ = std::make_shared<gandiva::FieldNode>(field_ptr);
   }
 ;
+
+function:
+  infix_function {$$ = std::move($1);}
+| named_function {$$ = std::move($1);}
+;
+
+infix_function:
+  "-" term %prec NEG {$$ = std::make_shared<gandiva::FunctionNode>("negative", gandiva::NodeVector{std::move($2)}, nullptr);}
+| "not" term %prec NEG {$$ = std::make_shared<gandiva::FunctionNode>("not", gandiva::NodeVector{std::move($2)}, nullptr);}
+| "~" term %prec NEG {$$ = std::make_shared<gandiva::FunctionNode>("bitwise_not", gandiva::NodeVector{std::move($2)}, nullptr);}
+| term "+" term {$$ = std::make_shared<gandiva::FunctionNode>("add", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "-" term {$$ = std::make_shared<gandiva::FunctionNode>("substract", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "*" term {$$ = std::make_shared<gandiva::FunctionNode>("multiply", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "/" term {$$ = std::make_shared<gandiva::FunctionNode>("div", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "%" term {$$ = std::make_shared<gandiva::FunctionNode>("mod", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "&" term {$$ = std::make_shared<gandiva::FunctionNode>("bitwise_and", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "|" term {$$ = std::make_shared<gandiva::FunctionNode>("bitwise_or", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "^" term {$$ = std::make_shared<gandiva::FunctionNode>("bitwise_xor", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "==" term {$$ = std::make_shared<gandiva::FunctionNode>("equal", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "!=" term {$$ = std::make_shared<gandiva::FunctionNode>("not_equal", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term ">" term {$$ = std::make_shared<gandiva::FunctionNode>("greater_than", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term ">=" term {$$ = std::make_shared<gandiva::FunctionNode>("greater_than_or_equal_to", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "<" term {$$ = std::make_shared<gandiva::FunctionNode>("less_than", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "<=" term {$$ = std::make_shared<gandiva::FunctionNode>("less_than_or_equal_to", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+;
+
+named_function:
+  IDENTIFIER "(" args ")" {$$ = std::make_shared<gandiva::FunctionNode>($1, $3, nullptr);}
+;
+
+args:
+  arg {$$ = std::vector<gandiva::NodePtr>{$1};}
+| args "," arg {
+    $1.emplace_back(std::move($3));
+    $$ = std::move($1);
+  }
+;
+
+arg:
+  term {$$ = std::move($1);}
 %%
 
 void gandiva::grammar::error (const location_type& l, const std::string& m) {

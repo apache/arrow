@@ -45,7 +45,8 @@ set(GANDIVA_GRAMMAR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/grammar.yy")
 set(GANDIVA_LEX_GENERATED_PATH "${CMAKE_CURRENT_BINARY_DIR}/lex.cc")
 set(GANDIVA_GRAMMAR_GENERATED_PATH "${CMAKE_CURRENT_BINARY_DIR}/grammar.cc")
 flex_target(gandiva_lex ${GANDIVA_LEX_PATH} ${GANDIVA_LEX_GENERATED_PATH})
-bison_target(gandiva_grammar ${GANDIVA_GRAMMAR_PATH} ${GANDIVA_GRAMMAR_GENERATED_PATH})
+bison_target(gandiva_grammar ${GANDIVA_GRAMMAR_PATH} ${GANDIVA_GRAMMAR_GENERATED_PATH}
+             COMPILE_FLAGS -Wcounterexamples)
 
 add_flex_bison_dependency(gandiva_lex gandiva_grammar)
 

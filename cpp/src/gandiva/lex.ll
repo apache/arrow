@@ -99,9 +99,9 @@
 #endif
 %}
 
-%option noyywrap nounput noinput batch debug
+%option noyywrap nounput noinput batch
 
-id    [a-zA-Z][a-zA-Z_\-0-9]*
+id    [a-zA-Z][a-zA-Z_0-9]*
 int   [0-9]+
 float [0-9]+\.[0-9]+
 blank [ \t\r]
@@ -120,22 +120,32 @@ blank [ \t\r]
 {blank}+   loc.step ();
 \n+        loc.lines (yyleng); loc.step ();
 
-"if"      return gandiva::grammar::make_IF      (loc);      
-"else"    return gandiva::grammar::make_ELSE    (loc);    
-"in"      return gandiva::grammar::make_IN      (loc);      
-"not"     return gandiva::grammar::make_NOT     (loc);     
-"and"     return gandiva::grammar::make_AND     (loc);     
-"or"      return gandiva::grammar::make_OR      (loc);      
-"true"    return gandiva::grammar::make_TRUE    (loc);      
-"false"   return gandiva::grammar::make_FALSE   (loc);      
-"-"       return gandiva::grammar::make_MINUS   (loc);   
-"+"       return gandiva::grammar::make_PLUS    (loc);    
-"*"       return gandiva::grammar::make_STAR    (loc);    
-"/"       return gandiva::grammar::make_SLASH   (loc);   
-"("       return gandiva::grammar::make_LPAREN  (loc);  
-")"       return gandiva::grammar::make_RPAREN  (loc);  
-"%"       return gandiva::grammar::make_MODOLO  (loc);  
-"^"       return gandiva::grammar::make_POWER   (loc);   
+"if"          return gandiva::grammar::make_IF                          (loc);      
+"else"        return gandiva::grammar::make_ELSE                        (loc);    
+"in"          return gandiva::grammar::make_IN                          (loc);      
+(not|!)       return gandiva::grammar::make_NOT                         (loc);     
+(and|&&)      return gandiva::grammar::make_AND                         (loc);     
+(or|\|\|)     return gandiva::grammar::make_OR                          (loc);      
+"true"        return gandiva::grammar::make_TRUE                        (loc);      
+"false"       return gandiva::grammar::make_FALSE                       (loc);      
+"-"           return gandiva::grammar::make_MINUS                       (loc);   
+"+"           return gandiva::grammar::make_PLUS                        (loc);    
+"*"           return gandiva::grammar::make_STAR                        (loc);    
+"/"           return gandiva::grammar::make_SLASH                       (loc);   
+"("           return gandiva::grammar::make_LPAREN                      (loc);  
+")"           return gandiva::grammar::make_RPAREN                      (loc);  
+"%"           return gandiva::grammar::make_MODOLO                      (loc);  
+"|"           return gandiva::grammar::make_BITWISE_OR                  (loc);
+"^"           return gandiva::grammar::make_BITWISE_XOR                 (loc);
+"&"           return gandiva::grammar::make_BITWISE_AND                 (loc);
+"~"           return gandiva::grammar::make_BITWISE_NOT                 (loc);
+"=="          return gandiva::grammar::make_EQUAL                       (loc);
+"!="          return gandiva::grammar::make_NOT_EQUAL                   (loc);
+"<"           return gandiva::grammar::make_LESS_THAN                   (loc);
+"<="          return gandiva::grammar::make_LESS_THAN_OR_EQUAL_TO       (loc);
+">"           return gandiva::grammar::make_GREATER_THAN                (loc);
+">="          return gandiva::grammar::make_GREATER_THAN_OR_EQUAL_TO    (loc);
+","           return gandiva::grammar::make_COMMA                       (loc);
 
 {id}       return gandiva::grammar::make_IDENTIFIER (yytext, loc);
 
