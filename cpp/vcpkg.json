@@ -15,7 +15,6 @@
       ]
     },
     "benchmark",
-    "bison",
     "boost-filesystem",
     "boost-multiprecision",
     "boost-process",
@@ -25,7 +24,6 @@
     "bzip2",
     "c-ares",
     "curl",
-    "flex",
     "flatbuffers",
     "gflags",
     "glog",
