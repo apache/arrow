@@ -81,8 +81,6 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="ARROW-17172: currently fails on windows")
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """
