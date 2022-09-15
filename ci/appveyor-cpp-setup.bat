@@ -55,6 +55,11 @@ mamba update -q -y -c conda-forge --all || exit /B
 @rem Create conda environment
 @rem
 
+@rem Workaround for ARROW-17172
+@rem Due to failing test_cython_api() import of an external module in the
+@rem subprocess this env var is added for os.add_dll_directory to work as
+@rem expected in the conda environment and for the import to succeed.
+@rem See: https://github.com/ContinuumIO/anaconda-issues/issues/12475
 set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
 set CONDA_PACKAGES=
 
