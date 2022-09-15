@@ -571,7 +571,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     \b
     export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
     \b
-    archery benchmark diff master "$LAST"
+    archery benchmark diff <default-branch> "$LAST"
 
     \b
     # Compare g++7 (contender) with clang++-8 (baseline) builds

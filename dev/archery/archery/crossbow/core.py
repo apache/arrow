@@ -372,7 +372,8 @@ class Repo:
                 target_name_tokenized = target_name.split("/")
                 default_branch_name = target_name_tokenized[-1]
             except:
-                raise RuntimeError('DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
+                raise RuntimeError(
+                    'DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
 
         return default_branch_name
 

@@ -237,7 +237,7 @@ class DefaultBranchName(object):
 
             if default_branch_name == None:
                 try:
-                    # Set up repo object 
+                    # Set up repo object
                     arrow = ArrowSources.find()
                     repo = Repo(arrow.path)
                     origin = repo.remotes["origin"]
@@ -256,11 +256,12 @@ class DefaultBranchName(object):
                     # The last token is the default branch name
                     default_branch_name = origin_head_name_tokenized[-1]
                 except:
-                    raise RuntimeError('DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
+                    raise RuntimeError(
+                        'DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
 
             # Set default branch as class property
             self.default_branch_name = default_branch_name
-            
+
         return self.instance
 
     @property
