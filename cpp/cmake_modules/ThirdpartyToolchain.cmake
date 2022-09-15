@@ -2691,6 +2691,8 @@ macro(build_bison)
                       BUILD_COMMAND ${MAKE}
                       BUILD_IN_SOURCE 1
                       INSTALL_COMMAND ${MAKE} install)
+  add_dependencies(toolchain bison_ep)
+  add_dependencies(toolchain-tests bison_ep)
 endmacro()
 
 if(ARROW_WITH_BISON)
@@ -2717,6 +2719,8 @@ macro(build_flex)
                       BUILD_COMMAND ${MAKE}
                       BUILD_IN_SOURCE 1
                       INSTALL_COMMAND ${MAKE} install)
+  add_dependencies(toolchain flex_ep)
+  add_dependencies(toolchain-tests flex_ep)
 endmacro()
 
 if(ARROW_WITH_FLEX)
