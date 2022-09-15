@@ -78,7 +78,7 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 #'
 %s
 #'
-#' @name arrow-dplyr-functions
+#' @name acero
 NULL"
 
 library(dplyr)
@@ -91,14 +91,22 @@ do_not_link <- c(
 
 # Vectorized function to make entries for each function
 render_fun <- function(fun, pkg_fun, notes) {
+  # Add () to fun if it's not an operator
+  not_operators <- grepl("^[[:alpha:]]", fun)
+  fun[not_operators] <- paste0(fun[not_operators], "()")
+  # Make it \code{} for better formatting
+  fun <- paste0("`", fun, "`")
+  # Wrap in \link{}
   out <- ifelse(
     pkg_fun %in% do_not_link,
-    paste0("* `", fun, "`"),
-    paste0("* [", fun, "][", pkg_fun, "()]")
+    fun,
+    paste0("[", fun, "][", pkg_fun, "()]")
   )
+  # Add notes after :, if exist
   has_notes <- nzchar(notes)
   out[has_notes] <- paste0(out[has_notes], ": ", notes[has_notes])
-  out
+  # Make bullets
+  paste("*", out)
 }
 
 # This renders a bulleted list under a package heading
@@ -121,16 +129,19 @@ docs <- arrow:::.cache$docs
 
 # across() is handled by manipulating the quosures, not by nse_funcs
 docs[["dplyr::across"]] <- c(
-  "only supported inside `mutate()`;", # TODO(ARROW-17362, ARROW-17387)
-  "purrr-style lambda functions not yet supported" # TODO(ARROW-17366)
+  # TODO(ARROW-17387, ARROW-17389, ARROW-17390)
+  "only supported inside `mutate()`, `summarize()`, and `arrange()`;",
+  # TODO(ARROW-17366)
+  "purrr-style lambda functions",
+  "and use of `where()` selection helper not yet supported"
 )
+# desc() is a special helper handled inside of arrange()
+docs[["dplyr::desc"]] <- character(0)
 
 # add tidyselect helpers by parsing the reexports file
 tidyselect <- grep("^tidyselect::", readLines("R/reexports-tidyselect.R"), value = TRUE)
 
 docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
-
-# TODO: add doc pages for add_filename() and cast()
 
 fun_df <- tibble::tibble(
   pkg_fun = names(docs),
