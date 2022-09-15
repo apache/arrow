@@ -260,10 +260,9 @@ threads are not necessarily cleaned up (a "cached thread pool" in Java parlance)
 glibc malloc clears some per thread state and the default tuning never clears
 caches in some workloads.
 
-gRPC's default behavior allows one server to accept many connections from many
+gRPC's default behaviour allows one server to accept many connections from many
 different clients, but if requests do a lot of work (as they may under Flight),
-the server may not be able to keep up. Configuring the server to limit the number
-of clients and reject requests more proactively, and configuring clients to retry
+the server may not be able to keep up. Configuring clients to retry
 with backoff (and potentially connect to a different node), would give more
 consistent quality of service.
 
