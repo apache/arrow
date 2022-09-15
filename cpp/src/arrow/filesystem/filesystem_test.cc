@@ -296,7 +296,7 @@ TEST(PathUtil, Globber) {
   ASSERT_FALSE(wildcards.Matches("/bucket0/foo/ab/a.parquet"));
 }
 
-TEST(InternalUtil, GlobFiles) {
+void TestGlobFiles(const std::string& base_dir) {
   auto fs = std::make_shared<MockFileSystem>(TimePoint{});
 
   auto check_entries = [](const std::vector<FileInfo>& infos,
@@ -308,13 +308,13 @@ TEST(InternalUtil, GlobFiles) {
     ASSERT_EQ(actual, expected);
   };
 
-  ASSERT_OK(fs->CreateDir("A/CD"));
-  ASSERT_OK(fs->CreateDir("AB/CD"));
-  ASSERT_OK(fs->CreateDir("AB/CD/ab"));
-  CreateFile(fs.get(), "A/CD/ab.txt", "data");
-  CreateFile(fs.get(), "AB/CD/a.txt", "data");
-  CreateFile(fs.get(), "AB/CD/abc.txt", "data");
-  CreateFile(fs.get(), "AB/CD/ab/c.txt", "data");
+  ASSERT_OK(fs->CreateDir(base_dir + "A/CD"));
+  ASSERT_OK(fs->CreateDir(base_dir + "AB/CD"));
+  ASSERT_OK(fs->CreateDir(base_dir + "AB/CD/ab"));
+  CreateFile(fs.get(), base_dir + "A/CD/ab.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/a.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/abc.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/ab/c.txt", "data");
 
   FileInfoVector infos;
   ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?b*.txt"));
@@ -328,6 +328,14 @@ TEST(InternalUtil, GlobFiles) {
 
   ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?/b*.txt"));
   ASSERT_EQ(infos.size(), 0);
+}
+
+TEST(InternalUtil, GlobFilesWithoutLeadingSlash) {
+  TestGlobFiles("");
+}
+
+TEST(InternalUtil, GlobFilesWithLeadingSlash) {
+  TestGlobFiles("/");
 }
 
 ////////////////////////////////////////////////////////////////////////////
