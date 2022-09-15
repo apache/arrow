@@ -34,7 +34,6 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ccache \
         clang-${llvm} \
         cmake \
@@ -107,4 +106,5 @@ ENV absl_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
-    xsimd_SOURCE=BUNDLED
+    xsimd_SOURCE=BUNDLED \
+    BISON_SOURCE=BUNDLED

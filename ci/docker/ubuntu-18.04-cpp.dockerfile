@@ -57,7 +57,6 @@ RUN apt-get update -y -q && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        bison \
         ca-certificates \
         ccache \
         cmake \
@@ -135,4 +134,5 @@ ENV ARROW_BUILD_STATIC=ON \
     Thrift_SOURCE=BUNDLED \
     utf8proc_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED \
-    zstd_SOURCE=BUNDLED
+    zstd_SOURCE=BUNDLED \
+    bison_SOURCE=BUNDLED
