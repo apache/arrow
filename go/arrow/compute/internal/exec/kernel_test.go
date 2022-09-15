@@ -159,6 +159,32 @@ func TestPrimitiveMatcher(t *testing.T) {
 	assert.False(t, match.Matches(arrow.Null))
 }
 
+func TestRLEMatcher(t *testing.T) {
+	tests := []struct {
+		enc     exec.TypeMatcher
+		match   arrow.DataType
+		nomatch arrow.DataType
+	}{
+		{exec.Integer(), arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String},
+		{exec.BinaryLike(), arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32},
+		{exec.SameTypeID(arrow.STRUCT), arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int16}), arrow.PrimitiveTypes.Int8},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.enc.String(), func(t *testing.T) {
+			matcher := exec.RunLengthEncoded(tt.enc)
+			assert.False(t, matcher.Matches(tt.match))
+			assert.True(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.match)))
+			assert.False(t, matcher.Matches(arrow.RunLengthEncodedOf(tt.nomatch)))
+			assert.Equal(t, "run_length_encoded("+tt.enc.String()+")", matcher.String())
+
+			assert.True(t, matcher.Equals(exec.RunLengthEncoded(tt.enc)))
+			assert.False(t, matcher.Equals(exec.Primitive()))
+			assert.False(t, matcher.Equals(exec.RunLengthEncoded(exec.SameTypeID(tt.nomatch.ID()))))
+		})
+	}
+}
+
 func TestInputTypeAnyType(t *testing.T) {
 	var ty exec.InputType
 	assert.Equal(t, exec.InputAny, ty.Kind)
