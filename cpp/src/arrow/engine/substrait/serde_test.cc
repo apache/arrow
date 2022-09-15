@@ -152,33 +152,13 @@ void AssertScanRelation(const compute::Declaration& output_scan,
   }
 }
 
-void AssertExpressionCall(const std::shared_ptr<Schema> schema,
-                          const compute::Expression output_expr,
-                          const compute::Expression& expected_expr) {
-  if (auto* out_call = output_expr.call()) {
-    if (auto* exp_call = expected_expr.call()) {
-      ASSERT_EQ(out_call->function_name, exp_call->function_name);
-      auto out_args = out_call->arguments;
-      auto exp_args = exp_call->arguments;
-      ASSERT_EQ(out_args.size(), exp_args.size());
-      int exp_id = 0;
-      for (const auto& arg : exp_args) {
-        // auto lhs = out_args[exp_id++].field_ref()->field_path()->indices()[0];
-        // ASSERT_EQ(schema->field_names()[lhs], *(arg.field_ref()->name()));
-        ASSERT_TRUE(arg.Equals(out_args[exp_id++]));
-      }
-    } else {
-    }
-  }
-}
-
 void AssertFilterRelation(const compute::Declaration& output_filter,
                           const compute::Expression& exp_filter_expr,
                           const std::shared_ptr<Schema>& schema) {
   const auto& filter_opts =
       checked_cast<const compute::FilterNodeOptions&>(*(output_filter.options));
   auto out_filter_expr = filter_opts.filter_expression;
-  AssertExpressionCall(schema, out_filter_expr, exp_filter_expr);
+  ASSERT_TRUE(out_filter_expr.Equals(exp_filter_expr));
 }
 
 void AssertProjectRelation(const compute::Declaration& output_projection,
@@ -190,7 +170,7 @@ void AssertProjectRelation(const compute::Declaration& output_projection,
   int expr_id = 0;
   ASSERT_EQ(out_expressions.size(), exp_expressions.size());
   for (const auto& out_expr : out_expressions) {
-    AssertExpressionCall(schema, out_expr, exp_expressions[expr_id++]);
+    ASSERT_TRUE(out_expr.Equals(exp_expressions[expr_id++]));
   }
 }
 
