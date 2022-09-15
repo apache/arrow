@@ -27,6 +27,7 @@ RUN apt-get update -y -q && \
     apt-get install -y -q \
         autoconf \
         automake \
+        autopoint \
         build-essential \
         ccache \
         cmake \
