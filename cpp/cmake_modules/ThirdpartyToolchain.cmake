@@ -2420,7 +2420,7 @@ if(ARROW_WITH_ZSTD)
                      REQUIRED_VERSION
                      1.4.0)
 
-  if(ZTSD_VENDORED)
+  if(ZSTD_VENDORED)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
     if(ARROW_ZSTD_USE_SHARED)
