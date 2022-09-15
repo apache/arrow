@@ -59,22 +59,6 @@
     } catch (const std::invalid_argument& e) {                                                  \
       throw syntax_error(loc, "invalid argument");                                              \
     }
-
-  // Check numetic_limits if func return type and ctype mismatch
-  // We check all integers for portability
-  #define MAKE_LITERAL_NODE_CHECKED(output, input, ctype, arrow_type, func, loc)                \
-    try {                                                                                       \
-      auto num = func(input);                                                                   \
-      if (num < std::numeric_limits<ctype>::min() || num > std::numeric_limits<ctype>::max()) { \
-        throw syntax_error(loc, "out of range");                                                \
-      }                                                                                         \
-      output = std::make_shared<gandiva::LiteralNode>(                                          \
-          arrow_type, gandiva::LiteralHolder(static_cast<ctype>(num)), false);                  \
-    } catch (const std::out_of_range& e) {                                                      \
-      throw syntax_error(loc, "out of range");                                                  \
-    } catch (const std::invalid_argument& e) {                                                  \
-      throw syntax_error(loc, "invalid argument");                                              \
-    }
 }
 
 // The parsing context.
@@ -138,28 +122,17 @@ exp:
 ;
 
 literal:
-  INT_LITERAL { MAKE_LITERAL_NODE_CHECKED($$, $1, uint64_t, nullptr, std::stoull, @1); }
+  INT_LITERAL { MAKE_LITERAL_NODE($$, $1, uint64_t, nullptr, std::stoull, @1); }
 | INT_LITERAL_WITH_SUFFIX {
     switch ($1.suffix) {
-      case IntegerSuffix::u8: MAKE_LITERAL_NODE_CHECKED($$, $1.text, uint8_t, arrow::uint8(), std::stoul, @1); break;
-      case IntegerSuffix::u16: MAKE_LITERAL_NODE_CHECKED($$, $1.text, uint16_t, arrow::uint16(), std::stoul, @1); break;
-      case IntegerSuffix::u32: MAKE_LITERAL_NODE_CHECKED($$, $1.text, uint32_t, arrow::uint32(), std::stoul, @1); break;
-      case IntegerSuffix::u64: MAKE_LITERAL_NODE_CHECKED($$, $1.text, uint64_t, arrow::uint64(), std::stoull, @1); break;
-      case IntegerSuffix::i8: MAKE_LITERAL_NODE_CHECKED($$, $1.text, int8_t, arrow::int8(), std::stoi, @1); break;
-      case IntegerSuffix::i16: MAKE_LITERAL_NODE_CHECKED($$, $1.text, int16_t, arrow::int16(), std::stoi, @1); break;
-      case IntegerSuffix::i32: MAKE_LITERAL_NODE_CHECKED($$, $1.text, int32_t, arrow::int32(), std::stol, @1); break;
-      case IntegerSuffix::i64: MAKE_LITERAL_NODE_CHECKED($$, $1.text, int64_t, arrow::int64(), std::stoll, @1); break;
-    }
-  }
-// negative literals need special consideration because of overflow issue, e.g. -128 is a valid i8 but 128 is not.
-| "-" INT_LITERAL %prec NEG { MAKE_LITERAL_NODE_CHECKED($$, "-" + $2, int64_t, nullptr, std::stoll, @2); }
-| "-" INT_LITERAL_WITH_SUFFIX %prec NEG {
-    switch ($2.suffix) {
-      case IntegerSuffix::i8: MAKE_LITERAL_NODE_CHECKED($$, "-" + $2.text, int8_t, arrow::int8(), std::stoi, @2); break;
-      case IntegerSuffix::i16: MAKE_LITERAL_NODE_CHECKED($$, "-" + $2.text, int16_t, arrow::int16(), std::stoi, @2); break;
-      case IntegerSuffix::i32: MAKE_LITERAL_NODE_CHECKED($$, "-" + $2.text, int32_t, arrow::int32(), std::stol, @2); break;
-      case IntegerSuffix::i64: MAKE_LITERAL_NODE_CHECKED($$, "-" + $2.text, int64_t, arrow::int64(), std::stoll, @2); break;
-      default: throw syntax_error(@2, "wrong suffix for nagative number"); break;
+      case IntegerSuffix::u8: MAKE_LITERAL_NODE($$, $1.text, uint8_t, arrow::uint8(), std::stoull, @1); break;
+      case IntegerSuffix::u16: MAKE_LITERAL_NODE($$, $1.text, uint16_t, arrow::uint16(), std::stoull, @1); break;
+      case IntegerSuffix::u32: MAKE_LITERAL_NODE($$, $1.text, uint32_t, arrow::uint32(), std::stoull, @1); break;
+      case IntegerSuffix::u64: MAKE_LITERAL_NODE($$, $1.text, uint64_t, arrow::uint64(), std::stoull, @1); break;
+      case IntegerSuffix::i8: MAKE_LITERAL_NODE($$, $1.text, int8_t, arrow::int8(), std::stoull, @1); break;
+      case IntegerSuffix::i16: MAKE_LITERAL_NODE($$, $1.text, int16_t, arrow::int16(), std::stoull, @1); break;
+      case IntegerSuffix::i32: MAKE_LITERAL_NODE($$, $1.text, int32_t, arrow::int32(), std::stoull, @1); break;
+      case IntegerSuffix::i64: MAKE_LITERAL_NODE($$, $1.text, int64_t, arrow::int64(), std::stoull, @1); break;
     }
   }
 | FLOAT_LITERAL {MAKE_LITERAL_NODE($$, $1, double, nullptr, std::stod, @1)}
@@ -167,13 +140,6 @@ literal:
     switch ($1.suffix) {
       case FloatSuffix::f32: MAKE_LITERAL_NODE($$, $1.text, float, arrow::float32(), std::stof, @1); break;
       case FloatSuffix::f64: MAKE_LITERAL_NODE($$, $1.text, double, arrow::float64(), std::stod, @1); break;
-    }
-  }
-| "-" FLOAT_LITERAL %prec NEG {MAKE_LITERAL_NODE($$, "-" + $2, double, nullptr, std::stod, @2)}
-| "-" FLOAT_LITERAL_WITH_SUFFIX %prec NEG {
-    switch ($2.suffix) {
-      case FloatSuffix::f32: MAKE_LITERAL_NODE($$, "-" + $2.text, float, arrow::float32(), std::stof, @2); break;
-      case FloatSuffix::f64: MAKE_LITERAL_NODE($$, "-" + $2.text, double, arrow::float64(), std::stod, @2); break;
     }
   }
 | STRING_LITERAL {
