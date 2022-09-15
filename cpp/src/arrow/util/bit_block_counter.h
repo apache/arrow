@@ -211,7 +211,6 @@ class ARROW_EXPORT OptionalBitBlockCounter {
   // validity_bitmap may be null
   OptionalBitBlockCounter(const std::shared_ptr<Buffer>& validity_bitmap, int64_t offset,
                           int64_t length);
-  
   OptionalBitBlockCounter(OptionalBitBlockCounter& other) noexcept = default;
   OptionalBitBlockCounter();
 
