@@ -25,8 +25,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 
-#include <iostream>  // TODO: remove
-
 namespace arrow {
 
 using internal::StatusDetailFromErrno;
