@@ -385,7 +385,7 @@ endif()
 
 if(NOT ARROW_GANDIVA)
   set(ARROW_WITH_BISON OFF)
-  set(ARROW_WITH_BISON OFF)
+  set(ARROW_WITH_FLEX OFF)
 endif()
 
 # ----------------------------------------------------------------------
