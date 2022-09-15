@@ -17,13 +17,11 @@
 
 aws-sdk-cpp=1.8.186
 benchmark>=1.6.0
-bison>=3.8
 boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
 cmake
-flex>=2.5
 gflags
 glog
 gmock>=1.10.0
