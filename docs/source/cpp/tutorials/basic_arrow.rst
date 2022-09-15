@@ -39,7 +39,7 @@ Pre-requisites
 --------------
 Before continuing, make sure you have:
 
-#. An Arrow installation
+#. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`
 #. Understanding of how to use basic C++ data structures
 #. Understanding of basic C++ data types
 
@@ -79,7 +79,7 @@ This allows us to easily use Arrow’s error-handling macros, which will
 return back to ``main()`` with a :class:`arrow::Status` object if a failure occurs – and
 this ``main()`` will report the error. Note that this means Arrow never
 raises exceptions, instead relying upon returning :class:`Status`. For more on
-that, read here: <LINK TO CONCEPTUAL OVERVIEW>
+that, read here: :doc:`/cpp/conventions`.
 
 To accompany this ``main()``, we have a ``RunMain()`` from which any :class:`Status`
 objects can return – this is where we’ll write the rest of the program:

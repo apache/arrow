@@ -38,7 +38,7 @@ Pre-requisites
 
 Before continuing, make sure you have:
 
-1. An Arrow installation
+1. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`
 
 2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
 
