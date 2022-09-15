@@ -2679,6 +2679,7 @@ endmacro()
 macro(build_bison)
   message(STATUS "Building bison from source")
   set(BISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/bison_ep-install")
+  set(BISON_ROOT ${BISON_PREFIX})
   set(BISON_CONFIGURE_COMMAND ./configure)
 
   externalproject_add(bison_ep
@@ -2704,6 +2705,7 @@ endif()
 macro(build_flex)
   message(STATUS "Building flex from source")
   set(FLEX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flex_ep-install")
+  set(FLEX_ROOT ${FLEX_PREFIX})
   set(FLEX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
 
   externalproject_add(flex_ep
