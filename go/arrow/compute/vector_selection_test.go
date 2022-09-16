@@ -710,6 +710,121 @@ func (tk *TakeKernelTestString) TestTakeString() {
 	})
 }
 
+type TakeKernelLists struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelLists) TestListInt32() {
+	tk.dt = arrow.ListOf(arrow.PrimitiveTypes.Int32)
+
+	listJSON := `[[], [1, 2], null, [3]]`
+	tk.checkTake(tk.dt, listJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 2, 1]`, `[[3], null, [1,2]]`)
+	tk.checkTake(tk.dt, listJSON, `[null, 3, 0]`, `[null, [3], []]`)
+	tk.checkTake(tk.dt, listJSON, `[null, null]`, `[null, null]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 0, 0, 3]`, `[[3], [], [], [3]]`)
+	tk.checkTake(tk.dt, listJSON, `[0, 1, 2, 3]`, listJSON)
+	tk.checkTake(tk.dt, listJSON, `[0, 0, 0, 0, 0, 0, 1]`, `[[], [], [], [], [], [], [1, 2]]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[[], [1, 2], [3]]`, `[0, 1, 0]`)
+}
+
+func (tk *TakeKernelLists) TestListListInt32() {
+	tk.dt = arrow.ListOf(arrow.ListOf(arrow.PrimitiveTypes.Int32))
+
+	listJSON := `[
+		[],
+		[[1], [2, null, 2], []],
+		null,
+		[[3, null], null]
+	]`
+	tk.checkTake(tk.dt, listJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 2, 1]`, `[
+		[[3, null], null],
+		null,
+		[[1], [2, null, 2], []]
+	]`)
+	tk.checkTake(tk.dt, listJSON, `[null, 3, 0]`, `[
+		null,
+		[[3, null], null],
+		[]
+	]`)
+	tk.checkTake(tk.dt, listJSON, `[null, null]`, `[null, null]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 0, 0, 3]`, `[[[3, null], null], [], [], [[3, null], null]]`)
+	tk.checkTake(tk.dt, listJSON, `[0, 1, 2, 3]`, listJSON)
+	tk.checkTake(tk.dt, listJSON, `[0, 0, 0, 0, 0, 0, 1]`,
+		`[[], [], [], [], [], [], [[1], [2, null, 2], []]]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[[[1], [2, null, 2], []], [[3, null]]]`, `[0, 1, 0]`)
+}
+
+func (tk *TakeKernelLists) TestLargeListInt32() {
+	tk.dt = arrow.LargeListOf(arrow.PrimitiveTypes.Int32)
+	listJSON := `[[], [1, 2], null, [3]]`
+	tk.checkTake(tk.dt, listJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, listJSON, `[null, 1, 2, 0]`, `[null, [1, 2], null, []]`)
+}
+
+func (tk *TakeKernelLists) TestFixedSizeListInt32() {
+	tk.dt = arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int32)
+	listJSON := `[null, [1, null, 3], [4, 5, 6], [7, 8, null]]`
+	tk.checkTake(tk.dt, listJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 2, 1]`, `[[7, 8, null], [4, 5, 6], [1, null, 3]]`)
+	tk.checkTake(tk.dt, listJSON, `[null, 2, 0]`, `[null, [4, 5, 6], null]`)
+	tk.checkTake(tk.dt, listJSON, `[null, null]`, `[null, null]`)
+	tk.checkTake(tk.dt, listJSON, `[3, 0, 0, 3]`, `[[7, 8, null], null, null, [7, 8, null]]`)
+	tk.checkTake(tk.dt, listJSON, `[0, 1, 2, 3]`, listJSON)
+	tk.checkTake(tk.dt, listJSON, `[2, 2, 2, 2, 2, 2, 1]`,
+		`[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, null, 3]]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[[1, null, 3], [4, 5, 6], [7, 8, null]]`, `[0, 1, 0]`)
+}
+
+type TakeKernelDenseUnion struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelDenseUnion) TestTakeUnion() {
+	tk.dt = arrow.DenseUnionOf([]arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}, []arrow.UnionTypeCode{2, 5})
+
+	unionJSON := `[
+		[2, null],
+		[2, 222],
+		[5, "hello"],
+		[5, "eh"],
+		[2, null],
+		[2, 111],
+		[5, null]
+	]`
+	tk.checkTake(tk.dt, unionJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, unionJSON, `[3, 1, 3, 1, 3]`, `[
+		[5, "eh"],
+		[2, 222],
+		[5, "eh"],
+		[2, 222],
+		[5, "eh"]
+	]`)
+	tk.checkTake(tk.dt, unionJSON, `[4, 2, 1, 6]`, `[
+		[2, null],
+		[5, "hello"],
+		[2, 222],
+		[5, null]
+	]`)
+	tk.checkTake(tk.dt, unionJSON, `[0, 1, 2, 3, 4, 5, 6]`, unionJSON)
+	tk.checkTake(tk.dt, unionJSON, `[0, 2, 2, 2, 2, 2, 2]`, `[
+		[2, null],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"],
+		[5, "hello"]
+	]`)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
@@ -719,6 +834,8 @@ func TestTakeKernels(t *testing.T) {
 	for _, dt := range baseBinaryTypes {
 		suite.Run(t, &TakeKernelTestString{TakeKernelTestTyped: TakeKernelTestTyped{dt: dt}})
 	}
+	suite.Run(t, new(TakeKernelLists))
+	suite.Run(t, new(TakeKernelDenseUnion))
 }
 
 func TestFilterKernels(t *testing.T) {

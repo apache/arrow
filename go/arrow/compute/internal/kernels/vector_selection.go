@@ -1070,20 +1070,20 @@ func takeExec(ctx *exec.KernelCtx, outputLen int64, values, indices *exec.ArrayS
 	}
 }
 
-type outputFn func(*exec.KernelCtx, int64, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult, func(int64) error, func() error) error
-type implFn func(*exec.KernelCtx, *exec.ExecSpan, int64, *exec.ExecResult, outputFn) error
+type selectionOutputFn func(*exec.KernelCtx, int64, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult, func(int64) error, func() error) error
+type selectionImplFn func(*exec.KernelCtx, *exec.ExecSpan, int64, *exec.ExecResult, selectionOutputFn) error
 
-func FilterExec(impl implFn, fn outputFn) exec.ArrayKernelExec {
+func FilterExec(impl selectionImplFn) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			selection    = &batch.Values[1].Array
 			outputLength = getFilterOutputSize(selection, ctx.State.(FilterState).NullSelection)
 		)
-		return impl(ctx, batch, outputLength, out, fn)
+		return impl(ctx, batch, outputLength, out, filterExec)
 	}
 }
 
-func TakeExec(impl implFn, fn outputFn) exec.ArrayKernelExec {
+func TakeExec(impl selectionImplFn) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 		if ctx.State.(TakeState).BoundsCheck {
 			if err := checkIndexBounds(&batch.Values[1].Array, uint64(batch.Values[0].Array.Len)); err != nil {
@@ -1091,11 +1091,11 @@ func TakeExec(impl implFn, fn outputFn) exec.ArrayKernelExec {
 			}
 		}
 
-		return impl(ctx, batch, batch.Values[1].Array.Len, out, fn)
+		return impl(ctx, batch, batch.Values[1].Array.Len, out, takeExec)
 	}
 }
 
-func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn outputFn) error {
+func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
 	var (
 		values        = &batch.Values[0].Array
 		selection     = &batch.Values[1].Array
@@ -1144,7 +1144,7 @@ func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecS
 	return nil
 }
 
-func FSBImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn outputFn) error {
+func FSBImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
 	var (
 		values    = &batch.Values[0].Array
 		selection = &batch.Values[1].Array
@@ -1174,6 +1174,149 @@ func FSBImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out 
 		return err
 	}
 
+	return nil
+}
+
+func ListImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		rawOffsets      = exec.GetSpanOffsets[OffsetT](values, 1)
+		mem             = exec.GetAllocator(ctx.Ctx)
+		offsetBuilder   = newBufferBuilder[OffsetT](mem)
+		childIdxBuilder = newBufferBuilder[OffsetT](mem)
+	)
+
+	if values.Len > 0 {
+		dataLength := rawOffsets[values.Len] - rawOffsets[0]
+		meanListLen := float64(dataLength) / float64(values.Len)
+		childIdxBuilder.reserve(int(meanListLen))
+	}
+
+	offsetBuilder.reserve(int(outputLength) + 1)
+	var offset OffsetT
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offsetBuilder.unsafeAppend(offset)
+			valueOffset := rawOffsets[idx]
+			valueLength := rawOffsets[idx+1] - valueOffset
+			offset += valueLength
+			childIdxBuilder.reserve(int(valueLength))
+			for j := valueOffset; j < valueOffset+valueLength; j++ {
+				childIdxBuilder.unsafeAppend(j)
+			}
+			return nil
+		}, func() error {
+			offsetBuilder.unsafeAppend(offset)
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	offsetBuilder.unsafeAppend(offset)
+	out.Buffers[1].WrapBuffer(offsetBuilder.finish())
+
+	out.Children = make([]exec.ArraySpan, 1)
+	out.Children[0].Type = exec.GetDataType[OffsetT]()
+	out.Children[0].Len = int64(childIdxBuilder.len())
+	out.Children[0].Buffers[1].WrapBuffer(childIdxBuilder.finish())
+
+	return nil
+}
+
+func FSLImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		listSize   = values.Type.(*arrow.FixedSizeListType).Len()
+		baseOffset = values.Offset
+
+		childIdxBuilder = array.NewInt64Builder(exec.GetAllocator(ctx.Ctx))
+	)
+
+	// we need to take listSize elements even for null elements of indices
+	childIdxBuilder.Reserve(int(outputLength) * int(listSize))
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offset := (baseOffset + idx) * int64(listSize)
+			for j := offset; j < (offset + int64(listSize)); j++ {
+				childIdxBuilder.UnsafeAppend(j)
+			}
+			return nil
+		}, func() error {
+			for n := int32(0); n < listSize; n++ {
+				childIdxBuilder.AppendNull()
+			}
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	arr := childIdxBuilder.NewArray()
+	defer arr.Release()
+	out.Children = make([]exec.ArraySpan, 1)
+	out.Children[0].TakeOwnership(arr.Data())
+	return nil
+}
+
+func DenseUnionImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		mem               = exec.GetAllocator(ctx.Ctx)
+		valueOffsetBldr   = newBufferBuilder[int32](mem)
+		childIdBldr       = newBufferBuilder[int8](mem)
+		typeCodes         = values.Type.(arrow.UnionType).TypeCodes()
+		childIndicesBldrs = make([]*array.Int32Builder, len(typeCodes))
+	)
+
+	for i := range childIndicesBldrs {
+		childIndicesBldrs[i] = array.NewInt32Builder(mem)
+	}
+
+	childIdBldr.reserve(int(outputLength))
+	valueOffsetBldr.reserve(int(outputLength))
+
+	typedValues := values.MakeArray().(*array.DenseUnion)
+	defer typedValues.Release()
+
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			childID := typedValues.ChildID(int(idx))
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffset := typedValues.ValueOffset(int(idx))
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].Append(valueOffset)
+			return nil
+		}, func() error {
+			childID := 0
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].AppendNull()
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	out.Type = typedValues.DataType()
+	out.Buffers[1].WrapBuffer(childIdBldr.finish())
+	out.Buffers[2].WrapBuffer(valueOffsetBldr.finish())
+
+	out.Children = make([]exec.ArraySpan, len(childIndicesBldrs))
+	for i, b := range childIndicesBldrs {
+		arr := b.NewArray()
+		out.Children[i].TakeOwnership(arr.Data())
+		arr.Release()
+		b.Release()
+	}
 	return nil
 }
 
@@ -1228,9 +1371,9 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 	filterkernels = []SelectionKernelData{
 		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveFilter},
 		{In: exec.NewExactInput(arrow.Null), Exec: NullFilter},
-		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: FilterExec(FSBImpl, filterExec)},
-		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: FilterExec(FSBImpl, filterExec)},
-		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: FilterExec(FSBImpl, filterExec)},
+		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: FilterExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: FilterExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: FilterExec(FSBImpl)},
 		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: FilterBinary},
 		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: FilterBinary},
 	}
@@ -1238,11 +1381,11 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 	takeKernels = []SelectionKernelData{
 		{In: exec.NewExactInput(arrow.Null), Exec: NullTake},
 		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveTake},
-		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: TakeExec(FSBImpl, takeExec)},
-		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: TakeExec(FSBImpl, takeExec)},
-		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: TakeExec(FSBImpl, takeExec)},
-		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: TakeExec(VarBinaryImpl[int32], takeExec)},
-		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: TakeExec(VarBinaryImpl[int64], takeExec)},
+		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: TakeExec(VarBinaryImpl[int32])},
+		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: TakeExec(VarBinaryImpl[int64])},
 	}
 	return
 }
