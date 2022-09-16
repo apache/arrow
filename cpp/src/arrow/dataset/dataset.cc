@@ -20,7 +20,6 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
