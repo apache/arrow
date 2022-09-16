@@ -138,7 +138,7 @@ Status TypeInferenceVisitor::Infer(NodePtr input, NodePtr* result) {
     return status;
   }
 
-  std::cout << "first pass: " << result_->ToString() << std::endl;
+  // std::cout << "first pass: " << result_->ToString() << std::endl;
 
   if (all_typed_) {
     *result = result_;
@@ -153,20 +153,7 @@ Status TypeInferenceVisitor::Infer(NodePtr input, NodePtr* result) {
   if (!status.ok()) {
     return status;
   }
-  std::cout << "second pass: " << result_->ToString() << std::endl;
-  if (all_typed_) {
-    *result = result_;
-    return Status::OK();
-  }
-
-  /// Final pass, bottom up propagation using new default types
-  all_typed_ = true;
-
-  status = input->Accept(*this);
-  if (!status.ok()) {
-    return status;
-  }
-  std::cout << "third pass: " << result_->ToString() << std::endl;
+  // std::cout << "second pass: " << result_->ToString() << std::endl;
 
   *result = result_;
   return Status::OK();
@@ -180,7 +167,7 @@ Status TypeInferenceVisitor::Visit(const FieldNode& node) {
 
 /// \brief Try to infer the type
 Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
-  std::cout << "func visit " << node.ToString() << std::endl;
+  // std::cout << "func visit " << node.ToString() << std::endl;
 
   Status status;
   std::vector<NodePtr> children;
@@ -228,7 +215,7 @@ Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
   result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,
                                            current_pattern.ret_type());
 
-  std::cout << "func result " << result_->ToString() << std::endl;
+  // std::cout << "func result " << result_->ToString() << std::endl;
   return Status::OK();
 }
 
@@ -348,7 +335,7 @@ Status TypeInferenceVisitor::Visit(const LiteralNode& node) {
 }
 
 Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
-  std::cout << "bool visit " << node.ToString() << std::endl;
+  // std::cout << "bool visit " << node.ToString() << std::endl;
   Status status;
   std::vector<NodePtr> children = node.children();
   for (auto& child : children) {
@@ -368,7 +355,7 @@ Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
     all_typed_ = false;
   }
 
-  std::cout << "bool result " << result_->ToString() << std::endl;
+  // std::cout << "bool result " << result_->ToString() << std::endl;
 
   return Status::OK();
 }

@@ -226,8 +226,8 @@ TEST_F(TestParser, TestBoolean) {
   EXPECT_EQ(expr_->ToString(),
             "bool less_than_or_equal_to((int32) x, (const int32) 7) && bool "
             "greater_than((int32) x, (const int32) 2) || bool less_than((int32) x, "
-            "(const int32) 0) && bool not(untyped less_than((int32) x, untyped "
-            "negative((const untyped) 10)))");
+            "(const int32) 0) && bool not(bool less_than((int32) x, int32 "
+            "negative((const int32) 10)))");
 }
 
 TEST_F(TestParser, TestTypeInference) {
