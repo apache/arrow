@@ -663,10 +663,61 @@ func (tk *TakeKernelTestNumeric) TestTakeNumeric() {
 	})
 }
 
+type TakeKernelTestFSB struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestFSB) SetupSuite() {
+	tk.dt = &arrow.FixedSizeBinaryType{ByteWidth: 3}
+}
+
+func (tk *TakeKernelTestFSB) TestFixedSizeBinary() {
+	// YWFh == base64("aaa")
+	// YmJi == base64("bbb")
+	// Y2Nj == base64("ccc")
+	tk.assertTake(`["YWFh", "YmJi", "Y2Nj"]`, `[0, 1, 0]`, `["YWFh", "YmJi", "YWFh"]`)
+	tk.assertTake(`[null, "YmJi", "Y2Nj"]`, `[0, 1, 0]`, `[null, "YmJi", null]`)
+	tk.assertTake(`["YWFh", "YmJi", "Y2Nj"]`, `[null, 1, 0]`, `[null, "YmJi", "YWFh"]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `["YWFh", "YmJi", "Y2Nj"]`, `[0, 1, 0]`)
+
+	_, err := tk.takeJSON(tk.dt, `["YWFh", "YmJi", "Y2Nj"]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeJSON(tk.dt, `["YWFh", "YmJi", "Y2Nj"]`, arrow.PrimitiveTypes.Int64, `[2, 5]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+}
+
+type TakeKernelTestString struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestString) TestTakeString() {
+	tk.Run(tk.dt.String(), func() {
+		// base64 encoded so the binary non-utf8 arrays work
+		// YQ== -> "a"
+		// Yg== -> "b"
+		// Yw== -> "c"
+		tk.assertTake(`["YQ==", "Yg==", "Yw=="]`, `[0, 1, 0]`, `["YQ==", "Yg==", "YQ=="]`)
+		tk.assertTake(`[null, "Yg==", "Yw=="]`, `[0, 1, 0]`, `[null, "Yg==", null]`)
+		tk.assertTake(`["YQ==", "Yg==", "Yw=="]`, `[null, 1, 0]`, `[null, "Yg==", "YQ=="]`)
+
+		tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `["YQ==", "Yg==", "Yw=="]`, `[0, 1, 0]`)
+
+		_, err := tk.takeJSON(tk.dt, `["YQ==", "Yg==", "Yw=="]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+		tk.ErrorIs(err, arrow.ErrIndex)
+		_, err = tk.takeJSON(tk.dt, `["YQ==", "Yg==", "Yw=="]`, arrow.PrimitiveTypes.Int64, `[2, 5]`)
+		tk.ErrorIs(err, arrow.ErrIndex)
+	})
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
 		suite.Run(t, &TakeKernelTestNumeric{TakeKernelTestTyped: TakeKernelTestTyped{dt: dt}})
+	}
+	suite.Run(t, new(TakeKernelTestFSB))
+	for _, dt := range baseBinaryTypes {
+		suite.Run(t, &TakeKernelTestString{TakeKernelTestTyped: TakeKernelTestTyped{dt: dt}})
 	}
 }
 
