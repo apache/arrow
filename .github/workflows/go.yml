@@ -68,7 +68,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.10
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -191,7 +191,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.10
       - name: Run Benchmarks
         shell: bash
         run: |
@@ -235,7 +235,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.10
       - name: Run Benchmarks
         shell: bash
         run: |
@@ -342,7 +342,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.10
       - name: Run Benchmarks
         shell: bash
         run: |
