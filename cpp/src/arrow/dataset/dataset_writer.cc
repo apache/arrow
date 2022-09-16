@@ -442,7 +442,8 @@ Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
     return Status::Invalid("max_rows_per_group must be a positive number");
   }
   if (options.max_rows_per_group < options.min_rows_per_group) {
-    return Status::Invalid("max_rows_per_group must be less than min_rows_per_group");
+    return Status::Invalid(
+        "min_rows_per_group must be less than or equal to max_rows_per_group");
   }
   if (options.max_rows_per_file > 0 &&
       options.max_rows_per_file < options.max_rows_per_group) {
