@@ -3094,6 +3094,9 @@ TEST(Substrait, AggregateRelEmit) {
 }
 
 TEST(Substrait, ReadRelWithGlobFiles) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
 
