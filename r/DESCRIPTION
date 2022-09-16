@@ -41,7 +41,7 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.2.0
+RoxygenNote: 7.2.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
