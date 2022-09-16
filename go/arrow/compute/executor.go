@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"runtime"
 	"sync"
 
 	"github.com/apache/arrow/go/v10/arrow"
@@ -44,6 +45,7 @@ type ExecCtx struct {
 	PreallocContiguous bool
 	Registry           FunctionRegistry
 	ExecChannelSize    int
+	NP                 int
 }
 
 type ctxExecKey struct{}
@@ -70,6 +72,9 @@ func init() {
 	defaultExecCtx.PreallocContiguous = true
 	defaultExecCtx.Registry = GetFunctionRegistry()
 	defaultExecCtx.ExecChannelSize = 10
+	// default level of parallelism
+	// set to 1 to disable parallelization
+	defaultExecCtx.NP = runtime.NumCPU()
 }
 
 // SetExecCtx returns a new child context containing the passed in ExecCtx
