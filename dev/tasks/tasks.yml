@@ -927,6 +927,11 @@ tasks:
       - flight-sql-{no_rc_snapshot_version}-tests.jar
       - flight-sql-{no_rc_snapshot_version}.jar
       - flight-sql-{no_rc_snapshot_version}.pom
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-javadoc.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-sources.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}.pom
 
   ############################## NuGet packages ###############################
 
