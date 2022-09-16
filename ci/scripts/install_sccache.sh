@@ -46,7 +46,7 @@ fi
 tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --wildcards sccache*/sccache* 
 chmod u+x $PREFIX/sccache
 
-if [ "$GITHUB_ACTIONS" ]; then
+if [ "${GITHUB_ACTIONS}" = "true" ]; then
     echo "$PREFIX" >> $GITHUB_PATH
     # Add executable for windows as mingw workaround.
     echo "SCCACHE_PATH=$PREFIX/sccache.exe" >> $GITHUB_ENV
