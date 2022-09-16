@@ -337,6 +337,41 @@ class ARROW_EXPORT ExecNode {
   /// \brief Stop producing definitively to all outputs
   virtual void StopProducing() = 0;
 
+  static constexpr int32_t kImplicitOrderingColumn = -1;
+  static const std::vector<int32_t> kImplicitOrdering;
+  static const std::vector<int32_t> kNoOrdering;
+
+  /// \brief The ordering of the node
+  ///
+  /// If a node has an ordering then output batches will be labeled with an `index`
+  /// which should determine the position of the batch in the stream according to
+  /// the ordering.
+  ///
+  /// An empty vector indicates that there is no ordering for the node.
+  ///
+  /// The ordering is a list of column indices which the data is sorted by.  For
+  /// example, an ordering of {1, 0} would mean the data is first sorted by column
+  /// 1 and then by column 0.
+  ///
+  /// Nodes which impose an ordering will typically determine their ordering from
+  /// node options and should return that here.  Nodes which pass data through will
+  /// typically forward the ordering of their input.  Nodes which rearrange data and
+  /// destroy any ordering should return an empty vector.
+  ///
+  /// There is a special ordering case, represnted by the vector {kImplicitOrderingColumn}
+  /// which is used to represent the "implicit order" of the data.  For example, if the
+  /// input to Acero is an in-memory table then the implicit ordering is the order of the
+  /// data according to the row number of the table (even though row number may not be a
+  /// column).  If the input is a dataset then the "implicit order" is the ordering
+  /// (fragment_index,batch_index).  Effectively, the implicit order can be any ordering
+  /// which is not represented by columns in the dataset.
+  ///
+  /// The implict ordering cannot be used, for example, to implement an ordered streaming
+  /// group by or an ordered streaming join.  However, it can be used for things like a
+  /// fetch node or to guaranteed the output of the plan is reassambled in the same input
+  /// order.
+  virtual const std::vector<int32_t>& ordering() = 0;
+
   /// \brief A future which will be marked finished when this node has stopped producing.
   virtual Future<> finished() { return finished_; }
 
@@ -395,6 +430,8 @@ class ARROW_EXPORT MapNode : public ExecNode {
   void StopProducing(ExecNode* output) override;
 
   void StopProducing() override;
+
+  const std::vector<int32_t>& ordering() override;
 
  protected:
   void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);

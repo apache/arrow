@@ -71,7 +71,7 @@ ExecBatch::ExecBatch(const RecordBatch& batch)
 }
 
 bool ExecBatch::Equals(const ExecBatch& other) const {
-  return guarantee == other.guarantee && values == other.values;
+  return index == other.index && guarantee == other.guarantee && values == other.values;
 }
 
 void PrintTo(const ExecBatch& batch, std::ostream* os) {
@@ -82,6 +82,9 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
   *os << indent << "# Rows: " << batch.length << "\n";
   if (batch.guarantee != literal(true)) {
     *os << indent << "Guarantee: " << batch.guarantee.ToString() << "\n";
+  }
+  if (batch.index != ExecBatch::kNoOrdering) {
+    *os << indent << "Index: " << batch.index << "\n";
   }
 
   int i = 0;

@@ -228,7 +228,7 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 /// RecordBatch which may have missing or incorrectly ordered columns.
 /// Missing fields will be replaced with null scalars.
 ARROW_EXPORT Result<ExecBatch> MakeExecBatch(const Schema& full_schema,
-                                             const Datum& partial,
+                                             const Datum& partial, int32_t index,
                                              Expression guarantee = literal(true));
 
 /// Execute a scalar expression against the provided state and input ExecBatch. This

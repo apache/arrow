@@ -47,17 +47,25 @@ namespace {
 
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-             AsyncGenerator<std::optional<ExecBatch>> generator)
+             AsyncGenerator<std::optional<ExecBatch>> generator,
+             std::vector<int32_t> asserted_ordering)
       : ExecNode(plan, {}, {}, std::move(output_schema),
                  /*num_outputs=*/1),
-        generator_(std::move(generator)) {}
+        generator_(std::move(generator)) {
+    if (asserted_ordering.size() > 0) {
+      ordering_ = std::move(asserted_ordering);
+    } else {
+      ordering_ = {ExecNode::kImplicitOrderingColumn};
+    }
+  }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "SourceNode"));
     const auto& source_options = checked_cast<const SourceNodeOptions&>(options);
     return plan->EmplaceNode<SourceNode>(plan, source_options.output_schema,
-                                         source_options.generator);
+                                         source_options.generator,
+                                         source_options.asserted_ordering);
   }
 
   const char* kind_name() const override { return "SourceNode"; }
@@ -214,6 +222,8 @@ struct SourceNode : ExecNode {
     }
   }
 
+  const std::vector<int>& ordering() override { return ordering_; }
+
  private:
   std::mutex mutex_;
   int32_t backpressure_counter_{0};
@@ -222,11 +232,13 @@ struct SourceNode : ExecNode {
   bool started_ = false;
   int batch_count_{0};
   AsyncGenerator<std::optional<ExecBatch>> generator_;
+  std::vector<int32_t> ordering_;
 };
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
-      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size)) {}
+      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size),
+                   ExecNode::kImplicitOrdering) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

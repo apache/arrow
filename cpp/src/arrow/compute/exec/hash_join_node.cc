@@ -772,6 +772,7 @@ class HashJoinNode : public ExecNode {
   }
 
   const char* kind_name() const override { return "HashJoinNode"; }
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
 
   Status OnBuildSideBatch(size_t thread_index, ExecBatch batch) {
     std::lock_guard<std::mutex> guard(build_side_mutex_);

@@ -152,6 +152,9 @@ class SinkNode : public ExecNode {
   }
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
+  // There is no output and so there is no ordering
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
+
   void StopProducing() override {
     EVENT(span_, "StopProducing");
 
@@ -318,6 +321,9 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
     NoOutputs();
   }
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
+
+  // sink nodes have no output and no ordering
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
 
   void Pause() override { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }
 

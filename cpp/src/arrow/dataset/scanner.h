@@ -247,6 +247,11 @@ struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
 
   /// \brief Utility method to get a selection representing all columns in a dataset
   static std::vector<FieldPath> AllColumns(const Dataset& dataset);
+
+  /// \brief The ordering of the data
+  ///
+  /// \see SourceNode for details on how this assertion behaves
+  std::vector<int32_t> asserted_ordering;
 };
 
 /// \brief Describes a projection

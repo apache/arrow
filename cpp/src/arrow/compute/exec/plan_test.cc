@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <unordered_set>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -1479,6 +1480,45 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   for (const auto& batch : batches) {
     ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
   }
+}
+
+TEST(BatchOrder, FilterNode) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", boolean())});
+  auto random_data =
+      MakeRandomBatches(test_schema,
+                        /*num_batches=*/5, /*batch_size=*/10, /*ordered=*/true);
+
+  // Insert a batch that starts empty
+  random_data.batches[1] = ExecBatchFromJSON({int32(), boolean()}, "[]");
+  random_data.batches[1].values.emplace_back(1);
+  random_data.batches[1].index = 1;
+
+  // Insert a batch that will be completely filtered
+  random_data.batches[2] = ExecBatchFromJSON({int32(), boolean()}, "[[-1, false]]");
+  random_data.batches[2].values.emplace_back(2);
+  random_data.batches[2].index = 2;
+
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<ExecBatch> filtered_batches,
+      DeclarationToExecBatches(Declaration::Sequence(
+          {{"source",
+            SourceNodeOptions{random_data.schema, random_data.gen(/*parallel=*/true,
+                                                                  /*slow=*/true)}},
+           {"filter", FilterNodeOptions(greater(field_ref("a"), literal(0)))}})));
+
+  std::unordered_set<int32_t> filtered_batch_indices;
+  int32_t num_rows = 0;
+  for (const auto& batch : filtered_batches) {
+    filtered_batch_indices.insert(batch.index);
+    num_rows += batch.length;
+    if (batch.index == 2) {
+      // Sanity check that the filter is actually applied
+      ASSERT_EQ(0, batch.length);
+    }
+  }
+  ASSERT_EQ(std::unordered_set<int32_t>({0, 1, 2, 3, 4}), filtered_batch_indices);
 }
 
 }  // namespace compute

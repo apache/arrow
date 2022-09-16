@@ -872,6 +872,8 @@ class AsofJoinNode : public ExecNode {
     return indices_of_by_key_;
   }
 
+  const std::vector<int>& ordering() override { return indices_of_on_key_; }
+
   static Status is_valid_on_field(const std::shared_ptr<Field>& field) {
     switch (field->type()->id()) {
       case Type::INT8:

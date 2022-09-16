@@ -464,13 +464,14 @@ Result<Expression> Expression::Bind(const Schema& in_schema,
 }
 
 Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
-                                Expression guarantee) {
+                                int32_t index, Expression guarantee) {
   ExecBatch out;
 
   if (partial.kind() == Datum::RECORD_BATCH) {
     const auto& partial_batch = *partial.record_batch();
     out.guarantee = std::move(guarantee);
     out.length = partial_batch.num_rows();
+    out.index = index;
 
     ARROW_ASSIGN_OR_RAISE(auto known_field_values,
                           ExtractKnownFieldValues(out.guarantee));
@@ -511,14 +512,14 @@ Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
       ARROW_ASSIGN_OR_RAISE(auto partial_batch,
                             RecordBatch::FromStructArray(partial.make_array()));
 
-      return MakeExecBatch(full_schema, partial_batch, std::move(guarantee));
+      return MakeExecBatch(full_schema, partial_batch, index, std::move(guarantee));
     }
 
     if (partial.is_scalar()) {
       ARROW_ASSIGN_OR_RAISE(auto partial_array,
                             MakeArrayFromScalar(*partial.scalar(), 1));
-      ARROW_ASSIGN_OR_RAISE(
-          auto out, MakeExecBatch(full_schema, partial_array, std::move(guarantee)));
+      ARROW_ASSIGN_OR_RAISE(auto out, MakeExecBatch(full_schema, partial_array, index,
+                                                    std::move(guarantee)));
 
       for (Datum& value : out.values) {
         if (value.is_scalar()) continue;
@@ -534,7 +535,8 @@ Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
 Result<Datum> ExecuteScalarExpression(const Expression& expr, const Schema& full_schema,
                                       const Datum& partial_input,
                                       compute::ExecContext* exec_context) {
-  ARROW_ASSIGN_OR_RAISE(auto input, MakeExecBatch(full_schema, partial_input));
+  ARROW_ASSIGN_OR_RAISE(
+      auto input, MakeExecBatch(full_schema, partial_input, ExecBatch::kNoOrdering));
   return ExecuteScalarExpression(expr, input, exec_context);
 }
 

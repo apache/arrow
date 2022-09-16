@@ -935,7 +935,8 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         ARROW_ASSIGN_OR_RAISE(
             std::optional<compute::ExecBatch> batch,
             compute::MakeExecBatch(*scan_options->dataset_schema,
-                                   partial.record_batch.value, guarantee));
+                                   partial.record_batch.value,
+                                   compute::ExecBatch::kNoOrdering, guarantee));
 
         // tag rows with fragment- and batch-of-origin
         batch->values.emplace_back(partial.fragment.index);

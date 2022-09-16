@@ -216,6 +216,26 @@ struct ARROW_EXPORT ExecBatch {
   /// whether any values are Scalar.
   int64_t length = 0;
 
+  /// Indicates a batch is not part of an ordered stream
+  static constexpr int32_t kNoOrdering = -1;
+  /// The index of the exec batch in an ordered stream of batches
+  ///
+  /// Several operations can impose an ordering on their output.  Because
+  /// batches travel through the execution graph at different speeds there
+  /// is no guarantee those batches will arrive in the same order they are
+  /// emitted.
+  ///
+  /// If there is no ordering then the index should be kNoOrdering.  If a node rearranges
+  /// rows within a batch it will destroy the ordering (e.g. a hash-join node) and should
+  /// set the index of output batches to kNoOrdering.  Other nodes which leave
+  /// row-in-batch ordering alone should maintain the index on their output batches.
+  /// Nodes that impose an ordering (e.g. sort) should assign index appropriately.
+  ///
+  /// An ordering must be monotonic and have no gaps.  This can be somewhat tricky to
+  /// maintain.  For example, when filtering, an implementation may need to emit empty
+  /// batches to maintain correct ordering.
+  int32_t index = kNoOrdering;
+
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
   /// Note: Scalars are not counted

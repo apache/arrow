@@ -174,7 +174,8 @@ TEST(ExpressionUtils, StripOrderPreservingCasts) {
 TEST(ExpressionUtils, MakeExecBatch) {
   auto Expect = [](std::shared_ptr<RecordBatch> partial_batch) {
     SCOPED_TRACE(partial_batch->ToString());
-    ASSERT_OK_AND_ASSIGN(auto batch, MakeExecBatch(*kBoringSchema, partial_batch));
+    ASSERT_OK_AND_ASSIGN(
+        auto batch, MakeExecBatch(*kBoringSchema, partial_batch, ExecBatch::kNoOrdering));
 
     ASSERT_EQ(batch.num_values(), kBoringSchema->num_fields());
     for (int i = 0; i < kBoringSchema->num_fields(); ++i) {
@@ -218,7 +219,8 @@ TEST(ExpressionUtils, MakeExecBatch) {
 
   auto duplicated_names =
       RecordBatch::Make(schema({GetField("i32"), GetField("i32")}), kNumRows, {i32, i32});
-  ASSERT_RAISES(Invalid, MakeExecBatch(*kBoringSchema, duplicated_names));
+  ASSERT_RAISES(Invalid,
+                MakeExecBatch(*kBoringSchema, duplicated_names, ExecBatch::kNoOrdering));
 }
 
 class WidgetifyOptions : public compute::FunctionOptions {

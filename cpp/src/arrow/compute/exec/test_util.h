@@ -106,7 +106,8 @@ BatchesWithSchema MakeNestedBatches();
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches = 10, int batch_size = 4);
+                                    int num_batches = 10, int batch_size = 4,
+                                    bool ordered = false);
 
 ARROW_TESTING_EXPORT
 BatchesWithSchema MakeBatchesFromString(

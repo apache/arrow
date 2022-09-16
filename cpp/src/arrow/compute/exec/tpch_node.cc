@@ -3374,6 +3374,8 @@ class TpchNode : public ExecNode {
 
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
+  const std::vector<int>& ordering() override { return ExecNode::kImplicitOrdering; }
+
   Status StartProducing() override {
     num_running_++;
     ARROW_RETURN_NOT_OK(generator_->StartProducing(

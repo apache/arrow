@@ -137,6 +137,11 @@ class ScalarAggregateNode : public ExecNode {
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
+  // There is currently no meaningful ordering to the output of the scalar aggregate
+  // although in the future we may want to allow sorting here since we will have already
+  // gathered all the data
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
+
   Status DoConsume(const ExecSpan& batch, size_t thread_index) {
     util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Consume",
@@ -359,6 +364,10 @@ class GroupByNode : public ExecNode {
   }
 
   const char* kind_name() const override { return "GroupByNode"; }
+
+  // There is currently no ordering assigned to the output although we may want
+  // to consider a future addition to allow ordering by grouping keys
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
 
   Status Consume(ExecSpan batch) {
     util::tracing::Span span;

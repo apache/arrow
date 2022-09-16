@@ -422,6 +422,11 @@ ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
   }
 }
 
+const std::vector<int32_t> ExecNode::kImplicitOrdering = {
+    ExecNode::kImplicitOrderingColumn};
+
+const std::vector<int32_t> ExecNode::kNoOrdering = {};
+
 Status ExecNode::Init() { return Status::OK(); }
 
 Status ExecNode::Validate() const {
@@ -536,10 +541,12 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
   }
   auto task = [this, map_fn, batch]() {
     auto guarantee = batch.guarantee;
+    auto index = batch.index;
     auto output_batch = map_fn(std::move(batch));
     if (ErrorIfNotOk(output_batch.status())) {
       return output_batch.status();
     }
+    output_batch->index = index;
     output_batch->guarantee = guarantee;
     outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
     return Status::OK();
@@ -561,6 +568,8 @@ void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
 void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
   this->finished_.MarkFinished(finish_st);
 }
+
+const std::vector<int32_t>& MapNode::ordering() { return inputs_[0]->ordering(); }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,

@@ -78,6 +78,8 @@ struct DummyNode : ExecNode {
 
   void InputFinished(ExecNode* input, int total_batches) override {}
 
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
+
   Status StartProducing() override {
     if (start_producing_) {
       RETURN_NOT_OK(start_producing_(this));
@@ -219,7 +221,7 @@ BatchesWithSchema MakeNestedBatches() {
 }
 
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches, int batch_size) {
+                                    int num_batches, int batch_size, bool ordered) {
   BatchesWithSchema out;
 
   random::RandomArrayGenerator rng(42);
@@ -229,6 +231,11 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
     out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
     // add a tag scalar to ensure the batches are unique
     out.batches[i].values.emplace_back(i);
+    if (ordered) {
+      out.batches[i].index = i;
+    } else {
+      out.batches[i].index = ExecBatch::kNoOrdering;
+    }
   }
 
   out.schema = schema;

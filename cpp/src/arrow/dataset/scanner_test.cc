@@ -506,22 +506,47 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
     return compute::Declaration("scan2", options);
   }
 
-  RecordBatchVector RunNode(compute::Declaration scan_decl, bool ordered,
-                            MockDataset* mock_dataset) {
-    Future<RecordBatchVector> batches_fut =
-        compute::DeclarationToBatchesAsync(std::move(scan_decl));
+  std::vector<compute::ExecBatch> RunNode(compute::Declaration scan_decl, bool ordered,
+                                          MockDataset* mock_dataset) {
+    Future<std::vector<compute::ExecBatch>> batches_fut =
+        compute::DeclarationToExecBatchesAsync(std::move(scan_decl));
     if (ordered) {
       mock_dataset->DeliverBatchesInOrder(GetParam().slow);
     } else {
       mock_dataset->DeliverBatchesRandomly(GetParam().slow);
     }
-    EXPECT_FINISHES_OK_AND_ASSIGN(RecordBatchVector record_batches, batches_fut);
+    EXPECT_FINISHES_OK_AND_ASSIGN(std::vector<compute::ExecBatch> batches, batches_fut);
+    return batches;
+  }
+
+  void CheckScannedBatchOrdering(const std::vector<compute::ExecBatch>& batches) {
+    for (const auto& batch : batches) {
+      ASSERT_GE(batch.index, 0);
+      const int32_t* row_nums =
+          reinterpret_cast<const int32_t*>(batch.values[0].array()->buffers[1]->data());
+      ASSERT_EQ(batch.index * 1024, row_nums[0]);
+    }
+  }
+
+  RecordBatchVector ExecBatchesToRecordBatches(std::vector<compute::ExecBatch> batches,
+                                               const std::shared_ptr<Schema>& schema) {
+    RecordBatchVector record_batches;
+    std::transform(batches.begin(), batches.end(), std::back_inserter(record_batches),
+                   [&schema](const compute::ExecBatch& batch) {
+                     EXPECT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> record_batch,
+                                          batch.ToRecordBatch(schema));
+                     return record_batch;
+                   });
     return record_batches;
   }
 
-  void CheckScannedBatches(RecordBatchVector batches) {
+  void CheckScannedBatches(std::vector<compute::ExecBatch> batches,
+                           const std::shared_ptr<Schema>& schema) {
+    CheckScannedBatchOrdering(batches);
+    RecordBatchVector record_batches =
+        ExecBatchesToRecordBatches(std::move(batches), schema);
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> batches_as_table,
-                         Table::FromRecordBatches(std::move(batches)));
+                         Table::FromRecordBatches(std::move(record_batches)));
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> combined_data,
                          batches_as_table->CombineChunksToBatch());
 
@@ -538,8 +563,9 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
     std::shared_ptr<MockDataset> mock_dataset =
         MakeTestDataset(GetParam().num_fragments, GetParam().num_batches);
     compute::Declaration scan_decl = MakeScanNode(mock_dataset);
-    RecordBatchVector scanned_batches = RunNode(scan_decl, ordered, mock_dataset.get());
-    CheckScannedBatches(std::move(scanned_batches));
+    std::vector<compute::ExecBatch> scanned_batches =
+        RunNode(scan_decl, ordered, mock_dataset.get());
+    CheckScannedBatches(std::move(scanned_batches), mock_dataset->schema());
   }
 };
 

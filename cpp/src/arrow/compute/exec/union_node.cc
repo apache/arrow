@@ -57,6 +57,8 @@ class UnionNode : public ExecNode {
 
   const char* kind_name() const override { return "UnionNode"; }
 
+  const std::vector<int32_t>& ordering() override { return ExecNode::kNoOrdering; }
+
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, static_cast<int>(inputs.size()),

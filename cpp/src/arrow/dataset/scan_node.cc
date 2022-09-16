@@ -122,6 +122,11 @@ class ScanNode : public cp::ExecNode {
             util::AsyncTaskScheduler::MakeThrottle(options_.fragment_readahead + 1)),
         batches_throttle_(
             util::AsyncTaskScheduler::MakeThrottle(options_.target_bytes_readahead + 1)) {
+    if (options.asserted_ordering.empty()) {
+      ordering_ = ExecNode::kImplicitOrdering;
+    } else {
+      ordering_ = options.asserted_ordering;
+    }
   }
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
@@ -180,6 +185,8 @@ class ScanNode : public cp::ExecNode {
   [[noreturn]] void ErrorReceived(cp::ExecNode*, Status) override { NoInputs(); }
   [[noreturn]] void InputFinished(cp::ExecNode*, int) override { NoInputs(); }
 
+  const std::vector<int32_t>& ordering() override { return ordering_; }
+
   Status Init() override {
     // batch_output_ =
     //     ::arrow::internal::make_unique<UnorderedBatchOutputStrategy>(this,
@@ -195,8 +202,12 @@ class ScanNode : public cp::ExecNode {
   };
 
   struct ScanBatchTask : util::AsyncTaskScheduler::Task {
-    ScanBatchTask(ScanNode* node, ScanState* scan_state, int batch_index)
-        : node_(node), scan_(scan_state), batch_index_(batch_index) {
+    ScanBatchTask(ScanNode* node, ScanState* scan_state, int batch_index,
+                  int fragment_index)
+        : node_(node),
+          scan_(scan_state),
+          batch_index_(batch_index),
+          fragment_index_(fragment_index) {
       int64_t cost = scan_state->fragment_scanner->EstimatedDataBytes(batch_index_);
       // It's possible, though probably a bad idea, for a single batch of a fragment
       // to be larger than 2GiB.  In that case, it doesn't matter much if we underestimate
@@ -206,20 +217,38 @@ class ScanNode : public cp::ExecNode {
           std::min(cost, static_cast<int64_t>(std::numeric_limits<int>::max())));
     }
 
+    struct IndexedBatch {
+      int32_t index;
+      std::shared_ptr<RecordBatch> batch;
+    };
+
     Result<Future<>> operator()(util::AsyncTaskScheduler* scheduler) override {
       // Prevent concurrent calls to ScanBatch which might not be thread safe
       std::lock_guard<std::mutex> lk(scan_->mutex);
       return scan_->fragment_scanner->ScanBatch(batch_index_)
-          .Then([this](const std::shared_ptr<RecordBatch> batch) {
-            return HandleBatch(batch);
-          });
+          .Then([this](const std::shared_ptr<RecordBatch>& batch) {
+            return IndexBatch(batch);
+          })
+          .Then([this](const IndexedBatch& batch) { return HandleBatch(batch); });
     }
 
-    Status HandleBatch(const std::shared_ptr<RecordBatch>& batch) {
+    Future<IndexedBatch> IndexBatch(const std::shared_ptr<RecordBatch>& batch) {
+      if (fragment_index_ == 0) {
+        return IndexedBatch{batch_index_, batch};
+      } else {
+        return node_->frag_idx_to_batch_offset_[fragment_index_ - 1].Then(
+            [this, batch](int32_t frag_offset) {
+              return IndexedBatch{batch_index_ + frag_offset, batch};
+            });
+      }
+    }
+
+    Status HandleBatch(const IndexedBatch& indexed_batch) {
       ARROW_ASSIGN_OR_RAISE(
           compute::ExecBatch evolved_batch,
-          scan_->fragment_evolution->EvolveBatch(batch, node_->options_.columns,
-                                                 scan_->scan_request.columns));
+          scan_->fragment_evolution->EvolveBatch(
+              indexed_batch.batch, node_->options_.columns, scan_->scan_request.columns));
+      evolved_batch.index = indexed_batch.index;
       node_->outputs_[0]->InputReceived(node_, std::move(evolved_batch));
       return Status::OK();
     }
@@ -229,12 +258,14 @@ class ScanNode : public cp::ExecNode {
     ScanNode* node_;
     ScanState* scan_;
     int batch_index_;
+    int fragment_index_;
     int cost_;
   };
 
   struct ListFragmentTask : util::AsyncTaskScheduler::Task {
-    ListFragmentTask(ScanNode* node, std::shared_ptr<Fragment> fragment)
-        : node(node), fragment(std::move(fragment)) {}
+    ListFragmentTask(ScanNode* node, std::shared_ptr<Fragment> fragment,
+                     int32_t fragment_index)
+        : node(node), fragment(std::move(fragment)), fragment_index_(fragment_index) {}
 
     Result<Future<>> operator()(util::AsyncTaskScheduler* scheduler) override {
       return fragment->InspectFragment().Then(
@@ -261,6 +292,18 @@ class ScanNode : public cp::ExecNode {
 
     Future<> AddScanTasks(const std::shared_ptr<FragmentScanner>& fragment_scanner,
                           util::AsyncTaskScheduler* scan_scheduler) {
+      int32_t num_batches = fragment_scanner->NumBatches();
+      if (fragment_index_ == 0) {
+        node->frag_idx_to_batch_offset_[0].MarkFinished(num_batches);
+      } else {
+        node->frag_idx_to_batch_offset_[fragment_index_ - 1].AddCallback(
+            [this, fragment_index = fragment_index_,
+             num_batches](Result<int32_t> prev_offset) {
+              DCHECK_OK(prev_offset.status());
+              node->frag_idx_to_batch_offset_[fragment_index].MarkFinished(num_batches +
+                                                                           *prev_offset);
+            });
+      }
       scan_state->fragment_scanner = fragment_scanner;
       ScanState* state_view = scan_state.get();
       // Finish callback keeps the scan state alive until all scan tasks done
@@ -273,7 +316,7 @@ class ScanNode : public cp::ExecNode {
       for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
         node->num_batches_.fetch_add(1);
         frag_scheduler->AddTask(
-            arrow::internal::make_unique<ScanBatchTask>(node, state_view, i));
+            std::make_unique<ScanBatchTask>(node, state_view, i, fragment_index_));
       }
       Future<> list_and_scan_node = frag_scheduler->OnFinished();
       frag_scheduler->End();
@@ -303,6 +346,7 @@ class ScanNode : public cp::ExecNode {
 
     ScanNode* node;
     std::shared_ptr<Fragment> fragment;
+    int32_t fragment_index_;
     std::unique_ptr<ScanState> scan_state = arrow::internal::make_unique<ScanState>();
   };
 
@@ -325,8 +369,10 @@ class ScanNode : public cp::ExecNode {
     plan_->async_scheduler()->AddAsyncGenerator<std::shared_ptr<Fragment>>(
         std::move(frag_gen),
         [this, scan_scheduler](const std::shared_ptr<Fragment>& fragment) {
+          frag_idx_to_batch_offset_.push_back(Future<int32_t>::Make());
+          int32_t frag_idx = static_cast<int32_t>(frag_idx_to_batch_offset_.size()) - 1;
           scan_scheduler->AddTask(
-              arrow::internal::make_unique<ListFragmentTask>(this, fragment));
+              arrow::internal::make_unique<ListFragmentTask>(this, fragment, frag_idx));
           return Status::OK();
         },
         [scan_scheduler]() {
@@ -355,8 +401,9 @@ class ScanNode : public cp::ExecNode {
 
  private:
   ScanV2Options options_;
+  std::vector<int32_t> ordering_;
   std::atomic<int> num_batches_{0};
-  // std::unique_ptr<BatchOutputStrategy> batch_output_;
+  std::vector<Future<int32_t>> frag_idx_to_batch_offset_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> fragments_throttle_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> batches_throttle_;
 };
