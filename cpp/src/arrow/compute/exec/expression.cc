@@ -96,13 +96,9 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
-<<<<<<< HEAD
-  return std::get_if<Call>(impl_.get());
-=======
   if (impl_ == nullptr) return nullptr;
 
-  return util::get_if<Call>(impl_.get());
->>>>>>> c445285167 (ARROW-17287: Initial creation of a "scan node" which doesn't use async generators to do scanning.  Formally defined a new scan options and interfaces for schema evolution.)
+  return std::get_if<Call>(impl_.get());
 }
 
 const DataType* Expression::type() const {
