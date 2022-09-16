@@ -28,7 +28,7 @@ import pytest
 class IntegerType(pa.PyExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64()) #, "arrow.py_integer_type")
+        pa.PyExtensionType.__init__(self, pa.int64())
 
     def __reduce__(self):
         return IntegerType, ()
@@ -517,11 +517,20 @@ def test_cast_kernel_on_extension_arrays():
     assert isinstance(casted, pa.ChunkedArray)
 
 
-def test_casting_to_extension_type():
-    arr = pa.array([1, 2, 3, 4], pa.int64())
+@pytest.mark.parametrize("arr", (
+    pa.array([1, 2], pa.int32()),
+    pa.array([1, 2], pa.int64()),
+    pa.array(["1", "2"], pa.string()),
+    pa.array([b"1", b"2"], pa.binary()),
+    pa.array([1.0, 2.0], pa.float32()),
+    pa.array([1.0, 2.0], pa.float64())
+
+))
+def test_casting_to_extension_type(arr):
     out = arr.cast(IntegerType())
-    assert isinstance(out, pa.Int64Array)
-    assert out.to_pylist() == [1, 2, 3, 4]
+    assert isinstance(out, pa.ExtensionArray)
+    assert out.type == IntegerType()
+    assert out.to_pylist() == [1, 2]
 
 
 def test_casting_dict_array_to_extension_type():

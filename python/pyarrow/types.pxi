@@ -1008,9 +1008,8 @@ cdef class PyExtensionType(ExtensionType):
             raise TypeError("Can only instantiate subclasses of "
                             "PyExtensionType")
 
-    def __init__(self, DataType storage_type,
-                 extension_name="arrow.py_extension_type"):
-        ExtensionType.__init__(self, storage_type, extension_name)
+    def __init__(self, DataType storage_type):
+        ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
         raise NotImplementedError("Please implement {0}.__reduce__"
