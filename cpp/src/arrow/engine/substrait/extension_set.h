@@ -32,6 +32,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
@@ -353,6 +354,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
       std::unordered_map<uint32_t, std::string_view> uris,
       std::unordered_map<uint32_t, Id> type_ids,
       std::unordered_map<uint32_t, Id> function_ids,
+      const ConversionOptions& conversion_options,
       const ExtensionIdRegistry* = default_extension_id_registry());
 
   const std::unordered_map<uint32_t, std::string_view>& uris() const { return uris_; }

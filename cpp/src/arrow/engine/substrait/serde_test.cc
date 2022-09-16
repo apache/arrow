@@ -197,7 +197,7 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
-  EXPECT_TRUE(expected_table->Equals(*output_table));
+  AssertTablesEqual(*expected_table, *output_table);
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -846,8 +846,13 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_RAISES(Invalid, DeserializePlans(
-                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    // Since the function is not referenced this plan is ok unless we are asking for
+    // strict conversion.
+    ConversionOptions options;
+    options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+    ASSERT_RAISES(Invalid,
+                  DeserializePlans(
+                      *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set, options));
   }
 }
 
@@ -924,16 +929,19 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
-  ASSERT_RAISES(Invalid,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
+  ConversionOptions conversion_options;
+  conversion_options.strictness = ConversionStrictness::EXACT_ROUNDTRIP;
+  ASSERT_RAISES(Invalid, DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg,
+                             &ext_set_invalid, conversion_options));
   ASSERT_OK(ext_id_reg->AddSubstraitCallToArrow(
       {default_extension_types_uri(), "new_func"}, "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
-  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
-                                            *buf, [] { return kNullConsumer; },
-                                            ext_id_reg, &ext_set_valid));
+  ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                       DeserializePlans(
+                           *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_valid,
+                           conversion_options));
   EXPECT_OK_AND_ASSIGN(Id decoded_add_func_id, ext_set_valid.DecodeFunction(42));
   EXPECT_EQ(decoded_add_func_id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_add_func_id.name, "new_func");
