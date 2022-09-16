@@ -28,15 +28,12 @@ import java.util.function.BiConsumer;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * A basic test of client middleware using a simplified OpenTracing-like example.
  */
-@RunWith(JUnit4.class)
 public class TestClientMiddleware {
 
   /**
@@ -65,9 +62,9 @@ public class TestClientMiddleware {
           FlightTestUtil.assertCode(FlightStatusCode.UNIMPLEMENTED, () -> client.listActions().forEach(actionType -> {
           }));
         });
-    Assert.assertEquals(context.outgoingSpanId, context.incomingSpanId);
-    Assert.assertNotNull(context.finalStatus);
-    Assert.assertEquals(FlightStatusCode.UNIMPLEMENTED, context.finalStatus.code());
+    Assertions.assertEquals(context.outgoingSpanId, context.incomingSpanId);
+    Assertions.assertNotNull(context.finalStatus);
+    Assertions.assertEquals(FlightStatusCode.UNIMPLEMENTED, context.finalStatus.code());
   }
 
   /** Ensure both server and client can send and receive multi-valued headers (both binary and text values). */
@@ -87,18 +84,20 @@ public class TestClientMiddleware {
     for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
       // Compare header values entry-by-entry because byte arrays don't compare via equals
       final List<byte[]> receivedValues = clientFactory.lastBinaryHeaders.get(entry.getKey());
-      Assert.assertNotNull("Missing for header: " + entry.getKey(), receivedValues);
-      Assert.assertEquals(
-          "Missing or wrong value for header: " + entry.getKey(),
-          entry.getValue().size(), receivedValues.size());
+      Assertions.assertNotNull(receivedValues, "Missing for header: " + entry.getKey());
+      Assertions.assertEquals(
+          entry.getValue().size(),
+          receivedValues.size(), "Missing or wrong value for header: " + entry.getKey());
       for (int i = 0; i < entry.getValue().size(); i++) {
-        Assert.assertArrayEquals(entry.getValue().get(i), receivedValues.get(i));
+        Assertions.assertArrayEquals(entry.getValue().get(i), receivedValues.get(i));
       }
     }
     for (final Map.Entry<String, List<String>> entry : EXPECTED_TEXT_HEADERS.entrySet()) {
-      Assert.assertEquals(
-          "Missing or wrong value for header: " + entry.getKey(),
-          entry.getValue(), clientFactory.lastTextHeaders.get(entry.getKey()));
+      Assertions.assertEquals(
+          entry.getValue(),
+          clientFactory.lastTextHeaders.get(entry.getKey()),
+          "Missing or wrong value for header: " + entry.getKey()
+      );
     }
   }
 
@@ -329,11 +328,11 @@ public class TestClientMiddleware {
     public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
       for (final Map.Entry<String, List<byte[]>> entry : EXPECTED_BINARY_HEADERS.entrySet()) {
         entry.getValue().forEach((value) -> outgoingHeaders.insert(entry.getKey(), value));
-        Assert.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
+        Assertions.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
       }
       for (final Map.Entry<String, List<String>> entry : EXPECTED_TEXT_HEADERS.entrySet()) {
         entry.getValue().forEach((value) -> outgoingHeaders.insert(entry.getKey(), value));
-        Assert.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
+        Assertions.assertTrue(outgoingHeaders.containsKey(entry.getKey()));
       }
     }
 

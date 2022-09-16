@@ -29,8 +29,8 @@
 
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
-    <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
+    <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
+    <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>30.1.1-jre</dep.guava.version>
     <dep.netty-bom.version>4.1.78.Final</dep.netty-bom.version>
@@ -400,6 +400,18 @@
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.0.0-M7</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.junit.jupiter</groupId>
+              <artifactId>junit-jupiter-engine</artifactId>
+              <version>${dep.junit.jupiter.version}</version>
+            </dependency>
+            <dependency>
+              <groupId>org.apache.maven.surefire</groupId>
+              <artifactId>surefire-junit-platform</artifactId>
+              <version>3.0.0-M7</version>
+            </dependency>
+          </dependencies>
           <configuration>
             <enableAssertions>true</enableAssertions>
             <childDelegation>true</childDelegation>
@@ -417,7 +429,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.0.0-M3</version>
+          <version>3.0.0-M7</version>
           <configuration>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
@@ -614,13 +626,6 @@
       <scope>test</scope>
     </dependency>
 
-
-    <dependency>
-      <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-runner</artifactId>
-      <version>${dep.junit.platform.version}</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
@@ -636,6 +641,12 @@
     <dependency>
       <groupId>org.junit.vintage</groupId>
       <artifactId>junit-vintage-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
       <version>${dep.junit.jupiter.version}</version>
       <scope>test</scope>
     </dependency>
