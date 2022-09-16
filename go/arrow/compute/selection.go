@@ -32,15 +32,39 @@ var (
 	filterMetaFunc = NewMetaFunction("filter", Binary(), filterDoc,
 		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 			if args[1].(ArrayLikeDatum).Type().ID() != arrow.BOOL {
-				return nil, fmt.Errorf("%w: fitler argument must be boolean type",
+				return nil, fmt.Errorf("%w: filter argument must be boolean type",
 					arrow.ErrNotImplemented)
 			}
 
 			switch args[0].Kind() {
 			case KindRecord:
-				return nil, fmt.Errorf("%w: record batch filtering", arrow.ErrNotImplemented)
+				filtOpts, ok := opts.(*FilterOptions)
+				if !ok {
+					return nil, fmt.Errorf("%w: invalid options type", arrow.ErrInvalid)
+				}
+
+				if filter, ok := args[1].(*ArrayDatum); ok {
+					filterArr := filter.MakeArray()
+					defer filterArr.Release()
+					rec, err := FilterRecordBatch(ctx, args[0].(*RecordDatum).Value, filterArr, filtOpts)
+					if err != nil {
+						return nil, err
+					}
+					return &RecordDatum{Value: rec}, nil
+				}
+				return nil, fmt.Errorf("%w: record batch filtering only implemented for Array filter", arrow.ErrNotImplemented)
 			case KindTable:
-				return nil, fmt.Errorf("%w: table filtering", arrow.ErrNotImplemented)
+				filtOpts, ok := opts.(*FilterOptions)
+				if !ok {
+					return nil, fmt.Errorf("%w: invalid options type", arrow.ErrInvalid)
+				}
+
+				tbl, err := FilterTable(ctx, args[0].(*TableDatum).Value, args[1], filtOpts)
+				if err != nil {
+					return nil, err
+				}
+				return &TableDatum{Value: tbl}, nil
+
 			default:
 				return CallFunction(ctx, "array_filter", opts, args...)
 			}
@@ -342,4 +366,156 @@ func FilterArray(ctx context.Context, values, filter arrow.Array, options Filter
 
 	defer outDatum.Release()
 	return outDatum.(*ArrayDatum).MakeArray(), nil
+}
+
+func FilterRecordBatch(ctx context.Context, batch arrow.Record, filter arrow.Array, opts *FilterOptions) (arrow.Record, error) {
+	if batch.NumRows() != int64(filter.Len()) {
+		return nil, fmt.Errorf("%w: filter inputs must all be the same length", arrow.ErrInvalid)
+	}
+
+	var filterSpan exec.ArraySpan
+	filterSpan.SetMembers(filter.Data())
+
+	indices, err := kernels.GetTakeIndices(exec.GetAllocator(ctx), &filterSpan, opts.NullSelection)
+	if err != nil {
+		return nil, err
+	}
+	defer indices.Release()
+
+	indicesArr := array.MakeFromData(indices)
+	defer indicesArr.Release()
+
+	cols := make([]arrow.Array, batch.NumCols())
+	defer func() {
+		for _, c := range cols {
+			if c != nil {
+				c.Release()
+			}
+		}
+	}()
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.SetLimit(GetExecCtx(ctx).NumParallel)
+	for i, col := range batch.Columns() {
+		i, col := i, col
+		eg.Go(func() error {
+			out, err := TakeArrayOpts(cctx, col, indicesArr, kernels.TakeOptions{BoundsCheck: false})
+			if err != nil {
+				return err
+			}
+			cols[i] = out
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return array.NewRecord(batch.Schema(), cols, int64(indicesArr.Len())), nil
+}
+
+func FilterTable(ctx context.Context, tbl arrow.Table, filter Datum, opts *FilterOptions) (arrow.Table, error) {
+	if tbl.NumRows() != filter.Len() {
+		return nil, fmt.Errorf("%w: filter inputs must all be the same length", arrow.ErrInvalid)
+	}
+
+	if tbl.NumRows() == 0 {
+		cols := make([]arrow.Column, tbl.NumCols())
+		for i := 0; i < int(tbl.NumCols()); i++ {
+			cols[i] = *tbl.Column(i)
+		}
+		return array.NewTable(tbl.Schema(), cols, 0), nil
+	}
+
+	// last input element will be the filter array
+	nCols := tbl.NumCols()
+	inputs := make([][]arrow.Array, nCols+1)
+	for i := int64(0); i < nCols; i++ {
+		inputs[i] = tbl.Column(int(i)).Data().Chunks()
+	}
+
+	switch ft := filter.(type) {
+	case *ArrayDatum:
+		inputs[nCols] = ft.Chunks()
+		defer inputs[nCols][0].Release()
+	case *ChunkedDatum:
+		inputs[nCols] = ft.Chunks()
+	default:
+		return nil, fmt.Errorf("%w: filter should be array-like", arrow.ErrNotImplemented)
+	}
+
+	// rechunk inputs to allow consistent iteration over the respective chunks
+	inputs = exec.RechunkArraysConsistently(inputs)
+
+	// instead of filtering each column with the boolean filter
+	// (which would be slow if the table has a large number of columns)
+	// convert each filter chunk to indices and take() the column
+	mem := GetAllocator(ctx)
+	outCols := make([][]arrow.Array, nCols)
+	// pre-size the output
+	nChunks := len(inputs[nCols])
+	for i := range outCols {
+		outCols[i] = make([]arrow.Array, nChunks)
+	}
+	var outNumRows int64
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.SetLimit(GetExecCtx(cctx).NumParallel)
+
+	var filterSpan exec.ArraySpan
+	for i, filterChunk := range inputs[nCols] {
+		filterSpan.SetMembers(filterChunk.Data())
+		indices, err := kernels.GetTakeIndices(mem, &filterSpan, opts.NullSelection)
+		if err != nil {
+			return nil, err
+		}
+		defer indices.Release()
+		filterChunk.Release()
+		if indices.Len() == 0 {
+			for col := int64(0); col < nCols; col++ {
+				inputs[col][i].Release()
+			}
+			continue
+		}
+
+		// take from all input columns
+		outNumRows += int64(indices.Len())
+		indicesDatum := NewDatum(indices)
+		defer indicesDatum.Release()
+
+		for col := int64(0); col < nCols; col++ {
+			columnChunk := inputs[col][i]
+			defer columnChunk.Release()
+			i := i
+			col := col
+			eg.Go(func() error {
+				columnDatum := NewDatum(columnChunk)
+				defer columnDatum.Release()
+				out, err := Take(cctx, kernels.TakeOptions{BoundsCheck: false}, columnDatum, indicesDatum)
+				if err != nil {
+					return err
+				}
+				defer out.Release()
+				outCols[col][i] = out.(*ArrayDatum).MakeArray()
+				return nil
+			})
+		}
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	outChunks := make([]arrow.Column, nCols)
+	for i, chunks := range outCols {
+		chk := arrow.NewChunked(tbl.Column(i).DataType(), chunks)
+		outChunks[i] = *arrow.NewColumn(tbl.Schema().Field(i), chk)
+		defer outChunks[i].Release()
+		chk.Release()
+	}
+
+	return array.NewTable(tbl.Schema(), outChunks, outNumRows), nil
 }

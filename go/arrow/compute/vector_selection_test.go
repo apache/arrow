@@ -814,6 +814,276 @@ func (f *FilterKernelWithStruct) TestStruct() {
 	f.assertFilterJSON(dt, structJSON, `[true, false, true, false]`, `[null, {"a": 2, "b": "hello"}]`)
 }
 
+type FilterKernelWithRecordBatch struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithRecordBatch) doFilter(sc *arrow.Schema, batchJSON, selection string, opts compute.FilterOptions) (arrow.Record, error) {
+	rec, _, err := array.RecordFromJSON(f.mem, sc, strings.NewReader(batchJSON), array.WithUseNumber())
+	if err != nil {
+		return nil, err
+	}
+	defer rec.Release()
+
+	batch := compute.NewDatum(rec)
+	defer batch.Release()
+
+	filter, _, _ := array.FromJSON(f.mem, arrow.FixedWidthTypes.Boolean, strings.NewReader(selection))
+	defer filter.Release()
+	filterDatum := compute.NewDatum(filter)
+	defer filterDatum.Release()
+
+	outDatum, err := compute.Filter(context.TODO(), batch, filterDatum, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return outDatum.(*compute.RecordDatum).Value, nil
+}
+
+func (f *FilterKernelWithRecordBatch) assertFilter(sc *arrow.Schema, batchJSON, selection string, opts compute.FilterOptions, expectedBatch string) {
+	actual, err := f.doFilter(sc, batchJSON, selection, opts)
+	f.Require().NoError(err)
+	defer actual.Release()
+
+	expected, _, err := array.RecordFromJSON(f.mem, sc, strings.NewReader(expectedBatch), array.WithUseNumber())
+	f.Require().NoError(err)
+	defer expected.Release()
+
+	f.Truef(array.RecordEqual(expected, actual), "expected: %s\ngot: %s", expected, actual)
+}
+
+func (f *FilterKernelWithRecordBatch) TestFilterRecord() {
+	fields := []arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}
+	sc := arrow.NewSchema(fields, nil)
+
+	batchJSON := `[
+		{"a": null, "b": "yo"},
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	for _, opts := range []compute.FilterOptions{f.emitNulls, f.dropOpts} {
+		f.assertFilter(sc, batchJSON, `[false, false, false, false]`, opts, `[]`)
+		f.assertFilter(sc, batchJSON, `[true, true, true, true]`, opts, batchJSON)
+		f.assertFilter(sc, batchJSON, `[true, false, true, false]`, opts, `[
+			{"a": null, "b": "yo"},
+			{"a": 2, "b": "hello"}
+		]`)
+	}
+
+	f.assertFilter(sc, batchJSON, `[false, true, true, null]`, f.dropOpts, `[
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"}
+	]`)
+
+	f.assertFilter(sc, batchJSON, `[false, true, true, null]`, f.emitNulls, `[
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": null, "b": null}
+	]`)
+}
+
+type FilterKernelWithChunked struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithChunked) filterWithArray(dt arrow.DataType, values []string, filterStr string) (*arrow.Chunked, error) {
+	chk, err := array.ChunkedFromJSON(f.mem, dt, values)
+	f.Require().NoError(err)
+	defer chk.Release()
+
+	input := compute.NewDatum(chk)
+	defer input.Release()
+
+	filter, _, _ := array.FromJSON(f.mem, arrow.FixedWidthTypes.Boolean, strings.NewReader(filterStr))
+	defer filter.Release()
+
+	filterDatum := compute.NewDatum(filter)
+	defer filterDatum.Release()
+
+	out, err := compute.Filter(context.TODO(), input, filterDatum, *compute.DefaultFilterOptions())
+	if err != nil {
+		return nil, err
+	}
+	return out.(*compute.ChunkedDatum).Value, nil
+}
+
+func (f *FilterKernelWithChunked) filterWithChunked(dt arrow.DataType, values, filter []string) (*arrow.Chunked, error) {
+	chk, err := array.ChunkedFromJSON(f.mem, dt, values)
+	f.Require().NoError(err)
+	defer chk.Release()
+
+	input := compute.NewDatum(chk)
+	defer input.Release()
+
+	filtChk, err := array.ChunkedFromJSON(f.mem, arrow.FixedWidthTypes.Boolean, filter)
+	f.Require().NoError(err)
+	defer filtChk.Release()
+
+	filtDatum := compute.NewDatum(filtChk)
+	defer filtDatum.Release()
+
+	out, err := compute.Filter(context.TODO(), input, filtDatum, *compute.DefaultFilterOptions())
+	if err != nil {
+		return nil, err
+	}
+	return out.(*compute.ChunkedDatum).Value, nil
+}
+
+func (f *FilterKernelWithChunked) assertFilter(dt arrow.DataType, values []string, filter string, expected []string) {
+	actual, err := f.filterWithArray(dt, values, filter)
+	f.Require().NoError(err)
+	defer actual.Release()
+
+	expectedResult, _ := array.ChunkedFromJSON(f.mem, dt, expected)
+	defer expectedResult.Release()
+	if !f.True(array.ChunkedEqual(expectedResult, actual)) {
+		var s strings.Builder
+		s.WriteString("expected: \n")
+		for _, c := range expectedResult.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		s.WriteString("actual: \n")
+		for _, c := range actual.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		f.T().Log(s.String())
+	}
+}
+
+func (f *FilterKernelWithChunked) assertChunkedFilter(dt arrow.DataType, values, filter, expected []string) {
+	actual, err := f.filterWithChunked(dt, values, filter)
+	f.Require().NoError(err)
+	defer actual.Release()
+
+	expectedResult, _ := array.ChunkedFromJSON(f.mem, dt, expected)
+	defer expectedResult.Release()
+	if !f.True(array.ChunkedEqual(expectedResult, actual)) {
+		var s strings.Builder
+		s.WriteString("expected: \n")
+		for _, c := range expectedResult.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		s.WriteString("actual: \n")
+		for _, c := range actual.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		f.T().Log(s.String())
+	}
+}
+
+func (f *FilterKernelWithChunked) TestFilterChunked() {
+	f.assertFilter(arrow.PrimitiveTypes.Int8, []string{`[]`}, `[]`, []string{})
+	f.assertChunkedFilter(arrow.PrimitiveTypes.Int8, []string{`[]`}, []string{`[]`}, []string{})
+
+	f.assertFilter(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, `[false, true, false]`, []string{`[8]`})
+	f.assertChunkedFilter(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, []string{`[false]`, `[true, false]`}, []string{`[8]`})
+	f.assertChunkedFilter(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, []string{`[false, true]`, `[false]`}, []string{`[8]`})
+
+	_, err := f.filterWithArray(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, `[false, true, false, true, true]`)
+	f.ErrorIs(err, arrow.ErrInvalid)
+	_, err = f.filterWithChunked(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, []string{`[ false, true, false]`, `[true, true]`})
+	f.ErrorIs(err, arrow.ErrInvalid)
+}
+
+type FilterKernelWithTable struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithTable) filterWithArray(sc *arrow.Schema, values []string, filter string, opts compute.FilterOptions) (arrow.Table, error) {
+	tbl, err := array.TableFromJSON(f.mem, sc, values)
+	if err != nil {
+		return nil, err
+	}
+	defer tbl.Release()
+
+	filterArr, _, _ := array.FromJSON(f.mem, arrow.FixedWidthTypes.Boolean, strings.NewReader(filter))
+	defer filterArr.Release()
+
+	out, err := compute.Filter(context.TODO(), &compute.TableDatum{Value: tbl}, &compute.ArrayDatum{Value: filterArr.Data()}, opts)
+	if err != nil {
+		return nil, err
+	}
+	return out.(*compute.TableDatum).Value, nil
+}
+
+func (f *FilterKernelWithTable) filterWithChunked(sc *arrow.Schema, values, filter []string, opts compute.FilterOptions) (arrow.Table, error) {
+	tbl, err := array.TableFromJSON(f.mem, sc, values)
+	if err != nil {
+		return nil, err
+	}
+	defer tbl.Release()
+
+	filtChk, err := array.ChunkedFromJSON(f.mem, arrow.FixedWidthTypes.Boolean, filter)
+	f.Require().NoError(err)
+	defer filtChk.Release()
+
+	out, err := compute.Filter(context.TODO(), &compute.TableDatum{Value: tbl}, &compute.ChunkedDatum{Value: filtChk}, opts)
+	if err != nil {
+		return nil, err
+	}
+	return out.(*compute.TableDatum).Value, nil
+}
+
+func (f *FilterKernelWithTable) assertChunkedFilter(sc *arrow.Schema, tableJSON, filter []string, opts compute.FilterOptions, expTable []string) {
+	actual, err := f.filterWithChunked(sc, tableJSON, filter, opts)
+	f.Require().NoError(err)
+	defer actual.Release()
+
+	expected, err := array.TableFromJSON(f.mem, sc, expTable)
+	f.Require().NoError(err)
+	defer expected.Release()
+
+	f.Truef(array.TableEqual(expected, actual), "expected: %s\ngot: %s", expected, actual)
+}
+
+func (f *FilterKernelWithTable) assertFilter(sc *arrow.Schema, tableJSON []string, filter string, opts compute.FilterOptions, expectedTable []string) {
+	actual, err := f.filterWithArray(sc, tableJSON, filter, opts)
+	f.Require().NoError(err)
+	defer actual.Release()
+
+	expected, err := array.TableFromJSON(f.mem, sc, expectedTable)
+	f.Require().NoError(err)
+	defer expected.Release()
+
+	f.Truef(array.TableEqual(expected, actual), "expected: %s\ngot: %s", expected, actual)
+}
+
+func (f *FilterKernelWithTable) TestFilterTable() {
+	fields := []arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}
+	sc := arrow.NewSchema(fields, nil)
+	tableJSON := []string{`[
+		{"a": null, "b": "yo"},
+		{"a": 1, "b": ""}
+	]`, `[
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`}
+
+	for _, opt := range []compute.FilterOptions{f.emitNulls, f.dropOpts} {
+		f.assertFilter(sc, tableJSON, `[false, false, false, false]`, opt, []string{})
+		f.assertChunkedFilter(sc, tableJSON, []string{`[false]`, `[false, false, false]`}, opt, []string{})
+		f.assertFilter(sc, tableJSON, `[true, true, true, true]`, opt, tableJSON)
+		f.assertChunkedFilter(sc, tableJSON, []string{`[true]`, `[true, true, true]`}, opt, tableJSON)
+	}
+
+	expectedEmitNull := []string{`[{"a": 1, "b": ""}]`, `[{"a": 2, "b": "hello"},{"a": null, "b": null}]`}
+	f.assertFilter(sc, tableJSON, `[false, true, true, null]`, f.emitNulls, expectedEmitNull)
+	f.assertChunkedFilter(sc, tableJSON, []string{`[false, true, true]`, `[null]`}, f.emitNulls, expectedEmitNull)
+
+	expectedDrop := []string{`[{"a": 1, "b": ""}]`, `[{"a": 2, "b": "hello"}]`}
+	f.assertFilter(sc, tableJSON, `[false, true, true, null]`, f.dropOpts, expectedDrop)
+	f.assertChunkedFilter(sc, tableJSON, []string{`[false, true, true]`, `[null]`}, f.dropOpts, expectedDrop)
+}
+
 type TakeKernelTestTyped struct {
 	TakeKernelTestSuite
 
@@ -1101,4 +1371,7 @@ func TestFilterKernels(t *testing.T) {
 	suite.Run(t, new(FilterKernelWithUnion))
 	suite.Run(t, new(FilterKernelExtension))
 	suite.Run(t, new(FilterKernelWithStruct))
+	suite.Run(t, new(FilterKernelWithRecordBatch))
+	suite.Run(t, new(FilterKernelWithChunked))
+	suite.Run(t, new(FilterKernelWithTable))
 }
