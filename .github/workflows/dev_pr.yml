@@ -23,7 +23,7 @@ on:
   #   branches:
   #     - master
   #     - main
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - edited
@@ -31,7 +31,10 @@ on:
 
 # NOTE: not using the "cancel-in-progress" feature here as the group key
 # does not have enough information for linking it to a particular PR
-
+permissions:
+  contents: read
+  pull-requests: write
+  
 jobs:
   process:
     name: Process

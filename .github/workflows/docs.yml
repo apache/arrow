@@ -20,6 +20,9 @@ name: Docs
 on:
   push:
 
+permissions:
+  contents: read
+  
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"

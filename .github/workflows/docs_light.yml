@@ -28,6 +28,9 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/python_build.sh'
 
+permissions:
+  contents: read
+  
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
