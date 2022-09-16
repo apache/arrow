@@ -17,6 +17,66 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+test_that("ExecPlanReader does not start evaluating a query", {
+  rbr <- as_record_batch_reader(
+    function(x) stop("This query will error if started"),
+    schema = schema(a = int32())
+  )
+
+  reader <- as_record_batch_reader(as_adq(rbr))
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+  expect_error(reader$read_table(), "This query will error if started")
+  expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
+})
+
+test_that("ExecPlanReader evaluates nested exec plans lazily", {
+  reader <- as_record_batch_reader(as_adq(arrow_table(a = 1:10)))
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  head_reader <- head(reader, 4)
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  expect_equal(
+    head_reader$read_table(),
+    arrow_table(a = 1:4)
+  )
+
+  expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
+})
+
+test_that("ExecPlanReader evaluates head() lazily", {
+  reader <- as_record_batch_reader(as_adq(arrow_table(a = 1:10)))
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  head_reader <- head(reader, 4)
+  expect_identical(reader$PlanStatus(), "PLAN_NOT_STARTED")
+
+  expect_equal(
+    head_reader$read_table(),
+    arrow_table(a = 1:4)
+  )
+
+  expect_identical(reader$PlanStatus(), "PLAN_FINISHED")
+})
+
+test_that("ExecPlanReader evaluates head() lazily", {
+  # Make a rather long RecordBatchReader
+  reader <- RecordBatchReader$create(
+    batches = rep(
+      list(record_batch(line = letters)),
+      100L
+    )
+  )
+
+  # ...But only get 10 rows from it
+  query <- head(as_adq(reader), 10)
+  expect_identical(as_arrow_table(query)$num_rows, 10L)
+
+  # Depending on exactly how quickly background threads respond to the
+  # request to cancel, reader$read_table()$num_rows > 0 may or may not
+  # evaluate to TRUE (i.e., the reader may or may not be completely drained).
+})
+
 test_that("do_exec_plan_substrait can evaluate a simple plan", {
   skip_if_not_available("substrait")
 
