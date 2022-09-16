@@ -30,7 +30,7 @@ on:
       - synchronize
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.event.number }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.number }}
   cancel-in-progress: true
 
 permissions:
