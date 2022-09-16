@@ -347,6 +347,12 @@ if(UNIX)
   add_custom_target(iwyu-all ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh all)
 endif(UNIX)
 
+if(ENABLE_QPL)
+  add_subdirectory(build-support/qpl-cmake)
+  add_definitions(-DENABLE_QPL_ANALYSIS)
+  message("ENABLE_QPL_ANALYSIS" ${ENABLE_QPL_ANALYSIS})
+endif()
+
 # datetime code used by iOS requires zlib support
 if(IOS)
   set(ARROW_WITH_ZLIB ON)
@@ -527,6 +533,12 @@ message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
+
+if(ENABLE_QPL)
+  set (QPL_PROJECT_DIR "${PROJECT_SOURCE_DIR}/submodules/qpl")
+  include_directories(${QPL_PROJECT_DIR})
+  include_directories(${QPL_PROJECT_DIR}/include)
+endif()
 
 # Compiled flatbuffers files
 include_directories(src/generated)

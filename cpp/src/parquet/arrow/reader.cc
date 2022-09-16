@@ -466,7 +466,47 @@ class LeafReader : public ColumnReaderImpl {
 
   bool IsOrHasRepeatedChild() const final { return false; }
 
+#ifdef ENABLE_QPL_ANALYSIS 
+  Status LoadBatchAsync(int64_t records_to_read) {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    out_ = nullptr;
+    record_reader_->Reset();
+    // Pre-allocation gives much better performance for flat columns
+    record_reader_->Reserve(records_to_read);
+
+    size_t row_group_idx = 0;
+    std::vector<int64_t> row_groups_records;
+    while (records_to_read > 0) {
+      if (!record_reader_->HasMoreData()) {
+        break;
+      }
+      record_reader_->SetCurrReadRowGroup(row_group_idx);
+      int64_t records_read = record_reader_->ReadRecords(records_to_read);
+      row_groups_records.push_back(records_read);
+
+      records_to_read -= records_read;
+      
+        NextRowGroup();
+      ++row_group_idx;
+    }
+
+    for (size_t i= 0; i < row_group_idx; ++i) {
+        record_reader_->FillOutData(i, row_groups_records[i]);
+        record_reader_->FreeAsyncVector(i);
+    }
+
+    RETURN_NOT_OK(
+        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));                                     
+    return Status::OK();
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+#endif
+
   Status LoadBatch(int64_t records_to_read) final {
+#ifdef ENABLE_QPL_ANALYSIS
+  ::arrow::Status status = LoadBatchAsync(records_to_read);
+  ARROW_RETURN_IF(status.ok(), status); 
+#endif    
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     out_ = nullptr;
     record_reader_->Reset();

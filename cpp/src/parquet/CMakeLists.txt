@@ -127,7 +127,9 @@ set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
 
 set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift::thrift
                                   ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
-
+if(ENABLE_QPL)
+  list(APPEND PARQUET_SHARED_TEST_LINK_LIBS ch_contrib::qpl)
+endif()
 #
 # Generated Thrift sources
 set_source_files_properties(src/generated/parquet_types.cpp src/generated/parquet_types.h
@@ -171,6 +173,7 @@ set(PARQUET_SRCS
     platform.cc
     printer.cc
     properties.cc
+    qpl_job_pool.cc
     schema.cc
     statistics.cc
     stream_reader.cc
@@ -355,6 +358,11 @@ add_parquet_test(arrow-test
                  arrow/arrow_statistics_test.cc
                  test_util.cc)
 
+# add_parquet_test(reader-qpl-test
+#                  SOURCES
+#                  arrow/parquet_reader_test.cc
+#                  test_util.cc)
+
 add_parquet_test(arrow-internals-test
                  SOURCES
                  arrow/path_internal_test.cc
@@ -389,6 +397,7 @@ add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
+add_parquet_benchmark(arrow/qpl_reader_benchmark)
 
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)

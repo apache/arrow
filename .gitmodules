@@ -4,3 +4,6 @@
 [submodule "testing"]
 	path = testing
 	url = https://github.com/apache/arrow-testing
+[submodule "cpp/submodules/qpl"]
+	path = cpp/submodules/qpl
+	url = https://github.com/intel/qpl.git

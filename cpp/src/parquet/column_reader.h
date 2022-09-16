@@ -350,6 +350,14 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading directly as Arrow dictionary-encoded
   bool read_dictionary() const { return read_dictionary_; }
 
+#ifdef ENABLE_QPL_ANALYSIS
+  virtual void FillOutData(size_t row_group_idx, int64_t records_read) {
+    return;
+  }
+  virtual void SetCurrReadRowGroup(size_t idx) {return;}
+  virtual void FreeAsyncVector(int64_t capacity) = 0;  
+#endif
+
  protected:
   /// \brief Indicates if we can have nullable values.
   bool nullable_values_;

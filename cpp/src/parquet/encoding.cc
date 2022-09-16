@@ -49,6 +49,7 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/qpl_job_pool.h"
 
 namespace bit_util = arrow::bit_util;
 
@@ -1503,6 +1504,25 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     return num_values;
   }
 
+#ifdef ENABLE_QPL_ANALYSIS    
+  int DecodeWithIAA(T* buffer, int num_values, int32_t* qpl_job_id, qpl_job** job, std::vector<uint8_t>** destination, T** out) override {
+    num_values = std::min(num_values, num_values_);
+    uint32_t job_id = 0;
+    *job = QplJobHWPool::instance().acquireJob(job_id);
+    *qpl_job_id = job_id;
+    
+    int decoded_values;
+    decoded_values= idx_decoder_.GetBatchAsyncWithIAA(reinterpret_cast<const T*>(dictionary_->data()),
+                                  dictionary_length_, buffer, num_values, out, job, destination);
+    if (decoded_values != num_values) {
+      ParquetException::EofException();
+    }
+    num_values_ -= num_values;
+    
+    return decoded_values;
+  }
+#endif
+
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
     num_values = std::min(num_values, num_values_);
@@ -1591,6 +1611,10 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     *dictionary = reinterpret_cast<T*>(dictionary_->mutable_data());
   }
 
+  void GetDictionaryPtr(std::shared_ptr<ResizableBuffer> & dic_ptr) override {
+    dic_ptr = dictionary_;
+  }
+  
  protected:
   Status IndexInBounds(int32_t index) {
     if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {

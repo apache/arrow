@@ -375,6 +375,8 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
+  define_option(ENABLE_QPL "Enable Intel® Query Processing Library" OFF)
+
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\
 (This is a deprecated option. Use CMake presets instead.)"

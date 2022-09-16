@@ -31,6 +31,11 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 
+#ifdef ENABLE_QPL_ANALYSIS
+#include <qpl/qpl.hpp>
+#include <qpl/qpl.h>
+#endif
+
 namespace arrow {
 namespace util {
 
@@ -128,6 +133,12 @@ class RleDecoder {
   template <typename T>
   int GetBatchWithDict(const T* dictionary, int32_t dictionary_length, T* values,
                        int batch_size);
+
+#ifdef ENABLE_QPL_ANALYSIS
+  template <typename T>
+  int GetBatchAsyncWithIAA(const T* dictionary, int32_t dictionary_length,
+                                        T* values, int batch_size, T** out, qpl_job** job, std::vector<uint8_t>** destination);                                       
+#endif
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
@@ -597,6 +608,57 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
 
   return values_read;
 }
+
+
+#ifdef ENABLE_QPL_ANALYSIS
+template <typename T>
+inline int RleDecoder::GetBatchAsyncWithIAA(const T* dictionary, int32_t dictionary_length,
+                                        T* values, int batch_size, T** out, qpl_job** job, std::vector<uint8_t>** destination) {
+    if (bit_width_ == 1) {
+      return GetBatchWithDict(dictionary, dictionary_length, values, batch_size);
+    }
+    qpl_status status;
+    uint32_t size = 0;
+    status = qpl_get_job_size(qpl_path_hardware, &size);
+    if (status != QPL_STS_OK) {
+        throw std::runtime_error("An error acquired during job size getting.");
+    }
+
+    qpl_job* async_job = *job;
+    if (dictionary_length < 0xFF) {
+      async_job->out_bit_width      = qpl_ow_8;  
+      *destination = new std::vector<uint8_t>(batch_size, 0);
+    } else if (dictionary_length < 0xFFFF) {
+      async_job->out_bit_width      = qpl_ow_16;  
+      *destination = new std::vector<uint8_t>(batch_size * 2, 0);
+    } else {
+      async_job->out_bit_width      = qpl_ow_32;  
+      *destination = new std::vector<uint8_t>(batch_size * 4, 0);
+    }
+    
+    auto qpl_out = *destination;
+
+    async_job->op                 = qpl_op_extract;
+    async_job->src1_bit_width     = bit_width_;
+    async_job->param_low          = 0;
+    async_job->param_high         = batch_size;
+    async_job->num_input_elements = batch_size;
+    async_job->parser             = qpl_p_parquet_rle;
+
+    async_job->next_in_ptr        = const_cast<uint8_t *>(bit_reader_.getBuffer());
+    async_job->available_in       = bit_reader_.getBufferLen();
+    async_job->next_out_ptr       = qpl_out->data();
+    async_job->available_out      = static_cast<uint32_t>(qpl_out->size());
+
+    status = qpl_submit_job(async_job);
+    if (status != QPL_STS_OK) {
+        throw std::runtime_error("An error acquired during job submit");
+    }
+
+    *out =  values;
+    return batch_size;
+}   
+#endif
 
 template <typename T>
 inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,

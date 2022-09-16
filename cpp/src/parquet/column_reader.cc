@@ -52,6 +52,7 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
 #include "parquet/windows_fixup.h"    // for OPTIONAL
+#include "parquet/qpl_job_pool.h"
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
@@ -160,7 +161,6 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   encoding_ = Encoding::RLE;
   num_values_remaining_ = num_buffered_values;
   bit_width_ = bit_util::Log2(max_level + 1);
-
   if (!rle_decoder_) {
     rle_decoder_.reset(new ::arrow::util::RleDecoder(data, num_bytes, bit_width_));
   } else {
@@ -953,6 +953,11 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
     decoder->GetDictionary(dictionary, dictionary_length);
   }
 
+  void GetDictionaryPtr(std::shared_ptr<ResizableBuffer> & dic_ptr) {
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    decoder->GetDictionaryPtr(dic_ptr);
+  }
+
   // Read definition and repetition levels. Also return the number of definition levels
   // and number of values to read. This function is called before reading values.
   void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
@@ -1558,6 +1563,77 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
     return skipped_records;
   }
+#ifdef ENABLE_QPL_ANALYSIS 
+  void FreeAsyncVector(int64_t capacity) override {
+    for (size_t i = 0; i < destinations[capacity].size(); ++i) {
+      if (destinations[capacity][i] != nullptr) {
+        std::vector<uint8_t>().swap(*destinations[capacity][i]);
+        delete destinations[capacity][i];
+      }
+      if (qpl_jobs[capacity][i].first > 0) {
+        QplJobHWPool::instance().releaseJob(qpl_jobs[capacity][i].first);
+      }
+    }
+  }
+
+  virtual void FillOutData(size_t row_group_idx, int64_t records_read) override {
+    for (size_t i = 0; i < destinations[row_group_idx].size(); ++i) {
+      auto destination = destinations[row_group_idx][i];
+      if (destination == nullptr) {
+        continue;
+      }
+      auto dictionary = reinterpret_cast<T*>(dictionary_ptrs[row_group_idx][i]->mutable_data());
+      qpl_job* job = qpl_jobs[row_group_idx][i].second;
+      auto out = out_ptrs[row_group_idx][i];
+
+      if (dictionary == nullptr || job == nullptr || out == nullptr) {
+        throw ParquetException("Qpl destination vector is null");
+      }
+
+      auto status = qpl_wait_job(job);
+      if (status != QPL_STS_OK) {
+        throw ParquetException("An error acquired during qpl job wait finished." + std::to_string(status));
+      }      
+      status = qpl_fini_job(job);
+      if (status != QPL_STS_OK) {
+        throw ParquetException("An error acquired during finish qpl job." + std::to_string(status));
+      }
+
+      int64_t batch_size = row_group_batch_sizes[row_group_idx][i];
+      if (destination->size() / batch_size == qpl_ow_32) {
+        auto *indices = reinterpret_cast<uint32_t *>(destination->data());
+        for (int j = 0; j < batch_size; j++) {
+          uint32_t idx = static_cast<uint32_t>(indices[j]);
+          T val = dictionary[idx];
+          std::fill(out, out+1, val);
+          out++;
+        }       
+      } else if (destination->size() / batch_size == qpl_ow_16) {
+        auto *indices = reinterpret_cast<uint16_t *>(destination->data());
+        for (int j = 0; j < batch_size; j++) {
+          uint16_t idx = static_cast<uint16_t>(indices[j]);
+          T val = dictionary[idx];
+          std::fill(out, out+1, val);
+          out++;
+        }  
+      }  else {
+        auto *indices = reinterpret_cast<uint8_t *>(destination->data());
+        for (int j = 0; j < batch_size; j++) {
+          uint8_t idx = static_cast<uint8_t>(indices[j]);
+          T val = dictionary[idx];
+          std::fill(out, out+1, val);
+          out++;
+        }  
+      }
+    }
+    return;
+  }
+
+  void SetCurrReadRowGroup(size_t idx) {
+    this->curr_read_row_group = idx;
+  }
+
+  #endif
 
   // We may outwardly have the appearance of having exhausted a column chunk
   // when in fact we are in the middle of processing the last batch
@@ -1738,8 +1814,30 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   virtual void ReadValuesDense(int64_t values_to_read) {
+#ifdef ENABLE_QPL_ANALYSIS  
+    int32_t qpl_job_id = 0;
+    qpl_job* job = nullptr;
+    std::vector<uint8_t>* destination = nullptr;
+    std::shared_ptr<ResizableBuffer> dictionary_ptr;
+    T* out_ptr = nullptr; 
+    int64_t num_decoded =
+        this->current_decoder_->DecodeWithIAA(ValuesHead<T>(), static_cast<int>(values_to_read), &qpl_job_id, &job, &destination, &out_ptr);
+    CheckNumberDecoded(num_decoded, values_to_read);
+
+    qpl_jobs[curr_read_row_group].push_back(std::make_pair(qpl_job_id, job));
+    destinations[curr_read_row_group].push_back(destination);
+    row_group_batch_sizes[curr_read_row_group].push_back(values_to_read);
+    out_ptrs[curr_read_row_group].push_back(out_ptr);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+      if (decoder != nullptr) {
+        decoder->GetDictionaryPtr(dictionary_ptr);
+        dictionary_ptrs[curr_read_row_group].push_back(dictionary_ptr);
+      }         
+#else
+
     int64_t num_decoded =
         this->current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
+#endif
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
@@ -1844,6 +1942,16 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return reinterpret_cast<T*>(values_->mutable_data()) + values_written_;
   }
   LevelInfo leaf_info_;
+#ifdef ENABLE_QPL_ANALYSIS
+public:
+  using qpl_job_pair = std::pair<uint32_t, qpl_job*>;
+  std::map<size_t, std::vector<std::vector<uint8_t>*>> destinations;
+  std::map<size_t, std::vector<qpl_job_pair>> qpl_jobs;
+  std::map<size_t, std::vector<std::shared_ptr<ResizableBuffer>>> dictionary_ptrs;
+  std::map<size_t, std::vector<int64_t>> row_group_batch_sizes;
+  std::map<size_t, std::vector<T*>> out_ptrs;
+  size_t curr_read_row_group;
+#endif    
 };
 
 class FLBARecordReader : public TypedRecordReader<FLBAType>,

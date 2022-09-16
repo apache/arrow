@@ -190,6 +190,15 @@ class BitReader {
   /// Maximum byte length of a vlq encoded int64
   static constexpr int kMaxVlqByteLengthForInt64 = 10;
 
+  const uint8_t * getBuffer() {
+    return buffer_ - 1;
+  }
+
+  int getBufferLen() {
+    return max_bytes_ + 1;
+  }
+
+
  private:
   const uint8_t* buffer_;
   int max_bytes_;
