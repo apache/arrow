@@ -181,6 +181,11 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     ccache -s
 fi
 
+if command -v sccache &> /dev/null; then
+  echo "=== sccache stats after the build ==="
+  sccache --show-stats
+fi
+
 if [ "${BUILD_DOCS_CPP}" == "ON" ]; then
   pushd ${source_dir}/apidoc
   doxygen
