@@ -289,7 +289,7 @@ test_that("type checks with is() giving Arrow types", {
         str_is_dec256 = is(str, decimal256(3, 2)),
         str_is_i64 = is(str, float64()),
         str_is_str = is(str, string())
-    ) %>%
+      ) %>%
       collect() %>%
       t() %>%
       as.vector(),
