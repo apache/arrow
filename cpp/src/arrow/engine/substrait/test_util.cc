@@ -26,7 +26,6 @@
 // global namespace conflicts.
 
 #include "arrow/engine/substrait/test_util.h"
-#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 

@@ -50,6 +50,7 @@
 namespace arrow {
 
 namespace engine {
+
 struct FunctionTestCase {
   Id function_id;
   std::vector<std::string> arguments;
