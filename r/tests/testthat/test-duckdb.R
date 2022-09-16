@@ -202,6 +202,10 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
+  # ARROW-17643: A change in duckdb 0.5.0 caused this test to fail but will
+  # be fixed in the next release.
+  skip_if_not(packageVersion("duckdb") > "0.5.0")
+
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
