@@ -189,7 +189,6 @@ dim.arrow_dplyr_query <- function(x) {
 
 #' @export
 unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
-
   if (isTRUE(incomparables)) {
     arrow_not_supported("`unique()` with `incomparables = TRUE`")
   }
@@ -262,7 +261,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' mtcars %>%
 #'   arrow_table() %>%
 #'   filter(mpg > 20) %>%
-#'   mutate(x = gear/carb) %>%
+#'   mutate(x = gear / carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
   adq <- as_adq(x)

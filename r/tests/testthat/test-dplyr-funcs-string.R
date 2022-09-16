@@ -61,7 +61,8 @@ test_that("paste, paste0, and str_c", {
     .input %>%
       transmute(
         a = paste0(v, w),
-        a2 = base::paste0(v, w)) %>%
+        a2 = base::paste0(v, w)
+      ) %>%
       collect(),
     df
   )

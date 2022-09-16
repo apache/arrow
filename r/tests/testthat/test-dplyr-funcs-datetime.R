@@ -186,7 +186,6 @@ test_that("strptime", {
       collect(),
     tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
   )
-
 })
 
 test_that("strptime works for individual formats", {
@@ -200,21 +199,21 @@ test_that("strptime works for individual formats", {
   expect_equal(
     strptime_test_df %>%
       arrow_table() %>%
-        mutate(
-          parsed_H = strptime(string_H, format = "%Y-%m-%d-%H"),
-          parsed_I = strptime(string_I, format = "%Y-%m-%d-%I"),
-          parsed_j = strptime(string_j, format = "%Y-%m-%d-%j"),
-          parsed_M = strptime(string_M, format = "%Y-%m-%d-%M"),
-          parsed_S = strptime(string_S, format = "%Y-%m-%d-%S"),
-          parsed_U = strptime(string_U, format = "%Y-%m-%d-%U"),
-          parsed_w = strptime(string_w, format = "%Y-%m-%d-%w"),
-          parsed_W = strptime(string_W, format = "%Y-%m-%d-%W"),
-          parsed_y = strptime(string_y, format = "%y-%m-%d"),
-          parsed_Y = strptime(string_Y, format = "%Y-%m-%d"),
-          parsed_R = strptime(string_R, format = "%Y-%m-%d-%R"),
-          parsed_T = strptime(string_T, format = "%Y-%m-%d-%T")
-        ) %>%
-        collect(),
+      mutate(
+        parsed_H = strptime(string_H, format = "%Y-%m-%d-%H"),
+        parsed_I = strptime(string_I, format = "%Y-%m-%d-%I"),
+        parsed_j = strptime(string_j, format = "%Y-%m-%d-%j"),
+        parsed_M = strptime(string_M, format = "%Y-%m-%d-%M"),
+        parsed_S = strptime(string_S, format = "%Y-%m-%d-%S"),
+        parsed_U = strptime(string_U, format = "%Y-%m-%d-%U"),
+        parsed_w = strptime(string_w, format = "%Y-%m-%d-%w"),
+        parsed_W = strptime(string_W, format = "%Y-%m-%d-%W"),
+        parsed_y = strptime(string_y, format = "%y-%m-%d"),
+        parsed_Y = strptime(string_Y, format = "%Y-%m-%d"),
+        parsed_R = strptime(string_R, format = "%Y-%m-%d-%R"),
+        parsed_T = strptime(string_T, format = "%Y-%m-%d-%T")
+      ) %>%
+      collect(),
     strptime_test_df %>%
       mutate(
         parsed_H = as.POSIXct(strptime(string_H, format = "%Y-%m-%d-%H")),
@@ -238,15 +237,15 @@ test_that("strptime works for individual formats", {
   expect_equal(
     strptime_test_df %>%
       arrow_table() %>%
-        mutate(
-          parsed_a = strptime(string_a, format = "%Y-%m-%d-%a"),
-          parsed_A = strptime(string_A, format = "%Y-%m-%d-%A"),
-          parsed_b = strptime(string_b, format = "%Y-%m-%d-%b"),
-          parsed_B = strptime(string_B, format = "%Y-%m-%d-%B"),
-          parsed_p = strptime(string_p, format = "%Y-%m-%d-%p"),
-          parsed_r = strptime(string_r, format = "%Y-%m-%d-%r")
-        ) %>%
-        collect(),
+      mutate(
+        parsed_a = strptime(string_a, format = "%Y-%m-%d-%a"),
+        parsed_A = strptime(string_A, format = "%Y-%m-%d-%A"),
+        parsed_b = strptime(string_b, format = "%Y-%m-%d-%b"),
+        parsed_B = strptime(string_B, format = "%Y-%m-%d-%B"),
+        parsed_p = strptime(string_p, format = "%Y-%m-%d-%p"),
+        parsed_r = strptime(string_r, format = "%Y-%m-%d-%r")
+      ) %>%
+      collect(),
     strptime_test_df %>%
       mutate(
         parsed_a = as.POSIXct(strptime(string_a, format = "%Y-%m-%d-%a")),
@@ -258,7 +257,6 @@ test_that("strptime works for individual formats", {
       ) %>%
       collect()
   )
-
 })
 
 test_that("timestamp round trip correctly via strftime and strptime", {
@@ -297,8 +295,8 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(!!fmt := strptime(x, format = fmt)) %>%
-          collect(),
+        mutate(!!fmt := strptime(x, format = fmt)) %>%
+        collect(),
       test_df %>%
         mutate(!!fmt := as.POSIXct(strptime(x, format = fmt))) %>%
         collect()
@@ -312,14 +310,13 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-          mutate(!!fmt := strptime(x, format = fmt2)) %>%
-          collect(),
+        mutate(!!fmt := strptime(x, format = fmt2)) %>%
+        collect(),
       test_df %>%
         mutate(!!fmt := as.POSIXct(strptime(x, format = fmt2))) %>%
         collect()
     )
   }
-
 })
 
 test_that("strptime returns NA when format doesn't match the data", {
@@ -994,8 +991,8 @@ test_that("extract qday from date", {
 
   compare_dplyr_binding(
     .input %>%
-       mutate(y = qday(as.Date("2022-06-29"))) %>%
-       collect(),
+      mutate(y = qday(as.Date("2022-06-29"))) %>%
+      collect(),
     test_df
   )
 })
@@ -2299,7 +2296,6 @@ test_that("parse_date_time's other formats", {
       tibble::tibble(string_1 = c("2022-Feb-11-12:23:45", NA))
     )
   }
-
 })
 
 test_that("lubridate's fast_strptime", {
@@ -2835,7 +2831,6 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 })
 
 test_that("build_formats() and build_format_from_order()", {
-
   ymd_formats <- c(
     "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
     "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
@@ -3027,7 +3022,7 @@ boundary_times <- tibble::tibble(
     "2022-03-10 00:00:01", # boundary for second, millisecond
     "2022-03-10 00:01:00", # boundary for second, millisecond, minute
     "2022-03-10 01:00:00", # boundary for second, millisecond, minute, hour
-    "2022-01-01 00:00:00"  # boundary for year
+    "2022-01-01 00:00:00" # boundary for year
   ), tz = "UTC", format = "%F %T")),
   date = as.Date(datetime)
 )
@@ -3053,14 +3048,13 @@ datestrings <- c(
 )
 tz_times <- tibble::tibble(
   utc_time = as.POSIXct(datestrings, tz = "UTC"),
-  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"),   # UTC +10   (UTC +11 with DST)
+  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"), # UTC +10   (UTC +11 with DST)
   adl_time = as.POSIXct(datestrings, tz = "Australia/Adelaide"), # UTC +9:30 (UTC +10:30 with DST)
-  mar_time = as.POSIXct(datestrings, tz = "Pacific/Marquesas"),  # UTC -9:30 (no DST)
-  kat_time = as.POSIXct(datestrings, tz = "Asia/Kathmandu")      # UTC +5:45 (no DST)
+  mar_time = as.POSIXct(datestrings, tz = "Pacific/Marquesas"), # UTC -9:30 (no DST)
+  kat_time = as.POSIXct(datestrings, tz = "Asia/Kathmandu") # UTC +5:45 (no DST)
 )
 
 test_that("timestamp round/floor/ceiling works for a minimal test", {
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -3103,7 +3097,6 @@ test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
 })
 
 test_that("temporal round/floor/ceiling accepts periods with multiple units", {
-
   check_multiple_unit_period <- function(unit, multiplier) {
     unit_string <- paste(multiplier, unit)
     compare_dplyr_binding(
@@ -3152,7 +3145,6 @@ check_date_rounding <- function(data, unit, lubridate_unit = unit, ...) {
 }
 
 check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
-
   expect_equal(
     data %>%
       arrow_table() %>%
@@ -3173,16 +3165,13 @@ check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
 }
 
 test_that("date round/floor/ceil works for units of 1 day or less", {
-
   test_df %>% check_date_rounding("1 millisecond", lubridate_unit = ".001 second")
   test_df %>% check_date_rounding("1 day")
   test_df %>% check_date_rounding("1 second")
   test_df %>% check_date_rounding("1 hour")
-
 })
 
 test_that("timestamp round/floor/ceil works for units of 1 day or less", {
-
   test_df %>% check_timestamp_rounding("second")
   test_df %>% check_timestamp_rounding("minute")
   test_df %>% check_timestamp_rounding("hour")
@@ -3195,15 +3184,12 @@ test_that("timestamp round/floor/ceil works for units of 1 day or less", {
   test_df %>% check_timestamp_rounding("1 millisecond", lubridate_unit = ".001 second")
   test_df %>% check_timestamp_rounding("1 microsecond", lubridate_unit = ".000001 second")
   test_df %>% check_timestamp_rounding("1 nanosecond", lubridate_unit = ".000000001 second")
-
 })
 
 test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
-
   year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
   year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
   year_of_dates %>% check_timestamp_rounding("year", ignore_attr = TRUE)
-
 })
 
 # check helper invoked when we need to avoid the lubridate rounding bug
@@ -3249,7 +3235,6 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
   check_date_rounding_1051_bypass(year_of_dates, "month", ignore_attr = TRUE)
   check_date_rounding_1051_bypass(year_of_dates, "quarter", ignore_attr = TRUE)
   check_date_rounding_1051_bypass(year_of_dates, "year", ignore_attr = TRUE)
-
 })
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
@@ -3289,20 +3274,16 @@ check_timestamp_week_rounding <- function(data, week_start, ignore_attr = TRUE, 
 }
 
 test_that("timestamp round/floor/ceil works for week units (standard week_start)", {
-
   fortnight %>% check_timestamp_week_rounding(week_start = 1) # Monday
   fortnight %>% check_timestamp_week_rounding(week_start = 7) # Sunday
-
 })
 
 test_that("timestamp round/floor/ceil works for week units (non-standard week_start)", {
-
   fortnight %>% check_timestamp_week_rounding(week_start = 2) # Tuesday
   fortnight %>% check_timestamp_week_rounding(week_start = 3) # Wednesday
   fortnight %>% check_timestamp_week_rounding(week_start = 4) # Thursday
   fortnight %>% check_timestamp_week_rounding(week_start = 5) # Friday
   fortnight %>% check_timestamp_week_rounding(week_start = 6) # Saturday
-
 })
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
@@ -3337,20 +3318,16 @@ check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) 
 }
 
 test_that("date round/floor/ceil works for week units (standard week_start)", {
-
   check_date_week_rounding(fortnight, week_start = 1) # Monday
   check_date_week_rounding(fortnight, week_start = 7) # Sunday
-
 })
 
 test_that("date round/floor/ceil works for week units (non-standard week_start)", {
-
   check_date_week_rounding(fortnight, week_start = 2) # Tuesday
   check_date_week_rounding(fortnight, week_start = 3) # Wednesday
   check_date_week_rounding(fortnight, week_start = 4) # Thursday
   check_date_week_rounding(fortnight, week_start = 5) # Friday
   check_date_week_rounding(fortnight, week_start = 6) # Saturday
-
 })
 
 # Test helper used to check that the change_on_boundary argument to
@@ -3389,8 +3366,6 @@ check_boundary_with_unit <- function(unit, ...) {
       ),
     ...
   )
-
-
 }
 
 test_that("ceiling_date() applies change_on_boundary correctly", {
@@ -3405,7 +3380,6 @@ test_that("ceiling_date() applies change_on_boundary correctly", {
 # exceeded. Checks that arrow mimics this behaviour and throws an identically
 # worded error message
 test_that("temporal round/floor/ceil period unit maxima are enforced", {
-
   expect_error(
     call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
     "Rounding with second > 60 is not supported"
@@ -3422,7 +3396,6 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
     call_binding("round_date", Expression$scalar(Sys.Date()), "25 hours"),
     "Rounding with hour > 24 is not supported"
   )
-
 })
 
 # one method to test that temporal rounding takes place in local time is to
@@ -3464,7 +3437,6 @@ check_timezone_rounding_vs_lubridate <- function(data, unit) {
       collect(),
     data
   )
-
 }
 
 # another method to check that temporal rounding takes place in local
@@ -3474,7 +3446,6 @@ check_timezone_rounding_vs_lubridate <- function(data, unit) {
 # for UTC test. this test isn't useful for subsecond resolution but avoids
 # dependency on lubridate
 check_timezone_rounding_for_consistency <- function(data, unit) {
-
   shifted_times <- data %>%
     arrow_table() %>%
     mutate(
@@ -3498,11 +3469,11 @@ check_timezone_rounding_for_consistency <- function(data, unit) {
 
   compare_local_times <- function(time1, time2) {
     all(year(time1) == year(time1) &
-          month(time1) == month(time2) &
-          day(time1) == day(time2) &
-          hour(time1) == hour(time2) &
-          minute(time1) == minute(time2) &
-          second(time1) == second(time1))
+      month(time1) == month(time2) &
+      day(time1) == day(time2) &
+      hour(time1) == hour(time2) &
+      minute(time1) == minute(time2) &
+      second(time1) == second(time1))
   }
 
   base <- shifted_times$utc_rounded
@@ -3525,7 +3496,6 @@ check_timezone_rounding_for_consistency <- function(data, unit) {
 }
 
 test_that("timestamp rounding takes place in local time", {
-
   tz_times %>% check_timezone_rounding_vs_lubridate(".001 second")
   tz_times %>% check_timezone_rounding_vs_lubridate("second")
   tz_times %>% check_timezone_rounding_vs_lubridate("minute")
@@ -3556,5 +3526,4 @@ test_that("timestamp rounding takes place in local time", {
   tz_times %>% check_timezone_rounding_for_consistency("13 hours")
   tz_times %>% check_timezone_rounding_for_consistency("13 months")
   tz_times %>% check_timezone_rounding_for_consistency("13 years")
-
 })

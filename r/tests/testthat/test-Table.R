@@ -692,5 +692,4 @@ test_that("num_rows method not susceptible to integer overflow", {
   expect_type(big_table$num_rows, "double")
 
   expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
-
 })

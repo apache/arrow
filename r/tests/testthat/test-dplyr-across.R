@@ -222,5 +222,4 @@ test_that("expand_across correctly expands quosures", {
     regexp = "`.names` specification must produce (number of columns * number of functions) names.",
     fixed = TRUE
   )
-
 })

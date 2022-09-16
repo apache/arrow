@@ -273,7 +273,7 @@ test_that("nested exec plans can contain user-defined functions", {
   on.exit(unregister_binding("times_32", update_cache = TRUE))
 
   stream_plan_with_udf <- function() {
-   record_batch(a = 1:1000) %>%
+    record_batch(a = 1:1000) %>%
       dplyr::mutate(b = times_32(a)) %>%
       as_record_batch_reader() %>%
       as_arrow_table()
