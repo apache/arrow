@@ -18,6 +18,7 @@
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.dataset.jni.JniLoader;
+import org.apache.arrow.dataset.jni.NativeRecordBatchIterator;
 
 /**
  * JniWrapper for filesystem based {@link org.apache.arrow.dataset.source.Dataset} implementations.
@@ -44,5 +45,22 @@ public class JniWrapper {
    * @see FileFormat
    */
   public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
+
+  /**
+   * Write all record batches in a {@link NativeRecordBatchIterator} into files. This internally
+   * depends on C++ write API: FileSystemDataset::Write.
+   *
+   * @param itr iterator to be used for writing
+   * @param schema serialized schema of output files
+   * @param fileFormat target file format (ID)
+   * @param uri target file uri
+   * @param partitionColumns columns used to partition output files
+   * @param maxPartitions maximum partitions to be included in written files
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
+   *                         ID around all written files.
+   */
+  public native void writeFromScannerToFile(NativeRecordBatchIterator itr, byte[] schema,
+                                            long fileFormat, String uri, String[] partitionColumns, int maxPartitions,
+                                            String baseNameTemplate);
 
 }
