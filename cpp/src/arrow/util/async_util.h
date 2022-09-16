@@ -215,7 +215,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
     std::unique_ptr<State> state_holder =
         arrow::internal::make_unique<State>(std::move(generator), std::move(visitor));
     struct SubmitTask : public Task {
-      SubmitTask(std::unique_ptr<State> state_holder)
+      explicit SubmitTask(std::unique_ptr<State> state_holder)
           : state_holder(std::move(state_holder)) {}
       struct SubmitTaskCallback {
         SubmitTaskCallback(AsyncTaskScheduler* scheduler,
@@ -242,7 +242,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
     };
     return generator_scheduler->AddTask(
         arrow::internal::make_unique<SubmitTask>(std::move(state_holder)));
-  };
+  }
 
   template <typename Callable>
   struct SimpleTask : public Task {

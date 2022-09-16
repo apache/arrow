@@ -159,7 +159,7 @@ TEST(BasicEvolution, ReorderedColumns) {
 }
 
 struct MockScanTask {
-  MockScanTask(std::shared_ptr<RecordBatch> batch) : batch(std::move(batch)) {}
+  explicit MockScanTask(std::shared_ptr<RecordBatch> batch) : batch(std::move(batch)) {}
 
   std::shared_ptr<RecordBatch> batch;
   Future<std::shared_ptr<RecordBatch>> batch_future =
@@ -167,7 +167,7 @@ struct MockScanTask {
 };
 
 struct MockFragmentScanner : public FragmentScanner {
-  MockFragmentScanner(std::vector<MockScanTask> scan_tasks)
+  explicit MockFragmentScanner(std::vector<MockScanTask> scan_tasks)
       : scan_tasks_(std::move(scan_tasks)), has_started_(scan_tasks_.size(), false) {}
 
   // ### FragmentScanner API ###
@@ -175,10 +175,10 @@ struct MockFragmentScanner : public FragmentScanner {
     has_started_[batch_number] = true;
     return scan_tasks_[batch_number].batch_future;
   }
-  virtual int64_t EstimatedDataBytes(int batch_number) override {
+  int64_t EstimatedDataBytes(int batch_number) override {
     return util::TotalBufferSize(*scan_tasks_[batch_number].batch);
   }
-  virtual int NumBatches() override { return static_cast<int>(scan_tasks_.size()); }
+  int NumBatches() override { return static_cast<int>(scan_tasks_.size()); }
 
   // ### Unit Test API ###
   void DeliverBatches(bool slow, const std::vector<MockScanTask>& to_deliver) {
@@ -246,7 +246,7 @@ struct MockFragment : public Fragment {
 
   std::string type_name() const override { return "mock"; }
 
-  virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
     return physical_schema_;
   };
 
@@ -359,7 +359,7 @@ struct MockDataset : public FragmentDataset {
 };
 
 struct MockDatasetBuilder {
-  MockDatasetBuilder(std::shared_ptr<Schema> dataset_schema)
+  explicit MockDatasetBuilder(std::shared_ptr<Schema> dataset_schema)
       : dataset_schema(std::move(dataset_schema)) {}
 
   void AddFragment(

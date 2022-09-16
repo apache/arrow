@@ -134,7 +134,7 @@ TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {
     MyTask(bool* my_task_destroyed_ptr, Future<> task_fut)
         : my_task_destroyed_ptr(my_task_destroyed_ptr), task_fut(std::move(task_fut)) {}
     ~MyTask() { *my_task_destroyed_ptr = true; }
-    Result<Future<>> operator()(AsyncTaskScheduler*) { return task_fut; };
+    Result<Future<>> operator()(AsyncTaskScheduler*) { return task_fut; }
     bool* my_task_destroyed_ptr;
     Future<> task_fut;
   };

@@ -160,7 +160,7 @@ Future<std::shared_ptr<InspectedFragment>> InMemoryFragment::InspectFragment() {
 
 class InMemoryFragment::Scanner : public FragmentScanner {
  public:
-  Scanner(InMemoryFragment* fragment) : fragment_(fragment) {}
+  explicit Scanner(InMemoryFragment* fragment) : fragment_(fragment) {}
 
   Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
     return Future<std::shared_ptr<RecordBatch>>::MakeFinished(
@@ -289,7 +289,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
   BasicFragmentEvolution(std::vector<int> ds_to_frag_map, Schema* dataset_schema)
       : ds_to_frag_map(std::move(ds_to_frag_map)), dataset_schema(dataset_schema) {}
 
-  virtual Result<compute::Expression> GetGuarantee(
+  Result<compute::Expression> GetGuarantee(
       const std::vector<FieldPath>& dataset_schema_selection) const override {
     std::vector<compute::Expression> missing_fields;
     for (const FieldPath& path : dataset_schema_selection) {
@@ -328,7 +328,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
     return std::move(desired_columns);
   };
 
-  virtual Result<compute::Expression> DevolveFilter(
+  Result<compute::Expression> DevolveFilter(
       const compute::Expression& filter) const override {
     return compute::Modify(
         filter,
@@ -353,7 +353,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
         [](compute::Expression expr, compute::Expression* old_expr) { return expr; });
   };
 
-  virtual Result<compute::ExecBatch> EvolveBatch(
+  Result<compute::ExecBatch> EvolveBatch(
       const std::shared_ptr<RecordBatch>& batch,
       const std::vector<FieldPath>& dataset_selection,
       const std::vector<FragmentSelectionColumn>& selection) const override {

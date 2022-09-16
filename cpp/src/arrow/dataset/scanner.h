@@ -152,7 +152,8 @@ struct ARROW_DS_EXPORT ScanOptions {
 /// Conversion from the fragment schema to the dataset schema is a process
 /// known as evolution.
 struct ARROW_DS_EXPORT ScanV2Options : public compute::ExecNodeOptions {
-  ScanV2Options(std::shared_ptr<Dataset> dataset) : dataset(std::move(dataset)) {}
+  explicit ScanV2Options(std::shared_ptr<Dataset> dataset)
+      : dataset(std::move(dataset)) {}
 
   /// \brief The dataset to scan
   std::shared_ptr<Dataset> dataset;

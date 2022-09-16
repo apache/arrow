@@ -105,7 +105,7 @@ class FragmentScanner {
 };
 
 struct InspectedFragment {
-  InspectedFragment(std::vector<std::string> column_names)
+  explicit InspectedFragment(std::vector<std::string> column_names)
       : column_names(std::move(column_names)) {}
   std::vector<std::string> column_names;
 };
