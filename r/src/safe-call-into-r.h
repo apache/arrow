@@ -37,8 +37,6 @@
 // because only one of these can exist at any given time.
 bool CanRunWithCapturedR();
 
-extern "C" void OverridingSignalHandler(int sig);
-
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
 // if it is not safe). The MainRThread singleton can be accessed from
