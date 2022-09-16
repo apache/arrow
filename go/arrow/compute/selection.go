@@ -140,7 +140,7 @@ func denseUnionImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
 		defer typedValues.Release()
 
 		eg, cctx := errgroup.WithContext(ctx.Ctx)
-		eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
+		eg.SetLimit(GetExecCtx(ctx.Ctx).NumParallel)
 
 		for i := 0; i < typedValues.NumFields(); i++ {
 			i := i
@@ -236,7 +236,7 @@ func structTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult)
 	// select from children without bounds checking
 	out.Children = make([]exec.ArraySpan, values.NumField())
 	eg, cctx := errgroup.WithContext(ctx.Ctx)
-	eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
+	eg.SetLimit(GetExecCtx(ctx.Ctx).NumParallel)
 
 	selection := batch.Values[1].Array.MakeArray()
 	defer selection.Release()
