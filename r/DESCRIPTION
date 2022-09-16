@@ -103,6 +103,7 @@ Collate:
     'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
+    'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'

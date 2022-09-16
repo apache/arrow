@@ -97,15 +97,19 @@ jobs:
       - shell: bash
         name: Build Repository
         run: |
+          DATE=$(date +%Y-%m-%d)
           if [ -z $PREFIX ]; then
-            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
+            PREFIX=nightly-packaging-${DATE}-0
           fi
-          PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9]+.[0-9]+.[0-9]+.dev[0-9]+)'
+          PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9]+.[0-9]+.[0-9]+-SNAPSHOT)'
           mkdir -p repo/org/apache/arrow/
           for LIBRARY in $(ls binaries/$PREFIX/java-jars | grep -E '.jar|.pom' | grep dev); do
             [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
             mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
+            mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${DATE}
+            # Copy twice to maintain a latest snapshot and some earlier versions
             cp binaries/$PREFIX/java-jars/$LIBRARY repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
+            cp binaries/$PREFIX/java-jars/$LIBRARY repo/org/apache/arrow/${BASH_REMATCH[1]}/${DATE}
             echo "Artifacts $LIBRARY configured"
           done
       - name: Prune Repository

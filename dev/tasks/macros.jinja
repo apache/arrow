@@ -354,8 +354,8 @@ on:
   {# use filter to cast to string and convert to lowercase to match yaml boolean #}
   {% set is_fork = (not is_upstream_b)|lower %}
 
-{% set r_release = '4.2' %}
-{% set r_oldrel = '4.1' %}
+{% set r_release = {"ver": "4.2", "rt" : "42"} %}
+{% set r_oldrel = {"ver": "4.1", "rt" : "40"} %}
 
 {%- macro github_set_env(env) -%}
   {% if env is defined %}

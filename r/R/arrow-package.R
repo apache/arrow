@@ -31,25 +31,50 @@
 #' @keywords internal
 "_PACKAGE"
 
+# TODO(ARROW-17666): Include notes about features not supported here.
+supported_dplyr_methods <- list(
+  select = NULL,
+  filter = NULL,
+  collect = NULL,
+  summarise = NULL,
+  group_by = NULL,
+  groups = NULL,
+  group_vars = NULL,
+  group_by_drop_default = NULL,
+  ungroup = NULL,
+  mutate = NULL,
+  transmute = NULL,
+  arrange = NULL,
+  rename = NULL,
+  pull = NULL,
+  relocate = NULL,
+  compute = NULL,
+  collapse = NULL,
+  distinct = NULL,
+  left_join = NULL,
+  right_join = NULL,
+  inner_join = NULL,
+  full_join = NULL,
+  semi_join = NULL,
+  anti_join = NULL,
+  count = NULL,
+  tally = NULL,
+  rename_with = NULL,
+  union = NULL,
+  union_all = NULL,
+  glimpse = NULL,
+  show_query = NULL,
+  explain = NULL
+)
+
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
   # Make sure C++ knows on which thread it is safe to call the R API
   InitializeMainRThread()
 
-  dplyr_methods <- paste0(
-    "dplyr::",
-    c(
-      "select", "filter", "collect", "summarise", "group_by", "groups",
-      "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
-      "arrange", "rename", "pull", "relocate", "compute", "collapse",
-      "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join", "count", "tally", "rename_with", "union",
-      "union_all", "glimpse", "show_query", "explain"
-    )
-  )
   for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
-    for (m in dplyr_methods) {
-      s3_register(m, cl)
+    for (m in names(supported_dplyr_methods)) {
+      s3_register(paste0("dplyr::", m), cl)
     }
   }
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
