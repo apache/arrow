@@ -540,6 +540,7 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
 }
 
 TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
+  // Regression test for ARROW-17733
   auto dict_type = dictionary(uint16(), utf8());
   auto dict_one = DictArrayFromJSON(dict_type, "[]", "[]");
   auto dict_two =
