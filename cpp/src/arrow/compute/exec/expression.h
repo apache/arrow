@@ -100,7 +100,7 @@ class ARROW_EXPORT Expression {
   // XXX someday
   // Result<PipelineGraph> GetPipelines();
 
-  bool is_valid() const { return impl_ != nullptr; }
+  bool is_valid() const { return impl_ != NULLPTR; }
 
   /// Access a Call or return nullptr if this expression is not a call
   const Call* call() const;
