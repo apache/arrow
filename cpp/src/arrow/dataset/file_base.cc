@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
@@ -43,7 +44,6 @@
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -154,7 +154,7 @@ struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
   compute::Forest forest;
   // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
+  std::vector<std::variant<int, compute::Expression>> fragments_and_subtrees;
 };
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
@@ -242,13 +242,13 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
   RETURN_NOT_OK(subtrees_->forest.Visit(
       [&](compute::Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
-                util::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
+                std::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
           return false;
         }
 
         const auto& subtree_expr =
-            util::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
+            std::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 

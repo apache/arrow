@@ -35,7 +35,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -120,13 +119,6 @@ void TestSession() {
   auto ok_result = Result<int>(42);
   auto error_result = Result<int>(error_status);
   auto error_detail_result = Result<int>(error_detail_status);
-
-  // Variants
-  using VariantType = util::Variant<int, bool, std::string>;
-
-  VariantType int_variant{42};
-  VariantType bool_variant{false};
-  VariantType string_variant{std::string("hello")};
 
   // String views
   util::string_view string_view_empty{};

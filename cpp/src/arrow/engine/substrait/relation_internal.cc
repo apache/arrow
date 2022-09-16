@@ -558,7 +558,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
     const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
     bind_schema = opts.dataset->schema();
   } else if (declr.factory_name == "filter") {
-    auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
+    auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
@@ -633,7 +633,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   auto declr_input = declaration.inputs[0];
   ARROW_ASSIGN_OR_RAISE(
       auto input_rel,
-      ToProto(util::get<compute::Declaration>(declr_input), ext_set, conversion_options));
+      ToProto(std::get<compute::Declaration>(declr_input), ext_set, conversion_options));
   filter_rel->set_allocated_input(input_rel.release());
 
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
@@ -667,7 +667,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively
     // called on the input of the Sink declaration.
-    auto sink_input_decl = util::get<compute::Declaration>(declaration.inputs[0]);
+    auto sink_input_decl = std::get<compute::Declaration>(declaration.inputs[0]);
     RETURN_NOT_OK(
         SerializeAndCombineRelations(sink_input_decl, ext_set, rel, conversion_options));
   } else {
