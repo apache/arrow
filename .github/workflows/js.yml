@@ -84,7 +84,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install NodeJS
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
       - name: Build
@@ -108,7 +108,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install NodeJS
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
       - name: Build
