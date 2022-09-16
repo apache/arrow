@@ -105,7 +105,7 @@ type listArr interface {
 	ListValues() arrow.Array
 }
 
-func takeListImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
+func selectListImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 		if err := fn(ctx, batch, out); err != nil {
 			return err
@@ -130,29 +130,126 @@ func takeListImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
 	}
 }
 
-func denseUnionImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
-	ex := kernels.TakeExec(kernels.DenseUnionImpl)
-	if err := ex(ctx, batch, out); err != nil {
+func denseUnionImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if err := fn(ctx, batch, out); err != nil {
+			return err
+		}
+
+		typedValues := batch.Values[0].Array.MakeArray().(*array.DenseUnion)
+		defer typedValues.Release()
+
+		eg, cctx := errgroup.WithContext(ctx.Ctx)
+		eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
+
+		for i := 0; i < typedValues.NumFields(); i++ {
+			i := i
+			eg.Go(func() error {
+				arr := typedValues.Field(i)
+				childIndices := out.Children[i].MakeArray()
+				defer childIndices.Release()
+				taken, err := TakeArrayOpts(cctx, arr, childIndices, kernels.TakeOptions{})
+				if err != nil {
+					return err
+				}
+				defer taken.Release()
+				out.Children[i].TakeOwnership(taken.Data())
+				return nil
+			})
+		}
+
+		return eg.Wait()
+	}
+}
+
+func extensionFilterImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	extArray := batch.Values[0].Array.MakeArray().(array.ExtensionArray)
+	defer extArray.Release()
+
+	selection := batch.Values[1].Array.MakeArray()
+	defer selection.Release()
+	result, err := FilterArray(ctx.Ctx, extArray.Storage(), selection, FilterOptions(ctx.State.(kernels.FilterState)))
+	if err != nil {
+		return err
+	}
+	defer result.Release()
+
+	out.TakeOwnership(result.Data())
+	out.Type = extArray.DataType()
+	return nil
+}
+
+func extensionTakeImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	extArray := batch.Values[0].Array.MakeArray().(array.ExtensionArray)
+	defer extArray.Release()
+
+	selection := batch.Values[1].Array.MakeArray()
+	defer selection.Release()
+	result, err := TakeArrayOpts(ctx.Ctx, extArray.Storage(), selection, TakeOptions(ctx.State.(kernels.TakeState)))
+	if err != nil {
+		return err
+	}
+	defer result.Release()
+
+	out.TakeOwnership(result.Data())
+	out.Type = extArray.DataType()
+	return nil
+}
+
+func structFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	// transform filter to selection indices and use take
+	indices, err := kernels.GetTakeIndices(exec.GetAllocator(ctx.Ctx),
+		&batch.Values[1].Array, ctx.State.(kernels.FilterState).NullSelection)
+	if err != nil {
+		return err
+	}
+	defer indices.Release()
+
+	filter := NewDatum(indices)
+	defer filter.Release()
+
+	valData := batch.Values[0].Array.MakeData()
+	defer valData.Release()
+
+	vals := NewDatum(valData)
+	defer vals.Release()
+
+	result, err := Take(ctx.Ctx, kernels.TakeOptions{BoundsCheck: false}, vals, filter)
+	if err != nil {
+		return err
+	}
+	defer result.Release()
+
+	out.TakeOwnership(result.(*ArrayDatum).Value)
+	return nil
+}
+
+func structTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	// generate top level validity bitmap
+	if err := kernels.TakeExec(kernels.StructImpl)(ctx, batch, out); err != nil {
 		return err
 	}
 
-	typedValues := batch.Values[0].Array.MakeArray().(*array.DenseUnion)
-	defer typedValues.Release()
+	values := batch.Values[0].Array.MakeArray().(*array.Struct)
+	defer values.Release()
 
+	// select from children without bounds checking
+	out.Children = make([]exec.ArraySpan, values.NumField())
 	eg, cctx := errgroup.WithContext(ctx.Ctx)
 	eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
 
-	for i := 0; i < typedValues.NumFields(); i++ {
+	selection := batch.Values[1].Array.MakeArray()
+	defer selection.Release()
+
+	for i := range out.Children {
 		i := i
 		eg.Go(func() error {
-			arr := typedValues.Field(i)
-			childIndices := out.Children[i].MakeArray()
-			defer childIndices.Release()
-			taken, err := TakeArrayOpts(cctx, arr, childIndices, kernels.TakeOptions{})
+			taken, err := TakeArrayOpts(cctx, values.Field(i), selection, kernels.TakeOptions{BoundsCheck: false})
 			if err != nil {
 				return err
 			}
 			defer taken.Release()
+
 			out.Children[i].TakeOwnership(taken.Data())
 			return nil
 		})
@@ -170,11 +267,22 @@ func RegisterVectorSelection(reg FunctionRegistry) {
 	reg.AddFunction(takeMetaFunc, false)
 	filterKernels, takeKernels := kernels.GetVectorSelectionKernels()
 
+	filterKernels = append(filterKernels, []kernels.SelectionKernelData{
+		{In: exec.NewIDInput(arrow.LIST), Exec: selectListImpl(kernels.FilterExec(kernels.ListImpl[int32]))},
+		{In: exec.NewIDInput(arrow.LARGE_LIST), Exec: selectListImpl(kernels.FilterExec(kernels.ListImpl[int64]))},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: selectListImpl(kernels.FilterExec(kernels.FSLImpl))},
+		{In: exec.NewIDInput(arrow.DENSE_UNION), Exec: denseUnionImpl(kernels.FilterExec(kernels.DenseUnionImpl))},
+		{In: exec.NewIDInput(arrow.EXTENSION), Exec: extensionFilterImpl},
+		{In: exec.NewIDInput(arrow.STRUCT), Exec: structFilter},
+	}...)
+
 	takeKernels = append(takeKernels, []kernels.SelectionKernelData{
-		{In: exec.NewIDInput(arrow.LIST), Exec: takeListImpl(kernels.TakeExec(kernels.ListImpl[int32]))},
-		{In: exec.NewIDInput(arrow.LARGE_LIST), Exec: takeListImpl(kernels.TakeExec(kernels.ListImpl[int64]))},
-		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: takeListImpl(kernels.TakeExec(kernels.FSLImpl))},
-		{In: exec.NewIDInput(arrow.DENSE_UNION), Exec: denseUnionImpl},
+		{In: exec.NewIDInput(arrow.LIST), Exec: selectListImpl(kernels.TakeExec(kernels.ListImpl[int32]))},
+		{In: exec.NewIDInput(arrow.LARGE_LIST), Exec: selectListImpl(kernels.TakeExec(kernels.ListImpl[int64]))},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_LIST), Exec: selectListImpl(kernels.TakeExec(kernels.FSLImpl))},
+		{In: exec.NewIDInput(arrow.DENSE_UNION), Exec: denseUnionImpl(kernels.TakeExec(kernels.DenseUnionImpl))},
+		{In: exec.NewIDInput(arrow.EXTENSION), Exec: extensionTakeImpl},
+		{In: exec.NewIDInput(arrow.STRUCT), Exec: structTake},
 	}...)
 
 	vfunc := NewVectorFunction("array_filter", Binary(), EmptyFuncDoc)

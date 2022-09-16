@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
@@ -370,6 +371,49 @@ func (f *FilterKernelWithBoolean) TestDefaultOptions() {
 	assertDatumsEqual(f.T(), defOpts, noOpts)
 }
 
+type FilterKernelExtension struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelExtension) TestExtension() {
+	dt := types.NewSmallintType()
+	arrow.RegisterExtensionType(dt)
+	defer arrow.UnregisterExtensionType(dt.ExtensionName())
+
+	f.assertFilterJSON(dt, `[]`, `[]`, `[]`)
+	f.assertFilterJSON(dt, `[9]`, `[false]`, `[]`)
+	f.assertFilterJSON(dt, `[9]`, `[true]`, `[9]`)
+	f.assertFilterJSON(dt, `[9]`, `[null]`, `[null]`)
+	f.assertFilterJSON(dt, `[null]`, `[false]`, `[]`)
+	f.assertFilterJSON(dt, `[null]`, `[true]`, `[null]`)
+	f.assertFilterJSON(dt, `[null]`, `[null]`, `[null]`)
+
+	f.assertFilterJSON(dt, `[7, 8, 9]`, `[false, true, false]`, `[8]`)
+	f.assertFilterJSON(dt, `[7, 8, 9]`, `[true, false, true]`, `[7, 9]`)
+	f.assertFilterJSON(dt, `[null, 8, 9]`, `[false, true, false]`, `[8]`)
+	f.assertFilterJSON(dt, `[7, 8, 9]`, `[null, true, false]`, `[null, 8]`)
+	f.assertFilterJSON(dt, `[7, 8, 9]`, `[true, null, true]`, `[7, null, 9]`)
+
+	val := f.getArr(dt, `[7, 8, 9]`)
+	defer val.Release()
+	filter := f.getArr(arrow.FixedWidthTypes.Boolean, `[false, true, true, true, false, true]`)
+	defer filter.Release()
+	filter = array.NewSlice(filter, 3, 6)
+	defer filter.Release()
+	exp := f.getArr(dt, `[7, 9]`)
+	defer exp.Release()
+
+	f.assertFilter(val, filter, exp)
+
+	invalidFilter := f.getArr(arrow.FixedWidthTypes.Boolean, `[]`)
+	defer invalidFilter.Release()
+
+	_, err := compute.FilterArray(context.TODO(), val, invalidFilter, f.emitNulls)
+	f.ErrorIs(err, arrow.ErrInvalid)
+	_, err = compute.FilterArray(context.TODO(), val, invalidFilter, f.dropOpts)
+	f.ErrorIs(err, arrow.ErrInvalid)
+}
+
 type FilterKernelNumeric struct {
 	FilterKernelTestSuite
 
@@ -633,6 +677,143 @@ func (f *FilterKernelWithString) TestFilterString() {
 	})
 }
 
+type FilterKernelWithList struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithList) TestListInt32() {
+	dt := arrow.ListOf(arrow.PrimitiveTypes.Int32)
+	listJSON := `[[], [1, 2], null, [3]]`
+	f.assertFilterJSON(dt, listJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, listJSON, `[false, true, true, null]`, `[[1, 2], null, null]`)
+	f.assertFilterJSON(dt, listJSON, `[false, false, true, null]`, `[null, null]`)
+	f.assertFilterJSON(dt, listJSON, `[true, false, false, true]`, `[[], [3]]`)
+	f.assertFilterJSON(dt, listJSON, `[true, true, true, true]`, listJSON)
+	f.assertFilterJSON(dt, listJSON, `[false, true, false, true]`, `[[1, 2], [3]]`)
+}
+
+func (f *FilterKernelWithList) TestListListInt32() {
+	dt := arrow.ListOf(arrow.ListOf(arrow.PrimitiveTypes.Int32))
+	listJSON := `[
+		[],
+		[[1], [2, null, 2], []],
+		null,
+		[[3, null], null]
+	]`
+
+	f.assertFilterJSON(dt, listJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, listJSON, `[false, true, true, null]`, `[
+		[[1], [2, null, 2], []],
+		null,
+		null
+	]`)
+	f.assertFilterJSON(dt, listJSON, `[false, false, true, null]`, `[null, null]`)
+	f.assertFilterJSON(dt, listJSON, `[true, false, false, true]`, `[
+		[],
+		[[3, null], null]
+	]`)
+	f.assertFilterJSON(dt, listJSON, `[true, true, true, true]`, listJSON)
+	f.assertFilterJSON(dt, listJSON, `[false, true, false, true]`, `[
+		[[1], [2, null, 2], []],
+		[[3, null], null]
+	]`)
+}
+
+func (f *FilterKernelWithList) TestLargeListInt32() {
+	dt := arrow.LargeListOf(arrow.PrimitiveTypes.Int32)
+	listJSON := `[[], [1, 2], null, [3]]`
+	f.assertFilterJSON(dt, listJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, listJSON, `[false, true, true, null]`, `[[1, 2], null, null]`)
+}
+
+func (f *FilterKernelWithList) TestFixedSizeListInt32() {
+	dt := arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int32)
+	listJSON := `[null, [1, null, 3], [4, 5, 6], [7, 8, null]]`
+	f.assertFilterJSON(dt, listJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, listJSON, `[false, true, true, null]`, `[[1, null, 3], [4, 5, 6], null]`)
+	f.assertFilterJSON(dt, listJSON, `[false, false, true, null]`, `[[4, 5, 6], null]`)
+	f.assertFilterJSON(dt, listJSON, `[true, true, true, true]`, listJSON)
+	f.assertFilterJSON(dt, listJSON, `[false, true, false, true]`, `[[1, null, 3], [7, 8, null]]`)
+}
+
+type FilterKernelWithUnion struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithUnion) TestDenseUnion() {
+	dt := arrow.DenseUnionOf([]arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}, []arrow.UnionTypeCode{2, 5})
+
+	unionJSON := `[
+		[2, null],
+		[2, 222],
+		[5, "hello"],
+		[5, "eh"],
+		[2, null],
+		[2, 111],
+		[5, null]
+	]`
+
+	f.assertFilterJSON(dt, unionJSON, `[false, false, false, false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, unionJSON, `[false, true, true, null, false, true, true]`, `[
+		[2, 222],
+		[5, "hello"],
+		[2, null],
+		[2, 111],
+		[5, null]
+	]`)
+	f.assertFilterJSON(dt, unionJSON, `[true, false, true, false, true, false, false]`, `[
+		[2, null],
+		[5, "hello"],
+		[2, null]
+	]`)
+	f.assertFilterJSON(dt, unionJSON, `[true, true, true, true, true, true, true]`, unionJSON)
+
+	// sliced
+	// (check this manually as concat of dense unions isn't supported)
+	unionArr, _, _ := array.FromJSON(f.mem, dt, strings.NewReader(unionJSON))
+	defer unionArr.Release()
+
+	filterArr, _, _ := array.FromJSON(f.mem, arrow.FixedWidthTypes.Boolean, strings.NewReader(`[false, true, true, null, false, true, true]`))
+	defer filterArr.Release()
+
+	expected, _, _ := array.FromJSON(f.mem, dt, strings.NewReader(`[[5, "hello"], [2, null], [2, 111]]`))
+	defer expected.Release()
+
+	values := array.NewSlice(unionArr, 2, 6)
+	defer values.Release()
+	filter := array.NewSlice(filterArr, 2, 6)
+	defer filter.Release()
+	f.assertFilter(values, filter, expected)
+}
+
+type FilterKernelWithStruct struct {
+	FilterKernelTestSuite
+}
+
+func (f *FilterKernelWithStruct) TestStruct() {
+	dt := arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true})
+
+	structJSON := `[
+		null,
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	f.assertFilterJSON(dt, structJSON, `[false, false, false, false]`, `[]`)
+	f.assertFilterJSON(dt, structJSON, `[false, true, true, null]`, `[
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		null
+	]`)
+	f.assertFilterJSON(dt, structJSON, `[true, true, true, true]`, structJSON)
+	f.assertFilterJSON(dt, structJSON, `[true, false, true, false]`, `[null, {"a": 2, "b": "hello"}]`)
+}
+
 type TakeKernelTestTyped struct {
 	TakeKernelTestSuite
 
@@ -661,6 +842,28 @@ func (tk *TakeKernelTestNumeric) TestTakeNumeric() {
 		_, err = tk.takeJSON(tk.dt, `[7, 8, 9]`, arrow.PrimitiveTypes.Int8, `[0, -1, 0]`)
 		tk.ErrorIs(err, arrow.ErrIndex)
 	})
+}
+
+type TakeKernelTestExtension struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestExtension) TestTakeExtension() {
+	tk.dt = types.NewSmallintType()
+	arrow.RegisterExtensionType(tk.dt.(arrow.ExtensionType))
+	defer arrow.UnregisterExtensionType("smallint")
+
+	tk.assertTake(`[7, 8, 9]`, `[]`, `[]`)
+	tk.assertTake(`[7, 8, 9]`, `[0, 1, 0]`, `[7, 8, 7]`)
+	tk.assertTake(`[null, 8, 9]`, `[0, 1, 0]`, `[null, 8, null]`)
+	tk.assertTake(`[7, 8, 9]`, `[null, 1, 0]`, `[null, 8, 7]`)
+	tk.assertTake(`[null, 8, 9]`, `[]`, `[]`)
+	tk.assertTake(`[7, 8, 9]`, `[0, 0, 0, 0, 0, 0, 2]`, `[7, 7, 7, 7, 7, 7, 9]`)
+
+	_, err := tk.takeJSON(tk.dt, `[7, 8, 9]`, arrow.PrimitiveTypes.Int8, `[0, 9, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeJSON(tk.dt, `[7, 8, 9]`, arrow.PrimitiveTypes.Int8, `[0, -1, 0]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
 }
 
 type TakeKernelTestFSB struct {
@@ -825,6 +1028,48 @@ func (tk *TakeKernelDenseUnion) TestTakeUnion() {
 	]`)
 }
 
+type TakeKernelStruct struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelStruct) TestStruct() {
+	tk.dt = arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true})
+
+	structJSON := `[
+		null,
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	tk.checkTake(tk.dt, structJSON, `[]`, `[]`)
+	tk.checkTake(tk.dt, structJSON, `[3, 1, 3, 1, 3]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"}
+	]`)
+	tk.checkTake(tk.dt, structJSON, `[3, 1, 0]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		null
+	]`)
+	tk.checkTake(tk.dt, structJSON, `[0, 1, 2, 3]`, structJSON)
+	tk.checkTake(tk.dt, structJSON, `[0, 2, 2, 2, 2, 2, 2]`, `[
+		null,
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"}
+	]`)
+
+	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[{"a": 1}, {"a": 2, "b": "hello"}]`, `[0, 1, 0]`)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
@@ -836,6 +1081,8 @@ func TestTakeKernels(t *testing.T) {
 	}
 	suite.Run(t, new(TakeKernelLists))
 	suite.Run(t, new(TakeKernelDenseUnion))
+	suite.Run(t, new(TakeKernelTestExtension))
+	suite.Run(t, new(TakeKernelStruct))
 }
 
 func TestFilterKernels(t *testing.T) {
@@ -850,4 +1097,8 @@ func TestFilterKernels(t *testing.T) {
 	for _, dt := range baseBinaryTypes {
 		suite.Run(t, &FilterKernelWithString{dt: dt})
 	}
+	suite.Run(t, new(FilterKernelWithList))
+	suite.Run(t, new(FilterKernelWithUnion))
+	suite.Run(t, new(FilterKernelExtension))
+	suite.Run(t, new(FilterKernelWithStruct))
 }
