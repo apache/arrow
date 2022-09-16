@@ -15,7 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(zstdAlt_FOUND)
+  return()
+endif()
+
+set(find_package_args)
+if(zstdAlt_FIND_VERSION)
+  list(APPEND find_package_args ${zstdAlt_FIND_VERSION})
+endif()
+if(zstdAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(zstd ${find_package_args})
 if(zstd_FOUND)
+  set(zstdAlt_FOUND TRUE)
   return()
 endif()
 
@@ -83,11 +96,17 @@ else()
   endif()
 endif()
 
-find_package_handle_standard_args(zstd REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
+find_package_handle_standard_args(zstdAlt REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
-if(zstd_FOUND)
-  add_library(zstd::libzstd UNKNOWN IMPORTED)
-  set_target_properties(zstd::libzstd
+if(zstdAlt_FOUND)
+  if(ARROW_ZSTD_USE_SHARED)
+    set(zstd_TARGET zstd::libzstd_shared)
+    add_library(${zstd_TARGET} SHARED IMPORTED)
+  else()
+    set(zstd_TARGET zstd::libzstd_static)
+    add_library(${zstd_TARGET} STATIC IMPORTED)
+  endif()
+  set_target_properties(${zstd_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
 endif()

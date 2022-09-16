@@ -2397,30 +2397,32 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(zstd::libzstd STATIC IMPORTED)
-  set_target_properties(zstd::libzstd
+  add_library(zstd::libzstd_static STATIC IMPORTED)
+  set_target_properties(zstd::libzstd_static
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(zstd::libzstd zstd_ep)
+  add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+
+  set(ZSTD_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
   resolve_dependency(zstd
+                     HAVE_ALT
+                     TRUE
                      PC_PACKAGE_NAMES
                      libzstd
                      REQUIRED_VERSION
                      1.4.0)
 
-  if(TARGET zstd::libzstd)
-    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  if(ZSTD_VENDORED)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
-    # "SYSTEM" source will prioritize cmake config, which exports
-    # zstd::libzstd_{static,shared}
     if(ARROW_ZSTD_USE_SHARED)
       if(TARGET zstd::libzstd_shared)
         set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
