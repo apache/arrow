@@ -235,7 +235,6 @@ reference:
       - install_arrow
       - install_pyarrow
       - create_package_with_all_dependencies
-      - enable_cancel_from_interrupt
 
 repo:
   jira_projects: [ARROW]

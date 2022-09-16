@@ -102,10 +102,10 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
-  # set interrupt handlers
-  enable_cancel_from_interrupt(TRUE)
+  # Set interrupt handlers
+  SetEnableSignalStopSource(TRUE)
 
-  # register extension types that we use internally
+  # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 
   invisible()
