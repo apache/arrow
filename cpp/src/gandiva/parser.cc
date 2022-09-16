@@ -21,11 +21,12 @@
 
 #include "gandiva/gandiva_aliases.h"
 
+#include "gandiva/type_inference.h"
 #include "grammar.hh"
 
 namespace gandiva {
 
-Status Parser::parse(const std::string& content, NodePtr* ptr) {
+Status Parser::Parse(const std::string& content, NodePtr* ptr) {
   location_.initialize(&content);
   scan_begin(content);
   node_ptr_ = ptr;
@@ -33,8 +34,15 @@ Status Parser::parse(const std::string& content, NodePtr* ptr) {
   int res = grammar();
   scan_end();
   if (res != 0) {
-    return {StatusCode::ParseError, error_message_};
+    return Status::ParseError(error_message_);
   }
+  TypeInferenceVisitor type_visitor(schema_);
+
+  auto status = type_visitor.Infer(*node_ptr_, node_ptr_);
+  if (!status.ok()) {
+    return status;
+  }
+
   return Status::OK();
 }
 }  // namespace gandiva

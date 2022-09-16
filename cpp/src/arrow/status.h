@@ -271,6 +271,12 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
     return Status::FromArgs(StatusCode::AlreadyExists, std::forward<Args>(args)...);
   }
 
+  /// Return an error status for parse errors
+  template <typename... Args>
+  static Status ParseError(Args&&... args) {
+    return Status::FromArgs(StatusCode::ParseError, std::forward<Args>(args)...);
+  }
+
   /// Return true iff the status indicates success.
   bool ok() const { return (state_ == NULLPTR); }
 
@@ -307,6 +313,8 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 
   bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
   bool IsAlreadyExists() const { return code() == StatusCode::AlreadyExists; }
+  /// Return true iff the status indicates a parse error.
+  bool IsParseError() const { return code() == StatusCode::ParseError; }
 
   /// \brief Return a string representation of this status suitable for printing.
   ///

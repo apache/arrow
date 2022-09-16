@@ -94,6 +94,7 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
+    type_inference.cc
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH}
     ${GANDIVA_LEX_GENERATED_PATH}

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -35,7 +36,7 @@ namespace gandiva {
 
 /// \brief Represents a node in the expression tree. Validity and value are
 /// in a joined state.
-class GANDIVA_EXPORT Node {
+class GANDIVA_EXPORT Node : public std::enable_shared_from_this<Node> {
  public:
   explicit Node(DataTypePtr return_type) : return_type_(return_type) {}
 
@@ -43,10 +44,18 @@ class GANDIVA_EXPORT Node {
 
   const DataTypePtr& return_type() const { return return_type_; }
 
+  void set_return_type(DataTypePtr return_type) { return_type_ = return_type; }
+
   /// Derived classes should simply invoke the Visit api of the visitor.
   virtual Status Accept(NodeVisitor& visitor) const = 0;
 
   virtual std::string ToString() const = 0;
+
+  // \brief : Enable retrieving shared_ptr<DataType> from a const
+  // context.
+  std::shared_ptr<Node> GetSharedPtr() const {
+    return const_cast<Node*>(this)->shared_from_this();
+  }
 
  protected:
   DataTypePtr return_type_;
@@ -133,9 +142,8 @@ class GANDIVA_EXPORT FunctionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << ((return_type() == NULLPTR) ? "untyped"
-                                      : descriptor()->return_type()->ToString())
-       << " " << descriptor()->name() << "(";
+    ss << ((return_type() == NULLPTR) ? "untyped" : return_type()->ToString()) << " "
+       << descriptor()->name() << "(";
     bool skip_comma = true;
     for (auto& child : children()) {
       if (skip_comma) {

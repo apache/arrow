@@ -36,7 +36,7 @@ class Parser {
   explicit Parser(std::shared_ptr<arrow::Schema> schema) : schema_(std::move(schema)) {}
 
   /// Run the parser.
-  Status parse(const std::string& exp_str, NodePtr* node_ptr);
+  Status Parse(const std::string& exp_str, NodePtr* node_ptr);
   gandiva::location& location() { return location_; }
 
  private:

@@ -44,181 +44,206 @@ class TestParser : public ::testing::Test {
 };
 
 TEST_F(TestParser, TestLiteral) {
-  status_ = parser_.parse("0123", &expr_);
+  status_ = parser_.Parse("0123", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "(const untyped) 123");
+  EXPECT_EQ(expr_->ToString(), "(const int32) 123");
 
-  status_ = parser_.parse("65535u16", &expr_);
+  status_ = parser_.Parse("65535u16", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const uint16) 65535");
 
-  status_ = parser_.parse("100000000000000000000", &expr_);
+  status_ = parser_.Parse("100000000000000000000", &expr_);
   EXPECT_FALSE(status_.ok());
   EXPECT_EQ(status_.message(), "100000000000000000000:1.1-21: out of range");
 
-  status_ = parser_.parse("0.123", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "(const untyped) 0.123");
-
-  status_ = parser_.parse("0.123f32", &expr_);
+  status_ = parser_.Parse("0.123", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const float) 0.123 raw(3dfbe76d)");
 
-  status_ = parser_.parse("456f64", &expr_);
+  status_ = parser_.Parse("0.123f32", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(), "(const float) 0.123 raw(3dfbe76d)");
+
+  status_ = parser_.Parse("456f64", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const double) 456 raw(407c800000000000)");
 
-  status_ = parser_.parse("78.999999999f64", &expr_);
+  status_ = parser_.Parse("78.999999999f64", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const double) 79 raw(4053bffffffeed1f)");
 
-  status_ = parser_.parse("78.999999999f32", &expr_);
+  status_ = parser_.Parse("78.999999999f32", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const float) 79 raw(429e0000)");
 
-  status_ = parser_.parse("\"Hello World\"", &expr_);
+  status_ = parser_.Parse("\"Hello World\"", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const string) 'Hello World'");
 
-  status_ = parser_.parse("\'Hello World\'", &expr_);
+  status_ = parser_.Parse("\'Hello World\'", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const string) 'Hello World'");
 
-  status_ = parser_.parse("\'\t你好\n\'", &expr_);
+  status_ = parser_.Parse("\'\t你好\n\'", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const string) '\t你好\n'");
 
-  status_ = parser_.parse("true", &expr_);
+  status_ = parser_.Parse("true", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const bool) 1");
 
-  status_ = parser_.parse("false", &expr_);
+  status_ = parser_.Parse("false", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(const bool) 0");
 }
 
 TEST_F(TestParser, TestField) {
-  status_ = parser_.parse("a", &expr_);
+  status_ = parser_.Parse("a", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(), "(bool) a");
 
-  status_ = parser_.parse("k", &expr_);
+  status_ = parser_.Parse("k", &expr_);
   EXPECT_FALSE(status_.ok());
   EXPECT_EQ(status_.message(), "k:1.1: not defined in schema");
 }
 
 TEST_F(TestParser, TestInfixFunction) {
-  status_ = parser_.parse("-2147483648i32", &expr_);
+  status_ = parser_.Parse("-2147483648i32", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   // negative of INT_MIN is also INT_MIN
-  EXPECT_EQ(expr_->ToString(), "untyped negative((const int32) -2147483648)");
+  EXPECT_EQ(expr_->ToString(), "int32 negative((const int32) -2147483648)");
 
-  status_ = parser_.parse("-2147483648u64", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "untyped negative((const uint64) 2147483648)");
-
-  status_ = parser_.parse("-0.123", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "untyped negative((const untyped) 0.123)");
-
-  status_ = parser_.parse("-0.123f32", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "untyped negative((const float) 0.123 raw(3dfbe76d))");
-
-  status_ = parser_.parse("x + 1", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(), "untyped add((int32) x, (const untyped) 1)");
-
-  status_ = parser_.parse("x+(-x)+(x+1)", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(),
-            "untyped add(untyped add((int32) x, untyped negative((int32) x)), untyped "
-            "add((int32) x, (const untyped) 1))");
-
-  status_ = parser_.parse("x-3*5-y/z+-1|~5", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(expr_->ToString(),
-            "untyped bitwise_or(untyped add(untyped substract(untyped substract((int32) "
-            "x, untyped multiply((const untyped) 3, (const untyped) 5)), untyped "
-            "div((int32) y, (int32) z)), untyped negative((const untyped) 1)), untyped "
-            "bitwise_not((const untyped) 5))");
-
-  status_ = parser_.parse("!((5<6) == (7>=8))", &expr_);
-  EXPECT_TRUE(status_.ok());
-  EXPECT_EQ(status_.message(), "");
+  status_ = parser_.Parse("-2147483648u64", &expr_);
+  EXPECT_FALSE(status_.ok());
   EXPECT_EQ(
-      expr_->ToString(),
-      "untyped not(untyped equal(untyped less_than((const untyped) 5, (const untyped) "
-      "6), untyped greater_than_or_equal_to((const untyped) 7, (const untyped) 8)))");
+      status_.message(),
+      "No valid signature compatible with pattern untyped negative(uint64)\nAll "
+      "available signatures:\nfloat negative(float)\ndouble negative(double)\nint32 "
+      "negative(int32)\nint64 negative(int64)\ndecimal128(38, 0) negative(decimal128(38, "
+      "0))\nmonth_interval negative(month_interval)\nday_time_interval "
+      "negative(day_time_interval)\n");
+
+  status_ = parser_.Parse("-0.123", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(), "float negative((const float) 0.123 raw(3dfbe76d))");
+
+  status_ = parser_.Parse("-0.123f32", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(), "float negative((const float) 0.123 raw(3dfbe76d))");
+
+  status_ = parser_.Parse("x + 1", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(), "int32 add((int32) x, (const int32) 1)");
+
+  status_ = parser_.Parse("x+(-x)+(x+1)", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "int32 add(int32 add((int32) x, int32 negative((int32) x)), int32 "
+            "add((int32) x, (const int32) 1))");
+
+  status_ = parser_.Parse("x-3*5-y/z+-1|~5", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "int32 bitwise_or(int32 add(int32 subtract(int32 subtract((int32) x, int32 "
+            "multiply((const int32) 3, (const int32) 5)), int32 div((int32) y, (int32) "
+            "z)), int32 negative((const int32) 1)), int32 bitwise_not((const int32) 5))");
+
+  status_ = parser_.Parse("!((5<6) == (7>=8))", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "bool not(bool equal(bool less_than((const int32) 5, (const int32) 6), bool "
+            "greater_than_or_equal_to((const int32) 7, (const int32) 8)))");
+
+  status_ = parser_.Parse("-1-2-3-4-5-6-7-8", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "int32 subtract(int32 subtract(int32 subtract(int32 subtract(int32 "
+            "subtract(int32 subtract(int32 subtract(int32 negative((const int32) 1), "
+            "(const int32) 2), (const int32) 3), (const int32) 4), (const int32) 5), "
+            "(const int32) 6), (const int32) 7), (const int32) 8)");
 }
 
 TEST_F(TestParser, TestNamedFunction) {
-  status_ = parser_.parse("not(equal(less_than(5, 6), greater_than_or_equal_to(7, 8)))",
+  status_ = parser_.Parse("not(equal(less_than(5, 6), greater_than_or_equal_to(7, 8)))",
                           &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(
-      expr_->ToString(),
-      "untyped not(untyped equal(untyped less_than((const untyped) 5, (const untyped) "
-      "6), untyped greater_than_or_equal_to((const untyped) 7, (const untyped) 8)))");
+  EXPECT_EQ(expr_->ToString(),
+            "bool not(bool equal(bool less_than((const int32) 5, (const int32) 6), bool "
+            "greater_than_or_equal_to((const int32) 7, (const int32) 8)))");
 }
 
 TEST_F(TestParser, TestIf) {
-  status_ = parser_.parse("if(x == 7, x + 5, x - 6)", &expr_);
+  status_ = parser_.Parse("if(x == 7, x + 5, x - 6)", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(
-      expr_->ToString(),
-      "if (untyped equal((int32) x, (const untyped) 7)) { untyped add((int32) x, (const "
-      "untyped) 5) } else { untyped substract((int32) x, (const untyped) 6) }");
+  EXPECT_EQ(expr_->ToString(),
+            "if (bool equal((int32) x, (const int32) 7)) { int32 add((int32) x, (const "
+            "int32) 5) } else { int32 subtract((int32) x, (const int32) 6) }");
 
-  status_ = parser_.parse("if(x == 7) {x + 5} else {x - 6}", &expr_);
+  status_ = parser_.Parse("if(x == 7) {x + 5} else {x - 6}", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
-  EXPECT_EQ(
-      expr_->ToString(),
-      "if (untyped equal((int32) x, (const untyped) 7)) { untyped add((int32) x, (const "
-      "untyped) 5) } else { untyped substract((int32) x, (const untyped) 6) }");
+  EXPECT_EQ(expr_->ToString(),
+            "if (bool equal((int32) x, (const int32) 7)) { int32 add((int32) x, (const "
+            "int32) 5) } else { int32 subtract((int32) x, (const int32) 6) }");
 }
 
 TEST_F(TestParser, TestBoolean) {
-  status_ = parser_.parse("x <= 7 and x > 2", &expr_);
+  status_ = parser_.Parse("x <= 7 and x > 2", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(),
-            "untyped less_than_or_equal_to((int32) x, (const untyped) 7) && untyped "
-            "greater_than((int32) x, (const untyped) 2)");
+            "bool less_than_or_equal_to((int32) x, (const int32) 7) && bool "
+            "greater_than((int32) x, (const int32) 2)");
 
-  status_ = parser_.parse("(x <= 7 && x > 2) || (x < 0 && !(x < -10))", &expr_);
+  status_ = parser_.Parse("(x <= 7 && x > 2) || (x < 0 && !(x < -10))", &expr_);
   EXPECT_TRUE(status_.ok());
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(expr_->ToString(),
-            "untyped less_than_or_equal_to((int32) x, (const untyped) 7) && untyped "
-            "greater_than((int32) x, (const untyped) 2) || untyped less_than((int32) x, "
-            "(const untyped) 0) && untyped not(untyped less_than((int32) x, untyped "
+            "bool less_than_or_equal_to((int32) x, (const int32) 7) && bool "
+            "greater_than((int32) x, (const int32) 2) || bool less_than((int32) x, "
+            "(const int32) 0) && bool not(untyped less_than((int32) x, untyped "
             "negative((const untyped) 10)))");
+}
+
+TEST_F(TestParser, TestTypeInference) {
+  status_ = parser_.Parse(
+      "!(3+8*10<10*3+8) && 3<10 and 8<10 or 3<8 && 1>0 || 2>0 and 3>0", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(
+      expr_->ToString(),
+      "bool not(untyped less_than(untyped add((const untyped) 3, untyped multiply((const "
+      "untyped) 8, (const untyped) 10)), untyped add(untyped multiply((const untyped) "
+      "10, (const untyped) 3), (const untyped) 8))) && bool less_than((const untyped) 3, "
+      "(const untyped) 10) && bool less_than((const untyped) 8, (const untyped) 10) && "
+      "bool less_than((const untyped) 3, (const untyped) 8) && bool greater_than((const "
+      "untyped) 1, (const untyped) 0) && bool greater_than((const untyped) 2, (const "
+      "untyped) 0) && bool greater_than((const untyped) 3, (const untyped) 0)");
 }
 
 }  // namespace gandiva

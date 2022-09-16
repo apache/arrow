@@ -200,7 +200,7 @@ infix_function:
 | "not" term %prec NEG {$$ = std::make_shared<gandiva::FunctionNode>("not", gandiva::NodeVector{std::move($2)}, nullptr);}
 | "~" term %prec NEG {$$ = std::make_shared<gandiva::FunctionNode>("bitwise_not", gandiva::NodeVector{std::move($2)}, nullptr);}
 | term "+" term {$$ = std::make_shared<gandiva::FunctionNode>("add", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
-| term "-" term {$$ = std::make_shared<gandiva::FunctionNode>("substract", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
+| term "-" term {$$ = std::make_shared<gandiva::FunctionNode>("subtract", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
 | term "*" term {$$ = std::make_shared<gandiva::FunctionNode>("multiply", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
 | term "/" term {$$ = std::make_shared<gandiva::FunctionNode>("div", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}
 | term "%" term {$$ = std::make_shared<gandiva::FunctionNode>("mod", gandiva::NodeVector{std::move($1), std::move($3)}, nullptr);}

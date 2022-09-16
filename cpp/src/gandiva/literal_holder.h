@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include <array>
 #include <string>
 #include <variant>
 
 #include <arrow/type.h>
+#include "arrow/type_fwd.h"
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/visibility.h"
 
@@ -29,6 +31,12 @@ namespace gandiva {
 using LiteralHolder =
     std::variant<bool, float, double, int8_t, int16_t, int32_t, int64_t, uint8_t,
                  uint16_t, uint32_t, uint64_t, std::string, DecimalScalar128>;
+
+constexpr std::array<arrow::Type::type, 13> kLiteralHolderTypes{
+    arrow::Type::BOOL,      arrow::Type::FLOAT,  arrow::Type::DOUBLE, arrow::Type::INT8,
+    arrow::Type::INT16,     arrow::Type::INT32,  arrow::Type::INT64,  arrow::Type::UINT8,
+    arrow::Type::UINT16,    arrow::Type::UINT32, arrow::Type::UINT64, arrow::Type::STRING,
+    arrow::Type::DECIMAL128};
 
 GANDIVA_EXPORT std::string ToString(const LiteralHolder& holder);
 
