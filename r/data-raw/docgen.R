@@ -116,8 +116,7 @@ render_pkg <- function(df, pkg) {
     pull()
   # Add header
   bullets <- c(
-    paste("##", pkg),
-    "",
+    paste0("## ", pkg, "\n#'"),
     bullets
   )
   paste("#'", bullets, collapse = "\n")
@@ -129,9 +128,9 @@ docs <- arrow:::.cache$docs
 
 # across() is handled by manipulating the quosures, not by nse_funcs
 docs[["dplyr::across"]] <- c(
-  # TODO(ARROW-17387, ARROW-17389, ARROW-17390)
-  "only supported inside `mutate()`, `summarize()`, and `arrange()`;",
-  # TODO(ARROW-17366)
+  # TODO(ARROW-17387, ARROW-17389, ARROW-17390): other verbs
+  "supported inside `mutate()`, `summarize()`, `group_by()`, and `arrange()`;",
+  # TODO(ARROW-17366): do ~
   "purrr-style lambda functions",
   "and use of `where()` selection helper not yet supported"
 )
