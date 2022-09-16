@@ -192,10 +192,39 @@ else()
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()
 
+if(ARROW_USE_SCCACHE
+   AND NOT CMAKE_C_COMPILER_LAUNCHER
+   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
+  find_program(SCCACHE_FOUND sccache)
+
+  if(NOT SCCACHE_FOUND AND DEFINED ENV{SCCACHE_PATH})
+    # cmake has problems finding sccache from within mingw
+    message(STATUS "Did not find sccache, using envvar fallback.")
+    set(SCCACHE_FOUND $ENV{SCCACHE_PATH})
+  endif()
+
+  # Only use sccache if a storage backend is configured
+  if(SCCACHE_FOUND
+     AND (DEFINED ENV{SCCACHE_AZURE_BLOB_CONTAINER}
+          OR DEFINED ENV{SCCACHE_BUCKET}
+          OR DEFINED ENV{SCCACHE_DIR}
+          OR DEFINED ENV{SCCACHE_GCS_BUCKET}
+          OR DEFINED ENV{SCCACHE_MEMCACHED}
+          OR DEFINED ENV{SCCACHE_REDIS}
+         ))
+    message(STATUS "Using sccache: ${SCCACHE_FOUND}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+  endif()
+endif()
+
 if(ARROW_USE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
   find_program(CCACHE_FOUND ccache)
+
   if(CCACHE_FOUND)
     message(STATUS "Using ccache: ${CCACHE_FOUND}")
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
@@ -203,7 +232,7 @@ if(ARROW_USE_CCACHE
     # ARROW-3985: let ccache preserve C++ comments, because some of them may be
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
-  endif(CCACHE_FOUND)
+  endif()
 endif()
 
 if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
