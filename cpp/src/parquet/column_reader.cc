@@ -1036,7 +1036,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &values_to_read);
 
   *values_read = this->ReadValues(values_to_read, values);
-  int64_t total_values = std::max(num_def_levels, *values_read);
+  int64_t total_values = std::max<int>(num_def_levels, *values_read);
   int64_t expected_values =
       std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
   if (total_values == 0 && expected_values > 0) {
@@ -1269,7 +1269,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       records_read += ReadRecordData(num_records);
     }
 
-    int64_t level_batch_size = std::max(kMinLevelBatchSize, num_records);
+    int64_t level_batch_size = std::max<int>(kMinLevelBatchSize, num_records);
 
     // If we are in the middle of a record, we continue until reaching the
     // desired number of records or the end of the current record if we've found
@@ -1363,6 +1363,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Skip records for repeated fields. Returns number of skipped records.
+  // Skip records for repeated fields. Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records) {
     ARROW_DCHECK_GT(this->max_rep_level_, 0);
 
@@ -1371,10 +1372,13 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Keep filling the buffer and skipping until we reach the desired number
     // of records or we run out of values in the column chunk.
     int64_t skipped_records = 0;
-    int64_t remaining_records = num_records;
-    int64_t level_batch_size = std::max(kMinLevelBatchSize, num_records);
+    int64_t level_batch_size = std::max<int>(kMinLevelBatchSize, num_records);
+    // If 'at_record_start_' is false, but (skip_records == num_records), it
+    // means that for the last record that was counted, we have not seen all
+    // of it's values yet.
     while (!at_record_start_ || skipped_records < num_records) {
       // Is there more data to read in this row group?
+      // HasNextInternal() will advance to the next page if necessary.
       if (!this->HasNextInternal()) {
         if (!at_record_start_) {
           // We ended the row group while inside a record that we haven't seen
@@ -1386,26 +1390,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         break;
       }
 
-      if (has_values_to_process()) {
-        // Look at the already buffered levels, delimit them based on
-        // (rep_level == 0), report back how many records are in there, and
-        // fill in how many not-null values (def_level == max_def_level_).
-        // DelimitRecords updates levels_position_.
-        int64_t start_levels_position = levels_position_;
-        int64_t values_seen = 0;
-        skipped_records += DelimitRecords(remaining_records, &values_seen);
-        this->ConsumeBufferedValues(levels_position_ - start_levels_position);
-        ReadAndThrowAway(values_seen);
-      }
-
-      if (skipped_records == num_records) break;
-
-      // Try reading more levels into the buffer.
-      remaining_records = num_records - skipped_records;
-
+      // Read some more levels.
       int64_t batch_size =
           std::min(level_batch_size, available_values_current_page());
-      // No more data in column
+      // No more data in column. This must be an empty page.
+      // If we had exhausted the last page, HasNextInternal() must have advanced
+      // to the next page. So there must be available values to process.
       if (batch_size == 0) {
         break;
       }
@@ -1422,12 +1412,18 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
             "Number of decoded rep / def levels did not match");
       }
 
-      // Exhausted column chunk
-      if (levels_read == 0) {
-        break;
-      }
-
       levels_written_ += levels_read;
+
+      // Look at the buffered levels, delimit them based on
+      // (rep_level == 0), report back how many records are in there, and
+      // fill in how many not-null values (def_level == max_def_level_).
+      // DelimitRecords updates levels_position_.
+      int64_t remaining_records = num_records - skipped_records;
+      int64_t start_levels_position = levels_position_;
+      int64_t values_seen = 0;
+      skipped_records += DelimitRecords(remaining_records, &values_seen);
+      this->ConsumeBufferedValues(levels_position_ - start_levels_position);
+      ReadAndThrowAway(values_seen);
     }
 
     return skipped_records;
@@ -1684,7 +1680,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   int64_t ReadRecordData(int64_t num_records) {
     // Conservative upper bound
     const int64_t possible_num_values =
-        std::max(num_records, levels_written_ - levels_position_);
+        std::max<int>(num_records, levels_written_ - levels_position_);
     ReserveValues(possible_num_values);
 
     const int64_t start_levels_position = levels_position_;
