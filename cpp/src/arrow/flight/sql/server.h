@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "arrow/flight/server.h"
@@ -44,18 +45,32 @@ namespace sql {
 struct ARROW_FLIGHT_SQL_EXPORT StatementQuery {
   /// \brief The SQL query.
   std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
+};
+
+/// \brief A Substrait plan to execute.
+struct ARROW_FLIGHT_SQL_EXPORT StatementSubstraitPlan {
+  /// \brief The Substrait plan.
+  SubstraitPlan plan;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
 /// \brief A SQL update query.
 struct ARROW_FLIGHT_SQL_EXPORT StatementUpdate {
   /// \brief The SQL query.
   std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
 /// \brief A request to execute a query.
 struct ARROW_FLIGHT_SQL_EXPORT StatementQueryTicket {
   /// \brief The server-generated opaque identifier for the query.
   std::string statement_handle;
+
+  static arrow::Result<StatementQueryTicket> Deserialize(std::string_view serialized);
 };
 
 /// \brief A prepared query statement.
@@ -132,10 +147,66 @@ struct ARROW_FLIGHT_SQL_EXPORT GetCrossReference {
   TableRef fk_table_ref;
 };
 
+/// \brief A request to start a new transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginTransactionRequest {};
+
+/// \brief A request to create a new savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginSavepointRequest {
+  std::string transaction_id;
+  std::string name;
+};
+
+/// \brief The result of starting a new savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginSavepointResult {
+  std::string savepoint_id;
+};
+
+/// \brief The result of starting a new transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginTransactionResult {
+  std::string transaction_id;
+};
+
+/// \brief A request to end a savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionEndSavepointRequest {
+  enum EndSavepoint {
+    kRelease,
+    kRollback,
+  };
+
+  std::string savepoint_id;
+  EndSavepoint action;
+};
+
+/// \brief A request to end a transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionEndTransactionRequest {
+  enum EndTransaction {
+    kCommit,
+    kRollback,
+  };
+
+  std::string transaction_id;
+  EndTransaction action;
+};
+
+/// \brief An explicit request to cancel a running query.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCancelQueryRequest {
+  std::unique_ptr<FlightInfo> info;
+};
+
 /// \brief A request to create a new prepared statement.
 struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementRequest {
   /// \brief The SQL query.
   std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
+};
+
+/// \brief A request to create a new prepared statement with a Substrait plan.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedSubstraitPlanRequest {
+  /// \brief The serialized Substrait plan.
+  SubstraitPlan plan;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
 /// \brief A request to close a prepared statement.
@@ -189,6 +260,15 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context, const StatementQuery& command,
       const FlightDescriptor& descriptor);
 
+  /// \brief Get a FlightInfo for executing a Substrait plan.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementSubstraitPlan object containing the plan.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command,
+      const FlightDescriptor& descriptor);
+
   /// \brief Get a FlightDataStream containing the query results.
   /// \param[in] context      Per-call context.
   /// \param[in] command      The StatementQueryTicket containing the statement handle.
@@ -229,6 +309,15 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return                 The schema of the result set.
   virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaStatement(
       const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Get the schema of the result set of a Substrait plan.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementQuery containing the plan.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command,
       const FlightDescriptor& descriptor);
 
   /// \brief Get the schema of the result set of a prepared statement.
@@ -423,7 +512,14 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<int64_t> DoPutCommandStatementUpdate(
       const ServerCallContext& context, const StatementUpdate& command);
 
-  /// \brief Create a prepared statement from given SQL statement.
+  /// \brief Execute an update Substrait plan.
+  /// \param[in] context  The call context.
+  /// \param[in] command  The StatementSubstraitPlan object containing the plan.
+  /// \return             The changed record count.
+  virtual arrow::Result<int64_t> DoPutCommandSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command);
+
+  /// \brief Create a prepared statement from a given SQL statement.
   /// \param[in] context  The call context.
   /// \param[in] request  The ActionCreatePreparedStatementRequest object containing the
   ///                     SQL statement.
@@ -432,6 +528,16 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request);
+
+  /// \brief Create a prepared statement from a Substrait plan.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The ActionCreatePreparedSubstraitPlanRequest object containing
+  ///                     the Substrait plan.
+  /// \return             A ActionCreatePreparedStatementResult containing the dataset
+  ///                     and parameter schemas and a handle for created statement.
+  virtual arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedSubstraitPlan(
+      const ServerCallContext& context,
+      const ActionCreatePreparedSubstraitPlanRequest& request);
 
   /// \brief Close a prepared statement.
   /// \param[in] context  The call context.
@@ -461,6 +567,39 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<int64_t> DoPutPreparedStatementUpdate(
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader);
+
+  /// \brief Begin a new transaction.
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request parameters.
+  /// \return             The transaction ID.
+  virtual arrow::Result<ActionBeginTransactionResult> BeginTransaction(
+      const ServerCallContext& context, const ActionBeginTransactionRequest& request);
+
+  /// \brief Create a new savepoint.
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request parameters.
+  /// \return             The savepoint ID.
+  virtual arrow::Result<ActionBeginSavepointResult> BeginSavepoint(
+      const ServerCallContext& context, const ActionBeginSavepointRequest& request);
+
+  /// \brief Release/rollback a savepoint.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The savepoint.
+  virtual Status EndSavepoint(const ServerCallContext& context,
+                              const ActionEndSavepointRequest& request);
+
+  /// \brief Commit/rollback a transaction.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The tranaction.
+  virtual Status EndTransaction(const ServerCallContext& context,
+                                const ActionEndTransactionRequest& request);
+
+  /// \brief Attempt to explicitly cancel a query.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The query to cancel.
+  /// \return             The cancellation result.
+  virtual arrow::Result<CancelResult> CancelQuery(
+      const ServerCallContext& context, const ActionCancelQueryRequest& request);
 
   /// @}
 
@@ -492,15 +631,45 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) final;
 
+  const ActionType kBeginSavepointActionType =
+      ActionType{"BeginSavepoint",
+                 "Create a new savepoint.\n"
+                 "Request Message: ActionBeginSavepointRequest\n"
+                 "Response Message: ActionBeginSavepointResult"};
+  const ActionType kBeginTransactionActionType =
+      ActionType{"BeginTransaction",
+                 "Start a new transaction.\n"
+                 "Request Message: ActionBeginTransactionRequest\n"
+                 "Response Message: ActionBeginTransactionResult"};
   const ActionType kCreatePreparedStatementActionType =
       ActionType{"CreatePreparedStatement",
                  "Creates a reusable prepared statement resource on the server.\n"
                  "Request Message: ActionCreatePreparedStatementRequest\n"
                  "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType kCreatePreparedSubstraitPlanActionType =
+      ActionType{"CreatePreparedSubstraitPlan",
+                 "Creates a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionCreatePreparedSubstraitPlanRequest\n"
+                 "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType kCancelQueryActionType =
+      ActionType{"CancelQuery",
+                 "Explicitly cancel a running query.\n"
+                 "Request Message: ActionCancelQueryRequest\n"
+                 "Response Message: ActionCancelQueryResult"};
   const ActionType kClosePreparedStatementActionType =
       ActionType{"ClosePreparedStatement",
                  "Closes a reusable prepared statement resource on the server.\n"
                  "Request Message: ActionClosePreparedStatementRequest\n"
+                 "Response Message: N/A"};
+  const ActionType kEndSavepointActionType =
+      ActionType{"EndSavepoint",
+                 "End a savepoint.\n"
+                 "Request Message: ActionEndSavepointRequest\n"
+                 "Response Message: N/A"};
+  const ActionType kEndTransactionActionType =
+      ActionType{"EndTransaction",
+                 "End a savepoint.\n"
+                 "Request Message: ActionEndTransactionRequest\n"
                  "Response Message: N/A"};
 
   Status ListActions(const ServerCallContext& context,

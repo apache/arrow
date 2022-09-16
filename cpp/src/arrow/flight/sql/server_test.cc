@@ -24,9 +24,6 @@
 #include <signal.h>
 #include <sqlite3.h>
 
-#include <condition_variable>
-#include <thread>
-
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/sql/column_metadata.h"
@@ -153,17 +150,12 @@ class TestFlightSqlServer : public ::testing::Test {
 
  protected:
   void SetUp() override {
-    port = GetListenPort();
-    server_thread.reset(new std::thread([&]() { RunServer(); }));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
+    arrow::flight::FlightServerOptions options(location);
+    ASSERT_OK_AND_ASSIGN(server, example::SQLiteFlightSqlServer::Create());
+    ASSERT_OK(server->Init(options));
 
-    std::unique_lock<std::mutex> lk(server_ready_m);
-    server_ready_cv.wait(lk);
-
-    std::stringstream ss;
-    ss << "grpc://localhost:" << port;
-    std::string uri = ss.str();
-
-    ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
+    ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", server->port()));
     ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
 
     sql_client.reset(new FlightSqlClient(std::move(client)));
@@ -174,30 +166,10 @@ class TestFlightSqlServer : public ::testing::Test {
     sql_client.reset();
 
     ASSERT_OK(server->Shutdown());
-    server_thread->join();
-    server_thread.reset();
   }
 
  private:
-  int port;
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
-  std::unique_ptr<std::thread> server_thread;
-  std::condition_variable server_ready_cv;
-  std::mutex server_ready_m;
-
-  void RunServer() {
-    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", port));
-    arrow::flight::FlightServerOptions options(location);
-
-    ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&server));
-
-    ARROW_CHECK_OK(server->Init(options));
-    // Exit with a clean error code (0) on SIGTERM
-    ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
-
-    server_ready_cv.notify_all();
-    ARROW_CHECK_OK(server->Serve());
-  }
 };
 
 TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
@@ -800,6 +772,51 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, ::testing::HasSubstr("No information for SQL info number 999999"),
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
+}
+
+TEST_F(TestFlightSqlServer, CancelQuery) {
+  // Not supported
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  ASSERT_RAISES(NotImplemented, sql_client->CancelQuery({}, *flight_info));
+}
+
+TEST_F(TestFlightSqlServer, Transactions) {
+  ASSERT_OK_AND_ASSIGN(auto handle, sql_client->BeginTransaction({}));
+  ASSERT_TRUE(handle.is_valid());
+  ASSERT_NE(handle.transaction_id(), "");
+  ASSERT_RAISES(NotImplemented, sql_client->BeginSavepoint({}, handle, "savepoint"));
+
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->Execute({}, "SELECT * FROM intTable", handle));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
+  int64_t row_count = table->num_rows();
+
+  int64_t result;
+  ASSERT_OK_AND_ASSIGN(result,
+                       sql_client->ExecuteUpdate(
+                           {},
+                           "INSERT INTO intTable (keyName, value) VALUES "
+                           "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)",
+                           handle));
+  ASSERT_EQ(3, result);
+
+  ASSERT_OK_AND_ASSIGN(flight_info,
+                       sql_client->Execute({}, "SELECT * FROM intTable", handle));
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  ASSERT_EQ(table->num_rows(), row_count + 3);
+
+  ASSERT_OK(sql_client->Rollback({}, handle));
+  // Commit/rollback invalidate the handle
+  ASSERT_RAISES(KeyError, sql_client->Rollback({}, handle));
+  ASSERT_RAISES(KeyError, sql_client->Commit({}, handle));
+
+  ASSERT_OK_AND_ASSIGN(flight_info, sql_client->Execute({}, "SELECT * FROM intTable"));
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  ASSERT_EQ(table->num_rows(), row_count);
 }
 
 }  // namespace sql
