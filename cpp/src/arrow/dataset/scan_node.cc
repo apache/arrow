@@ -208,7 +208,7 @@ class ScanNode : public cp::ExecNode {
 
     Result<Future<>> operator()(util::AsyncTaskScheduler* scheduler) override {
       // Prevent concurrent calls to ScanBatch which might not be thread safe
-      std::lock_guard<std::mutex>(scan_->mutex);
+      std::lock_guard<std::mutex> lk(scan_->mutex);
       return scan_->fragment_scanner->ScanBatch(batch_index_)
           .Then([this](const std::shared_ptr<RecordBatch> batch) {
             return HandleBatch(batch);
