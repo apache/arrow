@@ -29,7 +29,7 @@ SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
-    command = ["sh", SCRIPTS_PATH / "go_bench.sh", ARROW_ROOT, "-json"]
+    command = ["bash", SCRIPTS_PATH / "go_bench.sh", ARROW_ROOT, "-json"]
 
     def __init__(self) -> None:
         super().__init__(command=self.command)
