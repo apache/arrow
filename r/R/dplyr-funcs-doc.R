@@ -185,7 +185,9 @@
 #'
 #' ## dplyr
 #'
-#' * [`across()`][dplyr::across()]: supported inside `mutate()`, `summarize()`, `group_by()`, and `arrange()`; purrr-style lambda functions and use of `where()` selection helper not yet supported
+#' * [`across()`][dplyr::across()]: supported inside `mutate()`, `summarize()`, `group_by()`, and `arrange()`;
+#' purrr-style lambda functions
+#' and use of `where()` selection helper not yet supported
 #' * [`between()`][dplyr::between()]
 #' * [`case_when()`][dplyr::case_when()]
 #' * [`coalesce()`][dplyr::coalesce()]

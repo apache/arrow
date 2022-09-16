@@ -132,6 +132,7 @@ docs[["dplyr::across"]] <- c(
   "supported inside `mutate()`, `summarize()`, `group_by()`, and `arrange()`;",
   # TODO(ARROW-17366): do ~
   "purrr-style lambda functions",
+  # TODO(ARROW-17384): implement where
   "and use of `where()` selection helper not yet supported"
 )
 # desc() is a special helper handled inside of arrange()
@@ -153,7 +154,7 @@ fun_df <- tibble::tibble(
     # We will list operators under "base" (everything else must be pkg::fun)
     pkg = if_else(has_pkg, pkg, "base"),
     # Flatten notes to a single string
-    notes = map_chr(notes, ~ paste(., collapse = " "))
+    notes = map_chr(notes, ~ paste(., collapse = "\n#' "))
   ) %>%
   arrange(pkg, fun)
 
