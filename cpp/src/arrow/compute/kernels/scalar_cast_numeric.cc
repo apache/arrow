@@ -770,14 +770,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   return functions;
 }
 
-
 Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
+  auto out_ty = static_cast<const ExtensionType&>(*options.to_type.type).storage_type();
   DCHECK(batch[0].is_array());
   std::shared_ptr<Array> array = batch[0].array.ToArray();
   std::shared_ptr<Array> result;
-
-  auto out_ty = GetExtensionType("arrow.py_integer_type")->storage_type();
   RETURN_NOT_OK(Cast(*array, out_ty, options,
                      ctx->exec_context())
                     .Value(&result));
@@ -789,8 +787,10 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), Type::EXTENSION);
-  DCHECK_OK(func->AddKernel(Type::INT64, {InputType(Type::INT64)}, 
-                            kOutputTargetType, CastToExtension));
+  for (auto in_ty : IntTypes()) {
+      DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, 
+                                kOutputTargetType, CastToExtension));
+  }
   return func;
 }
 

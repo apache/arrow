@@ -28,7 +28,7 @@ import pytest
 class IntegerType(pa.PyExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64(), "arrow.py_integer_type")
+        pa.PyExtensionType.__init__(self, pa.int64()) #, "arrow.py_integer_type")
 
     def __reduce__(self):
         return IntegerType, ()
