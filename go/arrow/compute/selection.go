@@ -142,14 +142,14 @@ func denseUnionImpl(fn exec.ArrayKernelExec) exec.ArrayKernelExec {
 		eg, cctx := errgroup.WithContext(ctx.Ctx)
 		eg.SetLimit(GetExecCtx(ctx.Ctx).NP)
 
-			for i := 0; i < typedValues.NumFields(); i++ {
-				i := i
-				eg.Go(func() error {
-					arr := typedValues.Field(i)
-					childIndices := out.Children[i].MakeArray()
-					defer childIndices.Release()
-					taken, err := TakeArrayOpts(cctx, arr, childIndices, kernels.TakeOptions{})
-					if err != nil {
+		for i := 0; i < typedValues.NumFields(); i++ {
+			i := i
+			eg.Go(func() error {
+				arr := typedValues.Field(i)
+				childIndices := out.Children[i].MakeArray()
+				defer childIndices.Release()
+				taken, err := TakeArrayOpts(cctx, arr, childIndices, kernels.TakeOptions{})
+				if err != nil {
 					return err
 				}
 				defer taken.Release()
@@ -246,51 +246,16 @@ func structTake(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult)
 		eg.Go(func() error {
 			taken, err := TakeArrayOpts(cctx, values.Field(i), selection, kernels.TakeOptions{BoundsCheck: false})
 			if err != nil {
-					return err
-				}
-				defer taken.Release()
-	
+				return err
+			}
+			defer taken.Release()
+
 			out.Children[i].TakeOwnership(taken.Data())
-				return nil
-			})
-		}
-
-		return eg.Wait()
+			return nil
+		})
 	}
-}
 
-func extensionFilterImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
-	extArray := batch.Values[0].Array.MakeArray().(array.ExtensionArray)
-	defer extArray.Release()
-
-	selection := batch.Values[1].Array.MakeArray()
-	defer selection.Release()
-	result, err := FilterArray(ctx.Ctx, extArray.Storage(), selection, FilterOptions(ctx.State.(kernels.FilterState)))
-	if err != nil {
-		return err
-	}
-	defer result.Release()
-
-	out.TakeOwnership(result.Data())
-	out.Type = extArray.DataType()
-	return nil
-}
-
-func extensionTakeImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
-	extArray := batch.Values[0].Array.MakeArray().(array.ExtensionArray)
-	defer extArray.Release()
-
-	selection := batch.Values[1].Array.MakeArray()
-	defer selection.Release()
-	result, err := TakeArrayOpts(ctx.Ctx, extArray.Storage(), selection, TakeOptions(ctx.State.(kernels.TakeState)))
-	if err != nil {
-		return err
-	}
-	defer result.Release()
-
-	out.TakeOwnership(result.Data())
-	out.Type = extArray.DataType()
-	return nil
+	return eg.Wait()
 }
 
 // RegisterVectorSelection registers functions that select specific
