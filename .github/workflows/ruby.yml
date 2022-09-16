@@ -109,8 +109,6 @@ jobs:
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
     env:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF

@@ -47,7 +47,7 @@ concurrency:
 
 permissions:
   contents: read
-  
+
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
@@ -104,8 +104,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -126,8 +124,6 @@ jobs:
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
-    strategy:
-      fail-fast: false
     env:
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
