@@ -180,7 +180,7 @@ Status TypeInferenceVisitor::Visit(const FieldNode& node) {
 
 /// \brief Try to infer the type
 Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
-  std::cout << "visit " << node.ToString() << std::endl;
+  std::cout << "func visit " << node.ToString() << std::endl;
 
   Status status;
   std::vector<NodePtr> children;
@@ -228,7 +228,7 @@ Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
   result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,
                                            current_pattern.ret_type());
 
-  std::cout << "result " << result_->ToString() << std::endl;
+  std::cout << "func result " << result_->ToString() << std::endl;
   return Status::OK();
 }
 
@@ -348,7 +348,7 @@ Status TypeInferenceVisitor::Visit(const LiteralNode& node) {
 }
 
 Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
-  // std::cout << "visit " << node.ToString() << std::endl;
+  std::cout << "bool visit " << node.ToString() << std::endl;
   Status status;
   std::vector<NodePtr> children = node.children();
   for (auto& child : children) {
@@ -357,21 +357,18 @@ Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
     if (!status.ok()) {
       return status;
     }
+    child = result_;
   }
 
-  if (node.return_type() == arrow::boolean() &&
-      std::all_of(
-          node.children().begin(), node.children().end(),
-          [](const NodePtr& node) { return node->return_type() == arrow::boolean(); })) {
-    result_ = node.GetSharedPtr();
-    // std::cout << "result " << result_->ToString() << std::endl;
-
-    return Status::OK();
-  }
-
-  all_typed_ = false;
   result_ = std::make_shared<BooleanNode>(node.expr_type(), children);
-  // std::cout << "result " << result_->ToString() << std::endl;
+  if (result_->return_type() != arrow::boolean() ||
+      std::any_of(children.begin(), children.end(), [](const NodePtr& child) {
+        return child->return_type() != arrow::boolean();
+      })) {
+    all_typed_ = false;
+  }
+
+  std::cout << "bool result " << result_->ToString() << std::endl;
 
   return Status::OK();
 }

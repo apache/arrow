@@ -237,13 +237,13 @@ TEST_F(TestParser, TestTypeInference) {
   EXPECT_EQ(status_.message(), "");
   EXPECT_EQ(
       expr_->ToString(),
-      "bool not(untyped less_than(untyped add((const untyped) 3, untyped multiply((const "
-      "untyped) 8, (const untyped) 10)), untyped add(untyped multiply((const untyped) "
-      "10, (const untyped) 3), (const untyped) 8))) && bool less_than((const untyped) 3, "
-      "(const untyped) 10) && bool less_than((const untyped) 8, (const untyped) 10) && "
-      "bool less_than((const untyped) 3, (const untyped) 8) && bool greater_than((const "
-      "untyped) 1, (const untyped) 0) && bool greater_than((const untyped) 2, (const "
-      "untyped) 0) && bool greater_than((const untyped) 3, (const untyped) 0)");
+      "bool not(bool less_than(int32 add((const int32) 3, int32 multiply((const int32) "
+      "8, (const int32) 10)), int32 add(int32 multiply((const int32) 10, (const int32) "
+      "3), (const int32) 8))) && bool less_than((const int32) 3, (const int32) 10) && "
+      "bool less_than((const int32) 8, (const int32) 10) || bool less_than((const int32) "
+      "3, (const int32) 8) && bool greater_than((const int32) 1, (const int32) 0) || "
+      "bool greater_than((const int32) 2, (const int32) 0) && bool greater_than((const "
+      "int32) 3, (const int32) 0)");
 }
 
 }  // namespace gandiva
