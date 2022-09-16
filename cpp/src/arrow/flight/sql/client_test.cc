@@ -410,6 +410,7 @@ TEST_F(TestFlightSqlClient, TestExecuteUpdate) {
                                    std::unique_ptr<FlightStreamWriter>* writer,
                                    std::unique_ptr<FlightMetadataReader>* reader) {
         reader->reset(new FlightMetadataReaderMock(&buffer_ptr));
+        writer->reset(new FlightStreamWriterMock());
 
         return Status::OK();
       });

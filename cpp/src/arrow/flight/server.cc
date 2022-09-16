@@ -353,7 +353,9 @@ RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& r
   impl_.reset(new RecordBatchStreamImpl(reader, options));
 }
 
-RecordBatchStream::~RecordBatchStream() {}
+RecordBatchStream::~RecordBatchStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close FlightDataStream");
+}
 
 Status RecordBatchStream::Close() { return impl_->Close(); }
 

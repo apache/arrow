@@ -17,8 +17,17 @@
 
 package org.apache.arrow.flight.sql;
 
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCancelQueryRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCancelQueryResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedSubstraitPlanRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionEndSavepointRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionEndTransactionRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
@@ -31,6 +40,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementSubstraitPlan;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
@@ -91,8 +101,51 @@ public class FlightSqlClient implements AutoCloseable {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo execute(final String query, final CallOption... options) {
-    final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder();
-    builder.setQuery(query);
+    return execute(query, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute a query on the server.
+   *
+   * @param query The query to execute.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo execute(final String query, Transaction transaction, final CallOption... options) {
+    final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder().setQuery(query);
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor, options);
+  }
+
+  /**
+   * Execute a Substrait plan on the server.
+   *
+   * @param plan The Substrait plan to execute.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo executeSubstrait(SubstraitPlan plan, CallOption... options) {
+    return executeSubstrait(plan, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute a Substrait plan on the server.
+   *
+   * @param plan The Substrait plan to execute.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo executeSubstrait(SubstraitPlan plan, Transaction transaction, CallOption... options) {
+    final CommandStatementSubstraitPlan.Builder builder = CommandStatementSubstraitPlan.newBuilder();
+    builder.getPlanBuilder().setPlan(ByteString.copyFrom(plan.getPlan())).setVersion(plan.getVersion());
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
   }
@@ -100,11 +153,42 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Get the schema of the result set of a query.
    */
-  public SchemaResult getExecuteSchema(final String query, final CallOption... options) {
+  public SchemaResult getExecuteSchema(String query, Transaction transaction, CallOption... options) {
     final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder();
     builder.setQuery(query);
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getSchema(descriptor, options);
+  }
+
+  /**
+   * Get the schema of the result set of a query.
+   */
+  public SchemaResult getExecuteSchema(String query, CallOption... options) {
+    return getExecuteSchema(query, /*transaction*/null, options);
+  }
+
+  /**
+   * Get the schema of the result set of a Substrait plan.
+   */
+  public SchemaResult getExecuteSubstraitSchema(SubstraitPlan plan, Transaction transaction,
+                                                final CallOption... options) {
+    final CommandStatementSubstraitPlan.Builder builder = CommandStatementSubstraitPlan.newBuilder();
+    builder.getPlanBuilder().setPlan(ByteString.copyFrom(plan.getPlan())).setVersion(plan.getVersion());
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getSchema(descriptor, options);
+  }
+
+  /**
+   * Get the schema of the result set of a Substrait plan.
+   */
+  public SchemaResult getExecuteSubstraitSchema(SubstraitPlan substraitPlan, final CallOption... options) {
+    return getExecuteSubstraitSchema(substraitPlan, /*transaction*/null, options);
   }
 
   /**
@@ -115,18 +199,77 @@ public class FlightSqlClient implements AutoCloseable {
    * @return the number of rows affected.
    */
   public long executeUpdate(final String query, final CallOption... options) {
-    final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder();
-    builder.setQuery(query);
+    return executeUpdate(query, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute an update query on the server.
+   *
+   * @param query   The query to execute.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeUpdate(final String query, Transaction transaction, final CallOption... options) {
+    final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder().setQuery(query);
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    final SyncPutListener putListener = new SyncPutListener();
-    client.startPut(descriptor, VectorSchemaRoot.of(), putListener, options);
-
-    try {
-      final PutResult read = putListener.read();
-      try (final ArrowBuf metadata = read.getApplicationMetadata()) {
-        final DoPutUpdateResult doPutUpdateResult = DoPutUpdateResult.parseFrom(metadata.nioBuffer());
+    try (final SyncPutListener putListener = new SyncPutListener()) {
+      final FlightClient.ClientStreamListener listener =
+          client.startPut(descriptor, VectorSchemaRoot.of(), putListener, options);
+      try (final PutResult result = putListener.read()) {
+        final DoPutUpdateResult doPutUpdateResult = DoPutUpdateResult.parseFrom(
+            result.getApplicationMetadata().nioBuffer());
         return doPutUpdateResult.getRecordCount();
+      } finally {
+        listener.getResult();
+      }
+    } catch (final InterruptedException | ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final InvalidProtocolBufferException e) {
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
+    }
+  }
+
+  /**
+   * Execute an update query on the server.
+   *
+   * @param plan The Substrait plan to execute.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeSubstraitUpdate(SubstraitPlan plan, CallOption... options) {
+    return executeSubstraitUpdate(plan, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute an update query on the server.
+   *
+   * @param plan The Substrait plan to execute.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeSubstraitUpdate(SubstraitPlan plan, Transaction transaction, CallOption... options) {
+    final CommandStatementSubstraitPlan.Builder builder = CommandStatementSubstraitPlan.newBuilder();
+    builder.getPlanBuilder().setPlan(ByteString.copyFrom(plan.getPlan())).setVersion(plan.getVersion());
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    try (final SyncPutListener putListener = new SyncPutListener()) {
+      final FlightClient.ClientStreamListener listener =
+          client.startPut(descriptor, VectorSchemaRoot.of(), putListener, options);
+      try (final PutResult result = putListener.read()) {
+        final DoPutUpdateResult doPutUpdateResult = DoPutUpdateResult.parseFrom(
+            result.getApplicationMetadata().nioBuffer());
+        return doPutUpdateResult.getRecordCount();
+      } finally {
+        listener.getResult();
       }
     } catch (final InterruptedException | ExecutionException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
@@ -551,14 +694,198 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
-   * Create a prepared statement on the server.
+   * Create a prepared statement for a SQL query on the server.
    *
    * @param query   The query to prepare.
    * @param options RPC-layer hints for this call.
    * @return The representation of the prepared statement which exists on the server.
    */
-  public PreparedStatement prepare(final String query, final CallOption... options) {
-    return new PreparedStatement(client, query, options);
+  public PreparedStatement prepare(String query, CallOption... options) {
+    return prepare(query, /*transaction*/ null, options);
+  }
+
+  /**
+   * Create a prepared statement for a SQL query on the server.
+   *
+   * @param query The query to prepare.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return The representation of the prepared statement which exists on the server.
+   */
+  public PreparedStatement prepare(String query, Transaction transaction, CallOption... options) {
+    ActionCreatePreparedStatementRequest.Builder builder =
+        ActionCreatePreparedStatementRequest.newBuilder().setQuery(query);
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
+    return new PreparedStatement(client,
+        new Action(
+            FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType(),
+            Any.pack(builder.build()).toByteArray()),
+        options);
+  }
+
+  /**
+   * Create a prepared statement for a Substrait plan on the server.
+   *
+   * @param plan    The query to prepare.
+   * @param options RPC-layer hints for this call.
+   * @return The representation of the prepared statement which exists on the server.
+   */
+  public PreparedStatement prepare(SubstraitPlan plan, CallOption... options) {
+    return prepare(plan, /*transaction*/ null, options);
+  }
+
+  /**
+   * Create a prepared statement for a Substrait plan on the server.
+   *
+   * @param plan The query to prepare.
+   * @param transaction The transaction that this query is part of.
+   * @param options RPC-layer hints for this call.
+   * @return The representation of the prepared statement which exists on the server.
+   */
+  public PreparedStatement prepare(SubstraitPlan plan, Transaction transaction, CallOption... options) {
+    ActionCreatePreparedSubstraitPlanRequest.Builder builder =
+        ActionCreatePreparedSubstraitPlanRequest.newBuilder();
+    builder.getPlanBuilder().setPlan(ByteString.copyFrom(plan.getPlan())).setVersion(plan.getVersion());
+    if (transaction != null) {
+      builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+    }
+    return new PreparedStatement(client,
+        new Action(
+            FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_SUBSTRAIT_PLAN.getType(),
+            Any.pack(builder.build()).toByteArray()),
+        options);
+  }
+
+  /** Begin a transaction. */
+  public Transaction beginTransaction(CallOption... options) {
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_BEGIN_TRANSACTION.getType(),
+        Any.pack(ActionBeginTransactionRequest.getDefaultInstance()).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    final ActionBeginTransactionResult result = FlightSqlUtils.unpackAndParseOrThrow(
+        preparedStatementResults.next().getBody(),
+        ActionBeginTransactionResult.class);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+    if (result.getTransactionId().isEmpty()) {
+      throw CallStatus.INTERNAL.withDescription("Server returned an empty transaction ID").toRuntimeException();
+    }
+    return new Transaction(result.getTransactionId().toByteArray());
+  }
+
+  /** Create a savepoint within a transaction. */
+  public Savepoint beginSavepoint(Transaction transaction, String name, CallOption... options) {
+    Preconditions.checkArgument(transaction.getTransactionId().length != 0, "Transaction must be initialized");
+    ActionBeginSavepointRequest request = ActionBeginSavepointRequest.newBuilder()
+        .setTransactionId(ByteString.copyFrom(transaction.getTransactionId()))
+        .setName(name)
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_BEGIN_SAVEPOINT.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    final ActionBeginSavepointResult result = FlightSqlUtils.unpackAndParseOrThrow(
+        preparedStatementResults.next().getBody(),
+        ActionBeginSavepointResult.class);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+    if (result.getSavepointId().isEmpty()) {
+      throw CallStatus.INTERNAL.withDescription("Server returned an empty transaction ID").toRuntimeException();
+    }
+    return new Savepoint(result.getSavepointId().toByteArray());
+  }
+
+  /** Commit a transaction. */
+  public void commit(Transaction transaction, CallOption... options) {
+    Preconditions.checkArgument(transaction.getTransactionId().length != 0, "Transaction must be initialized");
+    ActionEndTransactionRequest request = ActionEndTransactionRequest.newBuilder()
+        .setTransactionId(ByteString.copyFrom(transaction.getTransactionId()))
+        .setActionValue(ActionEndTransactionRequest.EndTransaction.END_TRANSACTION_COMMIT.getNumber())
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_END_TRANSACTION.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+  }
+
+  /** Release a savepoint. */
+  public void release(Savepoint savepoint, CallOption... options) {
+    Preconditions.checkArgument(savepoint.getSavepointId().length != 0, "Savepoint must be initialized");
+    ActionEndSavepointRequest request = ActionEndSavepointRequest.newBuilder()
+        .setSavepointId(ByteString.copyFrom(savepoint.getSavepointId()))
+        .setActionValue(ActionEndSavepointRequest.EndSavepoint.END_SAVEPOINT_RELEASE.getNumber())
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_END_SAVEPOINT.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+  }
+
+  /** Rollback a transaction. */
+  public void rollback(Transaction transaction, CallOption... options) {
+    Preconditions.checkArgument(transaction.getTransactionId().length != 0, "Transaction must be initialized");
+    ActionEndTransactionRequest request = ActionEndTransactionRequest.newBuilder()
+        .setTransactionId(ByteString.copyFrom(transaction.getTransactionId()))
+        .setActionValue(ActionEndTransactionRequest.EndTransaction.END_TRANSACTION_ROLLBACK.getNumber())
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_END_TRANSACTION.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+  }
+
+  /** Rollback to a savepoint. */
+  public void rollback(Savepoint savepoint, CallOption... options) {
+    Preconditions.checkArgument(savepoint.getSavepointId().length != 0, "Savepoint must be initialized");
+    ActionEndSavepointRequest request = ActionEndSavepointRequest.newBuilder()
+        .setSavepointId(ByteString.copyFrom(savepoint.getSavepointId()))
+        .setActionValue(ActionEndSavepointRequest.EndSavepoint.END_SAVEPOINT_RELEASE.getNumber())
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_END_SAVEPOINT.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+  }
+
+  /**
+   * Explicitly cancel a running query.
+   * <p>
+   * This lets a single client explicitly cancel work, no matter how many clients
+   * are involved/whether the query is distributed or not, given server support.
+   * The transaction/statement is not rolled back; it is the application's job to
+   * commit or rollback as appropriate. This only indicates the client no longer
+   * wishes to read the remainder of the query results or continue submitting
+   * data.
+   */
+  public CancelResult cancelQuery(FlightInfo info, CallOption... options) {
+    ActionCancelQueryRequest request = ActionCancelQueryRequest.newBuilder()
+        .setInfo(ByteString.copyFrom(info.serialize()))
+        .build();
+    final Action action = new Action(
+        FlightSqlUtils.FLIGHT_SQL_CANCEL_QUERY.getType(),
+        Any.pack(request).toByteArray());
+    final Iterator<Result> preparedStatementResults = client.doAction(action, options);
+    final ActionCancelQueryResult result = FlightSqlUtils.unpackAndParseOrThrow(
+        preparedStatementResults.next().getBody(),
+        ActionCancelQueryResult.class);
+    preparedStatementResults.forEachRemaining((ignored) -> { });
+    switch (result.getResult()) {
+      case CANCEL_RESULT_UNSPECIFIED:
+        return CancelResult.UNSPECIFIED;
+      case CANCEL_RESULT_CANCELLED:
+        return CancelResult.CANCELLED;
+      case CANCEL_RESULT_CANCELLING:
+        return CancelResult.CANCELLING;
+      case CANCEL_RESULT_NOT_CANCELLABLE:
+        return CancelResult.NOT_CANCELLABLE;
+      case UNRECOGNIZED:
+      default:
+        throw CallStatus.INTERNAL.withDescription("Unknown result: " + result.getResult()).toRuntimeException();
+    }
   }
 
   @Override
@@ -577,28 +904,13 @@ public class FlightSqlClient implements AutoCloseable {
     private Schema resultSetSchema;
     private Schema parameterSchema;
 
-    /**
-     * Constructor.
-     *
-     * @param client  The client. PreparedStatement does not maintain this resource.
-     * @param sql     The query.
-     * @param options RPC-layer hints for this call.
-     */
-    public PreparedStatement(final FlightClient client, final String sql, final CallOption... options) {
+    PreparedStatement(FlightClient client, Action action, CallOption... options) {
       this.client = client;
-      final Action action = new Action(
-          FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType(),
-          Any.pack(ActionCreatePreparedStatementRequest
-                  .newBuilder()
-                  .setQuery(sql)
-                  .build())
-              .toByteArray());
-      final Iterator<Result> preparedStatementResults = client.doAction(action, options);
 
+      final Iterator<Result> preparedStatementResults = client.doAction(action, options);
       preparedStatementResult = FlightSqlUtils.unpackAndParseOrThrow(
           preparedStatementResults.next().getBody(),
           ActionCreatePreparedStatementResult.class);
-
       isClosed = false;
     }
 
@@ -788,6 +1100,83 @@ public class FlightSqlClient implements AutoCloseable {
      */
     public boolean isClosed() {
       return isClosed;
+    }
+  }
+
+  /** A handle for an active savepoint. */
+  public static class Savepoint {
+    private final byte[] transactionId;
+
+    public Savepoint(byte[] transactionId) {
+      this.transactionId = transactionId;
+    }
+
+    public byte[] getSavepointId() {
+      return transactionId;
+    }
+  }
+
+  /** A handle for an active transaction. */
+  public static class Transaction {
+    private final byte[] transactionId;
+
+    public Transaction(byte[] transactionId) {
+      this.transactionId = transactionId;
+    }
+
+    public byte[] getTransactionId() {
+      return transactionId;
+    }
+  }
+
+  /** A wrapper around a Substrait plan and a Substrait version. */
+  public static final class SubstraitPlan {
+    private final byte[] plan;
+    private final String version;
+
+    public SubstraitPlan(byte[] plan, String version) {
+      this.plan = Preconditions.checkNotNull(plan);
+      this.version = Preconditions.checkNotNull(version);
+    }
+
+    public byte[] getPlan() {
+      return plan;
+    }
+
+    public String getVersion() {
+      return version;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      SubstraitPlan that = (SubstraitPlan) o;
+
+      if (!Arrays.equals(getPlan(), that.getPlan())) {
+        return false;
+      }
+      return getVersion().equals(that.getVersion());
+    }
+
+    @Override
+    public int hashCode() {
+      int result = Arrays.hashCode(getPlan());
+      result = 31 * result + getVersion().hashCode();
+      return result;
+    }
+
+    @Override
+    public String toString() {
+      return "SubstraitPlan{" +
+          "plan=" + Arrays.toString(plan) +
+          ", version='" + version + '\'' +
+          '}';
     }
   }
 }
