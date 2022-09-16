@@ -257,19 +257,19 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
-			arrow.Field{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
-			arrow.Field{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
-			arrow.Field{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
-			arrow.Field{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
-			arrow.Field{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
-			arrow.Field{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
-			arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
-			arrow.Field{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
+			{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
+			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
+			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
+			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
 		},
 		nil,
 	)
@@ -379,9 +379,9 @@ func TestCSVReaderWithChunk(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
 		},
 		nil,
 	)
@@ -632,7 +632,7 @@ func BenchmarkRead(b *testing.B) {
 		return buf.Bytes()
 	}
 
-	for _, rows := range []int{10, 1e2, 1e3, 1e4, 1e5} {
+	for _, rows := range []int{10, 1e2, 1e3, 1e4} {
 		for _, cols := range []int{1, 10, 100, 1000} {
 			raw := gen(rows, cols)
 			for _, chunks := range []int{-1, 0, 10, 100, 1000} {
@@ -651,9 +651,9 @@ func benchRead(b *testing.B, raw []byte, rows, cols, chunks int) {
 	var fields []arrow.Field
 	for i := 0; i < cols; i++ {
 		fields = append(fields, []arrow.Field{
-			arrow.Field{Name: fmt.Sprintf("i64-%d", i), Type: arrow.PrimitiveTypes.Int64},
-			arrow.Field{Name: fmt.Sprintf("f64-%d", i), Type: arrow.PrimitiveTypes.Float64},
-			arrow.Field{Name: fmt.Sprintf("str-%d", i), Type: arrow.BinaryTypes.String},
+			{Name: fmt.Sprintf("i64-%d", i), Type: arrow.PrimitiveTypes.Int64},
+			{Name: fmt.Sprintf("f64-%d", i), Type: arrow.PrimitiveTypes.Float64},
+			{Name: fmt.Sprintf("str-%d", i), Type: arrow.BinaryTypes.String},
 		}...)
 	}
 
