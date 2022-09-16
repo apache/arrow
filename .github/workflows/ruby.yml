@@ -74,7 +74,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
@@ -160,7 +160,7 @@ jobs:
         run: |
           echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
@@ -252,7 +252,7 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ccache
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
@@ -276,7 +276,7 @@ jobs:
         run: |
           Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
       - name: Cache RubyGems
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
           key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}

@@ -50,7 +50,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}

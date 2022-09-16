@@ -70,7 +70,7 @@ jobs:
           repository: apache/arrow-rs
           path: rust
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: conda-${{ hashFiles('cpp/**') }}
