@@ -272,12 +272,12 @@ template <>
 struct PrimitiveGetter<ArraySpan, bool> {
   // For boolean, we can't add offset at beginning because values is a bitmap.
   explicit PrimitiveGetter(ArraySpan&& array)
-      : inner(std::move(array)), values(array.GetValues<uint8_t>(1)) {
+      : inner(std::move(array)), values(array.GetValues<uint8_t>(1, 0)) {
     inner.GetNullCount();
   }
 
   explicit PrimitiveGetter(const ArraySpan& array)
-    : inner(array), values(array.GetValues<uint8_t>(1)) {
+      : inner(array), values(array.GetValues<uint8_t>(1, 0)) {
     inner.GetNullCount();
   }
 
@@ -302,7 +302,7 @@ struct PrimitiveGetter<ArraySpan, ValueType> {
   }
 
   explicit PrimitiveGetter(const ArraySpan& array)
-    : inner(array), values(array.GetValues<ValueType>(1)) {
+      : inner(array), values(array.GetValues<ValueType>(1)) {
     inner.GetNullCount();
   }
 
@@ -326,12 +326,13 @@ struct PrimitiveGetter<ChunkedArray, bool> {
         resolver(ChunkResolver(array.chunks())),
         null_count_(array.null_count()),
         length_(array.length()) {
-    values_data =
-        MapVector([](const auto& x) { return x->data()->template GetValues<uint8_t>(1); },
-                  array.chunks());
+    values_data = MapVector(
+        [](const auto& x) { return x->data()->template GetValues<uint8_t>(1, 0); },
+        array.chunks());
     values_is_valid =
         MapVector([](const auto& x) { return x->null_bitmap_data(); }, array.chunks());
     values_offset = MapVector([](const auto& x) { return x->offset(); }, array.chunks());
+    chunk_lengths = MapVector([](const auto& x) { return x->length(); }, array.chunks());
   }
 
   bool IsValid(int64_t i) const {
@@ -358,6 +359,7 @@ struct PrimitiveGetter<ChunkedArray, bool> {
   ChunkResolver resolver;
   int64_t null_count_;
   int64_t length_;
+  std::vector<int64_t> chunk_lengths;
   std::vector<const uint8_t*> values_data;
   std::vector<const uint8_t*> values_is_valid;
   std::vector<int64_t> values_offset;
@@ -381,14 +383,19 @@ struct PrimitiveGetter<ChunkedArray, ValueType> {
 
   bool IsValid(int64_t i) const {
     ChunkLocation loc = resolver.Resolve(i);
-    return bit_util::GetBit(values_is_valid[loc.chunk_index],
-                            values_offset[loc.chunk_index] + loc.index_in_chunk);
+    const uint8_t* validity_bitmap = values_is_valid[loc.chunk_index];
+    if (validity_bitmap == nullptr) {
+      return true;
+    } else {
+      return bit_util::GetBit(validity_bitmap,
+                              values_offset[loc.chunk_index] + loc.index_in_chunk);
+    }
   }
 
   ValueType GetValue(int64_t i) const {
     ChunkLocation loc = resolver.Resolve(i);
     const ValueType* data = values_data[loc.chunk_index];
-    return data[i];
+    return data[loc.index_in_chunk];
   }
 
   int64_t null_count() const { return null_count_; }
@@ -418,7 +425,6 @@ struct PrimitiveGetter<ChunkedArray, ValueType> {
 /// This function assumes that the indices have been boundschecked.
 template <typename IndexCType, typename ValueCType>
 struct PrimitiveTakeImpl {
-
   template <typename T>
   static void ExecImpl(PrimitiveGetter<T, ValueCType>& values, const ArraySpan& indices,
                        ArrayData* out_arr) {
@@ -530,7 +536,6 @@ struct PrimitiveTakeImpl {
 
 template <typename IndexCType>
 struct BooleanTakeImpl {
-
   template <typename T>
   static void ExecImpl(PrimitiveGetter<T, bool>& values, const ArraySpan& indices,
                        ArrayData* out_arr) {
@@ -820,10 +825,10 @@ class PrimitiveFilterImpl {
  public:
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
-  PrimitiveFilterImpl(const PrimitiveGetter<ArrayKind, T>& values_getter,
-                      const ArraySpan& filter,
-                      FilterOptions::NullSelectionBehavior null_selection,
-                      ArrayData* out_arr)
+  PrimitiveFilterImpl(
+      const PrimitiveGetter<ArrayKind, typename ArrowType::c_type>& values_getter,
+      const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
+      ArrayData* out_arr)
       : values_getter_(values_getter),
         filter_is_valid_(filter.buffers[0].data),
         filter_data_(filter.buffers[1].data),
@@ -1093,7 +1098,7 @@ class PrimitiveFilterImpl {
   }
 
  private:
-  const PrimitiveGetter<ArrayKind, T>& values_getter_;
+  const PrimitiveGetter<ArrayKind, typename ArrowType::c_type>& values_getter_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
   int64_t filter_null_count_;
@@ -1111,10 +1116,7 @@ template <typename ArrowType>
 void PrimitiveFilterDispatch(const ArraySpan& values, const ArraySpan& filter,
                              FilterOptions::NullSelectionBehavior null_selection,
                              ArrayData* out) {
-  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
-                                      uint8_t, typename ArrowType::c_type>::type;
-
-  auto getter = PrimitiveGetter<ArraySpan, T>(ArraySpan(values));
+  auto getter = PrimitiveGetter<ArraySpan, typename ArrowType::c_type>(ArraySpan(values));
   PrimitiveFilterImpl<ArraySpan, ArrowType>(getter, filter, null_selection, out).Exec();
 }
 
@@ -1178,10 +1180,7 @@ template <typename ArrowType>
 void PrimitiveFilterDispatch(const ChunkedArray& values, const ChunkedArray& filter,
                              FilterOptions::NullSelectionBehavior null_selection,
                              ArrayDataVector* out) {
-  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
-                                      uint8_t, typename ArrowType::c_type>::type;
-
-  auto getter = PrimitiveGetter<ChunkedArray, T>(values);
+  auto getter = PrimitiveGetter<ChunkedArray, typename ArrowType::c_type>(values);
 
   // Will match the chunking structure of the filter array.
   for (const std::shared_ptr<Array>& filter_chunk : filter.chunks()) {
@@ -2434,7 +2433,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
   if (num_chunks <= 1) {
     std::shared_ptr<Array> current_chunk;
     // Case 1: `values` has a single chunk, so just use it
-    if (num_chunks == 0) {
+    if (num_chunks == 1) {
       current_chunk = values.chunk(0);
     } else {
       // Case 2: `values` has no chunks, so create an empty one
