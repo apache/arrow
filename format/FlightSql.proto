@@ -90,6 +90,64 @@ enum SqlInfo {
    */
   FLIGHT_SQL_SERVER_READ_ONLY = 3;
 
+  /*
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+   * SQL queries.
+   *
+   * Note that the absence of this info (as opposed to a false value) does not necessarily
+   * mean that SQL is not supported, as this property was not originally defined.
+   */
+  FLIGHT_SQL_SERVER_SQL = 4;
+
+  /*
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+   * Substrait plans.
+   */
+  FLIGHT_SQL_SERVER_SUBSTRAIT = 5;
+
+  /*
+   * Retrieves a string value indicating the minimum supported Substrait version, or null
+   * if Substrait is not supported.
+   */
+  FLIGHT_SQL_SERVER_SUBSTRAIT_MIN_VERSION = 6;
+
+  /*
+   * Retrieves a string value indicating the maximum supported Substrait version, or null
+   * if Substrait is not supported.
+   */
+  FLIGHT_SQL_SERVER_SUBSTRAIT_MAX_VERSION = 7;
+
+  /*
+   * Retrieves an int32 indicating whether the Flight SQL Server supports the
+   * BeginTransaction/EndTransaction/BeginSavepoint/EndSavepoint actions.
+   *
+   * Even if this is not supported, the database may still support explicit "BEGIN
+   * TRANSACTION"/"COMMIT" SQL statements (see SQL_TRANSACTIONS_SUPPORTED); this property
+   * is only about whether the server implements the Flight SQL API endpoints.
+   *
+   * The possible values are listed in `SqlSupportedTransaction`.
+   */
+  FLIGHT_SQL_SERVER_TRANSACTION = 8;
+
+  /*
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports explicit
+   * query cancellation (the CancelQuery action).
+   */
+  FLIGHT_SQL_SERVER_CANCEL = 9;
+
+  /*
+   * Retrieves an int32 indicating the timeout (in milliseconds) for prepared statement handles.
+   *
+   * If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
+   */
+  FLIGHT_SQL_SERVER_STATEMENT_TIMEOUT = 100;
+
+  /*
+   * Retrieves an int32 indicating the timeout (in milliseconds) for transactions, since transactions are not tied to a connection.
+   *
+   * If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
+   */
+  FLIGHT_SQL_SERVER_TRANSACTION_TIMEOUT = 101;
 
   // SQL Syntax Information [500-1000): provides information about SQL syntax supported by the Flight SQL Server.
 
@@ -761,6 +819,18 @@ enum SqlInfo {
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
 }
 
+// The level of support for Flight SQL transaction RPCs.
+enum SqlSupportedTransaction {
+  // Unknown/not indicated/no support
+  SQL_SUPPORTED_TRANSACTION_NONE = 0;
+  // Transactions, but not savepoints.
+  // A savepoint is a mark within a transaction that can be individually
+  // rolled back to. Not all databases support savepoints.
+  SQL_SUPPORTED_TRANSACTION_TRANSACTION = 1;
+  // Transactions and savepoints
+  SQL_SUPPORTED_TRANSACTION_SAVEPOINT = 2;
+}
+
 enum SqlSupportedCaseSensitivity {
   SQL_CASE_SENSITIVITY_UNKNOWN = 0;
   SQL_CASE_SENSITIVITY_CASE_INSENSITIVE = 1;
@@ -1406,7 +1476,7 @@ message CommandGetCrossReference {
   string fk_table = 6;
 }
 
-// SQL Execution Action Messages
+// Query Execution Action Messages
 
 /*
  * Request message for the "CreatePreparedStatement" action on a Flight SQL enabled backend.
@@ -1416,14 +1486,49 @@ message ActionCreatePreparedStatementRequest {
 
   // The valid SQL string to create a prepared statement for.
   string query = 1;
+  // Create/execute the prepared statement as part of this transaction (if
+  // unset, executions of the prepared statement will be auto-committed).
+  optional bytes transaction_id = 2;
 }
 
 /*
- * Wrap the result of a "GetPreparedStatement" action.
+ * An embedded message describing a Substrait plan to execute.
+ */
+message SubstraitPlan {
+  option (experimental) = true;
+
+  // The serialized substrait.Plan to create a prepared statement for.
+  // XXX(ARROW-16902): this is bytes instead of an embedded message
+  // because Protobuf does not really support one DLL using Protobuf
+  // definitions from another DLL.
+  bytes plan = 1;
+  // The Substrait release, e.g. "0.12.0". This information is not
+  // tracked in the plan itself, so this is the only way for consumers
+  // to potentially know if they can handle the plan.
+  string version = 2;
+}
+
+/*
+ * Request message for the "CreatePreparedSubstraitPlan" action on a Flight SQL enabled backend.
+ */
+message ActionCreatePreparedSubstraitPlanRequest {
+  option (experimental) = true;
+
+  // The serialized substrait.Plan to create a prepared statement for.
+  SubstraitPlan plan = 1;
+  // Create/execute the prepared statement as part of this transaction (if
+  // unset, executions of the prepared statement will be auto-committed).
+  optional bytes transaction_id = 2;
+}
+
+/*
+ * Wrap the result of a "CreatePreparedStatement" or "CreatePreparedSubstraitPlan" action.
  *
  * The resultant PreparedStatement can be closed either:
  * - Manually, through the "ClosePreparedStatement" action;
  * - Automatically, by a server timeout.
+ *
+ * The result should be wrapped in a google.protobuf.Any message.
  */
 message ActionCreatePreparedStatementResult {
   option (experimental) = true;
@@ -1451,8 +1556,113 @@ message ActionClosePreparedStatementRequest {
   bytes prepared_statement_handle = 1;
 }
 
+/*
+ * Request message for the "BeginTransaction" action.
+ * Begins a transaction.
+ */
+message ActionBeginTransactionRequest {
+  option (experimental) = true;
+}
 
-// SQL Execution Messages.
+/*
+ * Request message for the "BeginSavepoint" action.
+ * Creates a savepoint within a transaction.
+ *
+ * Only supported if FLIGHT_SQL_TRANSACTION is
+ * FLIGHT_SQL_TRANSACTION_SUPPORT_SAVEPOINT.
+ */
+message ActionBeginSavepointRequest {
+  option (experimental) = true;
+
+  // The transaction to which a savepoint belongs.
+  bytes transaction_id = 1;
+  // Name for the savepoint.
+  string name = 2;
+}
+
+/*
+ * The result of a "BeginTransaction" action.
+ *
+ * The transaction can be manipulated with the "EndTransaction" action, or
+ * automatically via server timeout. If the transaction times out, then it is
+ * automatically rolled back.
+ *
+ * The result should be wrapped in a google.protobuf.Any message.
+ */
+message ActionBeginTransactionResult {
+  option (experimental) = true;
+
+  // Opaque handle for the transaction on the server.
+  bytes transaction_id = 1;
+}
+
+/*
+ * The result of a "BeginSavepoint" action.
+ *
+ * The transaction can be manipulated with the "EndSavepoint" action.
+ * If the associated transaction is committed, rolled back, or times
+ * out, then the savepoint is also invalidated.
+ *
+ * The result should be wrapped in a google.protobuf.Any message.
+ */
+message ActionBeginSavepointResult {
+  option (experimental) = true;
+
+  // Opaque handle for the savepoint on the server.
+  bytes savepoint_id = 1;
+}
+
+/*
+ * Request message for the "EndTransaction" action.
+ *
+ * Commit (COMMIT) or rollback (ROLLBACK) the transaction.
+ *
+ * If the action completes successfully, the transaction handle is
+ * invalidated, as are all associated savepoints.
+ */
+message ActionEndTransactionRequest {
+  option (experimental) = true;
+
+  enum EndTransaction {
+    END_TRANSACTION_UNSPECIFIED = 0;
+    // Commit the transaction.
+    END_TRANSACTION_COMMIT = 1;
+    // Roll back the transaction.
+    END_TRANSACTION_ROLLBACK = 2;
+  }
+  // Opaque handle for the transaction on the server.
+  bytes transaction_id = 1;
+  // Whether to commit/rollback the given transaction.
+  EndTransaction action = 2;
+}
+
+/*
+ * Request message for the "EndSavepoint" action.
+ *
+ * Release (RELEASE) the savepoint or rollback (ROLLBACK) to the
+ * savepoint.
+ *
+ * Releasing a savepoint invalidates that savepoint.  Rolling back to
+ * a savepoint does not invalidate the savepoint, but invalidates all
+ * savepoints created after the current savepoint.
+ */
+message ActionEndSavepointRequest {
+  option (experimental) = true;
+
+  enum EndSavepoint {
+    END_SAVEPOINT_UNSPECIFIED = 0;
+    // Release the savepoint.
+    END_SAVEPOINT_RELEASE = 1;
+    // Roll back to a savepoint.
+    END_SAVEPOINT_ROLLBACK = 2;
+  }
+  // Opaque handle for the savepoint on the server.
+  bytes savepoint_id = 1;
+  // Whether to rollback/release the given savepoint.
+  EndSavepoint action = 2;
+}
+
+// Query Execution Messages.
 
 /*
  * Represents a SQL query. Used in the command member of FlightDescriptor
@@ -1476,6 +1686,35 @@ message CommandStatementQuery {
 
   // The SQL syntax.
   string query = 1;
+  // Include the query as part of this transaction (if unset, the query is auto-committed).
+  optional bytes transaction_id = 2;
+}
+
+/*
+ * Represents a Substrait plan. Used in the command member of FlightDescriptor
+ * for the following RPC calls:
+ *  - GetSchema: return the Arrow schema of the query.
+ *    Fields on this schema may contain the following metadata:
+ *    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+ *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+ *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+ *    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
+ *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+ *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *  - GetFlightInfo: execute the query.
+ *  - DoPut: execute the query.
+ */
+message CommandStatementSubstraitPlan {
+  option (experimental) = true;
+
+  // A serialized substrait.Plan
+  SubstraitPlan plan = 1;
+  // Include the query as part of this transaction (if unset, the query is auto-committed).
+  optional bytes transaction_id = 2;
 }
 
 /**
@@ -1523,6 +1762,8 @@ message CommandStatementUpdate {
 
   // The SQL syntax.
   string query = 1;
+  // Include the query as part of this transaction (if unset, the query is auto-committed).
+  optional bytes transaction_id = 2;
 }
 
 /*
@@ -1548,6 +1789,57 @@ message DoPutUpdateResult {
   // The number of records updated. A return value of -1 represents
   // an unknown updated record count.
   int64 record_count = 1;
+}
+
+/*
+ * Request message for the "CancelQuery" action.
+ *
+ * Explicitly cancel a running query.
+ *
+ * This lets a single client explicitly cancel work, no matter how many clients
+ * are involved/whether the query is distributed or not, given server support.
+ * The transaction/statement is not rolled back; it is the application's job to
+ * commit or rollback as appropriate. This only indicates the client no longer
+ * wishes to read the remainder of the query results or continue submitting
+ * data.
+ *
+ * This command is idempotent.
+ */
+message ActionCancelQueryRequest {
+  option (experimental) = true;
+
+  // The result of the GetFlightInfo RPC that initiated the query.
+  // XXX(ARROW-16902): this must be a serialized FlightInfo, but is
+  // rendered as bytes because Protobuf does not really support one
+  // DLL using Protobuf definitions from another DLL.
+  bytes info = 1;
+}
+
+/*
+ * The result of cancelling a query.
+ *
+ * The result should be wrapped in a google.protobuf.Any message.
+ */
+message ActionCancelQueryResult {
+  option (experimental) = true;
+
+  enum CancelResult {
+    // The cancellation status is unknown. Servers should avoid using
+    // this value (send a NOT_FOUND error if the requested query is
+    // not known). Clients can retry the request.
+    CANCEL_RESULT_UNSPECIFIED = 0;
+    // The cancellation request is complete. Subsequent requests with
+    // the same payload may return CANCELLED or a NOT_FOUND error.
+    CANCEL_RESULT_CANCELLED = 1;
+    // The cancellation request is in progress. The client may retry
+    // the cancellation request.
+    CANCEL_RESULT_CANCELLING = 2;
+    // The query is not cancellable. The client should not retry the
+    // cancellation request.
+    CANCEL_RESULT_NOT_CANCELLABLE = 3;
+  }
+
+  CancelResult result = 1;
 }
 
 extend google.protobuf.MessageOptions {

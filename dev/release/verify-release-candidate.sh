@@ -399,7 +399,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.16.12
+  local version=1.17.13
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -582,6 +582,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -656,6 +657,10 @@ test_python() {
   # Build and test Python
   maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+  fi
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -935,8 +940,9 @@ ensure_source_directory() {
 
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
+  export CMAKE_PREFIX_PATH=$ARROW_HOME${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
@@ -1033,7 +1039,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.7m 3.8 3.9 3.10"
-    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
+    local platform_tags="macosx_10_14_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment

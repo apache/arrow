@@ -102,7 +102,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 MacOS 10.15 GLib & Ruby
+    name: AMD64 macOS 11 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

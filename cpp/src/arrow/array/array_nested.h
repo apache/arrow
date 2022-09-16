@@ -120,18 +120,26 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// the offsets contain any nulls). If the offsets do not have nulls, they
   /// are assumed to be well-formed
   ///
+  /// Offsets of an Array's null bitmap can be present or an explicit
+  /// null_bitmap, but not both.
+  ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
   /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   static Result<std::shared_ptr<ListArray>> FromArrays(
-      const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   static Result<std::shared_ptr<ListArray>> FromArrays(
       std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
@@ -178,13 +186,18 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// \param[in] values Array containing list values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
+  /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
-      const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      const Array& offsets, const Array& values, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
       std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///

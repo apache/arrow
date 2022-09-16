@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,13 +31,15 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 namespace compute {
+
+/// \addtogroup execnode-components
+/// @{
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
@@ -116,6 +119,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \param task_group_id The ID  of the task group to run
   /// \param num_tasks The number of times to run the task
   Status StartTaskGroup(int task_group_id, int64_t num_tasks);
+
+  util::AsyncTaskScheduler* async_scheduler();
 
   /// The initial inputs
   const NodeVector& sources() const;
@@ -446,6 +451,8 @@ inline Result<ExecNode*> MakeExecNode(
 struct ARROW_EXPORT Declaration {
   using Input = util::Variant<ExecNode*, Declaration>;
 
+  Declaration() {}
+
   Declaration(std::string factory_name, std::vector<Input> inputs,
               std::shared_ptr<ExecNodeOptions> options, std::string label)
       : factory_name{std::move(factory_name)},
@@ -509,6 +516,9 @@ struct ARROW_EXPORT Declaration {
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
 
+  // Validate a declaration
+  bool IsValid(ExecFactoryRegistry* registry = default_exec_factory_registry()) const;
+
   std::string factory_name;
   std::vector<Input> inputs;
   std::shared_ptr<ExecNodeOptions> options;
@@ -520,7 +530,7 @@ struct ARROW_EXPORT Declaration {
 /// The RecordBatchReader does not impose any ordering on emitted batches.
 ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    std::shared_ptr<Schema>, std::function<Future<std::optional<ExecBatch>>()>,
     MemoryPool*);
 
 constexpr int kDefaultBackgroundMaxQ = 32;
@@ -530,9 +540,11 @@ constexpr int kDefaultBackgroundQRestart = 16;
 ///
 /// Useful as a source node for an Exec plan
 ARROW_EXPORT
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

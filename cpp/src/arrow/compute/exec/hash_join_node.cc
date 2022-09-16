@@ -45,6 +45,9 @@ bool HashJoinSchema::IsTypeSupported(const DataType& type) {
   if (id == Type::DICTIONARY) {
     return IsTypeSupported(*checked_cast<const DictionaryType&>(type).value_type());
   }
+  if (id == Type::EXTENSION) {
+    return IsTypeSupported(*checked_cast<const ExtensionType&>(type).storage_type());
+  }
   return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
 }
 

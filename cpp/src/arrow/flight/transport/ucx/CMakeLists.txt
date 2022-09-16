@@ -38,11 +38,9 @@ add_arrow_lib(arrow_flight_transport_ucx
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
               arrow_flight_shared
               ucx::ucx
               STATIC_LINK_LIBS
-              arrow_static
               arrow_flight_static
               ucx::ucx)
 

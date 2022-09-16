@@ -599,6 +599,22 @@ func (m *flightSqlScenarioTester) validate(expected *arrow.Schema, result *fligh
 	if !expected.Equal(rdr.Schema()) {
 		return fmt.Errorf("expected: %s, got: %s", expected, rdr.Schema())
 	}
+	for {
+		_, err := rdr.Read()
+		if err == io.EOF { break }
+		if err != nil { return err }
+	}
+	return nil
+}
+
+func (m *flightSqlScenarioTester) validateSchema(expected *arrow.Schema, result *flight.SchemaResult) error {
+	schema, err := flight.DeserializeSchema(result.GetSchema(), memory.DefaultAllocator)
+	if err != nil {
+		return err
+	}
+	if !expected.Equal(schema) {
+		return fmt.Errorf("expected: %s, got: %s", expected, schema)
+	}
 	return nil
 }
 
@@ -626,11 +642,27 @@ func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Cl
 		return err
 	}
 
+	schema, err := client.GetCatalogsSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.validateSchema(schema_ref.Catalogs, schema); err != nil {
+		return err
+	}
+
 	info, err = client.GetDBSchemas(ctx, &flightsql.GetDBSchemasOpts{Catalog: &catalog, DbSchemaFilterPattern: &dbSchemaFilterPattern})
 	if err != nil {
 		return err
 	}
 	if err = m.validate(schema_ref.DBSchemas, info, client); err != nil {
+		return err
+	}
+
+	schema, err = client.GetDBSchemasSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.DBSchemas, schema); err != nil {
 		return err
 	}
 
@@ -642,11 +674,35 @@ func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Cl
 		return err
 	}
 
+	schema, err = client.GetTablesSchema(ctx, &flightsql.GetTablesOpts{IncludeSchema: true})
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.TablesWithIncludedSchema, schema); err != nil {
+		return err
+	}
+
+	schema, err = client.GetTablesSchema(ctx, &flightsql.GetTablesOpts{IncludeSchema: false})
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.Tables, schema); err != nil {
+		return err
+	}
+
 	info, err = client.GetTableTypes(ctx)
 	if err != nil {
 		return err
 	}
 	if err = m.validate(schema_ref.TableTypes, info, client); err != nil {
+		return err
+	}
+
+	schema, err = client.GetTableTypesSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.TableTypes, schema); err != nil {
 		return err
 	}
 
@@ -658,11 +714,27 @@ func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Cl
 		return err
 	}
 
+	schema, err = client.GetPrimaryKeysSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.PrimaryKeys, schema); err != nil {
+		return err
+	}
+
 	info, err = client.GetExportedKeys(ctx, ref)
 	if err != nil {
 		return err
 	}
 	if err = m.validate(schema_ref.ExportedKeys, info, client); err != nil {
+		return err
+	}
+
+	schema, err = client.GetExportedKeysSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.ExportedKeys, schema); err != nil {
 		return err
 	}
 
@@ -674,11 +746,27 @@ func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Cl
 		return err
 	}
 
+	schema, err = client.GetImportedKeysSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.ImportedKeys, schema); err != nil {
+		return err
+	}
+
 	info, err = client.GetCrossReference(ctx, pkRef, fkRef)
 	if err != nil {
 		return err
 	}
 	if err = m.validate(schema_ref.CrossReference, info, client); err != nil {
+		return err
+	}
+
+	schema, err = client.GetCrossReferenceSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.CrossReference, schema); err != nil {
 		return err
 	}
 
@@ -690,11 +778,27 @@ func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Cl
 		return err
 	}
 
+	schema, err = client.GetXdbcTypeInfoSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.XdbcTypeInfo, schema); err != nil {
+		return err
+	}
+
 	info, err = client.GetSqlInfo(ctx, []flightsql.SqlInfo{flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfoFlightSqlServerReadOnly})
 	if err != nil {
 		return err
 	}
 	if err = m.validate(schema_ref.SqlInfo, info, client); err != nil {
+		return err
+	}
+
+	schema, err = client.GetSqlInfoSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(schema_ref.SqlInfo, schema); err != nil {
 		return err
 	}
 
@@ -708,6 +812,14 @@ func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.C
 		return err
 	}
 	if err = m.validate(QuerySchema, info, client); err != nil {
+		return err
+	}
+
+	schema, err := client.GetExecuteSchema(ctx, "SELECT STATEMENT")
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(QuerySchema, schema); err != nil {
 		return err
 	}
 
@@ -740,6 +852,13 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 	if err = m.validate(QuerySchema, info, client); err != nil {
 		return err
 	}
+	schema, err := prepared.GetSchema(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validateSchema(QuerySchema, schema); err != nil {
+		return err
+	}
 
 	if err = prepared.Close(ctx); err != nil {
 		return err
@@ -762,9 +881,7 @@ func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *fli
 
 func (m *flightSqlScenarioTester) doGetForTestCase(schema *arrow.Schema) chan flight.StreamChunk {
 	ch := make(chan flight.StreamChunk)
-	go func() {
-		ch <- flight.StreamChunk{Data: array.NewRecord(schema, []arrow.Array{}, 0)}
-	}()
+	close(ch)
 	return ch
 }
 
@@ -789,6 +906,10 @@ func (m *flightSqlScenarioTester) GetFlightInfoStatement(ctx context.Context, cm
 	}, nil
 }
 
+func (m *flightSqlScenarioTester) GetSchemaStatement(ctx context.Context, cmd flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return &flight.SchemaResult{Schema: flight.SerializeSchema(QuerySchema, memory.DefaultAllocator)}, nil
+}
+
 func (m *flightSqlScenarioTester) DoGetStatement(ctx context.Context, cmd flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	return QuerySchema, m.doGetForTestCase(QuerySchema), nil
 }
@@ -799,6 +920,10 @@ func (m *flightSqlScenarioTester) GetFlightInfoPreparedStatement(_ context.Conte
 		return nil, err
 	}
 	return m.flightInfoForCommand(desc, QuerySchema), nil
+}
+
+func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return &flight.SchemaResult{Schema: flight.SerializeSchema(QuerySchema, memory.DefaultAllocator)}, nil
 }
 
 func (m *flightSqlScenarioTester) DoGetPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {

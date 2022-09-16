@@ -50,9 +50,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -86,9 +86,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -123,9 +123,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -158,9 +158,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -186,16 +186,16 @@ jobs:
         run: ci/scripts/go_test.sh $(pwd)
 
   macos:
-    name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
+    name: AMD64 macOS 11 Go ${{ matrix.go }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -221,16 +221,16 @@ jobs:
         run: ci/scripts/go_test.sh $(pwd)
 
   macos-cgo:
-    name: AMD64 MacOS 10.15 Go ${{ matrix.go }} - CGO
+    name: AMD64 macOS 11 Go ${{ matrix.go }} - CGO
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest

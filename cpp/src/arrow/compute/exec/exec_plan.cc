@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -33,7 +34,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -76,13 +76,10 @@ struct ExecPlanImpl : public ExecPlan {
 
   Result<Future<>> BeginExternalTask() {
     Future<> completion_future = Future<>::Make();
-    ARROW_ASSIGN_OR_RAISE(bool task_added,
-                          task_group_.AddTaskIfNotEnded(completion_future));
-    if (task_added) {
-      return std::move(completion_future);
+    if (async_scheduler_->AddSimpleTask(
+            [completion_future] { return completion_future; })) {
+      return completion_future;
     }
-    // Return an invalid future if we were already finished to signal to the
-    // caller that they should not begin the task
     return Future<>{};
   }
 
@@ -90,10 +87,10 @@ struct ExecPlanImpl : public ExecPlan {
     auto executor = exec_context_->executor();
     if (!executor) return fn();
     // Adds a task which submits fn to the executor and tracks its progress.  If we're
-    // already stopping then the task is ignored and fn is not executed.
-    return task_group_
-        .AddTaskIfNotEnded([executor, fn]() { return executor->Submit(std::move(fn)); })
-        .status();
+    // aborted then the task is ignored and fn is not executed.
+    async_scheduler_->AddSimpleTask(
+        [executor, fn]() { return executor->Submit(std::move(fn)); });
+    return Status::OK();
   }
 
   Status ScheduleTask(std::function<Status(size_t)> fn) {
@@ -112,6 +109,8 @@ struct ExecPlanImpl : public ExecPlan {
   Status StartTaskGroup(int task_group_id, int64_t num_tasks) {
     return task_scheduler_->StartTaskGroup(GetThreadIndex(), task_group_id, num_tasks);
   }
+
+  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_.get(); }
 
   Status Validate() const {
     if (nodes_.empty()) {
@@ -197,7 +196,8 @@ struct ExecPlanImpl : public ExecPlan {
   void EndTaskGroup() {
     bool expected = false;
     if (group_ended_.compare_exchange_strong(expected, true)) {
-      task_group_.End().AddCallback([this](const Status& st) {
+      async_scheduler_->End();
+      async_scheduler_->OnFinished().AddCallback([this](const Status& st) {
         MARK_SPAN(span_, error_st_ & st);
         END_SPAN(span_);
         finished_.MarkFinished(error_st_ & st);
@@ -328,7 +328,8 @@ struct ExecPlanImpl : public ExecPlan {
 
   ThreadIndexer thread_indexer_;
   std::atomic<bool> group_ended_{false};
-  util::AsyncTaskGroup task_group_;
+  std::unique_ptr<util::AsyncTaskScheduler> async_scheduler_ =
+      util::AsyncTaskScheduler::Make();
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
 };
 
@@ -338,12 +339,12 @@ const ExecPlanImpl* ToDerived(const ExecPlan* ptr) {
   return checked_cast<const ExecPlanImpl*>(ptr);
 }
 
-util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
-                                 const ExecNode* node) {
+std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
+                                const ExecNode* node) {
   for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
     if (nodes[i] == node) return i;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace
@@ -384,6 +385,10 @@ int ExecPlan::RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
 }
 Status ExecPlan::StartTaskGroup(int task_group_id, int64_t num_tasks) {
   return ToDerived(this)->StartTaskGroup(task_group_id, num_tasks);
+}
+
+util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
+  return ToDerived(this)->async_scheduler();
 }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
@@ -564,8 +569,8 @@ void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema> schema,
-    std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
+    std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,
+    MemoryPool* pool) {
   struct Impl : RecordBatchReader {
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -591,7 +596,7 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
 
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;
-    Iterator<util::optional<ExecBatch>> iterator_;
+    Iterator<std::optional<ExecBatch>> iterator_;
   };
 
   auto out = std::make_shared<Impl>();
@@ -636,6 +641,10 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
     receiver = &util::get<Declaration>(receiver->inputs.front());
   }
   return out;
+}
+
+bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
+  return !this->factory_name.empty() && this->options != nullptr;
 }
 
 namespace internal {
@@ -694,12 +703,12 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
     int max_q, int q_restart) {
   auto batch_it = MakeMapIterator(
       [](std::shared_ptr<RecordBatch> batch) {
-        return util::make_optional(ExecBatch(*batch));
+        return std::make_optional(ExecBatch(*batch));
       },
       MakeIteratorFromReader(reader));
 

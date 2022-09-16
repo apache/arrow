@@ -86,7 +86,7 @@ void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
   }
 }
 
-const auto no_change = util::nullopt;
+const auto no_change = std::nullopt;
 
 TEST(ExpressionUtils, Comparison) {
   auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
@@ -122,7 +122,7 @@ TEST(ExpressionUtils, Comparison) {
 }
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {
-  auto Expect = [](Expression expr, util::optional<Expression> expected_stripped) {
+  auto Expect = [](Expression expr, std::optional<Expression> expected_stripped) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
     if (!expected_stripped) {
       expected_stripped = expr;
@@ -499,7 +499,7 @@ TEST(Expression, BindLiteral) {
   }
 }
 
-void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
+void ExpectBindsTo(Expression expr, std::optional<Expression> expected,
                    Expression* bound_out = nullptr,
                    const Schema& schema = *kBoringSchema) {
   if (!expected) {

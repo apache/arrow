@@ -72,7 +72,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
   }
   for (const auto& chunk : chunks) {
     if (!chunk->type()->Equals(*type)) {
-      return Status::Invalid("Array chunks must all be same type");
+      return Status::TypeError("Array chunks must all be same type");
     }
   }
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));

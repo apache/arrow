@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -30,7 +31,6 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -276,7 +276,7 @@ template <bool is_signed>
 struct CompareHelper<FLBAType, is_signed>
     : public BinaryLikeCompareHelperBase<FLBAType, is_signed> {};
 
-using ::arrow::util::optional;
+using ::std::optional;
 
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
@@ -297,11 +297,11 @@ CleanStatistic(std::pair<T, T> min_max) {
 
   // Ignore if one of the value is nan.
   if (std::isnan(min) || std::isnan(max)) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
 
   if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
 
   T zero{};
@@ -319,7 +319,7 @@ CleanStatistic(std::pair<T, T> min_max) {
 
 optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
   return min_max;
 }
@@ -327,7 +327,7 @@ optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
     std::pair<ByteArray, ByteArray> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
   return min_max;
 }

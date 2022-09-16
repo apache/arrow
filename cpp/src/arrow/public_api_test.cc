@@ -50,10 +50,6 @@
 #include "arrow/json/api.h"  // IWYU pragma: keep
 #endif
 
-#ifdef ARROW_PYTHON
-#include "arrow/python/api.h"  // IWYU pragma: keep
-#endif
-
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."
 #endif
@@ -113,7 +109,7 @@ TEST(Misc, SetTimezoneConfig) {
 #else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
 
-  util::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
+  std::optional<std::string> tzdata_result = GetTestTimezoneDatabaseRoot();
   std::string tzdata_dir;
   if (tzdata_result.has_value()) {
     tzdata_dir = tzdata_result.value();
@@ -133,7 +129,7 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
   // Validate that setting tzdb to that dir fails
-  arrow::GlobalOptions options = {util::make_optional(tempdir->path().ToString())};
+  arrow::GlobalOptions options = {std::make_optional(tempdir->path().ToString())};
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads

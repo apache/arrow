@@ -207,7 +207,7 @@ class ThreadedTaskGroup : public TaskGroup {
   std::mutex mutex_;
   std::condition_variable cv_;
   Status status_;
-  util::optional<Future<>> completion_future_;
+  std::optional<Future<>> completion_future_;
 };
 
 }  // namespace

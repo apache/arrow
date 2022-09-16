@@ -30,6 +30,7 @@ type BinaryScalar interface {
 
 	Retain()
 	Release()
+	Buffer() *memory.Buffer
 	Data() []byte
 }
 
@@ -39,13 +40,24 @@ type Binary struct {
 	Value *memory.Buffer
 }
 
-func (b *Binary) Retain()            { b.Value.Retain() }
-func (b *Binary) Release()           { b.Value.Release() }
+func (b *Binary) Retain() {
+	if b.Value != nil {
+		b.Value.Retain()
+	}
+}
+
+func (b *Binary) Release() {
+	if b.Value != nil {
+		b.Value.Release()
+	}
+}
+
 func (b *Binary) value() interface{} { return b.Value }
 func (b *Binary) Data() []byte       { return b.Value.Bytes() }
 func (b *Binary) equals(rhs Scalar) bool {
 	return bytes.Equal(b.Value.Bytes(), rhs.(BinaryScalar).Data())
 }
+func (b *Binary) Buffer() *memory.Buffer { return b.Value }
 func (b *Binary) String() string {
 	if !b.Valid {
 		return "null"

@@ -78,6 +78,7 @@ Status InvalidDeleteDirContents(util::string_view path) {
 
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
                                  const std::string& glob) {
+  // TODO: ARROW-17640
   // The candidate entries at the current depth level.
   // We start with the filesystem root.
   FileInfoVector results{FileInfo("", FileType::Directory)};

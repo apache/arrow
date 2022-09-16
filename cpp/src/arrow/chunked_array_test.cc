@@ -65,8 +65,8 @@ TEST_F(TestChunkedArray, Make) {
   ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({chunk0, chunk0}, int8()));
   AssertChunkedEqual(*result, *result2);
 
-  ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0, chunk1}));
-  ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0}, int16()));
+  ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0, chunk1}));
+  ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0}, int16()));
 }
 
 TEST_F(TestChunkedArray, MakeEmpty) {

@@ -46,10 +46,16 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
     const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-    if (enum_val.has_specified()) {
-      call->SetEnumArg(idx, enum_val.specified());
-    } else {
-      call->SetEnumArg(idx, util::nullopt);
+    switch (enum_val.enum_kind_case()) {
+      case substrait::FunctionArgument::Enum::EnumKindCase::kSpecified:
+        call->SetEnumArg(idx, enum_val.specified());
+        break;
+      case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
+        call->SetEnumArg(idx, std::nullopt);
+        break;
+      default:
+        return Status::Invalid("Unrecognized enum kind case: ",
+                               enum_val.enum_kind_case());
     }
   } else if (arg.has_value()) {
     ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
@@ -132,7 +138,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
 
-      util::optional<compute::Expression> out;
+      std::optional<compute::Expression> out;
       if (expr.selection().has_expression()) {
         ARROW_ASSIGN_OR_RAISE(
             out, FromProto(expr.selection().expression(), ext_set, conversion_options));
@@ -900,7 +906,7 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
       auto enum_val = internal::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(util::optional<util::string_view> enum_arg,
+      ARROW_ASSIGN_OR_RAISE(std::optional<util::string_view> enum_arg,
                             call.GetEnumArg(i));
       if (enum_arg) {
         enum_val->set_specified(enum_arg->to_string());

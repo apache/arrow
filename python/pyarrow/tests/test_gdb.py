@@ -154,7 +154,7 @@ class GdbSession:
         # but it's not available on old GDB versions (such as 8.1.1),
         # so instead parse the stack trace for a matching frame number.
         out = self.run_command("info stack")
-        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + " "
+        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + r"\b"
         m = re.search(pat, out)
         if m is None:
             pytest.fail(f"Could not select frame for function {func_name}")
@@ -295,13 +295,6 @@ def test_buffer_heap(gdb_arrow):
                     'arrow::Buffer of size 3, read-only, "abc"')
     check_heap_repr(gdb_arrow, "heap_buffer_mutable.get()",
                     'arrow::Buffer of size 3, mutable, "abc"')
-
-
-def test_optionals(gdb_arrow):
-    check_stack_repr(gdb_arrow, "int_optional",
-                     "arrow::util::optional<int>(42)")
-    check_stack_repr(gdb_arrow, "null_int_optional",
-                     "arrow::util::optional<int>(nullopt)")
 
 
 def test_variants(gdb_arrow):

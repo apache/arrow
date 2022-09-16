@@ -27,6 +27,7 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -84,7 +85,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
                                                                   /*slow=*/false)}});
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
@@ -914,7 +915,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
       ExecNode * join,
       MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
 
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
@@ -963,7 +964,7 @@ TEST(HashJoin, Suffix) {
   ExecContext exec_ctx;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
   ExecNode* right_source;
@@ -1334,7 +1335,7 @@ void TestHashJoinDictionaryHelper(
                                                      {(swap_sides ? r_source : l_source),
                                                       (swap_sides ? l_source : r_source)},
                                                      join_options));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
@@ -1755,7 +1756,7 @@ TEST(HashJoin, DictNegative) {
     ASSERT_OK_AND_ASSIGN(
         ExecNode * join,
         MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {join},
                                                    SinkNodeOptions{&sink_gen}));
 
@@ -1799,6 +1800,114 @@ TEST(HashJoin, UnsupportedTypes) {
 
     ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
   }
+}
+
+void TestSimpleJoinHelper(BatchesWithSchema input_left, BatchesWithSchema input_right,
+                          BatchesWithSchema expected) {
+  ExecContext exec_ctx;
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  ExecNode* left_source;
+  ExecNode* right_source;
+  ASSERT_OK_AND_ASSIGN(
+      left_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}));
+
+  ASSERT_OK_AND_ASSIGN(right_source,
+                       MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions{input_right.schema,
+                                                      input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}));
+
+  HashJoinNodeOptions join_opts{JoinType::INNER,
+                                /*left_keys=*/{"lkey"},
+                                /*right_keys=*/{"rkey"}, literal(true), "_l", "_r"};
+
+  ASSERT_OK_AND_ASSIGN(
+      auto hashjoin,
+      MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
+
+  ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
+                                                 SinkNodeOptions{&sink_gen}));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto output_rows_test,
+      TableFromExecBatches(std::move(hashjoin->output_schema()), result));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_rows_test,
+      TableFromExecBatches(std::move(expected.schema), expected.batches));
+
+  AssertTablesEqual(*output_rows_test, *expected_rows_test, /*same_chunk_layout=*/false,
+                    /*flatten=*/true);
+  AssertSchemaEqual(expected.schema, hashjoin->output_schema());
+}
+
+TEST(HashJoin, ExtensionTypesSwissJoin) {
+  // For simpler types swiss join will be used.
+  auto ext_arr = ExampleUuid();
+  auto l_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto l_int_arr2 = ArrayFromJSON(int32(), "[4, 5, 6, 7]");
+  auto r_int_arr = ArrayFromJSON(int32(), "[4, 3, 2, null, 1]");
+
+  BatchesWithSchema input_left;
+  ASSERT_OK_AND_ASSIGN(ExecBatch left_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr}));
+  input_left.batches = {left_batches};
+  input_left.schema = schema(
+      {field("lkey", int32()), field("shared", int32()), field("ldistinct", uuid())});
+
+  BatchesWithSchema input_right;
+  ASSERT_OK_AND_ASSIGN(ExecBatch right_batches, ExecBatch::Make({r_int_arr}));
+  input_right.batches = {right_batches};
+  input_right.schema = schema({field("rkey", int32())});
+
+  BatchesWithSchema expected;
+  ASSERT_OK_AND_ASSIGN(ExecBatch expected_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_int_arr}));
+  expected.batches = {expected_batches};
+  expected.schema = schema({field("lkey", int32()), field("shared", int32()),
+                            field("ldistinct", uuid()), field("rkey", int32())});
+
+  TestSimpleJoinHelper(input_left, input_right, expected);
+}
+
+TEST(HashJoin, ExtensionTypesHashJoin) {
+  // Swiss join doesn't support dictionaries so HashJoin will be used.
+  auto dict_type = dictionary(int64(), int8());
+  auto ext_arr = ExampleUuid();
+  auto l_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto l_int_arr2 = ArrayFromJSON(int32(), "[4, 5, 6, 7]");
+  auto r_int_arr = ArrayFromJSON(int32(), "[4, 3, 2, null, 1]");
+  auto l_dict_array =
+      DictArrayFromJSON(dict_type, R"([2, 0, 1, null])", R"([null, 0, 1])");
+
+  BatchesWithSchema input_left;
+  ASSERT_OK_AND_ASSIGN(ExecBatch left_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_dict_array}));
+  input_left.batches = {left_batches};
+  input_left.schema = schema({field("lkey", int32()), field("shared", int32()),
+                              field("ldistinct", uuid()), field("dict_type", dict_type)});
+
+  BatchesWithSchema input_right;
+  ASSERT_OK_AND_ASSIGN(ExecBatch right_batches, ExecBatch::Make({r_int_arr}));
+  input_right.batches = {right_batches};
+  input_right.schema = schema({field("rkey", int32())});
+
+  BatchesWithSchema expected;
+  ASSERT_OK_AND_ASSIGN(
+      ExecBatch expected_batches,
+      ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_dict_array, l_int_arr}));
+  expected.batches = {expected_batches};
+  expected.schema = schema({field("lkey", int32()), field("shared", int32()),
+                            field("ldistinct", uuid()), field("dict_type", dict_type),
+                            field("rkey", int32())});
+
+  TestSimpleJoinHelper(input_left, input_right, expected);
 }
 
 TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
@@ -1892,7 +2001,7 @@ TEST(HashJoin, ResidualFilter) {
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
     ExecNode* right_source;
@@ -1970,7 +2079,7 @@ TEST(HashJoin, TrivialResidualFilter) {
           parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       ExecNode* left_source;
       ExecNode* right_source;
@@ -2133,7 +2242,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
       ASSERT_OK_AND_ASSIGN(joins[i],
                            MakeExecNode("hashjoin", plan.get(), inputs, opts[i]));
     }
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK(
         MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
     ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));

@@ -466,10 +466,10 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
-                                                   const ChunkedArray& actual) {
+Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   std::stringstream ss;
@@ -1031,9 +1031,11 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status Unlock() {
-    std::lock_guard<std::mutex> lk(mx_);
-    unlocked_ = true;
-    unlocked_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+      unlocked_cv_.notify_all();
+    }
     unlocked_future_.MarkFinished();
     return status_;
   }

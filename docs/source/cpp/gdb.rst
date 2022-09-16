@@ -165,5 +165,4 @@ Important utility classes are also covered:
 * :class:`arrow::Status` and :class:`arrow::Result`
 * :class:`arrow::Buffer` and subclasses
 * :class:`arrow::Decimal128`, :class:`arrow::Decimal256`
-* :class:`arrow::util::string_view`, :class:`arrow::util::optional`,
-  :class:`arrow::util::Variant`
+* :class:`arrow::util::string_view`, :class:`arrow::util::Variant`

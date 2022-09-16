@@ -36,6 +36,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"runtime/cgo"
 	"strings"
 	"unsafe"
 
@@ -362,7 +363,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&buffers[0]))
 	}
 
-	out.private_data = unsafe.Pointer(storeData(arr.Data()))
+	arr.Data().Retain()
+	h := cgo.NewHandle(arr.Data())
+	out.private_data = unsafe.Pointer(&h)
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case *array.List:
@@ -399,4 +402,26 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		out.n_children = 0
 		out.children = nil
 	}
+}
+
+type cRecordReader struct {
+	rdr array.RecordReader
+}
+
+func (rr cRecordReader) getSchema(out *CArrowSchema) int {
+	ExportArrowSchema(rr.rdr.Schema(), out)
+	return 0
+}
+
+func (rr cRecordReader) next(out *CArrowArray) int {
+	if rr.rdr.Next() {
+		ExportArrowRecordBatch(rr.rdr.Record(), out, nil)
+		return 0
+	}
+	releaseArr(out)
+	return 0
+}
+
+func (rr cRecordReader) release() {
+	rr.rdr.Release()
 }

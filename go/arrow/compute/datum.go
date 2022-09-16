@@ -18,51 +18,38 @@ package compute
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
 )
 
-//go:generate go run golang.org/x/tools/cmd/stringer -type=ValueShape -linecomment
 //go:generate go run golang.org/x/tools/cmd/stringer -type=DatumKind -linecomment
-
-// ValueShape is a brief description of the shape of a value (array, scalar or otherwise)
-type ValueShape int8
-
-const (
-	// either Array or Scalar
-	ShapeAny    ValueShape = iota // any
-	ShapeArray                    // array
-	ShapeScalar                   // scalar
-)
-
-// ValueDescr is a descriptor type giving both the shape and the datatype of a value
-// but without the data.
-type ValueDescr struct {
-	Shape ValueShape
-	Type  arrow.DataType
-}
-
-func (v *ValueDescr) String() string {
-	return fmt.Sprintf("%s [%s]", v.Shape, v.Type)
-}
 
 // DatumKind is an enum used for denoting which kind of type a datum is encapsulating
 type DatumKind int
 
 const (
-	KindNone       DatumKind = iota // none
-	KindScalar                      // scalar
-	KindArray                       // array
-	KindChunked                     // chunked_array
-	KindRecord                      // record_batch
-	KindTable                       // table
-	KindCollection                  // collection
+	KindNone    DatumKind = iota // none
+	KindScalar                   // scalar
+	KindArray                    // array
+	KindChunked                  // chunked_array
+	KindRecord                   // record_batch
+	KindTable                    // table
 )
 
 const UnknownLength int64 = -1
+
+// DatumIsValue returns true if the datum passed is a Scalar, Array
+// or ChunkedArray type (e.g. it contains a specific value not a
+// group of values)
+func DatumIsValue(d Datum) bool {
+	switch d.Kind() {
+	case KindScalar, KindArray, KindChunked:
+		return true
+	}
+	return false
+}
 
 // Datum is a variant interface for wrapping the various Arrow data structures
 // for now the various Datum types just hold a Value which is the type they
@@ -74,6 +61,8 @@ type Datum interface {
 	Len() int64
 	Equals(Datum) bool
 	Release()
+
+	data() any
 }
 
 // ArrayLikeDatum is an interface for treating a Datum similarly to an Array,
@@ -82,8 +71,6 @@ type Datum interface {
 // a slice with 1 element for Array, and the slice of chunks for a chunked array.
 type ArrayLikeDatum interface {
 	Datum
-	Shape() ValueShape
-	Descr() ValueDescr
 	NullN() int64
 	Type() arrow.DataType
 	Chunks() []arrow.Array
@@ -107,6 +94,7 @@ func (EmptyDatum) Equals(other Datum) bool {
 	_, ok := other.(EmptyDatum)
 	return ok
 }
+func (EmptyDatum) data() any { return nil }
 
 // ScalarDatum contains a scalar value
 type ScalarDatum struct {
@@ -114,16 +102,14 @@ type ScalarDatum struct {
 }
 
 func (ScalarDatum) Kind() DatumKind         { return KindScalar }
-func (ScalarDatum) Shape() ValueShape       { return ShapeScalar }
 func (ScalarDatum) Len() int64              { return 1 }
 func (ScalarDatum) Chunks() []arrow.Array   { return nil }
 func (d *ScalarDatum) Type() arrow.DataType { return d.Value.DataType() }
 func (d *ScalarDatum) String() string       { return d.Value.String() }
-func (d *ScalarDatum) Descr() ValueDescr    { return ValueDescr{ShapeScalar, d.Value.DataType()} }
 func (d *ScalarDatum) ToScalar() (scalar.Scalar, error) {
 	return d.Value, nil
 }
-
+func (d *ScalarDatum) data() any { return d.Value }
 func (d *ScalarDatum) NullN() int64 {
 	if d.Value.IsValid() {
 		return 0
@@ -136,6 +122,9 @@ type releasable interface {
 }
 
 func (d *ScalarDatum) Release() {
+	if !d.Value.IsValid() {
+		return
+	}
 	if v, ok := d.Value.(releasable); ok {
 		v.Release()
 	}
@@ -155,11 +144,9 @@ type ArrayDatum struct {
 }
 
 func (ArrayDatum) Kind() DatumKind           { return KindArray }
-func (ArrayDatum) Shape() ValueShape         { return ShapeArray }
 func (d *ArrayDatum) Type() arrow.DataType   { return d.Value.DataType() }
 func (d *ArrayDatum) Len() int64             { return int64(d.Value.Len()) }
 func (d *ArrayDatum) NullN() int64           { return int64(d.Value.NullN()) }
-func (d *ArrayDatum) Descr() ValueDescr      { return ValueDescr{ShapeArray, d.Value.DataType()} }
 func (d *ArrayDatum) String() string         { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
 func (d *ArrayDatum) MakeArray() arrow.Array { return array.MakeFromData(d.Value) }
 func (d *ArrayDatum) Chunks() []arrow.Array  { return []arrow.Array{d.MakeArray()} }
@@ -170,7 +157,7 @@ func (d *ArrayDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
 }
-
+func (d *ArrayDatum) data() any { return d.Value }
 func (d *ArrayDatum) Equals(other Datum) bool {
 	rhs, ok := other.(*ArrayDatum)
 	if !ok {
@@ -191,14 +178,12 @@ type ChunkedDatum struct {
 }
 
 func (ChunkedDatum) Kind() DatumKind          { return KindChunked }
-func (ChunkedDatum) Shape() ValueShape        { return ShapeArray }
 func (d *ChunkedDatum) Type() arrow.DataType  { return d.Value.DataType() }
 func (d *ChunkedDatum) Len() int64            { return int64(d.Value.Len()) }
 func (d *ChunkedDatum) NullN() int64          { return int64(d.Value.NullN()) }
-func (d *ChunkedDatum) Descr() ValueDescr     { return ValueDescr{ShapeArray, d.Value.DataType()} }
 func (d *ChunkedDatum) String() string        { return fmt.Sprintf("Array:{%s}", d.Value.DataType()) }
 func (d *ChunkedDatum) Chunks() []arrow.Array { return d.Value.Chunks() }
-
+func (d *ChunkedDatum) data() any             { return d.Value }
 func (d *ChunkedDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
@@ -221,7 +206,7 @@ func (RecordDatum) Kind() DatumKind          { return KindRecord }
 func (RecordDatum) String() string           { return "RecordBatch" }
 func (r *RecordDatum) Len() int64            { return r.Value.NumRows() }
 func (r *RecordDatum) Schema() *arrow.Schema { return r.Value.Schema() }
-
+func (r *RecordDatum) data() any             { return r.Value }
 func (r *RecordDatum) Release() {
 	r.Value.Release()
 	r.Value = nil
@@ -244,7 +229,7 @@ func (TableDatum) Kind() DatumKind          { return KindTable }
 func (TableDatum) String() string           { return "Table" }
 func (d *TableDatum) Len() int64            { return d.Value.NumRows() }
 func (d *TableDatum) Schema() *arrow.Schema { return d.Value.Schema() }
-
+func (d *TableDatum) data() any             { return d.Value }
 func (d *TableDatum) Release() {
 	d.Value.Release()
 	d.Value = nil
@@ -258,46 +243,6 @@ func (d *TableDatum) Equals(other Datum) bool {
 }
 
 // CollectionDatum is a slice of Datums
-type CollectionDatum []Datum
-
-func (CollectionDatum) Kind() DatumKind { return KindCollection }
-func (c CollectionDatum) Len() int64    { return int64(len(c)) }
-func (c CollectionDatum) String() string {
-	var b strings.Builder
-	b.WriteString("Collection(")
-	for i, d := range c {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString(d.String())
-	}
-	b.WriteByte(')')
-	return b.String()
-}
-
-func (c CollectionDatum) Release() {
-	for _, v := range c {
-		v.Release()
-	}
-}
-
-func (c CollectionDatum) Equals(other Datum) bool {
-	rhs, ok := other.(CollectionDatum)
-	if !ok {
-		return false
-	}
-
-	if len(c) != len(rhs) {
-		return false
-	}
-
-	for i := range c {
-		if !c[i].Equals(rhs[i]) {
-			return false
-		}
-	}
-	return true
-}
 
 // NewDatum will construct the appropriate Datum type based on what is passed in
 // as the argument.
@@ -306,7 +251,6 @@ func (c CollectionDatum) Equals(other Datum) bool {
 // An array.Chunked gets a ChunkedDatum
 // An array.Record gets a RecordDatum
 // an array.Table gets a TableDatum
-// a []Datum gets a CollectionDatum
 // a scalar.Scalar gets a ScalarDatum
 //
 // Anything else is passed to scalar.MakeScalar and recieves a scalar
@@ -314,10 +258,13 @@ func (c CollectionDatum) Equals(other Datum) bool {
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {
 	case Datum:
-		return v
+		return NewDatum(v.data())
 	case arrow.Array:
 		v.Data().Retain()
 		return &ArrayDatum{v.Data().(*array.Data)}
+	case arrow.ArrayData:
+		v.Retain()
+		return &ArrayDatum{v}
 	case *arrow.Chunked:
 		v.Retain()
 		return &ChunkedDatum{v}
@@ -327,9 +274,10 @@ func NewDatum(value interface{}) Datum {
 	case arrow.Table:
 		v.Retain()
 		return &TableDatum{v}
-	case []Datum:
-		return CollectionDatum(v)
 	case scalar.Scalar:
+		if ls, ok := v.(scalar.Releasable); ok {
+			ls.Retain()
+		}
 		return &ScalarDatum{v}
 	default:
 		return &ScalarDatum{scalar.MakeScalar(value)}
@@ -342,5 +290,4 @@ var (
 	_ ArrayLikeDatum = (*ChunkedDatum)(nil)
 	_ TableLikeDatum = (*RecordDatum)(nil)
 	_ TableLikeDatum = (*TableDatum)(nil)
-	_ Datum          = (CollectionDatum)(nil)
 )

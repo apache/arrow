@@ -24,7 +24,9 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|X86|x86|i[3456]86")
+    set(ARROW_CPU_FLAG "x86")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
     set(ARROW_CPU_FLAG "armv8")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
     set(ARROW_CPU_FLAG "armv7")
@@ -32,8 +34,10 @@ if(NOT DEFINED ARROW_CPU_FLAG)
     set(ARROW_CPU_FLAG "ppc")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
     set(ARROW_CPU_FLAG "s390x")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64")
+    set(ARROW_CPU_FLAG "riscv64")
   else()
-    set(ARROW_CPU_FLAG "x86")
+    message(FATAL_ERROR "Unknown system processor")
   endif()
 endif()
 
@@ -118,12 +122,14 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++11 get passed correctly
+# This ensures that things like c++17 get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
+elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 17)
+  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 17")
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions
@@ -201,6 +207,24 @@ if(WIN32)
     #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
 
+    if(ARROW_USE_CCACHE)
+      foreach(c_flag
+              CMAKE_CXX_FLAGS
+              CMAKE_CXX_FLAGS_RELEASE
+              CMAKE_CXX_FLAGS_DEBUG
+              CMAKE_CXX_FLAGS_MINSIZEREL
+              CMAKE_CXX_FLAGS_RELWITHDEBINFO
+              CMAKE_C_FLAGS
+              CMAKE_C_FLAGS_RELEASE
+              CMAKE_C_FLAGS_DEBUG
+              CMAKE_C_FLAGS_MINSIZEREL
+              CMAKE_C_FLAGS_RELWITHDEBINFO)
+        # ccache doesn't work with /Zi.
+        # See also: https://github.com/ccache/ccache/issues/1040
+        string(REPLACE "/Zi" "/Z7" ${c_flag} "${${c_flag}}")
+      endforeach()
+    endif()
+
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
               CMAKE_CXX_FLAGS
@@ -213,7 +237,7 @@ if(WIN32)
               CMAKE_C_FLAGS_DEBUG
               CMAKE_C_FLAGS_MINSIZEREL
               CMAKE_C_FLAGS_RELWITHDEBINFO)
-        string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+        string(REPLACE "/MD" "/MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
 
@@ -418,11 +442,11 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-    # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
-    # the default standard library which does not support C++11. libc++ is the
-    # default from 10.9 onward.
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+  # for details.
+  if(APPLE)
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
   endif()
 endif()
 
@@ -595,27 +619,42 @@ endif()
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
 # For CMAKE_BUILD_TYPE=FastDebug
-#   Same as DEBUG, except with some optimizations on.
+#   Same as Debug, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
-#   -O3: Enable all compiler optimizations
-#   Debug symbols are stripped for reduced binary size. Add
-#   -DARROW_CXXFLAGS="-g" to add them
+#   -O2: Enable all compiler optimizations
+#   Debug symbols are stripped for reduced binary size.
+# For CMAKE_BUILD_TYPE=RelWithDebInfo
+#   Same as Release, except with debug symbols enabled.
+
 if(NOT MSVC)
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO
+                 "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
+  set(RELEASE_FLAGS "-O2 -DNDEBUG")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(RELEASE_FLAGS "${RELEASE_FLAGS} -ftree-vectorize")
+  endif()
+
   if(ARROW_GGDB_DEBUG)
     set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
     set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+    set(C_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
     set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_FLAGS}")
   else()
     set(C_FLAGS_DEBUG "-g -O0")
     set(C_FLAGS_FASTDEBUG "-g -O1")
+    set(C_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
     set(CXX_FLAGS_DEBUG "-g -O0")
     set(CXX_FLAGS_FASTDEBUG "-g -O1")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g ${RELEASE_FLAGS}")
   endif()
 
-  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+  set(C_FLAGS_RELEASE "${RELEASE_FLAGS}")
+  set(CXX_FLAGS_RELEASE "${RELEASE_FLAGS}")
 endif()
 
 set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
@@ -630,7 +669,8 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELWITHDEBINFO}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELWITHDEBINFO}")
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")

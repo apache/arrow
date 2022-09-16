@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -713,6 +714,22 @@ public class RoundtripTest {
       Schema importedSchema = Data.importSchema(allocator, consumerArrowSchema, null);
       assertEquals(schema.toJson(), importedSchema.toJson());
     }
+  }
+
+  @Test
+  public void testImportedBufferAsNioBuffer() {
+    IntVector imported;
+    try (final IntVector vector = new IntVector("v", allocator)) {
+      setVector(vector, 1, 2, 3, null);
+      imported = (IntVector) vectorRoundtrip(vector);
+    }
+    ArrowBuf dataBuffer = imported.getDataBuffer();
+    ByteBuffer nioBuffer = dataBuffer.nioBuffer().asReadOnlyBuffer();
+    nioBuffer.order(ByteOrder.nativeOrder());
+    assertEquals(1, nioBuffer.getInt(0));
+    assertEquals(2, nioBuffer.getInt(1 << 2));
+    assertEquals(3, nioBuffer.getInt(2 << 2));
+    imported.close();
   }
 
   @Test

@@ -75,7 +75,10 @@ outputs:
         - c-ares
         - gflags
         - glog
-        - google-cloud-cpp
+        # On macOS and Windows, GCS support fails linking due to ABI
+        # issues with abseil-cpp
+        # (see https://github.com/conda-forge/abseil-cpp-feedstock/issues/45)
+        - google-cloud-cpp  # [linux]
         - grpc-cpp
         - libprotobuf
         - clangdev 10  # [not (osx and arm64)]
@@ -123,7 +126,6 @@ outputs:
         - test -f $PREFIX/lib/libarrow.so            # [linux]
         - test -f $PREFIX/lib/libarrow_dataset.so    # [linux]
         - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
-        - test -f $PREFIX/lib/libarrow_python.so     # [linux]
         - test -f $PREFIX/lib/libparquet.so          # [linux]
         - test -f $PREFIX/lib/libgandiva.so          # [linux]
         - test -f $PREFIX/lib/libplasma.so           # [linux]
@@ -133,14 +135,12 @@ outputs:
         - if exist %PREFIX%\\Library\\bin\\arrow_cuda.dll exit 1      # [(cuda_compiler_version == "None") and win]
         - test -f $PREFIX/lib/libarrow.dylib          # [osx]
         - test -f $PREFIX/lib/libarrow_dataset.dylib  # [osx]
-        - test -f $PREFIX/lib/libarrow_python.dylib   # [osx]
         - test -f $PREFIX/lib/libgandiva.dylib        # [osx and not arm64]
         - test -f $PREFIX/lib/libparquet.dylib        # [osx]
         - test -f $PREFIX/lib/libplasma.dylib         # [osx]
         - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1          # [win]
         - if not exist %PREFIX%\\Library\\bin\\arrow_dataset.dll exit 1  # [win]
         - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1   # [win]
-        - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1   # [win]
         - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1        # [win]
         - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1        # [win]
 
@@ -148,14 +148,12 @@ outputs:
         - test ! -f $PREFIX/lib/libarrow.a          # [unix]
         - test ! -f $PREFIX/lib/libarrow_dataset.a  # [unix]
         - test ! -f $PREFIX/lib/libarrow_flight.a   # [unix]
-        - test ! -f $PREFIX/lib/libarrow_python.a   # [unix]
         - test ! -f $PREFIX/lib/libplasma.a         # [unix]
         - test ! -f $PREFIX/lib/libparquet.a        # [unix]
         - test ! -f $PREFIX/lib/libgandiva.a        # [unix]
         - if exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1          # [win]
         - if exist %PREFIX%\\Library\\lib\\arrow_dataset_static.lib exit 1  # [win]
         - if exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1   # [win]
-        - if exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1   # [win]
         - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1        # [win]
         - if exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1        # [win]
 
@@ -186,10 +184,12 @@ outputs:
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
+        - clangdev 10  # [not (osx and arm64)]
         - cython
+        - llvmdev 10   # [not (osx and arm64)]
         - numpy
-        - python
         - openssl
+        - python
         - setuptools
         - setuptools_scm
         - six
@@ -220,7 +220,7 @@ outputs:
         - pyarrow.parquet
         - pyarrow.plasma   # [unix]
         - pyarrow.fs
-        - pyarrow._s3fs
+        - pyarrow._s3fs    # [linux]
         - pyarrow._hdfs
         # We can only test importing cuda package but cannot run when a
         # CUDA device is not available, for instance, when building from CI.
@@ -262,7 +262,9 @@ outputs:
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - {{ pin_subpackage('pyarrow', exact=True) }}
+        - clangdev 10  # [not (osx and arm64)]
         - cython
+        - llvmdev 10   # [not (osx and arm64)]
         - numpy
         - python
         - openssl

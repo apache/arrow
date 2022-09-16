@@ -23,6 +23,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -38,7 +39,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
@@ -270,7 +270,7 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lh
                                                const std::shared_ptr<Schema>& rhs,
                                                bool check_metadata = false);
 
-ARROW_TESTING_EXPORT Result<util::optional<std::string>> PrintArrayDiff(
+ARROW_TESTING_EXPORT Result<std::optional<std::string>> PrintArrayDiff(
     const ChunkedArray& expected, const ChunkedArray& actual);
 
 ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
@@ -541,21 +541,4 @@ void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
 }
 
 }  // namespace sv_lite
-
-namespace optional_lite {
-
-template <typename T>
-void PrintTo(const optional<T>& opt, std::ostream* os) {
-  if (opt.has_value()) {
-    *os << "{";
-    ::testing::internal::UniversalPrint(*opt, os);
-    *os << "}";
-  } else {
-    *os << "nullopt";
-  }
-}
-
-inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
-
-}  // namespace optional_lite
 }  // namespace nonstd

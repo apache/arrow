@@ -1,0 +1,100 @@
+{
+  "fields" : [ {
+    "name" : "ID",
+    "nullable" : false,
+    "type" : {
+      "name" : "int",
+      "bitWidth" : 64,
+      "isSigned" : true
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Record identifier",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
+    }, {
+      "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+      "key" : "SQL_CATALOG_NAME"
+    }, {
+      "value" : "ID",
+      "key" : "SQL_COLUMN_NAME"
+    }, {
+      "value" : "BIGINT",
+      "key" : "SQL_TYPE"
+    } ]
+  }, {
+    "name" : "NAME",
+    "nullable" : true,
+    "type" : {
+      "name" : "utf8"
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Name of record",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
+    }, {
+      "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+      "key" : "SQL_CATALOG_NAME"
+    }, {
+      "value" : "NAME",
+      "key" : "SQL_COLUMN_NAME"
+    }, {
+      "value" : "VARCHAR",
+      "key" : "SQL_TYPE"
+    } ]
+  }, {
+    "name" : "COLUMN1",
+    "nullable" : true,
+    "type" : {
+      "name" : "bool"
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
+    }, {
+      "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+      "key" : "SQL_CATALOG_NAME"
+    }, {
+      "value" : "COLUMN1",
+      "key" : "SQL_COLUMN_NAME"
+    }, {
+      "value" : "BOOLEAN",
+      "key" : "SQL_TYPE"
+    } ]
+  }, {
+    "name" : "COLUMNN",
+    "nullable" : true,
+    "type" : {
+      "name" : "int",
+      "bitWidth" : 32,
+      "isSigned" : true
+    },
+    "children" : [ ],
+    "metadata" : [ {
+      "value" : "Informative description of columnN",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
+    }, {
+      "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+      "key" : "SQL_CATALOG_NAME"
+    }, {
+      "value" : "COLUMNN",
+      "key" : "SQL_COLUMN_NAME"
+    }, {
+      "value" : "INTEGER",
+      "key" : "SQL_TYPE"
+    } ]
+  } ],
+  "metadata" : [ {
+    "value" : "This is super special table with valuable data",
+    "key" : "comment"
+  } ]
+}
