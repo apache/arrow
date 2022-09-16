@@ -579,6 +579,10 @@ func (bldr *execBufBuilder) unsafeAdvance(n int) {
 }
 
 func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
+	if bldr.buffer == nil {
+		buf = memory.NewBufferBytes(nil)
+		return
+	}
 	bldr.buffer.Resize(bldr.sz)
 	buf = bldr.buffer
 	bldr.buffer, bldr.sz = nil, 0
