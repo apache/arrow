@@ -313,7 +313,7 @@ struct ExecValue {
 
 struct ARROW_EXPORT ExecResult {
   // The default value of the variant is ArraySpan
-  util::Variant<ArraySpan, std::shared_ptr<ArrayData>> value;
+  std::variant<ArraySpan, std::shared_ptr<ArrayData>> value;
 
   int64_t length() const {
     if (this->is_array_span()) {
@@ -332,12 +332,12 @@ struct ARROW_EXPORT ExecResult {
   }
 
   ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&util::get<ArraySpan>(this->value));
+    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
   }
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {
-    return util::get<std::shared_ptr<ArrayData>>(this->value);
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   bool is_array_data() const { return this->value.index() == 1; }

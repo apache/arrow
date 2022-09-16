@@ -21,11 +21,11 @@
 #include <iosfwd>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace flight {
@@ -37,8 +37,8 @@ namespace sql {
 
 /// \brief Variant supporting all possible types on SQL info.
 using SqlInfoResult =
-    arrow::util::Variant<std::string, bool, int64_t, int32_t, std::vector<std::string>,
-                         std::unordered_map<int32_t, std::vector<int32_t>>>;
+    std::variant<std::string, bool, int64_t, int32_t, std::vector<std::string>,
+                 std::unordered_map<int32_t, std::vector<int32_t>>>;
 
 /// \brief Map SQL info identifier to its value.
 using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
