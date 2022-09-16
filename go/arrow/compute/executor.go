@@ -41,11 +41,23 @@ import (
 // An ExecCtx should be placed into a context.Context by using
 // SetExecCtx and GetExecCtx to pass it along for execution.
 type ExecCtx struct {
-	ChunkSize          int64
+	// ChunkSize is the size used when iterating batches for execution
+	// ChunkSize elements will be operated on as a time unless an argument
+	// is a chunkedarray with a chunk that is smaller
+	ChunkSize int64
+	// PreallocContiguous determines whether preallocating memory for
+	// execution of compute attempts to preallocate a full contiguous
+	// buffer for all of the chunks beforehand.
 	PreallocContiguous bool
-	Registry           FunctionRegistry
-	ExecChannelSize    int
-	NP                 int
+	// Registry allows specifying the Function Registry to utilize
+	// when searching for kernel implementations.
+	Registry FunctionRegistry
+	// ExecChannelSize is the size of the channel used for passing
+	// exec results to the WrapResults function.
+	ExecChannelSize int
+	// NumParallel determines the number of parallel goroutines
+	// allowed for parallel executions.
+	NumParallel int
 }
 
 type ctxExecKey struct{}
@@ -67,6 +79,20 @@ var (
 	GetAllocator = exec.GetAllocator
 )
 
+// DefaultExecCtx returns the default exec context which will be used
+// if there is no ExecCtx set into the context for execution.
+//
+// This can be called to get a copy of the default values which can
+// then be modified to set into a context.
+//
+// The default exec context uses the following values:
+//	- ChunkSize = DefaultMaxChunkSize (MaxInt64)
+//	- PreallocContiguous = true
+// 	- Registry = GetFunctionRegistry()
+//	- ExecChannelSize = 10
+//	- NumParallel = runtime.NumCPU()
+func DefaultExecCtx() ExecCtx { return defaultExecCtx }
+
 func init() {
 	defaultExecCtx.ChunkSize = DefaultMaxChunkSize
 	defaultExecCtx.PreallocContiguous = true
@@ -74,7 +100,7 @@ func init() {
 	defaultExecCtx.ExecChannelSize = 10
 	// default level of parallelism
 	// set to 1 to disable parallelization
-	defaultExecCtx.NP = runtime.NumCPU()
+	defaultExecCtx.NumParallel = runtime.NumCPU()
 }
 
 // SetExecCtx returns a new child context containing the passed in ExecCtx
