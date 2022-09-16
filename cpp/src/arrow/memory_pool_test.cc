@@ -169,16 +169,16 @@ TEST(Jemalloc, SetDirtyPageDecayMillis) {
 #ifdef ARROW_JEMALLOC
   ASSERT_OK(jemalloc_set_decay_ms(0));
 #else
-  ASSERT_RAISES(Invalid, jemalloc_set_decay_ms(0));
+  ASSERT_RAISES(NotImplemented, jemalloc_set_decay_ms(0));
 #endif
 }
 
 TEST(Jemalloc, GetAllocationStats) {
 #ifdef ARROW_JEMALLOC
   uint8_t* data;
-  uint64_t allocated, active, metadata, resident, mapped, retained, allocated0, active0,
+  int64_t allocated, active, metadata, resident, mapped, retained, allocated0, active0,
       metadata0, resident0, mapped0, retained0;
-  uint64_t thread_allocated, thread_deallocated, thread_peak_read, thread_allocated0,
+  int64_t thread_allocated, thread_deallocated, thread_peak_read, thread_allocated0,
       thread_deallocated0, thread_peak_read0;
   auto pool = default_memory_pool();
   ABORT_NOT_OK(jemalloc_memory_pool(&pool));
@@ -219,18 +219,18 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_NEAR(metadata0, 3000000, 1000000);
   ASSERT_NEAR(resident0, 3000000, 1000000);
   ASSERT_NEAR(mapped0, 6500000, 1000000);
-  ASSERT_NEAR(retained0, 1500000, 1500000);
+  ASSERT_NEAR(retained0, 1500000, 2000000);
 
   // Check allocated stats change due to allocation
   ASSERT_NEAR(allocated - allocated0, 70000, 50000);
   ASSERT_NEAR(active - active0, 100000, 90000);
-  ASSERT_NEAR(metadata - metadata0, 400, 300);
-  ASSERT_NEAR(resident - resident0, 120000, 40000);
-  ASSERT_NEAR(mapped - mapped0, 100000, 50000);
-  ASSERT_NEAR(retained - retained0, 0, 0);
+  ASSERT_NEAR(metadata - metadata0, 500, 460);
+  ASSERT_NEAR(resident - resident0, 120000, 110000);
+  ASSERT_NEAR(mapped - mapped0, 100000, 90000);
+  ASSERT_NEAR(retained - retained0, 0, 40000);
 
-  ASSERT_EQ(thread_peak_read - thread_peak_read0, 1024);
-  ASSERT_EQ(thread_allocated - thread_allocated0, 2304);
+  ASSERT_NEAR(thread_peak_read - thread_peak_read0, 1024, 700);
+  ASSERT_NEAR(thread_allocated - thread_allocated0, 2500, 500);
   ASSERT_EQ(thread_deallocated - thread_deallocated0, 1280);
 
   // Resetting thread peak read metric
@@ -243,20 +243,33 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_NEAR(thread_peak_read, 1280, 100);
 
   // Print statistics to stderr
-  ASSERT_OK(jemalloc_stats_print(NULLPTR, NULLPTR, "J"));
+  ASSERT_OK(jemalloc_stats_print(nullptr, nullptr, "J"));
 
   // Read statistics into std::string
   ASSERT_OK_AND_ASSIGN(std::string stats, jemalloc_stats_print("Jax"));
-  ASSERT_EQ(stats.rfind("{\"jemalloc\":{\"version\"", 0), 0);
 
+  // Read statistics into std::string with a lambda
+  std::string stats2;
+  auto write_cb = [](void* opaque, const char* str) {
+    reinterpret_cast<std::string*>(opaque)->append(str);
+  };
+  ASSERT_OK(jemalloc_stats_print(write_cb, &stats2, "Jax"));
+
+  ASSERT_EQ(stats.rfind("{\"jemalloc\":{\"version\"", 0), 0);
+  ASSERT_EQ(stats2.rfind("{\"jemalloc\":{\"version\"", 0), 0);
+  ASSERT_EQ(stats.substr(0, 100), stats2.substr(0, 100));
 #else
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("thread.peak.read"));
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated"));
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocated"));
-  ASSERT_RAISES(Invalid, jemalloc_get_stat("stats.allocatedp"));
-  ASSERT_RAISES(Invalid, jemalloc_peak_reset());
-  ASSERT_RAISES(Invalid, jemalloc_stats_print(NULLPTR, NULLPTR, "J"));
-  ASSERT_RAISES(Invalid, jemalloc_stats_print("ax"));
+  std::string stats;
+  auto write_cb = [](void* opaque, const char* str) {
+    reinterpret_cast<std::string*>(opaque)->append(str);
+  };
+  ASSERT_RAISES(NotImplemented, jemalloc_get_stat("thread.peak.read"));
+  ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocated"));
+  ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocated"));
+  ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocatedp"));
+  ASSERT_RAISES(NotImplemented, jemalloc_peak_reset());
+  ASSERT_RAISES(NotImplemented, jemalloc_stats_print(write_cb, &stats, "Jax"));
+  ASSERT_RAISES(NotImplemented, jemalloc_stats_print("ax"));
 #endif
 }
 

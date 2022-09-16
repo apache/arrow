@@ -155,11 +155,12 @@ Status jemalloc_set_decay_ms(int ms) {
 #undef RETURN_IF_JEMALLOC_ERROR
 
 #ifdef ARROW_JEMALLOC
-Result<uint64_t> jemalloc_get_stat(const char* name) {
+Result<int64_t> jemalloc_get_stat(const char* name) {
   size_t sz = sizeof(uint64_t);
   int err;
   uint64_t value;
 
+  // Update the statistics cached by mallctl.
   if (std::strcmp(name, "stats.allocated") == 0 ||
       std::strcmp(name, "stats.active") == 0 ||
       std::strcmp(name, "stats.metadata") == 0 ||
@@ -170,7 +171,7 @@ Result<uint64_t> jemalloc_get_stat(const char* name) {
     mallctl("epoch", &epoch, &sz, &epoch, sz);
   }
 
-  err = mallctl(name, &value, &sz, NULLPTR, 0);
+  err = mallctl(name, &value, &sz, nullptr, 0);
 
   if (err) {
     return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
@@ -180,7 +181,7 @@ Result<uint64_t> jemalloc_get_stat(const char* name) {
 }
 
 Status jemalloc_peak_reset() {
-  int err = mallctl("thread.peak.reset", NULLPTR, NULLPTR, NULLPTR, 0);
+  int err = mallctl("thread.peak.reset", nullptr, nullptr, nullptr, 0);
   return err ? arrow::internal::IOErrorFromErrno(err, "Failed resetting thread.peak.")
              : Status::OK();
 }
@@ -194,10 +195,9 @@ Result<std::string> jemalloc_stats_print(const char* opts) {
   return stats;
 }
 
-Status jemalloc_stats_print(std::function<void(void* opaque, const char* buf)>* write_cb,
-                            void* cbopaque, const char* opts) {
-  malloc_stats_print(reinterpret_cast<void (*)(void*, const char*)>(write_cb), cbopaque,
-                     opts);
+Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+                            const char* opts) {
+  malloc_stats_print(write_cb, cbopaque, opts);
   return Status::OK();
 }
 #endif

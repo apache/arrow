@@ -667,22 +667,24 @@ MemoryPool* default_memory_pool() {
 
 #ifndef ARROW_JEMALLOC
 Status jemalloc_set_decay_ms(int ms) {
-  return Status::Invalid("jemalloc support is not built");
+  return Status::NotImplemented("jemalloc support is not built");
 }
 
-Result<uint64_t> jemalloc_get_stat(const char* name) {
-  return Status::Invalid("jemalloc support is not built");
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  return Status::NotImplemented("jemalloc support is not built");
 }
 
-Status jemalloc_peak_reset() { return Status::Invalid("jemalloc support is not built"); }
+Status jemalloc_peak_reset() {
+  return Status::NotImplemented("jemalloc support is not built");
+}
 
-Status jemalloc_stats_print(std::function<void(void*, const char*)>* write_cb,
-                            void* cbopaque, const char* opts) {
-  return Status::Invalid("jemalloc support is not built");
+Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+                            const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
 }
 
 Result<std::string> jemalloc_stats_print(const char* opts) {
-  return Status::Invalid("jemalloc support is not built");
+  return Status::NotImplemented("jemalloc support is not built");
 }
 
 #endif
