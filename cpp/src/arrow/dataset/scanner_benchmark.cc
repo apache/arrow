@@ -194,7 +194,7 @@ void ScanOnly(
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * scan,
       compute::MakeExecNode(factory_name, plan.get(), {}, *node_options));
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
                        compute::MakeExecNode("sink", plan.get(), {scan},
                                              compute::SinkNodeOptions{&sink_gen}));
@@ -254,17 +254,11 @@ const std::function<Result<std::shared_ptr<compute::ExecNodeOptions>>(size_t, si
   std::shared_ptr<Dataset> dataset =
       std::make_shared<InMemoryDataset>(sch, std::move(batches));
 
-  std::shared_ptr<ScanV2Options> options = std::make_shared<ScanV2Options>();
+  std::shared_ptr<ScanV2Options> options = std::make_shared<ScanV2Options>(dataset);
   // specify the filter
-  compute::Expression b_is_true = field_ref("b");
-  options->dataset = dataset;
+  compute::Expression b_is_true = equal(field_ref("b"), literal(true));
   options->filter = b_is_true;
-  // for now, specify the projection as the full project expression (eventually this
-  // can just be a list of materialized field names)
-  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  ARROW_ASSIGN_OR_RAISE(FieldPath a_path, FieldRef("a").FindOne(*sch));
-  ARROW_ASSIGN_OR_RAISE(FieldPath b_path, FieldRef("b").FindOne(*sch));
-  options->columns = {a_path, b_path};
+  options->columns = ScanV2Options::AllColumns(*dataset);
 
   return options;
 };
