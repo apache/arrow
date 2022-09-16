@@ -379,8 +379,8 @@ User-Defined Functions
    This API is **experimental**.
    Also, only scalar functions can currently be user-defined.
 
-PyArrow allows defining and registering custom compute functions in Python.
-Those functions can then be called from Python as well as C++ (and potentially
+PyArrow allows defining and registering custom compute functions.
+These functions can then be called from Python as well as C++ (and potentially
 any other implementation wrapping Arrow C++, such as the R ``arrow`` package)
 using their registered function name.
 
@@ -389,30 +389,43 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
 
 .. code-block:: python
 
+   import numpy as np
+
+   import pyarrow as pa
    import pyarrow.compute as pc
-   function_name = "affine"
+
+   function_name = "numpy_gcd"
    function_docs = {
-      "summary": "Calculate y = mx + c",
-      "description":
-          "Compute the affine function y = mx + c.\n"
-          "This function takes three inputs, m, x and c, in order."
+         "summary": "Calculates the greatest common divisor",
+         "description":
+            "Given 'x' and 'y' find the greatest number that divides\n"
+            "evenly into both x and y."
    }
+
    input_types = {
-      "m" : pa.float64(),
-      "x" : pa.float64(),
-      "c" : pa.float64(),
+      "x" : pa.int64(),
+      "y" : pa.int64()
    }
-   output_type = pa.float64()
 
-   def affine(ctx, m, x, c):
-       temp = pc.multiply(m, x, memory_pool=ctx.memory_pool)
-       return pc.add(temp, c, memory_pool=ctx.memory_pool)
+   output_type = pa.int64()
 
-   pc.register_scalar_function(affine, 
-                               function_name,
-                               function_docs,
-                               input_types,
-                               output_type)
+   def to_np(val):
+      if isinstance(val, pa.Scalar):
+         return val.as_py()
+      else:
+         return np.array(val)
+
+   def gcd_numpy(ctx, x, y):
+      np_x = to_np(x)
+      np_y = to_np(y)
+      return pa.array(np.gcd(np_x, np_y))
+
+   pc.register_scalar_function(gcd_numpy,
+                              function_name,
+                              function_docs,
+                              input_types,
+                              output_type)
+   
 
 The implementation of a user-defined function always takes first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
@@ -421,123 +434,72 @@ This context exposes several useful attributes, particularly a
 :attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
 allocations in the context of the user-defined function.
 
-You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
-
-.. code-block:: python
-
-   >>> pc.call_function("affine", [pa.scalar(2.5), pa.scalar(10.5), pa.scalar(5.5)])
-   <pyarrow.DoubleScalar: 31.75>
-
-Generalizing Usage
-------------------
-
 PyArrow UDFs accept input types of both scalar and array. Also it can have
 any combination of these types. It is important that the UDF author ensures
 the UDF can handle such combinations correctly. Also the ability to use UDFs
 with existing data processing libraries is very useful.
 
-Let's consider a scenario where we have a function
-which computes a scalar `y` value based on scalar/array inputs 
-`m`, `x` and `c` using Numpy arithmetic operations.
+Note that there is a helper function `to_np` to handle the conversion 
+of scalar and array inputs to the UDF. Also, the final output is returned
+as a scalr or an array depending on the inputs. Based on the usage of any
+libraries inside the UDF, make sure it is generalized to support the passed
+input values and return suitable values.
+
+You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
 
 .. code-block:: python
 
-   >>> import pyarrow as pa
-   >>> import numpy as np
-   >>> function_name = "affine_with_numpy"
-   >>> function_docs = {
-   ...        "summary": "Calculate y = mx + c with Numpy",
-   ...        "description":
-   ...            "Compute the affine function y = mx + c.\n"
-   ...            "This function takes three inputs, m, x and c, in order."
-   ... }
-   >>> input_types = {
-   ...    "m" : pa.float64(),
-   ...    "x" : pa.float64(),
-   ...    "c" : pa.float64(),
-   ... }
-   >>> output_type = pa.float64()
-   >>> 
-   >>> def to_numpy(val):
-   ...     if isinstance(val, pa.Scalar):
-   ...         return val.as_py()
-   ...     else:
-   ...         return np.array(val)
-   ... 
-   >>> def affine_with_numpy(ctx, m, x, c):
-   ...     m = to_numpy(m)
-   ...     x = to_numpy(x)
-   ...     c = to_numpy(c)
-   ...     return pa.array(m * x + c)
-   ... 
-   >>> pc.register_scalar_function(affine_with_numpy,
-   ...                             function_name,
-   ...                             function_docs,
-   ...                             input_types,
-   ...                             output_type)
-   >>> pc.call_function(function_name, [pa.scalar(10.1), pa.scalar(10.2), pa.scalar(20.2)])
-   <pyarrow.DoubleScalar: 123.22>
-   >>> pc.call_function(function_name, [pa.scalar(10.1), pa.array([10.2, 20.2]), pa.scalar(20.2)])
-   <pyarrow.lib.DoubleArray object at 0x10e38eb20>
-   [
-      123.22,
-      224.21999999999997
-   ]
-
-Note that there is a helper function `to_numpy` to handle the conversion of scalar an array inputs
-to the UDf. Also, the final output is returned as a scalr or an array depending on the inputs.
-Depending on the usage of any libraries inside the UDF, make sure it is generalized to support
-the passed input values and return suitable values. 
+   >>> pc.call_function(""numpy_gcd", [pa.scalar(27), pa.scalar(63)])
+   9
 
 Working with Datasets
 ---------------------
 
 More generally, user-defined functions are usable everywhere a compute function
-can be referred to by its name. For example, they can be called on a dataset's
+can be referred by its name. For example, they can be called on a dataset's
 column using :meth:`Expression._call`:
 
 Consider an instance where the data is in a table and you need to create a new 
 column using existing values in another column by using a mathematical formula.
-For instance, let's consider a simple affine operation on values using the
-mathematical expression, `y = mx + c`. Here, we will be re-using the registered
-`affine` function.
+For instance, let's consider applying `gcd` math operation.
+Here, we will be re-using the registered `numpy_gcd` function.
 
 .. code-block:: python
 
    >>> import pyarrow.dataset as ds
-   >>> sample_data = {'category': ['A', 'B', 'C', 'D'], 'value': [10.21, 20.12, 45.32, 15.12]}
+   >>> sample_data = {'category': ['A', 'B', 'C', 'D'], 'value': [90, 630, 1827, 2709]}
    >>> data_table = pa.Table.from_pydict(sample_data)
    >>> dataset = ds.dataset(data_table)
-   >>> func_args = [pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)]
+   >>> func_args = [pc.scalar(30), ds.field("value")]
    >>> dataset.to_table(
    ...             columns={
-   ...                 'projected_value': ds.field('')._call("affine", func_args),
+   ...                 'gcd_value': ds.field('')._call("numpy_gcd", func_args),
    ...                 'value': ds.field('value'),
    ...                 'category': ds.field('category')
    ...             })
    pyarrow.Table
-   total_amount_projected($): int64
-   total_amount($): int64
-   trip_name: string
+   gcd_value: int64
+   value: int64
+   category: string
    ----
-   total_amount_projected($): [[52,102,227,77]]
-   total_amount($): [[10,20,45,15]]
-   trip_name: [["A","B","C","D"]]
+   gcd_value: [[30,30,3,3]]
+   value: [[90,630,1827,2709]]
+   category: [["A","B","C","D"]]
 
 Note that the `ds.field('')_call()` returns an expression. The passed arguments
 to this function call are expressions not scalar values 
-(i.e `pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)`, notice the difference 
-of `pa.scalar` vs `pc.scalar`, the latter produces an expression). This expression is evaluated
-when the project operator executes it.
+(i.e `pc.scalar(30), ds.field("value")`, notice the difference 
+of `pa.scalar` vs `pc.scalar`, the latter produces an expression). 
+This expression is evaluated when the project operator executes it.
 
 Projection Expressions
 ^^^^^^^^^^^^^^^^^^^^^^
-In the above example we used an expression to add a new column (`total_amount_projected`)
+In the above example we used an expression to add a new column (`gcd_value`)
 to our table.  Adding new, dynamically computed, columns to a table is known as "projection"
 and there are limitations on what kinds of functions can be used in projection expressions.
 A projection function must emit a single output value for each input row.  That output value
 should be calculated entirely from the input row and should not depend on any other row.
-For example, the "affine" function that we've been using as an example above is a valid
+For example, the "numpy_gcd" function that we've been using as an example above is a valid
 function to use in a projection.  A "cumulative sum" function would not be a valid function
 since the result of each input rows depends on the rows that came before.  A "drop nulls"
 function would also be invalid because it doesn't emit a value for some rows.
