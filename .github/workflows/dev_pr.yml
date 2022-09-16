@@ -29,8 +29,10 @@ on:
       - edited
       - synchronize
 
-# NOTE: not using the "cancel-in-progress" feature here as the group key
-# does not have enough information for linking it to a particular PR
+concurrency:
+  group: ${{ github.repository }}-${{ github.event.issue.number }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
