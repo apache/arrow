@@ -266,7 +266,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
   adq <- as_adq(x)
-  plan <- ExecPlan$create()
+
   # do not show the plan if we have a nested query (as this will force the
   # evaluation of the inner query/queries)
   # TODO see if we can remove after ARROW-16628
@@ -274,8 +274,11 @@ show_exec_plan <- function(x) {
     warn("The `ExecPlan` cannot be printed for a nested query.")
     return(invisible(x))
   }
-  final_node <- plan$Build(adq)
-  cat(plan$BuildAndShow(final_node))
+
+  result <- as_record_batch_reader(adq)
+  cat(result$Plan()$ToString())
+  result$Close()
+
   invisible(x)
 }
 
