@@ -102,6 +102,9 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
+  # set interrupt handlers
+  enable_cancel_from_interrupt(TRUE)
+
   # register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 

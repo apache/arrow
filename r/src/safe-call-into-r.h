@@ -81,7 +81,13 @@ class MainRThread {
     // the same libarrow shared object has already done this, this call
     // will fail (which is OK, we just don't get the ability to cancel)
     if (!SignalStopSourceEnabled()) {
-      stop_source_ = arrow::ValueOrStop(arrow::SetSignalStopSource());
+      auto maybe_stop_source = arrow::SetSignalStopSource();
+      if (maybe_stop_source.ok()) {
+        stop_source_ = maybe_stop_source.ValueUnsafe();
+      } else {
+        cpp11::warning("Failed to enable user cancellation: %s",
+                       maybe_stop_source.status().message().c_str());
+      }
     }
   }
 
