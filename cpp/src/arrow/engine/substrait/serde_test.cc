@@ -53,6 +53,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/test_util.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
