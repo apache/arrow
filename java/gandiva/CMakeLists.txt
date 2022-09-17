@@ -28,31 +28,34 @@ add_jar(arrow_java_jni_gandiva_jar
         GENERATE_NATIVE_HEADERS
         arrow_java_jni_gandiva_headers)
 
-set(PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(PROTO_OUTPUT_FILES "${PROTO_OUTPUT_DIR}/Types.pb.cc" "${PROTO_OUTPUT_DIR}/Types.pb.h")
+set(GANDIVA_PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.cc"
+                               "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.h")
 
-set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
+set_source_files_properties(${GANDIVA_PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
-get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/proto/Types.proto ABSOLUTE)
+set(GANDIVA_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
+get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/Types.proto
+                       ABSOLUTE)
 
 find_package(Protobuf REQUIRED)
 if(MSVC)
   add_definitions(-DPROTOBUF_USE_DLLS)
 endif()
-add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND protobuf::protoc --proto_path ${CMAKE_SOURCE_DIR}/proto
-                           --cpp_out ${PROTO_OUTPUT_DIR} ${ABS_GANDIVA_PROTO}
-                   DEPENDS ${ABS_GANDIVA_PROTO}
-                   COMMENT "Running PROTO compiler on Types.proto"
+add_custom_command(OUTPUT ${GANDIVA_PROTO_OUTPUT_FILES}
+                   COMMAND protobuf::protoc --proto_path ${GANDIVA_PROTO_DIR} --cpp_out
+                           ${GANDIVA_PROTO_OUTPUT_DIR} ${GANDIVA_PROTO_FILE_ABSOLUTE}
+                   DEPENDS ${GANDIVA_PROTO_FILE_ABSOLUTE}
+                   COMMENT "Running Protobuf compiler on Types.proto"
                    VERBATIM)
 
-add_custom_target(garrow_java_jni_gandiva_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
+add_custom_target(garrow_java_jni_gandiva_proto ALL DEPENDS ${GANDIVA_PROTO_OUTPUT_FILES})
 add_library(arrow_java_jni_gandiva SHARED
             src/main/cpp/config_builder.cc
             src/main/cpp/config_holder.cc
             src/main/cpp/expression_registry_helper.cc
             src/main/cpp/jni_common.cc
-            ${PROTO_OUTPUT_FILES})
+            ${GANDIVA_PROTO_OUTPUT_FILES})
 set_property(TARGET arrow_java_jni_gandiva PROPERTY OUTPUT_NAME "gandiva_jni")
 target_link_libraries(arrow_java_jni_gandiva
                       arrow_java_jni_gandiva_headers
@@ -80,7 +83,7 @@ endif()
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set_target_properties(arrow_java_jni_gandiva
                         PROPERTIES LINK_FLAGS
-                                   "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/main/cpp/symbols.map"
+                                   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp/symbols.map"
   )
 endif()
 
