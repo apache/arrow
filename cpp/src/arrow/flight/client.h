@@ -271,6 +271,31 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfo({}, descriptor);
   }
 
+  /// \brief Asynchronous GetFlightInfo.
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request
+  /// \param[in] listener Callbacks for response and RPC completion
+  ///
+  /// This API is EXPERIMENTAL.
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener);
+  void GetFlightInfoAsync(const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) {
+    return GetFlightInfoAsync({}, descriptor, std::move(listener));
+  }
+
+  /// \brief Asynchronous GetFlightInfo returning a Future.
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request
+  ///
+  /// This API is EXPERIMENTAL.
+  arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightCallOptions& options,
+                                               const FlightDescriptor& descriptor);
+  arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightDescriptor& descriptor) {
+    return GetFlightInfoAsync({}, descriptor);
+  }
+
   /// \brief Request schema for a single flight, which may be an existing
   /// dataset or a command to be executed
   /// \param[in] options Per-RPC options
@@ -354,6 +379,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   ///
   /// \since 8.0.0
   Status Close();
+
+  /// \brief Whether this client supports asynchronous methods.
+  bool supports_async() const;
 
  private:
   FlightClient();

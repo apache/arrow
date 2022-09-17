@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <grpcpp/grpcpp.h>
@@ -28,6 +29,7 @@
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/util/string.h"
+#include "arrow/util/string_builder.h"
 
 namespace arrow {
 
@@ -36,6 +38,8 @@ using internal::ToChars;
 namespace flight {
 namespace transport {
 namespace grpc {
+
+using internal::TransportStatus;
 
 const char* kGrpcAuthHeader = "auth-token-bin";
 const char* kGrpcStatusCodeHeader = "x-arrow-status";
@@ -82,11 +86,106 @@ static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
   return true;
 }
 
+static TransportStatus TransportStatusFromGrpc(const ::grpc::Status& grpc_status) {
+  switch (grpc_status.error_code()) {
+    case ::grpc::StatusCode::OK:
+      return TransportStatus{TransportStatusCode::kOk, ""};
+    case ::grpc::StatusCode::CANCELLED:
+      return TransportStatus{TransportStatusCode::kCancelled,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::UNKNOWN:
+      return TransportStatus{TransportStatusCode::kUnknown, grpc_status.error_message()};
+    case ::grpc::StatusCode::INVALID_ARGUMENT:
+      return TransportStatus{TransportStatusCode::kInvalidArgument,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::DEADLINE_EXCEEDED:
+      return TransportStatus{TransportStatusCode::kTimedOut, grpc_status.error_message()};
+    case ::grpc::StatusCode::NOT_FOUND:
+      return TransportStatus{TransportStatusCode::kNotFound, grpc_status.error_message()};
+    case ::grpc::StatusCode::ALREADY_EXISTS:
+      return TransportStatus{TransportStatusCode::kAlreadyExists,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::PERMISSION_DENIED:
+      return TransportStatus{TransportStatusCode::kUnauthorized,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::RESOURCE_EXHAUSTED:
+      return TransportStatus{TransportStatusCode::kUnavailable,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::FAILED_PRECONDITION:
+      return TransportStatus{TransportStatusCode::kUnavailable,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::ABORTED:
+      return TransportStatus{TransportStatusCode::kUnavailable,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::OUT_OF_RANGE:
+      return TransportStatus{TransportStatusCode::kInvalidArgument,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::UNIMPLEMENTED:
+      return TransportStatus{TransportStatusCode::kUnimplemented,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::INTERNAL:
+      return TransportStatus{TransportStatusCode::kInternal, grpc_status.error_message()};
+    case ::grpc::StatusCode::UNAVAILABLE:
+      return TransportStatus{TransportStatusCode::kUnavailable,
+                             grpc_status.error_message()};
+    case ::grpc::StatusCode::DATA_LOSS:
+      return TransportStatus{TransportStatusCode::kInternal, grpc_status.error_message()};
+    case ::grpc::StatusCode::UNAUTHENTICATED:
+      return TransportStatus{TransportStatusCode::kUnauthenticated,
+                             grpc_status.error_message()};
+    default:
+      return TransportStatus{TransportStatusCode::kUnknown,
+                             util::StringBuilder("(", grpc_status.error_code(), ")",
+                                                 grpc_status.error_message())};
+  }
+}
+
+Status CombinedTransportStatus(const ::grpc::Status& grpc_status,
+                               arrow::Status arrow_status, ::grpc::ClientContext* ctx) {
+  if (grpc_status.ok() && arrow_status.ok()) {
+    return Status::OK();
+  } else if (grpc_status.ok() && !arrow_status.ok()) {
+    return arrow_status;
+  }
+
+  // Can't share with FromGrpcCode because that function sometimes constructs an Arrow
+  // Status directly
+  const TransportStatus base_status = TransportStatusFromGrpc(grpc_status);
+
+  std::vector<std::pair<std::string, std::string>> details;
+  if (!grpc_status.ok() && ctx) {
+    // Attach rich error details
+    const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
+        ctx->GetServerTrailingMetadata();
+
+    for (const auto key : {
+             // gRPC error details
+             kBinaryErrorDetailsKey,
+             // Sync C++ servers send information about the Arrow status
+             kGrpcStatusCodeHeader,
+             kGrpcStatusMessageHeader,
+             kGrpcStatusDetailHeader,
+         }) {
+      for (auto [it, end] = trailers.equal_range(key); it != end; it++) {
+        details.emplace_back(key, std::string(it->second.data(), it->second.size()));
+      }
+    }
+  }
+
+  if (arrow_status.ok()) {
+    arrow_status = base_status.ToStatus();
+  }
+
+  if (!details.empty()) {
+    return arrow_status.WithDetail(std::make_shared<TransportStatusDetail>(
+        base_status.code, std::move(base_status.message), std::move(details)));
+  }
+  return arrow_status;
+}
+
 /// Convert a gRPC status to an Arrow status, ignoring any
 /// implementation-defined headers that encode further detail.
 static Status FromGrpcCode(const ::grpc::Status& grpc_status) {
-  using internal::TransportStatus;
-  using internal::TransportStatusCode;
   switch (grpc_status.error_code()) {
     case ::grpc::StatusCode::OK:
       return Status::OK();
@@ -169,8 +268,6 @@ Status FromGrpcStatus(const ::grpc::Status& grpc_status, ::grpc::ClientContext* 
 
 /// Convert an Arrow status to a gRPC status.
 static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
-  using internal::TransportStatus;
-  using internal::TransportStatusCode;
   if (arrow_status.ok()) return ::grpc::Status::OK;
 
   TransportStatus transport_status = TransportStatus::FromStatus(arrow_status);
@@ -215,7 +312,7 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
       grpc_code = ::grpc::StatusCode::UNKNOWN;
       break;
   }
-  return ::grpc::Status(grpc_code, std::move(transport_status.message));
+  return {grpc_code, std::move(transport_status.message)};
 }
 
 /// Convert an Arrow status to a gRPC status, and add extra headers to
