@@ -39,17 +39,6 @@
 
 namespace arrow {
 
-namespace engine {
-
-struct RelationTestCase {
-  Id function_id;
-  std::vector<std::string> arguments;
-  std::vector<std::shared_ptr<DataType>> data_types;
-  // For a test case that should fail just use the empty string
-  std::string expected_output;
-  std::shared_ptr<DataType> expected_output_type;
-};
-
-}  // namespace engine
+namespace engine {}  // namespace engine
 
 }  // namespace arrow
