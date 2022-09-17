@@ -1,0 +1,17 @@
+- Use a uniform API for all async Flight client APIs:
+
+  void Foo(const FlightCallOptions&, shared_ptr<ReadListener<T>> listener);
+
+  - shared_ptr, or raw pointer? (gRPC uses the latter...)
+  - How does this look for writes?
+  - Maybe we always call AddHold and RemoveHold? (It's unclear to me
+    why you'd want to read/write after the stream ends...)
+
+- StopToken needs to be able to run a callback, so that we can cancel gRPC calls.
+
+  - Maybe use a self-pipe, and share this between multiple different tokens, so that
+    we don't need to spawn a new thread for every concurrent RPC?
+  - Does this work with multiple RPCs sharing a single token?
+
+- Make sync API wrap async API (at transport level), port UCX
+- Make sync API wrap async API (at client level), remove transport sync API

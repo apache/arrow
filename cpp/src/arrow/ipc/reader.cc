@@ -1980,6 +1980,10 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
     return message_decoder_.Consume(std::move(buffer));
   }
 
+  Status Consume(std::unique_ptr<Message> message) {
+    return OnMessageDecoded(std::move(message));
+  }
+
   int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
  private:
@@ -1997,6 +2001,9 @@ Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
 }
 Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->Consume(std::move(buffer));
+}
+Status StreamDecoder::Consume(std::unique_ptr<Message> message) {
+  return impl_->Consume(std::move(message));
 }
 
 std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }

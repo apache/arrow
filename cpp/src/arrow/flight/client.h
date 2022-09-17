@@ -33,6 +33,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/cancel.h"
+#include "arrow/util/future.h"
 
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
@@ -239,6 +240,12 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoAction({}, action);
   }
 
+  void DoAction(const FlightCallOptions& options, const Action& action,
+                AsyncListener<Result>* listener);
+  void DoAction(const Action& action, AsyncListener<Result>* listener) {
+    DoAction({}, action, listener);
+  }
+
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results);
@@ -299,6 +306,13 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
       const FlightDescriptor& descriptor) {
     return GetFlightInfo({}, descriptor);
+  }
+
+  void GetFlightInfo(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                     AsyncListener<FlightInfo>* listener);
+  void GetFlightInfo(const FlightDescriptor& descriptor,
+                     AsyncListener<FlightInfo>* listener) {
+    return GetFlightInfo({}, descriptor, listener);
   }
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
@@ -363,6 +377,10 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoGet({}, ticket);
   }
 
+  void DoGet(const FlightCallOptions& options, const Ticket& ticket,
+             IpcListener* listener);
+  void DoGet(const Ticket& ticket, IpcListener* listener) { DoGet({}, ticket, listener); }
+
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<FlightStreamReader>* stream);
@@ -398,6 +416,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
                                    const std::shared_ptr<Schema>& schema) {
     return DoPut({}, descriptor, schema);
   }
+
+  void DoPut(const FlightCallOptions& options, IpcPutter* listener);
+  void DoPut(IpcPutter* listener) { DoPut({}, listener); }
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,

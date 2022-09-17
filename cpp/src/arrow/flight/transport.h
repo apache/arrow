@@ -64,8 +64,11 @@
 #include <vector>
 
 #include "arrow/flight/type_fwd.h"
+#include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
+#include "arrow/ipc/options.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/future.h"
 
 namespace arrow {
 namespace ipc {
@@ -177,21 +180,32 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
       const std::string& password);
   virtual Status DoAction(const FlightCallOptions& options, const Action& action,
                           std::unique_ptr<ResultStream>* results);
+  virtual void DoAction(const FlightCallOptions& options, const Action& action,
+                        AsyncListener<Result>* results);
   virtual Status ListActions(const FlightCallOptions& options,
                              std::vector<ActionType>* actions);
   virtual Status GetFlightInfo(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<FlightInfo>* info);
+  virtual void GetFlightInfo(const FlightCallOptions& options,
+                             const FlightDescriptor& descriptor,
+                             AsyncListener<FlightInfo>* listener);
   virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options, const FlightDescriptor& descriptor);
   virtual Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                              std::unique_ptr<FlightListing>* listing);
   virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                        std::unique_ptr<ClientDataStream>* stream);
+  virtual void DoGet(const FlightCallOptions& options, const Ticket& ticket,
+                     IpcListener* listener);
   virtual Status DoPut(const FlightCallOptions& options,
                        std::unique_ptr<ClientDataStream>* stream);
+  virtual void DoPut(const FlightCallOptions& options, IpcPutter* putter);
   virtual Status DoExchange(const FlightCallOptions& options,
                             std::unique_ptr<ClientDataStream>* stream);
+
+  static void SetAsyncRpc(AsyncListenerBase* listener, std::unique_ptr<AsyncRpc>&& rpc);
+  static AsyncRpc* GetAsyncRpc(AsyncListenerBase* listener);
 };
 
 /// A registry of transport implementations.
@@ -223,43 +237,30 @@ ARROW_FLIGHT_EXPORT
 TransportRegistry* GetDefaultTransportRegistry();
 
 //------------------------------------------------------------
-// Error propagation helpers
+// Async APIs
 
-/// \brief Abstract status code as per the Flight specification.
-enum class TransportStatusCode {
-  kOk = 0,
-  kUnknown = 1,
-  kInternal = 2,
-  kInvalidArgument = 3,
-  kTimedOut = 4,
-  kNotFound = 5,
-  kAlreadyExists = 6,
-  kCancelled = 7,
-  kUnauthenticated = 8,
-  kUnauthorized = 9,
-  kUnimplemented = 10,
-  kUnavailable = 11,
-};
-
-/// \brief Abstract error status.
+/// \brief Transport-specific state for an async RPC.
 ///
-/// Transport implementations may use side channels (e.g. HTTP
-/// trailers) to convey additional information to reconstruct the
-/// original C++ status for implementations that can use it.
-struct ARROW_FLIGHT_EXPORT TransportStatus {
-  TransportStatusCode code;
-  std::string message;
+/// Transport implementations may subclass this to store their own
+/// state, and stash an instance in a user-supplied AsyncListener via
+/// ClientTransport::GetAsyncRpc and ClientTransport::SetAsyncRpc.
+class AsyncRpc {
+ public:
+  virtual ~AsyncRpc() = default;
+  /// \brief Request cancellation of the RPC.
+  virtual void TryCancel() {}
 
-  /// \brief Convert a C++ status to an abstract transport status.
-  static TransportStatus FromStatus(const Status& arrow_status);
-
-  /// \brief Reconstruct a string-encoded TransportStatus.
-  static TransportStatus FromCodeStringAndMessage(const std::string& code_str,
-                                                  std::string message);
-
-  /// \brief Convert an abstract transport status to a C++ status.
-  Status ToStatus() const;
+  /// Only needed for DoPut/DoExchange
+  virtual void Begin(const FlightDescriptor& descriptor, std::shared_ptr<Schema> schema) {
+  }
+  /// Only needed for DoPut/DoExchange
+  virtual void Write(arrow::flight::FlightStreamChunk chunk) {}
+  /// Only needed for DoPut/DoExchange
+  virtual void DoneWriting() {}
 };
+
+//------------------------------------------------------------
+// Error propagation helpers
 
 /// \brief Convert the string representation of an Arrow status code
 ///   back to an Arrow status.

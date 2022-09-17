@@ -24,7 +24,9 @@
 #include "arrow/array/util.h"
 #include "arrow/flight/api.h"
 #include "arrow/flight/test_util.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -163,6 +165,22 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   ASSERT_OK_AND_ASSIGN(auto stream2, client_->DoGet(ticket));
   ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
 
+  class Listener : public IpcListener {
+   public:
+    void OnNext(FlightStreamChunk chunk) override { chunks_.push_back(std::move(chunk)); }
+    void OnSchema(std::shared_ptr<Schema> schema) override {
+      schema_ = std::move(schema);
+    }
+    void OnFinish(TransportStatus status) override {
+      future_.MarkFinished(status.ToStatus());
+    }
+
+    std::shared_ptr<Schema> schema_;
+    std::vector<FlightStreamChunk> chunks_;
+    Future<> future_ = Future<>::Make();
+  } listener;
+  client_->DoGet(ticket, &listener);
+
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < num_batches; ++i) {
     ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
@@ -192,6 +210,24 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   ASSERT_OK(reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, batch);
+
+  // Validate async results
+  if (supports_async()) {
+    ASSERT_FINISHES_OK(listener.future_);
+    ASSERT_EQ(num_batches, listener.chunks_.size());
+    for (int i = 0; i < num_batches; ++i) {
+      ASSERT_NE(nullptr, listener.chunks_[i].data);
+#if !defined(__MINGW32__)
+      ASSERT_NO_FATAL_FAILURE(
+          ASSERT_BATCHES_EQUAL(*expected_batches[i], *listener.chunks_[i].data));
+#else
+      ASSERT_NO_FATAL_FAILURE(
+          ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *listener.chunks_[i].data));
+#endif
+    }
+  } else {
+    ASSERT_RAISES(NotImplemented, listener.future_.status());
+  }
 }
 
 void DataTest::TestDoGetInts() {
@@ -670,7 +706,7 @@ void DoPutTest::TearDownTest() {
 }
 void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
                              const RecordBatchVector& expected_batches) {
-  auto* do_put_server = (DoPutTestServer*)server_.get();
+  auto* do_put_server = static_cast<DoPutTestServer*>(server_.get());
   ASSERT_EQ(do_put_server->descriptor_, expected_descriptor);
   ASSERT_EQ(do_put_server->batches_.size(), expected_batches.size());
   for (size_t i = 0; i < expected_batches.size(); ++i) {
@@ -709,6 +745,46 @@ void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
   ASSERT_OK(writer->Close());
 
   CheckBatches(descr, batches);
+
+  // Async version
+  class Listener : public IpcPutter {
+   public:
+    void OnWritten() override {
+      if (next_batch_ >= batches_.size()) {
+        if (!done_) {
+          Write(Buffer::FromString(kExpectedMetadata));
+          DoneWriting();
+          done_ = true;
+        }
+      } else {
+        if (next_batch_ % 2 == 0) {
+          Write(batches_[next_batch_]);
+        } else {
+          auto buffer = Buffer::FromString(std::to_string(next_batch_));
+          Write(FlightStreamChunk{batches_[next_batch_], std::move(buffer)});
+        }
+        next_batch_++;
+      }
+    }
+
+    void OnNext(std::unique_ptr<Buffer> message) override {
+      metadata_.emplace_back(std::move(message));
+    }
+
+    void OnFinish(TransportStatus status) override {
+      future_.MarkFinished(status.ToStatus());
+    }
+
+    RecordBatchVector batches_;
+    size_t next_batch_ = 0;
+    bool done_ = false;
+    std::vector<std::unique_ptr<Buffer>> metadata_;
+    arrow::Future<> future_ = arrow::Future<>::Make();
+  } listener;
+  listener.batches_ = batches;
+  client_->DoPut(&listener);
+  listener.Begin(descr, schema);
+  ASSERT_FINISHES_OK(listener.future_);
 }
 
 void DoPutTest::TestInts() {

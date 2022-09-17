@@ -24,12 +24,15 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
@@ -951,5 +954,260 @@ arrow::Result<std::string> BasicAuth::SerializeToString() const {
 Status BasicAuth::Serialize(const BasicAuth& basic_auth, std::string* out) {
   return basic_auth.SerializeToString().Value(out);
 }
+
+//------------------------------------------------------------
+// Error propagation helpers
+
+std::string ToString(TransportStatusCode code) {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return "kOk";
+    case TransportStatusCode::kUnknown:
+      return "kUnknown";
+    case TransportStatusCode::kInternal:
+      return "kInternal";
+    case TransportStatusCode::kInvalidArgument:
+      return "kInvalidArgument";
+    case TransportStatusCode::kTimedOut:
+      return "kTimedOut";
+    case TransportStatusCode::kNotFound:
+      return "kNotFound";
+    case TransportStatusCode::kAlreadyExists:
+      return "kAlreadyExists";
+    case TransportStatusCode::kCancelled:
+      return "kCancelled";
+    case TransportStatusCode::kUnauthenticated:
+      return "kUnauthenticated";
+    case TransportStatusCode::kUnauthorized:
+      return "kUnauthorized";
+    case TransportStatusCode::kUnimplemented:
+      return "kUnimplemented";
+    case TransportStatusCode::kUnavailable:
+      return "kUnavailable";
+  }
+  return "(unknown code)";
+}
+
+TransportStatus::Impl::Impl(TransportStatusCode code, std::string message,
+                            std::vector<std::unique_ptr<StatusDetail>> details)
+    : code(code), message(std::move(message)), details(std::move(details)) {}
+TransportStatus::TransportStatus() = default;
+TransportStatus::TransportStatus(TransportStatusCode code)
+    : impl_(code == TransportStatusCode::kOk
+                ? nullptr
+                : std::make_unique<Impl>(code, "",
+                                         std::vector<std::unique_ptr<StatusDetail>>{})) {}
+TransportStatus::TransportStatus(TransportStatusCode code, std::string message)
+    : TransportStatus(code, std::move(message), {}) {}
+TransportStatus::TransportStatus(TransportStatusCode code, std::string message,
+                                 std::vector<std::unique_ptr<StatusDetail>> details)
+    : impl_(std::make_unique<Impl>(code, std::move(message), std::move(details))) {
+  if (code == TransportStatusCode::kOk) {
+    DCHECK(message.empty() && details.empty())
+        << "constructed kOk status with non-empty message/details";
+  }
+}
+
+std::string TransportStatus::ToString() const {
+  if (!impl_) {
+    return "TransportStatus{kOk}";
+  }
+  std::string str = "TransportStatus{";
+  str += arrow::flight::ToString(code());
+  str += ", message='";
+  str += message();
+  str += "', details={";
+  bool first = true;
+  for (const auto& detail : details()) {
+    if (!first) {
+      str += ", ";
+    }
+    first = false;
+
+    str += detail->ToString();
+  }
+  str += "}}";
+  return str;
+}
+
+TransportStatus TransportStatus::FromStatus(const Status& arrow_status) {
+  if (arrow_status.ok()) {
+    return TransportStatus{TransportStatusCode::kOk, ""};
+  }
+
+  TransportStatusCode code = TransportStatusCode::kUnknown;
+  std::string message = arrow_status.message();
+  if (arrow_status.detail()) {
+    message += ". Detail: ";
+    message += arrow_status.detail()->ToString();
+  }
+
+  std::shared_ptr<FlightStatusDetail> flight_status =
+      FlightStatusDetail::UnwrapStatus(arrow_status);
+  if (flight_status) {
+    switch (flight_status->code()) {
+      case FlightStatusCode::Internal:
+        code = TransportStatusCode::kInternal;
+        break;
+      case FlightStatusCode::TimedOut:
+        code = TransportStatusCode::kTimedOut;
+        break;
+      case FlightStatusCode::Cancelled:
+        code = TransportStatusCode::kCancelled;
+        break;
+      case FlightStatusCode::Unauthenticated:
+        code = TransportStatusCode::kUnauthenticated;
+        break;
+      case FlightStatusCode::Unauthorized:
+        code = TransportStatusCode::kUnauthorized;
+        break;
+      case FlightStatusCode::Unavailable:
+        code = TransportStatusCode::kUnavailable;
+        break;
+      default:
+        break;
+    }
+  } else if (arrow_status.IsKeyError()) {
+    code = TransportStatusCode::kNotFound;
+  } else if (arrow_status.IsInvalid()) {
+    code = TransportStatusCode::kInvalidArgument;
+  } else if (arrow_status.IsCancelled()) {
+    code = TransportStatusCode::kCancelled;
+  } else if (arrow_status.IsNotImplemented()) {
+    code = TransportStatusCode::kUnimplemented;
+  } else if (arrow_status.IsAlreadyExists()) {
+    code = TransportStatusCode::kAlreadyExists;
+  }
+  return TransportStatus{code, std::move(message)};
+}
+
+TransportStatus TransportStatus::FromCodeStringAndMessage(const std::string& code_str,
+                                                          std::string message) {
+  int code_int = 0;
+  try {
+    code_int = std::stoi(code_str);
+  } catch (...) {
+    return TransportStatus{
+        TransportStatusCode::kUnknown,
+        message + ". Also, server sent unknown or invalid Flight status code " +
+            code_str};
+  }
+  switch (code_int) {
+    case static_cast<int>(TransportStatusCode::kOk):
+    case static_cast<int>(TransportStatusCode::kUnknown):
+    case static_cast<int>(TransportStatusCode::kInternal):
+    case static_cast<int>(TransportStatusCode::kInvalidArgument):
+    case static_cast<int>(TransportStatusCode::kTimedOut):
+    case static_cast<int>(TransportStatusCode::kNotFound):
+    case static_cast<int>(TransportStatusCode::kAlreadyExists):
+    case static_cast<int>(TransportStatusCode::kCancelled):
+    case static_cast<int>(TransportStatusCode::kUnauthenticated):
+    case static_cast<int>(TransportStatusCode::kUnauthorized):
+    case static_cast<int>(TransportStatusCode::kUnimplemented):
+    case static_cast<int>(TransportStatusCode::kUnavailable):
+      return TransportStatus{static_cast<TransportStatusCode>(code_int),
+                             std::move(message)};
+    default: {
+      return TransportStatus{
+          TransportStatusCode::kUnknown,
+          message + ". Also, server sent unknown or invalid Arrow status code " +
+              code_str};
+    }
+  }
+}
+
+Status TransportStatus::ToStatus() const {
+  // TODO: account for details
+  switch (code()) {
+    case TransportStatusCode::kOk:
+      return Status::OK();
+    case TransportStatusCode::kUnknown: {
+      std::stringstream ss;
+      ss << "Flight RPC failed with message: " << message();
+      return Status::UnknownError(ss.str()).WithDetail(
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Failed));
+    }
+    case TransportStatusCode::kInternal:
+      return Status::IOError("Flight returned internal error, with message: ", message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case TransportStatusCode::kInvalidArgument:
+      return Status::Invalid("Flight returned invalid argument error, with message: ",
+                             message());
+    case TransportStatusCode::kTimedOut:
+      return Status::IOError("Flight returned timeout error, with message: ", message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::TimedOut));
+    case TransportStatusCode::kNotFound:
+      return Status::KeyError("Flight returned not found error, with message: ",
+                              message());
+    case TransportStatusCode::kAlreadyExists:
+      return Status::AlreadyExists("Flight returned already exists error, with message: ",
+                                   message());
+    case TransportStatusCode::kCancelled:
+      return Status::Cancelled("Flight cancelled call, with message: ", message())
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
+    case TransportStatusCode::kUnauthenticated:
+      return Status::IOError("Flight returned unauthenticated error, with message: ",
+                             message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthenticated));
+    case TransportStatusCode::kUnauthorized:
+      return Status::IOError("Flight returned unauthorized error, with message: ",
+                             message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthorized));
+    case TransportStatusCode::kUnimplemented:
+      return Status::NotImplemented("Flight returned unimplemented error, with message: ",
+                                    message());
+    case TransportStatusCode::kUnavailable:
+      return Status::IOError("Flight returned unavailable error, with message: ",
+                             message())
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unavailable));
+    default:
+      return Status::UnknownError("Flight failed with error code ",
+                                  static_cast<int>(code()), " and message: ", message());
+  }
+}
+
+std::string BinaryStatusDetail::ToString() const {
+  std::string message = "BinaryStatusDetail{";
+  message += util::base64_encode(
+      {reinterpret_cast<const char*>(details_.data()), details_.size()});
+  message += '}';
+  return message;
+}
+
+std::string ArrowStatusDetail::ToString() const {
+  std::string message = "ArrowStatusDetail{";
+  message += status_.ToString();
+  message += '}';
+  return message;
+}
+
+//------------------------------------------------------------
+// Async types
+
+AsyncListenerBase::AsyncListenerBase() = default;
+AsyncListenerBase::~AsyncListenerBase() = default;
+void AsyncListenerBase::TryCancel() {
+  if (rpc_state_) {
+    rpc_state_->TryCancel();
+  }
+}
+
+void IpcPutter::Begin(const FlightDescriptor& descriptor,
+                      std::shared_ptr<Schema> schema) {
+  DCHECK(rpc_state_);
+  rpc_state_->Begin(descriptor, std::move(schema));
+}
+void IpcPutter::Write(FlightStreamChunk chunk) {
+  DCHECK(rpc_state_);
+  rpc_state_->Write(std::move(chunk));
+}
+void IpcPutter::DoneWriting() {
+  DCHECK(rpc_state_);
+  rpc_state_->DoneWriting();
+}
+
 }  // namespace flight
 }  // namespace arrow

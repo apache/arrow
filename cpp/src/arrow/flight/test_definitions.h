@@ -40,6 +40,7 @@ namespace flight {
 class ARROW_FLIGHT_EXPORT FlightTest {
  protected:
   virtual std::string transport() const = 0;
+  virtual bool supports_async() const { return false; }
   virtual void SetUpTest() {}
   virtual void TearDownTest() {}
 };

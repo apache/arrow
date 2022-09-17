@@ -40,9 +40,6 @@ namespace flight {
 namespace transport {
 namespace ucx {
 
-using internal::TransportStatus;
-using internal::TransportStatusCode;
-
 // Defines to test different implementation strategies
 // Enable the CONTIG path for CPU-only data
 // #define ARROW_FLIGHT_UCX_SEND_CONTIG
@@ -232,8 +229,8 @@ arrow::Result<HeadersFrame> HeadersFrame::Make(
 
   TransportStatus transport_status = TransportStatus::FromStatus(status);
   all_headers.emplace_back(kHeaderStatus,
-                           ToChars(static_cast<int32_t>(transport_status.code)));
-  all_headers.emplace_back(kHeaderMessage, std::move(transport_status.message));
+                           ToChars(static_cast<int32_t>(transport_status.code())));
+  all_headers.emplace_back(kHeaderMessage, std::move(transport_status).MoveMessage());
   all_headers.emplace_back(kHeaderStatusCode,
                            ToChars(static_cast<int32_t>(status.code())));
   all_headers.emplace_back(kHeaderStatusMessage, status.message());
@@ -271,7 +268,7 @@ Status HeadersFrame::GetStatus(Status* out) {
 
   TransportStatus transport_status = TransportStatus::FromCodeStringAndMessage(
       std::string(code_str), std::string(message_str));
-  if (transport_status.code == TransportStatusCode::kOk) {
+  if (transport_status.code() == TransportStatusCode::kOk) {
     *out = Status::OK();
     return Status::OK();
   }

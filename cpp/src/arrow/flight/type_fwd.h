@@ -24,6 +24,10 @@ class Uri;
 namespace flight {
 struct Action;
 struct ActionType;
+template <typename T>
+class AsyncListener;
+class AsyncListenerBase;
+class AsyncRpc;
 struct BasicAuth;
 class ClientAuthHandler;
 class ClientMiddleware;
@@ -42,6 +46,9 @@ class FlightServerBase;
 class FlightServerOptions;
 class FlightStreamReader;
 class FlightStreamWriter;
+class IpcExchanger;
+class IpcListener;
+class IpcPutter;
 struct Location;
 struct Result;
 class ResultStream;
@@ -51,6 +58,7 @@ class ServerMiddleware;
 class ServerMiddlewareFactory;
 struct Ticket;
 namespace internal {
+class AsyncRpc;
 class ClientTransport;
 struct FlightData;
 class ServerTransport;

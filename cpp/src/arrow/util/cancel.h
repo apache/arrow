@@ -80,6 +80,9 @@ class ARROW_EXPORT StopToken {
   Status Poll() const;
   bool IsStopRequested() const;
 
+  Status AddCallback();
+  Status RemoveCallback();
+
  protected:
   std::shared_ptr<StopSourceImpl> impl_;
 };

@@ -40,6 +40,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
@@ -98,6 +99,7 @@ const char kAuthHeader[] = "authorization";
 class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -106,6 +108,7 @@ ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -114,6 +117,7 @@ ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -122,6 +126,7 @@ ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -130,6 +135,7 @@ ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -138,6 +144,7 @@ ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -146,6 +153,7 @@ ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return true; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -447,7 +455,7 @@ class TestTls : public ::testing::Test {
   Location location_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
-  bool server_is_initialized_;
+  bool server_is_initialized_ = false;
 };
 
 // A server middleware that rejects all calls.
@@ -1019,6 +1027,38 @@ TEST_F(TestFlightClient, DoAction) {
 
   ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ(nullptr, result);
+
+  {
+    class Listener : public AsyncListener<Result> {
+     public:
+      void OnNext(Result result) override { results_.push_back(std::move(result)); }
+
+      void OnFinish(TransportStatus status) override {
+        // XXX: something broken here
+        if (status.ok() || status.ToStatus().ok()) {
+          future_.MarkFinished(std::move(results_));
+        } else {
+          future_.MarkFinished(status.ToStatus());
+        }
+      }
+
+      arrow::Future<std::vector<Result>> future_ =
+          arrow::Future<std::vector<Result>>::Make();
+      std::vector<Result> results_;
+    };
+    // XXX: if you don't wait for rpc to finish, UB occurs because the
+    // subclass part of the listener will be occurred, and so gRPC
+    // will call back into OnFinish but this will be gone it will have
+    // been replaced by "pure virtual" stub
+
+    // might be enough to just not make things pure virtual and expect
+    // you to hold listener open? the embedded unique_ptr at least
+    // prevents deallocation
+    Listener listener;
+    auto fut = listener.future_;
+    client_->DoAction(action, &listener);
+    ASSERT_OK(fut.status());
+  }
 }
 
 TEST_F(TestFlightClient, RoundTripStatus) {

@@ -396,6 +396,8 @@ class ARROW_EXPORT StreamDecoder {
   /// \return Status
   Status Consume(std::shared_ptr<Buffer> buffer);
 
+  Status Consume(std::unique_ptr<Message> message);
+
   /// \return the shared schema of the record batches in the stream
   std::shared_ptr<Schema> schema() const;
 

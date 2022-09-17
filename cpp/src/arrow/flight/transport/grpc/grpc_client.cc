@@ -17,6 +17,7 @@
 
 #include "arrow/flight/transport/grpc/grpc_client.h"
 
+#include <condition_variable>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -25,13 +26,19 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/Flight.pb.h"
+#include "arrow/ipc/options.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/util/config.h"
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 #include <grpcpp/security/tls_credentials_options.h>
 #endif
 #else
+// XXX: do we even support this anymore?
 #include <grpc++/grpc++.h>
 #endif
 
@@ -56,6 +63,7 @@
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 
 namespace arrow {
 
@@ -564,6 +572,420 @@ class GrpcResultStream : public ResultStream {
   std::unique_ptr<::grpc::ClientReader<pb::Result>> stream_;
 };
 
+// Helpers for implementing the async versions of the calls
+
+arrow::Result<FlightInfo> ToAsyncResult(const pb::FlightInfo& proto) {
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(internal::FromProto(proto, &info_data));
+  return FlightInfo(std::move(info_data));
+}
+
+arrow::Result<flight::Result> ToAsyncResult(const pb::Result& proto) {
+  flight::Result result;
+  RETURN_NOT_OK(internal::FromProto(proto, &result));
+  return result;
+}
+
+class StdStringBuffer : public Buffer {
+ public:
+  explicit StdStringBuffer(std::string data) : Buffer(nullptr, 0), str_(std::move(data)) {
+    data_ = reinterpret_cast<const uint8_t*>(str_.c_str());
+    size_ = static_cast<int64_t>(str_.size());
+    capacity_ = size_;
+  }
+
+ private:
+  std::string str_;
+};
+
+arrow::Result<std::unique_ptr<Buffer>> ToAsyncResult(pb::PutResult proto) {
+  return std::make_unique<StdStringBuffer>(std::move(*proto.mutable_app_metadata()));
+}
+
+/// Force destruction to wait for RPC completion.  This is not fully
+/// safe: what happens is that the vtable will get reset to the base
+/// class's vtable, and so when OnFinish gets called, it'll call a
+/// pure virtual function and the program will abort.  But this at
+/// least prevents us from a use-after-free.
+class FinishedFlag {
+ public:
+  ~FinishedFlag() { Wait(); }
+
+  void Finish() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    finished_ = true;
+    cv_.notify_all();
+  }
+  void Wait() const {
+    std::unique_lock<std::mutex> guard(mutex_);
+    cv_.wait(guard, [&]() { return finished_; });
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cv_;
+  bool finished_{false};
+};
+
+template <typename Result, typename Request, typename Response>
+class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::AsyncRpc {
+ public:
+  ClientRpc rpc;
+  AsyncListener<Result>* listener;
+  FinishedFlag finished;
+  Request pb_request;
+  Response pb_response;
+  Status client_status;
+
+  explicit UnaryUnaryAsyncCall(const FlightCallOptions& options,
+                               AsyncListener<Result>* listener)
+      : rpc(options), listener(listener) {}
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void OnDone(const ::grpc::Status& status) override {
+    if (status.ok()) {
+      auto result = ToAsyncResult(pb_response);
+      client_status = result.status();
+      if (client_status.ok()) {
+        listener->OnNext(std::move(result).MoveValueUnsafe());
+      }
+    }
+    Finish(status);
+  }
+
+  void Finish(const ::grpc::Status& status) {
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    finished.Finish();
+  }
+};
+
+template <typename Result, typename Request, typename Response>
+class UnaryStreamAsyncCall : public ::grpc::ClientReadReactor<Response>,
+                             public internal::AsyncRpc {
+ public:
+  ClientRpc rpc;
+  AsyncListener<Result>* listener;
+  FinishedFlag finished;
+  Request pb_request;
+  Response pb_response;
+  Status client_status;
+
+  explicit UnaryStreamAsyncCall(const FlightCallOptions& options,
+                                AsyncListener<Result>* listener)
+      : rpc(options), listener(listener) {}
+
+  void Start() {
+    this->StartRead(&pb_response);
+    this->StartCall();
+  }
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void OnReadDone(bool ok) override {
+    if (ok) {
+      Result result;
+      client_status = ToAsyncResult(pb_response).Value(&result);
+      if (!client_status.ok()) {
+        rpc.context.TryCancel();
+      }
+      listener->OnNext(std::move(result));
+      this->StartRead(&pb_response);
+    }
+  }
+
+  void OnDone(const ::grpc::Status& status) override {
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    finished.Finish();
+  }
+};
+
+template <typename Request>
+class UnaryStreamIpcCall : public ::grpc::ClientReadReactor<pb::FlightData>,
+                           public internal::AsyncRpc {
+ public:
+  class DecoderListener : public ipc::Listener {
+   public:
+    explicit DecoderListener(UnaryStreamIpcCall<Request>* parent) : parent_(parent) {}
+
+    Status OnEOS() override {
+      // Should never happen for us
+      return Status::OK();
+    }
+    Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) override {
+      parent_->listener->OnNext({std::move(batch), std::move(app_metadata_)});
+      return Status::OK();
+    }
+    Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
+      parent_->listener->OnSchema(std::move(schema));
+      return Status::OK();
+    }
+
+    UnaryStreamIpcCall<Request>* parent_;
+    std::shared_ptr<Buffer> app_metadata_;
+  };
+
+  ClientRpc rpc;
+  IpcListener* listener;
+  std::shared_ptr<DecoderListener> decoder_listener;
+  ipc::StreamDecoder decoder;
+  FinishedFlag finished;
+  Request pb_request;
+  internal::FlightData response;
+  Status client_status;
+
+  explicit UnaryStreamIpcCall(const FlightCallOptions& options, IpcListener* listener)
+      // TODO: forced allocation here isn't great. can we expose the
+      // IPC state machine directly and just 'poll'?
+      : rpc(options),
+        listener(listener),
+        decoder_listener(std::make_shared<DecoderListener>(this)),
+        decoder(decoder_listener, options.read_options) {}
+
+  void UnsafeFlightMagicStartRead() {
+    // XXX: this is very bad please look away
+    this->StartRead(reinterpret_cast<pb::FlightData*>(&response));
+  }
+
+  void Start() {
+    this->UnsafeFlightMagicStartRead();
+    this->StartCall();
+  }
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void OnReadDone(bool ok) override {
+    if (ok) {
+      HandleResponse();
+      this->UnsafeFlightMagicStartRead();
+    }
+  }
+
+  void HandleResponse() {
+    if (response.metadata) {
+      decoder_listener->app_metadata_ = std::move(response.app_metadata);
+      std::unique_ptr<ipc::Message> message;
+      client_status = response.OpenMessage().Value(&message);
+      if (!client_status.ok()) {
+        rpc.context.TryCancel();
+        return;
+      }
+      client_status = decoder.Consume(std::move(message));
+      if (!client_status.ok()) {
+        rpc.context.TryCancel();
+        return;
+      }
+    } else {
+      // metadata-only
+      listener->OnNext(FlightStreamChunk{nullptr, std::move(response.app_metadata)});
+    }
+  }
+
+  void OnDone(const ::grpc::Status& status) override {
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    finished.Finish();
+  }
+};
+
+class PutCall : public ::grpc::ClientBidiReactor<pb::FlightData, pb::PutResult>,
+                public internal::AsyncRpc {
+ public:
+  class PayloadWriter : public ipc::internal::IpcPayloadWriter {
+   public:
+    explicit PayloadWriter(PutCall* parent) : parent_(parent) {}
+
+    Status WritePayload(const ipc::IpcPayload& payload) override {
+      FlightPayload flight_payload;
+      flight_payload.descriptor = std::move(descriptor_);
+      flight_payload.app_metadata = std::move(app_metadata_);
+      flight_payload.ipc_message = std::move(payload);
+      parent_->EnqueuePayload(std::move(flight_payload));
+      return Status::OK();
+    }
+
+    Status Close() override { return Status::OK(); }
+
+    PutCall* parent_;
+    std::shared_ptr<Buffer> app_metadata_;
+    std::shared_ptr<Buffer> descriptor_;
+  };
+
+  // TODO: draw out the transition diagram
+  enum class State {
+    kBegin,
+    kWriting,
+    kDoneRequested,
+    kDone,
+  };
+
+  ClientRpc rpc;
+  ipc::IpcWriteOptions write_options;
+  IpcPutter* listener;
+  PayloadWriter* payload_writer = nullptr;
+  std::unique_ptr<ipc::RecordBatchWriter> writer;
+  FinishedFlag finished;
+
+  std::mutex outgoing;
+  State state = State::kBegin;
+  std::optional<FlightPayload> request;
+  std::deque<FlightPayload> buffered;
+
+  std::mutex callback;
+
+  pb::PutResult pb_response;
+  Status client_status;
+
+  explicit PutCall(const FlightCallOptions& options, IpcPutter* listener)
+      : rpc(options), write_options(options.write_options), listener(listener) {}
+
+  void Start() {
+    // We always AddHold in case the caller wants to write data from outside a callback
+    this->AddHold();
+    this->StartRead(&pb_response);
+    this->StartCall();
+  }
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void Begin(const FlightDescriptor& descriptor,
+             std::shared_ptr<Schema> schema) override {
+    std::unique_lock<std::mutex> guard(outgoing);
+    DCHECK_EQ(state, State::kBegin);
+    DCHECK(!request.has_value());
+    DCHECK(buffered.empty());
+    DCHECK(!writer);
+    DCHECK(!payload_writer);
+    auto sink = std::make_unique<PayloadWriter>(this);
+    payload_writer = sink.get();
+    client_status = internal::ToPayload(descriptor, &payload_writer->descriptor_);
+    if (!client_status.ok()) {
+      this->TryCancel();
+      return;
+    }
+    client_status = ipc::internal::OpenRecordBatchWriter(std::move(sink),
+                                                         std::move(schema), write_options)
+                        .Value(&writer);
+    if (!client_status.ok()) {
+      this->TryCancel();
+    }
+    state = State::kWriting;
+  }
+
+  void Write(arrow::flight::FlightStreamChunk chunk) override {
+    std::unique_lock<std::mutex> guard(outgoing);
+    switch (state) {
+      case State::kBegin: {
+        client_status = Status::UnknownError("Must call Begin before Write");
+        this->TryCancel();
+        return;
+      }
+      case State::kWriting: {
+        DCHECK(writer);
+
+        if (chunk.data) {
+          payload_writer->app_metadata_ = std::move(chunk.app_metadata);
+          client_status = writer->WriteRecordBatch(*chunk.data);
+          if (!client_status.ok()) {
+            this->TryCancel();
+          }
+        } else {
+          EnqueuePayload({nullptr, std::move(chunk.app_metadata), {}});
+        }
+        return;
+      }
+      case State::kDoneRequested: {
+        client_status =
+            Status::UnknownError("Cannot call Write after DoneWriting done requested");
+        // XXX: apparently this won't call Done?
+        this->TryCancel();
+        return;
+      }
+      case State::kDone: {
+        client_status = Status::UnknownError("Cannot call Write after DoneWriting");
+        this->TryCancel();
+        return;
+      }
+    }
+  }
+
+  void DoneWriting() override {
+    std::unique_lock<std::mutex> guard(outgoing);
+    // TODO: check state
+    state = State::kDoneRequested;
+    if (!request.has_value() && buffered.empty()) {
+      state = State::kDone;
+      this->StartWritesDone();
+    }
+  }
+
+  void EnqueuePayload(FlightPayload&& payload) {
+    if (!request.has_value()) {
+      request = std::move(payload);
+      // XXX:
+      this->StartWrite(reinterpret_cast<pb::FlightData*>(&*request));
+    } else {
+      buffered.emplace_back(std::move(payload));
+    }
+  }
+
+  void OnReadDone(bool ok) override {
+    if (ok) {
+      std::unique_ptr<Buffer> result;
+      client_status = ToAsyncResult(std::move(pb_response)).Value(&result);
+      if (!client_status.ok()) {
+        rpc.context.TryCancel();
+        return;
+      }
+      listener->OnNext(std::move(result));
+      this->StartRead(&pb_response);
+    }
+  }
+
+  void OnWriteDone(bool ok) override {
+    std::unique_lock<std::mutex> guard(callback);
+    if (ok) {
+      {
+        std::unique_lock<std::mutex> guard(outgoing);
+        request.reset();
+        if (!buffered.empty()) {
+          request = std::move(buffered.front());
+          buffered.pop_front();
+          this->StartWrite(reinterpret_cast<pb::FlightData*>(&*request));
+        }
+      }
+
+      listener->OnWritten();
+
+      std::unique_lock<std::mutex> guard(outgoing);
+      if (state == State::kDoneRequested && !request.has_value() && buffered.empty()) {
+        state = State::kDone;
+        this->StartWritesDone();
+      }
+    } else {
+      std::unique_lock<std::mutex> guard(outgoing);
+      buffered.clear();
+    }
+  }
+
+  void OnWritesDoneDone(bool ok) override { this->RemoveHold(); }
+
+  void OnDone(const ::grpc::Status& status) override {
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    finished.Finish();
+  }
+};
+
+#define LISTENER_NOT_OK(LISTENER, EXPR)                                            \
+  if (auto arrow_status = (EXPR); !arrow_status.ok()) {                            \
+    (LISTENER)->OnFinish(                                                          \
+        TransportStatus{TransportStatusCode::kInternal, arrow_status.ToString()}); \
+    return;                                                                        \
+  }
+
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
@@ -777,6 +1199,18 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+  void DoAction(const FlightCallOptions& options, const Action& action,
+                AsyncListener<Result>* listener) override {
+    using AsyncCall = UnaryStreamAsyncCall<Result, pb::Action, pb::Result>;
+    auto call = std::make_unique<AsyncCall>(options, listener);
+    LISTENER_NOT_OK(listener, internal::ToProto(action, &call->pb_request));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+    stub_->experimental_async()->DoAction(&call->rpc.context, &call->pb_request,
+                                          call.get());
+    ClientTransport::SetAsyncRpc(listener, std::move(call));
+    static_cast<AsyncCall*>(ClientTransport::GetAsyncRpc(listener))->Start();
+  }
+
   Status ListActions(const FlightCallOptions& options,
                      std::vector<ActionType>* types) override {
     pb::Empty empty;
@@ -817,6 +1251,20 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+  void GetFlightInfo(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                     AsyncListener<FlightInfo>* listener) override {
+    using AsyncCall =
+        UnaryUnaryAsyncCall<FlightInfo, pb::FlightDescriptor, pb::FlightInfo>;
+    auto call = std::make_unique<AsyncCall>(options, listener);
+    LISTENER_NOT_OK(listener, internal::ToProto(descriptor, &call->pb_request));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+
+    stub_->experimental_async()->GetFlightInfo(&call->rpc.context, &call->pb_request,
+                                               &call->pb_response, call.get());
+    ClientTransport::SetAsyncRpc(listener, std::move(call));
+    static_cast<AsyncCall*>(ClientTransport::GetAsyncRpc(listener))->StartCall();
+  }
+
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options, const FlightDescriptor& descriptor) override {
     pb::FlightDescriptor pb_descriptor;
@@ -848,6 +1296,17 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+  void DoGet(const FlightCallOptions& options, const Ticket& ticket,
+             IpcListener* listener) override {
+    using AsyncCall = UnaryStreamIpcCall<pb::Ticket>;
+    auto call = std::make_unique<AsyncCall>(options, listener);
+    LISTENER_NOT_OK(listener, internal::ToProto(ticket, &call->pb_request));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+    stub_->experimental_async()->DoGet(&call->rpc.context, &call->pb_request, call.get());
+    ClientTransport::SetAsyncRpc(listener, std::move(call));
+    static_cast<AsyncCall*>(ClientTransport::GetAsyncRpc(listener))->Start();
+  }
+
   Status DoPut(const FlightCallOptions& options,
                std::unique_ptr<internal::ClientDataStream>* out) override {
     using GrpcStream = ::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>;
@@ -857,6 +1316,14 @@ class GrpcClientImpl : public internal::ClientTransport {
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
     *out = std::make_unique<GrpcClientPutStream>(std::move(rpc), std::move(stream));
     return Status::OK();
+  }
+
+  void DoPut(const FlightCallOptions& options, IpcPutter* listener) override {
+    auto call = std::make_unique<PutCall>(options, listener);
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+    stub_->experimental_async()->DoPut(&call->rpc.context, call.get());
+    ClientTransport::SetAsyncRpc(listener, std::move(call));
+    static_cast<PutCall*>(ClientTransport::GetAsyncRpc(listener))->Start();
   }
 
   Status DoExchange(const FlightCallOptions& options,

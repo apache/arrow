@@ -39,6 +39,7 @@
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/grpc_client.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 
 namespace arrow {
 
@@ -564,6 +565,16 @@ arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
   return results;
 }
 
+void FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
+                            AsyncListener<Result>* listener) {
+  if (auto status = CheckOpen(); !status.ok()) {
+    listener->OnFinish(
+        TransportStatus{TransportStatusCode::kInternal, status.ToString()});
+    return;
+  }
+  transport_->DoAction(options, action, listener);
+}
+
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
   return DoAction(options, action).Value(results);
@@ -620,6 +631,17 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
   return GetFlightInfo(options, descriptor).Value(info);
 }
 
+void FlightClient::GetFlightInfo(const FlightCallOptions& options,
+                                 const FlightDescriptor& descriptor,
+                                 AsyncListener<FlightInfo>* listener) {
+  if (auto status = CheckOpen(); !status.ok()) {
+    listener->OnFinish(
+        TransportStatus{TransportStatusCode::kInternal, status.ToString()});
+    return;
+  }
+  transport_->GetFlightInfo(options, descriptor, listener);
+}
+
 arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
@@ -668,6 +690,16 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   return stream_reader;
 }
 
+void FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
+                         IpcListener* listener) {
+  if (auto status = CheckOpen(); !status.ok()) {
+    listener->OnFinish(
+        TransportStatus{TransportStatusCode::kInternal, status.ToString()});
+    return;
+  }
+  transport_->DoGet(options, ticket, listener);
+}
+
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
   return DoGet(options, ticket).Value(stream);
@@ -687,6 +719,15 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
       descriptor);
   RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
   return result;
+}
+
+void FlightClient::DoPut(const FlightCallOptions& options, IpcPutter* listener) {
+  if (auto status = CheckOpen(); !status.ok()) {
+    listener->OnFinish(
+        TransportStatus{TransportStatusCode::kInternal, status.ToString()});
+    return;
+  }
+  transport_->DoPut(options, listener);
 }
 
 Status FlightClient::DoPut(const FlightCallOptions& options,
