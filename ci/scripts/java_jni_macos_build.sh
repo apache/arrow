@@ -33,7 +33,6 @@ install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FILESYSTEM:=ON}
-: ${ARROW_GANDIVA_JAVA:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
@@ -65,7 +64,6 @@ cmake \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
-  -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
   -DARROW_JNI=ON \
   -DARROW_ORC=${ARROW_ORC} \
@@ -117,7 +115,6 @@ fi
 echo "=== Copying libraries to the distribution folder ==="
 mkdir -p "${dist_dir}"
 cp -L ${install_dir}/lib/libarrow_orc_jni.dylib ${dist_dir}
-cp -L ${install_dir}/lib/libgandiva_jni.dylib ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="

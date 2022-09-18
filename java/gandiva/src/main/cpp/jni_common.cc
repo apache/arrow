@@ -28,19 +28,19 @@
 #include <arrow/builder.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
+#include <gandiva/configuration.h>
+#include <gandiva/decimal_scalar.h>
+#include <gandiva/filter.h>
+#include <gandiva/projector.h>
+#include <gandiva/selection_vector.h>
+#include <gandiva/tree_expr_builder.h>
 
 #include "Types.pb.h"
-#include "gandiva/configuration.h"
-#include "gandiva/decimal_scalar.h"
-#include "gandiva/filter.h"
-#include "gandiva/jni/config_holder.h"
-#include "gandiva/jni/env_helper.h"
-#include "gandiva/jni/id_to_module_map.h"
-#include "gandiva/jni/module_holder.h"
-#include "gandiva/projector.h"
-#include "gandiva/selection_vector.h"
-#include "gandiva/tree_expr_builder.h"
-#include "jni/org_apache_arrow_gandiva_evaluator_JniWrapper.h"
+#include "config_holder.h"
+#include "env_helper.h"
+#include "id_to_module_map.h"
+#include "module_holder.h"
+#include "org_apache_arrow_gandiva_evaluator_JniWrapper.h"
 
 using gandiva::ConditionPtr;
 using gandiva::DataTypePtr;

@@ -73,7 +73,6 @@ ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
-    ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
     ARROW_JAVA_CDATA=ON \

@@ -38,8 +38,7 @@ RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
 # For ci/scripts/{cpp,java}_*.sh
-ENV ARROW_GANDIVA_JAVA=ON \
-    ARROW_HOME=/tmp/local \
+ENV ARROW_HOME=/tmp/local \
     ARROW_JAVA_CDATA=ON \
     ARROW_JNI=ON \
     ARROW_PLASMA=ON \
