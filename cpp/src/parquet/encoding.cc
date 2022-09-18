@@ -2366,24 +2366,18 @@ class RleBooleanDecoder : public DecoderImpl,  virtual public BooleanDecoder {
 
     void SetData(int num_values, const uint8_t* data, int len) override {
       num_values_ = num_values;
-      int32_t num_bytes = 0;
+      uint32_t num_bytes = 0;
 
       if (len < 4) {
-        throw ParquetException("Received invalid length (corrupt data page?)");
+        throw ParquetException("Received invalid length : " + std::to_string(len) + " (corrupt data page?)");
       }
-      // Load the first 4 bytes, which indicates the legnth
-      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
-      if (num_bytes < 0 || num_bytes > len - 4) {
-        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
+      // Load the first 4 bytes in little-endian, which indicates the length
+      num_bytes = ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
+      if (num_bytes < 0 || num_bytes > (uint32_t)(len - 4)) {
+        throw ParquetException("Received invalid number of bytes : " + std::to_string(num_bytes) + " (corrupt data page?)");
       }
 
       const uint8_t* decoder_data = data + 4;
-      if (len == 0) {
-        // Initialize dummy decoder to avoid crashes later on
-        decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes, /*bit_width=*/1);
-        return;
-      }
-
       decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes, /*bit_width=*/1);
     }
 
@@ -2843,7 +2837,7 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     if (type_num == Type::BOOLEAN) {
       return std::unique_ptr<Decoder>(new RleBooleanDecoder(descr));
     }
-    throw ParquetException("RLE encoding only supports BINARY");
+    throw ParquetException("RLE encoding only supports BOOLEAN");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }
