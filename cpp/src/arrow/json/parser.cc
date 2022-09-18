@@ -346,11 +346,13 @@ class RawArrayBuilder<Kind::kObject> {
   }
 
   int AddField(std::string name, BuilderPtr builder) {
-    auto name_ptr = make_unique<std::string>(std::move(name));
-    auto result = name_to_index_.emplace(*name_ptr, num_fields());
+    FieldInfo info;
+    info.name = arrow::internal::make_unique<std::string>(std::move(name));
+    info.builder = builder;
+    auto result = name_to_index_.emplace(*info.name, num_fields());
     // Only append the field if a new insertion happened
     if (ARROW_PREDICT_TRUE(result.second)) {
-      field_infos_.push_back({std::move(name_ptr), builder});
+      field_infos_.push_back(std::move(info));
     }
     return result.first->second;
   }
