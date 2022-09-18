@@ -42,7 +42,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 
@@ -83,6 +85,43 @@ int64_t GetFilterOutputSize(const ArraySpan& filter,
   } else {
     // The filter has no nulls, so we can use CountSetBits
     output_size = CountSetBits(filter.buffers[1].data, filter.offset, filter.length);
+  }
+  return output_size;
+}
+
+int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
+                               FilterOptions::NullSelectionBehavior null_selection) {
+  int64_t output_size = 0;
+
+  const ArraySpan& filter_data = filter.child_data[0];
+  const uint8_t* filter_is_valid = filter_data.buffers[0].data;
+  const uint8_t* filter_selection = filter_data.buffers[1].data;
+
+  if (filter_is_valid == NULLPTR) {
+    rle_util::VisitMergedRuns(values, filter,
+                              [&](int64_t, int64_t, int64_t filter_index) {
+                                if (bit_util::GetBit(filter_selection, filter_index)) {
+                                  output_size++;
+                                }
+                              });
+  } else {  // filter has validity bitmap
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      rle_util::VisitMergedRuns(values, filter,
+                                [&](int64_t, int64_t, int64_t filter_index) {
+                                  if (!bit_util::GetBit(filter_is_valid, filter_index) ||
+                                      bit_util::GetBit(filter_selection, filter_index)) {
+                                    output_size++;
+                                  }
+                                });
+    } else {
+      rle_util::VisitMergedRuns(values, filter,
+                                [&](int64_t, int64_t, int64_t filter_index) {
+                                  if (bit_util::GetBit(filter_is_valid, filter_index) &&
+                                      bit_util::GetBit(filter_selection, filter_index)) {
+                                    output_size++;
+                                  }
+                                });
+    }
   }
   return output_size;
 }
@@ -254,6 +293,33 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
   } else {
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(length * bit_width / 8));
   }
+  return Status::OK();
+}
+
+Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
+                          bool allocate_validity, ArrayData* out) {
+  // Preallocate memory
+  out->buffers.resize(1);
+  out->child_data.resize(1);
+
+  auto child = std::make_shared<ArrayData>(
+      checked_cast<RunLengthEncodedType&>(*out->type).encoded_type(), physical_length);
+  child->buffers.resize(2);
+  // child.length = physical_length;
+
+  ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                        ctx->Allocate(physical_length * sizeof(int64_t)));
+
+  if (allocate_validity) {
+    ARROW_ASSIGN_OR_RAISE(child->buffers[0], ctx->AllocateBitmap(physical_length));
+  }
+  if (bit_width == 1) {
+    ARROW_ASSIGN_OR_RAISE(child->buffers[1], ctx->AllocateBitmap(physical_length));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(child->buffers[1],
+                          ctx->Allocate(physical_length * bit_width / 8));
+  }
+  out->child_data[0] = std::move(child);
   return Status::OK();
 }
 
@@ -837,6 +903,222 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
+  }
+  return Status::OK();
+}
+
+/// \brief The Filter implementation for primitive (fixed-width) types does not
+/// use the logical Arrow type but rather the physical C type. This way we only
+/// generate one take function for each byte width. We use the same
+/// implementation here for boolean and fixed-byte-size inputs with some
+/// template specialization.
+template <typename ArrowType>
+class RLEPrimitiveFilterImpl {
+ public:
+  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
+                                      uint8_t, typename ArrowType::c_type>::type;
+
+  RLEPrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
+                         FilterOptions::NullSelectionBehavior null_selection,
+                         ArrayData* out_arr)
+      : values_{values},
+        values_is_valid_(values.child_data[0].buffers[0].data),
+        values_data_(reinterpret_cast<const T*>(values.child_data[0].buffers[1].data)),
+        filter_{filter},
+        filter_is_valid_(filter.child_data[0].buffers[0].data),
+        filter_data_(filter.child_data[0].buffers[1].data),
+        null_selection_(null_selection),
+        out_logical_length_(out_arr->length) {
+    if (out_arr->child_data[0]->buffers[0] != nullptr) {
+      // May not be allocated if neither filter nor values contains nulls
+      out_is_valid_ = out_arr->child_data[0]->buffers[0]->mutable_data();
+    }
+    assert(out_arr->offset == 0);
+    out_position_ = 0;
+    out_run_length_ = out_arr->GetMutableValues<int64_t>(0, 0);
+    out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
+  }
+
+  void Exec() {
+    auto WriteNotNull = [&](int64_t in_position, int64_t run_length) {
+      bit_util::SetBit(out_is_valid_, out_position_);
+      out_run_length_[out_position_] = run_length;
+      // Increments out_position_
+      WriteValue(in_position, run_length);
+    };
+
+    auto WriteMaybeNull = [&](int64_t in_position, int64_t run_length) {
+      bit_util::SetBitTo(out_is_valid_, out_position_,
+                         bit_util::GetBit(values_is_valid_, in_position));
+      out_run_length_[out_position_] = run_length;
+      // Increments out_position_
+      WriteValue(in_position, run_length);
+    };
+
+    int64_t accumulated_run_length = 0;
+    if (values_is_valid_ == NULLPTR) {
+      if (filter_is_valid_ == NULLPTR) {
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteValue(value_index, accumulated_run_length);
+              }
+            });
+      } else if (null_selection_ == FilterOptions::DROP) {
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_is_valid_, filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteValue(value_index, accumulated_run_length);
+              }
+            });
+      } else {  // null_selection == FilterOptions::EMIT_NULL
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              const bool is_valid = bit_util::GetBit(filter_is_valid_, filter_index);
+              if (is_valid && bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteNotNull(value_index, accumulated_run_length);
+              }
+              if (!is_valid) {
+                accumulated_run_length += run_length;
+                bit_util::ClearBit(out_is_valid_, out_position_);
+                WriteNull(accumulated_run_length);
+              }
+            });
+      }
+    } else {  // values_is_valid_ exists. Input may have nulls
+      if (filter_is_valid_ == NULLPTR) {
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+            });
+      } else if (null_selection_ == FilterOptions::DROP) {
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_is_valid_, filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+            });
+      } else {  // null_selection == FilterOptions::EMIT_NULL
+        rle_util::VisitMergedRuns(
+            values_, filter_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              const bool is_valid = bit_util::GetBit(filter_is_valid_, filter_index);
+              if (is_valid && bit_util::GetBit(filter_data_, filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+              if (!is_valid) {
+                accumulated_run_length += run_length;
+                bit_util::ClearBit(out_is_valid_, out_position_);
+                WriteNull(accumulated_run_length);
+              }
+            });
+      }
+    }
+    out_logical_length_ = accumulated_run_length;
+  }
+
+  // Write the next out_position given the selected in_position for the input
+  // data and advance out_position
+  void WriteValue(int64_t in_position, int64_t run_length) {
+    out_run_length_[out_position_] = run_length;
+    out_data_[out_position_++] = values_data_[in_position];
+  }
+
+  void WriteNull(int64_t run_length) {
+    // Zero the memory
+    out_run_length_[out_position_] = run_length;
+    out_data_[out_position_++] = T{};
+  }
+
+ private:
+  const ArraySpan& values_;
+  const uint8_t* values_is_valid_;
+  const T* values_data_;
+  const ArraySpan& filter_;
+  const uint8_t* filter_is_valid_;
+  const uint8_t* filter_data_;
+  FilterOptions::NullSelectionBehavior null_selection_;
+  uint8_t* out_is_valid_;
+  int64_t* out_run_length_;
+  T* out_data_;
+  int64_t& out_logical_length_;
+  int64_t out_position_;
+};
+
+template <>
+inline void RLEPrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position,
+                                                            int64_t run_length) {
+  out_run_length_[out_position_] = run_length;
+  bit_util::SetBitTo(out_data_, out_position_++,
+                     bit_util::GetBit(values_data_, in_position));
+}
+
+template <>
+inline void RLEPrimitiveFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
+  out_run_length_[out_position_] = run_length;
+  // Zero the bit
+  bit_util::ClearBit(out_data_, out_position_++);
+}
+
+Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+  auto values = span.values[0].array;
+  auto filter = span.values[1].array;
+  FilterOptions::NullSelectionBehavior null_selection =
+      FilterState::Get(ctx).null_selection_behavior;
+
+  int64_t output_length = GetFilterOutputSizeRLE(values, filter, null_selection);
+
+  ArrayData* out_arr = result->array_data().get();
+
+  // The output precomputed null count is unknown except in the narrow
+  // condition that all the values are non-null and the filter will not cause
+  // any new nulls to be created.
+  if (!values.MayHaveNulls() &&
+      (null_selection == FilterOptions::DROP || !filter.MayHaveNulls())) {
+    out_arr->null_count = 0;
+  } else {
+    out_arr->null_count = kUnknownNullCount;
+  }
+
+  const int bit_width =
+      checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
+  RETURN_NOT_OK(PreallocateDataRLE(ctx, output_length, bit_width,
+                                   out_arr->null_count != 0, out_arr));
+
+  switch (bit_width) {
+    case 1:
+      RLEPrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 8:
+      RLEPrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 16:
+      RLEPrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 32:
+      RLEPrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 64:
+      RLEPrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    default:
+      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") +
+                                    std::to_string(bit_width));
   }
   return Status::OK();
 }
@@ -1968,7 +2250,13 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    if (args[1].type()->id() != Type::BOOL) {
+    auto& filter_type = *args[1].type();
+    const bool filter_is_plain = args[1].type()->id() == Type::BOOL;
+    const bool filter_is_rle =
+        args[1].type()->id() == Type::RUN_LENGTH_ENCODED &&
+        checked_cast<arrow::RunLengthEncodedType&>(filter_type).encoded_type()->id() ==
+            Type::BOOL;
+    if (!filter_is_plain && !filter_is_rle) {
       return Status::NotImplemented("Filter argument must be boolean type");
     }
 
@@ -2336,20 +2624,22 @@ Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 }
 
 struct SelectionKernelData {
-  InputType input;
+  InputType value_type;
+  InputType selection_type;
   ArrayKernelExec exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
-                               VectorKernel base_kernel, InputType selection_type,
+                               VectorKernel base_kernel,
                                const std::vector<SelectionKernelData>& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
   auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
                                                default_options);
   for (auto& kernel_data : kernels) {
-    base_kernel.signature =
-        KernelSignature::Make({std::move(kernel_data.input), selection_type}, FirstType);
+    base_kernel.signature = KernelSignature::Make(
+        {std::move(kernel_data.value_type), std::move(kernel_data.selection_type)},
+        OutputType(FirstType));
     base_kernel.exec = kernel_data.exec;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
@@ -2473,57 +2763,60 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
 void RegisterVectorSelection(FunctionRegistry* registry) {
   // Filter kernels
   std::vector<SelectionKernelData> filter_kernels = {
-      {InputType(match::Primitive()), PrimitiveFilter},
-      {InputType(match::BinaryLike()), BinaryFilter},
-      {InputType(match::LargeBinaryLike()), BinaryFilter},
-      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
-      {InputType(null()), NullFilter},
-      {InputType(Type::DECIMAL128), FilterExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), FilterExec<FSBImpl>},
-      {InputType(Type::DICTIONARY), DictionaryFilter},
-      {InputType(Type::EXTENSION), ExtensionFilter},
-      {InputType(Type::LIST), FilterExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), StructFilter},
+      {InputType(match::Primitive()), InputType(Type::BOOL), PrimitiveFilter},
+      {InputType(match::BinaryLike()), InputType(Type::BOOL), BinaryFilter},
+      {InputType(match::LargeBinaryLike()), InputType(Type::BOOL), BinaryFilter},
+      {InputType(Type::FIXED_SIZE_BINARY), InputType(Type::BOOL), FilterExec<FSBImpl>},
+      {InputType(null()), InputType(Type::BOOL), NullFilter},
+      {InputType(Type::DECIMAL128), InputType(Type::BOOL), FilterExec<FSBImpl>},
+      {InputType(Type::DECIMAL256), InputType(Type::BOOL), FilterExec<FSBImpl>},
+      {InputType(Type::DICTIONARY), InputType(Type::BOOL), DictionaryFilter},
+      {InputType(Type::EXTENSION), InputType(Type::BOOL), ExtensionFilter},
+      {InputType(Type::LIST), InputType(Type::BOOL), FilterExec<ListImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), InputType(Type::BOOL),
+       FilterExec<ListImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), InputType(Type::BOOL), FilterExec<FSLImpl>},
+      {InputType(Type::DENSE_UNION), InputType(Type::BOOL), FilterExec<DenseUnionImpl>},
+      {InputType(Type::STRUCT), InputType(Type::BOOL), StructFilter},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), FilterExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), InputType(Type::BOOL), FilterExec<ListImpl<MapType>>},
+      {InputType(match::RunLengthEncoded(match::Primitive())),
+       InputType(run_length_encoded(boolean())), RLEPrimitiveFilter},
   };
 
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
-  RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
-                            /*selection_type=*/boolean(), filter_kernels,
+  RegisterSelectionFunction("array_filter", array_filter_doc, filter_base, filter_kernels,
                             GetDefaultFilterOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
   // Take kernels
   std::vector<SelectionKernelData> take_kernels = {
-      {InputType(match::Primitive()), PrimitiveTake},
-      {InputType(match::BinaryLike()), TakeExec<VarBinaryImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike()), TakeExec<VarBinaryImpl<LargeBinaryType>>},
-      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
-      {InputType(null()), NullTake},
-      {InputType(Type::DECIMAL128), TakeExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), TakeExec<FSBImpl>},
-      {InputType(Type::DICTIONARY), DictionaryTake},
-      {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), TakeExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), TakeExec<StructImpl>},
+      {InputType(match::Primitive()), match::Integer(), PrimitiveTake},
+      {InputType(match::BinaryLike()), match::Integer(),
+       TakeExec<VarBinaryImpl<BinaryType>>},
+      {InputType(match::LargeBinaryLike()), match::Integer(),
+       TakeExec<VarBinaryImpl<LargeBinaryType>>},
+      {InputType(Type::FIXED_SIZE_BINARY), match::Integer(), TakeExec<FSBImpl>},
+      {InputType(null()), match::Integer(), NullTake},
+      {InputType(Type::DECIMAL128), match::Integer(), TakeExec<FSBImpl>},
+      {InputType(Type::DECIMAL256), match::Integer(), TakeExec<FSBImpl>},
+      {InputType(Type::DICTIONARY), match::Integer(), DictionaryTake},
+      {InputType(Type::EXTENSION), match::Integer(), ExtensionTake},
+      {InputType(Type::LIST), match::Integer(), TakeExec<ListImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), match::Integer(), TakeExec<ListImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), match::Integer(), TakeExec<FSLImpl>},
+      {InputType(Type::DENSE_UNION), match::Integer(), TakeExec<DenseUnionImpl>},
+      {InputType(Type::STRUCT), match::Integer(), TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), TakeExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), match::Integer(), TakeExec<ListImpl<MapType>>},
   };
 
   VectorKernel take_base;
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
-  RegisterSelectionFunction("array_take", array_take_doc, take_base,
-                            /*selection_type=*/match::Integer(), take_kernels,
+  RegisterSelectionFunction("array_take", array_take_doc, take_base, take_kernels,
                             GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));

@@ -165,6 +165,8 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
+static auto kRunLengthEncodeOptionsType =
+    GetFunctionOptionsType<RunLengthEncodeOptions>();
 }  // namespace
 }  // namespace internal
 
@@ -226,6 +228,10 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
+RunLengthEncodeOptions::RunLengthEncodeOptions()
+    : FunctionOptions(internal::kRunLengthEncodeOptionsType) {}
+constexpr char RunLengthEncodeOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -237,6 +243,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunLengthEncodeOptionsType));
 }
 }  // namespace internal
 
@@ -325,6 +332,15 @@ Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
 Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions& options,
                                ExecContext* ctx) {
   return CallFunction("dictionary_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx) {
+  RunLengthEncodeOptions options{};
+  return CallFunction("run_length_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunLengthDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("run_length_decode", {value}, ctx);
 }
 
 const char kValuesFieldName[] = "values";

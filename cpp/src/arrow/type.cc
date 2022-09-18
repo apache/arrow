@@ -715,6 +715,15 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 }
 
 // ----------------------------------------------------------------------
+// Run-length encoded type
+
+std::string RunLengthEncodedType::ToString() const {
+  std::stringstream s;
+  s << name() << "<" << encoded_type()->ToString() << ">";
+  return s.str();
+}
+
+// ----------------------------------------------------------------------
 // Struct type
 
 namespace {
@@ -2137,6 +2146,14 @@ std::string UnionType::ComputeFingerprint() const {
   return ss.str();
 }
 
+std::string RunLengthEncodedType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "{";
+  ss << encoded_type()->fingerprint();
+  ss << "}";
+  return ss.str();
+}
+
 std::string TimeType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this) << TimeUnitFingerprint(unit_);
@@ -2271,6 +2288,10 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
   return std::make_shared<StructType>(fields);
+}
+
+std::shared_ptr<DataType> run_length_encoded(std::shared_ptr<DataType> encoded_type) {
+  return std::make_shared<RunLengthEncodedType>(std::move(encoded_type));
 }
 
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,

@@ -121,6 +121,7 @@ Result<std::shared_ptr<ArrayData>> ArrayData::SliceSafe(int64_t off, int64_t len
 int64_t ArrayData::GetNullCount() const {
   int64_t precomputed = this->null_count.load();
   if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
+    assert(type->id() != Type::RUN_LENGTH_ENCODED);  // TODO: implement for RLE
     if (this->buffers[0]) {
       precomputed = this->length -
                     CountSetBits(this->buffers[0]->data(), this->offset, this->length);
@@ -130,6 +131,16 @@ int64_t ArrayData::GetNullCount() const {
     this->null_count.store(precomputed);
   }
   return precomputed;
+}
+
+bool ArrayData::MayHaveNulls() const {
+  if (type->id() == Type::RUN_LENGTH_ENCODED) {
+    return child_data[0]->MayHaveNulls();
+  } else {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count.load() != 0 && buffers[0] != NULLPTR;
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -195,6 +206,7 @@ int GetNumBuffers(const DataType& type) {
     case Type::NA:
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
+    case Type::RUN_LENGTH_ENCODED:
       return 1;
     case Type::BINARY:
     case Type::LARGE_BINARY:
@@ -317,6 +329,8 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     } else if (type_id == Type::LARGE_LIST) {
       SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
                                    value_length);
+    } else if (type_id == Type::RUN_LENGTH_ENCODED) {
+      assert(false);  // TODO: implement for RLE
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -382,6 +396,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 int64_t ArraySpan::GetNullCount() const {
   int64_t precomputed = this->null_count;
   if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
+    assert(type->id() != Type::RUN_LENGTH_ENCODED);  // TODO: implement for RLE
     if (this->buffers[0].data != nullptr) {
       precomputed =
           this->length - CountSetBits(this->buffers[0].data, this->offset, this->length);
@@ -391,6 +406,16 @@ int64_t ArraySpan::GetNullCount() const {
     this->null_count = precomputed;
   }
   return precomputed;
+}
+
+bool ArraySpan::MayHaveNulls() const {
+  if (type->id() == Type::RUN_LENGTH_ENCODED) {
+    return child_data[0].MayHaveNulls();
+  } else {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count != 0 && buffers[0].data != NULLPTR;
+  }
 }
 
 int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }

@@ -1196,6 +1196,39 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
+/// \brief Type class for run-length encoded data
+class ARROW_EXPORT EncodingType {
+ public:
+  EncodingType(std::shared_ptr<DataType> encoded_type) : encoded_type_{encoded_type} {}
+
+  const std::shared_ptr<DataType>& encoded_type() const { return encoded_type_; }
+
+ private:
+  std::shared_ptr<DataType> encoded_type_;
+};
+
+/// \brief Type class for run-length encoded data
+class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType {
+ public:
+  static constexpr Type::type type_id = Type::RUN_LENGTH_ENCODED;
+
+  static constexpr const char* type_name() { return "run_length_encoded"; }
+
+  RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
+      : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::FixedWidth(sizeof(uint64_t))});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "run_length_encoded"; }
+
+ private:
+  std::string ComputeFingerprint() const override;
+};
+
 /// @}
 
 // ----------------------------------------------------------------------

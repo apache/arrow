@@ -211,6 +211,13 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
+class ARROW_EXPORT RunLengthEncodeOptions : public FunctionOptions {
+ public:
+  explicit RunLengthEncodeOptions();
+  static constexpr char const kTypeName[] = "RunLengthEncodeOptions";
+  static RunLengthEncodeOptions Defaults() { return RunLengthEncodeOptions(); }
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
@@ -579,6 +586,26 @@ Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
+
+/// \brief Run-Length-encode values in an array-like object
+/// \param[in] value array-like input
+/// \param[in] ctx the function execution context, optional
+/// \return result with same shape and type as input
+///
+/// \since 9.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Decode a Run-Length-encoded array to a plain array
+/// \param[in] value run-length-encoded input
+/// \param[in] ctx the function execution context, optional
+/// \return result with same shape and type as input
+///
+/// \since 9.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> RunLengthDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 
 ARROW_EXPORT
 Result<Datum> CumulativeSum(

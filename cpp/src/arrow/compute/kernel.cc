@@ -275,6 +275,41 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
   return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
 
+class RunLengthEncodedMatcher : public TypeMatcher {
+ public:
+  RunLengthEncodedMatcher(std::shared_ptr<TypeMatcher> encoded_type_matcher)
+      : encoded_type_matcher{std::move(encoded_type_matcher)} {}
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() == Type::RUN_LENGTH_ENCODED) {
+      auto& encoding_type = dynamic_cast<const EncodingType&>(type);
+      return encoded_type_matcher->Matches(*encoding_type.encoded_type());
+    } else {
+      return false;
+    }
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const RunLengthEncodedMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override {
+    return "run_length_encoded(" + encoded_type_matcher->ToString() + ")";
+  };
+
+ private:
+  std::shared_ptr<TypeMatcher> encoded_type_matcher;
+};
+
+std::shared_ptr<TypeMatcher> RunLengthEncoded(
+    std::shared_ptr<TypeMatcher> encoded_type_matcher) {
+  return std::make_shared<RunLengthEncodedMatcher>(std::move(encoded_type_matcher));
+}
+
 }  // namespace match
 
 // ----------------------------------------------------------------------

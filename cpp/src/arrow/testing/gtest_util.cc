@@ -102,7 +102,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::SPARSE_UNION,
           Type::DICTIONARY,
           Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
+          Type::INTERVAL_MONTH_DAY_NANO,
+          Type::RUN_LENGTH_ENCODED};
 }
 
 template <typename T, typename CompareFunctor>

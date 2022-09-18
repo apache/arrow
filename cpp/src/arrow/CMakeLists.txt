@@ -216,6 +216,7 @@ set(ARROW_SRCS
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc
+    util/rle_util.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
@@ -446,6 +447,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_run_length_encode.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/row/encode_internal.cc

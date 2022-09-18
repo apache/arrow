@@ -54,6 +54,7 @@ add_arrow_compute_test(vector_test
                        vector_replace_test.cc
                        vector_selection_test.cc
                        vector_sort_test.cc
+                       vector_run_length_encode_test.cc
                        select_k_test.cc
                        test_util.cc)
 
@@ -63,6 +64,7 @@ add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_rle_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
