@@ -1023,12 +1023,6 @@ if(ARROW_PARQUET)
   endif()
 endif()
 
-if(ARROW_JNI)
-  if(ARROW_ORC)
-    add_subdirectory(../java/adapter/orc/src/main/cpp ./java/orc/jni)
-  endif()
-endif()
-
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()

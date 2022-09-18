@@ -87,4 +87,4 @@ if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   )
 endif()
 
-install(TARGETS arrow_java_jni_gandiva DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS arrow_java_jni_gandiva DESTINATION ${CMAKE_INSTALL_LIBDIR})
