@@ -20,7 +20,7 @@
 #include <memory>
 #include <utility>
 
-#include "gandiva/arrow.h"
+#include <gandiva/arrow.h>
 
 namespace gandiva {
 

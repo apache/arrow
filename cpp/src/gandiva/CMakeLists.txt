@@ -247,9 +247,5 @@ add_gandiva_test(internals-test
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc)
 
-if(ARROW_GANDIVA_JAVA)
-  add_subdirectory(jni)
-endif()
-
 add_subdirectory(precompiled)
 add_subdirectory(tests)

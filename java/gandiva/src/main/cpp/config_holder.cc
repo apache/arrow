@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/jni/config_holder.h"
-
 #include <cstdint>
+
+#include "config_holder.h"
 
 namespace gandiva {
 int64_t ConfigHolder::config_id_ = 1;
