@@ -156,7 +156,8 @@ add_arrow_lib(gandiva
               ${GANDIVA_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static
-              LLVM::LLVM_HEADERS)
+              LLVM::LLVM_HEADERS
+              LLVM::LLVM_LIBS)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)

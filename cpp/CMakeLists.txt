@@ -273,10 +273,7 @@ set(COMMON_LINT_OPTIONS
     --source_dir
     ${CMAKE_CURRENT_SOURCE_DIR}/examples
     --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools
-    # TODO: Move to java/CMakeLists.txt or somewhere
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/../java)
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
 
 add_custom_target(lint
                   ${PYTHON_EXECUTABLE}
