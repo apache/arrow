@@ -113,7 +113,7 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs) {
 
 /// Execute the compiled module against the provided vectors.
 Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
-                              const ArrayDataVector& output_vector) {
+                              const ArrayDataVector& output_vector) const {
   return Execute(record_batch, nullptr, output_vector);
 }
 
@@ -121,7 +121,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
 /// selection vector.
 Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
                               const SelectionVector* selection_vector,
-                              const ArrayDataVector& output_vector) {
+                              const ArrayDataVector& output_vector) const {
   DCHECK_GT(record_batch.num_rows(), 0);
 
   auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
@@ -157,7 +157,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
         Status::ExecutionError(eval_batch->GetExecutionContext()->get_error()));
 
     // generate validity vectors.
-    ComputeBitMapsForExpr(*compiled_expr, *eval_batch, selection_vector);
+    ComputeBitMapsForExpr(*compiled_expr, selection_vector, eval_batch.get());
   }
 
   return Status::OK();
@@ -473,19 +473,19 @@ void LLVMGenerator::ClearPackedBitValueIfFalse(llvm::Value* bitmap, llvm::Value*
 
 /// Extract the bitmap addresses, and do an intersection.
 void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
-                                          const EvalBatch& eval_batch,
-                                          const SelectionVector* selection_vector) {
+                                          const SelectionVector* selection_vector,
+                                          EvalBatch* eval_batch) const {
   auto validities = compiled_expr.value_validity()->validity_exprs();
 
   // Extract all the source bitmap addresses.
-  BitMapAccumulator accumulator(eval_batch);
+  BitMapAccumulator accumulator(*eval_batch);
   for (auto& validity_dex : validities) {
     validity_dex->Accept(accumulator);
   }
 
   // Extract the destination bitmap address.
   int out_idx = compiled_expr.output()->validity_idx();
-  uint8_t* dst_bitmap = eval_batch.GetBuffer(out_idx);
+  uint8_t* dst_bitmap = eval_batch->GetBuffer(out_idx);
   // Compute the destination bitmap.
   if (selection_vector == nullptr) {
     accumulator.ComputeResult(dst_bitmap);
@@ -496,7 +496,7 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
     ///
     /// 1. Do the intersection of input/local bitmaps to generate a temporary bitmap.
     /// 2. copy just the relevant bits from the temporary bitmap to the output bitmap.
-    LocalBitMapsHolder bit_map_holder(eval_batch.num_records(), 1);
+    LocalBitMapsHolder bit_map_holder(eval_batch->num_records(), 1);
     uint8_t* temp_bitmap = bit_map_holder.GetLocalBitMap(0);
     accumulator.ComputeResult(temp_bitmap);
 
