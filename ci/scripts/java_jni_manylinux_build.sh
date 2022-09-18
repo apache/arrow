@@ -134,7 +134,6 @@ fi
 
 
 echo "=== Copying libraries to the distribution folder ==="
-cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="

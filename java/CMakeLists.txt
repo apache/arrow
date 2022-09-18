@@ -30,6 +30,9 @@ option(ARROW_JAVA_JNI_ENABLE_DEFAULT "Whether enable components by default or no
 option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 option(ARROW_JAVA_JNI_ENABLE_DATASET "Enable dataset" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 option(ARROW_JAVA_JNI_ENABLE_GANDIVA "Enable Gandiva" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
+option(ARROW_JAVA_JNI_ENABLE_ORC "Enable ORC" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
+
+include(GNUInstallDirs)
 
 # ccache
 option(ARROW_JAVA_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
@@ -73,4 +76,7 @@ if(ARROW_JAVA_JNI_ENABLE_DATASET)
 endif()
 if(ARROW_JAVA_JNI_ENABLE_GANDIVA)
   add_subdirectory(gandiva)
+endif()
+if(ARROW_JAVA_JNI_ENABLE_ORC)
+  add_subdirectory(adapter/orc)
 endif()

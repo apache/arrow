@@ -42,4 +42,4 @@ if(BUILD_TESTING)
   add_test(NAME arrow-java-jni-dataset-test COMMAND arrow-java-jni-dataset-test)
 endif()
 
-install(TARGETS arrow_java_jni_dataset DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(TARGETS arrow_java_jni_dataset DESTINATION ${CMAKE_INSTALL_LIBDIR})
