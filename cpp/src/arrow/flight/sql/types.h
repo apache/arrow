@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
