@@ -58,18 +58,15 @@ pushd "${build_dir}/cpp"
 cmake \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
-  -DARROW_BUILD_UTILITIES=OFF \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-  -DARROW_JNI=ON \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
-  -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DAWSSDK_SOURCE=BUNDLED \
@@ -112,12 +109,8 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   ccache -s
 fi
 
-echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${build_dir}/cpp/*/libplasma_java.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
-
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow CoreFoundation \

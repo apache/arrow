@@ -269,8 +269,6 @@ takes precedence over ccache if a storage backend is configured" ON)
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
   endif()
 
-  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
-
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
@@ -280,8 +278,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
-  define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
 
   define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
 

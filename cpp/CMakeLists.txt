@@ -425,10 +425,6 @@ if(MSVC_TOOLCHAIN)
   set(ARROW_USE_GLOG OFF)
 endif()
 
-if(ARROW_JNI)
-  set(ARROW_BUILD_STATIC ON)
-endif()
-
 if(ARROW_ORC)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
