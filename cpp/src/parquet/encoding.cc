@@ -2358,72 +2358,75 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 // ----------------------------------------------------------------------
 // RLE_BOOLEAN_DECODER
 
-class RleBooleanDecoder : public DecoderImpl,  virtual public BooleanDecoder {
+class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
+ public:
+  explicit RleBooleanDecoder(const ColumnDescriptor* descr)
+      : DecoderImpl(descr, Encoding::RLE) {}
 
-  public:
-    explicit RleBooleanDecoder(const ColumnDescriptor* descr)
-            :DecoderImpl(descr, Encoding::RLE) {}
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    num_values_ = num_values;
+    uint32_t num_bytes = 0;
 
-    void SetData(int num_values, const uint8_t* data, int len) override {
-      num_values_ = num_values;
-      uint32_t num_bytes = 0;
+    if (len < 4) {
+      throw ParquetException("Received invalid length : " + std::to_string(len) +
+                             " (corrupt data page?)");
+    }
+    // Load the first 4 bytes in little-endian, which indicates the length
+    num_bytes =
+        ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
+    if (num_bytes < 0 || num_bytes > (uint32_t)(len - 4)) {
+      throw ParquetException("Received invalid number of bytes : " +
+                             std::to_string(num_bytes) + " (corrupt data page?)");
+    }
 
-      if (len < 4) {
-        throw ParquetException("Received invalid length : " + std::to_string(len) + " (corrupt data page?)");
+    const uint8_t* decoder_data = data + 4;
+    decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
+                                                           /*bit_width=*/1);
+  }
+
+  int Decode(bool* buffer, int max_values) override {
+    max_values = std::min(max_values, num_values_);
+    int val = 0;
+
+    for (int i = 0; i < max_values; ++i) {
+      if (!decoder_->Get(&val)) {
+        throw ParquetException("Unable to parse bits (corrupt data page?)");
       }
-      // Load the first 4 bytes in little-endian, which indicates the length
-      num_bytes = ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
-      if (num_bytes < 0 || num_bytes > (uint32_t)(len - 4)) {
-        throw ParquetException("Received invalid number of bytes : " + std::to_string(num_bytes) + " (corrupt data page?)");
+      if (val) {
+        buffer[i] = true;
+      } else {
+        buffer[i] = false;
       }
+    }
+    num_values_ -= max_values;
+    return max_values;
+  }
 
-      const uint8_t* decoder_data = data + 4;
-      decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes, /*bit_width=*/1);
+  int Decode(uint8_t* buffer, int max_values) {
+    max_values = std::min(max_values, num_values_);
+    if (!decoder_->GetBatch(buffer, max_values)) {
+      ParquetException::EofException();
     }
 
-    int Decode(bool* buffer, int max_values) override {
-      max_values = std::min(max_values, num_values_);
-      int val =0;
+    num_values_ -= max_values;
+    return max_values;
+  }
 
-      for (int i = 0; i < max_values; ++i) {
-        if (!decoder_->Get(&val)) {
-          throw ParquetException("Unable to parse bits (corrupt data page?)");
-        }
-        if (val) {
-          buffer[i] = true;
-        } else {
-          buffer[i] = false;
-        }
-      }
-      num_values_ -= max_values;
-      return max_values;
-    }
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<BooleanType>::Accumulator* out) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
 
-    int Decode(uint8_t* buffer, int max_values) {
-      max_values = std::min(max_values, num_values_);
-      if (!decoder_->GetBatch(buffer, max_values)) {
-          ParquetException::EofException();
-      }
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<BooleanType>::DictAccumulator* builder) override {
+    ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
+  }
 
-      num_values_ -= max_values;
-      return max_values;
-    }
-
-    int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                    int64_t valid_bits_offset,
-                    typename EncodingTraits<BooleanType>::Accumulator* out) override {
-      ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
-    }
-
-    int DecodeArrow(
-        int num_values, int null_count, const uint8_t* valid_bits,
-        int64_t valid_bits_offset,
-        typename EncodingTraits<BooleanType>::DictAccumulator* builder) override {
-      ParquetException::NYI("DecodeArrow for RleBooleanDecoder");
-    }
-
-  private:
-    std::shared_ptr<::arrow::util::RleDecoder> decoder_;
+ private:
+  std::shared_ptr<::arrow::util::RleDecoder> decoder_;
 };
 
 // ----------------------------------------------------------------------

@@ -126,16 +126,15 @@ void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
   }
 }
 
-
 class TestBooleanRLE : public ::testing::Test {
-public:
+ public:
   void SetUp() {
     reader_ = ParquetFileReader::OpenFile(data_file("rle_boolean_encoding.parquet"));
   }
 
   void TearDown() {}
 
-protected:
+ protected:
   std::unique_ptr<ParquetFileReader> reader_;
 };
 
@@ -152,10 +151,10 @@ TEST_F(TestBooleanRLE, TestBooleanScanner) {
     ASSERT_TRUE(scanner->NextValue(&val, &is_null));
 
     // For this file, 3rd index value is null
-    if (i==2) {
-        ASSERT_TRUE(is_null);
+    if (i == 2) {
+      ASSERT_TRUE(is_null);
     } else {
-        ASSERT_FALSE(is_null);
+      ASSERT_FALSE(is_null);
     }
   }
 
@@ -181,8 +180,7 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   // Check if the column is encoded with RLE
   auto col_chunk = group->metadata()->ColumnChunk(0);
   ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(),
-                        Encoding::RLE) !=
-  col_chunk->encodings().end());
+                        Encoding::RLE) != col_chunk->encodings().end());
 
   // Assert column has values to be read
   ASSERT_TRUE(col->HasNext());
@@ -194,11 +192,12 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   bool values[batch_size];
 
   auto levels_read =
-          col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+      col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
   ASSERT_EQ(batch_size, levels_read);
 
-  // Since one value is a null value, expect batches read to be one less than indicated batch_size
-  ASSERT_EQ(batch_size-1, curr_batch_read);
+  // Since one value is a null value, expect batches read to be one less than indicated
+  // batch_size
+  ASSERT_EQ(batch_size - 1, curr_batch_read);
 
   // 3rd index is null value
   ASSERT_THAT(def_levels, testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1));
