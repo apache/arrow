@@ -328,7 +328,16 @@ class RawArrayBuilder<Kind::kObject> {
 
   Status AppendNull(int64_t count) { return null_bitmap_builder_.Append(count, false); }
 
-  int GetFieldIndex(const std::string& name) const {
+  int GetFieldIndex(string_view name) {
+    // Predict that the field is known and immediately follows the last one. Otherwise,
+    // fall back to the hash table lookup from now on
+    if (expect_index_ < num_fields() &&
+        ARROW_PREDICT_TRUE(name == field_name(expect_index_))) {
+      int index = expect_index_;
+      if (++expect_index_ == num_fields()) expect_index_ = 0;
+      return index;
+    }
+    expect_index_ = std::numeric_limits<int>::max();
     auto it = name_to_index_.find(name);
     if (it == name_to_index_.end()) {
       return -1;
@@ -337,18 +346,18 @@ class RawArrayBuilder<Kind::kObject> {
   }
 
   int AddField(std::string name, BuilderPtr builder) {
-    auto result = name_to_index_.emplace(std::move(name), num_fields());
-    const auto& kv = *result.first;
+    auto name_ptr = make_unique<std::string>(std::move(name));
+    auto result = name_to_index_.emplace(*name_ptr, num_fields());
     // Only append the field if a new insertion happened
     if (ARROW_PREDICT_TRUE(result.second)) {
-      field_infos_.push_back({kv.first, builder});
+      field_infos_.push_back({std::move(name_ptr), builder});
     }
-    return kv.second;
+    return result.first->second;
   }
 
   int num_fields() const { return static_cast<int>(field_infos_.size()); }
 
-  string_view field_name(int index) const { return field_infos_[index].name; }
+  const std::string& field_name(int index) const { return *field_infos_[index].name; }
 
   BuilderPtr field_builder(int index) const { return field_infos_[index].builder; }
 
@@ -370,8 +379,8 @@ class RawArrayBuilder<Kind::kObject> {
       std::shared_ptr<Array> field_values;
       RETURN_NOT_OK(finish_child(info.builder, &field_values));
       child_data[i] = field_values->data();
-      fields[i] = field(std::string(info.name), field_values->type(),
-                        info.builder.nullable, Kind::Tag(info.builder.kind));
+      fields[i] = field(*info.name, field_values->type(), info.builder.nullable,
+                        Kind::Tag(info.builder.kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -383,13 +392,14 @@ class RawArrayBuilder<Kind::kObject> {
 
  private:
   struct FieldInfo {
-    string_view name;  // Backed by key's allocation in name_to_index_
+    std::unique_ptr<std::string> name;
     BuilderPtr builder;
   };
 
   std::vector<FieldInfo> field_infos_;
-  std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_map<string_view, int> name_to_index_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
+  int expect_index_ = 0;
 };
 
 template <>
@@ -697,7 +707,7 @@ class HandlerBase : public BlockParser,
         if (i + 1 < field_index_stack_.size()) {
           field_index = field_index_stack_[i + 1];
         }
-        path += "/" + std::string(struct_builder->field_name(field_index));
+        path += "/" + struct_builder->field_name(field_index);
       }
     }
     return path;
@@ -776,16 +786,9 @@ class HandlerBase : public BlockParser,
   /// there is no field with that name
   bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
-    DCHECK(field_index_ >= -1 && field_index_ < parent->num_fields());
-    // Predict that this field is known and immediately follows the last one. Otherwise,
-    // fall back to the hash table lookup
-    ++field_index_;
-    if (ARROW_PREDICT_FALSE(field_index_ == parent->num_fields() ||
-                            key != parent->field_name(field_index_))) {
-      field_index_ = parent->GetFieldIndex(std::string(key));
-      if (field_index_ == -1) {
-        return false;
-      }
+    field_index_ = parent->GetFieldIndex(key);
+    if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
+      return false;
     }
     if (field_index_ < absent_fields_stack_.TopSize()) {
       *duplicate_keys = !absent_fields_stack_[field_index_];
