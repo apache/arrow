@@ -210,11 +210,13 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME)
+macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
+    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+    )
+    install(FILES "${module_}"
+            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
   unset(module_)
 endmacro()
@@ -283,7 +285,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME})
+    provide_find_module(${PACKAGE_NAME} "Arrow")
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})

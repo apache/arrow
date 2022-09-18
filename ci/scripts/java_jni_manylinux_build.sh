@@ -35,7 +35,6 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
-: ${ARROW_GANDIVA_JAVA:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
@@ -73,7 +72,6 @@ cmake \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
-  -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
@@ -137,7 +135,6 @@ fi
 
 echo "=== Copying libraries to the distribution folder ==="
 cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
-cp -L ${ARROW_HOME}/lib/libgandiva_jni.so ${dist_dir}
 cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="

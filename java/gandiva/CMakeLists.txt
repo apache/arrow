@@ -15,41 +15,76 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva_java)
+find_package(Gandiva REQUIRED)
 
-# Find java/jni
-include(FindJava)
-include(UseJava)
-include(FindJNI)
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
-message("generating headers to ${JNI_HEADERS_DIR}/jni")
+add_jar(arrow_java_jni_gandiva_jar
+        src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
+        src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
+        src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
+        src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
+        GENERATE_NATIVE_HEADERS
+        arrow_java_jni_gandiva_headers)
 
-# generate_native_headers is available only from java8
-# centos5 does not have java8 images, so supporting java 7 too.
-# unfortunately create_javah does not work in java8 correctly.
-if(ARROW_GANDIVA_JAVA7)
-  add_jar(gandiva_java
-          src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
-          src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
-          src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
-          src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java)
+set(GANDIVA_PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.cc"
+                               "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.h")
 
-  create_javah(TARGET gandiva_jni_headers
-               CLASSES org.apache.arrow.gandiva.evaluator.ConfigurationBuilder
-                       org.apache.arrow.gandiva.evaluator.JniWrapper
-                       org.apache.arrow.gandiva.evaluator.ExpressionRegistryJniHelper
-                       org.apache.arrow.gandiva.exceptions.GandivaException
-               DEPENDS gandiva_java
-               CLASSPATH gandiva_java
-               OUTPUT_DIR ${JNI_HEADERS_DIR}/jni)
-else()
-  add_jar(gandiva_java
-          src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
-          src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
-          src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
-          src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
-          GENERATE_NATIVE_HEADERS
-          gandiva_jni_headers
-          DESTINATION
-          ${JNI_HEADERS_DIR}/jni)
+set_source_files_properties(${GANDIVA_PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
+
+set(GANDIVA_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
+get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/Types.proto
+                       ABSOLUTE)
+
+find_package(Protobuf REQUIRED)
+if(MSVC)
+  add_definitions(-DPROTOBUF_USE_DLLS)
 endif()
+add_custom_command(OUTPUT ${GANDIVA_PROTO_OUTPUT_FILES}
+                   COMMAND protobuf::protoc --proto_path ${GANDIVA_PROTO_DIR} --cpp_out
+                           ${GANDIVA_PROTO_OUTPUT_DIR} ${GANDIVA_PROTO_FILE_ABSOLUTE}
+                   DEPENDS ${GANDIVA_PROTO_FILE_ABSOLUTE}
+                   COMMENT "Running Protobuf compiler on Types.proto"
+                   VERBATIM)
+
+add_custom_target(garrow_java_jni_gandiva_proto ALL DEPENDS ${GANDIVA_PROTO_OUTPUT_FILES})
+add_library(arrow_java_jni_gandiva SHARED
+            src/main/cpp/config_builder.cc
+            src/main/cpp/config_holder.cc
+            src/main/cpp/expression_registry_helper.cc
+            src/main/cpp/jni_common.cc
+            ${GANDIVA_PROTO_OUTPUT_FILES})
+set_property(TARGET arrow_java_jni_gandiva PROPERTY OUTPUT_NAME "gandiva_jni")
+target_link_libraries(arrow_java_jni_gandiva
+                      arrow_java_jni_gandiva_headers
+                      jni
+                      protobuf::libprotobuf
+                      Gandiva::gandiva_static)
+
+# Localize thirdparty symbols using a linker version script. This hides them
+# from the client application. The OS X linker does not support the
+# version-script option.
+if(CMAKE_VERSION VERSION_LESS 3.18)
+  if(APPLE OR WIN32)
+    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT FALSE)
+  else()
+    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT TRUE)
+  endif()
+else()
+  include(CheckLinkerFlag)
+  check_linker_flag(CXX
+                    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp/symbols.map"
+                    CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+endif()
+# filter out everything that is not needed for the jni bridge
+# statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+  set_target_properties(arrow_java_jni_gandiva
+                        PROPERTIES LINK_FLAGS
+                                   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp/symbols.map"
+  )
+endif()
+
+install(TARGETS arrow_java_jni_gandiva DESTINATION ${CMAKE_INSTALL_PREFIX})

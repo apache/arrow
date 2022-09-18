@@ -470,8 +470,6 @@ Always OFF if building binaries" OFF)
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
 
-  define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
-
   # ARROW-3860: Temporary workaround
   define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP
                 "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
