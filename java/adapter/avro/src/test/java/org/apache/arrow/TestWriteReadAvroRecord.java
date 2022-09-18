@@ -17,7 +17,7 @@
 
 package org.apache.arrow;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -34,20 +34,19 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 
 public class TestWriteReadAvroRecord {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir
+  public Path tmp;
 
   @Test
   public void testWriteAndRead() throws Exception {
 
-    File dataFile = TMP.newFile();
+    File dataFile = tmp.resolve("data").toFile();
     Path schemaPath = Paths.get(
             Paths.get(TestWriteReadAvroRecord.class.getResource("/").toURI()).toString(),
             "schema", "test.avsc");

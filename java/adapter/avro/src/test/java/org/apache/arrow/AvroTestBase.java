@@ -17,9 +17,9 @@
 
 package org.apache.arrow;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,18 +45,17 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 
 public class AvroTestBase {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir
+  public Path tmp;
 
   protected AvroToArrowConfig config;
 
-  @Before
+  @BeforeEach
   public void init() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
@@ -70,7 +69,7 @@ public class AvroTestBase {
   }
 
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = tmp.resolve("data").toFile();
 
     BinaryEncoder
         encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);

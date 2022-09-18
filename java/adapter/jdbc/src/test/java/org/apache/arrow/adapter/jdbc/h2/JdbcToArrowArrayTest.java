@@ -18,9 +18,9 @@
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.sql.Array;
 import java.sql.Connection;
@@ -45,9 +45,9 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class JdbcToArrowArrayTest {
   private Connection conn = null;
@@ -65,7 +65,7 @@ public class JdbcToArrowArrayTest {
   private static final String FLOAT_ARRAY_FIELD_NAME = "FLOAT_ARRAY";
   private static final String STRING_ARRAY_FIELD_NAME = "STRING_ARRAY";
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     String url = "jdbc:h2:mem:JdbcToArrowTest";
     String driver = "org.h2.Driver";
@@ -290,7 +290,7 @@ public class JdbcToArrowArrayTest {
     }
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       stmt.executeUpdate(DROP_STATEMENT);

@@ -17,8 +17,6 @@
 
 package org.apache.arrow;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,10 +44,13 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.Utf8;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class AvroToArrowIteratorTest extends AvroTestBase {
 
+  @BeforeEach
   @Override
   public void init() {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -57,7 +58,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
   }
 
   private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = tmp.resolve("data").toFile();
 
     BinaryEncoder
         encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
@@ -181,7 +182,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       }
     }
 
-    assertEquals(x, targetRows);
+    Assertions.assertEquals(x, targetRows);
   }
 
   /**
