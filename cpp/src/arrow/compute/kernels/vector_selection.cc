@@ -1071,8 +1071,6 @@ class PrimitiveFilterImpl {
 
   void WriteBitmapSegment(int64_t in_start, int64_t length) {
     if constexpr (std::is_same<ArrayKind, ArraySpan>::value) {
-      // CopyBitmap(values_is_valid_, values_offset_ + in_position, filter_block.length,
-      //            out_is_valid_, out_offset_ + out_position_);
       CopyBitmap(values_getter_.inner.buffers[0].data,
                  values_getter_.inner.offset + in_start, length, out_is_valid_,
                  out_offset_ + out_position_);
