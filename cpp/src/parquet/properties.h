@@ -622,7 +622,7 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
-/// Properties for configuring FileReader behavior.
+/// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
