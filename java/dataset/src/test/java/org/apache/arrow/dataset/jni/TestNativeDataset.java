@@ -25,9 +25,9 @@ import org.apache.arrow.dataset.source.DatasetFactory;
 import org.junit.Assert;
 
 public abstract class TestNativeDataset extends TestDataset {
-  protected void assertScanTaskProduced(DatasetFactory factory, ScanOptions options) {
+  protected void assertScanBatchesProduced(DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
-    Assert.assertNotNull(scanner.scanTask());
+    Assert.assertNotNull(scanner.scanBatchesUnordered());
   }
 }

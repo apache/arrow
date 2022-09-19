@@ -17,6 +17,7 @@
 
 package org.apache.arrow.dataset.scanner;
 
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
@@ -25,20 +26,18 @@ import org.apache.arrow.vector.types.pojo.Schema;
 public interface Scanner extends AutoCloseable {
 
   /**
-   * Perform the scan operation.
+   * Read record batches from the URI resources filtering the batch size configured.
    *
-   * @return a {@link ScanTask}. Each task is considered independent and it is allowed
-   *     to execute the tasks concurrently to gain better performance.
+   * @return a {@link ArrowReader}.
    */
-  ScanTask scanTask();
-
+  ArrowReader scanBatchesUnordered();
 
   /**
    * Perform the scan operation.
    *
    * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is allowed
    *     to execute the tasks concurrently to gain better performance.
-   * @deprecated use {@link #scanTask()} instead.
+   * @deprecated use {@link #scanBatchesUnordered()} instead.
    */
   @Deprecated
   Iterable<? extends ScanTask> scan();

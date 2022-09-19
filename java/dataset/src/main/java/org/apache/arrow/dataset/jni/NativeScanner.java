@@ -68,11 +68,15 @@ public class NativeScanner implements Scanner {
   }
 
   @Override
-  public NativeScanTask scanTask() {
+  public ArrowReader scanBatchesUnordered() {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }
-    return new NativeScanTask(this);
+    if (!executed.compareAndSet(false, true)) {
+      throw new UnsupportedOperationException("NativeScanner cannot be executed more than once. Consider creating " +
+              "new scanner instead");
+    }
+    return new NativeReader(context.getAllocator());
   }
 
   @Override
