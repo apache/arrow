@@ -22,19 +22,20 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
 
 add_jar(arrow_java_jni_plasma_jar
         src/main/java/org/apache/arrow/plasma/PlasmaClientJNI.java
+        src/main/java/org/apache/arrow/plasma/exceptions/DuplicateObjectException.java
+        src/main/java/org/apache/arrow/plasma/exceptions/PlasmaClientException.java
+        src/main/java/org/apache/arrow/plasma/exceptions/PlasmaOutOfMemoryException.java
         GENERATE_NATIVE_HEADERS
         arrow_java_jni_plasma_headers)
 
 add_library(arrow_java_jni_plasma SHARED src/main/cpp/plasma_client.cc)
 set_property(TARGET arrow_java_jni_plasma PROPERTY OUTPUT_NAME "plasma_java")
-target_link_libraries(arrow_java_jni_plasma
-                      arrow_java_jni_plasma_headers
-                      jni
+target_link_libraries(arrow_java_jni_plasma arrow_java_jni_plasma_headers jni
                       Plasma::plasma_static)
 
 if(APPLE)
-  set_target_properties(arrow_java_jni_plasma
-                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  set_target_properties(arrow_java_jni_plasma PROPERTIES LINK_FLAGS
+                                                         "-undefined dynamic_lookup")
 endif()
 
 install(TARGETS arrow_java_jni_plasma DESTINATION ${CMAKE_INSTALL_LIBDIR})
