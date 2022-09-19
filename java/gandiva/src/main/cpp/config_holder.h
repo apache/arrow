@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "gandiva/configuration.h"
+#include <gandiva/configuration.h>
 
 namespace gandiva {
 

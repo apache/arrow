@@ -78,10 +78,12 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
+
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '${{ matrix.config.version}}' }}
+          UBUNTU: {{ '"${{ matrix.config.version }}"' }}
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -110,19 +112,20 @@ jobs:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
-
       - uses: r-lib/actions/setup-r@v2
         with:
           rtools-version: 40
           r-version: "4.0"
           Ncpus: 2
-
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
           ARROW_HOME: "arrow"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
-
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
@@ -174,12 +177,17 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
+      - name: Install sccache
+        if: startsWith(matrix.platform, 'macos')
+        run: brew install sccache
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
           NOT_CRAN: "true" # actions/setup-r sets this implicitly
           ARROW_R_DEV: TRUE
+          # sccache for macos
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -295,10 +303,18 @@ jobs:
         with:
           install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
+      - name: Install sccache
+        shell: bash
+        run: |
+          curl -s \
+            https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
+            bash -s unknown-linux-musl /usr/local/bin
+      - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
@@ -308,6 +324,8 @@ jobs:
         env:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 

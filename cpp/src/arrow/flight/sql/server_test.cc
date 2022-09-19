@@ -760,7 +760,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfo) {
           reinterpret_cast<const DenseUnionScalar&>(*scalar));
       const auto& expected_result =
           sql_info_expected_results.at(col_name_chunk_data[row]);
-      arrow::util::visit(validator, expected_result);
+      std::visit(validator, expected_result);
     }
   }
 }

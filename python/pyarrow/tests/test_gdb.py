@@ -297,19 +297,6 @@ def test_buffer_heap(gdb_arrow):
                     'arrow::Buffer of size 3, mutable, "abc"')
 
 
-def test_variants(gdb_arrow):
-    check_stack_repr(
-        gdb_arrow, "int_variant",
-        "arrow::util::Variant of index 0 (actual type int), value 42")
-    check_stack_repr(
-        gdb_arrow, "bool_variant",
-        "arrow::util::Variant of index 1 (actual type bool), value false")
-    check_stack_repr(
-        gdb_arrow, "string_variant",
-        re.compile(r'^arrow::util::Variant of index 2 \(actual type '
-                   r'std::.*string.*\), value .*"hello".*'))
-
-
 def test_decimals(gdb_arrow):
     v128 = "98765432109876543210987654321098765432"
     check_stack_repr(gdb_arrow, "decimal128_zero", "arrow::Decimal128(0)")

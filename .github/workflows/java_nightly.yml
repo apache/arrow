@@ -103,7 +103,7 @@ jobs:
           fi
           PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9]+.[0-9]+.[0-9]+-SNAPSHOT)'
           mkdir -p repo/org/apache/arrow/
-          for LIBRARY in $(ls binaries/$PREFIX/java-jars | grep -E '.jar|.pom' | grep dev); do
+          for LIBRARY in $(ls binaries/$PREFIX/java-jars | grep -E '.jar|.pom' | grep SNAPSHOT); do
             [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
             mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
             mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${DATE}

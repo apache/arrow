@@ -1110,28 +1110,29 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(util::get<FieldPath>(impl_).indices().size(), 0);
+  DCHECK_GT(std::get<FieldPath>(impl_).indices().size(), 0);
 }
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
   // flatten children
   struct Visitor {
-    void operator()(std::string* name) { *out++ = FieldRef(std::move(*name)); }
+    void operator()(std::string&& name) { out->push_back(FieldRef(std::move(name))); }
 
-    void operator()(FieldPath* indices) { *out++ = FieldRef(std::move(*indices)); }
+    void operator()(FieldPath&& indices) { out->push_back(FieldRef(std::move(indices))); }
 
-    void operator()(std::vector<FieldRef>* children) {
-      for (auto& child : *children) {
-        util::visit(*this, &child.impl_);
+    void operator()(std::vector<FieldRef>&& children) {
+      out->reserve(out->size() + children.size());
+      for (auto&& child : children) {
+        std::visit(*this, std::move(child.impl_));
       }
     }
 
-    std::back_insert_iterator<std::vector<FieldRef>> out;
+    std::vector<FieldRef>* out;
   };
 
   std::vector<FieldRef> out;
-  Visitor visitor{std::back_inserter(out)};
-  visitor(&children);
+  Visitor visitor{&out};
+  visitor(std::move(children));
 
   DCHECK(!out.empty());
   DCHECK(std::none_of(out.begin(), out.end(),
@@ -1237,7 +1238,7 @@ std::string FieldRef::ToDotPath() const {
     }
   };
 
-  return util::visit(Visitor{}, impl_);
+  return std::visit(Visitor{}, impl_);
 }
 
 size_t FieldRef::hash() const {
@@ -1257,7 +1258,7 @@ size_t FieldRef::hash() const {
     }
   };
 
-  return util::visit(Visitor{}, impl_);
+  return std::visit(Visitor{}, impl_);
 }
 
 std::string FieldRef::ToString() const {
@@ -1277,7 +1278,7 @@ std::string FieldRef::ToString() const {
     }
   };
 
-  return "FieldRef." + util::visit(Visitor{}, impl_);
+  return "FieldRef." + std::visit(Visitor{}, impl_);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
@@ -1379,7 +1380,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
     const FieldVector& fields_;
   };
 
-  return util::visit(Visitor{fields}, impl_);
+  return std::visit(Visitor{fields}, impl_);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {

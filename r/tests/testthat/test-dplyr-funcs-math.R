@@ -25,7 +25,8 @@ test_that("abs()", {
     .input %>%
       transmute(
         abs = abs(x),
-        abs2 = base::abs(x)) %>%
+        abs2 = base::abs(x)
+      ) %>%
       collect(),
     df
   )

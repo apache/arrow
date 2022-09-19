@@ -35,7 +35,6 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
-: ${ARROW_GANDIVA_JAVA:=ON}
 : ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
@@ -67,20 +66,16 @@ pushd "${build_dir}/cpp"
 cmake \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=ON \
-  -DARROW_BUILD_UTILITIES=OFF \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
-  -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
-  -DARROW_JNI=ON \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
-  -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
   -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
   -DARROW_S3=${ARROW_S3} \
@@ -135,13 +130,7 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
 fi
 
 
-echo "=== Copying libraries to the distribution folder ==="
-cp -L ${ARROW_HOME}/lib/libarrow_orc_jni.so ${dist_dir}
-cp -L ${ARROW_HOME}/lib/libgandiva_jni.so ${dist_dir}
-cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
-
 echo "=== Checking shared dependencies for libraries ==="
-
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow ld-linux-x86-64 \

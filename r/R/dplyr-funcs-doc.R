@@ -88,12 +88,12 @@
 #' as `arrow_ascii_is_decimal`.
 #'
 #' ## arrow
-#' 
+#'
 #' * [`add_filename()`][arrow::add_filename()]
 #' * [`cast()`][arrow::cast()]
 #'
 #' ## base
-#' 
+#'
 #' * [`-`][-()]
 #' * [`!`][!()]
 #' * [`!=`][!=()]
@@ -179,13 +179,15 @@
 #' * [`trunc()`][base::trunc()]
 #'
 #' ## bit64
-#' 
+#'
 #' * [`as.integer64()`][bit64::as.integer64()]
 #' * [`is.integer64()`][bit64::is.integer64()]
 #'
 #' ## dplyr
-#' 
-#' * [`across()`][dplyr::across()]: only supported inside `mutate()`, `summarize()`, and `arrange()`; purrr-style lambda functions and use of `where()` selection helper not yet supported
+#'
+#' * [`across()`][dplyr::across()]: supported inside `mutate()`, `summarize()`, `group_by()`, and `arrange()`;
+#' purrr-style lambda functions
+#' and use of `where()` selection helper not yet supported
 #' * [`between()`][dplyr::between()]
 #' * [`case_when()`][dplyr::case_when()]
 #' * [`coalesce()`][dplyr::coalesce()]
@@ -195,7 +197,7 @@
 #' * [`n_distinct()`][dplyr::n_distinct()]
 #'
 #' ## lubridate
-#' 
+#'
 #' * [`am()`][lubridate::am()]
 #' * [`as_date()`][lubridate::as_date()]
 #' * [`as_datetime()`][lubridate::as_datetime()]
@@ -270,11 +272,11 @@
 #' * [`yq()`][lubridate::yq()]
 #'
 #' ## methods
-#' 
+#'
 #' * [`is()`][methods::is()]
 #'
 #' ## rlang
-#' 
+#'
 #' * [`is_character()`][rlang::is_character()]
 #' * [`is_double()`][rlang::is_double()]
 #' * [`is_integer()`][rlang::is_integer()]
@@ -282,18 +284,18 @@
 #' * [`is_logical()`][rlang::is_logical()]
 #'
 #' ## stats
-#' 
+#'
 #' * [`median()`][stats::median()]
 #' * [`quantile()`][stats::quantile()]
 #' * [`sd()`][stats::sd()]
 #' * [`var()`][stats::var()]
 #'
 #' ## stringi
-#' 
+#'
 #' * [`stri_reverse()`][stringi::stri_reverse()]
 #'
 #' ## stringr
-#' 
+#'
 #' * [`str_c()`][stringr::str_c()]: the `collapse` argument is not yet supported
 #' * [`str_count()`][stringr::str_count()]
 #' * [`str_detect()`][stringr::str_detect()]
@@ -313,11 +315,11 @@
 #' * [`str_trim()`][stringr::str_trim()]
 #'
 #' ## tibble
-#' 
+#'
 #' * [`tibble()`][tibble::tibble()]
 #'
 #' ## tidyselect
-#' 
+#'
 #' * [`all_of()`][tidyselect::all_of()]
 #' * [`contains()`][tidyselect::contains()]
 #' * [`ends_with()`][tidyselect::ends_with()]

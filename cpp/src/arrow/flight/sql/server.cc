@@ -935,7 +935,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetSqlIn
       return Status::KeyError("No information for SQL info number ", info);
     }
     ARROW_RETURN_NOT_OK(name_field_builder.Append(info));
-    ARROW_RETURN_NOT_OK(arrow::util::visit(sql_info_result_appender, it->second));
+    ARROW_RETURN_NOT_OK(std::visit(sql_info_result_appender, it->second));
   }
 
   std::shared_ptr<Array> name;

@@ -956,7 +956,9 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
-      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      # The centos job is currently disabled due to the
+      # change to C++ 17
+      #- r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip

@@ -17,10 +17,11 @@
 
 #include <string>
 
-#include "gandiva/configuration.h"
-#include "gandiva/jni/config_holder.h"
-#include "gandiva/jni/env_helper.h"
-#include "jni/org_apache_arrow_gandiva_evaluator_ConfigurationBuilder.h"
+#include <gandiva/configuration.h>
+
+#include "config_holder.h"
+#include "env_helper.h"
+#include "org_apache_arrow_gandiva_evaluator_ConfigurationBuilder.h"
 
 using gandiva::ConfigHolder;
 using gandiva::Configuration;

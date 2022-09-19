@@ -424,7 +424,7 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
 
   *os << "{";
   for (const auto& input : decl.inputs) {
-    if (auto decl = util::get_if<Declaration>(&input)) {
+    if (auto decl = std::get_if<Declaration>(&input)) {
       PrintTo(*decl, os);
     }
   }

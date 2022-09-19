@@ -449,7 +449,7 @@ inline Result<ExecNode*> MakeExecNode(
 /// inputs may also be Declarations). The node can be constructed and added to a plan
 /// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
 struct ARROW_EXPORT Declaration {
-  using Input = util::Variant<ExecNode*, Declaration>;
+  using Input = std::variant<ExecNode*, Declaration>;
 
   Declaration() {}
 

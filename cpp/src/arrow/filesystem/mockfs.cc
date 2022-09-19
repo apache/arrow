@@ -22,6 +22,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -120,7 +120,7 @@ struct Directory {
 };
 
 // A filesystem entry
-using EntryBase = util::Variant<std::nullptr_t, File, Directory>;
+using EntryBase = std::variant<std::nullptr_t, File, Directory>;
 
 class Entry : public EntryBase {
  public:
@@ -129,13 +129,13 @@ class Entry : public EntryBase {
   explicit Entry(Directory&& v) : EntryBase(std::move(v)) {}
   explicit Entry(File&& v) : EntryBase(std::move(v)) {}
 
-  bool is_dir() const { return util::holds_alternative<Directory>(*this); }
+  bool is_dir() const { return std::holds_alternative<Directory>(*this); }
 
-  bool is_file() const { return util::holds_alternative<File>(*this); }
+  bool is_file() const { return std::holds_alternative<File>(*this); }
 
-  Directory& as_dir() { return util::get<Directory>(*this); }
+  Directory& as_dir() { return std::get<Directory>(*this); }
 
-  File& as_file() { return util::get<File>(*this); }
+  File& as_file() { return std::get<File>(*this); }
 
   // Get info for this entry.  Note the path() property isn't set.
   FileInfo GetInfo() {

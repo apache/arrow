@@ -631,10 +631,10 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     // Allow setting generic gRPC options.
     for (const auto& arg : options.generic_options) {
-      if (util::holds_alternative<int>(arg.second)) {
-        default_args[arg.first] = util::get<int>(arg.second);
-      } else if (util::holds_alternative<std::string>(arg.second)) {
-        args.SetString(arg.first, util::get<std::string>(arg.second));
+      if (std::holds_alternative<int>(arg.second)) {
+        default_args[arg.first] = std::get<int>(arg.second);
+      } else if (std::holds_alternative<std::string>(arg.second)) {
+        args.SetString(arg.first, std::get<std::string>(arg.second));
       }
       // Otherwise unimplemented
     }
