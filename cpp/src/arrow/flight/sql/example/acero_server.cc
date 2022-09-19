@@ -22,6 +22,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/type.h"
