@@ -189,7 +189,7 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   const int16_t batch_size = 8;
   int16_t def_levels[batch_size];
   int16_t rep_levels[batch_size];
-  bool values[batch_size];
+  bool values[batch_size-1];
 
   auto levels_read =
       col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
@@ -203,7 +203,7 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   ASSERT_THAT(def_levels, testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1));
 
   // Validate inserted data is as expected
-  ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 0));
+  ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1));
 
   // Now read past the end of the file
   ASSERT_FALSE(col->HasNext());
