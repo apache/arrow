@@ -22,6 +22,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/unreachable.h"

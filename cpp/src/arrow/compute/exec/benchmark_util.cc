@@ -24,6 +24,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

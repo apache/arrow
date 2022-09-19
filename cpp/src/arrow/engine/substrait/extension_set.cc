@@ -17,11 +17,14 @@
 
 #include "arrow/engine/substrait/extension_set.h"
 
+#include <list>
 #include <sstream>
+#include <unordered_set>
 
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -62,53 +65,66 @@ size_t IdHashEq::operator()(Id id) const {
 
 bool IdHashEq::operator()(Id l, Id r) const { return l.uri == r.uri && l.name == r.name; }
 
-Id IdStorage::Emplace(Id id) {
-  util::string_view owned_uri = EmplaceUri(id.uri);
+class IdStorageImpl : public IdStorage {
+ public:
+  Id Emplace(Id id) override {
+    util::string_view owned_uri = EmplaceUri(id.uri);
 
-  util::string_view owned_name;
-  auto name_itr = names_.find(id.name);
-  if (name_itr == names_.end()) {
-    owned_names_.emplace_back(id.name);
-    owned_name = owned_names_.back();
-    names_.insert(owned_name);
-  } else {
-    owned_name = *name_itr;
+    util::string_view owned_name;
+    auto name_itr = names_.find(id.name);
+    if (name_itr == names_.end()) {
+      owned_names_.emplace_back(id.name);
+      owned_name = owned_names_.back();
+      names_.insert(owned_name);
+    } else {
+      owned_name = *name_itr;
+    }
+
+    return {owned_uri, owned_name};
   }
 
-  return {owned_uri, owned_name};
-}
+  std::optional<Id> Find(Id id) const override {
+    std::optional<util::string_view> maybe_owned_uri = FindUri(id.uri);
+    if (!maybe_owned_uri) {
+      return std::nullopt;
+    }
 
-std::optional<Id> IdStorage::Find(Id id) const {
-  std::optional<util::string_view> maybe_owned_uri = FindUri(id.uri);
-  if (!maybe_owned_uri) {
-    return std::nullopt;
+    auto name_itr = names_.find(id.name);
+    if (name_itr == names_.end()) {
+      return std::nullopt;
+    } else {
+      return Id{*maybe_owned_uri, *name_itr};
+    }
   }
 
-  auto name_itr = names_.find(id.name);
-  if (name_itr == names_.end()) {
-    return std::nullopt;
-  } else {
-    return Id{*maybe_owned_uri, *name_itr};
+  std::optional<util::string_view> FindUri(util::string_view uri) const override {
+    auto uri_itr = uris_.find(uri);
+    if (uri_itr == uris_.end()) {
+      return std::nullopt;
+    }
+    return *uri_itr;
   }
-}
 
-std::optional<util::string_view> IdStorage::FindUri(util::string_view uri) const {
-  auto uri_itr = uris_.find(uri);
-  if (uri_itr == uris_.end()) {
-    return std::nullopt;
+  util::string_view EmplaceUri(util::string_view uri) override {
+    auto uri_itr = uris_.find(uri);
+    if (uri_itr == uris_.end()) {
+      owned_uris_.emplace_back(uri);
+      util::string_view owned_uri = owned_uris_.back();
+      uris_.insert(owned_uri);
+      return owned_uri;
+    }
+    return *uri_itr;
   }
-  return *uri_itr;
-}
 
-util::string_view IdStorage::EmplaceUri(util::string_view uri) {
-  auto uri_itr = uris_.find(uri);
-  if (uri_itr == uris_.end()) {
-    owned_uris_.emplace_back(uri);
-    util::string_view owned_uri = owned_uris_.back();
-    uris_.insert(owned_uri);
-    return owned_uri;
-  }
-  return *uri_itr;
+ private:
+  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
+  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> names_;
+  std::list<std::string> owned_uris_;
+  std::list<std::string> owned_names_;
+};
+
+std::unique_ptr<IdStorage> IdStorage::Make() {
+  return ::arrow::internal::make_unique<IdStorageImpl>();
 }
 
 Result<std::optional<util::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
@@ -211,7 +227,7 @@ Result<ExtensionSet> ExtensionSet::Make(
             "Plan contained a URI that the extension registry is unaware of: ",
             uri.second);
       }
-      set.uris_[uri.first] = set.plan_specific_ids_.EmplaceUri(uri.second);
+      set.uris_[uri.first] = set.plan_specific_ids_->EmplaceUri(uri.second);
     }
   }
 
@@ -242,7 +258,7 @@ Result<ExtensionSet> ExtensionSet::Make(
             function_id.second.uri, "#", function_id.second.name);
       }
       set.functions_[function_id.first] =
-          set.plan_specific_ids_.Emplace(function_id.second);
+          set.plan_specific_ids_->Emplace(function_id.second);
     }
   }
 
@@ -315,7 +331,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
         return parent_uri;
       }
     }
-    return ids_.FindUri(uri);
+    return ids_->FindUri(uri);
   }
 
   std::optional<Id> FindId(Id id) const override {
@@ -325,7 +341,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
         return parent_id;
       }
     }
-    return ids_.Find(id);
+    return ids_->Find(id);
   }
 
   std::optional<TypeRecord> GetType(const DataType& type) const override {
@@ -368,7 +384,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
       ARROW_RETURN_NOT_OK(parent_->CanRegisterType(id, type));
     }
 
-    Id copied_id = ids_.Emplace(id);
+    Id copied_id = ids_->Emplace(id);
 
     auto index = static_cast<int>(type_ids_.size());
 
@@ -419,7 +435,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
       Id substrait_id, ConverterType conversion_func,
       std::unordered_map<Id, ConverterType, IdHashEq, IdHashEq>* dest) {
     // Convert id to view into registry-owned memory
-    Id copied_id = ids_.Emplace(substrait_id);
+    Id copied_id = ids_->Emplace(substrait_id);
 
     auto add_result = dest->emplace(copied_id, std::move(conversion_func));
     if (!add_result.second) {
@@ -587,7 +603,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   const ExtensionIdRegistry* parent_;
 
   // owning storage of ids & types
-  IdStorage ids_;
+  std::unique_ptr<IdStorage> ids_ = IdStorage::Make();
   DataTypeVector types_;
   // There should only be one entry per Arrow function so there is no need
   // to separate ownership and lookup

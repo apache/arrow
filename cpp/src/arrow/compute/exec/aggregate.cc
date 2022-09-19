@@ -18,11 +18,13 @@
 #include "arrow/compute/exec/aggregate.h"
 
 #include <mutex>
+#include <thread>
 
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {

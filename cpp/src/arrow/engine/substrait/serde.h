@@ -20,17 +20,19 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

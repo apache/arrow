@@ -19,6 +19,13 @@
 
 #pragma once
 
+#include <functional>
+#include <string>
+#include <vector>
+
+#include "arrow/compute/type_fwd.h"
+#include "arrow/type_fwd.h"
+
 namespace arrow {
 namespace engine {
 

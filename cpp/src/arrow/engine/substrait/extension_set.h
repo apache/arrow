@@ -19,19 +19,22 @@
 
 #pragma once
 
-#include <list>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/hash_util.h"
-#include "arrow/util/hashing.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -75,28 +78,25 @@ struct IdHashEq {
 /// storage.
 class IdStorage {
  public:
+  virtual ~IdStorage() = default;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// This operation will copy the ids into storage if they do not already exist
-  Id Emplace(Id id);
+  virtual Id Emplace(Id id) = 0;
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then the uri will be copied into storage
-  util::string_view EmplaceUri(util::string_view uri);
+  virtual util::string_view EmplaceUri(util::string_view uri) = 0;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// If no id is found then nullopt will be returned
-  std::optional<Id> Find(Id id) const;
+  virtual std::optional<Id> Find(Id id) const = 0;
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then nullopt will be returned
-  std::optional<util::string_view> FindUri(util::string_view uri) const;
+  virtual std::optional<util::string_view> FindUri(util::string_view uri) const = 0;
 
- private:
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> names_;
-  std::list<std::string> owned_uris_;
-  std::list<std::string> owned_names_;
+  static std::unique_ptr<IdStorage> Make();
 };
 
 /// \brief Describes a Substrait call
@@ -404,7 +404,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   // that we can safely ignore.  For example, we can usually safely ignore
   // extension type variations if we assume the plan is valid.  These ignorable
   // ids are stored here.
-  IdStorage plan_specific_ids_;
+  std::unique_ptr<IdStorage> plan_specific_ids_ = IdStorage::Make();
 
   // Map from anchor values to URI values referenced by this extension set
   std::unordered_map<uint32_t, util::string_view> uris_;
