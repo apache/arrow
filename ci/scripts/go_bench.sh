@@ -48,6 +48,7 @@ popd
 
 if [[ "$2" = "-json" ]]; then
     go install go.bobheadxi.dev/gobenchdata@latest
+    export PATH=`go env GOPATH`/bin:$PATH
     cat ${source_dir}/bench_*.dat | gobenchdata --json bench_stats.json
 fi    
 
