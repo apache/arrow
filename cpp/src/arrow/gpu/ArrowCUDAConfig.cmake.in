@@ -28,6 +28,11 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+if(CMAKE_VERSION VERSION_LESS 3.17)
+  find_package(CUDA REQUIRED)
+else()
+  find_package(CUDAToolkit REQUIRED)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowCUDATargets.cmake")
 
