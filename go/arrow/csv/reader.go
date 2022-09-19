@@ -62,6 +62,11 @@ type Reader struct {
 	nulls            []string
 }
 
+// NewInferringReader creates a CSV reader that attempts to infer the types
+// and column names from the data in the first row of the CSV file.
+//
+// This can be further customized using the WithColumnTypes and
+// WithIncludeColumns options.
 func NewInferringReader(r io.Reader, opts ...Option) *Reader {
 	rr := &Reader{
 		r:                csv.NewReader(r),
