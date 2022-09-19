@@ -2374,7 +2374,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     // Load the first 4 bytes in little-endian, which indicates the length
     num_bytes =
         ::arrow::bit_util::ToLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(data));
-    if (num_bytes < 0 || num_bytes > (uint32_t)(len - 4)) {
+    if (num_bytes < 0 || num_bytes > static_cast<uint32_t>(len - 4)) {
       throw ParquetException("Received invalid number of bytes : " +
                              std::to_string(num_bytes) + " (corrupt data page?)");
     }
