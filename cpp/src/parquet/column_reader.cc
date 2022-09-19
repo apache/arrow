@@ -1005,7 +1005,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
 
   // Read dictionary indices.
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
-  int64_t total_indices = std::max<int>(num_def_levels, *indices_read);
+  int64_t total_indices = std::max<int64_t>(num_def_levels, *indices_read);
   // Some callers use a batch size of 0 just to get the dictionary.
   int64_t expected_values =
       std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
@@ -1036,7 +1036,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &values_to_read);
 
   *values_read = this->ReadValues(values_to_read, values);
-  int64_t total_values = std::max<int>(num_def_levels, *values_read);
+  int64_t total_values = std::max<int64_t>(num_def_levels, *values_read);
   int64_t expected_values =
       std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
   if (total_values == 0 && expected_values > 0) {
@@ -1269,7 +1269,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       records_read += ReadRecordData(num_records);
     }
 
-    int64_t level_batch_size = std::max<int>(kMinLevelBatchSize, num_records);
+    int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
 
     // If we are in the middle of a record, we continue until reaching the
     // desired number of records or the end of the current record if we've found
@@ -1329,12 +1329,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     return records_read;
   }
-  
+
   // Skip records that we have in our buffer. This function is only for
   // non-repeated fields.
   int64_t SkipRecordsInBufferNonRepeated(int64_t num_records) {
-    ARROW_DCHECK(this->max_rep_level_ == 0);
-    ARROW_DCHECK(this->has_values_to_process());
+    ARROW_DCHECK_EQ(this->max_rep_level_, 0);
+    if (!this->has_values_to_process()) return 0;
 
     int64_t remaining_records = levels_written_ - levels_position_;
     int64_t skipped_records = std::min(num_records, remaining_records);
@@ -1363,7 +1363,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Skip records for repeated fields. Returns number of skipped records.
-  // Skip records for repeated fields. Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records) {
     ARROW_DCHECK_GT(this->max_rep_level_, 0);
 
@@ -1372,7 +1371,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Keep filling the buffer and skipping until we reach the desired number
     // of records or we run out of values in the column chunk.
     int64_t skipped_records = 0;
-    int64_t level_batch_size = std::max<int>(kMinLevelBatchSize, num_records);
+    int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
     // If 'at_record_start_' is false, but (skip_records == num_records), it
     // means that for the last record that was counted, we have not seen all
     // of it's values yet.
@@ -1458,10 +1457,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Non-repeated optional field.
     int64_t skipped_records = 0;
     if (this->max_rep_level_ == 0) {
-      if (this->has_values_to_process()) {
-        // First consume whatever is in the buffer.
-        skipped_records = SkipRecordsInBufferNonRepeated(num_records);
-      }
+      // First consume whatever is in the buffer.
+      skipped_records = SkipRecordsInBufferNonRepeated(num_records);
 
       // If there are more records left, we should have exhausted all the
       // buffer.
@@ -1477,8 +1474,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
     return skipped_records;
   }
-  
-  
 
   // We may outwardly have the appearance of having exhausted a column chunk
   // when in fact we are in the middle of processing the last batch
@@ -1680,7 +1675,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   int64_t ReadRecordData(int64_t num_records) {
     // Conservative upper bound
     const int64_t possible_num_values =
-        std::max<int>(num_records, levels_written_ - levels_position_);
+        std::max<int64_t>(num_records, levels_written_ - levels_position_);
     ReserveValues(possible_num_values);
 
     const int64_t start_levels_position = levels_position_;
