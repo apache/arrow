@@ -185,6 +185,7 @@ def open_stream(source, *, options=None, memory_pool=None):
     Returns
     -------
     reader : RecordBatchStreamReader
+        A reader for the given source
     """
     return RecordBatchStreamReader(source, options=options,
                                    memory_pool=memory_pool)
@@ -228,6 +229,7 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
     Returns
     -------
     reader : RecordBatchFileReader
+        A reader for the given source
     """
     return RecordBatchFileReader(
         source, footer_offset=footer_offset,
