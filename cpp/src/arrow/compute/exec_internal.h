@@ -46,7 +46,7 @@ class ARROW_EXPORT ExecSpanIterator {
  public:
   ExecSpanIterator() = default;
 
-  /// \brief Initialize itertor iterator and do basic argument validation
+  /// \brief Initialize iterator and do basic argument validation
   ///
   /// \param[in] batch the input ExecBatch
   /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
