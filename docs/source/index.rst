@@ -74,6 +74,7 @@ target environment.**
 
    format/Versioning
    format/Columnar
+   format/CanonicalExtensions
    format/Flight
    format/FlightSql
    format/Integration
