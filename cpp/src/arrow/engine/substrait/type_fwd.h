@@ -15,39 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 namespace arrow {
+namespace engine {
 
-struct Datum;
-struct TypeHolder;
+class ExtensionIdRegistry;
+class ExtensionSet;
 
-namespace compute {
+struct ConversionOptions;
 
-class Function;
-class FunctionOptions;
-
-class CastOptions;
-
-struct ExecBatch;
-class ExecContext;
-class KernelContext;
-
-struct Kernel;
-struct ScalarKernel;
-struct ScalarAggregateKernel;
-struct VectorKernel;
-
-struct KernelState;
-
-struct Declaration;
-class Expression;
-class ExecNode;
-class ExecPlan;
-class ExecNodeOptions;
-class ExecFactoryRegistry;
-
-class SinkNodeConsumer;
-
-}  // namespace compute
+}  // namespace engine
 }  // namespace arrow

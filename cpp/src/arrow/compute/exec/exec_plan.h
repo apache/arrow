@@ -17,21 +17,24 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_util.h"
 #include "arrow/util/cancel.h"
+#include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/tracing.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -367,48 +370,6 @@ class ARROW_EXPORT ExecNode {
   Future<> finished_ = Future<>::Make();
 
   util::tracing::Span span_;
-};
-
-/// \brief MapNode is an ExecNode type class which process a task like filter/project
-/// (See SubmitTask method) to each given ExecBatch object, which have one input, one
-/// output, and are pure functions on the input
-///
-/// A simple parallel runner is created with a "map_fn" which is just a function that
-/// takes a batch in and returns a batch.  This simple parallel runner also needs an
-/// executor (use simple synchronous runner if there is no executor)
-
-class ARROW_EXPORT MapNode : public ExecNode {
- public:
-  MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema, bool async_mode);
-
-  void ErrorReceived(ExecNode* input, Status error) override;
-
-  void InputFinished(ExecNode* input, int total_batches) override;
-
-  Status StartProducing() override;
-
-  void PauseProducing(ExecNode* output, int32_t counter) override;
-
-  void ResumeProducing(ExecNode* output, int32_t counter) override;
-
-  void StopProducing(ExecNode* output) override;
-
-  void StopProducing() override;
-
- protected:
-  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
-
-  virtual void Finish(Status finish_st = Status::OK());
-
- protected:
-  // Counter for the number of batches received
-  AtomicCounter input_counter_;
-
-  ::arrow::internal::Executor* executor_;
-
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes
