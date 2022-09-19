@@ -2396,6 +2396,23 @@ Result<std::shared_ptr<ArrayData>> TakeAA(const std::shared_ptr<ArrayData>& valu
   return result.array();
 }
 
+Result<std::shared_ptr<ChunkedArray>> TakeAC(std::shared_ptr<Array> values,
+                                             const ChunkedArray& indices,
+                                             const TakeOptions& options,
+                                             ExecContext* ctx) {
+  ArrayVector out_arrays(indices.num_chunks());
+  // Match the chunking structure of the indices.
+  for (int i = 0; i < indices.num_chunks(); ++i) {
+    const std::shared_ptr<Array>& ind_chunk = indices.chunk(i);
+    std::shared_ptr<ArrayData> result_chunk;
+    ARROW_ASSIGN_OR_RAISE(result_chunk,
+                          TakeAA(values->data(), ind_chunk->data(), options, ctx));
+    out_arrays[i] = MakeArray(result_chunk);
+  }
+
+  return std::make_shared<ChunkedArray>(std::move(out_arrays));
+}
+
 Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
                                              const ChunkedArray& indices,
                                              const TakeOptions& options,
@@ -2406,20 +2423,10 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
         CallFunction("array_take", {Datum(values), Datum(indices)}, &options, ctx));
     return result.chunked_array();
   } else {
-    ArrayVector out_arrays(indices.num_chunks());
-    // Concatenate values into one array, so we can use TakeAA.
+    // Concatenate values into one array, so we can use TakeAC.
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> values_array,
                           Concatenate(values.chunks(), ctx->memory_pool()));
-    // Match the chunking structure of the indices.
-    for (int i = 0; i < indices.num_chunks(); ++i) {
-      const std::shared_ptr<Array>& ind_chunk = indices.chunk(i);
-      std::shared_ptr<ArrayData> result_chunk;
-      ARROW_ASSIGN_OR_RAISE(
-          result_chunk, TakeAA(values_array->data(), ind_chunk->data(), options, ctx));
-      out_arrays[i] = MakeArray(result_chunk);
-    }
-
-    return std::make_shared<ChunkedArray>(std::move(out_arrays));
+    return TakeAC(values_array, indices, options, ctx);
   }
 }
 
@@ -2460,14 +2467,6 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
 
     return std::make_shared<ChunkedArray>(MakeArray(result_chunk));
   }
-}
-
-Result<std::shared_ptr<ChunkedArray>> TakeAC(std::shared_ptr<Array> values,
-                                             const ChunkedArray& indices,
-                                             const TakeOptions& options,
-                                             ExecContext* ctx) {
-  ChunkedArray values_chunked(values);
-  return TakeCC(values_chunked, indices, options, ctx);
 }
 
 Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
