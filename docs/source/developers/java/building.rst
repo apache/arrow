@@ -119,7 +119,7 @@ Maven
         $ export JAVA_HOME=<absolute path to your java home>
         $ java --version
         $ mvn clean generate-resources -Pgenerate-jni-dylib_so -N
-        $ ls -latr java-dist/lib
+        $ ls -latr java-dist/lib/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib
@@ -141,7 +141,8 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=java-dist/lib
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_PREFIX=java-dist
         $ cmake --build java-jni --target install --config Release
         $ ls -latr java-dist/lib
         |__ libarrow_cdata_jni.dylib
@@ -161,6 +162,7 @@ CMake
         $ cmake \
             -S cpp \
             -B cpp-jni \
+            -DARROW_BUILD_SHARED=OFF \
             -DARROW_CSV=ON \
             -DARROW_DATASET=ON \
             -DARROW_DEPENDENCY_SOURCE=BUNDLED \
@@ -168,11 +170,9 @@ CMake
             -DARROW_FILESYSTEM=ON \
             -DARROW_GANDIVA=ON \
             -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-            -DARROW_JNI=ON \
             -DARROW_ORC=ON \
             -DARROW_PARQUET=ON \
             -DARROW_PLASMA=ON \
-            -DARROW_PLASMA_JAVA_CLIENT=ON \
             -DARROW_S3=ON \
             -DARROW_USE_CCACHE=ON \
             -DCMAKE_BUILD_TYPE=Release \
@@ -187,10 +187,11 @@ CMake
             -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
             -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=java-dist/lib \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_PREFIX=java-dist \
             -DCMAKE_PREFIX_PATH=$PWD/java-dist
         $ cmake --build java-jni --target install --config Release
-        $ ls -latr java-dist/lib
+        $ ls -latr java-dist/lib/*_{jni,java}.*
         |__ libarrow_dataset_jni.dylib
         |__ libarrow_orc_jni.dylib
         |__ libgandiva_jni.dylib

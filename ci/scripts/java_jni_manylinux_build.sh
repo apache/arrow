@@ -66,7 +66,6 @@ pushd "${build_dir}/cpp"
 cmake \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=ON \
-  -DARROW_BUILD_UTILITIES=OFF \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
@@ -75,10 +74,8 @@ cmake \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
-  -DARROW_JNI=ON \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
-  -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
   -DARROW_PLASMA=${ARROW_PLASMA} \
   -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
   -DARROW_S3=${ARROW_S3} \
@@ -133,11 +130,7 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
 fi
 
 
-echo "=== Copying libraries to the distribution folder ==="
-cp -L ${build_dir}/cpp/*/libplasma_java.so ${dist_dir}
-
 echo "=== Checking shared dependencies for libraries ==="
-
 pushd ${dist_dir}
 archery linking check-dependencies \
   --allow ld-linux-x86-64 \
