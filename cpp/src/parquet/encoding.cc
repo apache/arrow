@@ -2379,7 +2379,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
                              std::to_string(num_bytes) + " (corrupt data page?)");
     }
 
-    const uint8_t* decoder_data = data + 4;
+    auto decoder_data = data + 4;
     decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
                                                            /*bit_width=*/1);
   }
