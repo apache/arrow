@@ -189,7 +189,7 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   const int16_t batch_size = 8;
   int16_t def_levels[batch_size];
   int16_t rep_levels[batch_size];
-  bool values[batch_size-1];
+  bool values[batch_size - 1];
 
   auto levels_read =
       col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);

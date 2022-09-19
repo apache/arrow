@@ -2390,7 +2390,8 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 
     for (int i = 0; i < max_values; ++i) {
       if (!decoder_->Get(&val)) {
-        throw ParquetException("Unable to parse bits for position (0 based) : " + std::to_string(i) + " (corrupt data page?)");
+        throw ParquetException("Unable to parse bits for position (0 based) : " +
+                               std::to_string(i) + " (corrupt data page?)");
       }
       if (val) {
         buffer[i] = true;
