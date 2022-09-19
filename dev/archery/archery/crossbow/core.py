@@ -365,15 +365,17 @@ class Repo:
     def default_branch_name(self):
         default_branch_name = os.getenv("DEFAULT_BRANCH")
 
-        if default_branch_name == None:
+        if default_branch_name is None:
             try:
                 ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
                 target_name = ref_obj.target
                 target_name_tokenized = target_name.split("/")
                 default_branch_name = target_name_tokenized[-1]
-            except:
+            except KeyError:
                 raise RuntimeError(
-                    'DEFAULT_BRANCH environment variable is not set. Git repository does not contain \'refs/remotes/origin/HEAD\' reference.')
+                    'DEFAULT_BRANCH environment variable is not set. Git '
+                    'repository does not contain a '
+                    '\'refs/remotes/origin/HEAD\' reference.')
 
         return default_branch_name
 
