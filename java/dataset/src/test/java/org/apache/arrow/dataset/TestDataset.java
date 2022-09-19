@@ -63,9 +63,7 @@ public abstract class TestDataset {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
     try {
-      final List<ArrowRecordBatch> ret = stream(scanner.scan())
-          .flatMap(t -> stream(collectTaskData(t)))
-          .collect(Collectors.toList());
+      final List<ArrowRecordBatch> ret = collectTaskData(scanner.scanTask());
       AutoCloseables.close(scanner, dataset);
       return ret;
     } catch (RuntimeException e) {

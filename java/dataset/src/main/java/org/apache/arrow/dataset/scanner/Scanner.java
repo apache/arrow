@@ -27,9 +27,20 @@ public interface Scanner extends AutoCloseable {
   /**
    * Perform the scan operation.
    *
-   * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is allowed
+   * @return a {@link ScanTask}. Each task is considered independent and it is allowed
    *     to execute the tasks concurrently to gain better performance.
    */
+  ScanTask scanTask();
+
+
+  /**
+   * Perform the scan operation.
+   *
+   * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is allowed
+   *     to execute the tasks concurrently to gain better performance.
+   * @deprecated use {@link #scanTask()} instead.
+   */
+  @Deprecated
   Iterable<? extends ScanTask> scan();
 
   /**

@@ -68,6 +68,15 @@ public class NativeScanner implements Scanner {
   }
 
   @Override
+  public NativeScanTask scanTask() {
+    if (closed) {
+      throw new NativeInstanceReleasedException();
+    }
+    return new NativeScanTask(this);
+  }
+
+  @Override
+  @Deprecated
   public Iterable<? extends NativeScanTask> scan() {
     if (closed) {
       throw new NativeInstanceReleasedException();

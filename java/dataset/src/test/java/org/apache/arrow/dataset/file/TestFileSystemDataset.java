@@ -88,7 +88,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(1, datum.size());
     assertEquals(2, schema.getFields().size());
     assertEquals("id", schema.getFields().get(0).getName());
@@ -112,7 +112,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     org.apache.avro.Schema expectedSchema = truncateAvroSchema(writeSupport.getAvroSchema(), 0, 1);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(1, schema.getFields().size());
     assertEquals("id", schema.getFields().get(0).getName());
     assertEquals(Types.MinorType.INT.getType(), schema.getFields().get(0).getType());
@@ -139,7 +139,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(3, datum.size());
     datum.forEach(batch -> assertEquals(1, batch.getLength()));
     checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
@@ -163,7 +163,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(7, datum.size());
     datum.forEach(batch -> assertEquals(1, batch.getLength()));
     checkParquetReadResult(schema, expectedJsonUnordered, datum);
@@ -182,7 +182,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     org.apache.avro.Schema expectedSchema = org.apache.avro.Schema.createRecord(Collections.emptyList());
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(0, schema.getFields().size());
     assertEquals(1, datum.size());
     checkParquetReadResult(schema,
@@ -204,7 +204,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(1, datum.size());
     assertEquals(2, schema.getFields().size());
     assertEquals("id", schema.getFields().get(0).getName());
@@ -233,7 +233,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testErrorThrownWhenScanAgain() throws Exception {
+  public void testErrorThrownWhenScanTaskAgain() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -241,10 +241,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeDataset dataset = factory.finish();
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
-    List<? extends NativeScanTask> taskList1 = collect(scanner.scan());
-    List<? extends NativeScanTask> taskList2 = collect(scanner.scan());
-    NativeScanTask task1 = taskList1.get(0);
-    NativeScanTask task2 = taskList2.get(0);
+    NativeScanTask task1 = scanner.scanTask();
+    NativeScanTask task2 = scanner.scanTask();
     List<ArrowRecordBatch> datum = collectTaskData(task1);
 
     AutoCloseables.close(datum);
@@ -253,13 +251,13 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Assertions.assertEquals("NativeScanner cannot be executed more than once. Consider creating new scanner instead",
         uoe.getMessage());
 
-    AutoCloseables.close(taskList1);
-    AutoCloseables.close(taskList2);
+    AutoCloseables.close(task1);
+    AutoCloseables.close(task2);
     AutoCloseables.close(scanner, dataset, factory);
   }
 
   @Test
-  public void testScanInOtherThread() throws Exception {
+  public void testScanTaskInOtherThread() throws Exception {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
@@ -268,12 +266,11 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeDataset dataset = factory.finish();
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
-    List<? extends NativeScanTask> taskList = collect(scanner.scan());
-    NativeScanTask task = taskList.get(0);
+    NativeScanTask task = scanner.scanTask();
     List<ArrowRecordBatch> datum = executor.submit(() -> collectTaskData(task)).get();
 
     AutoCloseables.close(datum);
-    AutoCloseables.close(taskList);
+    AutoCloseables.close(task);
     AutoCloseables.close(scanner, dataset, factory);
   }
 
@@ -292,7 +289,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
-  public void testErrorThrownWhenExecuteTaskAfterTaskClose() throws Exception {
+  public void testErrorThrownWhenExecuteScanTaskAfterScanTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -300,15 +297,14 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeDataset dataset = factory.finish();
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
-    List<? extends NativeScanTask> tasks = collect(scanner.scan());
-    NativeScanTask task = tasks.get(0);
+    NativeScanTask task = scanner.scanTask();
     task.close();
     assertThrows(NativeInstanceReleasedException.class, task::execute);
     AutoCloseables.close(factory);
   }
 
   @Test
-  public void testErrorThrownWhenIterateOnIteratorAfterTaskClose() throws Exception {
+  public void testErrorThrownWhenIterateOnIteratorAfterScanTaskClose() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -316,8 +312,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeDataset dataset = factory.finish();
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
-    List<? extends NativeScanTask> tasks = collect(scanner.scan());
-    NativeScanTask task = tasks.get(0);
+    NativeScanTask task = scanner.scanTask();
     ArrowReader reader = task.execute();
     task.close();
     assertThrows(NativeInstanceReleasedException.class, reader::loadNextBatch);
@@ -348,7 +343,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(1, datum.size());
     assertEquals(1, schema.getFields().size());
     assertEquals("ints", schema.getFields().get(0).getName());
@@ -376,7 +371,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     Schema schema = inferResultSchemaFromFactory(factory, options);
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
 
-    assertSingleTaskProduced(factory, options);
+    assertScanTaskProduced(factory, options);
     assertEquals(1, datum.size());
     assertEquals(1, schema.getFields().size());
     assertEquals("ints", schema.getFields().get(0).getName());
