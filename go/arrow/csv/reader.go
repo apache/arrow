@@ -125,14 +125,6 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 		rr.next = rr.next1
 	}
 
-	// Create a table of functions that will parse columns. This optimization
-	// allows us to specialize the implementation of each column's decoding
-	// and hoist type-based branches outside the inner loop.
-	rr.fieldConverter = make([]func(string), len(schema.Fields()))
-	for idx := range schema.Fields() {
-		rr.fieldConverter[idx] = rr.initFieldConverter(rr.bld.Field(idx))
-	}
-
 	return rr
 }
 
@@ -236,6 +228,15 @@ func (r *Reader) Record() arrow.Record { return r.cur }
 func (r *Reader) Next() bool {
 	r.once.Do(func() {
 		r.err = r.readHeader()
+		if r.err == nil && r.schema != nil {
+			// Create a table of functions that will parse columns. This optimization
+			// allows us to specialize the implementation of each column's decoding
+			// and hoist type-based branches outside the inner loop.
+			r.fieldConverter = make([]func(string), len(r.schema.Fields()))
+			for idx := range r.schema.Fields() {
+				r.fieldConverter[idx] = r.initFieldConverter(r.bld.Field(idx))
+			}
+		}
 	})
 
 	if r.cur != nil {
