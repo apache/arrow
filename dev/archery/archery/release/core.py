@@ -259,9 +259,9 @@ class DefaultBranchName(object):
                     default_branch_name = origin_head_name_tokenized[-1]
                 except KeyError:
                     raise RuntimeError(
-                        'DEFAULT_BRANCH environment variable is not set. Git '
-                        'repository does not contain a'
-                        '\'refs/remotes/origin/HEAD\' reference.')
+                    'Unable to determine default branch name: DEFAULT_BRANCH '
+                    'environment variable is not set. Git repository does not '
+                    'contain a \'refs/remotes/origin/HEAD\' reference.')
 
             # Set default branch as class property
             self.default_branch_name = default_branch_name
