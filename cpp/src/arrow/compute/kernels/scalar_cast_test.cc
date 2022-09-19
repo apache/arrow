@@ -2765,6 +2765,26 @@ TEST(Cast, ExtensionTypeToIntDowncast) {
   }
 }
 
+TEST(Cast, PrimitiveToExtension) {
+  auto primitive_array = ArrayFromJSON(uint8(), "[0, 1, 3]");
+  auto extension_array = SmallintArrayFromJSON("[0, 1, 3]");
+  CastOptions options;
+  options.to_type = smallint();
+  CheckCast(primitive_array, extension_array, options);
+}
+
+TEST(Cast, DictTypeToExtension) {
+  auto extension_array = SmallintArrayFromJSON("[1, 2, 1]");
+  auto indices_array = ArrayFromJSON(int32(), "[0, 1, 0]");
+
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(indices_array, extension_array));
+
+  CastOptions options;
+  options.to_type = smallint();
+  CheckCast(dict_array, extension_array, options);
+}
+
 TEST(Cast, DictTypeToAnotherDict) {
   auto check_cast = [&](const std::shared_ptr<DataType>& in_type,
                         const std::shared_ptr<DataType>& out_type,
