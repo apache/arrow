@@ -302,7 +302,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           compute::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
-      return ProcessEmit(std::move(rel), std::move(scan_declaration),
+      return ProcessEmit(std::move(read), std::move(scan_declaration),
                          std::move(base_schema));
     }
 
