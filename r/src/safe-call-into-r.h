@@ -25,6 +25,7 @@
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
+#include <csignal>
 #include <functional>
 #include <thread>
 
