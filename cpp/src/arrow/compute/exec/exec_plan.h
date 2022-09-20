@@ -26,12 +26,9 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/cancel.h"
 #include "arrow/util/future.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/tracing.h"
 #include "arrow/util/type_fwd.h"

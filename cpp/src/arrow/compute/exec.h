@@ -30,8 +30,8 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -126,8 +126,6 @@ class ARROW_EXPORT ExecContext {
   bool preallocate_contiguous_ = true;
   bool use_threads_ = true;
 };
-
-ARROW_EXPORT ExecContext* default_exec_context();
 
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
