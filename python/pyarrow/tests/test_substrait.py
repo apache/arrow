@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import sys
 import pytest
 
 import pyarrow as pa
