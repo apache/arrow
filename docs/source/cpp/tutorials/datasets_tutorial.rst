@@ -67,7 +67,7 @@ compute functionality for each file type we'll work with in this article:
   :end-before: (Doc section: Includes)
 
 Main()
-~~~~~~
+^^^^^^
 
 For our glue, we’ll use the ``main()`` pattern from the previous tutorial on
 data structures:
@@ -85,7 +85,7 @@ Which, like when we used it before, is paired with a ``RunMain()``:
   :end-before: (Doc section: RunMain)
 
 Generating Files for Reading
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We need some files to actually play with. In practice, you’ll likely
 have some input for your own application. Here, however, we want to
@@ -126,7 +126,7 @@ up into the following steps:
 4. Use a :class:`dataset::Scanner` to read into a :class:`Table`
 
 Preparing a FileSystem Object
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to begin, we’ll need to be able to interact with the local
 filesystem. In order to do that, we’ll need an :class:`fs::FileSystem` object.
@@ -152,7 +152,7 @@ Here, though, we’ll just pass our path:
 .. seealso:: :class:`fs::FileSystem` for the other supported filesystems.
 
 Creating a FileSystemDatasetFactory
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :class:`fs::FileSystem` stores a lot of metadata, but we need to be able to
 traverse it and parse that metadata. In Arrow, we use a :class:`FileSelector` to
@@ -203,7 +203,7 @@ in everything we’ve prepared and assigning that to a variable:
   :end-before: (Doc section: FileSystemDatasetFactory Make)
 
 Build Dataset using Factory
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With a :class:`dataset::FileSystemDatasetFactory` set up, we can actually build our
 :class:`dataset::Dataset` with :func:`dataset::FileSystemDatasetFactory::Finish`, just 
@@ -226,7 +226,7 @@ dataset, and print those out, along with some small info:
   :end-before: (Doc section: Dataset Fragments)
 
 Move Dataset into Table
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 One way we can do something with :class:`Datasets <dataset::Dataset>` is getting 
 them into a :class:`Table`, where we can do anything we’ve learned we can do to 
@@ -282,7 +282,7 @@ folders. This process can be broken up into the following steps:
 5. Write dataset to disk
 
 Prepare Data from Table for Writing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We have a :class:`Table`, and we want to get a :class:`dataset::Dataset` on disk. In fact, for the
 sake of exploration, we’ll use a different partitioning scheme for the
@@ -300,7 +300,7 @@ the :class:`TableBatchReader’s <TableBatchReader>` constructor, with our table
   :end-before: (Doc section: TableBatchReader)
 
 Create Scanner for Moving Table Data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The process for writing a :class:`dataset::Dataset`, once a source of data is available,
 is similar to the reverse of reading it. Before, we used a :class:`dataset::Scanner` in
@@ -314,7 +314,7 @@ based on our :class:`TableBatchReader`, then use that Builder to build a :class:
   :end-before: (Doc section: WriteScanner)
 
 Prepare Schema, Partitioning, and File Format Variables
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Since we want to partition based on the “a” column, we need to declare
 that. When defining our partitioning :class:`Schema`, we’ll just have a single
@@ -344,7 +344,7 @@ Arrow, so we’ll write back out to that:
   :end-before: (Doc section: Write Format)
 
 Configure FileSystemDatasetWriteOptions 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to write to disk, we need some configuration. We’ll do so via
 setting values in a :class:`dataset::FileSystemDatasetWriteOptions` struct. We’ll
@@ -405,7 +405,7 @@ run of this application:
   :end-before: (Doc section: Options File Behavior)
 
 Write Dataset to Disk
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 Once the :class:`dataset::FileSystemDatasetWriteOptions` has been configured, and a
 :class:`dataset::Scanner` is prepared to parse the data, we can pass the Options and
