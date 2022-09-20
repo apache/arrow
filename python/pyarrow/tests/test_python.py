@@ -30,7 +30,48 @@
 #         if callable(item) and name.startswith("test_"):
 #             setattr(sys.modules[__name__], name, item)
 
-import pyarrow._pyarrow_cpp_tests as t # noqa
+import pyarrow._pyarrow_cpp_tests as t  # noqa
+
+import pytest
+import sys
+
+
+def test_owned_ref_moves():
+    t.test_TestOwnedRefMoves()
+
+
+def test_owned_ref_no_gil_moves():
+    t.test_TestOwnedRefNoGILMoves()
+
+
+def test_check_py_error_status():
+    t.test_TestCheckPyErrorStatus()
+
+
+def test_check_py_error_status_no_gil():
+    t.test_TestCheckPyErrorStatusNoGIL()
+
+
+def test_restore_py_error_basics():
+    t.test_TestRestorePyErrorBasics()
+
+
+def test_py_buffer_invalid_input_object():
+    t.test_TestPyBufferInvalidInputObject()
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="C++ test are skipped on Windows due to "
+                    "the Numpy C API instance not being visible")
+def test_py_buffer_numpy_array():
+    t.test_TestPyBufferNumpyArray()
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="C++ test are skipped on Windows due to "
+                    "the Numpy C API instance not being visible")
+def test_numpy_buffer_numpy_array():
+    t.test_TestNumPyBufferNumpyArray()
 
 
 def test_python_decimal_to_string():

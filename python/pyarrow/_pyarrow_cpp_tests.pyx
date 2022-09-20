@@ -25,6 +25,40 @@ from pyarrow.lib cimport (check_status)
 from decimal import Decimal
 
 
+def test_TestOwnedRefMoves():
+    check_status(TestOwnedRefMoves())
+
+
+def test_TestOwnedRefNoGILMoves():
+    check_status(TestOwnedRefNoGILMoves())
+
+
+def test_TestCheckPyErrorStatus():
+    check_status(TestCheckPyErrorStatus())
+
+
+def test_TestCheckPyErrorStatusNoGIL():
+    check_status(TestCheckPyErrorStatusNoGIL())
+
+
+def test_TestRestorePyErrorBasics():
+    check_status(TestRestorePyErrorBasics())
+
+
+def test_TestPyBufferInvalidInputObject():
+    check_status(TestPyBufferInvalidInputObject())
+
+
+#ifdef _WIN32
+def test_TestPyBufferNumpyArray():
+    check_status(TestPyBufferNumpyArray())
+
+
+def test_TestNumPyBufferNumpyArray():
+    check_status(TestNumPyBufferNumpyArray())
+#endif
+
+
 def test_PythonDecimalToString():
     cdef:
         c_string decimal_string = b'-39402950693754869342983'
@@ -46,7 +80,8 @@ def test_InferPrecisionAndScale():
         c_string decimal_string = b'-394029506937548693.42983'
         PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
         DecimalMetadata metadata
-        int32_t expected_precision = <int32_t>(decimal_string.size()) - 2 # 1 for -, 1 for .
+        # 1 for -, 1 for .
+        int32_t expected_precision = <int32_t>(decimal_string.size()) - 2
         int32_t expected_scale = 5
 
     check_status(metadata.Update(

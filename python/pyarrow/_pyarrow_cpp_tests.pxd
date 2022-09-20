@@ -40,3 +40,17 @@ cdef extern from "arrow/python/decimal.h" namespace "arrow::py::internal" nogil:
 
         int32_t precision()
         int32_t scale()
+
+cdef extern from "arrow/python/python_test.h" namespace "arrow::py" nogil:
+
+    CStatus TestOwnedRefMoves()
+    CStatus TestOwnedRefNoGILMoves()
+    CStatus TestCheckPyErrorStatus()
+    CStatus TestCheckPyErrorStatusNoGIL()
+    CStatus TestRestorePyErrorBasics()
+    CStatus TestPyBufferInvalidInputObject()
+
+    #ifdef _WIN32
+    CStatus TestPyBufferNumpyArray()
+    CStatus TestNumPyBufferNumpyArray()
+    #endif
