@@ -970,7 +970,13 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	)
 
 	toChunked := func() {
-		acc = output.(ArrayLikeDatum).Chunks()
+		out := output.(ArrayLikeDatum).Chunks()
+		acc = make([]arrow.Array, 0, len(out))
+		for _, o := range out {
+			if o.Len() > 0 {
+				acc = append(acc, o)
+			}
+		}
 		if output.Kind() != KindChunked {
 			output.Release()
 		}

@@ -18,6 +18,7 @@ package exec
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"unsafe"
 
@@ -173,4 +174,58 @@ func ArrayFromSlice[T NumericTypes](mem memory.Allocator, data []T) arrow.Array 
 
 	bldr.AppendValues(data, nil)
 	return bldr.NewArray()
+}
+
+func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
+	if len(groups) <= 1 {
+		return groups
+	}
+
+	var totalLen int
+	for _, a := range groups[0] {
+		totalLen += a.Len()
+	}
+
+	if totalLen == 0 {
+		return groups
+	}
+
+	rechunked := make([][]arrow.Array, len(groups))
+	offsets := make([]int, len(groups))
+	// scan all array vectors at once, rechunking along the way
+	var start int64
+	for start < int64(totalLen) {
+		// first compute max possible length for next chunk
+		chunkLength := math.MaxInt64
+		for i, g := range groups {
+			offset := offsets[i]
+			// skip any done arrays including 0-length
+			for offset == g[0].Len() {
+				g = g[1:]
+				offset = 0
+			}
+			arr := g[0]
+			chunkLength = Min(chunkLength, arr.Len()-offset)
+
+			offsets[i] = offset
+			groups[i] = g
+		}
+
+		// now slice all the arrays along this chunk size
+		for i, g := range groups {
+			offset := offsets[i]
+			arr := g[0]
+			if offset == 0 && arr.Len() == chunkLength {
+				// slice spans entire array
+				arr.Retain()
+				rechunked[i] = append(rechunked[i], arr)
+			} else {
+				rechunked[i] = append(rechunked[i], array.NewSlice(arr, int64(offset), int64(offset+chunkLength)))
+			}
+			offsets[i] += chunkLength
+		}
+
+		start += int64(chunkLength)
+	}
+	return rechunked
 }
