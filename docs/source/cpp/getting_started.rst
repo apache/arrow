@@ -21,14 +21,16 @@
 Getting Started
 ===============
 
-The following articles exist to enable installation, use, and a basic understanding of Arrow.
+The following articles demonstrate installation, use, and a basic understanding of Arrow.
+These articles will get you setup quickly using Arrow and give you a taste of what the
+library is capable of.
 Specifically, it contains: an installation and linking guide; documentation of conventions used 
 in the codebase and suggested for users; and tutorials, including: 
 
-* Using Arrow data structures 
-* Using Arrow's file I/O utilities 
-* Using Arrow's efficient computation tools 
-* Utilizing partitioned datasets with Arrow
+* Building Arrow arrays and tabular structures 
+* Reading and writing Parquet, Arrow, and CSV files
+* Executing compute kernels on arrays
+* Reading and writing multi-file partitioned datasets
 
 Start here to gain a basic understanding of Arrow, and move on to the :doc:`/cpp/user_guide` to
 explore more specific topics and underlying concepts, or the :doc:`/cpp/api` to explore Arrow's 
