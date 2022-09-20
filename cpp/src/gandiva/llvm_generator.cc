@@ -171,27 +171,26 @@ llvm::Value* LLVMGenerator::LoadVectorAtIndex(llvm::Value* arg_addrs, llvm::Type
 }
 
 /// Get reference to validity array at specified index in the args list.
-llvm::Value* LLVMGenerator::GetValidityReference(llvm::Value* arg_addrs, llvm::Type* type,
-                                                 int idx, FieldPtr field) {
+llvm::Value* LLVMGenerator::GetValidityReference(llvm::Value* arg_addrs, int idx,
+                                                 FieldPtr field) {
   const std::string& name = field->name();
-  llvm::Value* load = LoadVectorAtIndex(arg_addrs, type, idx, name);
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, types()->i64_type(), idx, name);
   return ir_builder()->CreateIntToPtr(load, types()->i64_ptr_type(), name + "_varray");
 }
 
 /// Get reference to data array at specified index in the args list.
-llvm::Value* LLVMGenerator::GetDataBufferPtrReference(llvm::Value* arg_addrs,
-                                                      llvm::Type* type, int idx,
+llvm::Value* LLVMGenerator::GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx,
                                                       FieldPtr field) {
   const std::string& name = field->name();
-  llvm::Value* load = LoadVectorAtIndex(arg_addrs, type, idx, name);
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, types()->i64_type(), idx, name);
   return ir_builder()->CreateIntToPtr(load, types()->i8_ptr_type(), name + "_buf_ptr");
 }
 
 /// Get reference to data array at specified index in the args list.
-llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, llvm::Type* type,
-                                             int idx, FieldPtr field) {
+llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, int idx,
+                                             FieldPtr field) {
   const std::string& name = field->name();
-  llvm::Value* load = LoadVectorAtIndex(arg_addrs, type, idx, name);
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, types()->i64_type(), idx, name);
   llvm::Type* base_type = types()->DataVecType(field->type());
   llvm::Value* ret;
   if (base_type->isPointerTy()) {
@@ -204,10 +203,10 @@ llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, llvm::Type*
 }
 
 /// Get reference to offsets array at specified index in the args list.
-llvm::Value* LLVMGenerator::GetOffsetsReference(llvm::Value* arg_addrs, llvm::Type* type,
-                                                int idx, FieldPtr field) {
+llvm::Value* LLVMGenerator::GetOffsetsReference(llvm::Value* arg_addrs, int idx,
+                                                FieldPtr field) {
   const std::string& name = field->name();
-  llvm::Value* load = LoadVectorAtIndex(arg_addrs, type, idx, name);
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, types()->i64_type(), idx, name);
   return ir_builder()->CreateIntToPtr(load, types()->i32_ptr_type(), name + "_oarray");
 }
 
@@ -336,12 +335,12 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
 
   // Add reference to output vector (in entry block)
   builder->SetInsertPoint(loop_entry);
-  llvm::Value* output_ref = GetDataReference(arg_addrs, types()->i64_type(),
-                                             output->data_idx(), output->field());
+  llvm::Value* output_ref =
+      GetDataReference(arg_addrs, output->data_idx(), output->field());
   llvm::Value* output_buffer_ptr_ref = GetDataBufferPtrReference(
-      arg_addrs, types()->i64_type(), output->data_buffer_ptr_idx(), output->field());
-  llvm::Value* output_offset_ref = GetOffsetsReference(
-      arg_addrs, types()->i64_type(), output->offsets_idx(), output->field());
+      arg_addrs, output->data_buffer_ptr_idx(), output->field());
+  llvm::Value* output_offset_ref =
+      GetOffsetsReference(arg_addrs, output->offsets_idx(), output->field());
 
   std::vector<llvm::Value*> slice_offsets;
   for (int idx = 0; idx < buffer_count; idx++) {
@@ -576,8 +575,7 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
 void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
   llvm::IRBuilder<>* builder = ir_builder();
   auto types = generator_->types();
-  llvm::Value* slot_ref =
-      GetBufferReference(dex.DataIdx(), types->i64_type(), kBufferTypeData, dex.Field());
+  llvm::Value* slot_ref = GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
   llvm::Value* slot_index = builder->CreateAdd(loop_var_, GetSliceOffset(dex.DataIdx()));
   llvm::Value* slot_value;
   std::shared_ptr<LValue> lvalue;
@@ -614,8 +612,8 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
   auto types = generator_->types();
 
   // compute len from the offsets array.
-  llvm::Value* offsets_slot_ref = GetBufferReference(dex.OffsetsIdx(), types->i64_type(),
-                                                     kBufferTypeOffsets, dex.Field());
+  llvm::Value* offsets_slot_ref =
+      GetBufferReference(dex.OffsetsIdx(), kBufferTypeOffsets, dex.Field());
   llvm::Value* offsets_slot_index =
       builder->CreateAdd(loop_var_, GetSliceOffset(dex.OffsetsIdx()));
 
@@ -636,7 +634,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
 
   // get the data from the data array, at offset 'offset_start'.
   llvm::Value* data_slot_ref =
-      GetBufferReference(dex.DataIdx(), types->i64_type(), kBufferTypeData, dex.Field());
+      GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
   llvm::Value* data_value =
       builder->CreateGEP(types->i8_type(), data_slot_ref, offset_start);
   ADD_VISITOR_TRACE("visit var-len data vector " + dex.FieldName() + " len %T",
@@ -646,9 +644,8 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
 
 void LLVMGenerator::Visitor::Visit(const VectorReadValidityDex& dex) {
   llvm::IRBuilder<>* builder = ir_builder();
-  auto types = generator_->types();
-  llvm::Value* slot_ref = GetBufferReference(dex.ValidityIdx(), types->i64_type(),
-                                             kBufferTypeValidity, dex.Field());
+  llvm::Value* slot_ref =
+      GetBufferReference(dex.ValidityIdx(), kBufferTypeValidity, dex.Field());
   llvm::Value* slot_index =
       builder->CreateAdd(loop_var_, GetSliceOffset(dex.ValidityIdx()));
   llvm::Value* validity = generator_->GetPackedValidityBitValue(slot_ref, slot_index);
@@ -1339,8 +1336,7 @@ llvm::Value* LLVMGenerator::Visitor::BuildCombinedValidity(const DexVector& vali
   return isValid;
 }
 
-llvm::Value* LLVMGenerator::Visitor::GetBufferReference(int idx, llvm::Type* type,
-                                                        BufferType buffer_type,
+llvm::Value* LLVMGenerator::Visitor::GetBufferReference(int idx, BufferType buffer_type,
                                                         FieldPtr field) {
   llvm::IRBuilder<>* builder = ir_builder();
 
@@ -1351,15 +1347,15 @@ llvm::Value* LLVMGenerator::Visitor::GetBufferReference(int idx, llvm::Type* typ
   llvm::Value* slot_ref = nullptr;
   switch (buffer_type) {
     case kBufferTypeValidity:
-      slot_ref = generator_->GetValidityReference(arg_addrs_, type, idx, field);
+      slot_ref = generator_->GetValidityReference(arg_addrs_, idx, field);
       break;
 
     case kBufferTypeData:
-      slot_ref = generator_->GetDataReference(arg_addrs_, type, idx, field);
+      slot_ref = generator_->GetDataReference(arg_addrs_, idx, field);
       break;
 
     case kBufferTypeOffsets:
-      slot_ref = generator_->GetOffsetsReference(arg_addrs_, type, idx, field);
+      slot_ref = generator_->GetOffsetsReference(arg_addrs_, idx, field);
       break;
   }
 
