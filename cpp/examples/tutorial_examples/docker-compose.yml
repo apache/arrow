@@ -18,10 +18,10 @@
 version: '3.5'
 
 services:
-  minimal:
+  tutorial:
     build:
       context: .
-      dockerfile: minimal.dockerfile
+      dockerfile: tutorial.dockerfile
     volumes:
       - ../../../:/arrow:delegated
       - .:/io:delegated
