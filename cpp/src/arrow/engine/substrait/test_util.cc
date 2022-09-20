@@ -102,7 +102,6 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
-  // decl = std::get_if<compute::Declaration>(&decl->inputs[0]);                                          
   auto other_declrs = std::get_if<compute::Declaration>(&sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
