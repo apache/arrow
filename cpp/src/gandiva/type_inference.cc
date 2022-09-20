@@ -135,10 +135,9 @@ FunctionSignaturePattern ExtractPattern(
   DataTypePtr return_type = signatures[0]->ret_type();
 
   for (const auto& signature : signatures) {
-    if (signature->ret_type())
-      if (return_type != nullptr && signature->ret_type() != return_type) {
-        return_type = nullptr;
-      }
+    if (return_type != nullptr && signature->ret_type() != return_type) {
+      return_type = nullptr;
+    }
     for (size_t i = 0ul; i < arity; ++i) {
       if (params[i] != nullptr && signature->param_types()[i] != params[i]) {
         params[i] = nullptr;
