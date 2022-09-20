@@ -146,15 +146,20 @@ TEST_F(TestBooleanRLE, TestBooleanScanner) {
 
   bool val = false;
   bool is_null = false;
-  for (int i = 0; i < 8; i++) {
+
+  // For this file, 3rd index value is null
+  int expectedNull[8] = {false, false, true, false, false, false, false, false};
+  bool expectedValue[8] = {true, false, false, true, true, false, false, true};
+
+for (int i = 0; i < 8; i++) {
     ASSERT_TRUE(scanner->HasNext());
     ASSERT_TRUE(scanner->NextValue(&val, &is_null));
 
-    // For this file, 3rd index value is null
-    if (i == 2) {
-      ASSERT_TRUE(is_null);
-    } else {
-      ASSERT_FALSE(is_null);
+    ASSERT_EQ(expectedNull[i], is_null);
+
+    // Only validate val if not null
+    if (!is_null) {
+      ASSERT_EQ(expectedValue[i], val);
     }
   }
 
