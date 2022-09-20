@@ -1160,27 +1160,27 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
       auto segment_end = dot_path.find_first_of("\\[.");
       if (segment_end == std::string_view::npos) {
         // dot_path doesn't contain any other special characters; consume all
-        name.append(dot_path.begin(), dot_path.end());
+        name.append(dot_path.data(), dot_path.length());
         dot_path = "";
         break;
       }
 
       if (dot_path[segment_end] != '\\') {
         // segment_end points to a subscript for a new FieldRef
-        name.append(dot_path.begin(), segment_end);
+        name.append(dot_path.data(), segment_end);
         dot_path = dot_path.substr(segment_end);
         break;
       }
 
       if (dot_path.size() == segment_end + 1) {
         // dot_path ends with backslash; consume it all
-        name.append(dot_path.begin(), dot_path.end());
+        name.append(dot_path.data(), dot_path.length());
         dot_path = "";
         break;
       }
 
       // append all characters before backslash, then the character which follows it
-      name.append(dot_path.begin(), segment_end);
+      name.append(dot_path.data(), segment_end);
       name.push_back(dot_path[segment_end + 1]);
       dot_path = dot_path.substr(segment_end + 2);
     }

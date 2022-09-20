@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -128,6 +129,13 @@ size_t TotalViewLength(const std::vector<std::string_view>& views) {
   return total_view_length;
 }
 
+std::vector<std::string_view> Views(const std::vector<std::string>& strings) {
+  std::vector<std::string_view> views(strings.size());
+  std::transform(strings.begin(), strings.end(), views.begin(),
+                 [](const std::string& s) { return std::string_view(s); });
+  return views;
+}
+
 Status Parse(BlockParser& parser, const std::string& str, uint32_t* out_size) {
   return parser.Parse(std::string_view(str), out_size);
 }
@@ -167,15 +175,16 @@ void AssertParsePartial(BlockParser& parser, const std::string& str,
   ASSERT_EQ(parsed_size, expected_size);
 }
 
-void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string> expected) {
+void AssertLastRowEq(const BlockParser& parser,
+                     const std::vector<std::string>& expected) {
   std::vector<std::string> values;
   GetLastRow(parser, &values);
   ASSERT_EQ(parser.num_rows(), expected.size());
   ASSERT_EQ(values, expected);
 }
 
-void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string> expected,
-                     const std::vector<bool> expected_quoted) {
+void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string>& expected,
+                     const std::vector<bool>& expected_quoted) {
   std::vector<std::string> values;
   std::vector<bool> quoted;
   GetLastRow(parser, &values, &quoted);
@@ -185,7 +194,7 @@ void AssertLastRowEq(const BlockParser& parser, const std::vector<std::string> e
 }
 
 void AssertColumnEq(const BlockParser& parser, int32_t col_index,
-                    const std::vector<std::string> expected) {
+                    const std::vector<std::string>& expected) {
   std::vector<std::string> values;
   GetColumn(parser, col_index, &values);
   ASSERT_EQ(parser.num_rows(), expected.size());
@@ -193,8 +202,8 @@ void AssertColumnEq(const BlockParser& parser, int32_t col_index,
 }
 
 void AssertColumnEq(const BlockParser& parser, int32_t col_index,
-                    const std::vector<std::string> expected,
-                    const std::vector<bool> expected_quoted) {
+                    const std::vector<std::string>& expected,
+                    const std::vector<bool>& expected_quoted) {
   std::vector<std::string> values;
   std::vector<bool> quoted;
   GetColumn(parser, col_index, &values, &quoted);
@@ -204,7 +213,7 @@ void AssertColumnEq(const BlockParser& parser, int32_t col_index,
 }
 
 void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>> expected) {
+                     const std::vector<std::vector<std::string>>& expected) {
   ASSERT_EQ(parser.num_cols(), expected.size());
   for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
     AssertColumnEq(parser, col_index, expected[col_index]);
@@ -212,8 +221,8 @@ void AssertColumnsEq(const BlockParser& parser,
 }
 
 void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>> expected,
-                     const std::vector<std::vector<bool>> quoted) {
+                     const std::vector<std::vector<std::string>>& expected,
+                     const std::vector<std::vector<bool>>& quoted) {
   ASSERT_EQ(parser.num_cols(), expected.size());
   for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
     AssertColumnEq(parser, col_index, expected[col_index], quoted[col_index]);
@@ -240,7 +249,7 @@ TEST(BlockParser, Basics) {
     auto csv2 = MakeCSVData({",ij,kl\n"});
     std::vector<std::string_view> csvs = {csv1, csv2};
     BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, {{csv1}, {csv2}});
+    AssertParseOk(parser, csvs);
     AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
     AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
   }
@@ -392,7 +401,8 @@ TEST(BlockParser, Final) {
   // Two blocks
   auto csv1 = MakeCSVData({"ab,cd\n"});
   auto csv2 = MakeCSVData({"ef,"});
-  AssertParseFinal(parser, {{csv1}, {csv2}});
+  std::vector<std::string_view> csvs = {csv1, csv2};
+  AssertParseFinal(parser, csvs);
   AssertColumnsEq(parser, {{"ab", "ef"}, {"cd", ""}});
 }
 
