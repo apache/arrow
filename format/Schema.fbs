@@ -178,6 +178,9 @@ table FixedSizeBinary {
 table Bool {
 }
 
+table RunLengthEncoded {
+}
+
 /// Exact decimal value represented as an integer value in two's
 /// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
 /// are used. The representation uses the endianness indicated
@@ -417,6 +420,7 @@ union Type {
   LargeBinary,
   LargeUtf8,
   LargeList,
+  RunLengthEncoded,
 }
 
 /// ----------------------------------------------------------------------
