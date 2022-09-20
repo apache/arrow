@@ -26,7 +26,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 public interface Scanner extends AutoCloseable {
 
   /**
-   * Read record batches from the URI resources filtering the batch size configured.
+   * Read the dataset as a stream of record batches.
    *
    * @return a {@link ArrowReader}.
    */

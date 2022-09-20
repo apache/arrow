@@ -73,7 +73,7 @@ public class NativeScanner implements Scanner {
       throw new NativeInstanceReleasedException();
     }
     if (!executed.compareAndSet(false, true)) {
-      throw new UnsupportedOperationException("NativeScanner cannot be executed more than once. Consider creating " +
+      throw new UnsupportedOperationException("NativeScanner can only be executed once. Create a " +
               "new scanner instead");
     }
     return new NativeReader(context.getAllocator());
