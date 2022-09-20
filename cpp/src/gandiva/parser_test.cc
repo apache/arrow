@@ -28,12 +28,14 @@ class TestParser : public ::testing::Test {
     auto field_x = arrow::field("x", arrow::int32());
     auto field_y = arrow::field("y", arrow::int32());
     auto field_z = arrow::field("z", arrow::int32());
+    auto field_v1 = arrow::field("v1", arrow::int64());
+    auto field_v2 = arrow::field("v2", arrow::int64());
     auto field_a = arrow::field("a", arrow::boolean());
     auto field_s = arrow::field("s", arrow::utf8());
     auto field_t = arrow::field("t", arrow::time32(arrow::TimeUnit::SECOND));
     auto field_d = arrow::field("d", arrow::date64());
-    auto schema =
-        arrow::schema({field_x, field_y, field_z, field_a, field_s, field_t, field_d});
+    auto schema = arrow::schema({field_x, field_y, field_z, field_v1, field_v2, field_a,
+                                 field_s, field_t, field_d});
     auto ret = schema->GetFieldByName("name");
     parser_ = Parser(schema);
   }
@@ -135,9 +137,7 @@ TEST_F(TestParser, TestInfixFunction) {
       status_.message(),
       "No valid signature compatible with pattern untyped negative(uint64)\nAll "
       "available signatures:\nfloat negative(float)\ndouble negative(double)\nint32 "
-      "negative(int32)\nint64 negative(int64)\ndecimal128(38, 0) negative(decimal128(38, "
-      "0))\nmonth_interval negative(month_interval)\nday_time_interval "
-      "negative(day_time_interval)\n");
+      "negative(int32)\nint64 negative(int64)\n");
 
   status_ = parser_.Parse("-0.123", &expr_);
   EXPECT_TRUE(status_.ok());
@@ -244,6 +244,29 @@ TEST_F(TestParser, TestTypeInference) {
       "3, (const int32) 8) && bool greater_than((const int32) 1, (const int32) 0) || "
       "bool greater_than((const int32) 2, (const int32) 0) && bool greater_than((const "
       "int32) 3, (const int32) 0)");
+
+  status_ = parser_.Parse("if(v1 > 0, v1, -999)", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "if (bool greater_than((int64) v1, (const int64) 0)) { (int64) v1 } else { "
+            "int64 negative((const int64) 999) }");
+
+  status_ = parser_.Parse("if(v1 > 0 and v2 > 0, v2 * 1000000 / v1, -999)", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(
+      expr_->ToString(),
+      "if (bool greater_than((int64) v1, (const int64) 0) && bool greater_than((int64) "
+      "v2, (const int64) 0)) { int64 div(int64 multiply((int64) v2, (const int64) "
+      "1000000), (int64) v1) } else { int64 negative((const int64) 999) }");
+
+  status_ = parser_.Parse("if(v1 > 0, v1+1, 1)", &expr_);
+  EXPECT_TRUE(status_.ok());
+  EXPECT_EQ(status_.message(), "");
+  EXPECT_EQ(expr_->ToString(),
+            "if (bool greater_than((int64) v1, (const int64) 0)) { int64 add((int64) v1, "
+            "(const int64) 1) } else { (const int64) 1 }");
 }
 
 }  // namespace gandiva

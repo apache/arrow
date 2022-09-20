@@ -25,43 +25,6 @@
 namespace gandiva {
 
 /// \brief Infers the types of untyped nodes
-class GANDIVA_EXPORT TypeInferenceVisitor : public NodeVisitor {
- public:
-  explicit TypeInferenceVisitor(SchemaPtr schema) : schema_(schema) {
-    for (auto& field : schema_->fields()) {
-      field_map_[field->name()] = field;
-    }
-  }
+Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result);
 
-  /// \brief Infers the types of untyped nodes and returns a fully typed AST
-  Status Infer(NodePtr input, NodePtr* result);
-
- private:
-  Status Visit(const FieldNode& node) override;
-  Status Visit(const FunctionNode& node) override;
-  Status Visit(const IfNode& node) override;
-  Status Visit(const LiteralNode& node) override;
-  Status Visit(const BooleanNode& node) override;
-  Status Visit(const InExpressionNode<int32_t>& node) override;
-  Status Visit(const InExpressionNode<int64_t>& node) override;
-  Status Visit(const InExpressionNode<float>& node) override;
-  Status Visit(const InExpressionNode<double>& node) override;
-  Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) override;
-  Status Visit(const InExpressionNode<std::string>& node) override;
-
-  FunctionRegistry registry_;
-
-  SchemaPtr schema_;
-
-  std::unordered_map<std::string, FieldPtr> field_map_;
-
-  /// Holds the result node for each visit
-  NodePtr result_;
-
-  /// Adds default types for untyped literals, used in the second pass
-  bool tag_default_type_ = false;
-
-  /// If all nodes are typed already, used for early return
-  bool all_typed_ = false;
-};
 }  // namespace gandiva

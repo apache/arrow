@@ -24,16 +24,33 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "gandiva/arrow.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/node_visitor.h"
 
 namespace gandiva {
+
+static std::unordered_set<arrow::Type::type> kSupportedTypes{
+    arrow::Type::BOOL,   arrow::Type::INT8,  arrow::Type::INT16,  arrow::Type::INT32,
+    arrow::Type::INT64,  arrow::Type::UINT8, arrow::Type::UINT16, arrow::Type::UINT32,
+    arrow::Type::UINT64, arrow::Type::FLOAT, arrow::Type::DOUBLE, arrow::Type::STRING,
+    arrow::Type::BINARY};
+
+bool IsAcceptedSignature(const FunctionSignature* signature) {
+  DataTypeVector params = signature->param_types();
+  return kSupportedTypes.count(signature->ret_type()->id()) &&
+         std::all_of(params.begin(), params.end(), [](const DataTypePtr& type) {
+           return kSupportedTypes.count(type->id());
+         });
+}
 
 /// \brief FunctionSignature that allows null types
 class FunctionSignaturePattern {
@@ -43,16 +60,16 @@ class FunctionSignaturePattern {
 
   explicit FunctionSignaturePattern(const FunctionSignature& signature);
 
-  DataTypePtr ret_type() const { return ret_type_; }
+  [[nodiscard]] DataTypePtr ret_type() const { return ret_type_; }
 
-  const std::string& base_name() const { return base_name_; }
+  [[nodiscard]] const std::string& base_name() const { return base_name_; }
 
-  DataTypeVector param_types() const { return param_types_; }
+  [[nodiscard]] DataTypeVector param_types() const { return param_types_; }
 
-  std::string ToString() const;
+  [[nodiscard]] std::string ToString() const;
 
   /// \brief Check if the candidate signature is a possible completion to this
-  bool IsCompatibleWith(const FunctionSignature& candidate) const;
+  [[nodiscard]] bool IsCompatibleWith(const FunctionSignature& candidate) const;
 
  private:
   std::string base_name_;
@@ -63,7 +80,9 @@ class FunctionSignaturePattern {
 FunctionSignaturePattern::FunctionSignaturePattern(std::string base_name,
                                                    DataTypeVector param_types,
                                                    DataTypePtr ret_type)
-    : base_name_(base_name), param_types_(param_types), ret_type_(ret_type) {}
+    : base_name_(std::move(base_name)),
+      param_types_(std::move(param_types)),
+      ret_type_(std::move(ret_type)) {}
 
 FunctionSignaturePattern::FunctionSignaturePattern(const FunctionSignature& signature)
     : base_name_(signature.base_name()),
@@ -106,6 +125,7 @@ bool FunctionSignaturePattern::IsCompatibleWith(
 /// \brief Extract a common pattern from multiple signatures, nullptr act as wildcard
 /// For example, int(double, int) and int(double, double) -> int(double, nullptr)
 /// It assumes 1. input is not empty 2. every input has the same arity
+/// \note All type alias will be translated to its physical type
 FunctionSignaturePattern ExtractPattern(
     const std::vector<const FunctionSignature*>& signatures) {
   auto arity = signatures[0]->param_types().size();
@@ -115,9 +135,10 @@ FunctionSignaturePattern ExtractPattern(
   DataTypePtr return_type = signatures[0]->ret_type();
 
   for (const auto& signature : signatures) {
-    if (return_type != nullptr && signature->ret_type() != return_type) {
-      return_type = nullptr;
-    }
+    if (signature->ret_type())
+      if (return_type != nullptr && signature->ret_type() != return_type) {
+        return_type = nullptr;
+      }
     for (size_t i = 0ul; i < arity; ++i) {
       if (params[i] != nullptr && signature->param_types()[i] != params[i]) {
         params[i] = nullptr;
@@ -128,45 +149,78 @@ FunctionSignaturePattern ExtractPattern(
   return {base_name, params, return_type};
 }
 
-Status TypeInferenceVisitor::Infer(NodePtr input, NodePtr* result) {
-  Status status;
+#define MAKE_LITERAL(atype, ctype)                              \
+  case arrow::Type::atype:                                      \
+    *node = std::make_shared<LiteralNode>(                      \
+        type, LiteralHolder(static_cast<ctype>(value)), false); \
+    break;
 
-  /// First pass, bottom up propagation of types
-  all_typed_ = true;
-  status = input->Accept(*this);
-  if (!status.ok()) {
-    return status;
+template <typename T>
+Status MakeLiteralNode(const DataTypePtr& type, T value, NodePtr* node) {
+  switch (type->id()) {
+    MAKE_LITERAL(BOOL, bool);
+    MAKE_LITERAL(INT8, int8_t);
+    MAKE_LITERAL(INT16, int16_t);
+    MAKE_LITERAL(INT32, int32_t);
+    MAKE_LITERAL(INT64, int64_t);
+    MAKE_LITERAL(UINT8, uint8_t);
+    MAKE_LITERAL(UINT16, uint16_t);
+    MAKE_LITERAL(UINT32, uint32_t);
+    MAKE_LITERAL(UINT64, uint64_t);
+    MAKE_LITERAL(FLOAT, float);
+    MAKE_LITERAL(DOUBLE, double);
+    default:
+      // should be impossible to reach here
+      return Status::TypeError("Impossible mismatched literal type " + type->ToString());
   }
-
-  // std::cout << "first pass: " << result_->ToString() << std::endl;
-
-  if (all_typed_) {
-    *result = result_;
-    return Status::OK();
-  }
-
-  /// Second pass, top down propagation of types, and tags untyped literals with default
-  /// types
-  tag_default_type_ = true;
-  all_typed_ = true;
-  status = input->Accept(*this);
-  if (!status.ok()) {
-    return status;
-  }
-  // std::cout << "second pass: " << result_->ToString() << std::endl;
-
-  *result = result_;
   return Status::OK();
 }
 
+class BottomUpTypeInferenceVisitor : public NodeVisitor {
+ public:
+  Status Visit(const FieldNode& node) override;
+  Status Visit(const FunctionNode& node) override;
+  Status Visit(const IfNode& node) override;
+  Status Visit(const LiteralNode& node) override;
+  Status Visit(const BooleanNode& node) override;
+  Status Visit(const InExpressionNode<int32_t>& node) override;
+  Status Visit(const InExpressionNode<int64_t>& node) override;
+  Status Visit(const InExpressionNode<float>& node) override;
+  Status Visit(const InExpressionNode<double>& node) override;
+  Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) override;
+  Status Visit(const InExpressionNode<std::string>& node) override;
+
+  NodePtr get_result() { return result_; }
+  bool get_all_typed() { return all_typed_; }
+  void set_all_typed(bool all_typed) { all_typed_ = all_typed; }
+
+  bool get_tag_default_type() { return tag_default_type_; }
+  void set_tag_default_type(bool tag_default_type) {
+    tag_default_type_ = tag_default_type;
+  }
+
+ private:
+  FunctionRegistry registry_;
+  std::unordered_map<std::string, FieldPtr> field_map_;
+
+  /// Holds the result node for each visit
+  NodePtr result_;
+
+  /// Adds default types for untyped literals, used in the second pass
+  bool tag_default_type_ = false;
+
+  /// Whether all nodes are typed already, used for early return
+  bool all_typed_ = false;
+};
+
 /// \brief Field type is known, do nothing.
-Status TypeInferenceVisitor::Visit(const FieldNode& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const FieldNode& node) {
   result_ = node.GetSharedPtr();
   return Status::OK();
 }
 
 /// \brief Try to infer the type
-Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const FunctionNode& node) {
   // std::cout << "func visit " << node.ToString() << std::endl;
 
   Status status;
@@ -183,7 +237,12 @@ Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
   FunctionSignaturePattern current_pattern(node.descriptor()->name(), param_types,
                                            node.return_type());
 
-  auto candidates = registry_.GetSignaturesByFunctionName(node.descriptor()->name());
+  auto all_signatures = registry_.GetSignaturesByFunctionName(node.descriptor()->name());
+  std::vector<const FunctionSignature*> candidates;
+  std::copy_if(all_signatures.begin(), all_signatures.end(),
+               std::back_inserter(candidates),
+               [](const FunctionSignature* sig) { return IsAcceptedSignature(sig); });
+
   std::vector<const FunctionSignature*> compatible_signatures;
   std::copy_if(candidates.begin(), candidates.end(),
                std::back_inserter(compatible_signatures),
@@ -204,9 +263,11 @@ Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
 
   if (compatible_signatures.size() == 1) {
     current_pattern = FunctionSignaturePattern(*compatible_signatures[0]);
+    // std::cout << "matched: " << current_pattern.ToString() << std::endl;
   } else {
     all_typed_ = false;
     current_pattern = ExtractPattern(compatible_signatures);
+    // std::cout << "extracted: " << current_pattern.ToString() << std::endl;
   }
 
   for (size_t i = 0; i < current_pattern.param_types().size(); ++i) {
@@ -219,7 +280,7 @@ Status TypeInferenceVisitor::Visit(const FunctionNode& node) {
   return Status::OK();
 }
 
-Status TypeInferenceVisitor::Visit(const IfNode& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const IfNode& node) {
   Status status;
   std::array<NodePtr, 3> children{node.condition(), node.then_node(), node.else_node()};
   children[0]->set_return_type(arrow::boolean());
@@ -261,34 +322,7 @@ Status TypeInferenceVisitor::Visit(const IfNode& node) {
   return Status::TypeError(error_node->ToString() + " has conflicting types.");
 }
 
-#define MAKE_LITERAL(atype, ctype)                              \
-  case arrow::Type::atype:                                      \
-    *node = std::make_shared<LiteralNode>(                      \
-        type, LiteralHolder(static_cast<ctype>(value)), false); \
-    break;
-
-template <typename T>
-Status MakeLiteralNode(const DataTypePtr& type, T value, NodePtr* node) {
-  switch (type->id()) {
-    MAKE_LITERAL(BOOL, bool);
-    MAKE_LITERAL(INT8, int8_t);
-    MAKE_LITERAL(INT16, int16_t);
-    MAKE_LITERAL(INT32, int32_t);
-    MAKE_LITERAL(INT64, int64_t);
-    MAKE_LITERAL(UINT8, uint8_t);
-    MAKE_LITERAL(UINT16, uint16_t);
-    MAKE_LITERAL(UINT32, uint32_t);
-    MAKE_LITERAL(UINT64, uint64_t);
-    MAKE_LITERAL(FLOAT, float);
-    MAKE_LITERAL(DOUBLE, double);
-    default:
-      // should be impossible to reach here
-      return Status::TypeError("Impossible mismatched literal type " + type->ToString());
-  }
-  return Status::OK();
-}
-
-Status TypeInferenceVisitor::Visit(const LiteralNode& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const LiteralNode& node) {
   auto return_type = node.return_type();
   if (return_type != nullptr &&
       return_type->id() == kLiteralHolderTypes[node.holder().index()]) {
@@ -334,7 +368,7 @@ Status TypeInferenceVisitor::Visit(const LiteralNode& node) {
   return Status::OK();
 }
 
-Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const BooleanNode& node) {
   // std::cout << "bool visit " << node.ToString() << std::endl;
   Status status;
   std::vector<NodePtr> children = node.children();
@@ -360,23 +394,295 @@ Status TypeInferenceVisitor::Visit(const BooleanNode& node) {
   return Status::OK();
 }
 
-Status TypeInferenceVisitor::Visit(const InExpressionNode<int32_t>& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<int32_t>& node) {
   return Status::OK();
 }
-Status TypeInferenceVisitor::Visit(const InExpressionNode<int64_t>& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<int64_t>& node) {
   return Status::OK();
 }
-Status TypeInferenceVisitor::Visit(const InExpressionNode<float>& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<float>& node) {
   return Status::OK();
 }
-Status TypeInferenceVisitor::Visit(const InExpressionNode<double>& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<double>& node) {
   return Status::OK();
 }
-Status TypeInferenceVisitor::Visit(
+Status BottomUpTypeInferenceVisitor::Visit(
     const InExpressionNode<gandiva::DecimalScalar128>& node) {
   return Status::OK();
 }
-Status TypeInferenceVisitor::Visit(const InExpressionNode<std::string>& node) {
+Status BottomUpTypeInferenceVisitor::Visit(const InExpressionNode<std::string>& node) {
+  return Status::OK();
+}
+
+class TopDownTypeInferenceVisitor : public NodeVisitor {
+ public:
+  Status Visit(const FieldNode& node) override;
+  Status Visit(const FunctionNode& node) override;
+  Status Visit(const IfNode& node) override;
+  Status Visit(const LiteralNode& node) override;
+  Status Visit(const BooleanNode& node) override;
+  Status Visit(const InExpressionNode<int32_t>& node) override;
+  Status Visit(const InExpressionNode<int64_t>& node) override;
+  Status Visit(const InExpressionNode<float>& node) override;
+  Status Visit(const InExpressionNode<double>& node) override;
+  Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) override;
+  Status Visit(const InExpressionNode<std::string>& node) override;
+
+  NodePtr get_result() { return result_; }
+  bool get_all_typed() { return all_typed_; }
+  void set_all_typed(bool all_typed) { all_typed_ = all_typed; }
+
+ private:
+  /// Holds the result node for each visit
+  NodePtr result_;
+
+  /// Whether all nodes are typed already, used for early return
+  bool all_typed_ = false;
+
+  FunctionRegistry registry_;
+  std::unordered_map<std::string, FieldPtr> field_map_;
+};
+
+/// \brief Field type is known, do nothing.
+Status TopDownTypeInferenceVisitor::Visit(const FieldNode& node) {
+  result_ = node.GetSharedPtr();
+  return Status::OK();
+}
+
+/// \brief Try to infer the type
+Status TopDownTypeInferenceVisitor::Visit(const FunctionNode& node) {
+  // std::cout << "func visit " << node.ToString() << std::endl;
+
+  Status status;
+  FunctionSignaturePattern current_pattern(
+      node.descriptor()->name(), node.descriptor()->params(), node.return_type());
+
+  auto all_signatures = registry_.GetSignaturesByFunctionName(node.descriptor()->name());
+  std::vector<const FunctionSignature*> candidates;
+  std::copy_if(all_signatures.begin(), all_signatures.end(),
+               std::back_inserter(candidates),
+               [](const FunctionSignature* sig) { return IsAcceptedSignature(sig); });
+
+  std::vector<const FunctionSignature*> compatible_signatures;
+  std::copy_if(candidates.begin(), candidates.end(),
+               std::back_inserter(compatible_signatures),
+               [&current_pattern](const FunctionSignature* candidate) {
+                 return current_pattern.IsCompatibleWith(*candidate);
+               });
+
+  if (compatible_signatures.empty()) {
+    std::stringstream error_stream;
+    error_stream << "No valid signature compatible with pattern "
+                 << current_pattern.ToString() << std::endl;
+    error_stream << "All available signatures:" << std::endl;
+    for (const auto* candidate : candidates) {
+      error_stream << candidate->ToString() << std::endl;
+    }
+    return Status::TypeError(error_stream.str());
+  }
+
+  if (compatible_signatures.size() == 1) {
+    current_pattern = FunctionSignaturePattern(*compatible_signatures[0]);
+  } else {
+    all_typed_ = false;
+    current_pattern = ExtractPattern(compatible_signatures);
+  }
+
+  std::vector<NodePtr> children = node.children();
+  for (size_t i = 0; i < current_pattern.param_types().size(); ++i) {
+    children[i]->set_return_type(current_pattern.param_types()[i]);
+  }
+
+  for (const auto& child : node.children()) {
+    status = child->Accept(*this);
+    if (!status.ok()) {
+      return status;
+    }
+  }
+
+  result_ = std::make_shared<FunctionNode>(current_pattern.base_name(), children,
+                                           current_pattern.ret_type());
+
+  // std::cout << "func result " << result_->ToString() << std::endl;
+  return Status::OK();
+}
+
+Status TopDownTypeInferenceVisitor::Visit(const IfNode& node) {
+  Status status;
+  std::array<NodePtr, 3> children{node.condition(), node.then_node(), node.else_node()};
+  children[0]->set_return_type(arrow::boolean());
+
+  std::unordered_set<DataTypePtr> types;
+  if (node.return_type() != nullptr) {
+    types.insert(node.return_type());
+  }
+  if (children[1]->return_type() != nullptr) {
+    types.insert(children[1]->return_type());
+  }
+  if (children[2]->return_type() != nullptr) {
+    types.insert(children[2]->return_type());
+  }
+
+  DataTypePtr return_type;
+  if (types.size() == 0) {
+    all_typed_ = false;
+  } else if (types.size() == 1) {
+    const auto& type = *types.begin();
+    children[1]->set_return_type(type);
+    children[2]->set_return_type(type);
+    return_type = type;
+  } else {
+    auto error_node = std::make_shared<IfNode>(children[0], children[1], children[2],
+                                               node.return_type());
+    return Status::TypeError(error_node->ToString() + " has conflicting types.");
+  }
+
+  for (auto& child : children) {
+    status = child->Accept(*this);
+    if (!status.ok()) {
+      return status;
+    }
+    child = result_;
+  }
+
+  result_ = std::make_shared<IfNode>(children[0], children[1], children[2], return_type);
+  return Status::OK();
+}
+
+Status TopDownTypeInferenceVisitor::Visit(const LiteralNode& node) {
+  auto return_type = node.return_type();
+  if (return_type != nullptr &&
+      return_type->id() == kLiteralHolderTypes[node.holder().index()]) {
+    result_ = node.GetSharedPtr();
+    return Status::OK();
+  }
+
+  if (return_type == nullptr) {
+    all_typed_ = false;
+    result_ = node.GetSharedPtr();
+    return Status::OK();
+  }
+
+  Status status;
+  if (node.holder().index() == 2) {  // double
+    status = MakeLiteralNode(return_type, *node.holder().get<double>(), &result_);
+    if (!status.ok()) {
+      return status;
+    }
+  } else if (node.holder().index() == 10) {  // uint64
+    status = MakeLiteralNode(return_type, *node.holder().get<uint64_t>(), &result_);
+    if (!status.ok()) {
+      return status;
+    }
+  } else {
+    // Should be impossible to reach here
+    return Status::TypeError("Impossible untyped literal holder type" +
+                             std::to_string(node.holder().index()));
+  }
+
+  return Status::OK();
+}
+
+Status TopDownTypeInferenceVisitor::Visit(const BooleanNode& node) {
+  // std::cout << "bool visit " << node.ToString() << std::endl;
+  Status status;
+  std::vector<NodePtr> children = node.children();
+  for (auto& child : children) {
+    child->set_return_type(arrow::boolean());
+    status = child->Accept(*this);
+    if (!status.ok()) {
+      return status;
+    }
+    child = result_;
+  }
+
+  if (result_->return_type() != arrow::boolean() ||
+      std::any_of(children.begin(), children.end(), [](const NodePtr& child) {
+        return child->return_type() != arrow::boolean();
+      })) {
+    all_typed_ = false;
+  }
+
+  result_ = std::make_shared<BooleanNode>(node.expr_type(), children);
+  // std::cout << "bool result " << result_->ToString() << std::endl;
+
+  return Status::OK();
+}
+
+Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<int32_t>& node) {
+  return Status::OK();
+}
+Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<int64_t>& node) {
+  return Status::OK();
+}
+Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<float>& node) {
+  return Status::OK();
+}
+Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<double>& node) {
+  return Status::OK();
+}
+Status TopDownTypeInferenceVisitor::Visit(
+    const InExpressionNode<gandiva::DecimalScalar128>& node) {
+  return Status::OK();
+}
+Status TopDownTypeInferenceVisitor::Visit(const InExpressionNode<std::string>& node) {
+  return Status::OK();
+}
+
+Status InferTypes(NodePtr input, SchemaPtr schema, NodePtr* result) {
+  Status status;
+  BottomUpTypeInferenceVisitor bottom_up_visitor;
+  TopDownTypeInferenceVisitor top_down_visitor;
+  /// First pass, bottom up propagation of types
+  bottom_up_visitor.set_all_typed(true);
+  status = input->Accept(bottom_up_visitor);
+  if (!status.ok()) {
+    return status;
+  }
+  *result = bottom_up_visitor.get_result();
+  // std::cout << "first pass: " << (*result)->ToString() << std::endl;
+
+  if (bottom_up_visitor.get_all_typed()) {
+    return Status::OK();
+  }
+
+  /// Second pass, top down propagation of types
+  top_down_visitor.set_all_typed(true);
+  status = (*result)->Accept(top_down_visitor);
+  if (!status.ok()) {
+    return status;
+  }
+  *result = top_down_visitor.get_result();
+  // std::cout << "second pass: " << (*result)->ToString() << std::endl;
+
+  if (top_down_visitor.get_all_typed()) {
+    return Status::OK();
+  }
+
+  /// Third pass, bottom up propation with default literal types
+  bottom_up_visitor.set_tag_default_type(true);
+  bottom_up_visitor.set_all_typed(true);
+  status = (*result)->Accept(bottom_up_visitor);
+  if (!status.ok()) {
+    return status;
+  }
+  *result = bottom_up_visitor.get_result();
+  // std::cout << "third pass: " << (*result)->ToString() << std::endl;
+
+  if (bottom_up_visitor.get_all_typed()) {
+    return Status::OK();
+  }
+
+  /// Last pass, top down propagation of default literal types
+  top_down_visitor.set_all_typed(true);
+  status = (*result)->Accept(top_down_visitor);
+  if (!status.ok()) {
+    return status;
+  }
+  // std::cout << "fourth pass: " << top_down_visitor.get_result()->ToString() <<
+  // std::endl;
+
+  *result = top_down_visitor.get_result();
   return Status::OK();
 }
 

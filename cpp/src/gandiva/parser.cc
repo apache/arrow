@@ -36,9 +36,8 @@ Status Parser::Parse(const std::string& content, NodePtr* ptr) {
   if (res != 0) {
     return Status::ParseError(error_message_);
   }
-  TypeInferenceVisitor type_visitor(schema_);
 
-  auto status = type_visitor.Infer(*node_ptr_, node_ptr_);
+  auto status = InferTypes(*node_ptr_, schema_, node_ptr_);
   if (!status.ok()) {
     return status;
   }
