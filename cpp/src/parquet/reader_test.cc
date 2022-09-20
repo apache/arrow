@@ -151,7 +151,7 @@ TEST_F(TestBooleanRLE, TestBooleanScanner) {
   int expectedNull[8] = {false, false, true, false, false, false, false, false};
   bool expectedValue[8] = {true, false, false, true, true, false, false, true};
 
-for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 8; i++) {
     ASSERT_TRUE(scanner->HasNext());
     ASSERT_TRUE(scanner->NextValue(&val, &is_null));
 
