@@ -37,10 +37,12 @@ add_executable(arrow_example arrow_example.cc)
 target_link_libraries(arrow_example PRIVATE Arrow::arrow_shared)
 
 add_executable(file_access_example file_access_example.cc)
-target_link_libraries(file_access_example PRIVATE Arrow::arrow_shared Parquet::parquet_shared)
+target_link_libraries(file_access_example PRIVATE Arrow::arrow_shared
+                                                  Parquet::parquet_shared)
 
 add_executable(compute_example compute_example.cc)
 target_link_libraries(compute_example PRIVATE Arrow::arrow_shared)
 
 add_executable(dataset_example dataset_example.cc)
-target_link_libraries(dataset_example PRIVATE Arrow::arrow_shared Parquet::parquet_shared ArrowDataset::arrow_dataset_shared)
+target_link_libraries(dataset_example PRIVATE Arrow::arrow_shared Parquet::parquet_shared
+                                              ArrowDataset::arrow_dataset_shared)
