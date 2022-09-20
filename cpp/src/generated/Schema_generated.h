@@ -56,6 +56,9 @@ struct FixedSizeBinaryBuilder;
 struct Bool;
 struct BoolBuilder;
 
+struct RunLengthEncoded;
+struct RunLengthEncodedBuilder;
+
 struct Decimal;
 struct DecimalBuilder;
 
@@ -382,11 +385,12 @@ enum class Type : uint8_t {
   LargeBinary = 19,
   LargeUtf8 = 20,
   LargeList = 21,
+  RunLengthEncoded = 22,
   MIN = NONE,
-  MAX = LargeList
+  MAX = RunLengthEncoded
 };
 
-inline const Type (&EnumValuesType())[22] {
+inline const Type (&EnumValuesType())[23] {
   static const Type values[] = {
     Type::NONE,
     Type::Null,
@@ -409,13 +413,14 @@ inline const Type (&EnumValuesType())[22] {
     Type::Duration,
     Type::LargeBinary,
     Type::LargeUtf8,
-    Type::LargeList
+    Type::LargeList,
+    Type::RunLengthEncoded
   };
   return values;
 }
 
 inline const char * const *EnumNamesType() {
-  static const char * const names[23] = {
+  static const char * const names[24] = {
     "NONE",
     "Null",
     "Int",
@@ -438,13 +443,14 @@ inline const char * const *EnumNamesType() {
     "LargeBinary",
     "LargeUtf8",
     "LargeList",
+    "RunLengthEncoded",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameType(Type e) {
-  if (flatbuffers::IsOutRange(e, Type::NONE, Type::LargeList)) return "";
+  if (flatbuffers::IsOutRange(e, Type::NONE, Type::RunLengthEncoded)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
@@ -537,6 +543,10 @@ template<> struct TypeTraits<org::apache::arrow::flatbuf::LargeList> {
   static const Type enum_value = Type::LargeList;
 };
 
+template<> struct TypeTraits<org::apache::arrow::flatbuf::RunLengthEncoded> {
+  static const Type enum_value = Type::RunLengthEncoded;
+};
+
 bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type type);
 bool VerifyTypeVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
@@ -612,8 +622,9 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Buffer FLATBUFFERS_FINAL_CLASS {
   int64_t length_;
 
  public:
-  Buffer() {
-    memset(static_cast<void *>(this), 0, sizeof(Buffer));
+  Buffer()
+      : offset_(0),
+        length_(0) {
   }
   Buffer(int64_t _offset, int64_t _length)
       : offset_(flatbuffers::EndianScalar(_offset)),
@@ -652,7 +663,6 @@ struct NullBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NullBuilder &operator=(const NullBuilder &);
   flatbuffers::Offset<Null> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Null>(end);
@@ -685,7 +695,6 @@ struct Struct_Builder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Struct_Builder &operator=(const Struct_Builder &);
   flatbuffers::Offset<Struct_> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Struct_>(end);
@@ -715,7 +724,6 @@ struct ListBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ListBuilder &operator=(const ListBuilder &);
   flatbuffers::Offset<List> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<List>(end);
@@ -747,7 +755,6 @@ struct LargeListBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  LargeListBuilder &operator=(const LargeListBuilder &);
   flatbuffers::Offset<LargeList> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LargeList>(end);
@@ -788,7 +795,6 @@ struct FixedSizeListBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FixedSizeListBuilder &operator=(const FixedSizeListBuilder &);
   flatbuffers::Offset<FixedSizeList> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<FixedSizeList>(end);
@@ -856,7 +862,6 @@ struct MapBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  MapBuilder &operator=(const MapBuilder &);
   flatbuffers::Offset<Map> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Map>(end);
@@ -911,7 +916,6 @@ struct UnionBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  UnionBuilder &operator=(const UnionBuilder &);
   flatbuffers::Offset<Union> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Union>(end);
@@ -974,7 +978,6 @@ struct IntBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  IntBuilder &operator=(const IntBuilder &);
   flatbuffers::Offset<Int> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Int>(end);
@@ -1018,7 +1021,6 @@ struct FloatingPointBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FloatingPointBuilder &operator=(const FloatingPointBuilder &);
   flatbuffers::Offset<FloatingPoint> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<FloatingPoint>(end);
@@ -1051,7 +1053,6 @@ struct Utf8Builder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Utf8Builder &operator=(const Utf8Builder &);
   flatbuffers::Offset<Utf8> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Utf8>(end);
@@ -1082,7 +1083,6 @@ struct BinaryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  BinaryBuilder &operator=(const BinaryBuilder &);
   flatbuffers::Offset<Binary> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Binary>(end);
@@ -1114,7 +1114,6 @@ struct LargeUtf8Builder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  LargeUtf8Builder &operator=(const LargeUtf8Builder &);
   flatbuffers::Offset<LargeUtf8> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LargeUtf8>(end);
@@ -1146,7 +1145,6 @@ struct LargeBinaryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  LargeBinaryBuilder &operator=(const LargeBinaryBuilder &);
   flatbuffers::Offset<LargeBinary> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LargeBinary>(end);
@@ -1187,7 +1185,6 @@ struct FixedSizeBinaryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FixedSizeBinaryBuilder &operator=(const FixedSizeBinaryBuilder &);
   flatbuffers::Offset<FixedSizeBinary> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<FixedSizeBinary>(end);
@@ -1219,7 +1216,6 @@ struct BoolBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  BoolBuilder &operator=(const BoolBuilder &);
   flatbuffers::Offset<Bool> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Bool>(end);
@@ -1230,6 +1226,35 @@ struct BoolBuilder {
 inline flatbuffers::Offset<Bool> CreateBool(
     flatbuffers::FlatBufferBuilder &_fbb) {
   BoolBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct RunLengthEncoded FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RunLengthEncodedBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct RunLengthEncodedBuilder {
+  typedef RunLengthEncoded Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit RunLengthEncodedBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<RunLengthEncoded> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<RunLengthEncoded>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<RunLengthEncoded> CreateRunLengthEncoded(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  RunLengthEncodedBuilder builder_(_fbb);
   return builder_.Finish();
 }
 
@@ -1283,7 +1308,6 @@ struct DecimalBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DecimalBuilder &operator=(const DecimalBuilder &);
   flatbuffers::Offset<Decimal> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Decimal>(end);
@@ -1335,7 +1359,6 @@ struct DateBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DateBuilder &operator=(const DateBuilder &);
   flatbuffers::Offset<Date> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Date>(end);
@@ -1399,7 +1422,6 @@ struct TimeBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TimeBuilder &operator=(const TimeBuilder &);
   flatbuffers::Offset<Time> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Time>(end);
@@ -1567,7 +1589,6 @@ struct TimestampBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TimestampBuilder &operator=(const TimestampBuilder &);
   flatbuffers::Offset<Timestamp> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Timestamp>(end);
@@ -1622,7 +1643,6 @@ struct IntervalBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  IntervalBuilder &operator=(const IntervalBuilder &);
   flatbuffers::Offset<Interval> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Interval>(end);
@@ -1664,7 +1684,6 @@ struct DurationBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DurationBuilder &operator=(const DurationBuilder &);
   flatbuffers::Offset<Duration> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Duration>(end);
@@ -1719,7 +1738,6 @@ struct KeyValueBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  KeyValueBuilder &operator=(const KeyValueBuilder &);
   flatbuffers::Offset<KeyValue> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<KeyValue>(end);
@@ -1812,7 +1830,6 @@ struct DictionaryEncodingBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DictionaryEncodingBuilder &operator=(const DictionaryEncodingBuilder &);
   flatbuffers::Offset<DictionaryEncoding> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DictionaryEncoding>(end);
@@ -1926,6 +1943,9 @@ struct Field FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::RunLengthEncoded *type_as_RunLengthEncoded() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::RunLengthEncoded ? static_cast<const org::apache::arrow::flatbuf::RunLengthEncoded *>(type()) : nullptr;
   }
   /// Present only if the field is dictionary encoded.
   const org::apache::arrow::flatbuf::DictionaryEncoding *dictionary() const {
@@ -2044,6 +2064,10 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *Field::type_as<o
   return type_as_LargeList();
 }
 
+template<> inline const org::apache::arrow::flatbuf::RunLengthEncoded *Field::type_as<org::apache::arrow::flatbuf::RunLengthEncoded>() const {
+  return type_as_RunLengthEncoded();
+}
+
 struct FieldBuilder {
   typedef Field Table;
   flatbuffers::FlatBufferBuilder &fbb_;
@@ -2073,7 +2097,6 @@ struct FieldBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FieldBuilder &operator=(const FieldBuilder &);
   flatbuffers::Offset<Field> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Field>(end);
@@ -2185,7 +2208,6 @@ struct SchemaBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SchemaBuilder &operator=(const SchemaBuilder &);
   flatbuffers::Offset<Schema> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Schema>(end);
@@ -2311,6 +2333,10 @@ inline bool VerifyType(flatbuffers::Verifier &verifier, const void *obj, Type ty
     }
     case Type::LargeList: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::LargeList *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Type::RunLengthEncoded: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RunLengthEncoded *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
