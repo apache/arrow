@@ -172,15 +172,6 @@ struct CastFixedList {
   }
 };
 
-void AddFSLToFSLCast(CastFunction* func) {
-  ScalarKernel kernel;
-  kernel.exec = CastFixedList::Exec;
-  kernel.signature =
-      KernelSignature::Make({InputType(FixedSizeListType::type_id)}, kOutputTargetType);
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
-}
-
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
@@ -238,11 +229,12 @@ struct CastStruct {
   }
 };
 
-void AddStructToStructCast(CastFunction* func) {
+template <typename CastFunctor, typename SrcT>
+void AddTypeToTypeCast(CastFunction* func) {
   ScalarKernel kernel;
-  kernel.exec = CastStruct::Exec;
+  kernel.exec = CastFunctor::Exec;
   kernel.signature =
-      KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
+      KernelSignature::Make({InputType(SrcT::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }
@@ -267,12 +259,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_fsl =
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
-  AddFSLToFSLCast(cast_fsl.get());
+  AddTypeToTypeCast<CastFixedList, FixedSizeListType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
   AddCommonCasts(Type::STRUCT, kOutputTargetType, cast_struct.get());
-  AddStructToStructCast(cast_struct.get());
+  AddTypeToTypeCast<CastStruct, StructType>(cast_struct.get());
 
   // So is dictionary
   auto cast_dictionary =
