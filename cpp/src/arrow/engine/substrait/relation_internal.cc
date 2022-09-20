@@ -249,8 +249,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           default:
             // TODO: maybe check for ".feather" or ".arrows"?
             return Status::NotImplemented(
-              "unsupported file format ",
-              "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
+                "unsupported file format ",
+                "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
         }
 
         // Handle the URI as appropriate
