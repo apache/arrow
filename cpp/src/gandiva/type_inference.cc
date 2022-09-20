@@ -350,12 +350,12 @@ Status BottomUpTypeInferenceVisitor::Visit(const LiteralNode& node) {
 
   Status status;
   if (node.holder().index() == 2) {  // double
-    status = MakeLiteralNode(return_type, *node.holder().get<double>(), &result_);
+    status = MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_);
     if (!status.ok()) {
       return status;
     }
   } else if (node.holder().index() == 10) {  // uint64
-    status = MakeLiteralNode(return_type, *node.holder().get<uint64_t>(), &result_);
+    status = MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_);
     if (!status.ok()) {
       return status;
     }
@@ -565,12 +565,12 @@ Status TopDownTypeInferenceVisitor::Visit(const LiteralNode& node) {
 
   Status status;
   if (node.holder().index() == 2) {  // double
-    status = MakeLiteralNode(return_type, *node.holder().get<double>(), &result_);
+    status = MakeLiteralNode(return_type, std::get<double>(node.holder()), &result_);
     if (!status.ok()) {
       return status;
     }
   } else if (node.holder().index() == 10) {  // uint64
-    status = MakeLiteralNode(return_type, *node.holder().get<uint64_t>(), &result_);
+    status = MakeLiteralNode(return_type, std::get<uint64_t>(node.holder()), &result_);
     if (!status.ok()) {
       return status;
     }
