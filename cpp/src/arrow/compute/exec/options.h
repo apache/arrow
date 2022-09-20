@@ -118,6 +118,16 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
   std::vector<std::string> names;
 };
 
+/// \brief Make a node which only takes the first `limit` results, dicarding the rest
+///
+/// This node should not be placed after a node that destroys sequencing information
+/// (e.g. a hash-join node) since "the first `limit` results" doesn't make sense in
+/// such a situation.
+///
+/// This node will buffer some data in order to process data in a serialized fashion
+/// to determine "the first `limit` results".  In most cases this buffering should be
+/// quite small.  However, if a source is extremely jittery then the amount of buffering
+/// could be greater.
 class ARROW_EXPORT FetchNodeOptions : public ExecNodeOptions {
  public:
   explicit FetchNodeOptions(int limit) : limit(limit) {}

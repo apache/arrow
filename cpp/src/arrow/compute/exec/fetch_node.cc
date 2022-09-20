@@ -61,6 +61,10 @@ class FetchNode : public ExecNode {
     if (inputs.empty()) {
       return Status::Invalid("Fetch node with no input");
     }
+    if (inputs[0]->ordering() == ExecNode::kNoOrdering) {
+      return Status::Invalid(
+          "A fetch node should not follow nodes that destroy ordering.");
+    }
     const std::shared_ptr<Schema>& schema = inputs[0]->output_schema();
     const auto& fetch_options = checked_cast<const FetchNodeOptions&>(options);
 
