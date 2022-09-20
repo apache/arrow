@@ -17,6 +17,7 @@
 package csv
 
 import (
+	"encoding/base64"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -24,6 +25,8 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
+	"unicode/utf8"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -50,10 +53,46 @@ type Reader struct {
 	header bool
 	once   sync.Once
 
-	fieldConverter []func(field array.Builder, val string)
+	fieldConverter []func(val string)
+	columnFilter   []string
+	columnTypes    map[string]arrow.DataType
+	conversions    []conversionColumn
 
 	stringsCanBeNull bool
 	nulls            []string
+}
+
+// NewInferringReader creates a CSV reader that attempts to infer the types
+// and column names from the data in the first row of the CSV file.
+//
+// This can be further customized using the WithColumnTypes and
+// WithIncludeColumns options.
+func NewInferringReader(r io.Reader, opts ...Option) *Reader {
+	rr := &Reader{
+		r:                csv.NewReader(r),
+		refs:             1,
+		chunk:            1,
+		stringsCanBeNull: false,
+	}
+	rr.r.ReuseRecord = true
+	for _, opt := range opts {
+		opt(rr)
+	}
+
+	if rr.mem == nil {
+		rr.mem = memory.DefaultAllocator
+	}
+
+	switch {
+	case rr.chunk < 0:
+		rr.next = rr.nextall
+	case rr.chunk > 1:
+		rr.next = rr.nextn
+	default:
+		rr.next = rr.next1
+	}
+
+	return rr
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -91,36 +130,85 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 		rr.next = rr.next1
 	}
 
-	// Create a table of functions that will parse columns. This optimization
-	// allows us to specialize the implementation of each column's decoding
-	// and hoist type-based branches outside the inner loop.
-	rr.fieldConverter = make([]func(array.Builder, string), len(schema.Fields()))
-	for idx, field := range schema.Fields() {
-		rr.fieldConverter[idx] = rr.initFieldConverter(&field)
-	}
-
 	return rr
 }
 
 func (r *Reader) readHeader() error {
+	// if we have an explicit schema and we want to skip the header
+	// then just return and do everything normally
+	if r.schema != nil && !r.header {
+		return nil
+	}
+
+	// either we need this first line for the header line
+	// or we are going to need this line to infer types
 	records, err := r.r.Read()
 	if err != nil {
 		return fmt.Errorf("arrow/csv: could not read header from file: %w", err)
 	}
 
-	if len(records) != len(r.schema.Fields()) {
-		return ErrMismatchFields
+	// if we have an explicit schema, then r.header must be true otherwise
+	// we would have skipped this via the first line of this func
+	if r.schema != nil {
+		if len(records) != len(r.schema.Fields()) {
+			return ErrMismatchFields
+		}
+
+		fields := make([]arrow.Field, len(records))
+		for idx, name := range records {
+			fields[idx] = r.schema.Field(idx)
+			fields[idx].Name = name
+		}
+
+		meta := r.schema.Metadata()
+		r.schema = arrow.NewSchema(fields, &meta)
+		r.bld = array.NewRecordBuilder(r.mem, r.schema)
+		return nil
 	}
 
-	fields := make([]arrow.Field, len(records))
-	for idx, name := range records {
-		fields[idx] = r.schema.Field(idx)
-		fields[idx].Name = name
-	}
+	// we're going to need to infer some column types
+	r.conversions = make([]conversionColumn, 0, len(records))
+	if len(r.columnFilter) == 0 {
+		for i, rec := range records {
+			// if we are skipping the header, autogenerate field names
+			// using "f<n>" e.g. f0, f1, ....
+			if !r.header {
+				rec = fmt.Sprintf("f%d", i)
+			}
+			var dt arrow.DataType
+			if len(r.columnTypes) > 0 {
+				dt = r.columnTypes[rec]
+			}
+			r.conversions = append(r.conversions, conversionColumn{name: rec, index: i, typ: dt})
+		}
+	} else {
+		// include columns from columnFilter (in that order)
+		// compute the indices of columns in the csv file
+		colIndices := make(map[string]int)
+		for i, n := range records {
+			// if we are skipping the header, autogenerate field names
+			// using "f<n>" e.g. f0, f1, ....
+			if !r.header {
+				n = fmt.Sprintf("f%d", i)
+			}
+			colIndices[n] = i
+		}
 
-	meta := r.schema.Metadata()
-	r.schema = arrow.NewSchema(fields, &meta)
-	r.bld = array.NewRecordBuilder(r.mem, r.schema)
+		for _, n := range r.columnFilter {
+			idx, ok := colIndices[n]
+			if !ok {
+				return fmt.Errorf("%w: column '%s' in included columns, but doesn't exist in CSV file",
+					ErrMismatchFields, n)
+			}
+			var dt arrow.DataType
+			if len(r.columnTypes) > 0 {
+				dt = r.columnTypes[n]
+			}
+			r.conversions = append(r.conversions, conversionColumn{name: n, index: idx, typ: dt})
+		}
+		r.columnFilter = nil
+	}
+	r.columnTypes = nil
 	return nil
 }
 
@@ -143,11 +231,18 @@ func (r *Reader) Record() arrow.Record { return r.cur }
 // Subsequent calls to Next will return false - The user should check Err() after
 // each call to Next to check if an error took place.
 func (r *Reader) Next() bool {
-	if r.header {
-		r.once.Do(func() {
-			r.err = r.readHeader()
-		})
-	}
+	r.once.Do(func() {
+		r.err = r.readHeader()
+		if r.err == nil && r.schema != nil {
+			// Create a table of functions that will parse columns. This optimization
+			// allows us to specialize the implementation of each column's decoding
+			// and hoist type-based branches outside the inner loop.
+			r.fieldConverter = make([]func(string), len(r.schema.Fields()))
+			for idx := range r.schema.Fields() {
+				r.fieldConverter[idx] = r.initFieldConverter(r.bld.Field(idx))
+			}
+		}
+	})
 
 	if r.cur != nil {
 		r.cur.Release()
@@ -243,7 +338,29 @@ func (r *Reader) validate(recs []string) {
 		return
 	}
 
-	if len(recs) != len(r.schema.Fields()) {
+	if r.bld == nil {
+		// initialize the record builder in the case where we're inferring a schema
+		r.fieldConverter = make([]func(val string), len(recs))
+		fieldList := make([]arrow.Field, len(r.conversions))
+		for idx, cc := range r.conversions {
+			fieldList[idx].Name = cc.name
+			fieldList[idx].Nullable = true
+			fieldList[idx].Type = cc.inferType(recs[cc.index])
+		}
+
+		r.schema = arrow.NewSchema(fieldList, nil)
+		r.bld = array.NewRecordBuilder(r.mem, r.schema)
+		for idx, cc := range r.conversions {
+			r.fieldConverter[cc.index] = r.initFieldConverter(r.bld.Field(idx))
+		}
+		for idx, fc := range r.fieldConverter {
+			if fc == nil {
+				r.fieldConverter[idx] = func(string) {}
+			}
+		}
+	}
+
+	if len(recs) != len(r.fieldConverter) {
 		r.err = ErrMismatchFields
 		return
 	}
@@ -260,78 +377,78 @@ func (r *Reader) isNull(val string) bool {
 
 func (r *Reader) read(recs []string) {
 	for i, str := range recs {
-		r.fieldConverter[i](r.bld.Field(i), str)
+		r.fieldConverter[i](str)
 	}
 }
 
-func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, string) {
-	switch dt := field.Type.(type) {
+func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
+	switch dt := bldr.Type().(type) {
 	case *arrow.BooleanType:
-		return func(field array.Builder, str string) {
-			r.parseBool(field, str)
+		return func(str string) {
+			r.parseBool(bldr, str)
 		}
 	case *arrow.Int8Type:
-		return func(field array.Builder, str string) {
-			r.parseInt8(field, str)
+		return func(str string) {
+			r.parseInt8(bldr, str)
 		}
 	case *arrow.Int16Type:
-		return func(field array.Builder, str string) {
-			r.parseInt16(field, str)
+		return func(str string) {
+			r.parseInt16(bldr, str)
 		}
 	case *arrow.Int32Type:
-		return func(field array.Builder, str string) {
-			r.parseInt32(field, str)
+		return func(str string) {
+			r.parseInt32(bldr, str)
 		}
 	case *arrow.Int64Type:
-		return func(field array.Builder, str string) {
-			r.parseInt64(field, str)
+		return func(str string) {
+			r.parseInt64(bldr, str)
 		}
 	case *arrow.Uint8Type:
-		return func(field array.Builder, str string) {
-			r.parseUint8(field, str)
+		return func(str string) {
+			r.parseUint8(bldr, str)
 		}
 	case *arrow.Uint16Type:
-		return func(field array.Builder, str string) {
-			r.parseUint16(field, str)
+		return func(str string) {
+			r.parseUint16(bldr, str)
 		}
 	case *arrow.Uint32Type:
-		return func(field array.Builder, str string) {
-			r.parseUint32(field, str)
+		return func(str string) {
+			r.parseUint32(bldr, str)
 		}
 	case *arrow.Uint64Type:
-		return func(field array.Builder, str string) {
-			r.parseUint64(field, str)
+		return func(str string) {
+			r.parseUint64(bldr, str)
 		}
 	case *arrow.Float32Type:
-		return func(field array.Builder, str string) {
-			r.parseFloat32(field, str)
+		return func(str string) {
+			r.parseFloat32(bldr, str)
 		}
 	case *arrow.Float64Type:
-		return func(field array.Builder, str string) {
-			r.parseFloat64(field, str)
+		return func(str string) {
+			r.parseFloat64(bldr, str)
 		}
 	case *arrow.StringType:
 		// specialize the implementation when we know we cannot have nulls
 		if r.stringsCanBeNull {
-			return func(field array.Builder, str string) {
+			return func(str string) {
 				if r.isNull(str) {
-					field.AppendNull()
+					bldr.AppendNull()
 				} else {
-					field.(*array.StringBuilder).Append(str)
+					bldr.(*array.StringBuilder).Append(str)
 				}
 			}
 		} else {
-			return func(field array.Builder, str string) {
-				field.(*array.StringBuilder).Append(str)
+			return func(str string) {
+				bldr.(*array.StringBuilder).Append(str)
 			}
 		}
 	case *arrow.TimestampType:
-		return func(field array.Builder, str string) {
-			r.parseTimestamp(field, str, dt.Unit)
+		return func(str string) {
+			r.parseTimestamp(bldr, str, dt.Unit)
 		}
 
 	default:
-		panic(fmt.Errorf("arrow/csv: unhandled field type %T", field.Type))
+		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
 }
 
@@ -341,14 +458,9 @@ func (r *Reader) parseBool(field array.Builder, str string) {
 		return
 	}
 
-	var v bool
-	switch str {
-	case "false", "False", "0":
-		v = false
-	case "true", "True", "1":
-		v = true
-	default:
-		r.err = fmt.Errorf("unrecognized boolean: %s", str)
+	v, err := strconv.ParseBool(str)
+	if err != nil {
+		r.err = fmt.Errorf("%w: unrecognized boolean: %s", err, str)
 		field.AppendNull()
 		return
 	}
@@ -549,6 +661,89 @@ func (r *Reader) Release() {
 			r.cur.Release()
 		}
 	}
+}
+
+type conversionColumn struct {
+	name  string
+	index int
+	typ   arrow.DataType
+}
+
+func (c conversionColumn) inferType(v string) arrow.DataType {
+	if c.typ != nil {
+		return c.typ
+	}
+
+	var err error
+	c.typ = arrow.PrimitiveTypes.Int64
+	for {
+		// attempt to parse
+		if err = tryParse(v, c.typ); err == nil {
+			return c.typ
+		}
+
+		switch dt := c.typ.(type) {
+		case *arrow.Int64Type:
+			c.typ = arrow.FixedWidthTypes.Boolean
+		case *arrow.BooleanType:
+			c.typ = arrow.FixedWidthTypes.Date32
+		case *arrow.Date32Type:
+			c.typ = arrow.FixedWidthTypes.Time32s
+		case *arrow.Time32Type:
+			c.typ = &arrow.TimestampType{Unit: arrow.Second}
+		case *arrow.TimestampType:
+			if dt.TimeZone == "" {
+				if dt.Unit == arrow.Second {
+					c.typ = &arrow.TimestampType{Unit: arrow.Nanosecond}
+				} else {
+					c.typ = &arrow.TimestampType{Unit: arrow.Second, TimeZone: "UTC"}
+				}
+			} else {
+				if dt.Unit == arrow.Second {
+					c.typ = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: "UTC"}
+				} else {
+					c.typ = arrow.PrimitiveTypes.Float64
+				}
+			}
+		case *arrow.Float64Type:
+			c.typ = arrow.BinaryTypes.String
+		case *arrow.StringType:
+			// binary is the fallback type
+			return arrow.BinaryTypes.Binary
+		}
+	}
+}
+
+func tryParse(val string, dt arrow.DataType) error {
+	switch dt := dt.(type) {
+	case *arrow.Int64Type:
+		_, err := strconv.ParseInt(val, 10, 64)
+		return err
+	case *arrow.BooleanType:
+		_, err := strconv.ParseBool(val)
+		return err
+	case *arrow.Date32Type:
+		_, err := time.Parse("2006-01-02", val)
+		return err
+	case *arrow.Time32Type:
+		_, err := arrow.Time32FromString(val, dt.Unit)
+		return err
+	case *arrow.TimestampType:
+		_, err := arrow.TimestampFromString(val, dt.Unit)
+		return err
+	case *arrow.Float64Type:
+		_, err := strconv.ParseFloat(val, 64)
+		return err
+	case *arrow.StringType:
+		if !utf8.ValidString(val) {
+			return arrow.ErrInvalid
+		}
+		return nil
+	case *arrow.BinaryType:
+		_, err := base64.RawStdEncoding.DecodeString(val)
+		return err
+	}
+	panic("shouldn't end up here")
 }
 
 var (
