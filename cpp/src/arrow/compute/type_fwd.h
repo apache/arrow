@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 struct Datum;
@@ -48,6 +50,8 @@ class ExecNodeOptions;
 class ExecFactoryRegistry;
 
 class SinkNodeConsumer;
+
+ARROW_EXPORT ExecContext* default_exec_context();
 
 }  // namespace compute
 }  // namespace arrow

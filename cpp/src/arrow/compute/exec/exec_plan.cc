@@ -34,6 +34,7 @@
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 

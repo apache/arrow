@@ -16,8 +16,22 @@
 // under the License.
 
 #include "arrow/compute/exec/tpch_node.h"
+
+#include <algorithm>
+#include <bitset>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <random>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/datum.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
@@ -27,17 +41,8 @@
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/unreachable.h"
 
-#include <algorithm>
-#include <bitset>
-#include <cstring>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <random>
-#include <unordered_set>
-#include <vector>
-
 namespace arrow {
+
 using internal::checked_cast;
 using internal::GetRandomSeed;
 

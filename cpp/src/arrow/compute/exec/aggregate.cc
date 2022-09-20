@@ -19,6 +19,7 @@
 
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
