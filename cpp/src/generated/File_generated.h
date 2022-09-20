@@ -26,15 +26,18 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Block FLATBUFFERS_FINAL_CLASS {
   int64_t bodyLength_;
 
  public:
-  Block() {
-    memset(static_cast<void *>(this), 0, sizeof(Block));
+  Block()
+      : offset_(0),
+        metaDataLength_(0),
+        padding0__(0),
+        bodyLength_(0) {
+    (void)padding0__;
   }
   Block(int64_t _offset, int32_t _metaDataLength, int64_t _bodyLength)
       : offset_(flatbuffers::EndianScalar(_offset)),
         metaDataLength_(flatbuffers::EndianScalar(_metaDataLength)),
         padding0__(0),
         bodyLength_(flatbuffers::EndianScalar(_bodyLength)) {
-    (void)padding0__;
   }
   /// Index to the start of the RecordBlock (note this is past the Message header)
   int64_t offset() const {
@@ -119,7 +122,6 @@ struct FooterBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  FooterBuilder &operator=(const FooterBuilder &);
   flatbuffers::Offset<Footer> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Footer>(end);
