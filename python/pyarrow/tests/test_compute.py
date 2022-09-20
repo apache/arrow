@@ -1742,7 +1742,8 @@ def test_fsl_to_fsl_cast():
 
         # Different sized FSL
         cast_type = pa.list_(pa.field("element", value_type), 3)
-        with pytest.raises(pa.lib.ArrowTypeError):
+        err_msg = 'Size of FixedSizeList is not the same.'
+        with pytest.raises(pa.lib.ArrowTypeError, match=err_msg):
             fsl.cast(cast_type)
 
 
