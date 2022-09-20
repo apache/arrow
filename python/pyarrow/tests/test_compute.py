@@ -1731,6 +1731,21 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
+def test_fsl_to_fsl_cast():
+    for value_type in (pa.bool_(), pa.float32(), pa.int64()):
+        # Valid case
+        # Different field name and different type.
+        cast_type = pa.list_(pa.field("element", value_type), 2)
+        fsl = pa.FixedSizeListArray.from_arrays(
+            pa.array([1, 2, 3, 4, 5, 6]), 2)
+        assert cast_type == fsl.cast(cast_type).type
+
+        # Different sized FSL
+        cast_type = pa.list_(pa.field("element", value_type), 3)
+        with pytest.raises(pa.lib.ArrowTypeError):
+            fsl.cast(cast_type)
+
+
 def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
 
