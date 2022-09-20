@@ -52,6 +52,14 @@ Glossary
        device (e.g. GPU) memory, etc., though not all Arrow
        implementations support all of these possibilities.
 
+   canonical extension type
+       An :term:`extension type` that has been standardized by the
+       Arrow community so as to improve interoperability between
+       implementations.
+
+       .. seealso::
+          :ref:`format_canonical_extensions`.
+
    child array
    parent array
        In an array of a :term:`nested type`, the parent array
@@ -112,10 +120,10 @@ Glossary
 
    extension type
    storage type
-       A user-defined :term:`data type` that adds additional semantics
-       to an existing data type.  This allows implementations that do
-       not support a particular extension type to still handle the
-       underlying data type (the "storage type").
+       An extension type is an user-defined :term:`data type` that adds
+       additional semantics to an existing data type.  This allows
+       implementations that do not support a particular extension type to
+       still handle the underlying data type (the "storage type").
 
        For example, a UUID can be represented as a 16-byte fixed-size
        binary type.

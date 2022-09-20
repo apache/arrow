@@ -32,8 +32,8 @@ will be specific to a system or application.  However, it is beneficial
 to share the definitions of well-known extension types so as to improve
 interoperability between different systems integrating Arrow columnar data.
 
-Procedures
-==========
+Standardization
+===============
 
 These rules must be followed for the standardization of canonical extension
 types:
@@ -50,14 +50,22 @@ types:
   2) Its parameters, if any, *must* be described in the proposal.
 
   3) Its serialization *must* be described in the proposal and should
-     not require unduly work or unusual software dependencies (for example, a
-     trivial custom text format or JSON would be acceptable).
+     not require unduly implementation work or unusual software dependencies
+     (for example, a trivial custom text format or JSON would be acceptable).
 
   4) Its expected semantics *should* be described as well and any
      potential ambiguities or pain points addressed or at least mentioned.
 
 * The extension type *should* have one implementation submitted;
   preferably two if non-trivial (for example if parameterized).
+
+Making Modifications
+====================
+
+Like standard Arrow data types, canonical extension types should be considered
+stable once standardized.  Modifying a canonical extension type (for example
+to expand the set of parameters) should be an exceptional event, follow the
+same rules as laid out above, and provide backwards compatibility guarantees.
 
 
 =============
