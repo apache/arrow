@@ -4413,5 +4413,637 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+TEST(Substrait, CompoundEmitFilterless) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32()),
+              field("D", int32()), field("E", int32())});
+
+  auto right_schema =
+      schema({field("X", int32()), field("Y", int32()), field("W", int32()),
+              field("V", int32()), field("Z", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1, 21, 32, 43],
+      [20, 2, 21, 32, 43],
+      [30, 3, 21, 32, 43],
+      [80, 2, 21, 52, 45],
+      [35, 31, 25, 36, 47]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 11, 25, 36, 47],
+      [80, 21, 25, 32, 40],
+      [32, 31, 25, 36, 42],
+      [30, 11, 25, 38, 44],
+      [33, 21, 24, 32, 41]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 2, 3, 4, 6, 7]
+          }
+        },
+        "left": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [0, 1, 2, 5]
+              }
+            },
+            "expressions": [{
+              "scalarFunction": {
+                "functionReference": 32,
+                "arguments": [
+                  {
+                    "enum": {
+                          "specified": "ERROR"
+                    }
+                  },
+                  {
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 1
+                          }
+                        },
+                        "rootReference": {
+                        }
+                      }
+                    }
+                  }, {
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 2
+                          }
+                        },
+                        "rootReference": {
+                        }
+                      }
+                    }
+                  }
+                ],
+                "output_type": {
+                  "bool": {}
+                }
+              }
+            },
+            ],
+            "input" : {
+              "read": {
+                "base_schema": {
+                  "names": ["A", "B", "C", "D", "E"],
+                    "struct": {
+                    "types": [{
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }]
+                  }
+                },
+                "namedTable": {
+                  "names": ["left"]
+                }
+              }
+            }
+          }
+        },
+        "right": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [0, 1, 2, 5]
+              }
+            },
+            "expressions": [{
+              "scalarFunction": {
+                "functionReference": 32,
+                "arguments": [
+                  {
+                    "enum": {
+                          "specified": "ERROR"
+                    }
+                  },
+                  {
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 1
+                          }
+                        },
+                        "rootReference": {
+                        }
+                      }
+                    }
+                  }, {
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 2
+                          }
+                        },
+                        "rootReference": {
+                        }
+                      }
+                    }
+                  }
+                ],
+                "output_type": {
+                  "bool": {}
+                }
+              }
+            },
+            ],
+            "input" : {
+              "read": {
+                "base_schema": {
+                  "names": ["X", "Y", "W", "V", "Z"],
+                    "struct": {
+                    "types": [{
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }, {
+                      "i32": {}
+                    }]
+                  }
+                },
+                "namedTable": {
+                  "names": ["right"]
+                }
+              }
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 14,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            },
+            "overflow" : {
+              "ERROR": {}
+            }
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 42,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      },
+      {
+        "extension_uri_anchor": 72,
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {
+        "extension_function": {
+          "extension_uri_reference": 42,
+          "function_anchor": 14,
+          "name": "equal"
+        }
+      },
+      {
+        "extension_function": {
+          "extension_uri_reference": 72,
+          "function_anchor": 32,
+          "name": "add"
+        }
+      }
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({
+      field("A", int32()),
+      field("E", int32()),
+      field("B+C", int32()),
+      field("X", int32()),
+      field("Z", int32()),
+      field("Y+W", int32()),
+  });
+
+  auto expected_table = TableFromJSON(std::move(output_schema), {R"([
+      [10, 21, 22, 10, 25, 36],
+      [30, 21, 24, 30, 25, 36],
+      [80, 21, 23, 80, 25, 46]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
+TEST(Substrait, CompoundEmitWithFilter) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#endif
+  compute::ExecContext exec_context;
+  auto left_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32()),
+              field("D", int32()), field("E", int32())});
+
+  auto right_schema =
+      schema({field("X", int32()), field("Y", int32()), field("W", int32()),
+              field("V", int32()), field("Z", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto left_table = TableFromJSON(left_schema, {R"([
+      [10, 1, 20, 32, 42],
+      [20, 2, 10, 32, 41],
+      [30, 3, 45, 32, 40],
+      [80, 2, 80, 52, 25],
+      [35, 31, 25, 36, 47]
+  ])"});
+
+  auto right_table = TableFromJSON(right_schema, {R"([
+      [10, 11, 5, 36, 47],
+      [80, 21, 39, 32, 40],
+      [32, 31, 26, 36, 42],
+      [30, 11, 12, 38, 44],
+      [33, 21, 11, 32, 41]
+  ])"});
+
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "filter": {
+        "common": {
+          "emit": {
+            "outputMapping": [0, 2, 7]
+          }
+        },
+        "condition": {
+          "scalarFunction": {
+            "functionReference": 25,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 2
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }],
+            "output_type": {
+              "bool": {}
+            }
+          }
+        },
+        "input" : {
+          "join": {
+            "common": {
+              "emit": {
+                "outputMapping": [0, 2, 3, 4, 6, 7, 8, 9]
+              }
+            },
+            "left": {
+              "project": {
+                "common": {
+                  "emit": {
+                    "outputMapping": [0, 1, 2, 4, 5]
+                  }
+                },
+                "expressions": [{
+                  "scalarFunction": {
+                    "functionReference": 32,
+                    "arguments": [
+                      {
+                        "enum": {
+                              "specified": "ERROR"
+                        }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 1
+                              }
+                            },
+                            "rootReference": {
+                            }
+                          }
+                        }
+                      }, {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {
+                            }
+                          }
+                        }
+                      }
+                    ],
+                    "output_type": {
+                      "bool": {}
+                    }
+                  }
+                },
+                ],
+                "input" : {
+                  "read": {
+                    "base_schema": {
+                      "names": ["A", "B", "C", "D", "E"],
+                        "struct": {
+                        "types": [{
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }]
+                      }
+                    },
+                    "namedTable": {
+                      "names": ["left"]
+                    }
+                  }
+                }
+              }
+            },
+            "right": {
+              "project": {
+                "common": {
+                  "emit": {
+                    "outputMapping": [0, 1, 2, 4, 5]
+                  }
+                },
+                "expressions": [{
+                  "scalarFunction": {
+                    "functionReference": 32,
+                    "arguments": [
+                      {
+                        "enum": {
+                              "specified": "ERROR"
+                        }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 1
+                              }
+                            },
+                            "rootReference": {
+                            }
+                          }
+                        }
+                      }, {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {
+                            }
+                          }
+                        }
+                      }
+                    ],
+                    "output_type": {
+                      "bool": {}
+                    }
+                  }
+                },
+                ],
+                "input" : {
+                  "read": {
+                    "base_schema": {
+                      "names": ["X", "Y", "W", "V", "Z"],
+                        "struct": {
+                        "types": [{
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }, {
+                          "i32": {}
+                        }]
+                      }
+                    },
+                    "namedTable": {
+                      "names": ["right"]
+                    }
+                  }
+                }
+              }
+            },
+            "expression": {
+              "scalarFunction": {
+                "functionReference": 14,
+                "arguments": [{
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {
+                      }
+                    }
+                  }
+                }, {
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {
+                      }
+                    }
+                  }
+                }],
+                "output_type": {
+                  "bool": {}
+                },
+                "overflow" : {
+                  "ERROR": {}
+                }
+              }
+            },
+            "type": "JOIN_TYPE_INNER"
+          }
+        }
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 42,
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+                               R"("
+      },
+      {
+        "extension_uri_anchor": 72,
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {
+        "extension_function": {
+          "extension_uri_reference": 42,
+          "function_anchor": 14,
+          "name": "equal"
+        }
+      },
+      {
+        "extension_function": {
+          "extension_uri_reference": 42,
+          "function_anchor": 25,
+          "name": "lt"
+        }
+      },
+      {
+        "extension_function": {
+          "extension_uri_reference": 72,
+          "function_anchor": 32,
+          "name": "add"
+        }
+      }
+    ]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto output_schema = schema({
+      field("A", int32()),
+      field("E", int32()),
+      field("Y+W", int32()),
+  });
+
+  auto expected_table = TableFromJSON(std::move(output_schema), {R"([
+      [10, 42, 16]
+  ])"});
+
+  NamedTableProvider table_provider =
+      [left_table, right_table](const std::vector<std::string>& names) {
+        std::shared_ptr<Table> output_table;
+        for (const auto& name : names) {
+          if (name == "left") {
+            output_table = left_table;
+          }
+          if (name == "right") {
+            output_table = right_table;
+          }
+        }
+        std::shared_ptr<compute::ExecNodeOptions> options =
+            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
+        return compute::Declaration("table_source", {}, options, "mock_source");
+      };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
+                       buf, {}, conversion_options);
+}
+
 }  // namespace engine
 }  // namespace arrow

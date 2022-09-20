@@ -74,7 +74,6 @@ add_arrow_test(substrait_test
                SOURCES
                substrait/ext_test.cc
                substrait/function_test.cc
-               substrait/relation_test.cc
                substrait/serde_test.cc
                substrait/protobuf_test_util.cc
                EXTRA_LINK_LIBS
