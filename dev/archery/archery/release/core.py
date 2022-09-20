@@ -228,51 +228,6 @@ class Commit:
         return self._title
 
 
-class DefaultBranchName(object):
-    def __new__(self):
-        if not hasattr(self, 'instance'):
-            self.instance = super(DefaultBranchName, self).__new__(self)
-
-            default_branch_name = os.getenv("DEFAULT_BRANCH")
-
-            if default_branch_name is None:
-                try:
-                    # Set up repo object
-                    arrow = ArrowSources.find()
-                    repo = Repo(arrow.path)
-                    origin = repo.remotes["origin"]
-                    origin_refs = origin.refs
-
-                    # Get git.RemoteReference object to origin/HEAD
-                    origin_head = origin_refs["HEAD"]
-
-                    # Get git.RemoteReference object to origin/main or
-                    # origin/master
-                    origin_head_reference = origin_head.reference
-
-                    # Get string value of remote head reference, should return
-                    # "origin/main" or "origin/master"
-                    origin_head_name = origin_head_reference.name
-                    origin_head_name_tokenized = origin_head_name.split("/")
-
-                    # The last token is the default branch name
-                    default_branch_name = origin_head_name_tokenized[-1]
-                except KeyError:
-                    raise RuntimeError(
-                    'Unable to determine default branch name: DEFAULT_BRANCH '
-                    'environment variable is not set. Git repository does not '
-                    'contain a \'refs/remotes/origin/HEAD\' reference.')
-
-            # Set default branch as class property
-            self.default_branch_name = default_branch_name
-
-        return self.instance
-
-    @property
-    def value(self):
-        return self.default_branch_name
-
-
 class Release:
 
     def __new__(self, version, jira=None, repo=None):
@@ -407,10 +362,39 @@ class Release:
         commit_range = f"{lower}..{upper}"
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
-    @property
+    @cached_property
     def default_branch(self):
-        dbn = DefaultBranchName()
-        return dbn.value
+        default_branch_name = os.getenv("DEFAULT_BRANCH")
+
+        if default_branch_name is None:
+            try:
+                # Set up repo object
+                arrow = ArrowSources.find()
+                repo = Repo(arrow.path)
+                origin = repo.remotes["origin"]
+                origin_refs = origin.refs
+
+                # Get git.RemoteReference object to origin/HEAD
+                origin_head = origin_refs["HEAD"]
+
+                # Get git.RemoteReference object to origin/main or
+                # origin/master
+                origin_head_reference = origin_head.reference
+
+                # Get string value of remote head reference, should return
+                # "origin/main" or "origin/master"
+                origin_head_name = origin_head_reference.name
+                origin_head_name_tokenized = origin_head_name.split("/")
+
+                # The last token is the default branch name
+                default_branch_name = origin_head_name_tokenized[-1]
+            except KeyError:
+                raise RuntimeError(
+                    'Unable to determine default branch name: DEFAULT_BRANCH '
+                    'environment variable is not set. Git repository does not '
+                    'contain a \'refs/remotes/origin/HEAD\' reference.')
+
+        return default_branch_name
 
     def curate(self, minimal=False):
         # handle commits with parquet issue key specially and query them from
@@ -527,8 +511,7 @@ class MajorRelease(Release):
 
     @property
     def base_branch(self):
-        default_branch_name = DefaultBranchName()
-        return default_branch_name.value()
+        return self.default_branch
 
     @cached_property
     def siblings(self):
