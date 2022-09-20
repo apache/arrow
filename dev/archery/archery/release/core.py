@@ -236,12 +236,21 @@ class DefaultBranchName(object):
             default_branch_name = os.getenv("DEFAULT_BRANCH")
 
             if default_branch_name is None:
+                print("default_branch_name could not be determined by the environment variable")
                 try:
                     # Set up repo object
                     arrow = ArrowSources.find()
                     repo = Repo(arrow.path)
                     origin = repo.remotes["origin"]
                     origin_refs = origin.refs
+                    
+                    print("repo.remotes:")
+                    for remote in repo.remotes:
+                        print(remote)
+
+                    print("origin.refs:")
+                    for ref in origin.refs:
+                        print(ref)
 
                     # Get git.RemoteReference object to origin/HEAD
                     origin_head = origin_refs["HEAD"]
@@ -249,6 +258,8 @@ class DefaultBranchName(object):
                     # Get git.RemoteReference object to origin/main or
                     # origin/master
                     origin_head_reference = origin_head.reference
+
+                    print(origin_head_reference)
 
                     # Get string value of remote head reference, should return
                     # "origin/main" or "origin/master"
