@@ -79,9 +79,9 @@ arrow::Status PrepareEnv() {
   std::shared_ptr<arrow::fs::FileSystem> setup_fs;
   // Note this operates in the directory the executable is built in.
   char setup_path[256];
-  char *result = getcwd(setup_path, 256);
-  if(result == NULL){
-      return arrow::Status::IOError("Fetching PWD failed.");
+  char* result = getcwd(setup_path, 256);
+  if (result == NULL) {
+    return arrow::Status::IOError("Fetching PWD failed.");
   }
 
   ARROW_ASSIGN_OR_RAISE(setup_fs, arrow::fs::FileSystemFromUriOrPath(setup_path));
@@ -108,8 +108,8 @@ arrow::Status RunMain() {
   // (Doc section: FileSystem Init)
   // Get the CWD, use it to make the FileSystem object.
   char init_path[256];
-  char *result = getcwd(init_path, 256);
-  if(result == NULL){
+  char* result = getcwd(init_path, 256);
+  if (result == NULL) {
     return arrow::Status::IOError("Fetching PWD failed.");
   }
   ARROW_ASSIGN_OR_RAISE(fs, arrow::fs::FileSystemFromUriOrPath(init_path));
