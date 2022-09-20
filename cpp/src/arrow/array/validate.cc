@@ -454,15 +454,26 @@ struct ValidateArrayImpl {
       return Status::Invalid("Null count must be 0 for run ends array, but was ",
                              run_ends_data.null_count);
     }
+    if (!run_ends_data.buffers[1]->is_cpu()) {
+      return Status::NotImplemented("Validating non-CPU run ends buffers");
+    }
     ArraySpan span(data);
     const int32_t* run_ends = rle_util::RunEnds(span);
+    if (run_ends_data.length == 0) {
+      if (data.length == 0) {
+        return Status::OK();
+      } else {
+        return Status::Invalid("RLE array has non-zero length ", data.length,
+                               ", but run ends array has zero length");
+      }
+    }
     if (run_ends[run_ends_data.length - 1] < data.offset + data.length) {
       return Status::Invalid(
           "Last run in run ends array ends at ", run_ends[run_ends_data.length - 1],
           " but this array requires at least ", data.offset + data.length, " (offset ",
           data.offset, ", length ", data.length, ")");
     }
-    if (full_validation && values_data.length != 0) {
+    if (full_validation && run_ends_data.length != 0) {
       const int64_t run_ends_length = rle_util::RunEndsArray(span).length;
       int32_t last_run_end = 0;
       int32_t physical_offset = 0;
