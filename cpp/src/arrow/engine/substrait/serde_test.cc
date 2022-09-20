@@ -2608,7 +2608,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                        }
                                     },
                                     "rootReference":{
-                                       
+
                                     }
                                  }
                               }
@@ -2622,7 +2622,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                        }
                                     },
                                     "rootReference":{
-                                       
+
                                     }
                                  }
                               }
@@ -2630,7 +2630,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                         ],
                         "output_type":{
                            "bool":{
-                              
+
                            }
                         }
                      }
@@ -2661,7 +2661,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                              }
                                           },
                                           "rootReference":{
-                                             
+
                                           }
                                        }
                                     }
@@ -2675,7 +2675,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                              }
                                           },
                                           "rootReference":{
-                                             
+
                                           }
                                        }
                                     }
@@ -2683,7 +2683,7 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                               ],
                               "output_type":{
                                  "bool":{
-                                    
+
                                  }
                               }
                            }
@@ -2700,12 +2700,12 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
                                  "types":[
                                     {
                                        "i32":{
-                                          
+
                                        }
                                     },
                                     {
                                        "i32":{
-                                          
+
                                        }
                                     }
                                  ]
@@ -4172,7 +4172,7 @@ TEST(Substrait, SetRelationBasic) {
                 "namedTable": {
                   "names": ["T1"]
                 }
-              }  
+              }
             }, {
               "read": {
                 "baseSchema": {
