@@ -123,6 +123,7 @@ TEST(RunLengthEncodedArray, Validate) {
   auto run_ends_with_null = ArrayFromJSON(int32(), "[0, 20, 30, null]");
   auto run_ends_not_ordered = ArrayFromJSON(int32(), "[10, 20, 40, 40]");
   auto run_ends_too_low = ArrayFromJSON(int32(), "[10, 20, 40, 39]");
+  auto empty_ints = ArrayFromJSON(int32(), "[]");
 
   ASSERT_OK_AND_ASSIGN(auto good_array,
                        RunLengthEncodedArray::Make(run_ends_good, values, 40));
@@ -138,6 +139,17 @@ TEST(RunLengthEncodedArray, Validate) {
       auto sliced_children,
       RunLengthEncodedArray::Make(run_ends_good->Slice(1, 2), values->Slice(1, 3), 15));
   ASSERT_OK(sliced_children->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto empty_array,
+                       RunLengthEncodedArray::Make(empty_ints, empty_ints, 0));
+  ASSERT_OK(empty_array->ValidateFull());
+
+  auto empty_run_ends = MakeArray(empty_array->data()->Copy());
+  empty_run_ends->data()->length = 1;
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      "Invalid: RLE array has non-zero length 1, but run ends array has zero length",
+      empty_run_ends->Validate());
 
   auto offset_length_overflow = MakeArray(good_array->data()->Copy());
   offset_length_overflow->data()->offset = std::numeric_limits<int64_t>::max();
