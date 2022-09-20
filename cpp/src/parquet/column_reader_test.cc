@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -37,6 +38,7 @@
 namespace parquet {
 
 using schema::NodePtr;
+using testing::ElementsAre;
 
 namespace test {
 
@@ -622,9 +624,9 @@ TEST(RecordReaderTest, BasicReadRepeatedField) {
       record_reader->rep_levels(),
       record_reader->rep_levels() + record_reader->levels_position());
 
-  ASSERT_TRUE(vector_equal(read_vals, {10, 20, 20}));
-  ASSERT_TRUE(vector_equal(read_defs, {1, 1, 1}));
-  ASSERT_TRUE(vector_equal(read_reps, {0, 0, 1}));
+  ASSERT_THAT(read_vals, ElementsAre(10, 20, 20));
+  ASSERT_THAT(read_defs, ElementsAre(1, 1, 1));
+  ASSERT_THAT(read_reps, ElementsAre(0, 0, 1));
 }
 
 // Test that we can skip required top level field.
@@ -672,7 +674,7 @@ TEST(RecordReaderTest, SkipRequiredTopLevel) {
   std::vector<int32_t> read_vals(read_values,
                                  read_values + record_reader->values_written());
 
-  ASSERT_TRUE(vector_equal(read_vals, {30, 30}));
+  ASSERT_THAT(read_vals, ElementsAre(30, 30));
 }
 
 // Skip an optional field. Intentionally included some null values.
@@ -741,8 +743,8 @@ TEST(RecordReaderTest, SkipOptional) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {20, 20}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1, 0}));
+    ASSERT_THAT(read_vals, ElementsAre(20, 20));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1, 0));
   }
 
   {
@@ -770,8 +772,8 @@ TEST(RecordReaderTest, SkipOptional) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {20, 20}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1, 0}));
+    ASSERT_THAT(read_vals, ElementsAre(20, 20));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1, 0));
   }
 
   // We have exhausted all the records.
@@ -842,9 +844,9 @@ TEST(RecordReaderTest, SkipRepeated) {
         record_reader->rep_levels(),
         record_reader->rep_levels() + record_reader->levels_position());
 
-    ASSERT_TRUE(vector_equal(read_vals, {20, 20, 20}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1, 1}));
-    ASSERT_TRUE(vector_equal(read_reps, {0, 1, 1}));
+    ASSERT_THAT(read_vals, ElementsAre(20, 20, 20));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1, 1));
+    ASSERT_THAT(read_reps, ElementsAre(0, 1, 1));
   }
 
   {
@@ -868,9 +870,9 @@ TEST(RecordReaderTest, SkipRepeated) {
         record_reader->rep_levels(),
         record_reader->rep_levels() + record_reader->levels_position());
 
-    ASSERT_TRUE(vector_equal(read_vals, {20, 20, 20}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1, 1}));
-    ASSERT_TRUE(vector_equal(read_reps, {0, 1, 1}));
+    ASSERT_THAT(read_vals, ElementsAre(20, 20, 20));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1, 1));
+    ASSERT_THAT(read_reps, ElementsAre(0, 1, 1));
   }
 
   {
@@ -893,9 +895,9 @@ TEST(RecordReaderTest, SkipRepeated) {
         record_reader->rep_levels(),
         record_reader->rep_levels() + record_reader->levels_position());
 
-    ASSERT_TRUE(vector_equal(read_vals, {20, 20, 20, 40}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1, 1, 1}));
-    ASSERT_TRUE(vector_equal(read_reps, {0, 1, 1, 0}));
+    ASSERT_THAT(read_vals, ElementsAre(20, 20, 20, 40));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1, 1, 1));
+    ASSERT_THAT(read_reps, ElementsAre(0, 1, 1, 0));
   }
 }
 
@@ -958,7 +960,7 @@ TEST(RecordReaderTest, ReadPartialRecord) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {10}));
+    ASSERT_THAT(read_vals, ElementsAre(10));
   }
 
   {
@@ -972,7 +974,7 @@ TEST(RecordReaderTest, ReadPartialRecord) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {10, 20, 20, 20, 20, 20, 20}));
+    ASSERT_THAT(read_vals, ElementsAre(10, 20, 20, 20, 20, 20, 20));
   }
 
   {
@@ -986,7 +988,7 @@ TEST(RecordReaderTest, ReadPartialRecord) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {10, 20, 20, 20, 20, 20, 20, 30}));
+    ASSERT_THAT(read_vals, ElementsAre(10, 20, 20, 20, 20, 20, 20, 30));
   }
 }
 
@@ -1050,7 +1052,7 @@ TEST(RecordReaderTest, SkipPartialRecord) {
         read_values,
         read_values + record_reader->values_written() - record_reader->null_count());
 
-    ASSERT_TRUE(vector_equal(read_vals, {10}));
+    ASSERT_THAT(read_vals, ElementsAre(10));
     ASSERT_EQ(record_reader->values_written(), 1);
     ASSERT_EQ(record_reader->null_count(), 0);
     // There are 4 levels in the first page.
@@ -1089,9 +1091,9 @@ TEST(RecordReaderTest, SkipPartialRecord) {
         record_reader->rep_levels(),
         record_reader->rep_levels() + record_reader->levels_position());
 
-    ASSERT_TRUE(vector_equal(read_vals, {10, 30}));
-    ASSERT_TRUE(vector_equal(read_defs, {1, 1}));
-    ASSERT_TRUE(vector_equal(read_reps, {0, 0}));
+    ASSERT_THAT(read_vals, ElementsAre(10, 30));
+    ASSERT_THAT(read_defs, ElementsAre(1, 1));
+    ASSERT_THAT(read_reps, ElementsAre(0, 0));
   }
 }
 
