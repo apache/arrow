@@ -1596,6 +1596,13 @@ tasks:
       run: {{ kind }}
 {% endfor %}
 
+  cpp-tutorial-example:
+    ci: github
+    template: cpp-examples/github.linux.yml
+    params:
+      type: tutorial_examples
+      run: tutorial
+
 ############################## Utility tasks ############################
   preview-docs:
     ci: github
