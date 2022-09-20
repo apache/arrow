@@ -193,6 +193,29 @@ class IntegerField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
+# Integer field that fulfils the requirements for the run ends field of RLE.
+# The integers are positive and in a strictly increasing sequence
+class RunEndsField(IntegerField):
+    def __init__(self, name, bit_width, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, is_signed=True, bit_width=bit_width,
+                         nullable=nullable, metadata=metadata, min_value=1)
+
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        #values = np.random.randint(lower, upper, size=size, dtype=np.int64)
+        rng = np.random.default_rng()
+        values = rng.choice(TEST_INT_MAX, size=size, replace=False)
+        values = sorted(values)
+        values = list(map(int if self.bit_width < 64 else str, values))
+        is_valid = self._make_is_valid(size)
+
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
+
+
+
 class DateField(IntegerField):
 
     DAY = 0
@@ -939,6 +962,34 @@ class StructField(Field):
         return StructColumn(name, size, is_valid, field_values)
 
 
+class RunLengthEncodedField(Field):
+
+    def __init__(self, name, values_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.run_ends_field = RunEndsField('run_ends', 32, nullable=False)
+        self.values_field = values_field
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'runlengthencoded')
+        ])
+
+    def _get_children(self):
+        return [
+            self.run_ends_field.get_json(),
+            self.values_field.get_json()
+        ]
+
+    def generate_column(self, size, name=None):
+        values = self.values_field.generate_column(size)
+        run_ends = self.run_ends_field.generate_column(size)
+        if name is None:
+            name = self.name
+        return RunLengthEncodedColumn(name, size, run_ends, values)
+
+
 class _BaseUnionField(Field):
 
     def __init__(self, name, fields, type_ids=None, *, nullable=True,
@@ -1103,6 +1154,19 @@ class StructColumn(Column):
     def _get_children(self):
         return [field.get_json() for field in self.field_values]
 
+
+class RunLengthEncodedColumn(Column):
+
+    def __init__(self, name, count, run_ends_field, values_field):
+        super().__init__(name, count)
+        self.run_ends = run_ends_field
+        self.values = values_field
+
+    def _get_buffers(self):
+        return []
+
+    def _get_children(self):
+        return [self.run_ends.get_json(), self.values.get_json()]
 
 class SparseUnionColumn(Column):
 
@@ -1461,6 +1525,14 @@ def generate_recursive_nested_case():
     return _generate_file("recursive_nested", fields, batch_sizes)
 
 
+def generate_rle_case():
+    fields = [
+        RunLengthEncodedField('rle', get_field('values', 'int32'))]
+    batch_sizes = [0, 7, 10]
+    return _generate_file("rle", fields, batch_sizes)
+
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1658,6 +1730,13 @@ def get_generated_json_files(tempdir=None):
         .skip_category('C#')
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS'),
+
+        generate_rle_case()
+        .skip_category('C#')
+        .skip_category('Java')
+        .skip_category('JS')
+        .skip_category('Rust')
+        .skip_category('Go'),
 
         generate_extension_case()
         .skip_category('C#')
