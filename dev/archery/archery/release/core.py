@@ -236,7 +236,6 @@ class DefaultBranchName(object):
             default_branch_name = os.getenv("DEFAULT_BRANCH")
 
             if default_branch_name is None:
-                print("default_branch_name could not be determined by the environment variable")
                 try:
                     # Set up repo object
                     arrow = ArrowSources.find()
@@ -244,22 +243,12 @@ class DefaultBranchName(object):
                     origin = repo.remotes["origin"]
                     origin_refs = origin.refs
 
-                    print("repo.remotes:")
-                    for remote in repo.remotes:
-                        print(remote)
-
-                    print("origin.refs:")
-                    for ref in origin.refs:
-                        print(ref)
-
                     # Get git.RemoteReference object to origin/HEAD
                     origin_head = origin_refs["HEAD"]
 
                     # Get git.RemoteReference object to origin/main or
                     # origin/master
                     origin_head_reference = origin_head.reference
-
-                    print(origin_head_reference)
 
                     # Get string value of remote head reference, should return
                     # "origin/main" or "origin/master"
@@ -420,8 +409,8 @@ class Release:
 
     @property
     def default_branch(self):
-        default_branch_name = DefaultBranchName()
-        return default_branch_name.value()
+        dbn = DefaultBranchName()
+        return dbn.value
 
     def curate(self, minimal=False):
         # handle commits with parquet issue key specially and query them from
@@ -486,7 +475,6 @@ class Release:
     def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the default branch since the root of the
         # maintenance branch (the previous major release)
-        print(self.default_branch)
         commit_range = f"{self.previous.tag}..{self.default_branch}"
 
         # keeping the original order of the commits helps to minimize the merge
