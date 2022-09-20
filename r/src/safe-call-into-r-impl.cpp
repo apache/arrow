@@ -18,7 +18,6 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
-#include <csignal>
 #include <functional>
 #include <thread>
 

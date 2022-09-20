@@ -25,7 +25,6 @@
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
-#include <csignal>
 #include <functional>
 #include <thread>
 
@@ -120,15 +119,15 @@ class MainRThread {
   // Check if there is a saved error
   bool HasError() { return !status_.ok(); }
 
-  // Throw an exception if there was an error executing on the main
-  // thread.
-  void ReraiseErrorIfExists() {
+  // Resets this object after a RunWithCapturedR is about to return
+  // to the R interpreter.
+  arrow::Status ReraiseErrorIfExists() {
     if (SignalStopSourceEnabled()) {
       stop_source_->Reset();
     }
     arrow::Status maybe_error_status = status_;
     ResetError();
-    arrow::StopIfNotOk(maybe_error_status);
+    return maybe_error_status;
   }
 
  private:
@@ -209,14 +208,9 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
         SafeCallIntoRContext context;
         return fun();
       } catch (cpp11::unwind_exception& e) {
-        // Here we save the token and set the main R thread to an error state
-        MainRThread::GetInstance().SetError(arrow::StatusUnwindProtect(e.token));
-
-        // We also return an error although this should not surface because
-        // main_r_thread.ReraiseErrorIfExists() will get called before this value can be
-        // returned and will StopIfNotOk(). We don't save the error token here
-        // to ensure that it will only get thrown once.
-        return arrow::Status::UnknownError("R code execution error (", reason, ")");
+        // Return a status that will rethrow a cpp11::unwind_exception()
+        // when ValueOrStop() is called.
+        return arrow::StatusUnwindProtect(e.token, reason);
       }
     }));
   } else {
@@ -267,9 +261,15 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
       });
 
   MainRThread::GetInstance().Executor() = nullptr;
-  MainRThread::GetInstance().ReraiseErrorIfExists();
 
-  return result;
+  // R execution error will already be embedded in `result`; however,
+  // if there was an error restoring the signal handlers it will be
+  // embedded here.
+  if (MainRThread::GetInstance().HasError()) {
+    return MainRThread::GetInstance().ReraiseErrorIfExists();
+  } else {
+    return result;
+  }
 }
 
 // Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
