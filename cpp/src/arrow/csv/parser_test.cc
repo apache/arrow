@@ -120,7 +120,7 @@ void GetLastRow(const BlockParser& parser, std::vector<std::string>* out,
   }
 }
 
-size_t TotalViewLength(const std::vector<util::string_view>& views) {
+size_t TotalViewLength(const std::vector<std::string_view>& views) {
   size_t total_view_length = 0;
   for (const auto& view : views) {
     total_view_length += view.length();
@@ -129,11 +129,11 @@ size_t TotalViewLength(const std::vector<util::string_view>& views) {
 }
 
 Status Parse(BlockParser& parser, const std::string& str, uint32_t* out_size) {
-  return parser.Parse(util::string_view(str), out_size);
+  return parser.Parse(std::string_view(str), out_size);
 }
 
 Status ParseFinal(BlockParser& parser, const std::string& str, uint32_t* out_size) {
-  return parser.ParseFinal(util::string_view(str), out_size);
+  return parser.ParseFinal(std::string_view(str), out_size);
 }
 
 void AssertParseOk(BlockParser& parser, const std::string& str) {
@@ -142,7 +142,7 @@ void AssertParseOk(BlockParser& parser, const std::string& str) {
   ASSERT_EQ(parsed_size, str.size());
 }
 
-void AssertParseOk(BlockParser& parser, const std::vector<util::string_view>& data) {
+void AssertParseOk(BlockParser& parser, const std::vector<std::string_view>& data) {
   uint32_t parsed_size = static_cast<uint32_t>(-1);
   ASSERT_OK(parser.Parse(data, &parsed_size));
   ASSERT_EQ(parsed_size, TotalViewLength(data));
@@ -154,7 +154,7 @@ void AssertParseFinal(BlockParser& parser, const std::string& str) {
   ASSERT_EQ(parsed_size, str.size());
 }
 
-void AssertParseFinal(BlockParser& parser, const std::vector<util::string_view>& data) {
+void AssertParseFinal(BlockParser& parser, const std::vector<std::string_view>& data) {
   uint32_t parsed_size = static_cast<uint32_t>(-1);
   ASSERT_OK(parser.ParseFinal(data, &parsed_size));
   ASSERT_EQ(parsed_size, TotalViewLength(data));
@@ -238,7 +238,7 @@ TEST(BlockParser, Basics) {
   {
     auto csv1 = MakeCSVData({"ab,cd,\n", "ef,,gh\n"});
     auto csv2 = MakeCSVData({",ij,kl\n"});
-    std::vector<util::string_view> csvs = {csv1, csv2};
+    std::vector<std::string_view> csvs = {csv1, csv2};
     BlockParser parser(ParseOptions::Defaults());
     AssertParseOk(parser, {{csv1}, {csv2}});
     AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
@@ -596,7 +596,7 @@ TEST(BlockParser, MismatchingNumColumnsHandler) {
     operator InvalidRowHandler() {
       return [this](const InvalidRow& row) {
         // Copy the row to a string since the array behind the string_view can go away
-        rows.emplace_back(row, row.text.to_string());
+        rows.emplace_back(row, row.text);
         return InvalidRowResult::Skip;
       };
     }

@@ -136,7 +136,7 @@ StreamWriter& StreamWriter::operator<<(const std::string& v) {
   return WriteVariableLength(v.data(), v.size());
 }
 
-StreamWriter& StreamWriter::operator<<(::arrow::util::string_view v) {
+StreamWriter& StreamWriter::operator<<(::std::string_view v) {
   return WriteVariableLength(v.data(), v.size());
 }
 

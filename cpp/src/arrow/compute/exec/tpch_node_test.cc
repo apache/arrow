@@ -17,6 +17,11 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <cctype>
+#include <regex>
+#include <string>
+#include <unordered_set>
+
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/tpch_node.h"
@@ -29,14 +34,13 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/pcg_random.h"
+#include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 
-#include <cctype>
-#include <regex>
-#include <string>
-#include <unordered_set>
-
 namespace arrow {
+
+using internal::StartsWith;
+
 namespace compute {
 namespace internal {
 
@@ -94,10 +98,10 @@ void VerifyUniqueKey(std::unordered_set<int32_t>* seen, const Datum& d, int32_t 
   }
 }
 
-void VerifyStringAndNumber_Single(const util::string_view& row,
-                                  const util::string_view& prefix, const int64_t i,
+void VerifyStringAndNumber_Single(const std::string_view& row,
+                                  const std::string_view& prefix, const int64_t i,
                                   const int32_t* nums, bool verify_padding) {
-  ASSERT_TRUE(row.starts_with(prefix)) << row << ", prefix=" << prefix << ", i=" << i;
+  ASSERT_TRUE(StartsWith(row, prefix)) << row << ", prefix=" << prefix << ", i=" << i;
   const char* num_str = row.data() + prefix.size();
   const char* num_str_end = row.data() + row.size();
   int64_t num = 0;
@@ -124,7 +128,7 @@ void VerifyStringAndNumber_Single(const util::string_view& row,
 // corresponding row in numbers. Some TPC-H data is padded to 9 zeros, which this function
 // can optionally verify as well. This string function verifies fixed width columns.
 void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers,
-                                      int byte_width, const util::string_view& prefix,
+                                      int byte_width, const std::string_view& prefix,
                                       bool verify_padding = true) {
   int64_t length = strings.length();
   const char* str = reinterpret_cast<const char*>(strings.array()->buffers[1]->data());
@@ -137,14 +141,14 @@ void VerifyStringAndNumber_FixedWidth(const Datum& strings, const Datum& numbers
 
   for (int64_t i = 0; i < length; i++) {
     const char* row = str + i * byte_width;
-    util::string_view view(row, byte_width);
+    std::string_view view(row, byte_width);
     VerifyStringAndNumber_Single(view, prefix, i, nums, verify_padding);
   }
 }
 
 // Same as above but for variable length columns
 void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
-                                  const util::string_view& prefix,
+                                  const std::string_view& prefix,
                                   bool verify_padding = true) {
   int64_t length = strings.length();
   const int32_t* offsets =
@@ -160,7 +164,7 @@ void VerifyStringAndNumber_Varlen(const Datum& strings, const Datum& numbers,
   for (int64_t i = 0; i < length; i++) {
     int32_t start = offsets[i];
     int32_t str_len = offsets[i + 1] - offsets[i];
-    util::string_view view(str + start, str_len);
+    std::string_view view(str + start, str_len);
     VerifyStringAndNumber_Single(view, prefix, i, nums, verify_padding);
   }
 }
@@ -253,7 +257,7 @@ void VerifyCorrectNumberOfWords_Varlen(const Datum& d, int num_words) {
     int32_t start = offsets[i];
     int32_t end = offsets[i + 1];
     int32_t str_len = end - start;
-    util::string_view view(str + start, str_len);
+    std::string_view view(str + start, str_len);
     bool is_only_alphas_or_spaces = true;
     for (const char& c : view) {
       bool is_space = c == ' ';
@@ -300,14 +304,14 @@ void VerifyOneOf(const Datum& d, const std::unordered_set<char>& possibilities) 
 
 // Verifies that each fixed-width row is one of the possibilities
 void VerifyOneOf(const Datum& d, int32_t byte_width,
-                 const std::unordered_set<util::string_view>& possibilities) {
+                 const std::unordered_set<std::string_view>& possibilities) {
   int64_t length = d.length();
   const char* col = reinterpret_cast<const char*>(d.array()->buffers[1]->data());
   for (int64_t i = 0; i < length; i++) {
     const char* row = col + i * byte_width;
     int32_t row_len = 0;
     while (row[row_len] && row_len < byte_width) row_len++;
-    util::string_view view(row, row_len);
+    std::string_view view(row, row_len);
     ASSERT_TRUE(possibilities.find(view) != possibilities.end())
         << view << " is not a valid string.";
   }
@@ -331,10 +335,10 @@ void CountModifiedComments(const Datum& d, int* good_count, int* bad_count) {
   for (int64_t i = 0; i < length; i++) {
     const char* row = str + offsets[i];
     int32_t row_length = offsets[i + 1] - offsets[i];
-    util::string_view view(row, row_length);
-    bool customer = view.find("Customer") != util::string_view::npos;
-    bool recommends = view.find("Recommends") != util::string_view::npos;
-    bool complaints = view.find("Complaints") != util::string_view::npos;
+    std::string_view view(row, row_length);
+    bool customer = view.find("Customer") != std::string_view::npos;
+    bool recommends = view.find("Recommends") != std::string_view::npos;
+    bool complaints = view.find("Complaints") != std::string_view::npos;
     if (customer) {
       ASSERT_TRUE(recommends ^ complaints);
       if (recommends) *good_count += 1;

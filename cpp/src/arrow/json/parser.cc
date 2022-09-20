@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <limits>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -36,7 +37,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/trie.h"
 #include "arrow/visit_type_inline.h"
 
@@ -45,7 +45,7 @@ namespace arrow {
 using internal::BitsetStack;
 using internal::checked_cast;
 using internal::make_unique;
-using util::string_view;
+using std::string_view;
 
 namespace json {
 
@@ -89,7 +89,7 @@ static arrow::internal::Trie MakeFromTagTrie() {
 Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
   static arrow::internal::Trie name_to_kind = MakeFromTagTrie();
   DCHECK_NE(tag->FindKey("json_kind"), -1);
-  util::string_view name = tag->value(tag->FindKey("json_kind"));
+  std::string_view name = tag->value(tag->FindKey("json_kind"));
   DCHECK_NE(name_to_kind.Find(name), -1);
   return static_cast<Kind::type>(name_to_kind.Find(name));
 }

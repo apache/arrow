@@ -180,7 +180,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Parse(std::unique_ptr<Buffer> buffer) 
       return Status::Invalid("Buffer underflow, expected key ", i + 1, " to have length ",
                              key_length, ", but only ", (end - payload), " bytes remain");
     }
-    const util::string_view key(reinterpret_cast<const char*>(payload), key_length);
+    const std::string_view key(reinterpret_cast<const char*>(payload), key_length);
     payload += key_length;
 
     if (ARROW_PREDICT_FALSE((end - payload) < value_length)) {
@@ -188,7 +188,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Parse(std::unique_ptr<Buffer> buffer) 
                              " to have length ", value_length, ", but only ",
                              (end - payload), " bytes remain");
     }
-    const util::string_view value(reinterpret_cast<const char*>(payload), value_length);
+    const std::string_view value(reinterpret_cast<const char*>(payload), value_length);
     payload += value_length;
     result.headers_.emplace_back(key, value);
   }
@@ -243,7 +243,7 @@ arrow::Result<HeadersFrame> HeadersFrame::Make(
   return Make(all_headers);
 }
 
-arrow::Result<util::string_view> HeadersFrame::Get(const std::string& key) {
+arrow::Result<std::string_view> HeadersFrame::Get(const std::string& key) {
   for (const auto& pair : headers_) {
     if (pair.first == key) return pair.second;
   }
@@ -252,7 +252,7 @@ arrow::Result<util::string_view> HeadersFrame::Get(const std::string& key) {
 
 Status HeadersFrame::GetStatus(Status* out) {
   static const std::string kUnknownMessage = "Server did not send status message header";
-  util::string_view code_str, message_str;
+  std::string_view code_str, message_str;
   auto status = Get(kHeaderStatus).Value(&code_str);
   if (!status.ok()) {
     return Status::KeyError("Server did not send status code header ", kHeaderStatusCode);
@@ -273,7 +273,7 @@ Status HeadersFrame::GetStatus(Status* out) {
   }
   *out = transport_status.ToStatus();
 
-  util::string_view detail_str, bin_str;
+  std::string_view detail_str, bin_str;
   std::optional<std::string> message, detail_message, detail_bin;
   if (!Get(kHeaderStatusCode).Value(&code_str).ok()) {
     // No Arrow status sent, go with the transport status
@@ -363,7 +363,7 @@ Status PayloadHeaderFrame::ToFlightData(internal::FlightData* data) {
       return Status::Invalid("Buffer is too small: expected ", offset + size,
                              " bytes but have ", buffer->size());
     }
-    util::string_view desc(reinterpret_cast<const char*>(buffer->data() + offset), size);
+    std::string_view desc(reinterpret_cast<const char*>(buffer->data() + offset), size);
     data->descriptor.reset(new FlightDescriptor());
     ARROW_ASSIGN_OR_RAISE(*data->descriptor, FlightDescriptor::Deserialize(desc));
     offset += size;

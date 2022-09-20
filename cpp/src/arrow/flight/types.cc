@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <sstream>
+#include <string_view>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -29,7 +30,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -177,8 +177,7 @@ arrow::Result<std::string> SchemaResult::SerializeToString() const {
   return out;
 }
 
-arrow::Result<SchemaResult> SchemaResult::Deserialize(
-    arrow::util::string_view serialized) {
+arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialized) {
   pb::SchemaResult pb_schema_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized SchemaResult size should not exceed 2 GiB");
@@ -207,7 +206,7 @@ Status FlightDescriptor::SerializeToString(std::string* out) const {
 }
 
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
-    arrow::util::string_view serialized) {
+    std::string_view serialized) {
   pb::FlightDescriptor pb_descriptor;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightDescriptor size should not exceed 2 GiB");
@@ -244,7 +243,7 @@ Status Ticket::SerializeToString(std::string* out) const {
   return SerializeToString().Value(out);
 }
 
-arrow::Result<Ticket> Ticket::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
   pb::Ticket pb_ticket;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Ticket size should not exceed 2 GiB");
@@ -308,7 +307,7 @@ Status FlightInfo::SerializeToString(std::string* out) const {
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
-    arrow::util::string_view serialized) {
+    std::string_view serialized) {
   pb::FlightInfo pb_info;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightInfo size should not exceed 2 GiB");
@@ -410,8 +409,7 @@ arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
   return out;
 }
 
-arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(
-    arrow::util::string_view serialized) {
+arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view serialized) {
   pb::FlightEndpoint pb_flight_endpoint;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightEndpoint size should not exceed 2 GiB");
@@ -441,7 +439,7 @@ arrow::Result<std::string> ActionType::SerializeToString() const {
   return out;
 }
 
-arrow::Result<ActionType> ActionType::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<ActionType> ActionType::Deserialize(std::string_view serialized) {
   pb::ActionType pb_action_type;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized ActionType size should not exceed 2 GiB");
@@ -471,7 +469,7 @@ arrow::Result<std::string> Criteria::SerializeToString() const {
   return out;
 }
 
-arrow::Result<Criteria> Criteria::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<Criteria> Criteria::Deserialize(std::string_view serialized) {
   pb::Criteria pb_criteria;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Criteria size should not exceed 2 GiB");
@@ -502,7 +500,7 @@ arrow::Result<std::string> Action::SerializeToString() const {
   return out;
 }
 
-arrow::Result<Action> Action::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<Action> Action::Deserialize(std::string_view serialized) {
   pb::Action pb_action;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Action size should not exceed 2 GiB");
@@ -532,7 +530,7 @@ arrow::Result<std::string> Result::SerializeToString() const {
   return out;
 }
 
-arrow::Result<Result> Result::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
   pb::Result pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Result size should not exceed 2 GiB");
@@ -645,7 +643,7 @@ bool BasicAuth::Equals(const BasicAuth& other) const {
   return (username == other.username) && (password == other.password);
 }
 
-arrow::Result<BasicAuth> BasicAuth::Deserialize(arrow::util::string_view serialized) {
+arrow::Result<BasicAuth> BasicAuth::Deserialize(std::string_view serialized) {
   pb::BasicAuth pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized BasicAuth size should not exceed 2 GiB");

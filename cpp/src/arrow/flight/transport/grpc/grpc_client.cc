@@ -44,6 +44,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
@@ -58,6 +59,8 @@
 #include "arrow/flight/types.h"
 
 namespace arrow {
+
+using internal::EndsWith;
 
 namespace flight {
 namespace transport {
@@ -151,8 +154,8 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
     received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
-      headers.insert({util::string_view(entry.first.data(), entry.first.length()),
-                      util::string_view(entry.second.data(), entry.second.length())});
+      headers.insert({std::string_view(entry.first.data(), entry.first.length()),
+                      std::string_view(entry.second.data(), entry.second.length())});
     }
     for (const auto& middleware : middleware_) {
       middleware->ReceivedHeaders(headers);
@@ -180,24 +183,24 @@ class GrpcClientInterceptorAdapterFactory
     std::vector<std::unique_ptr<ClientMiddleware>> middleware;
 
     FlightMethod flight_method = FlightMethod::Invalid;
-    util::string_view method(info->method());
-    if (method.ends_with("/Handshake")) {
+    std::string_view method(info->method());
+    if (EndsWith(method, "/Handshake")) {
       flight_method = FlightMethod::Handshake;
-    } else if (method.ends_with("/ListFlights")) {
+    } else if (EndsWith(method, "/ListFlights")) {
       flight_method = FlightMethod::ListFlights;
-    } else if (method.ends_with("/GetFlightInfo")) {
+    } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
-    } else if (method.ends_with("/GetSchema")) {
+    } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
-    } else if (method.ends_with("/DoGet")) {
+    } else if (EndsWith(method, "/DoGet")) {
       flight_method = FlightMethod::DoGet;
-    } else if (method.ends_with("/DoPut")) {
+    } else if (EndsWith(method, "/DoPut")) {
       flight_method = FlightMethod::DoPut;
-    } else if (method.ends_with("/DoExchange")) {
+    } else if (EndsWith(method, "/DoExchange")) {
       flight_method = FlightMethod::DoExchange;
-    } else if (method.ends_with("/DoAction")) {
+    } else if (EndsWith(method, "/DoAction")) {
       flight_method = FlightMethod::DoAction;
-    } else if (method.ends_with("/ListActions")) {
+    } else if (EndsWith(method, "/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
       ARROW_LOG(WARNING) << "Unknown Flight method: " << info->method();

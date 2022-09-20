@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <optional>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -37,7 +38,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace compute {
@@ -1015,15 +1015,15 @@ class AsofJoinNode : public ExecNode {
 
   static inline Result<col_index_t> FindColIndex(const Schema& schema,
                                                  const FieldRef& field_ref,
-                                                 util::string_view key_kind) {
+                                                 std::string_view key_kind) {
     auto match_res = field_ref.FindOne(schema);
     if (!match_res.ok()) {
       return Status::Invalid("Bad join key on table : ", match_res.status().message());
     }
     ARROW_ASSIGN_OR_RAISE(auto match, match_res);
     if (match.indices().size() != 1) {
-      return Status::Invalid("AsOfJoinNode does not support a nested ",
-                             to_string(key_kind), "-key ", field_ref.ToString());
+      return Status::Invalid("AsOfJoinNode does not support a nested ", key_kind, "-key ",
+                             field_ref.ToString());
     }
     return match.indices()[0];
   }

@@ -128,11 +128,11 @@ TEST(ArrayIterator, RangeFor) {
 TEST(ArrayIterator, String) {
   auto array = checked_pointer_cast<StringArray>(
       ArrayFromJSON(utf8(), R"(["foo", "bar", null, "quux"])"));
-  std::vector<optional<util::string_view>> values;
+  std::vector<optional<std::string_view>> values;
   for (const auto v : *array) {
     values.push_back(v);
   }
-  std::vector<optional<util::string_view>> expected{"foo", "bar", {}, "quux"};
+  std::vector<optional<std::string_view>> expected{"foo", "bar", {}, "quux"};
   ASSERT_EQ(values, expected);
 }
 
@@ -150,11 +150,11 @@ TEST(ArrayIterator, Boolean) {
 TEST(ArrayIterator, FixedSizeBinary) {
   auto array = checked_pointer_cast<FixedSizeBinaryArray>(
       ArrayFromJSON(fixed_size_binary(3), R"(["foo", "bar", null, "quu"])"));
-  std::vector<optional<util::string_view>> values;
+  std::vector<optional<std::string_view>> values;
   for (const auto v : *array) {
     values.push_back(v);
   }
-  std::vector<optional<util::string_view>> expected{"foo", "bar", {}, "quu"};
+  std::vector<optional<std::string_view>> expected{"foo", "bar", {}, "quu"};
   ASSERT_EQ(values, expected);
 }
 

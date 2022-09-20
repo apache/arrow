@@ -96,7 +96,7 @@ bool ValidateUTF8(const uint8_t* data, int64_t size) {
   return ValidateUTF8Inline(data, size);
 }
 
-bool ValidateUTF8(const util::string_view& str) { return ValidateUTF8Inline(str); }
+bool ValidateUTF8(const std::string_view& str) { return ValidateUTF8Inline(str); }
 
 static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
 

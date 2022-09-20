@@ -47,7 +47,7 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
 
   Status Append(Decimal128 val);
   void UnsafeAppend(Decimal128 val);
-  void UnsafeAppend(util::string_view val);
+  void UnsafeAppend(std::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -77,7 +77,7 @@ class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
 
   Status Append(const Decimal256& val);
   void UnsafeAppend(const Decimal256& val);
-  void UnsafeAppend(util::string_view val);
+  void UnsafeAppend(std::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

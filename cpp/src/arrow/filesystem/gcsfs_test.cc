@@ -280,7 +280,7 @@ class GcsIntegrationTest : public ::testing::Test {
     std::transform(expected.begin(), expected.end(), expected.begin(),
                    [](FileInfo const& info) {
                      if (!info.IsDirectory()) return info;
-                     return Dir(internal::RemoveTrailingSlash(info.path()).to_string());
+                     return Dir(std::string(internal::RemoveTrailingSlash(info.path())));
                    });
     return expected;
   }

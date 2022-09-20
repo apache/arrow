@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -32,7 +33,6 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -67,15 +67,15 @@ class BaseBinaryArray : public FlatArray {
   ///
   /// \param i the value index
   /// \return the view over the selected value
-  util::string_view GetView(int64_t i) const {
+  std::string_view GetView(int64_t i) const {
     // Account for base offset
     i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
-    return util::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
-                             raw_value_offsets_[i + 1] - pos);
+    return std::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
+                            raw_value_offsets_[i + 1] - pos);
   }
 
-  std::optional<util::string_view> operator[](int64_t i) const {
+  std::optional<std::string_view> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 
@@ -84,7 +84,7 @@ class BaseBinaryArray : public FlatArray {
   ///
   /// \param i the value index
   /// \return the view over the selected value
-  util::string_view Value(int64_t i) const { return GetView(i); }
+  std::string_view Value(int64_t i) const { return GetView(i); }
 
   /// \brief Get binary value as a std::string
   ///
@@ -236,11 +236,11 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   const uint8_t* GetValue(int64_t i) const;
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
-  util::string_view GetView(int64_t i) const {
-    return util::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
+  std::string_view GetView(int64_t i) const {
+    return std::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
   }
 
-  std::optional<util::string_view> operator[](int64_t i) const {
+  std::optional<std::string_view> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }
 

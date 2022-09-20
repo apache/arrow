@@ -23,9 +23,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "arrow/util/string_view.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 
@@ -123,7 +123,7 @@ class PARQUET_EXPORT StreamWriter {
 
   /// \brief Helper class to write fixed length strings.
   /// This is useful as the standard string view (such as
-  /// arrow::util::string_view) is for variable length data.
+  /// std::string_view) is for variable length data.
   struct PARQUET_EXPORT FixedStringView {
     FixedStringView() = default;
 
@@ -149,7 +149,7 @@ class PARQUET_EXPORT StreamWriter {
   /// \brief Output operators for variable length strings.
   StreamWriter& operator<<(const char* v);
   StreamWriter& operator<<(const std::string& v);
-  StreamWriter& operator<<(::arrow::util::string_view v);
+  StreamWriter& operator<<(::std::string_view v);
 
   /// \brief Output operator for optional fields.
   template <typename T>

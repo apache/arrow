@@ -121,7 +121,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
       int64_t i = 0;
       VisitArraySpanInline<T>(
           data.array,
-          [&](util::string_view bytes) {
+          [&](std::string_view bytes) {
             lengths[i++] +=
                 kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
           },
@@ -146,7 +146,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
     if (data.is_array()) {
       VisitArraySpanInline<T>(
           data.array,
-          [&](util::string_view bytes) {
+          [&](std::string_view bytes) {
             auto& encoded_ptr = *encoded_bytes++;
             *encoded_ptr++ = kValidByte;
             util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));

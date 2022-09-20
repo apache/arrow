@@ -142,8 +142,7 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   return node;
 }
 
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            util::string_view json) {
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
   auto fields = ::arrow::internal::MapVector(
       [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
 
@@ -153,7 +152,7 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
 }
 
 ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, util::string_view json) {
+                            const std::vector<ArgShape>& shapes, std::string_view json) {
   DCHECK_EQ(types.size(), shapes.size());
 
   ExecBatch batch = ExecBatchFromJSON(types, json);
@@ -235,9 +234,9 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   return out;
 }
 
-BatchesWithSchema MakeBatchesFromString(
-    const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity) {
+BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
+                                        const std::vector<std::string_view>& json_strings,
+                                        int multiplicity) {
   BatchesWithSchema out_batches{{}, schema};
 
   std::vector<TypeHolder> types;

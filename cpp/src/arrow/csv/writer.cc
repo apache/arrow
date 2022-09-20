@@ -99,7 +99,7 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
 }
 
 // Counts the number of quotes in s.
-int64_t CountQuotes(arrow::util::string_view s) {
+int64_t CountQuotes(std::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
@@ -155,7 +155,7 @@ class ColumnPopulator {
 
 // Copies the contents of s to out properly escaping any necessary characters.
 // Returns the position next to last copied character.
-char* Escape(arrow::util::string_view s, char* out) {
+char* Escape(std::string_view s, char* out) {
   for (const char c : s) {
     *out++ = c;
     if (c == '"') {
@@ -189,7 +189,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     int64_t row_number = 0;
     VisitArraySpanInline<StringType>(
         *casted_array_->data(),
-        [&](arrow::util::string_view s) {
+        [&](std::string_view s) {
           row_lengths[row_number] += static_cast<int64_t>(s.length());
           row_number++;
         },
@@ -202,7 +202,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 
   Status PopulateRows(char* output, int64_t* offsets) const override {
     // Function applied to valid values cast to string.
-    auto valid_function = [&](arrow::util::string_view s) {
+    auto valid_function = [&](std::string_view s) {
       memcpy(output + *offsets, s.data(), s.length());
       CopyEndChars(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
       *offsets += static_cast<int64_t>(s.length() + end_chars_.size());
@@ -290,7 +290,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
       int row_number = 0;
       VisitArraySpanInline<StringType>(
           *input.data(),
-          [&](arrow::util::string_view s) {
+          [&](std::string_view s) {
             row_lengths[row_number] += static_cast<int64_t>(s.length()) + kQuoteCount;
             row_number++;
           },
@@ -302,7 +302,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
       int row_number = 0;
       VisitArraySpanInline<StringType>(
           *input.data(),
-          [&](arrow::util::string_view s) {
+          [&](std::string_view s) {
             // Each quote in the value string needs to be escaped.
             int64_t escaped_count = CountQuotes(s);
             row_needs_escaping_[row_number] = escaped_count > 0;
@@ -322,7 +322,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     auto needs_escaping = row_needs_escaping_.begin();
     VisitArraySpanInline<StringType>(
         *(casted_array_->data()),
-        [&](arrow::util::string_view s) {
+        [&](std::string_view s) {
           // still needs string content length to be added
           char* row = output + *offsets;
           *row++ = '"';

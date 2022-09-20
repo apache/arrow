@@ -412,7 +412,7 @@ DataEqMatcher DataEq(Data&& dat) {
 
 /// Constructs an array with ArrayFromJSON against which arguments are matched
 inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
-                                 util::string_view json) {
+                                 std::string_view json) {
   return DataEq(ArrayFromJSON(type, json));
 }
 
@@ -446,7 +446,7 @@ DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& v
 
 /// Constructs a scalar with ScalarFromJSON against which arguments are matched
 inline DataEqMatcher DataEqScalar(const std::shared_ptr<DataType>& type,
-                                  util::string_view json) {
+                                  std::string_view json) {
   return DataEq(ScalarFromJSON(type, json));
 }
 

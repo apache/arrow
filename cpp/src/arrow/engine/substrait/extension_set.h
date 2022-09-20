@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -35,7 +36,6 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
@@ -60,7 +60,7 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "functions_aggregate_generic.yaml";
 
 struct Id {
-  util::string_view uri, name;
+  std::string_view uri, name;
   bool empty() const { return uri.empty() && name.empty(); }
   std::string ToString() const;
 };
@@ -86,7 +86,7 @@ class IdStorage {
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then the uri will be copied into storage
-  virtual util::string_view EmplaceUri(util::string_view uri) = 0;
+  virtual std::string_view EmplaceUri(std::string_view uri) = 0;
   /// \brief Get an equivalent id pointing into this storage
   ///
   /// If no id is found then nullopt will be returned
@@ -94,7 +94,7 @@ class IdStorage {
   /// \brief Get an equivalent view pointing into this storage for a URI
   ///
   /// If no URI is found then nullopt will be returned
-  virtual std::optional<util::string_view> FindUri(util::string_view uri) const = 0;
+  virtual std::optional<std::string_view> FindUri(std::string_view uri) const = 0;
 
   static std::unique_ptr<IdStorage> Make();
 };
@@ -119,7 +119,7 @@ class SubstraitCall {
   bool is_hash() const { return is_hash_; }
 
   bool HasEnumArg(uint32_t index) const;
-  Result<std::optional<util::string_view>> GetEnumArg(uint32_t index) const;
+  Result<std::optional<std::string_view>> GetEnumArg(uint32_t index) const;
   void SetEnumArg(uint32_t index, std::optional<std::string> enum_arg);
   Result<compute::Expression> GetValueArg(uint32_t index) const;
   bool HasValueArg(uint32_t index) const;
@@ -174,7 +174,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   /// \brief Return a uri view owned by this registry
   ///
   /// If the URI has never been emplaced it will return nullopt
-  virtual std::optional<util::string_view> FindUri(util::string_view uri) const = 0;
+  virtual std::optional<std::string_view> FindUri(std::string_view uri) const = 0;
   /// \brief Return a id view owned by this registry
   ///
   /// If the id has never been emplaced it will return nullopt
@@ -255,7 +255,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
       Id substrait_function_id) const = 0;
 };
 
-constexpr util::string_view kArrowExtTypesUri =
+constexpr std::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/master/format/substrait/"
     "extension_types.yaml";
 
@@ -309,7 +309,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   struct FunctionRecord {
     Id id;
-    util::string_view name;
+    std::string_view name;
   };
 
   struct TypeRecord {
@@ -336,12 +336,12 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::unordered_map<uint32_t, util::string_view> uris,
+      std::unordered_map<uint32_t, std::string_view> uris,
       std::unordered_map<uint32_t, Id> type_ids,
       std::unordered_map<uint32_t, Id> function_ids,
       const ExtensionIdRegistry* = default_extension_id_registry());
 
-  const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
+  const std::unordered_map<uint32_t, std::string_view>& uris() const { return uris_; }
 
   /// \brief Returns a data type given an anchor
   ///
@@ -407,7 +407,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   std::unique_ptr<IdStorage> plan_specific_ids_ = IdStorage::Make();
 
   // Map from anchor values to URI values referenced by this extension set
-  std::unordered_map<uint32_t, util::string_view> uris_;
+  std::unordered_map<uint32_t, std::string_view> uris_;
   // Map from anchor values to type definitions, used during Substrait->Arrow
   // and populated from the Substrait extension set
   std::unordered_map<uint32_t, TypeRecord> types_;
@@ -421,8 +421,8 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   // and built as the plan is created.
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> functions_map_;
 
-  Status CheckHasUri(util::string_view uri);
-  void AddUri(std::pair<uint32_t, util::string_view> uri);
+  Status CheckHasUri(std::string_view uri);
+  void AddUri(std::pair<uint32_t, std::string_view> uri);
   Status AddUri(Id id);
 };
 

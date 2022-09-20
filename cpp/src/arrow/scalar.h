@@ -23,6 +23,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,7 +36,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_type_inline.h"
 
@@ -95,7 +95,7 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   Status ValidateFull() const;
 
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
-                                               util::string_view repr);
+                                               std::string_view repr);
 
   // TODO(bkietz) add compute::CastOptions
   Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
@@ -140,7 +140,7 @@ struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   /// \brief Get a mutable pointer to the value of this scalar. May be null.
   virtual void* mutable_data() = 0;
   /// \brief Get an immutable view of the value of this scalar as bytes.
-  virtual util::string_view view() const = 0;
+  virtual std::string_view view() const = 0;
 };
 
 template <typename T, typename CType = typename T::c_type>
@@ -159,8 +159,8 @@ struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
   ValueType value{};
 
   void* mutable_data() override { return &value; }
-  util::string_view view() const override {
-    return util::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
+  std::string_view view() const override {
+    return std::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
   };
 };
 
@@ -245,8 +245,8 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
   void* mutable_data() override {
     return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
   }
-  util::string_view view() const override {
-    return value ? util::string_view(*value) : util::string_view();
+  std::string_view view() const override {
+    return value ? std::string_view(*value) : std::string_view();
   }
 
  protected:
@@ -415,9 +415,9 @@ struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
     return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
   }
 
-  util::string_view view() const override {
-    return util::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
-                             ValueType::kByteWidth);
+  std::string_view view() const override {
+    return std::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
+                            ValueType::kByteWidth);
   }
 
   ValueType value;
@@ -561,7 +561,7 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
     return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
         .mutable_data();
   }
-  util::string_view view() const override {
+  std::string_view view() const override {
     return internal::checked_cast<const internal::PrimitiveScalarBase&>(*value.index)
         .view();
   }

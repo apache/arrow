@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
@@ -33,7 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
@@ -253,7 +253,7 @@ namespace internal {
 /// \param[in] r_buf buffer containing the second protobuf serialization to compare
 /// \return success if equivalent, failure if not
 ARROW_ENGINE_EXPORT
-Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_buf,
+Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_buf,
                                const Buffer& r_buf);
 
 /// \brief Utility function to convert a JSON serialization of a Substrait message to
@@ -263,8 +263,8 @@ Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_b
 /// \param[in] json the JSON string to convert
 /// \return a buffer filled with the binary protobuf serialization of message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
-                                                  util::string_view json);
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
+                                                  std::string_view json);
 
 /// \brief Utility function to convert a binary protobuf serialization of a Substrait
 /// message to JSON
@@ -273,7 +273,7 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
 /// \param[in] buf the buffer containing the binary protobuf serialization of the message
 /// \return a JSON string representing the message
 ARROW_ENGINE_EXPORT
-Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf);
+Result<std::string> SubstraitToJSON(std::string_view type_name, const Buffer& buf);
 
 }  // namespace internal
 }  // namespace engine

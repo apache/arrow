@@ -81,7 +81,7 @@ struct GcsPath {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      return GcsPath{s, internal::RemoveTrailingSlash(s).to_string(), ""};
+      return GcsPath{s, std::string(internal::RemoveTrailingSlash(s)), ""};
     }
     GcsPath path;
     path.full_path = s;
@@ -412,7 +412,7 @@ class GcsFileSystem::Impl {
   // limitations) using marker objects.  That and listing with prefixes creates the
   // illusion of folders.
   google::cloud::StatusOr<gcs::ObjectMetadata> CreateDirMarker(const std::string& bucket,
-                                                               util::string_view name) {
+                                                               std::string_view name) {
     // Make the name canonical.
     const auto canonical = internal::EnsureTrailingSlash(name);
     google::cloud::StatusOr<gcs::ObjectMetadata> object = client_.InsertObject(
