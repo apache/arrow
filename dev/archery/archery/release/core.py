@@ -243,7 +243,7 @@ class DefaultBranchName(object):
                     repo = Repo(arrow.path)
                     origin = repo.remotes["origin"]
                     origin_refs = origin.refs
-                    
+
                     print("repo.remotes:")
                     for remote in repo.remotes:
                         print(remote)
@@ -419,7 +419,7 @@ class Release:
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
     @property
-    def base_branch(self):
+    def default_branch(self):
         default_branch_name = DefaultBranchName()
         return default_branch_name.value()
 
@@ -486,8 +486,8 @@ class Release:
     def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the default branch since the root of the
         # maintenance branch (the previous major release)
-        print(self.base_branch)
-        commit_range = f"{self.previous.tag}..{self.base_branch}"
+        print(self.default_branch)
+        commit_range = f"{self.previous.tag}..{self.default_branch}"
 
         # keeping the original order of the commits helps to minimize the merge
         # conflicts during cherry-picks
