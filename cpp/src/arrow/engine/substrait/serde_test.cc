@@ -2197,11 +2197,11 @@ TEST(SubstraitRoundTrip, BasicPlan) {
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // assert filter declaration
   const auto& roundtripped_filter =
-          std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+      std::get<compute::Declaration>(sink_decls[0].inputs[0]);
   AssertFilterRelation(roundtripped_filter, std::move(filter_expr), dummy_schema);
   // assert scan declaration
-  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
-  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
+  auto roundtripped_scan = std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+  AssertScanRelation(roundtripped_scan, dataset, dummy_schema);
 }
 
 TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
@@ -2277,13 +2277,15 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // assert filter declaration
-  auto& roundtripped_filter = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  const auto& roundtripped_filter =
+      std::get<compute::Declaration>(sink_decls[0].inputs[0]);
   AssertFilterRelation(roundtripped_filter, std::move(filter_expr), dummy_schema);
   // assert scan declaration
-  auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
-  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
+  const auto& roundtripped_scan =
+      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+  AssertScanRelation(roundtripped_scan, dataset, dummy_schema);
   // assert results
-  AssertPlanExecutionResult(expected_table, *roundtripped_filter, dummy_schema,
+  AssertPlanExecutionResult(expected_table, roundtripped_filter, dummy_schema,
                             exec_context);
 }
 
@@ -2388,18 +2390,20 @@ TEST(Substrait, FilterProjectPlanRoundTripping) {
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // assert project declaration
-  auto roundtripped_project = sink_decls[0].inputs[0].get<compute::Declaration>();
+  const auto& roundtripped_project =
+      std::get<compute::Declaration>(sink_decls[0].inputs[0]);
   // assert project declaration
   // Note: the provided expressions for Substrait declaration only contains one
   // expression, but substrait produces expressions for the existing number of fields plus
   // provided expression. Since the output expressions from the deserialized relation
   // contains fields which weren't used in the project expression.
-  AssertProjectRelation(*roundtripped_project, acero_project_fp_exprs, project_schema);
+  AssertProjectRelation(roundtripped_project, acero_project_fp_exprs, project_schema);
   // assert scan declaration
-  auto roundtripped_scan = roundtripped_project->inputs[0].get<compute::Declaration>();
-  AssertScanRelation(*roundtripped_scan, dataset, dummy_schema);
+  const auto& roundtripped_scan =
+      std::get<compute::Declaration>(roundtripped_project.inputs[0]);
+  AssertScanRelation(roundtripped_scan, dataset, dummy_schema);
   // assert results
-  AssertPlanExecutionResult(expected_table, *roundtripped_project, project_schema,
+  AssertPlanExecutionResult(expected_table, roundtripped_project, project_schema,
                             exec_context);
 }
 

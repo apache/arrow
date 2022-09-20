@@ -831,7 +831,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
   auto declr_input = declaration.inputs[0];
   ARROW_ASSIGN_OR_RAISE(
       auto input_rel,
-      ToProto(util::get<compute::Declaration>(declr_input), ext_set, conversion_options));
+      ToProto(std::get<compute::Declaration>(declr_input), ext_set, conversion_options));
 
   for (const auto& expr : project_node_options.expressions) {
     compute::Expression bound_expression;
