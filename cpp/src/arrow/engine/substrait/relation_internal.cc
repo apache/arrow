@@ -96,7 +96,6 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
->>>>>>> 54094ebc8 (ARROW-16424: undid FromProto re-organization)
 // Other helper functions
 Status DiscoverFilesFromDir(std::shared_ptr<fs::LocalFileSystem>& local_fs,
                             std::string dirpath, std::vector<fs::FileInfo>& rel_fpaths) {
