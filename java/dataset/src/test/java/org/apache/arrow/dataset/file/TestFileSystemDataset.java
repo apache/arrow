@@ -243,8 +243,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
     List<ArrowRecordBatch> datum = collectTaskData(scanner);
     AutoCloseables.close(datum);
     UnsupportedOperationException uoe = assertThrows(UnsupportedOperationException.class,
-            scanner::scanBatchesUnordered);
-    Assertions.assertEquals("NativeScanner cannot be executed more than once. Consider creating new scanner instead",
+            scanner::scanBatches);
+    Assertions.assertEquals("NativeScanner can only be executed once. Create a new scanner instead",
         uoe.getMessage());
 
     AutoCloseables.close(scanner, dataset, factory);
@@ -276,7 +276,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
     scanner.close();
-    assertThrows(NativeInstanceReleasedException.class, scanner::scanBatchesUnordered);
+    assertThrows(NativeInstanceReleasedException.class, scanner::scanBatches);
 
     AutoCloseables.close(factory);
   }
@@ -290,7 +290,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeDataset dataset = factory.finish();
     ScanOptions options = new ScanOptions(100);
     NativeScanner scanner = dataset.newScan(options);
-    ArrowReader reader = scanner.scanBatchesUnordered();
+    ArrowReader reader = scanner.scanBatches();
     scanner.close();
     assertThrows(NativeInstanceReleasedException.class, reader::loadNextBatch);
 

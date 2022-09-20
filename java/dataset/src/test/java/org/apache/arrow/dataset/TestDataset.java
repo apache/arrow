@@ -73,7 +73,7 @@ public abstract class TestDataset {
   }
 
   protected List<ArrowRecordBatch> collectTaskData(Scanner scan) {
-    try (ArrowReader reader = scan.scanBatchesUnordered()) {
+    try (ArrowReader reader = scan.scanBatches()) {
       List<ArrowRecordBatch> batches = new ArrayList<>();
       while (reader.loadNextBatch()) {
         VectorSchemaRoot root = reader.getVectorSchemaRoot();

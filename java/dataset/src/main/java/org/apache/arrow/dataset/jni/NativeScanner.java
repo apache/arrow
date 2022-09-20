@@ -68,7 +68,7 @@ public class NativeScanner implements Scanner {
   }
 
   @Override
-  public ArrowReader scanBatchesUnordered() {
+  public ArrowReader scanBatches() {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }

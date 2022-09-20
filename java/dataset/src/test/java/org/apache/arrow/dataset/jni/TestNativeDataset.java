@@ -28,6 +28,6 @@ public abstract class TestNativeDataset extends TestDataset {
   protected void assertScanBatchesProduced(DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
-    Assert.assertNotNull(scanner.scanBatchesUnordered());
+    Assert.assertNotNull(scanner.scanBatches());
   }
 }

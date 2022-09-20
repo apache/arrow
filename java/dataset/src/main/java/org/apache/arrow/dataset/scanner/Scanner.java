@@ -30,14 +30,14 @@ public interface Scanner extends AutoCloseable {
    *
    * @return a {@link ArrowReader}.
    */
-  ArrowReader scanBatchesUnordered();
+  ArrowReader scanBatches();
 
   /**
    * Perform the scan operation.
    *
    * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is allowed
    *     to execute the tasks concurrently to gain better performance.
-   * @deprecated use {@link #scanBatchesUnordered()} instead.
+   * @deprecated use {@link #scanBatches()} instead.
    */
   @Deprecated
   Iterable<? extends ScanTask> scan();
