@@ -73,7 +73,6 @@ namespace gcs = google::cloud::storage;
 
 using ::testing::Eq;
 using ::testing::HasSubstr;
-using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 using ::testing::Pair;
@@ -171,7 +170,7 @@ class GcsIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
-    ASSERT_THAT(Testbench()->error(), IsEmpty());
+    ASSERT_TRUE(Testbench()->error().empty());
     ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.
@@ -767,7 +766,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundTrue) {
   selector.allow_not_found = true;
   selector.recursive = true;
   ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
-  EXPECT_THAT(results, IsEmpty());
+  EXPECT_EQ(results.size(), 0);
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundFalse) {
