@@ -25,7 +25,6 @@ packages=()
 case "${target}" in
   cpp|c_glib|ruby)
     packages+=(${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp)
-    packages+=(${MINGW_PACKAGE_PREFIX}-bison)
     packages+=(${MINGW_PACKAGE_PREFIX}-boost)
     packages+=(${MINGW_PACKAGE_PREFIX}-brotli)
     packages+=(${MINGW_PACKAGE_PREFIX}-bzip2)
@@ -36,7 +35,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
     packages+=(${MINGW_PACKAGE_PREFIX}-double-conversion)
     packages+=(${MINGW_PACKAGE_PREFIX}-flatbuffers)
-    packages+=(${MINGW_PACKAGE_PREFIX}-flex)
     packages+=(${MINGW_PACKAGE_PREFIX}-gflags)
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
@@ -59,6 +57,8 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-uriparser)
     packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
     packages+=(${MINGW_PACKAGE_PREFIX}-zstd)
+    packages+=(bison)
+    packages+=(flex)
   ;;
 esac
 
