@@ -785,7 +785,7 @@ current run ends. This allows relatively efficient random access from a logical
 index using binary search. The length of an individual run can be determined by
 subtracting two adjacent values.
 
-A run has to have a length of at least 1. This means the values in the
+A run must have have a length of at least 1. This means the values in the
 run ends array all positive and in strictly ascending order. A run end cannot be
 null.
 
