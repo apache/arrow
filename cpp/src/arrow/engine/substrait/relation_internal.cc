@@ -222,7 +222,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         // Validate the URI before processing
         if (!item_uri.is_file_scheme()) {
           return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
-                                        uri.ToString(),
+                                        item_uri.ToString(),
                                         ") with non-filesystem scheme (file:///)");
         }
 
