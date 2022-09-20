@@ -678,12 +678,15 @@ Status jemalloc_peak_reset() {
   return Status::NotImplemented("jemalloc support is not built");
 }
 
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
-                            const char* opts) {
+Status jemalloc_stats_print(const char* opts) {
   return Status::NotImplemented("jemalloc support is not built");
 }
 
-Result<std::string> jemalloc_stats_print(const char* opts) {
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
   return Status::NotImplemented("jemalloc support is not built");
 }
 

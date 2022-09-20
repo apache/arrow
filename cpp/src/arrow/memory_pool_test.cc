@@ -243,32 +243,28 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_NEAR(thread_peak_read, 1280, 100);
 
   // Print statistics to stderr
-  ASSERT_OK(jemalloc_stats_print(nullptr, nullptr, "J"));
+  ASSERT_OK(jemalloc_stats_print("J"));
 
   // Read statistics into std::string
-  ASSERT_OK_AND_ASSIGN(std::string stats, jemalloc_stats_print("Jax"));
+  ASSERT_OK_AND_ASSIGN(std::string stats, jemalloc_stats_string("Jax"));
 
   // Read statistics into std::string with a lambda
   std::string stats2;
-  auto write_cb = [](void* opaque, const char* str) {
-    reinterpret_cast<std::string*>(opaque)->append(str);
-  };
-  ASSERT_OK(jemalloc_stats_print(write_cb, &stats2, "Jax"));
+  auto write_cb = [&stats2](const char* str) { stats2.append(str); };
+  ASSERT_OK(jemalloc_stats_print(write_cb, "Jax"));
 
   ASSERT_EQ(stats.rfind("{\"jemalloc\":{\"version\"", 0), 0);
   ASSERT_EQ(stats2.rfind("{\"jemalloc\":{\"version\"", 0), 0);
   ASSERT_EQ(stats.substr(0, 100), stats2.substr(0, 100));
 #else
   std::string stats;
-  auto write_cb = [](void* opaque, const char* str) {
-    reinterpret_cast<std::string*>(opaque)->append(str);
-  };
+  auto write_cb = [&stats](const char* str) { stats.append(str); };
   ASSERT_RAISES(NotImplemented, jemalloc_get_stat("thread.peak.read"));
   ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocated"));
   ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocated"));
   ASSERT_RAISES(NotImplemented, jemalloc_get_stat("stats.allocatedp"));
   ASSERT_RAISES(NotImplemented, jemalloc_peak_reset());
-  ASSERT_RAISES(NotImplemented, jemalloc_stats_print(write_cb, &stats, "Jax"));
+  ASSERT_RAISES(NotImplemented, jemalloc_stats_print(write_cb, "Jax"));
   ASSERT_RAISES(NotImplemented, jemalloc_stats_print("ax"));
 #endif
 }

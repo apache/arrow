@@ -186,18 +186,25 @@ Status jemalloc_peak_reset() {
              : Status::OK();
 }
 
-Result<std::string> jemalloc_stats_print(const char* opts) {
+Result<std::string> jemalloc_stats_string(const char* opts) {
   std::string stats;
-  auto write_cb = [](void* opaque, const char* str) {
-    reinterpret_cast<std::string*>(opaque)->append(str);
-  };
-  malloc_stats_print(write_cb, &stats, opts);
+  auto write_cb = [&stats](const char* str) { stats.append(str); };
+  ARROW_UNUSED(jemalloc_stats_print(write_cb, opts));
   return stats;
 }
 
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
-                            const char* opts) {
-  malloc_stats_print(write_cb, cbopaque, opts);
+Status jemalloc_stats_print(const char* opts) {
+  malloc_stats_print(nullptr, nullptr, opts);
+  return Status::OK();
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  auto cb_wrapper = [](void* opaque, const char* str) {
+    (*static_cast<std::function<void(const char*)>*>(opaque))(str);
+  };
+  if (write_cb) {
+    malloc_stats_print(cb_wrapper, &write_cb, opts);
+  }
   return Status::OK();
 }
 #endif

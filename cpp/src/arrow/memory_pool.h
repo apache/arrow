@@ -193,14 +193,20 @@ Status jemalloc_peak_reset();
 /// See malloc_stats_print documentation in jemalloc project documentation for
 /// available opt flags.
 ARROW_EXPORT
-Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+Status jemalloc_stats_print(const char* opts = "");
+
+/// \brief Print summary statistics in human-readable form using a callback
+/// See malloc_stats_print documentation in jemalloc project documentation for
+/// available opt flags.
+ARROW_EXPORT
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb,
                             const char* opts = "");
 
 /// \brief Get summary statistics in human-readable form.
 /// See malloc_stats_print documentation in jemalloc project documentation for
 /// available opt flags.
 ARROW_EXPORT
-Result<std::string> jemalloc_stats_print(const char* opts = "");
+Result<std::string> jemalloc_stats_string(const char* opts = "");
 
 /// \brief Return a process-wide memory pool based on mimalloc.
 ///
