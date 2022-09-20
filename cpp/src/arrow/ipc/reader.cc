@@ -422,7 +422,9 @@ class ArrayLoader {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("run-length encoded array in ipc");
+    out_->buffers.resize(1);
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    return LoadChildren(type.fields());
   }
 
   Status Visit(const ExtensionType& type) { return LoadType(*type.storage_type()); }

@@ -384,8 +384,17 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::Union:
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
+    case flatbuf::Type::RunLengthEncoded:
+      if (children.size() != 2) {
+        return Status::Invalid("RunLengthEncoded must have exactly 2 child fields");
+      }
+      if (children[0]->type()->id() != Type::INT32) {
+        return Status::Invalid("RLE run_ends field must be int32 type");
+      }
+      *out = std::make_shared<RunLengthEncodedType>(children[1]->type());
+      return Status::OK();
     default:
-      return Status::Invalid("Unrecognized type:" +
+      return Status::Invalid("Unrecognized type: " +
                              std::to_string(static_cast<int>(type)));
   }
 }
@@ -690,7 +699,10 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const RunLengthEncodedType& type) {
-    return Status::NotImplemented("run-length encoded type in ipc");
+    fb_type_ = flatbuf::Type::RunLengthEncoded;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateRunLengthEncoded(fbb_).Union();
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
