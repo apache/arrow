@@ -20,7 +20,6 @@
 #include <limits>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
