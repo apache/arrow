@@ -233,8 +233,7 @@ template <typename CastFunctor, typename SrcT>
 void AddTypeToTypeCast(CastFunction* func) {
   ScalarKernel kernel;
   kernel.exec = CastFunctor::Exec;
-  kernel.signature =
-      KernelSignature::Make({InputType(SrcT::type_id)}, kOutputTargetType);
+  kernel.signature = KernelSignature::Make({InputType(SrcT::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }
