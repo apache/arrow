@@ -211,9 +211,8 @@ llvm::Value* LLVMGenerator::GetOffsetsReference(llvm::Value* arg_addrs, int idx,
 }
 
 /// Get reference to local bitmap array at specified index in the args list.
-llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps,
-                                                    llvm::Type* type, int idx) {
-  llvm::Value* load = LoadVectorAtIndex(arg_bitmaps, type, idx, "");
+llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx) {
+  llvm::Value* load = LoadVectorAtIndex(arg_bitmaps, types()->i64_type(), idx, "");
   return ir_builder()->CreateIntToPtr(load, types()->i64_ptr_type(),
                                       std::to_string(idx) + "_lbmap");
 }
@@ -1375,8 +1374,7 @@ llvm::Value* LLVMGenerator::Visitor::GetLocalBitMapReference(int idx) {
   llvm::BasicBlock* saved_block = builder->GetInsertBlock();
   builder->SetInsertPoint(entry_block_);
 
-  llvm::Value* slot_ref = generator_->GetLocalBitMapReference(
-      arg_local_bitmaps_, generator_->types()->i64_type(), idx);
+  llvm::Value* slot_ref = generator_->GetLocalBitMapReference(arg_local_bitmaps_, idx);
 
   // Revert to the saved block.
   builder->SetInsertPoint(saved_block);

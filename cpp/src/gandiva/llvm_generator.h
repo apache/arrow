@@ -204,8 +204,7 @@ class GANDIVA_EXPORT LLVMGenerator {
                           SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
-  llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, llvm::Type* type,
-                                       int idx);
+  llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx);
 
   /// Generate code to get the bit value at 'position' in the bitmap.
   llvm::Value* GetPackedBitValue(llvm::Value* bitmap, llvm::Value* position);
