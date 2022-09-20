@@ -475,6 +475,7 @@ class Release:
     def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the default branch since the root of the
         # maintenance branch (the previous major release)
+        print(self.base_branch)
         commit_range = f"{self.previous.tag}..{self.base_branch}"
 
         # keeping the original order of the commits helps to minimize the merge
