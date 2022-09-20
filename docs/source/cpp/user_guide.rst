@@ -15,13 +15,29 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-C++ Implementation
-==================
+.. default-domain:: cpp
+.. highlight:: cpp
+
+User Guide
+==========
 
 .. toctree::
-   :maxdepth: 2
 
-   getting_started
-   user_guide
-   Examples <examples/index>
-   api
+   overview
+   memory
+   arrays
+   datatypes
+   tables
+   compute
+   streaming_execution
+   io
+   ipc
+   orc
+   parquet
+   csv
+   json
+   dataset
+   flight
+   gdb
+   threading
+   env_vars
