@@ -526,8 +526,12 @@ class RecordBatchSerializer {
     return VisitType(*array.indices());
   }
 
-  Status Visit(const RunLengthEncodedArray& type) {
-    return Status::NotImplemented("run-length encoded array in ipc");
+  Status Visit(const RunLengthEncodedArray& array) {
+    --max_recursion_depth_;
+    RETURN_NOT_OK(VisitArray(*array.run_ends_array()));
+    RETURN_NOT_OK(VisitArray(*array.values_array()));
+    ++max_recursion_depth_;
+    return Status::OK();
   }
 
   Status Visit(const ExtensionArray& array) { return VisitType(*array.storage()); }
