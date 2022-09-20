@@ -277,9 +277,11 @@ class RecordReader {
   virtual ~RecordReader() = default;
 
   /// \brief Attempt to read indicated number of records from column chunk
+  /// Note that for repeated fields, a record may have more than one value
+  /// and all of them are read.
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
-  
+
   /// \brief Attempt to skip indicated number of records from column chunk
   /// \return number of records skipped
   virtual int64_t SkipRecords(int64_t num_records) = 0;
@@ -369,19 +371,20 @@ class RecordReader {
   // Each element corresponds to one element in 'values_' and specifies if it
   // is null or not null.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-  
+
   // Buffers for repetition and definition levels. These buffers may have
   // more levels than is actually read. This is because we read levels ahead to
   // figure our record boundaries for repeated fields. 'levels_written_' shows
   // the total number of levels that is in the buffer. 'levels_position_' points
-  // to the next level that should be read. ReadRecords and SkipRecords both
-  // advance 'levels_written_' and 'levels_position_'.
+  // to the next level that should be consumed. ReadRecords and SkipRecords both
+  // advance 'levels_written_' and 'levels_position_'. SkipRecords then will
+  // remove the skipped levels by shifting the levels to the left.
   // For flat required fields, 'def_levels_' and 'rep_levels_' are not
   // populated. For non-repeated fields 'rep_levels_' is not populated.
   // 'def_levels_' and 'rep_levels_' must be of the same size if present.
   std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
   std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
-  
+
   /// \brief Number of definition / repetition levels that have been written
   /// internally in the reader. This may be larger than values_written() because
   // for repeated fields, we need to look at the levels in advance to figure out
