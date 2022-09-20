@@ -20,6 +20,7 @@
 #include <limits>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
@@ -140,6 +141,47 @@ void AddListCast(CastFunction* func) {
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 
+struct CastFixedList {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+    const auto& in_type = checked_cast<const FixedSizeListType&>(*batch[0].type());
+    const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
+    auto in_size = in_type.list_size();
+    auto out_size = out_type.list_size();
+
+    if (in_size != out_size) {
+      return Status::TypeError("Size of FixedSizeList is not the same.",
+                               " input list: ", in_type.ToString(),
+                               " output list: ", out_type.ToString());
+    }
+
+    const ArraySpan& in_array = batch[0].array;
+
+    ArrayData* out_array = out->array_data().get();
+
+    out_array->buffers[0] = in_array.GetBuffer(0);
+
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+
+    auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                          Cast(values, child_type, options, ctx->exec_context()));
+
+    DCHECK(cast_values.is_array());
+    out_array->child_data.push_back(cast_values.array());
+    return Status::OK();
+  }
+};
+
+void AddFSLToFSLCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastFixedList::Exec;
+  kernel.signature =
+      KernelSignature::Make({InputType(FixedSizeListType::type_id)}, kOutputTargetType);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
+}
+
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
@@ -226,6 +268,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_fsl =
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
+  AddFSLToFSLCast(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
