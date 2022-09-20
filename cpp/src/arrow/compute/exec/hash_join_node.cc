@@ -1021,7 +1021,7 @@ class HashJoinNode : public ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
+    inputs_[0]->StopProducing(this);
   }
 
   void StopProducing() override {

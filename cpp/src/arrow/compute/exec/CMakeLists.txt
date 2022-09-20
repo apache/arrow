@@ -17,6 +17,7 @@
 
 arrow_install_all_headers("arrow/compute/exec")
 
+add_arrow_compute_test(accumulation_queue PREFIX "arrow-compute" SOURCES accumulation_queue_test.cc)
 add_arrow_compute_test(expression_test
                        PREFIX
                        "arrow-compute"

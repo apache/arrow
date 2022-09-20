@@ -16,6 +16,7 @@
 // under the License.
 
 #include <functional>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -394,6 +395,7 @@ class ScanNode : public cp::ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
+    std::cout << "Would stop producing early because requested by upstream" << std::endl;
     StopProducing();
   }
 

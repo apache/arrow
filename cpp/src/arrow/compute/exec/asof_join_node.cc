@@ -1116,7 +1116,9 @@ class AsofJoinNode : public ExecNode {
   void ResumeProducing(ExecNode* output, int32_t counter) override {}
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
+    for (auto input : inputs_) {
+      input->StopProducing(this);
+    }
   }
   void StopProducing() override {
     process_.Clear();

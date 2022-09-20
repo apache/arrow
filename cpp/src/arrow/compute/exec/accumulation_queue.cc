@@ -17,7 +17,13 @@
 
 #include "arrow/compute/exec/accumulation_queue.h"
 
+#include "arrow/util/future.h"
+#include "arrow/util/logging.h"
+
 #include <iterator>
+#include <mutex>
+#include <optional>
+#include <queue>
 
 namespace arrow {
 namespace util {
@@ -54,5 +60,86 @@ void AccumulationQueue::Clear() {
 }
 
 ExecBatch& AccumulationQueue::operator[](size_t i) { return batches_[i]; }
+
+struct ExecBatchCmp {
+  bool operator()(const ExecBatch& left, const ExecBatch& right) {
+    return left.index > right.index;
+  }
+};
+
+class OrderedAccumulationQueueImpl : public OrderedAccumulationQueue {
+ public:
+  OrderedAccumulationQueueImpl(TaskFactoryCallback create_task, ScheduleCallback schedule)
+      : create_task_(std::move(create_task)), schedule_(std::move(schedule)) {}
+
+  ~OrderedAccumulationQueueImpl() override = default;
+
+  Status InsertBatch(ExecBatch batch) override {
+    DCHECK_GE(batch.index, 0);
+    std::unique_lock<std::mutex> lk(mutex_);
+    if (!processing_ && batch.index == next_index_) {
+      std::vector<ExecBatch> next_batch = PopUnlocked(std::move(batch));
+      processing_ = true;
+      lk.unlock();
+      return Deliver(std::move(next_batch));
+    }
+    batches_.push(std::move(batch));
+    return Status::OK();
+  }
+
+  Status CheckDrained() const override {
+    if (!batches_.empty()) {
+      return Status::UnknownError(
+          "Ordered accumulation queue has data remaining after finish");
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::vector<ExecBatch> PopUnlocked(std::optional<ExecBatch> batch) {
+    std::vector<ExecBatch> popped;
+    if (batch.has_value()) {
+      popped.push_back(std::move(*batch));
+      next_index_++;
+    }
+    while (!batches_.empty() && batches_.top().index == next_index_) {
+      popped.push_back(std::move(batches_.top()));
+      batches_.pop();
+      next_index_++;
+    }
+    return popped;
+  }
+
+  Status Deliver(std::vector<ExecBatch> batches) {
+    ARROW_ASSIGN_OR_RAISE(Task task, create_task_(std::move(batches)));
+    Task wrapped_task = [this, task = std::move(task)] {
+      ARROW_RETURN_NOT_OK(task());
+      std::unique_lock<std::mutex> lk(mutex_);
+      if (!batches_.empty() && batches_.top().index == next_index_) {
+        std::vector<ExecBatch> next_batches = PopUnlocked(std::nullopt);
+        lk.unlock();
+        ARROW_RETURN_NOT_OK(Deliver(std::move(next_batches)));
+      } else {
+        processing_ = false;
+      }
+      return Status::OK();
+    };
+    return schedule_(std::move(wrapped_task));
+  }
+
+  TaskFactoryCallback create_task_;
+  ScheduleCallback schedule_;
+  std::priority_queue<ExecBatch, std::vector<ExecBatch>, ExecBatchCmp> batches_;
+  int next_index_ = 0;
+  bool processing_ = false;
+  std::mutex mutex_;
+};
+
+std::unique_ptr<OrderedAccumulationQueue> OrderedAccumulationQueue::Make(
+    TaskFactoryCallback create_task, ScheduleCallback schedule) {
+  return std::make_unique<OrderedAccumulationQueueImpl>(std::move(create_task),
+                                                        std::move(schedule));
+}
+
 }  // namespace util
 }  // namespace arrow

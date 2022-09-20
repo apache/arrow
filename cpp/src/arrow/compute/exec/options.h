@@ -118,6 +118,13 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
   std::vector<std::string> names;
 };
 
+class ARROW_EXPORT FetchNodeOptions : public ExecNodeOptions {
+ public:
+  explicit FetchNodeOptions(int limit) : limit(limit) {}
+
+  int limit;
+};
+
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
 ///
 /// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is

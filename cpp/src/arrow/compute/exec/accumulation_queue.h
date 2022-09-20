@@ -53,5 +53,20 @@ class AccumulationQueue {
   std::vector<ExecBatch> batches_;
 };
 
+class OrderedAccumulationQueue {
+ public:
+  using Task = std::function<Status()>;
+  using TaskFactoryCallback = std::function<Result<Task>(std::vector<ExecBatch>)>;
+  using ScheduleCallback = std::function<Status(Task)>;
+
+  virtual ~OrderedAccumulationQueue() = default;
+
+  virtual Status InsertBatch(ExecBatch batch) = 0;
+  virtual Status CheckDrained() const = 0;
+
+  static std::unique_ptr<OrderedAccumulationQueue> Make(TaskFactoryCallback create_task,
+                                                        ScheduleCallback schedule);
+};
+
 }  // namespace util
 }  // namespace arrow

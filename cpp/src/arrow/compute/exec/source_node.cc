@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <mutex>
 #include <optional>
 
@@ -211,6 +212,7 @@ struct SourceNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
+    std::cout << "Stopping source since downstream no longer needs data" << std::endl;
     StopProducing();
   }
 

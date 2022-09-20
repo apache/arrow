@@ -519,7 +519,7 @@ void MapNode::ResumeProducing(ExecNode* output, int32_t counter) {
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);
-  StopProducing();
+  inputs_[0]->StopProducing(this);
 }
 
 void MapNode::StopProducing() {
@@ -708,6 +708,7 @@ Result<std::vector<ExecBatch>> DeclarationToExecBatches(Declaration declaration,
 namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFetchNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
 void RegisterUnionNode(ExecFactoryRegistry*);
@@ -723,6 +724,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
    public:
     DefaultRegistry() {
       internal::RegisterSourceNode(this);
+      internal::RegisterFetchNode(this);
       internal::RegisterFilterNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);

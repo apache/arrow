@@ -1427,6 +1427,34 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
   }
 }
 
+TEST(ExecPlanExecution, FetchNode) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", boolean())});
+  auto random_data =
+      MakeRandomBatches(test_schema,
+                        /*num_batches=*/5, /*batch_size=*/10, /*ordered=*/true);
+
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<ExecBatch> filtered_batches,
+      DeclarationToExecBatches(Declaration::Sequence(
+          {{"source",
+            SourceNodeOptions{random_data.schema, random_data.gen(/*parallel=*/true,
+                                                                  /*slow=*/true)}},
+           {"fetch", FetchNodeOptions(15)}})));
+
+  ASSERT_EQ(2, filtered_batches.size());
+
+  int total_rows =
+      static_cast<int>(filtered_batches[0].length + filtered_batches[1].length);
+  ASSERT_EQ(15, total_rows);
+
+  for (const auto& batch : filtered_batches) {
+    Int32Scalar tag = batch.values[2].scalar_as<Int32Scalar>();
+    ASSERT_TRUE(tag.value == 0 || tag.value == 1);
+  }
+}
+
 TEST(ExecPlan, RecordBatchReaderSourceSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
@@ -1509,10 +1537,8 @@ TEST(BatchOrder, FilterNode) {
            {"filter", FilterNodeOptions(greater(field_ref("a"), literal(0)))}})));
 
   std::unordered_set<int32_t> filtered_batch_indices;
-  int32_t num_rows = 0;
   for (const auto& batch : filtered_batches) {
     filtered_batch_indices.insert(batch.index);
-    num_rows += batch.length;
     if (batch.index == 2) {
       // Sanity check that the filter is actually applied
       ASSERT_EQ(0, batch.length);
