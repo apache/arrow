@@ -167,7 +167,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(options_));
-    AssertScanTaskEquals(expected, batch_gen);
+    AssertScanTaskEquals(expected, batch_gen, ensure_drained);
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -185,6 +185,22 @@ class DatasetFixtureMixin : public ::testing::Test {
       AssertFragmentEquals(expected, fragment.get(), false);
       return Status::OK();
     }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  void AssertDatasetAsyncFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
+                                        bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(auto gen, dataset->GetFragmentsAsync(predicate))
+
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(
+        std::move(gen), [this, expected](const std::shared_ptr<Fragment>& f) {
+          AssertFragmentEquals(expected, f.get(), false /*ensure_drained*/);
+          return Status::OK();
+        }));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
