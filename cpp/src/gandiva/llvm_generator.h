@@ -154,7 +154,8 @@ class GANDIVA_EXPORT LLVMGenerator {
                           DataTypePtr arrow_return_type);
 
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
-    llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
+    llvm::Value* GetBufferReference(int idx, llvm::Type* type, BufferType buffer_type,
+                                    FieldPtr field);
 
     // Get the slice offset of the validity/value/offsets buffer
     llvm::Value* GetSliceOffset(int idx);
@@ -183,20 +184,24 @@ class GANDIVA_EXPORT LLVMGenerator {
   Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
-  llvm::Value* LoadVectorAtIndex(llvm::Value* arg_addrs, int idx,
+  llvm::Value* LoadVectorAtIndex(llvm::Value* arg_addrs, llvm::Type* type, int idx,
                                  const std::string& name);
 
   /// Generate code to load the vector at specified index and cast it as bitmap.
-  llvm::Value* GetValidityReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+  llvm::Value* GetValidityReference(llvm::Value* arg_addrs, llvm::Type* type, int idx,
+                                    FieldPtr field);
 
   /// Generate code to load the vector at specified index and cast it as data array.
-  llvm::Value* GetDataReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+  llvm::Value* GetDataReference(llvm::Value* arg_addrs, llvm::Type* type, int idx,
+                                FieldPtr field);
 
   /// Generate code to load the vector at specified index and cast it as offsets array.
-  llvm::Value* GetOffsetsReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+  llvm::Value* GetOffsetsReference(llvm::Value* arg_addrs, llvm::Type* type, int idx,
+                                   FieldPtr field);
 
   /// Generate code to load the vector at specified index and cast it as buffer pointer.
-  llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+  llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, llvm::Type* type,
+                                         int idx, FieldPtr field);
 
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr, int num_buffers, FieldDescriptorPtr output,
@@ -204,7 +209,8 @@ class GANDIVA_EXPORT LLVMGenerator {
                           SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
-  llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx);
+  llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, llvm::Type* type,
+                                       int idx);
 
   /// Generate code to get the bit value at 'position' in the bitmap.
   llvm::Value* GetPackedBitValue(llvm::Value* bitmap, llvm::Value* position);
