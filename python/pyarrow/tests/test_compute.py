@@ -1731,20 +1731,35 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
-def test_fsl_to_fsl_cast():
-    for value_type in (pa.bool_(), pa.float32(), pa.int64()):
-        # Valid case
-        # Different field name and different type.
-        cast_type = pa.list_(pa.field("element", value_type), 2)
-        fsl = pa.FixedSizeListArray.from_arrays(
-            pa.array([1, 2, 3, 4, 5, 6]), 2)
-        assert cast_type == fsl.cast(cast_type).type
+@pytest.mark.parametrize('value_type', numerical_arrow_types)
+def test_fsl_to_fsl_cast(value_type):
+    # Different field name and different type.
+    cast_type = pa.list_(pa.field("element", value_type), 2)
 
-        # Different sized FSL
-        cast_type = pa.list_(pa.field("element", value_type), 3)
-        err_msg = 'Size of FixedSizeList is not the same.'
-        with pytest.raises(pa.lib.ArrowTypeError, match=err_msg):
-            fsl.cast(cast_type)
+    dtype = pa.int32()
+    type = pa.list_(pa.field("values", dtype), 2)
+
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([1, 2, 3, 4, 5, 6], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Different field name and different type (with null values).
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([1, None, None, 4, 5, 6], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Null FSL type.
+    dtype = pa.null()
+    type = pa.list_(pa.field("values", dtype), 2)
+    fsl = pa.FixedSizeListArray.from_arrays(
+        pa.array([None, None, None, None, None, None], type=dtype), type=type)
+    assert cast_type == fsl.cast(cast_type).type
+
+    # Different sized FSL
+    cast_type = pa.list_(pa.field("element", value_type), 3)
+    err_msg = 'Size of FixedSizeList is not the same.'
+    with pytest.raises(pa.lib.ArrowTypeError, match=err_msg):
+        fsl.cast(cast_type)
 
 
 def test_strptime():
