@@ -24,6 +24,7 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
@@ -307,22 +308,15 @@ struct SchemaSourceNode : public SourceNode {
     auto io_executor = plan->exec_context()->executor();
     auto it = it_maker();
 
-    RETURN_NOT_OK(ValidateSchemaSourceNodeInput(io_executor, schema, This::kKindName));
-    ARROW_ASSIGN_OR_RAISE(auto generator, This::MakeGenerator(it, io_executor, schema));
-    return plan->EmplaceNode<This>(plan, schema, generator);
-  }
-
-  static arrow::Status ValidateSchemaSourceNodeInput(
-      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema,
-      const char* kKindName) {
     if (schema == NULLPTR) {
-      return Status::Invalid(kKindName, " requires schema which is not null");
+      return Status::Invalid(This::kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName, " requires IO-executor which is not null");
+      io_executor = io::internal::GetIOThreadPool();
     }
 
-    return Status::OK();
+    ARROW_ASSIGN_OR_RAISE(auto generator, This::MakeGenerator(it, io_executor, schema));
+    return plan->EmplaceNode<This>(plan, schema, generator);
   }
 };
 
@@ -434,9 +428,9 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
-  DCHECK_OK(registry->AddFactory("record_source", RecordBatchSourceNode::Make));
-  DCHECK_OK(registry->AddFactory("exec_source", ExecBatchSourceNode::Make));
-  DCHECK_OK(registry->AddFactory("array_source", ArrayVectorSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("record_batch_source", RecordBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("exec_batch_source", ExecBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("array_vector_source", ArrayVectorSourceNode::Make));
 }
 
 }  // namespace internal
