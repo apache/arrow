@@ -67,17 +67,9 @@ struct CastList {
   static constexpr bool is_upcast = sizeof(src_offset_type) < sizeof(dest_offset_type);
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const CastOptions& options = CastState::Get(ctx);
-
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
-
-    const ArraySpan& in_array = batch[0].array;
+  static Status HandleOffsets(KernelContext* ctx, const ArraySpan& in_array,
+                              ArrayData* out_array, std::shared_ptr<ArrayData>* values) {
     auto offsets = in_array.GetValues<src_offset_type>(1);
-
-    ArrayData* out_array = out->array_data().get();
-    out_array->buffers[0] = in_array.GetBuffer(0);
-    out_array->buffers[1] = in_array.GetBuffer(1);
 
     // Shift bitmap in case the source offset is non-zero
     if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
@@ -100,8 +92,6 @@ struct CastList {
       }
     }
 
-    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-
     if (in_array.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
           out_array->buffers[1],
@@ -112,10 +102,28 @@ struct CastList {
         shifted_offsets[i] = static_cast<dest_offset_type>(offsets[i] - offsets[0]);
       }
 
-      values = values->Slice(offsets[0], offsets[in_array.length]);
+      *values = (*values)->Slice(offsets[0], offsets[in_array.length]);
     } else {
       RETURN_NOT_OK((CastListOffsets<SrcType, DestType>(ctx, in_array, out_array)));
     }
+
+    return Status::OK();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    ArrayData* out_array = out->array_data().get();
+    out_array->buffers[0] = in_array.GetBuffer(0);
+    out_array->buffers[1] = in_array.GetBuffer(1);
+
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+
+    RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
 
     // Handle values
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
@@ -234,6 +242,73 @@ void AddTypeToTypeCast(CastFunction* func) {
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }
 
+template <typename DestType>
+struct CastMap {
+  using CastListImpl = CastList<MapType, DestType>;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    std::shared_ptr<DataType> entry_type =
+        checked_cast<const DestType&>(*out->type()).value_type();
+    // Assert is struct with two fields
+    if (!(entry_type->id() == Type::STRUCT && entry_type->num_fields() == 2)) {
+      return Status::Invalid(
+          "Map type must be cast to a list<struct> with exactly two fields.");
+    }
+    std::shared_ptr<DataType> key_type = entry_type->field(0)->type();
+    std::shared_ptr<DataType> value_type = entry_type->field(1)->type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    ArrayData* out_array = out->array_data().get();
+    out_array->buffers[0] = in_array.GetBuffer(0);
+    out_array->buffers[1] = in_array.GetBuffer(1);
+
+    std::shared_ptr<ArrayData> entries = in_array.child_data[0].ToArrayData();
+
+    RETURN_NOT_OK(CastListImpl::HandleOffsets(ctx, in_array, out_array, &entries));
+
+    // Handle keys
+    const std::shared_ptr<ArrayData>& keys = entries->child_data[0];
+    ARROW_ASSIGN_OR_RAISE(Datum cast_keys,
+                          Cast(keys, key_type, options, ctx->exec_context()));
+    DCHECK(cast_keys.is_array());
+
+    // Handle values
+    const std::shared_ptr<ArrayData>& values = entries->child_data[1];
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                          Cast(values, value_type, options, ctx->exec_context()));
+    DCHECK(cast_values.is_array());
+
+    // Copy null bitmap
+    std::shared_ptr<Buffer> null_bitmap;
+    if (in_array.buffers[0].data != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(null_bitmap,
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
+                                       in_array.offset, in_array.length));
+    }
+
+    // Create struct array
+    std::shared_ptr<ArrayData> struct_array =
+        ArrayData::Make(entry_type, /*length=*/entries->length, {null_bitmap},
+                        {keys, values}, /*null_count=*/entries->null_count);
+    out_array->child_data.push_back(struct_array);
+
+    return Status::OK();
+  }
+};
+
+template <typename DestType>
+void AddMapCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastMap<DestType>::Exec;
+  kernel.signature =
+      KernelSignature::Make({InputType(MapType::type_id)}, kOutputTargetType);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(MapType::type_id, std::move(kernel)));
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
@@ -252,9 +327,9 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
 
   auto cast_map = std::make_shared<CastFunction>("cast_map", Type::MAP);
   AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
-  AddListCast<MapType, MapType>(cast_map.get());
-  AddListCast<MapType, ListType>(cast_map.get());
-  AddListCast<MapType, LargeListType>(cast_map.get());
+  AddMapCast<MapType>(cast_map.get());
+  AddMapCast<ListType>(cast_map.get());
+  AddMapCast<LargeListType>(cast_map.get());
 
   // FSL is a bit incomplete at the moment
   auto cast_fsl =
