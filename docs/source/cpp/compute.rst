@@ -1291,8 +1291,6 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
-| extension       | Unary      | Many               | Extension        | :struct:`CastOptions`          | \(2)  |
-+-----------------+------------+--------------------+------------------+--------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
@@ -1304,10 +1302,6 @@ null input value is converted into a null output value.
   seconds, cast to timestamp with second resolution.
   The character for the decimal point is localized according to the locale.
   See `detailed formatting documentation`_ for descriptions of other flags.
-
-* \(2) Input types can be anything whose type can be cast to the
-  resulting Extension's storage_type. Casting between extensions, even with
-  compatible storage types is not supported.
 
 .. _detailed formatting documentation: https://howardhinnant.github.io/date/date.html#to_stream_formatting
 
@@ -1383,6 +1377,8 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
+| Any*                        | Extension                          | \(3)    |
++-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
   cast from the input value type to the output value type (if a conversion
@@ -1391,6 +1387,9 @@ null input value is converted into a null output value.
 * \(2) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
   available).
+
+* \(3) Any input type except Extension types. Can cast any input type
+  which can be cast to the resulting extension's storage type.
 
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
