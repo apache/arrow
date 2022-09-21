@@ -633,6 +633,10 @@ struct BasicTest {
 
 using AsofJoinBasicParams = std::tuple<std::function<void(BasicTest&)>, std::string>;
 
+void PrintTo(const AsofJoinBasicParams& x, ::std::ostream* os) {
+  *os << "AsofJoinBasicParams: " << std::get<1>(x);
+}
+
 struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {};
 
 class AsofJoinTest : public testing::Test {};
