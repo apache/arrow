@@ -47,6 +47,10 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
+#include "arrow/dataset/file_ipc.h"
+#include "arrow/ipc/writer.h"
+
+
 using testing::ElementsAre;
 using testing::UnorderedElementsAreArray;
 
@@ -2756,6 +2760,105 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
                                                {"sum(a * 2)": 40, "b": false}
                                           ])JSON"});
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
+}
+
+void WriteIpcData(const std::string& path,
+                  const std::shared_ptr<fs::FileSystem> file_system,
+                  const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  ASSERT_OK_AND_ASSIGN(
+      auto file_writer,
+      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  TableBatchReader reader(input);
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ASSERT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(file_writer->Close());
+}
+
+TEST(ScanNode, DiskScanIssue) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "plan_scan_disk_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("plan-test-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  WriteIpcData(file_path_str, filesystem, table);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  // compute::Expression field_expr = compute::project({compute::field_ref("key")},
+  //  {"key_only"});
+  compute::Expression a_times_2 = call("multiply", {compute::field_ref("key"), compute::literal(2)});
+  scan_options->projection = call("make_struct", {a_times_2}, compute::MakeStructOptions{{"key * 2"}});
+
+  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
+
+  auto declarations = compute::Declaration::Sequence(
+      {compute::Declaration(
+           {"scan", dataset::ScanNodeOptions{dataset, scan_options}}),
+       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}})});
+  
+  ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
+
+  ASSERT_OK(decl->Validate());
+
+  auto output_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      output_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK_AND_ASSIGN(auto output_table, arrow::Table::FromRecordBatchReader(sink_reader.get()));
+  std::cout << "Output Table " << std::endl;
+
+  std::cout << output_table->ToString() << std::endl;
 }
 
 }  // namespace dataset
