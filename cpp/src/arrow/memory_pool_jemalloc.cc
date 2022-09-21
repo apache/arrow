@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/memory_pool_internal.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 
 // We can't put the jemalloc memory pool implementation into
@@ -152,5 +153,56 @@ Status jemalloc_set_decay_ms(int ms) {
 }
 
 #undef RETURN_IF_JEMALLOC_ERROR
+
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  size_t sz = sizeof(uint64_t);
+  int err;
+  uint64_t value;
+
+  // Update the statistics cached by mallctl.
+  if (std::strcmp(name, "stats.allocated") == 0 ||
+      std::strcmp(name, "stats.active") == 0 ||
+      std::strcmp(name, "stats.metadata") == 0 ||
+      std::strcmp(name, "stats.resident") == 0 ||
+      std::strcmp(name, "stats.mapped") == 0 ||
+      std::strcmp(name, "stats.retained") == 0) {
+    uint64_t epoch;
+    mallctl("epoch", &epoch, &sz, &epoch, sz);
+  }
+
+  err = mallctl(name, &value, &sz, nullptr, 0);
+
+  if (err) {
+    return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
+  }
+
+  return value;
+}
+
+Status jemalloc_peak_reset() {
+  int err = mallctl("thread.peak.reset", nullptr, nullptr, nullptr, 0);
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed resetting thread.peak.")
+             : Status::OK();
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
+  std::string stats;
+  auto write_cb = [&stats](const char* str) { stats.append(str); };
+  ARROW_UNUSED(jemalloc_stats_print(write_cb, opts));
+  return stats;
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  malloc_stats_print(nullptr, nullptr, opts);
+  return Status::OK();
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  auto cb_wrapper = [](void* opaque, const char* str) {
+    (*static_cast<std::function<void(const char*)>*>(opaque))(str);
+  };
+  malloc_stats_print(cb_wrapper, &write_cb, opts);
+  return Status::OK();
+}
 
 }  // namespace arrow
