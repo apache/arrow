@@ -253,6 +253,7 @@ public class JdbcToArrowUtils {
       if (config.shouldIncludeMetadata()) {
         metadata = new HashMap<>();
         metadata.put(Constants.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
+        metadata.put(Constants.SQL_SCHEMA_NAME_KEY, rsmd.getSchemaName(i));
         metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
         metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
         metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
