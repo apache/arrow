@@ -42,7 +42,6 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), Type::EXTENSION);
-  // TODO(milesgranger): Better way to add all types? `AllTypeIds` exists in tests...
   for (auto types : {IntTypes(), FloatingPointTypes(), StringTypes(), BinaryTypes()}) {
     for (auto in_ty : types) {
       DCHECK_OK(

@@ -832,6 +832,28 @@ Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
   return std::make_shared<SmallintType>();
 }
 
+bool TinyintType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> TinyintType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("tinyint", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<TinyintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> TinyintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "tinyint") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for TinyintType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<TinyintType>();
+}
+
 bool ListExtensionType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -905,6 +927,8 @@ std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
+std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
+
 std::shared_ptr<DataType> list_extension_type() {
   return std::make_shared<ListExtensionType>();
 }
@@ -934,6 +958,11 @@ std::shared_ptr<Array> ExampleUuid() {
 std::shared_ptr<Array> ExampleSmallint() {
   auto arr = ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
   return ExtensionType::WrapArray(smallint(), arr);
+}
+
+std::shared_ptr<Array> ExampleTinyint() {
+  auto arr = ArrayFromJSON(int8(), "[-128, null, 1, 2, 3, 4, 127]");
+  return ExtensionType::WrapArray(tinyint(), arr);
 }
 
 std::shared_ptr<Array> ExampleDictExtension() {
