@@ -135,74 +135,45 @@ Status TestCheckPyErrorStatus() {
   Status st;
   std::string expected_detail = "";
 
-  // auto check_error = [](Status& st, const char* expected_message = "some error",
-  //                       std::string expected_detail = "") {
-  //   st = CheckPyError();
-  //   ASSERT_EQ(st.message(), expected_message);
-  //   ASSERT_FALSE_PY(PyErr_Occurred());
-  //   if (expected_detail.size() > 0) {
-  //     auto detail = st.detail();
-  //     ASSERT_NE(detail, nullptr);
-  //     ASSERT_EQ(detail->ToString(), expected_detail);
-  //   }
-  // };
+  auto check_error = [](Status& st, const char* expected_message = "some error",
+                        std::string expected_detail = "") {
+    st = CheckPyError();
+    ASSERT_EQ(st.message(), expected_message);
+    ASSERT_FALSE_PY(PyErr_Occurred());
+    if (expected_detail.size() > 0) {
+      auto detail = st.detail();
+      ASSERT_NE(detail, nullptr);
+      ASSERT_EQ(detail->ToString(), expected_detail);
+    }
+    return Status::OK();
+  };
 
   for (PyObject* exc_type : {PyExc_Exception, PyExc_SyntaxError}) {
     PyErr_SetString(exc_type, "some error");
-    //check_error(st);
-    st = CheckPyError();
-    ASSERT_EQ(st.message(), "some error");
-    ASSERT_FALSE_PY(PyErr_Occurred());
+    ASSERT_OK(check_error(st));
     ASSERT_TRUE(st.IsUnknownError());
   }
 
   PyErr_SetString(PyExc_TypeError, "some error");
-  // check_error(st, "some error", FormatPythonException("TypeError"));
-  st = CheckPyError();
-  expected_detail = FormatPythonException("TypeError");
-  ASSERT_EQ(st.message(), "some error");
-  ASSERT_FALSE_PY(PyErr_Occurred());
-  if (expected_detail.size() > 0) {
-    auto detail = st.detail();
-    ASSERT_NE(detail, nullptr);
-    ASSERT_EQ(detail->ToString(), expected_detail);
-  }
+  ASSERT_OK(check_error(st, "some error", FormatPythonException("TypeError")));
   ASSERT_TRUE(st.IsTypeError());
 
   PyErr_SetString(PyExc_ValueError, "some error");
-  // check_error(st);
-  st = CheckPyError();
-  ASSERT_EQ(st.message(), "some error");
-  ASSERT_FALSE_PY(PyErr_Occurred());
+  ASSERT_OK(check_error(st));
   ASSERT_TRUE(st.IsInvalid());
 
   PyErr_SetString(PyExc_KeyError, "some error");
-  // check_error(st, "'some error'");
-  st = CheckPyError();
-  ASSERT_EQ(st.message(), "'some error'");
-  ASSERT_FALSE_PY(PyErr_Occurred());
+  ASSERT_OK(check_error(st, "'some error'"));
   ASSERT_TRUE(st.IsKeyError());
 
   for (PyObject* exc_type : {PyExc_OSError, PyExc_IOError}) {
     PyErr_SetString(exc_type, "some error");
-    //  check_error(st);
-    st = CheckPyError();
-    ASSERT_EQ(st.message(), "some error");
-    ASSERT_FALSE_PY(PyErr_Occurred());
+    ASSERT_OK(check_error(st));
     ASSERT_TRUE(st.IsIOError());
   }
 
   PyErr_SetString(PyExc_NotImplementedError, "some error");
-  // check_error(st, "some error", FormatPythonException("NotImplementedError"));
-  st = CheckPyError();
-  expected_detail = FormatPythonException("NotImplementedError");
-  ASSERT_EQ(st.message(), "some error");
-  ASSERT_FALSE_PY(PyErr_Occurred());
-  if (expected_detail.size() > 0) {
-    auto detail = st.detail();
-    ASSERT_NE(detail, nullptr);
-    ASSERT_EQ(detail->ToString(), expected_detail);
-  }
+  ASSERT_OK(check_error(st, "some error", FormatPythonException("NotImplementedError")));
   ASSERT_TRUE(st.IsNotImplemented());
 
   // No override if a specific status code is given
@@ -259,6 +230,7 @@ Status TestPyBufferInvalidInputObject() {
   {
     Status st = PyBuffer::FromPyObject(input).status();
     // ASSERT_TRUE(IsPyError(st)) << st.ToString();
+    ASSERT_TRUE(IsPyError(st));
     ASSERT_FALSE_PY(PyErr_Occurred());
   }
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
