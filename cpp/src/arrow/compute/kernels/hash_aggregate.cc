@@ -1373,7 +1373,7 @@ struct GroupedMinMaxImpl<Type,
   Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) {
+        [&](uint32_t g, std::string_view val) {
           if (!mins_[g] || val < *mins_[g]) {
             mins_[g].emplace(val.data(), val.size(), allocator_);
           }
@@ -2092,7 +2092,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) -> Status {
+        [&](uint32_t g, std::string_view val) -> Status {
           if (!bit_util::GetBit(has_one_.data(), g)) {
             ones_[g].emplace(val.data(), val.size(), allocator_);
             bit_util::SetBit(has_one_.mutable_data(), g);
@@ -2419,7 +2419,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     num_args_ += num_values;
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t group, util::string_view val) -> Status {
+        [&](uint32_t group, std::string_view val) -> Status {
           values_.emplace_back(StringType(val.data(), val.size(), allocator_));
           return Status::OK();
         },

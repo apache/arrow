@@ -517,7 +517,7 @@ struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
 
 template <typename Type, typename Action>
 struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
-  using HashKernel = RegularHashKernel<Type, util::string_view, Action>;
+  using HashKernel = RegularHashKernel<Type, std::string_view, Action>;
 };
 
 template <typename Type, typename Action>

@@ -85,7 +85,7 @@ bool DetectAbsolutePath(const std::string& s) {
 
 namespace {
 
-Status ValidatePath(util::string_view s) {
+Status ValidatePath(std::string_view s) {
   if (internal::IsLikelyUri(s)) {
     return Status::Invalid("Expected a local filesystem path, got a URI: '", s, "'");
   }

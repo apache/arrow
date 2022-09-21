@@ -146,8 +146,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # System Abseil installed by Homebrew uses C++ 17
-      CMAKE_CXX_STANDARD: 17
+      GTest_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3

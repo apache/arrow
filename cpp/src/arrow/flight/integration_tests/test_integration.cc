@@ -150,7 +150,7 @@ class TestServerMiddlewareFactory : public ServerMiddlewareFactory {
         incoming_headers.equal_range("x-middleware");
     std::string received = "";
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       received = std::string(value);
     }
     *middleware = std::make_shared<TestServerMiddleware>(received);
@@ -176,7 +176,7 @@ class TestClientMiddleware : public ClientMiddleware {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-middleware");
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       *received_header_ = std::string(value);
     }
   }

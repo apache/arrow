@@ -56,21 +56,21 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
   return Status::OK();
 }
 
-Status PathNotFound(util::string_view path) {
+Status PathNotFound(std::string_view path) {
   return Status::IOError("Path does not exist '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOENT));
 }
 
-Status NotADir(util::string_view path) {
+Status NotADir(std::string_view path) {
   return Status::IOError("Not a directory: '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOTDIR));
 }
 
-Status NotAFile(util::string_view path) {
+Status NotAFile(std::string_view path) {
   return Status::IOError("Not a regular file: '", path, "'");
 }
 
-Status InvalidDeleteDirContents(util::string_view path) {
+Status InvalidDeleteDirContents(std::string_view path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");

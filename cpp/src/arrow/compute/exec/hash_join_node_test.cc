@@ -42,7 +42,7 @@ namespace compute {
 
 BatchesWithSchema GenerateBatchesFromString(
     const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
+    const std::vector<std::string_view>& json_strings, int multiplicity = 1) {
   BatchesWithSchema out_batches{{}, schema};
 
   std::vector<TypeHolder> types;

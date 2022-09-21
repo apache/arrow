@@ -38,7 +38,7 @@ namespace internal {
 
 namespace {
 
-constexpr util::string_view kIntegerToken = "{i}";
+constexpr std::string_view kIntegerToken = "{i}";
 
 class Throttle {
  public:
@@ -414,16 +414,16 @@ class DatasetWriterDirectoryQueue {
   uint32_t file_counter_ = 0;
 };
 
-Status ValidateBasenameTemplate(util::string_view basename_template) {
-  if (basename_template.find(fs::internal::kSep) != util::string_view::npos) {
+Status ValidateBasenameTemplate(std::string_view basename_template) {
+  if (basename_template.find(fs::internal::kSep) != std::string_view::npos) {
     return Status::Invalid("basename_template contained '/'");
   }
   size_t token_start = basename_template.find(kIntegerToken);
-  if (token_start == util::string_view::npos) {
+  if (token_start == std::string_view::npos) {
     return Status::Invalid("basename_template did not contain '", kIntegerToken, "'");
   }
   size_t next_token_start = basename_template.find(kIntegerToken, token_start + 1);
-  if (next_token_start != util::string_view::npos) {
+  if (next_token_start != std::string_view::npos) {
     return Status::Invalid("basename_template contained '", kIntegerToken,
                            "' more than once");
   }

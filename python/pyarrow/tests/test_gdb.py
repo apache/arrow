@@ -264,20 +264,6 @@ def test_status(gdb_arrow):
         'detail=[custom-detail-id] "This is a detail"))')
 
 
-def test_string_view(gdb_arrow):
-    check_stack_repr(gdb_arrow, "string_view_empty",
-                     "arrow::util::string_view of size 0")
-    check_stack_repr(gdb_arrow, "string_view_abc",
-                     'arrow::util::string_view of size 3, "abc"')
-    check_stack_repr(
-        gdb_arrow, "string_view_special_chars",
-        r'arrow::util::string_view of size 12, "foo\"bar\000\r\n\t\037"')
-    check_stack_repr(
-        gdb_arrow, "string_view_very_long",
-        'arrow::util::string_view of size 5006, '
-        '"abc", \'K\' <repeats 5000 times>...')
-
-
 def test_buffer_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "buffer_null",
                      "arrow::Buffer of size 0, read-only")

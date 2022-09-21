@@ -40,6 +40,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::EndsWith;
 
 namespace compute {
 
@@ -117,8 +118,7 @@ std::string PrintDatum(const Datum& datum) {
       case Type::STRING:
       case Type::LARGE_STRING:
         return '"' +
-               Escape(util::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) +
-               '"';
+               Escape(std::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) + '"';
 
       case Type::BINARY:
       case Type::FIXED_SIZE_BINARY:
@@ -163,8 +163,8 @@ std::string Expression::ToString() const {
     return binary(Comparison::GetOp(*cmp));
   }
 
-  constexpr util::string_view kleene = "_kleene";
-  if (util::string_view{call->function_name}.ends_with(kleene)) {
+  constexpr std::string_view kleene = "_kleene";
+  if (EndsWith(call->function_name, kleene)) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }

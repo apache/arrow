@@ -25,7 +25,6 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
@@ -68,9 +67,9 @@ bool IdHashEq::operator()(Id l, Id r) const { return l.uri == r.uri && l.name ==
 class IdStorageImpl : public IdStorage {
  public:
   Id Emplace(Id id) override {
-    util::string_view owned_uri = EmplaceUri(id.uri);
+    std::string_view owned_uri = EmplaceUri(id.uri);
 
-    util::string_view owned_name;
+    std::string_view owned_name;
     auto name_itr = names_.find(id.name);
     if (name_itr == names_.end()) {
       owned_names_.emplace_back(id.name);
@@ -84,7 +83,7 @@ class IdStorageImpl : public IdStorage {
   }
 
   std::optional<Id> Find(Id id) const override {
-    std::optional<util::string_view> maybe_owned_uri = FindUri(id.uri);
+    std::optional<std::string_view> maybe_owned_uri = FindUri(id.uri);
     if (!maybe_owned_uri) {
       return std::nullopt;
     }
@@ -97,7 +96,7 @@ class IdStorageImpl : public IdStorage {
     }
   }
 
-  std::optional<util::string_view> FindUri(util::string_view uri) const override {
+  std::optional<std::string_view> FindUri(std::string_view uri) const override {
     auto uri_itr = uris_.find(uri);
     if (uri_itr == uris_.end()) {
       return std::nullopt;
@@ -105,11 +104,11 @@ class IdStorageImpl : public IdStorage {
     return *uri_itr;
   }
 
-  util::string_view EmplaceUri(util::string_view uri) override {
+  std::string_view EmplaceUri(std::string_view uri) override {
     auto uri_itr = uris_.find(uri);
     if (uri_itr == uris_.end()) {
       owned_uris_.emplace_back(uri);
-      util::string_view owned_uri = owned_uris_.back();
+      std::string_view owned_uri = owned_uris_.back();
       uris_.insert(owned_uri);
       return owned_uri;
     }
@@ -117,8 +116,8 @@ class IdStorageImpl : public IdStorage {
   }
 
  private:
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
-  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> names_;
+  std::unordered_set<std::string_view, ::arrow::internal::StringViewHash> uris_;
+  std::unordered_set<std::string_view, ::arrow::internal::StringViewHash> names_;
   std::list<std::string> owned_uris_;
   std::list<std::string> owned_names_;
 };
@@ -127,7 +126,7 @@ std::unique_ptr<IdStorage> IdStorage::Make() {
   return ::arrow::internal::make_unique<IdStorageImpl>();
 }
 
-Result<std::optional<util::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
+Result<std::optional<std::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
   if (index >= size_) {
     return Status::Invalid("Expected Substrait call to have an enum argument at index ",
                            index, " but it did not have enough arguments");
@@ -176,10 +175,10 @@ void SubstraitCall::SetValueArg(uint32_t index, compute::Expression value_arg) {
 // a map of what Ids we have seen.
 ExtensionSet::ExtensionSet(const ExtensionIdRegistry* registry) : registry_(registry) {}
 
-Status ExtensionSet::CheckHasUri(util::string_view uri) {
+Status ExtensionSet::CheckHasUri(std::string_view uri) {
   auto it =
       std::find_if(uris_.begin(), uris_.end(),
-                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
+                   [&uri](const std::pair<uint32_t, std::string_view>& anchor_uri_pair) {
                      return anchor_uri_pair.second == uri;
                    });
   if (it != uris_.end()) return Status::OK();
@@ -189,10 +188,10 @@ Status ExtensionSet::CheckHasUri(util::string_view uri) {
       " was referenced by an extension but was not declared in the ExtensionSet.");
 }
 
-void ExtensionSet::AddUri(std::pair<uint32_t, util::string_view> uri) {
+void ExtensionSet::AddUri(std::pair<uint32_t, std::string_view> uri) {
   auto it =
       std::find_if(uris_.begin(), uris_.end(),
-                   [&uri](const std::pair<uint32_t, util::string_view>& anchor_uri_pair) {
+                   [&uri](const std::pair<uint32_t, std::string_view>& anchor_uri_pair) {
                      return anchor_uri_pair.second == uri.second;
                    });
   if (it != uris_.end()) return;
@@ -211,14 +210,14 @@ Status ExtensionSet::AddUri(Id id) {
 
 // Creates an extension set from the Substrait plan's top-level extensions block
 Result<ExtensionSet> ExtensionSet::Make(
-    std::unordered_map<uint32_t, util::string_view> uris,
+    std::unordered_map<uint32_t, std::string_view> uris,
     std::unordered_map<uint32_t, Id> type_ids,
     std::unordered_map<uint32_t, Id> function_ids, const ExtensionIdRegistry* registry) {
   ExtensionSet set(default_extension_id_registry());
   set.registry_ = registry;
 
   for (auto& uri : uris) {
-    std::optional<util::string_view> maybe_uri_internal = registry->FindUri(uri.second);
+    std::optional<std::string_view> maybe_uri_internal = registry->FindUri(uri.second);
     if (maybe_uri_internal) {
       set.uris_[uri.first] = *maybe_uri_internal;
     } else {
@@ -324,9 +323,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   virtual ~ExtensionIdRegistryImpl() {}
 
-  std::optional<util::string_view> FindUri(util::string_view uri) const override {
+  std::optional<std::string_view> FindUri(std::string_view uri) const override {
     if (parent_) {
-      std::optional<util::string_view> parent_uri = parent_->FindUri(uri);
+      std::optional<std::string_view> parent_uri = parent_->FindUri(uri);
       if (parent_uri) {
         return parent_uri;
       }
@@ -620,7 +619,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 };
 
 template <typename Enum>
-using EnumParser = std::function<Result<Enum>(std::optional<util::string_view>)>;
+using EnumParser = std::function<Result<Enum>(std::optional<std::string_view>)>;
 
 template <typename Enum>
 EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
@@ -628,12 +627,12 @@ EnumParser<Enum> GetEnumParser(const std::vector<std::string>& options) {
   for (std::size_t i = 0; i < options.size(); i++) {
     parse_map[options[i]] = static_cast<Enum>(i + 1);
   }
-  return [parse_map](std::optional<util::string_view> enum_val) -> Result<Enum> {
+  return [parse_map](std::optional<std::string_view> enum_val) -> Result<Enum> {
     if (!enum_val) {
       // Assumes 0 is always kUnspecified in Enum
       return static_cast<Enum>(0);
     }
-    auto maybe_parsed = parse_map.find(enum_val->to_string());
+    auto maybe_parsed = parse_map.find(std::string(*enum_val));
     if (maybe_parsed == parse_map.end()) {
       return Status::Invalid("The value ", *enum_val, " is not an expected enum value");
     }
@@ -655,7 +654,7 @@ static EnumParser<OverflowBehavior> kOverflowParser =
 template <typename Enum>
 Result<Enum> ParseEnumArg(const SubstraitCall& call, uint32_t arg_index,
                           const EnumParser<Enum>& parser) {
-  ARROW_ASSIGN_OR_RAISE(std::optional<util::string_view> enum_arg,
+  ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg,
                         call.GetEnumArg(arg_index));
   return parser(enum_arg);
 }
@@ -808,7 +807,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // ----------- Extension Types ----------------------------
     struct TypeName {
       std::shared_ptr<DataType> type;
-      util::string_view name;
+      std::string_view name;
     };
 
     // The type (variation) mappings listed below need to be kept in sync
@@ -847,14 +846,14 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     }
     // Basic binary mappings
     for (const auto& function_name :
-         std::vector<std::pair<util::string_view, util::string_view>>{
+         std::vector<std::pair<std::string_view, std::string_view>>{
              {kSubstraitBooleanFunctionsUri, "xor"},
              {kSubstraitComparisonFunctionsUri, "equal"},
              {kSubstraitComparisonFunctionsUri, "not_equal"}}) {
-      DCHECK_OK(
-          AddSubstraitCallToArrow({function_name.first, function_name.second},
-                                  DecodeOptionlessBasicMapping(
-                                      function_name.second.to_string(), /*max_args=*/2)));
+      DCHECK_OK(AddSubstraitCallToArrow(
+          {function_name.first, function_name.second},
+          DecodeOptionlessBasicMapping(std::string(function_name.second),
+                                       /*max_args=*/2)));
     }
     for (const auto& uri :
          {kSubstraitComparisonFunctionsUri, kSubstraitDatetimeFunctionsUri}) {

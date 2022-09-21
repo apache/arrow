@@ -130,7 +130,7 @@ class DatasetWriterTestFixture : public testing::Test {
         << "The file " << expected_path << " was not in the list of files visited";
   }
 
-  std::shared_ptr<RecordBatch> ReadAsBatch(util::string_view data, int* num_batches) {
+  std::shared_ptr<RecordBatch> ReadAsBatch(std::string_view data, int* num_batches) {
     std::shared_ptr<io::RandomAccessFile> in_stream =
         std::make_shared<io::BufferReader>(data);
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<ipc::RecordBatchFileReader> reader,

@@ -26,9 +26,14 @@
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using internal::EndsWith;
+using internal::StartsWith;
+
 namespace compute {
 namespace internal {
 
@@ -38,11 +43,11 @@ namespace {
 // re2 utilities
 
 #ifdef ARROW_WITH_RE2
-util::string_view ToStringView(re2::StringPiece piece) {
+std::string_view ToStringView(re2::StringPiece piece) {
   return {piece.data(), piece.length()};
 }
 
-re2::StringPiece ToStringPiece(util::string_view view) {
+re2::StringPiece ToStringPiece(std::string_view view) {
   return {view.data(), view.length()};
 }
 
@@ -261,7 +266,7 @@ struct StringBinaryTransformExecBase {
     // Apply transform
     RETURN_NOT_OK(VisitArraySpanInline<Type1>(
         data1,
-        [&](util::string_view input_string_view) {
+        [&](std::string_view input_string_view) {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           ARROW_ASSIGN_OR_RAISE(
@@ -844,7 +849,7 @@ void AddAsciiStringCaseConversion(FunctionRegistry* registry) {
 // Binary string length
 
 struct BinaryLength {
-  template <typename OutValue, typename Arg0Value = util::string_view>
+  template <typename OutValue, typename Arg0Value = std::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
   }
@@ -1238,7 +1243,7 @@ struct PlainSubstringMatcher {
     }
   }
 
-  int64_t Find(util::string_view current) const {
+  int64_t Find(std::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
@@ -1257,7 +1262,7 @@ struct PlainSubstringMatcher {
     return -1;
   }
 
-  bool Match(util::string_view current) const { return Find(current) >= 0; }
+  bool Match(std::string_view current) const { return Find(current) >= 0; }
 };
 
 struct PlainStartsWithMatcher {
@@ -1273,9 +1278,8 @@ struct PlainStartsWithMatcher {
     return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::starts_with is C++20
-    return current.substr(0, options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return StartsWith(current, options_.pattern);
   }
 };
 
@@ -1292,11 +1296,8 @@ struct PlainEndsWithMatcher {
     return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::ends_with is C++20
-    return current.size() >= options_.pattern.size() &&
-           current.substr(current.size() - options_.pattern.size(),
-                          options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return EndsWith(current, options_.pattern);
   }
 };
 
@@ -1319,7 +1320,7 @@ struct RegexSubstringMatcher {
         regex_match_(options_.pattern,
                      MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
 
-  bool Match(util::string_view current) const {
+  bool Match(std::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return RE2::PartialMatch(piece, regex_match_);
   }
@@ -1341,7 +1342,7 @@ struct MatchSubstringImpl {
           for (int64_t i = 0; i < length; ++i) {
             const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
             int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
+            if (matcher->Match(std::string_view(current_data, current_length))) {
               bitmap_writer.Set();
             }
             bitmap_writer.Next();
@@ -1660,7 +1661,7 @@ struct FindSubstring {
   explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     return static_cast<OutValue>(matcher_.Find(val));
   }
 };
@@ -1680,7 +1681,7 @@ struct FindSubstringRegex {
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
     if (RE2::PartialMatch(piece, *regex_match_, &match)) {
@@ -1781,7 +1782,7 @@ struct CountSubstring {
   explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     uint64_t start = 0;
     const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
@@ -1815,7 +1816,7 @@ struct CountSubstringRegex {
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
@@ -1950,7 +1951,7 @@ struct ReplaceSubstring {
 
     RETURN_NOT_OK(VisitArraySpanInline<Type>(
         batch[0].array,
-        [&](util::string_view s) {
+        [&](std::string_view s) {
           RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
           offset_builder.UnsafeAppend(
               static_cast<offset_type>(value_data_builder.length()));
@@ -1979,9 +1980,13 @@ struct PlainSubstringReplacer {
   explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
-    const char* i = s.begin();
-    const char* end = s.end();
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    if (s.empty()) {
+      // Special-case empty input as s.data() may not be a valid pointer
+      return Status::OK();
+    }
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
@@ -2040,11 +2045,15 @@ struct RegexSubstringReplacer {
         regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    if (s.empty()) {
+      // Special-case empty input as s.data() may not be a valid pointer
+      return Status::OK();
+    }
     re2::StringPiece replacement(options_.replacement);
 
     if (options_.max_replacements == -1) {
-      std::string s_copy(s.to_string());
+      std::string s_copy(s);
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2053,8 +2062,8 @@ struct RegexSubstringReplacer {
     // Since RE2 does not have the concept of max_replacements, we have to do some work
     // ourselves.
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
-    const char* i = s.begin();
-    const char* end = s.end();
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     re2::StringPiece piece(s.data(), s.length());
 
     int64_t max_replacements = options_.max_replacements;
@@ -2228,7 +2237,7 @@ struct ExtractRegexBase {
     args_pointers_start = (group_count > 0) ? args_pointers.data() : &null_arg;
   }
 
-  bool Match(util::string_view s) {
+  bool Match(std::string_view s) {
     return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
                               group_count);
   }
@@ -2266,7 +2275,7 @@ struct ExtractRegex : public ExtractRegexBase {
     }
 
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
-    auto visit_value = [&](util::string_view s) {
+    auto visit_value = [&](std::string_view s) {
       if (Match(s)) {
         for (int i = 0; i < group_count; i++) {
           RETURN_NOT_OK(field_builders[i]->Append(ToStringView(found_values[i])));
@@ -2669,17 +2678,17 @@ struct BinaryJoin {
   };
 
   struct SeparatorScalarLookup {
-    const util::string_view separator;
+    const std::string_view separator;
 
     bool IsNull(int64_t i) { return false; }
-    util::string_view GetView(int64_t i) { return separator; }
+    std::string_view GetView(int64_t i) { return separator; }
   };
 
   struct SeparatorArrayLookup {
     const ArrayType& separators;
 
     bool IsNull(int64_t i) { return separators.IsNull(i); }
-    util::string_view GetView(int64_t i) { return separators.GetView(i); }
+    std::string_view GetView(int64_t i) { return separators.GetView(i); }
   };
 
   // Scalar, array -> array
@@ -2742,7 +2751,7 @@ struct BinaryJoin {
       return Status::OK();
     }
 
-    util::string_view separator(*separator_scalar.value);
+    std::string_view separator(*separator_scalar.value);
     const auto& strings = checked_cast<const ArrayType&>(*lists.values());
     const auto list_offsets = lists.raw_value_offsets();
 
@@ -2795,7 +2804,7 @@ struct BinaryJoin {
       const ArrayType& separators;
 
       bool IsNull(int64_t i) { return separators.IsNull(i); }
-      util::string_view GetView(int64_t i) { return separators.GetView(i); }
+      std::string_view GetView(int64_t i) { return separators.GetView(i); }
     };
     return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
                        SeparatorArrayLookup{separators}, &builder, out);
@@ -2868,7 +2877,7 @@ struct BinaryJoinElementWise {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<util::string_view> valid_cols(batch.num_values());
+    std::vector<std::string_view> valid_cols(batch.num_values());
     for (int64_t row = 0; row < batch.length; row++) {
       int num_valid = 0;  // Not counting separator
       for (int col = 0; col < batch.num_values(); col++) {
@@ -2878,7 +2887,7 @@ struct BinaryJoinElementWise {
             valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
             if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         } else {
           const ArraySpan& array = batch[col].array;
@@ -2887,11 +2896,11 @@ struct BinaryJoinElementWise {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] = util::string_view(
+            valid_cols[col] = std::string_view(
                 reinterpret_cast<const char*>(data + offsets[row]), length);
             if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         }
       }
@@ -2914,7 +2923,7 @@ struct BinaryJoinElementWise {
       const auto separator = valid_cols.back();
       bool first = true;
       for (int col = 0; col < batch.num_values() - 1; col++) {
-        util::string_view value = valid_cols[col];
+        std::string_view value = valid_cols[col];
         if (!value.data()) {
           switch (options.null_handling) {
             case JoinOptions::EMIT_NULL:

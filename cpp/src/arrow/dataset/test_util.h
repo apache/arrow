@@ -508,11 +508,11 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
     bool supported = false;
 
-    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(std::string_view(""));
     ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
     ASSERT_EQ(supported, false);
 
-    buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+    buf = std::make_shared<Buffer>(std::string_view("corrupted"));
     ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
     ASSERT_EQ(supported, false);
 
@@ -985,7 +985,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
 
-    RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
+    RecordBatchVector batches{RecordBatchFromJSON(schema, std::string_view{*buffer})};
     return MakeVectorGenerator(std::move(batches));
   }
 
@@ -1479,7 +1479,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
-                                           {file_contents->second});
+                                           file_contents->second);
 
       AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
     }

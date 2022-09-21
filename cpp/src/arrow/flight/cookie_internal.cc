@@ -63,7 +63,7 @@ size_t CaseInsensitiveHash::operator()(const std::string& key) const {
   return std::hash<std::string>{}(upper_string);
 }
 
-Cookie Cookie::Parse(const arrow::util::string_view& cookie_header_value) {
+Cookie Cookie::Parse(const std::string_view& cookie_header_value) {
   // Parse the cookie string. If the cookie has an expiration, record it.
   // If the cookie has a max-age, calculate the current time + max_age and set that as
   // the expiration.
@@ -252,7 +252,7 @@ void CookieCache::UpdateCachedCookies(const CallHeaders& incoming_headers) {
   const std::lock_guard<std::mutex> guard(mutex_);
 
   for (auto it = header_values.first; it != header_values.second; ++it) {
-    const util::string_view& value = it->second;
+    const std::string_view& value = it->second;
     Cookie cookie = Cookie::Parse(value);
 
     // Cache cookies regardless of whether or not they are expired. The server may have

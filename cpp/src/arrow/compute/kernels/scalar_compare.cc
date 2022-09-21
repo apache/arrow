@@ -29,7 +29,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::string_view;
+using std::string_view;
 
 namespace compute {
 namespace internal {
