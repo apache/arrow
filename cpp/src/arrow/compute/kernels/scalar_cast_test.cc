@@ -2773,7 +2773,7 @@ TEST(Cast, PrimitiveToExtension) {
   CheckCast(primitive_array, extension_array, options);
 }
 
-TEST(Cast, DictTypeToExtension) {
+TEST(Cast, ExtensionDictToExtension) {
   auto extension_array = SmallintArrayFromJSON("[1, 2, 1]");
   auto indices_array = ArrayFromJSON(int32(), "[0, 1, 0]");
 
