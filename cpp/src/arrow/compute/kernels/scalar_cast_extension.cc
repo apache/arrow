@@ -26,16 +26,15 @@ namespace internal {
 
 namespace {
 Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const CastOptions& options =
-      checked_cast<const CastState*>(ctx->state())->options;
-  auto out_ty =
-      static_cast<const ExtensionType&>(*options.to_type.type).storage_type();
+  const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
+  auto out_ty = static_cast<const ExtensionType&>(*options.to_type.type).storage_type();
 
   DCHECK(batch[0].is_array());
   std::shared_ptr<Array> array = batch[0].array.ToArray();
-  std::shared_ptr<Array> result;
 
-  RETURN_NOT_OK(Cast(*array, out_ty, options, ctx->exec_context()).Value(&result));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
+                        Cast(*array, out_ty, options, ctx->exec_context()));
+
   ExtensionArray extension(options.to_type.GetSharedPtr(), result);
   out->value = std::move(extension.data());
   return Status::OK();
