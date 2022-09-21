@@ -29,6 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.io.FileUtils;
+
 /**
  * The JniLoader for Dataset API's native implementation.
  */
@@ -79,6 +81,7 @@ public final class JniLoader {
     final String libraryToLoad = System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
+      FileUtils.forceDeleteOnExit(temp);
       try (final InputStream is
                = JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
         if (is == null) {
