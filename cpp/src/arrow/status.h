@@ -129,8 +129,9 @@ class ARROW_EXPORT StatusDetail {
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<Status>,
-                                                public util::ToStringOstreamable<Status> {
+class ARROW_EXPORT [[nodiscard]] Status :  // NOLINT(whitespace/braces)
+                                           public util::EqualityComparable<Status>,
+                                           public util::ToStringOstreamable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}
