@@ -155,9 +155,8 @@ Status jemalloc_set_decay_ms(int ms) {
 #undef RETURN_IF_JEMALLOC_ERROR
 
 Result<int64_t> jemalloc_get_stat(const char* name) {
-  size_t sz = sizeof(uint64_t);
+  size_t sz;
   int err;
-  uint64_t value;
 
   // Update the statistics cached by mallctl.
   if (std::strcmp(name, "stats.allocated") == 0 ||
@@ -167,16 +166,31 @@ Result<int64_t> jemalloc_get_stat(const char* name) {
       std::strcmp(name, "stats.mapped") == 0 ||
       std::strcmp(name, "stats.retained") == 0) {
     uint64_t epoch;
+    sz = sizeof(epoch);
     mallctl("epoch", &epoch, &sz, &epoch, sz);
   }
 
-  err = mallctl(name, &value, &sz, nullptr, 0);
-
-  if (err) {
-    return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
+  // Depending on the stat being queried and on the platform, we could need
+  // to pass a uint32_t or uint64_t pointer. Try both.
+  {
+    uint64_t value = 0;
+    sz = sizeof(value);
+    err = mallctl(name, &value, &sz, nullptr, 0);
+    if (!err) {
+      return value;
+    }
+  }
+  // EINVAL means the given value length (`sz`) was incorrect.
+  if (err == EINVAL) {
+    uint32_t value = 0;
+    sz = sizeof(value);
+    err = mallctl(name, &value, &sz, nullptr, 0);
+    if (!err) {
+      return value;
+    }
   }
 
-  return value;
+  return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
 }
 
 Status jemalloc_peak_reset() {
