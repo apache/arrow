@@ -268,7 +268,7 @@ public class JdbcToArrowUtils {
       }
 
       final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
-      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(i, columnFieldInfo);
+      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       if (arrowType != null) {
         final FieldType fieldType = new FieldType(
                 isColumnNullable(rsmd, i, columnFieldInfo), arrowType, /* dictionary encoding */ null, metadata);
@@ -280,7 +280,7 @@ public class JdbcToArrowUtils {
             throw new IllegalArgumentException("Configuration does not provide a mapping for array column " + i);
           }
           children = new ArrayList<Field>();
-          final ArrowType childType = config.getJdbcToArrowTypeConverter().apply(i, arrayFieldInfo);
+          final ArrowType childType = config.getJdbcToArrowTypeConverter().apply(arrayFieldInfo);
           children.add(new Field("child", FieldType.nullable(childType), null));
         } else if (arrowType.getTypeID() == ArrowType.ArrowTypeID.Map) {
           FieldType mapType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);

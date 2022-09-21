@@ -29,7 +29,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -354,12 +354,15 @@ public abstract class AbstractJdbcToArrowTest {
    * @param rsmd ResultSetMetaData to lookup column name from result set metadata
    * @return typeConverter instance with mapping column to Map type
    */
-  protected BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter(
+  protected Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter(
           Calendar calendar, ResultSetMetaData rsmd) {
-    return (columnIdx, jdbcFieldInfo) -> {
+    return (jdbcFieldInfo) -> {
       String columnLabel = null;
       try {
-        columnLabel = rsmd.getColumnLabel(columnIdx);
+        int columnIndex = jdbcFieldInfo.getColumn();
+        if (columnIndex != 0) {
+          columnLabel = rsmd.getColumnLabel(columnIndex);
+        }
       } catch (SQLException e) {
         throw new RuntimeException(e);
       }

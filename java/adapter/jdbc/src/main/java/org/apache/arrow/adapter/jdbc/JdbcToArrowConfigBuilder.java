@@ -22,7 +22,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.DEFAULT_TARGET_BAT
 import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -43,7 +43,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<String, String> schemaMetadata;
   private Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private int targetBatchSize;
-  private BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
   private RoundingMode bigDecimalRoundingMode;
 
   /**
@@ -216,7 +216,7 @@ public class JdbcToArrowConfigBuilder {
    * Defaults to wrapping {@link JdbcToArrowUtils#getArrowTypeFromJdbcType(JdbcFieldInfo, Calendar)}.
    */
   public JdbcToArrowConfigBuilder setJdbcToArrowTypeConverter(
-      BiFunction<Integer, JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter;
     return this;
   }
