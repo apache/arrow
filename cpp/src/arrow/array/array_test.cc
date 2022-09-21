@@ -2831,8 +2831,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     auto type = std::make_shared<TYPE>(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
-    size_t null_count = 0;
-
     const size_t size = draw.size();
 
     ARROW_EXPECT_OK(builder->Reserve(size));
@@ -2842,7 +2840,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
         ARROW_EXPECT_OK(builder->Append(draw[i]));
       } else {
         ARROW_EXPECT_OK(builder->AppendNull());
-        ++null_count;
       }
     }
 

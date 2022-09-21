@@ -35,6 +35,7 @@
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <gtest/gtest.h>
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/process.hpp>
 
 #include "arrow/array.h"
