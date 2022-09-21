@@ -446,7 +446,14 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseTimestamp(bldr, str, dt.Unit)
 		}
-
+	case *arrow.Date32Type:
+		return func(str string) {
+			r.parseDate32(bldr, str)
+		}
+	case *arrow.Time32Type:
+		return func(str string) {
+			r.parseTime32(bldr, str, dt.Unit)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -642,6 +649,36 @@ func (r *Reader) parseTimestamp(field array.Builder, str string, unit arrow.Time
 	}
 
 	field.(*array.TimestampBuilder).Append(v)
+}
+
+func (r *Reader) parseDate32(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	tm, err := time.Parse("2006-01-02", str)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Date32Builder).Append(arrow.Date32FromTime(tm))
+}
+
+func (r *Reader) parseTime32(field array.Builder, str string, unit arrow.TimeUnit) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	val, err := arrow.Time32FromString(str, unit)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Time32Builder).Append(val)
 }
 
 // Retain increases the reference count by 1.
