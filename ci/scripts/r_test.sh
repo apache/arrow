@@ -94,6 +94,7 @@ export TEXMFVAR=/tmp/texmf-var
 BEFORE=$(ls -alh ~/)
 
 # Install dev duckdb
+export R_DUCKDB_DEV=TRUE
 ${R_BIN} -e 'install.packages("remotes"); remotes::install_github("duckdb/duckdb/tools/rpkg", build = FALSE)'
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')

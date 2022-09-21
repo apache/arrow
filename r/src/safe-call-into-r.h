@@ -76,10 +76,10 @@ class MainRThread {
   bool HasError() { return !status_.ok(); }
 
   // Throw a cpp11::unwind_exception() if
-  void ClearError() {
+  arrow::Status ClearError() {
     arrow::Status maybe_error_status = status_;
     ResetError();
-    arrow::StopIfNotOk(maybe_error_status);
+    return maybe_error_status;
   }
 
  private:
@@ -121,15 +121,8 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
       try {
         return fun();
       } catch (cpp11::unwind_exception& e) {
-        // Here we save the token and set the main R thread to an error state
-        GetMainRThread().SetError(arrow::StatusUnwindProtect(e.token, reason));
-
-        // We also return an error although this should not surface because
-        // main_r_thread.ClearError() will get called before this value can be
-        // returned and will StopIfNotOk(). We don't save the error token here
-        // to ensure that it will only get thrown once.
-        return arrow::Result<T>(
-            arrow::Status::UnknownError("R code execution error (", reason, ")"));
+        // Return a value that will rethrow `e` when ValueOrStop is called.
+        return arrow::Result<T>(arrow::StatusUnwindProtect(e.token, reason));
       }
     }));
   } else {
@@ -178,8 +171,8 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
       });
 
   GetMainRThread().Executor() = nullptr;
-  GetMainRThread().ClearError();
 
+  ARROW_RETURN_NOT_OK(GetMainRThread().ClearError());
   return result;
 }
 
