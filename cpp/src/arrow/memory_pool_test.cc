@@ -180,7 +180,7 @@ TEST(Jemalloc, GetAllocationStats) {
       metadata0, resident0, mapped0, retained0;
   int64_t thread_allocated, thread_deallocated, thread_peak_read, thread_allocated0,
       thread_deallocated0, thread_peak_read0;
-  auto pool = default_memory_pool();
+  MemoryPool* pool = nullptr;
   ABORT_NOT_OK(jemalloc_memory_pool(&pool));
   ASSERT_EQ("jemalloc", pool->backend_name());
 
