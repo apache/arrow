@@ -906,10 +906,9 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
       auto enum_val = internal::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(std::optional<util::string_view> enum_arg,
-                            call.GetEnumArg(i));
+      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
       if (enum_arg) {
-        enum_val->set_specified(enum_arg->to_string());
+        enum_val->set_specified(std::string(*enum_arg));
       } else {
         enum_val->set_allocated_unspecified(new google::protobuf::Empty());
       }

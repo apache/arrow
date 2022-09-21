@@ -274,8 +274,8 @@ class TestCookieMiddleware : public ::testing::Test {
   void AddAndValidate(const std::string& incoming_cookie) {
     // Add cookie
     CallHeaders call_headers;
-    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                       arrow::util::string_view(incoming_cookie)));
+    call_headers.insert(std::make_pair(std::string_view("set-cookie"),
+                                       std::string_view(incoming_cookie)));
     middleware_->ReceivedHeaders(call_headers);
     expected_cookie_cache_.UpdateCachedCookies(call_headers);
 
@@ -423,8 +423,8 @@ class TestCookieParsing : public ::testing::Test {
     for (auto& cookie : cookies) {
       // Add cookie
       CallHeaders call_headers;
-      call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                         arrow::util::string_view(cookie)));
+      call_headers.insert(
+          std::make_pair(std::string_view("set-cookie"), std::string_view(cookie)));
       cookie_cache.UpdateCachedCookies(call_headers);
     }
     const std::string actual_cookies = cookie_cache.GetValidCookiesAsString();

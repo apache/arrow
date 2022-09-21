@@ -17,9 +17,10 @@
 
 #include "arrow/engine/substrait/extension_types.h"
 
+#include <string_view>
+
 #include "arrow/engine/simple_extension_type_internal.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -29,7 +30,7 @@ using internal::MakeProperties;
 namespace engine {
 namespace {
 
-constexpr util::string_view kUuidExtensionName = "uuid";
+constexpr std::string_view kUuidExtensionName = "uuid";
 struct UuidExtensionParams {};
 std::shared_ptr<DataType> UuidGetStorage(const UuidExtensionParams&) {
   return fixed_size_binary(16);
@@ -40,7 +41,7 @@ using UuidType = SimpleExtensionType<kUuidExtensionName, UuidExtensionParams,
                                      decltype(kUuidExtensionParamsProperties),
                                      &kUuidExtensionParamsProperties, UuidGetStorage>;
 
-constexpr util::string_view kFixedCharExtensionName = "fixed_char";
+constexpr std::string_view kFixedCharExtensionName = "fixed_char";
 struct FixedCharExtensionParams {
   int32_t length;
 };
@@ -55,7 +56,7 @@ using FixedCharType =
                         decltype(kFixedCharExtensionParamsProperties),
                         &kFixedCharExtensionParamsProperties, FixedCharGetStorage>;
 
-constexpr util::string_view kVarCharExtensionName = "varchar";
+constexpr std::string_view kVarCharExtensionName = "varchar";
 struct VarCharExtensionParams {
   int32_t length;
 };
@@ -70,7 +71,7 @@ using VarCharType =
                         decltype(kVarCharExtensionParamsProperties),
                         &kVarCharExtensionParamsProperties, VarCharGetStorage>;
 
-constexpr util::string_view kIntervalYearExtensionName = "interval_year";
+constexpr std::string_view kIntervalYearExtensionName = "interval_year";
 struct IntervalYearExtensionParams {};
 std::shared_ptr<DataType> IntervalYearGetStorage(const IntervalYearExtensionParams&) {
   return fixed_size_list(int32(), 2);
@@ -82,7 +83,7 @@ using IntervalYearType =
                         decltype(kIntervalYearExtensionParamsProperties),
                         &kIntervalYearExtensionParamsProperties, IntervalYearGetStorage>;
 
-constexpr util::string_view kIntervalDayExtensionName = "interval_day";
+constexpr std::string_view kIntervalDayExtensionName = "interval_day";
 struct IntervalDayExtensionParams {};
 std::shared_ptr<DataType> IntervalDayGetStorage(const IntervalDayExtensionParams&) {
   return fixed_size_list(int32(), 2);

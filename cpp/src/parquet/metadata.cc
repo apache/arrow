@@ -21,13 +21,13 @@
 #include <cinttypes>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -1050,8 +1050,8 @@ class ApplicationVersionParser {
 
  private:
   bool IsSpace(const std::string& string, const size_t& offset) {
-    auto target = ::arrow::util::string_view(string).substr(offset, 1);
-    return target.find_first_of(spaces_) != ::arrow::util::string_view::npos;
+    auto target = ::std::string_view(string).substr(offset, 1);
+    return target.find_first_of(spaces_) != ::std::string_view::npos;
   }
 
   void RemovePrecedingSpaces(const std::string& string, size_t& start,

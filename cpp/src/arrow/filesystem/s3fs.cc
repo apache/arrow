@@ -954,7 +954,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
   auto push = [&](std::string k, const Aws::String& v) {
     if (!v.empty()) {
-      md->Append(std::move(k), FromAwsString(v).to_string());
+      md->Append(std::move(k), std::string(FromAwsString(v)));
     }
   };
   auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
@@ -1948,7 +1948,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         is_empty = false;
         FileInfo info;
         const auto child_key = internal::RemoveTrailingSlash(FromAwsString(obj.GetKey()));
-        if (child_key == util::string_view(prefix)) {
+        if (child_key == std::string_view(prefix)) {
           // Amazon can return the "directory" key itself as part of the results, skip
           continue;
         }

@@ -647,11 +647,11 @@ TEST_F(TestMapArray, Equality) {
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
   std::vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
-  std::vector<util::string_view> equal_keys = {"a", "a", "a", "b", "c",
-                                               "a", "a", "a", "a", "b"};
+  std::vector<std::string_view> equal_keys = {"a", "a", "a", "b", "c",
+                                              "a", "a", "a", "a", "b"};
   std::vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
   std::vector<int32_t> unequal_offsets = {0, 1, 4, 7};
-  std::vector<util::string_view> unequal_keys = {"a", "a", "b", "c", "a", "b", "c"};
+  std::vector<std::string_view> unequal_keys = {"a", "a", "b", "c", "a", "b", "c"};
   std::vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays

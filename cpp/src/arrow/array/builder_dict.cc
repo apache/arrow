@@ -188,12 +188,12 @@ GET_OR_INSERT(MonthIntervalType);
 
 #undef GET_OR_INSERT
 
-Status DictionaryMemoTable::GetOrInsert(const BinaryType*, util::string_view value,
+Status DictionaryMemoTable::GetOrInsert(const BinaryType*, std::string_view value,
                                         int32_t* out) {
   return impl_->GetOrInsert<BinaryType>(value, out);
 }
 
-Status DictionaryMemoTable::GetOrInsert(const LargeBinaryType*, util::string_view value,
+Status DictionaryMemoTable::GetOrInsert(const LargeBinaryType*, std::string_view value,
                                         int32_t* out) {
   return impl_->GetOrInsert<LargeBinaryType>(value, out);
 }

@@ -204,8 +204,8 @@ Result<std::shared_ptr<Buffer>> MyMemoryManager::ViewBufferTo(
 }
 
 // Like AssertBufferEqual, but doesn't call Buffer::data()
-void AssertMyBufferEqual(const Buffer& buffer, util::string_view expected) {
-  ASSERT_EQ(util::string_view(buffer), expected);
+void AssertMyBufferEqual(const Buffer& buffer, std::string_view expected) {
+  ASSERT_EQ(std::string_view(buffer), expected);
 }
 
 void AssertIsCPUBuffer(const Buffer& buf) {

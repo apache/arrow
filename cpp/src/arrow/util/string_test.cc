@@ -166,5 +166,33 @@ TEST(SplitString, LimitZero) {
   EXPECT_EQ(parts[2], "c");
 }
 
+TEST(StartsWith, Basics) {
+  std::string empty{};
+  std::string abc{"abc"};
+  std::string abcdef{"abcdef"};
+  std::string def{"def"};
+  ASSERT_TRUE(StartsWith(empty, empty));
+  ASSERT_TRUE(StartsWith(abc, empty));
+  ASSERT_TRUE(StartsWith(abc, abc));
+  ASSERT_TRUE(StartsWith(abcdef, abc));
+  ASSERT_FALSE(StartsWith(abc, abcdef));
+  ASSERT_FALSE(StartsWith(def, abcdef));
+  ASSERT_FALSE(StartsWith(abcdef, def));
+}
+
+TEST(EndsWith, Basics) {
+  std::string empty{};
+  std::string abc{"abc"};
+  std::string abcdef{"abcdef"};
+  std::string def{"def"};
+  ASSERT_TRUE(EndsWith(empty, empty));
+  ASSERT_TRUE(EndsWith(abc, empty));
+  ASSERT_TRUE(EndsWith(abc, abc));
+  ASSERT_TRUE(EndsWith(abcdef, def));
+  ASSERT_FALSE(EndsWith(abcdef, abc));
+  ASSERT_FALSE(EndsWith(def, abcdef));
+  ASSERT_FALSE(EndsWith(abcdef, abc));
+}
+
 }  // namespace internal
 }  // namespace arrow

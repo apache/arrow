@@ -34,7 +34,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -81,7 +80,7 @@ class UuidType : public ExtensionType {
 };
 
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
-                                          util::string_view json, int64_t offset = 0,
+                                          std::string_view json, int64_t offset = 0,
                                           int64_t length = -1) {
   auto array = *ArrayFromJSON(ty, json);
   if (length != -1) {
@@ -121,12 +120,9 @@ void TestSession() {
   auto error_detail_result = Result<int>(error_detail_status);
 
   // String views
-  util::string_view string_view_empty{};
-  util::string_view string_view_abc{"abc"};
+  std::string_view string_view_abc{"abc"};
   std::string special_chars = std::string("foo\"bar") + '\x00' + "\r\n\t\x1f";
-  util::string_view string_view_special_chars(special_chars);
-  std::string very_long = "abc" + std::string(5000, 'K') + "xyz";
-  util::string_view string_view_very_long(very_long);
+  std::string_view string_view_special_chars(special_chars);
 
   // Buffers
   Buffer buffer_null{nullptr, 0};

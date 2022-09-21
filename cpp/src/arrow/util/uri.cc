@@ -20,9 +20,9 @@
 #include <algorithm>
 #include <cstring>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
-#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
@@ -31,7 +31,7 @@ namespace internal {
 
 namespace {
 
-util::string_view TextRangeToView(const UriTextRangeStructA& range) {
+std::string_view TextRangeToView(const UriTextRangeStructA& range) {
   if (range.first == nullptr) {
     return "";
   } else {
@@ -50,7 +50,7 @@ std::string TextRangeToString(const UriTextRangeStructA& range) {
 bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nullptr; }
 
 #ifdef _WIN32
-bool IsDriveSpec(const util::string_view s) {
+bool IsDriveSpec(const std::string_view s) {
   return (s.length() >= 2 && s[1] == ':' &&
           ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')));
 }
@@ -72,7 +72,7 @@ std::string UriEscape(const std::string& s) {
   return escaped;
 }
 
-std::string UriUnescape(const util::string_view s) {
+std::string UriUnescape(const std::string_view s) {
   std::string result(s);
   if (!result.empty()) {
     auto end = uriUnescapeInPlaceA(&result[0]);
@@ -94,7 +94,7 @@ std::string UriEncodeHost(const std::string& host) {
   }
 }
 
-bool IsValidUriScheme(const arrow::util::string_view s) {
+bool IsValidUriScheme(const std::string_view s) {
   auto is_alpha = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
   auto is_scheme_char = [&](char c) {
     return is_alpha(c) || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.';
@@ -133,7 +133,7 @@ struct Uri::Impl {
   std::vector<std::string> data_;
   std::string string_rep_;
   int32_t port_;
-  std::vector<util::string_view> path_segments_;
+  std::vector<std::string_view> path_segments_;
   bool is_file_uri_;
   bool is_absolute_path_;
 };
@@ -162,7 +162,7 @@ int32_t Uri::port() const { return impl_->port_; }
 std::string Uri::username() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-  if (sep_pos == util::string_view::npos) {
+  if (sep_pos == std::string_view::npos) {
     return UriUnescape(userpass);
   } else {
     return UriUnescape(userpass.substr(0, sep_pos));
@@ -172,7 +172,7 @@ std::string Uri::username() const {
 std::string Uri::password() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-  if (sep_pos == util::string_view::npos) {
+  if (sep_pos == std::string_view::npos) {
     return std::string();
   } else {
     return UriUnescape(userpass.substr(sep_pos + 1));

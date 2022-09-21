@@ -20,6 +20,7 @@
 #include <chrono>
 #include <numeric>
 #include <random>
+#include <string_view>
 #include <unordered_set>
 
 #include "arrow/api.h"
@@ -34,7 +35,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
@@ -69,7 +69,7 @@ bool is_temporal_primitive(Type::type type_id) {
 
 Result<BatchesWithSchema> MakeBatchesFromNumString(
     const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
+    const std::vector<std::string_view>& json_strings, int multiplicity = 1) {
   FieldVector num_fields;
   for (auto field : schema->fields()) {
     num_fields.push_back(
@@ -413,12 +413,12 @@ struct BasicTestTypes {
 };
 
 struct BasicTest {
-  BasicTest(const std::vector<util::string_view>& l_data,
-            const std::vector<util::string_view>& r0_data,
-            const std::vector<util::string_view>& r1_data,
-            const std::vector<util::string_view>& exp_nokey_data,
-            const std::vector<util::string_view>& exp_emptykey_data,
-            const std::vector<util::string_view>& exp_data, int64_t tolerance)
+  BasicTest(const std::vector<std::string_view>& l_data,
+            const std::vector<std::string_view>& r0_data,
+            const std::vector<std::string_view>& r1_data,
+            const std::vector<std::string_view>& exp_nokey_data,
+            const std::vector<std::string_view>& exp_emptykey_data,
+            const std::vector<std::string_view>& exp_data, int64_t tolerance)
       : l_data(std::move(l_data)),
         r0_data(std::move(r0_data)),
         r1_data(std::move(r1_data)),
@@ -622,12 +622,12 @@ struct BasicTest {
                    exp_emptykey_batches, exp_batches);
   }
 
-  std::vector<util::string_view> l_data;
-  std::vector<util::string_view> r0_data;
-  std::vector<util::string_view> r1_data;
-  std::vector<util::string_view> exp_nokey_data;
-  std::vector<util::string_view> exp_emptykey_data;
-  std::vector<util::string_view> exp_data;
+  std::vector<std::string_view> l_data;
+  std::vector<std::string_view> r0_data;
+  std::vector<std::string_view> r1_data;
+  std::vector<std::string_view> exp_nokey_data;
+  std::vector<std::string_view> exp_emptykey_data;
+  std::vector<std::string_view> exp_data;
   int64_t tolerance;
 };
 

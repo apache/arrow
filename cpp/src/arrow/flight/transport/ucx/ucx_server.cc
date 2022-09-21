@@ -362,7 +362,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     SERVER_RETURN_NOT_OK(driver, driver->ExpectFrameType(*frame, FrameType::kBuffer));
     FlightDescriptor descriptor;
     SERVER_RETURN_NOT_OK(driver,
-                         FlightDescriptor::Deserialize(util::string_view(*frame->buffer))
+                         FlightDescriptor::Deserialize(std::string_view(*frame->buffer))
                              .Value(&descriptor));
 
     std::unique_ptr<FlightInfo> info;

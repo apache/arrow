@@ -21,6 +21,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -35,7 +36,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -44,7 +44,7 @@ namespace internal {
 
 namespace {
 
-Status ValidatePath(util::string_view s) {
+Status ValidatePath(std::string_view s) {
   if (internal::IsLikelyUri(s)) {
     return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
   }
@@ -66,9 +66,9 @@ struct File {
 
   int64_t size() const { return data ? data->size() : 0; }
 
-  explicit operator util::string_view() const {
+  explicit operator std::string_view() const {
     if (data) {
-      return util::string_view(*data);
+      return std::string_view(*data);
     } else {
       return "";
     }
@@ -372,7 +372,7 @@ class MockFileSystem::Impl {
       Entry* child = pair.second.get();
       if (child->is_file()) {
         auto& file = child->as_file();
-        out->push_back({path + file.name, file.mtime, util::string_view(file)});
+        out->push_back({path + file.name, file.mtime, std::string_view(file)});
       } else if (child->is_dir()) {
         DumpFiles(path, child->as_dir(), out);
       }
@@ -752,7 +752,7 @@ std::vector<MockFileInfo> MockFileSystem::AllFiles() {
   return result;
 }
 
-Status MockFileSystem::CreateFile(const std::string& path, util::string_view contents,
+Status MockFileSystem::CreateFile(const std::string& path, std::string_view contents,
                                   bool recursive) {
   RETURN_NOT_OK(ValidatePath(path));
   auto parent = fs::internal::GetAbstractPathParent(path).first;

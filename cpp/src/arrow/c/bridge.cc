@@ -21,6 +21,7 @@
 #include <cerrno>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -40,7 +41,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/small_vector.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_type_inline.h"
 
@@ -666,7 +666,7 @@ namespace {
 
 static constexpr int64_t kMaxImportRecursionLevel = 64;
 
-Status InvalidFormatString(util::string_view v) {
+Status InvalidFormatString(std::string_view v) {
   return Status::Invalid("Invalid or unsupported format string: '", v, "'");
 }
 
@@ -674,13 +674,13 @@ class FormatStringParser {
  public:
   FormatStringParser() {}
 
-  explicit FormatStringParser(util::string_view v) : view_(v), index_(0) {}
+  explicit FormatStringParser(std::string_view v) : view_(v), index_(0) {}
 
   bool AtEnd() const { return index_ >= view_.length(); }
 
   char Next() { return view_[index_++]; }
 
-  util::string_view Rest() { return view_.substr(index_); }
+  std::string_view Rest() { return view_.substr(index_); }
 
   Status CheckNext(char c) {
     if (AtEnd() || Next() != c) {
@@ -704,7 +704,7 @@ class FormatStringParser {
   }
 
   template <typename IntType = int32_t>
-  Result<IntType> ParseInt(util::string_view v) {
+  Result<IntType> ParseInt(std::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
     IntType value;
     if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
@@ -729,13 +729,13 @@ class FormatStringParser {
     }
   }
 
-  SmallVector<util::string_view, 2> Split(util::string_view v, char delim = ',') {
-    SmallVector<util::string_view, 2> parts;
+  SmallVector<std::string_view, 2> Split(std::string_view v, char delim = ',') {
+    SmallVector<std::string_view, 2> parts;
     size_t start = 0, end;
     while (true) {
       end = v.find_first_of(delim, start);
       parts.push_back(v.substr(start, end - start));
-      if (end == util::string_view::npos) {
+      if (end == std::string_view::npos) {
         break;
       }
       start = end + 1;
@@ -744,7 +744,7 @@ class FormatStringParser {
   }
 
   template <typename IntType = int32_t>
-  Result<std::vector<IntType>> ParseInts(util::string_view v) {
+  Result<std::vector<IntType>> ParseInts(std::string_view v) {
     auto parts = Split(v);
     std::vector<IntType> result;
     result.reserve(parts.size());
@@ -758,7 +758,7 @@ class FormatStringParser {
   Status Invalid() { return InvalidFormatString(view_); }
 
  protected:
-  util::string_view view_;
+  std::string_view view_;
   size_t index_;
 };
 

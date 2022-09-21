@@ -31,13 +31,15 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
 
-using ::arrow::internal::UriFromAbsolutePath;
 using internal::checked_cast;
 using internal::make_unique;
+using internal::StartsWith;
+using internal::UriFromAbsolutePath;
 
 namespace engine {
 
@@ -189,7 +191,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                 "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
         }
 
-        if (!util::string_view{path}.starts_with("file:///")) {
+        if (!StartsWith(path, "file:///")) {
           return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
                                         ") with other than local filesystem "
                                         "(file:///)");

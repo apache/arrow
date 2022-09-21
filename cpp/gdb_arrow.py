@@ -456,7 +456,7 @@ class Variant:
 
 class StdString:
     """
-    A `std::string` (or possibly `string_view`) value.
+    A `std::string` (or possibly `std::string_view`) value.
     """
 
     def __init__(self, val):
@@ -2163,23 +2163,6 @@ class ResultPrinter(StatusPrinter):
         return f"arrow::Result<{data_type}>({inner})"
 
 
-class StringViewPrinter:
-    """
-    Pretty-printer for arrow::util::string_view.
-    """
-
-    def __init__(self, name, val):
-        self.val = val
-
-    def to_string(self):
-        size = int(self.val['size_'])
-        if size == 0:
-            return f"arrow::util::string_view of size 0"
-        else:
-            data = bytes_literal(self.val['data_'], size)
-            return f"arrow::util::string_view of size {size}, {data}"
-
-
 class FieldPrinter:
     """
     Pretty-printer for arrow::Field.
@@ -2397,8 +2380,6 @@ printers = {
     "arrow::SimpleTable": TablePrinter,
     "arrow::Status": StatusPrinter,
     "arrow::Table": TablePrinter,
-    "arrow::util::string_view": StringViewPrinter,
-    "nonstd::sv_lite::basic_string_view": StringViewPrinter,
 }
 
 

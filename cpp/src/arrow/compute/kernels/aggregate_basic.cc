@@ -233,11 +233,11 @@ void AddCountDistinctKernels(ScalarAggregateFunction* func) {
   AddCountDistinctKernel<DayTimeIntervalType>(day_time_interval(), func);
   AddCountDistinctKernel<MonthDayNanoIntervalType>(month_day_nano_interval(), func);
   // Binary & String
-  AddCountDistinctKernel<BinaryType, util::string_view>(match::BinaryLike(), func);
-  AddCountDistinctKernel<LargeBinaryType, util::string_view>(match::LargeBinaryLike(),
-                                                             func);
+  AddCountDistinctKernel<BinaryType, std::string_view>(match::BinaryLike(), func);
+  AddCountDistinctKernel<LargeBinaryType, std::string_view>(match::LargeBinaryLike(),
+                                                            func);
   // Fixed binary & Decimal
-  AddCountDistinctKernel<FixedSizeBinaryType, util::string_view>(
+  AddCountDistinctKernel<FixedSizeBinaryType, std::string_view>(
       match::FixedSizeBinaryLike(), func);
 }
 

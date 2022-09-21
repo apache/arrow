@@ -19,11 +19,11 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
@@ -61,34 +61,34 @@ Result<std::string> MakeAbstractPathRelative(const std::string& base,
                                              const std::string& path);
 
 ARROW_EXPORT
-std::string EnsureLeadingSlash(util::string_view s);
+std::string EnsureLeadingSlash(std::string_view s);
 
 ARROW_EXPORT
-util::string_view RemoveLeadingSlash(util::string_view s);
+std::string_view RemoveLeadingSlash(std::string_view s);
 
 ARROW_EXPORT
-std::string EnsureTrailingSlash(util::string_view s);
+std::string EnsureTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
-util::string_view RemoveTrailingSlash(util::string_view s);
+std::string_view RemoveTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
-Status AssertNoTrailingSlash(util::string_view s);
+Status AssertNoTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
-bool IsAncestorOf(util::string_view ancestor, util::string_view descendant);
+bool IsAncestorOf(std::string_view ancestor, std::string_view descendant);
 
 ARROW_EXPORT
-std::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
-                                                util::string_view descendant);
+std::optional<std::string_view> RemoveAncestor(std::string_view ancestor,
+                                               std::string_view descendant);
 
 /// Return a vector of ancestors between a base path and a descendant.
 /// For example,
 ///
 /// AncestorsFromBasePath("a/b", "a/b/c/d/e") -> ["a/b/c", "a/b/c/d"]
 ARROW_EXPORT
-std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
-                                               util::string_view descendant);
+std::vector<std::string> AncestorsFromBasePath(std::string_view base_path,
+                                               std::string_view descendant);
 
 /// Given a vector of paths of directories which must be created, produce a the minimal
 /// subset for passing to CreateDir(recursive=true) by removing redundant parent
@@ -118,18 +118,18 @@ std::string JoinAbstractPath(const StringRange& range, char sep = kSep) {
 
 /// Convert slashes to backslashes, on all platforms.  Mostly useful for testing.
 ARROW_EXPORT
-std::string ToBackslashes(util::string_view s);
+std::string ToBackslashes(std::string_view s);
 
 /// Ensure a local path is abstract, by converting backslashes to regular slashes
 /// on Windows.  Return the path unchanged on other systems.
 ARROW_EXPORT
-std::string ToSlashes(util::string_view s);
+std::string ToSlashes(std::string_view s);
 
 ARROW_EXPORT
-bool IsEmptyPath(util::string_view s);
+bool IsEmptyPath(std::string_view s);
 
 ARROW_EXPORT
-bool IsLikelyUri(util::string_view s);
+bool IsLikelyUri(std::string_view s);
 
 class ARROW_EXPORT Globber {
  public:
