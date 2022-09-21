@@ -173,7 +173,7 @@ Result<int64_t> jemalloc_get_stat(const char* name) {
   // Depending on the stat being queried and on the platform, we could need
   // to pass a uint32_t or uint64_t pointer. Try both.
   {
-    uint32_t value = 0;
+    uint64_t value = 0;
     sz = sizeof(value);
     err = mallctl(name, &value, &sz, nullptr, 0);
     if (!err) {
@@ -182,7 +182,7 @@ Result<int64_t> jemalloc_get_stat(const char* name) {
   }
   // EINVAL means the given value length (`sz`) was incorrect.
   if (err == EINVAL) {
-    uint64_t value = 0;
+    uint32_t value = 0;
     sz = sizeof(value);
     err = mallctl(name, &value, &sz, nullptr, 0);
     if (!err) {
