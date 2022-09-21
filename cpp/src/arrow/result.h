@@ -94,8 +94,7 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class [[nodiscard]] Result :  // NOLINT(whitespace/braces)
-                              public util::EqualityComparable<Result<T>> {
+class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
 
