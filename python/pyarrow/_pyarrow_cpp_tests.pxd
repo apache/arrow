@@ -50,7 +50,7 @@ cdef extern from "arrow/python/python_test.h" namespace "arrow::py" nogil:
     CStatus TestRestorePyErrorBasics()
     CStatus TestPyBufferInvalidInputObject()
 
-    #ifdef _WIN32
+    # ifdef _WIN32
     CStatus TestPyBufferNumpyArray()
     CStatus TestNumPyBufferNumpyArray()
-    #endif
+    # endif

@@ -49,14 +49,14 @@ def test_TestPyBufferInvalidInputObject():
     check_status(TestPyBufferInvalidInputObject())
 
 
-#ifdef _WIN32
+# ifdef _WIN32
 def test_TestPyBufferNumpyArray():
     check_status(TestPyBufferNumpyArray())
 
 
 def test_TestNumPyBufferNumpyArray():
     check_status(TestNumPyBufferNumpyArray())
-#endif
+# endif
 
 
 def test_PythonDecimalToString():
