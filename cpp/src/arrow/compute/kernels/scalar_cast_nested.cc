@@ -40,25 +40,22 @@ namespace {
 
 // (Large)List<T> -> (Large)List<U>
 
-template <typename SrcType, typename DestType>
-typename std::enable_if<SrcType::type_id == DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
-  return Status::OK();
-}
-
 // TODO(wesm): memory could be preallocated here and it would make
 // things simpler
 template <typename SrcType, typename DestType>
-typename std::enable_if<SrcType::type_id != DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
+Status CastListOffsets(KernelContext* ctx, const ArraySpan& in_array,
+                       ArrayData* out_array) {
   using src_offset_type = typename SrcType::offset_type;
   using dest_offset_type = typename DestType::offset_type;
 
-  ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
-                        ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
-  ::arrow::internal::CastInts(in_array.GetValues<src_offset_type>(1),
-                              out_array->GetMutableValues<dest_offset_type>(1),
-                              in_array.length + 1);
+  if constexpr (!std::is_same<src_offset_type, dest_offset_type>::value) {
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1], ctx->Allocate(sizeof(dest_offset_type) *
+                                                               (in_array.length + 1)));
+    ::arrow::internal::CastInts(in_array.GetValues<src_offset_type>(1),
+                                out_array->GetMutableValues<dest_offset_type>(1),
+                                in_array.length + 1);
+  }
+
   return Status::OK();
 }
 
@@ -253,6 +250,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddListCast<ListType, LargeListType>(cast_large_list.get());
   AddListCast<LargeListType, LargeListType>(cast_large_list.get());
 
+  auto cast_map = std::make_shared<CastFunction>("cast_map", Type::MAP);
+  AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
+  AddListCast<MapType, MapType>(cast_map.get());
+  AddListCast<MapType, ListType>(cast_map.get());
+  AddListCast<MapType, LargeListType>(cast_map.get());
+
   // FSL is a bit incomplete at the moment
   auto cast_fsl =
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
@@ -269,7 +272,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
       std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
   AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dictionary.get());
 
-  return {cast_list, cast_large_list, cast_fsl, cast_struct, cast_dictionary};
+  return {cast_list, cast_large_list, cast_map, cast_fsl, cast_struct, cast_dictionary};
 }
 
 }  // namespace internal

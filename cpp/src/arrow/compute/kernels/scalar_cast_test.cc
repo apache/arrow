@@ -2276,6 +2276,24 @@ TEST(Cast, FSLToFSLOptionsPassThru) {
   CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
 }
 
+TEST(Cast, MapToMapFieldNames) {
+  std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
+  std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
+
+  std::shared_ptr<Array> src =
+      ArrayFromJSON(src_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+  std::shared_ptr<Array> dst =
+      ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+
+  // std::shared_ptr<DataType> src_type = map(utf8(), field("x", int64()));
+  // std::shared_ptr<DataType> dst_type = map(utf8(), field("y", int64()));
+
+  // std::shared_ptr<Array> src = ArrayFromJSON(src_type, "[[[\"1\", 1]], [[\"2\", 6]]]");
+  // std::shared_ptr<Array> dst = ArrayFromJSON(dst_type, "[[[\"1\", 1]], [[\"2\", 6]]]");
+
+  CheckCast(src, dst);
+}
+
 static void CheckStructToStruct(
     const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {

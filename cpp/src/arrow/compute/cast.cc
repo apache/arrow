@@ -97,8 +97,11 @@ class CastMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
     // args[0].type() could be a nullptr so check for that before
     // we do anything with it.
+    // TODO: if types are equal except for field names of list types, we can
+    // also use this code path.
     if (args[0].type() && args[0].type()->Equals(*cast_options->to_type)) {
-      return args[0];
+      // Output might differ in field names and field metadata
+      return args[0].View(cast_options->to_type.GetSharedPtr());
     }
     Result<std::shared_ptr<CastFunction>> result =
         GetCastFunction(*cast_options->to_type);
