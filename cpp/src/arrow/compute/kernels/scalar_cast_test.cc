@@ -2285,13 +2285,30 @@ TEST(Cast, MapToMapFieldNames) {
   std::shared_ptr<Array> dst =
       ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
 
-  // std::shared_ptr<DataType> src_type = map(utf8(), field("x", int64()));
-  // std::shared_ptr<DataType> dst_type = map(utf8(), field("y", int64()));
+  CheckCast(src, dst);
 
-  // std::shared_ptr<Array> src = ArrayFromJSON(src_type, "[[[\"1\", 1]], [[\"2\", 6]]]");
-  // std::shared_ptr<Array> dst = ArrayFromJSON(dst_type, "[[[\"1\", 1]], [[\"2\", 6]]]");
+  src_type = map(utf8(), field("x", int64()));
+  dst_type = map(utf8(), field("y", int64()));
+
+  src = ArrayFromJSON(src_type, "[[[\"1\", 1]], [[\"2\", 6]], [[\"3\", 36]]]");
+  dst = ArrayFromJSON(dst_type, "[[[\"1\", 1]], [[\"2\", 6]], [[\"3\", 36]]]");
 
   CheckCast(src, dst);
+
+  src_type = map(int32(), int32());
+  dst_type = list(struct_({field("a", int32()), field("b", int64())}));
+
+  src = ArrayFromJSON(src_type, "[[[1, 1]], [[1, 6]], [[1, 36]]]");
+  dst = ArrayFromJSON(dst_type, "[[[1, 1]], [[1, 6]], [[1, 36]]]");
+
+  CheckCast(src, dst);
+
+  dst_type = list(
+      struct_({field("key", int32()), field("value", int64()), field("extra", int64())}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("must be cast to a list<struct> with exactly two fields"),
+      Cast(src, dst_type));
 }
 
 static void CheckStructToStruct(

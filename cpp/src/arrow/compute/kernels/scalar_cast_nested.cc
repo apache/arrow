@@ -253,7 +253,7 @@ struct CastMap {
         checked_cast<const DestType&>(*out->type()).value_type();
     // Assert is struct with two fields
     if (!(entry_type->id() == Type::STRUCT && entry_type->num_fields() == 2)) {
-      return Status::Invalid(
+      return Status::TypeError(
           "Map type must be cast to a list<struct> with exactly two fields.");
     }
     std::shared_ptr<DataType> key_type = entry_type->field(0)->type();
@@ -270,13 +270,15 @@ struct CastMap {
     RETURN_NOT_OK(CastListImpl::HandleOffsets(ctx, in_array, out_array, &entries));
 
     // Handle keys
-    const std::shared_ptr<ArrayData>& keys = entries->child_data[0];
+    const std::shared_ptr<ArrayData>& keys =
+        entries->child_data[0]->Slice(entries->offset, entries->length);
     ARROW_ASSIGN_OR_RAISE(Datum cast_keys,
                           Cast(keys, key_type, options, ctx->exec_context()));
     DCHECK(cast_keys.is_array());
 
     // Handle values
-    const std::shared_ptr<ArrayData>& values = entries->child_data[1];
+    const std::shared_ptr<ArrayData>& values =
+        entries->child_data[1]->Slice(entries->offset, entries->length);
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                           Cast(values, value_type, options, ctx->exec_context()));
     DCHECK(cast_values.is_array());
@@ -290,9 +292,9 @@ struct CastMap {
     }
 
     // Create struct array
-    std::shared_ptr<ArrayData> struct_array =
-        ArrayData::Make(entry_type, /*length=*/entries->length, {null_bitmap},
-                        {keys, values}, /*null_count=*/entries->null_count);
+    std::shared_ptr<ArrayData> struct_array = ArrayData::Make(
+        entry_type, /*length=*/entries->length, {null_bitmap},
+        {cast_keys.array(), cast_values.array()}, /*null_count=*/entries->null_count);
     out_array->child_data.push_back(struct_array);
 
     return Status::OK();
@@ -328,8 +330,8 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_map = std::make_shared<CastFunction>("cast_map", Type::MAP);
   AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
   AddMapCast<MapType>(cast_map.get());
-  AddMapCast<ListType>(cast_map.get());
-  AddMapCast<LargeListType>(cast_map.get());
+  AddMapCast<ListType>(cast_list.get());
+  AddMapCast<LargeListType>(cast_list.get());
 
   // FSL is a bit incomplete at the moment
   auto cast_fsl =
