@@ -154,7 +154,6 @@ Status jemalloc_set_decay_ms(int ms) {
 
 #undef RETURN_IF_JEMALLOC_ERROR
 
-#ifdef ARROW_JEMALLOC
 Result<int64_t> jemalloc_get_stat(const char* name) {
   size_t sz = sizeof(uint64_t);
   int err;
@@ -202,11 +201,8 @@ Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const cha
   auto cb_wrapper = [](void* opaque, const char* str) {
     (*static_cast<std::function<void(const char*)>*>(opaque))(str);
   };
-  if (write_cb) {
-    malloc_stats_print(cb_wrapper, &write_cb, opts);
-  }
+  malloc_stats_print(cb_wrapper, &write_cb, opts);
   return Status::OK();
 }
-#endif
 
 }  // namespace arrow

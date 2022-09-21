@@ -196,7 +196,6 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_OK_AND_ASSIGN(thread_peak_read0, jemalloc_get_stat("thread.peak.read"));
 
   // Allocate memory
-  ASSERT_OK(jemalloc_set_decay_ms(10000));
   ASSERT_OK(pool->Allocate(1025, &data));
   ASSERT_EQ(pool->bytes_allocated(), 1025);
   ASSERT_OK(pool->Reallocate(1025, 1023, &data));
