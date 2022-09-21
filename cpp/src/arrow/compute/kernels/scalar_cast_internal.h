@@ -43,7 +43,6 @@ struct CastFunctor<
 };
 
 Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
-Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // Utility for numeric casts
 void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
