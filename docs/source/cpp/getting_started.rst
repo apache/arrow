@@ -39,7 +39,6 @@ API.
 .. toctree::
 
    overview
-   conventions
    build_system
    conventions
    tutorials/basic_arrow.rst
