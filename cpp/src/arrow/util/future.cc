@@ -50,17 +50,12 @@ class ConcreteFutureImpl : public FutureImpl {
     CheckOptions(opts);
     std::unique_lock<std::mutex> lock(mutex_);
 #ifdef ARROW_WITH_OPENTELEMETRY
-    struct SpanWrapper {
-      void operator()(const FutureImpl& impl) {
-        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-        std::move(func)(impl);
-      }
-      Callback func;
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+    callback = [func = std::move(callback),
+                active_span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()](
+                   const FutureImpl& impl) mutable {
+      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+      std::move(func)(impl);
     };
-    SpanWrapper wrapper{std::move(callback),
-                        ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
-    callback = std::move(wrapper);
 #endif
     CallbackRecord callback_record{std::move(callback), opts};
     if (IsFutureFinished(state_)) {
@@ -105,14 +100,10 @@ class ConcreteFutureImpl : public FutureImpl {
                                     CallbackRecord&& callback_record,
                                     bool in_add_callback) {
     if (ShouldScheduleCallback(callback_record, in_add_callback)) {
-      struct CallbackTask {
-        void operator()() { std::move(callback)(*self); }
-
-        Callback callback;
-        std::shared_ptr<FutureImpl> self;
-      };
       // Need to keep `this` alive until the callback has a chance to be scheduled.
-      CallbackTask task{std::move(callback_record.callback), self};
+      auto task = [self, callback = std::move(callback_record.callback)]() mutable {
+        return std::move(callback)(*self);
+      };
       DCHECK_OK(callback_record.options.executor->Spawn(std::move(task)));
     } else {
       std::move(callback_record.callback)(*self);

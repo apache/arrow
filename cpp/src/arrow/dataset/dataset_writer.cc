@@ -174,19 +174,9 @@ class DatasetWriterFileQueue {
   }
 
   void ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
-    // TODO(ARROW-17110) This task is only here to std::move the batch
-    // It can be a lambda once we adopt C++14
-    struct WriteTask : public util::AsyncTaskScheduler::Task {
-      WriteTask(DatasetWriterFileQueue* self, std::shared_ptr<RecordBatch> batch)
-          : self(self), batch(std::move(batch)) {}
-      Result<Future<>> operator()(util::AsyncTaskScheduler*) {
-        return self->WriteNext(std::move(batch));
-      }
-      DatasetWriterFileQueue* self;
-      std::shared_ptr<RecordBatch> batch;
-    };
-    scheduler_->AddTask(
-        ::arrow::internal::make_unique<WriteTask>(this, std::move(batch)));
+    scheduler_->AddSimpleTask([self = this, batch = std::move(batch)]() {
+      return self->WriteNext(std::move(batch));
+    });
   }
 
   Result<int64_t> PopAndDeliverStagedBatch() {
@@ -228,19 +218,14 @@ class DatasetWriterFileQueue {
 
  private:
   Future<> WriteNext(std::shared_ptr<RecordBatch> next) {
-    struct WriteTask {
-      Status operator()() {
-        int64_t rows_to_release = batch->num_rows();
-        Status status = self->writer_->Write(batch);
-        self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
-        return status;
-      }
-      DatasetWriterFileQueue* self;
-      std::shared_ptr<RecordBatch> batch;
-    };
     // May want to prototype / measure someday pushing the async write down further
     return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
-        WriteTask{this, std::move(next)}));
+        [self = this, batch = std::move(next)]() {
+          int64_t rows_to_release = batch->num_rows();
+          Status status = self->writer_->Write(batch);
+          self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
+          return status;
+        }));
   }
 
   Future<> DoFinish() {
@@ -336,18 +321,14 @@ class DatasetWriterDirectoryQueue {
     DatasetWriterFileQueue* file_queue_view = file_queue.get();
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
-    struct FileFinishTask {
-      Status operator()() {
-        self->writer_state_->open_files_throttle.Release(1);
-        return Status::OK();
-      }
-      DatasetWriterDirectoryQueue* self;
-      std::unique_ptr<DatasetWriterFileQueue> owned_file_queue;
-      std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle;
-    };
     util::AsyncTaskScheduler::Throttle* throttle_view = throttle.get();
-    util::AsyncTaskScheduler* file_scheduler = scheduler_->MakeSubScheduler(
-        FileFinishTask{this, std::move(file_queue), std::move(throttle)}, throttle_view);
+    auto file_finish_task = [self = this, file_queue = std::move(file_queue),
+                             throttle = std::move(throttle)]() {
+      self->writer_state_->open_files_throttle.Release(1);
+      return Status::OK();
+    };
+    util::AsyncTaskScheduler* file_scheduler =
+        scheduler_->MakeSubScheduler(std::move(file_finish_task), throttle_view);
     if (init_task_) {
       file_scheduler->AddSimpleTask(init_task_);
       init_task_ = {};
