@@ -417,3 +417,29 @@ test_that("filter() with namespaced functions", {
     tbl
   )
 })
+
+test_that("filter() with across()", {
+
+  # ARROW-17366: purrr-style lambda functions not yet supported
+  compare_dplyr_binding(
+    .input %>%
+      filter(across(everything(), ~ !is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_any(ends_with("l"), ~ is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_all(ends_with("l"), ~ !is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+})
