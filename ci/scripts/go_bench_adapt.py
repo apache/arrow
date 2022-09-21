@@ -34,7 +34,7 @@ class GoAdapter(BenchmarkAdapter):
     def __init__(self) -> None:
         super().__init__(command=self.command)
 
-    def transform_results(self) -> List[BenchmarkResult]:
+    def _transform_results(self) -> List[BenchmarkResult]:
         with open(self.result_file, "r") as f:
             raw_results = json.load(f)
 
