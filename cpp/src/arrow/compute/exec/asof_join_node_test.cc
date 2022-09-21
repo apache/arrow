@@ -568,7 +568,7 @@ struct BasicTest {
     std::uniform_int_distribution<size_t> r0_distribution(0, r0_types.size() - 1);
     std::uniform_int_distribution<size_t> r1_distribution(0, r1_types.size() - 1);
 
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 100; i++) {
       auto time_type = time_types[time_distribution(engine)];
       ARROW_SCOPED_TRACE("Time type: ", *time_type);
       auto key_type = key_types[key_distribution(engine)];
@@ -584,8 +584,7 @@ struct BasicTest {
 
       auto end_time = std::chrono::system_clock::now();
       std::chrono::duration<double> diff = end_time - start_time;
-      if (diff.count() > 2) {
-        // this normally happens on slow CI systems, but is fine
+      if (diff.count() > 0.2) {
         break;
       }
     }
