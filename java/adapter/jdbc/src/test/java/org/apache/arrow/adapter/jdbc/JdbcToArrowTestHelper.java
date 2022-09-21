@@ -26,7 +26,9 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,8 +49,17 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.JsonStringHashMap;
+import org.apache.arrow.vector.util.ObjectMapperFactory;
+import org.apache.arrow.vector.util.Text;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
@@ -238,6 +249,45 @@ public class JdbcToArrowTestHelper {
         assertEquals(Arrays.asList(values[j]), list);
       }
     }
+  }
+
+  public static void assertMapVectorValues(MapVector mapVector, int rowCount, Map<String, String>[] values) {
+    assertEquals(rowCount, mapVector.getValueCount());
+
+    for (int j = 0; j < mapVector.getValueCount(); j++) {
+      if (values[j] == null) {
+        assertTrue(mapVector.isNull(j));
+      } else {
+        JsonStringArrayList<JsonStringHashMap<String, Text>> actualSource =
+            (JsonStringArrayList<JsonStringHashMap<String, Text>>) mapVector.getObject(j);
+        Map<String, String> actualMap = null;
+        if (actualSource != null && !actualSource.isEmpty()) {
+          actualMap = actualSource.stream().map(entry ->
+            new AbstractMap.SimpleEntry<>(entry.get("key").toString(),
+                    entry.get("value") != null ? entry.get("value").toString() : null))
+          .collect(HashMap::new, (collector, val) -> collector.put(val.getKey(), val.getValue()), HashMap::putAll);
+        }
+        assertEquals(values[j], actualMap);
+      }
+    }
+  }
+
+  public static Map<String, String>[] getMapValues(String[] values, String dataType) {
+    String[] dataArr = getValues(values, dataType);
+    Map<String, String>[] maps = new Map[dataArr.length];
+    ObjectMapper objectMapper = ObjectMapperFactory.newObjectMapper();
+    TypeReference<Map<String, String>> typeReference = new TypeReference<Map<String, String>>() {};
+    for (int idx = 0; idx < dataArr.length; idx++) {
+      String jsonString = dataArr[idx].replace("|", ",");
+      if (!jsonString.isEmpty()) {
+        try {
+          maps[idx] = objectMapper.readValue(jsonString, typeReference);
+        } catch (JsonProcessingException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+    return maps;
   }
 
   public static void assertNullValues(BaseValueVector vector, int rowCount) {

@@ -31,6 +31,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +50,7 @@ import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.MapConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.NullConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.SmallIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimeConsumer;
@@ -76,6 +78,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -279,6 +282,14 @@ public class JdbcToArrowUtils {
           children = new ArrayList<Field>();
           final ArrowType childType = config.getJdbcToArrowTypeConverter().apply(arrayFieldInfo);
           children.add(new Field("child", FieldType.nullable(childType), null));
+        } else if (arrowType.getTypeID() == ArrowType.ArrowTypeID.Map) {
+          FieldType mapType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+          FieldType keyType = new FieldType(false, new ArrowType.Utf8(), null, null);
+          FieldType valueType = new FieldType(false, new ArrowType.Utf8(), null, null);
+          children = new ArrayList<>();
+          children.add(new Field("child", mapType,
+                  Arrays.asList(new Field(MapVector.KEY_NAME, keyType, null),
+                          new Field(MapVector.VALUE_NAME, valueType, null))));
         }
 
         fields.add(new Field(columnName, fieldType, children));
@@ -471,6 +482,8 @@ public class JdbcToArrowUtils {
         JdbcConsumer delegate = getConsumer(childVector.getField().getType(), JDBC_ARRAY_VALUE_COLUMN,
             childVector.getField().isNullable(), childVector, config);
         return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
+      case Map:
+        return MapConsumer.createConsumer((MapVector) vector, columnIndex, nullable);
       case Null:
         return new NullConsumer((NullVector) vector);
       default:
