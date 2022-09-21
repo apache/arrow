@@ -324,9 +324,10 @@ public class JdbcToArrowTestHelper {
       Map<String, String> metadata = fields.get(i - 1).getMetadata();
 
       assertNotNull(metadata);
-      assertEquals(4, metadata.size());
+      assertEquals(5, metadata.size());
 
       assertEquals(rsmd.getCatalogName(i), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
+      assertEquals(rsmd.getSchemaName(i), metadata.get(Constants.SQL_SCHEMA_NAME_KEY));
       assertEquals(rsmd.getTableName(i), metadata.get(Constants.SQL_TABLE_NAME_KEY));
       assertEquals(rsmd.getColumnLabel(i), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
       assertEquals(rsmd.getColumnTypeName(i), metadata.get(Constants.SQL_TYPE_KEY));
