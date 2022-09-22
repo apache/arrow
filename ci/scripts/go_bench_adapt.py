@@ -69,4 +69,4 @@ class GoAdapter(BenchmarkAdapter):
 
 if __name__ == "__main__":
     go_adapter = GoAdapter()
-    go_adapter.run()
+    go_adapter()
