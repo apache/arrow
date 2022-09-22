@@ -261,20 +261,29 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           }
 
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
-            RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
+            RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
             break;
           }
 
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
-            // Let the filesystem API decide for us if the URI is a file or a directory
             ARROW_ASSIGN_OR_RAISE(auto file_info,
                                   filesystem->GetFileInfo(item_uri.path()));
 
-            // push the FileInfo if it's a file; else, recurse into the directory
-            if (file_info.type() == fs::FileType::File) {
-              files.push_back(std::move(file_info));
-            } else if (file_info.type() == fs::FileType::Directory) {
-              RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), files));
+            switch (file_info.type()) {
+              case fs::FileType::File: {
+                files.push_back(std::move(file_info));
+                break;
+              }
+              case fs::FileType::Directory: {
+                RETURN_NOT_OK(DiscoverFilesFromDir(filesystem, item_uri.path(), &files));
+                break;
+              }
+              case fs::FileType::NotFound:
+                return Status::Invalid("Unable to find file for URI path");
+              case fs::FileType::Unknown:
+                [[fallthrough]];
+              default:
+                return Status::NotImplemented("unsupported: URI path is of unknown file type.");
             }
             break;
           }
