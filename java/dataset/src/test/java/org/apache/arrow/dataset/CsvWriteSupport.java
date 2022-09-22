@@ -25,20 +25,17 @@ import java.net.URISyntaxException;
 import java.util.Random;
 
 public class CsvWriteSupport {
-  private final String path;
-  private final String uri;
+  private final URI uri;
   private final Random random = new Random();
 
-  public CsvWriteSupport(File outputFolder) {
-    path = outputFolder.getPath() + File.separator + "generated-" + random.nextLong() + ".csv";
-    uri = "file://" + path;
+  public CsvWriteSupport(File outputFolder) throws URISyntaxException {
+    uri = new URI("file", outputFolder.getPath() + File.separator + "generated-" + random.nextLong() + ".csv", null);
   }
 
   public static CsvWriteSupport writeTempFile(File outputFolder, String... values)
-      throws IOException, URISyntaxException {
+      throws URISyntaxException, IOException {
     CsvWriteSupport writer = new CsvWriteSupport(outputFolder);
-    File csvOutputFile = new File(new URI(writer.uri));
-    try (FileWriter addValues = new FileWriter(csvOutputFile, true)) {
+    try (FileWriter addValues = new FileWriter(new File(writer.uri), true)) {
       for (Object value : values) {
         addValues.write(value + "\n");
       }
@@ -47,6 +44,6 @@ public class CsvWriteSupport {
   }
 
   public String getOutputURI() {
-    return uri;
+    return uri.toString();
   }
 }
