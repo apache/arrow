@@ -326,7 +326,7 @@ void test_source_sink(
   ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
   ExecContext exec_context(default_memory_pool(), io_executor.get());
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_context));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   auto exp_batches = MakeBasicBatches();
   ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));

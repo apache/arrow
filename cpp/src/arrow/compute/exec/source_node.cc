@@ -295,7 +295,7 @@ struct TableSourceNode : public SourceNode {
 template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
   SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
-                   arrow::AsyncGenerator<util::optional<ExecBatch>> generator)
+                   arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
       : SourceNode(plan, schema, generator) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -334,15 +334,15 @@ struct RecordBatchSourceNode
 
   const char* kind_name() const override { return kKindName; }
 
-  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
       Iterator<std::shared_ptr<RecordBatch>>& batch_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [schema](const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
+        [schema](const std::shared_ptr<RecordBatch>& batch) -> std::optional<ExecBatch> {
       if (batch == NULLPTR || *batch->schema() != *schema) {
-        return util::nullopt;
+        return std::nullopt;
       }
-      return util::optional<ExecBatch>(ExecBatch(*batch));
+      return std::optional<ExecBatch>(ExecBatch(*batch));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
@@ -367,12 +367,12 @@ struct ExecBatchSourceNode
 
   const char* kind_name() const override { return kKindName; }
 
-  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
       Iterator<std::shared_ptr<ExecBatch>>& batch_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [](const std::shared_ptr<ExecBatch>& batch) -> util::optional<ExecBatch> {
-      return batch == NULLPTR ? util::nullopt : util::optional<ExecBatch>(*batch);
+        [](const std::shared_ptr<ExecBatch>& batch) -> std::optional<ExecBatch> {
+      return batch == NULLPTR ? std::nullopt : std::optional<ExecBatch>(*batch);
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
@@ -397,19 +397,19 @@ struct ArrayVectorSourceNode
 
   const char* kind_name() const override { return kKindName; }
 
-  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> MakeGenerator(
+  static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
       Iterator<std::shared_ptr<ArrayVector>>& arrayvec_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [](const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
+        [](const std::shared_ptr<ArrayVector>& arrayvec) -> std::optional<ExecBatch> {
       if (arrayvec == NULLPTR || arrayvec->size() == 0) {
-        return util::nullopt;
+        return std::nullopt;
       }
       std::vector<Datum> datumvec;
       for (const auto& array : *arrayvec) {
         datumvec.push_back(Datum(array));
       }
-      return util::optional<ExecBatch>(
+      return std::optional<ExecBatch>(
           ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
