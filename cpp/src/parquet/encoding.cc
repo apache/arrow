@@ -2387,17 +2387,16 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
   int Decode(bool* buffer, int max_values) override {
     max_values = std::min(max_values, num_values_);
 
-
-if (decoder_->GetBatch(buffer, max_values) != max_values) {
-     ParquetException::EofException();
-}
+    if (decoder_->GetBatch(buffer, max_values) != max_values) {
+      ParquetException::EofException();
+    }
     num_values_ -= max_values;
     return max_values;
   }
 
-    int Decode(uint8_t* buffer, int max_values) override {
-        ParquetException::NYI("Decode with uint8_t for RleBooleanDecoder");
-    }
+  int Decode(uint8_t* buffer, int max_values) override {
+    ParquetException::NYI("Decode with uint8_t for RleBooleanDecoder");
+  }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
