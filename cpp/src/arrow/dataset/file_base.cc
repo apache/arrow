@@ -482,13 +482,10 @@ class TeeNode : public compute::MapNode {
         write_options_(std::move(write_options)) {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
-    struct DestroyThrottle {
-      Status operator()() { return Status::OK(); }
-      std::unique_ptr<util::AsyncTaskScheduler::Throttle> owned_throttle;
-    };
     util::AsyncTaskScheduler::Throttle* serial_throttle_view = serial_throttle.get();
     serial_scheduler_ = plan_->async_scheduler()->MakeSubScheduler(
-        DestroyThrottle{std::move(serial_throttle)}, serial_throttle_view);
+        [owned_throttle = std::move(serial_throttle)]() { return Status::OK(); },
+        serial_throttle_view);
   }
 
   static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
