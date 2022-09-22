@@ -28,7 +28,14 @@ import (
 )
 
 var (
-	filterDoc      FunctionDoc
+	filterDoc = FunctionDoc{
+		Summary: "Filter with a boolean selection filter",
+		Description: `The output is populated with values from the input at positions
+where the selection filter is non-zero. Nulls in the selection filter
+are handled based on FilterOptions.`,
+		ArgNames:    []string{"input", "selection_filter"},
+		OptionsType: "FilterOptions",
+	}
 	filterMetaFunc = NewMetaFunction("filter", Binary(), filterDoc,
 		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 			if args[1].(ArrayLikeDatum).Type().ID() != arrow.BOOL {
@@ -69,7 +76,13 @@ var (
 				return CallFunction(ctx, "array_filter", opts, args...)
 			}
 		})
-	takeDoc      FunctionDoc
+	takeDoc = FunctionDoc{
+		Summary: "Select values from an input based on indices from another array",
+		Description: `The output is populated with values from the input at positions
+given by "indices". Nulls in "indices" emit null in the output`,
+		ArgNames:    []string{"input", "indices"},
+		OptionsType: "TakeOptions",
+	}
 	takeMetaFunc = NewMetaFunction("take", Binary(), takeDoc,
 		func(ctx context.Context, opts FunctionOptions, args ...Datum) (Datum, error) {
 			indexKind := args[1].Kind()
