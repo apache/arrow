@@ -34,7 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -162,7 +161,7 @@ Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyNonOwnedFrom(
     ARROW_ASSIGN_OR_RAISE(auto dest,
                           MemoryManager::CopyNonOwned(buf, default_cpu_memory_manager()));
     // 2. Wrap CPU buffer result
-    return internal::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
+    return std::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
   }
   return nullptr;
 }

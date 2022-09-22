@@ -30,14 +30,14 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
+
+#include <memory>
 
 namespace arrow {
 
 using internal::checked_cast;
-using internal::make_unique;
 using internal::StartsWith;
 using internal::UriFromAbsolutePath;
 
@@ -575,7 +575,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto read_rel = make_unique<substrait::ReadRel>();
+  auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
       checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
   auto dataset =
@@ -591,9 +591,10 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
-  auto read_rel_lfs = make_unique<substrait::ReadRel::LocalFiles>();
+  auto read_rel_lfs = std::make_unique<substrait::ReadRel::LocalFiles>();
   for (const auto& file : dataset->files()) {
-    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
+    auto read_rel_lfs_ffs =
+        std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     auto format_type_name = dataset->format()->type_name();
@@ -618,7 +619,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto filter_rel = make_unique<substrait::FilterRel>();
+  auto filter_rel = std::make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
       checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
 
@@ -684,7 +685,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
 Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto rel = make_unique<substrait::Rel>();
+  auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   return std::move(rel);
 }

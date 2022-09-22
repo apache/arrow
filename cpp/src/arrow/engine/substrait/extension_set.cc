@@ -18,13 +18,13 @@
 #include "arrow/engine/substrait/extension_set.h"
 
 #include <list>
+#include <memory>
 #include <sstream>
 #include <unordered_set>
 
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace engine {
@@ -123,7 +123,7 @@ class IdStorageImpl : public IdStorage {
 };
 
 std::unique_ptr<IdStorage> IdStorage::Make() {
-  return ::arrow::internal::make_unique<IdStorageImpl>();
+  return std::make_unique<IdStorageImpl>();
 }
 
 Result<std::optional<std::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {

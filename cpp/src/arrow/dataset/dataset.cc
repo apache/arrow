@@ -26,7 +26,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {

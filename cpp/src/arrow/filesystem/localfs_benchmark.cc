@@ -29,13 +29,11 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
 namespace fs {
 
-using arrow::internal::make_unique;
 using arrow::internal::TemporaryDir;
 
 /// Set up hierarchical directory structure to test asynchronous
@@ -56,7 +54,7 @@ class LocalFSFixture : public benchmark::Fixture {
     ASSERT_OK_AND_ASSIGN(tmp_dir_, TemporaryDir::Make("localfs-test-"));
 
     auto options = LocalFileSystemOptions::Defaults();
-    fs_ = make_unique<LocalFileSystem>(options);
+    fs_ = std::make_unique<LocalFileSystem>(options);
 
     InitializeDatasetStructure(0, tmp_dir_->path());
   }
@@ -110,7 +108,7 @@ BENCHMARK_DEFINE_F(LocalFSFixture, AsyncFileDiscovery)
     auto options = LocalFileSystemOptions::Defaults();
     options.directory_readahead = static_cast<int32_t>(st.range(0));
     options.file_info_batch_size = static_cast<int32_t>(st.range(1));
-    auto test_fs = make_unique<LocalFileSystem>(options);
+    auto test_fs = std::make_unique<LocalFileSystem>(options);
     // Create recursive FileSelector pointing to the root of the temporary
     // directory, which was set up by the fixture earlier.
     FileSelector select;

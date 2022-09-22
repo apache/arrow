@@ -37,7 +37,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/unreachable.h"
 
@@ -3477,7 +3476,7 @@ class TpchGenImpl : public TpchGen {
 template <typename Generator>
 Result<ExecNode*> TpchGenImpl::CreateNode(const char* name,
                                           std::vector<std::string> columns) {
-  std::unique_ptr<Generator> generator = arrow::internal::make_unique<Generator>();
+  std::unique_ptr<Generator> generator = std::make_unique<Generator>();
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, name, std::move(generator));
@@ -3492,7 +3491,7 @@ Result<ExecNode*> TpchGenImpl::Part(std::vector<std::string> columns) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
   std::unique_ptr<PartGenerator> generator =
-      arrow::internal::make_unique<PartGenerator>(part_and_part_supp_generator_);
+      std::make_unique<PartGenerator>(part_and_part_supp_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Part", std::move(generator));
@@ -3503,7 +3502,7 @@ Result<ExecNode*> TpchGenImpl::PartSupp(std::vector<std::string> columns) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
   std::unique_ptr<PartSuppGenerator> generator =
-      arrow::internal::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
+      std::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "PartSupp", std::move(generator));
@@ -3518,7 +3517,7 @@ Result<ExecNode*> TpchGenImpl::Orders(std::vector<std::string> columns) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
   std::unique_ptr<OrdersGenerator> generator =
-      arrow::internal::make_unique<OrdersGenerator>(orders_and_line_item_generator_);
+      std::make_unique<OrdersGenerator>(orders_and_line_item_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Orders", std::move(generator));
@@ -3529,7 +3528,7 @@ Result<ExecNode*> TpchGenImpl::Lineitem(std::vector<std::string> columns) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
   std::unique_ptr<LineitemGenerator> generator =
-      arrow::internal::make_unique<LineitemGenerator>(orders_and_line_item_generator_);
+      std::make_unique<LineitemGenerator>(orders_and_line_item_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Lineitem", std::move(generator));

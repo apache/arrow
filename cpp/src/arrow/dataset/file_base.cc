@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 
 #include <algorithm>
+#include <memory>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -40,7 +41,6 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"

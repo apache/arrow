@@ -28,11 +28,9 @@
 #include "arrow/buffer.h"
 #include "arrow/json/options.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
-using internal::make_unique;
 using std::string_view;
 
 namespace json {

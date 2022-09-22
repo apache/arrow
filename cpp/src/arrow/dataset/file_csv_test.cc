@@ -65,7 +65,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return ::arrow::internal::make_unique<FileSource>(
+      return std::make_unique<FileSource>(
           Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
@@ -94,7 +94,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
     EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-    return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
+    return std::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {

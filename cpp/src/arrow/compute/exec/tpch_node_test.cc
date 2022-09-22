@@ -18,6 +18,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <cctype>
+#include <memory>
 #include <regex>
 #include <string>
 #include <unordered_set>
@@ -32,7 +33,6 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"

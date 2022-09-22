@@ -21,8 +21,9 @@
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/mutex.h"
+
+#include <memory>
 
 namespace arrow {
 
@@ -187,7 +188,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   template <typename Callable>
   bool AddSimpleTask(Callable callable) {
     return AddTask(
-        ::arrow::internal::make_unique<SimpleTask<Callable>>(std::move(callable)));
+        std::make_unique<SimpleTask<Callable>>(std::move(callable)));
   }
   /// Signal that tasks are done being added
   ///

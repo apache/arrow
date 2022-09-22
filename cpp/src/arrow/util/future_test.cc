@@ -38,7 +38,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -531,7 +530,7 @@ TEST(FutureStressTest, DeleteAfterWait) {
   for (int i = 0; i < kNumTasks; i++) {
     {
       std::unique_ptr<Future<>> future =
-          internal::make_unique<Future<>>(Future<>::Make());
+          std::make_unique<Future<>>(Future<>::Make());
       std::thread t([&]() {
         SleepABit();
         future->MarkFinished();
