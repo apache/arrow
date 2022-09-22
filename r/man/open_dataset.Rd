@@ -167,8 +167,7 @@ tf <- tempfile()
 dir.create(tf)
 on.exit(unlink(tf))
 
-data <- dplyr::group_by(mtcars, cyl)
-write_dataset(data, tf)
+write_dataset(mtcars, tf, partitioning="cyl")
 
 # You can specify a directory containing the files for your dataset and
 # open_dataset will scan all files in your directory.

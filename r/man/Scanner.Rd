@@ -53,8 +53,7 @@ tf <- tempfile()
 dir.create(tf)
 on.exit(unlink(tf))
 
-data <- dplyr::group_by(mtcars, cyl)
-write_dataset(data, tf)
+write_dataset(mtcars, tf, partitioning="cyl")
 
 ds <- open_dataset(tf)
 
