@@ -71,6 +71,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run java-jni-manylinux-2014
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
@@ -104,6 +107,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run conda-python-java-integration
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
