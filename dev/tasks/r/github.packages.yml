@@ -320,6 +320,10 @@ jobs:
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
+          # Don't use zstd installed by Homebrew because it provides
+          # zstdConfig.cmake but doesn't provide libzstd.pc. libzstd.pc
+          # is required for "pkg-config --static --cflags --libs arrow".
+          zstd_SOURCE: "BUNDLED"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
@@ -331,6 +335,10 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
           CMAKE_FIND_DEBUG_MODE: "ON"
+          # Don't use zstd installed by Homebrew because it provides
+          # zstdConfig.cmake but doesn't provide libzstd.pc. libzstd.pc
+          # is required for "pkg-config --static --cflags --libs arrow".
+          zstd_SOURCE: "BUNDLED"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
