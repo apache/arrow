@@ -215,9 +215,9 @@ struct ARROW_EXPORT Datum {
   bool operator!=(const Datum& other) const { return !Equals(other); }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const Datum&, std::ostream*);
 };
+
+ARROW_EXPORT void PrintTo(const Datum&, std::ostream*);
 
 ARROW_EXPORT std::string ToString(Datum::Kind kind);
 
