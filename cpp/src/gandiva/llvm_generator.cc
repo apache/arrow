@@ -293,6 +293,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     case SelectionVector::MODE_UINT64:
       arguments.push_back(types()->i64_ptr_type());
       selection_vector_type = types()->i64_type();
+      break;
   }
   arguments.push_back(types()->i64_type());  // ctx_ptr
   arguments.push_back(types()->i64_type());  // nrec
@@ -386,7 +387,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     SetPackedBitValue(output_ref, loop_var, output_value->data());
   } else if (arrow::is_primitive(output_type_id) ||
              output_type_id == arrow::Type::DECIMAL) {
-    llvm::Value* slot_offset =
+    auto slot_offset =
         builder->CreateGEP(types()->IRType(output_type_id), output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
   } else if (arrow::is_binary_like(output_type_id)) {
@@ -625,7 +626,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
   llvm::Value* offsets_slot_index_next = builder->CreateAdd(
       offsets_slot_index, generator_->types()->i64_constant(1), "loop_var+1");
   slot = builder->CreateGEP(types->i32_type(), offsets_slot_ref, offsets_slot_index_next);
-  llvm::Value* offset_end = builder->CreateLoad(types->i32_type(), slot, "offset_end");
+  auto offset_end = builder->CreateLoad(types->i32_type(), slot, "offset_end");
 
   // => len_value = offset_end - offset_start
   llvm::Value* len_value =
@@ -634,8 +635,7 @@ void LLVMGenerator::Visitor::Visit(const VectorReadVarLenValueDex& dex) {
   // get the data from the data array, at offset 'offset_start'.
   llvm::Value* data_slot_ref =
       GetBufferReference(dex.DataIdx(), kBufferTypeData, dex.Field());
-  llvm::Value* data_value =
-      builder->CreateGEP(types->i8_type(), data_slot_ref, offset_start);
+  auto data_value = builder->CreateGEP(types->i8_type(), data_slot_ref, offset_start);
   ADD_VISITOR_TRACE("visit var-len data vector " + dex.FieldName() + " len %T",
                     len_value);
   result_.reset(new LValue(data_value, len_value));
@@ -845,7 +845,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
   result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
 
   // load the result validity and truncate to i1.
-  llvm::Value* result_valid_i8 = builder->CreateLoad(types->i8_type(), result_valid_ptr);
+  auto result_valid_i8 = builder->CreateLoad(types->i8_type(), result_valid_ptr);
   llvm::Value* result_valid = builder->CreateTrunc(result_valid_i8, types->i1_type());
 
   // set validity bit in the local bitmap.
@@ -1294,7 +1294,7 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
     llvm::BasicBlock* saved_block = builder->GetInsertBlock();
     builder->SetInsertPoint(entry_block_);
 
-    llvm::Value* holder = generator_->LoadVectorAtIndex(
+    auto holder = generator_->LoadVectorAtIndex(
         arg_holder_ptrs_, generator_->types()->i64_type(), holder_idx, "holder");
 
     builder->SetInsertPoint(saved_block);
