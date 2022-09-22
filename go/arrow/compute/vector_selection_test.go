@@ -1458,6 +1458,158 @@ func (tk *TakeKernelTestChunked) TestChunkedArray() {
 	tk.ErrorIs(err, arrow.ErrIndex)
 }
 
+type TakeKernelTestRecord struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestRecord) takeJSON(schm *arrow.Schema, batchJSON string, indexType arrow.DataType, indices string) (arrow.Record, error) {
+	batch, _, err := array.RecordFromJSON(tk.mem, schm, strings.NewReader(batchJSON))
+	tk.Require().NoError(err)
+	defer batch.Release()
+	indexArr, _, err := array.FromJSON(tk.mem, indexType, strings.NewReader(indices))
+	tk.Require().NoError(err)
+	defer indexArr.Release()
+	result, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(),
+		&compute.RecordDatum{Value: batch}, &compute.ArrayDatum{Value: indexArr.Data()})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*compute.RecordDatum).Value, nil
+}
+
+func (tk *TakeKernelTestRecord) assertTake(schm *arrow.Schema, batchJSON, indices, exp string) {
+	expected, _, err := array.RecordFromJSON(tk.mem, schm, strings.NewReader(exp))
+	tk.Require().NoError(err)
+	defer expected.Release()
+
+	for _, idxType := range []arrow.DataType{arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Uint32} {
+		result, err := tk.takeJSON(schm, batchJSON, idxType, indices)
+		tk.NoError(err)
+		defer result.Release()
+		tk.Truef(array.RecordEqual(expected, result), "expected: %s\ngot: %s", expected, result)
+	}
+}
+
+func (tk *TakeKernelTestRecord) TestTakeRecordBatch() {
+	fields := []arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}
+
+	schm := arrow.NewSchema(fields, nil)
+	batchJSON := `[
+		{"a": null, "b": "yo"},
+		{"a": 1, "b": ""},
+		{"a": 2, "b": "hello"},
+		{"a": 4, "b": "eh"}
+	]`
+
+	tk.assertTake(schm, batchJSON, `[]`, `[]`)
+	tk.assertTake(schm, batchJSON, `[3, 1, 3, 1, 3]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": 4, "b": "eh"}
+	]`)
+	tk.assertTake(schm, batchJSON, `[3, 1, 0]`, `[
+		{"a": 4, "b": "eh"},
+		{"a": 1, "b": ""},
+		{"a": null, "b": "yo"}
+	]`)
+	tk.assertTake(schm, batchJSON, `[0, 1, 2, 3]`, batchJSON)
+	tk.assertTake(schm, batchJSON, `[0, 2, 2, 2, 2, 2, 2]`, `[
+		{"a": null, "b": "yo"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"},
+		{"a": 2, "b": "hello"}
+	]`)
+}
+
+type TakeKernelTestTable struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestTable) assertTake(schm *arrow.Schema, tableJSON []string, filter string, exptable []string) {
+	tbl, err := tk.takeWithArray(schm, tableJSON, filter)
+	tk.Require().NoError(err)
+	defer tbl.Release()
+
+	exptbl, err := array.TableFromJSON(tk.mem, schm, exptable)
+	tk.Require().NoError(err)
+	defer exptbl.Release()
+
+	tk.Truef(array.TableEqual(exptbl, tbl), "expected: %s\ngot: %s", exptbl, tbl)
+}
+
+func (tk *TakeKernelTestTable) assertChunkedTake(schm *arrow.Schema, tableJSON, filter, expTable []string) {
+	tbl, err := tk.takeWithChunked(schm, tableJSON, filter)
+	tk.Require().NoError(err)
+	defer tbl.Release()
+
+	exptbl, err := array.TableFromJSON(tk.mem, schm, expTable)
+	tk.Require().NoError(err)
+	defer exptbl.Release()
+
+	tk.Truef(array.TableEqual(exptbl, tbl), "expected: %s\ngot: %s", exptbl, tbl)
+}
+
+func (tk *TakeKernelTestTable) takeWithArray(schm *arrow.Schema, values []string, indices string) (arrow.Table, error) {
+	tbl, err := array.TableFromJSON(tk.mem, schm, values)
+	tk.NoError(err)
+	defer tbl.Release()
+
+	indicesArr, _, err := array.FromJSON(tk.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(indices))
+	tk.NoError(err)
+	defer indicesArr.Release()
+
+	result, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), &compute.TableDatum{Value: tbl},
+		&compute.ArrayDatum{Value: indicesArr.Data()})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*compute.TableDatum).Value, nil
+}
+
+func (tk *TakeKernelTestTable) takeWithChunked(schm *arrow.Schema, values, indices []string) (arrow.Table, error) {
+	tbl, err := array.TableFromJSON(tk.mem, schm, values)
+	tk.NoError(err)
+	defer tbl.Release()
+
+	chunkedIndices, err := array.ChunkedFromJSON(tk.mem, arrow.PrimitiveTypes.Int8, indices)
+	tk.NoError(err)
+	defer chunkedIndices.Release()
+
+	result, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), &compute.TableDatum{Value: tbl},
+		&compute.ChunkedDatum{Value: chunkedIndices})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*compute.TableDatum).Value, nil
+}
+
+func (tk *TakeKernelTestTable) TestTakeTable() {
+	fields := []arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "b", Type: arrow.BinaryTypes.String, Nullable: true},
+	}
+	schm := arrow.NewSchema(fields, nil)
+
+	tblJSON := []string{
+		`[{"a": null, "b": "yo"}, {"a": 1, "b": ""}]`,
+		`[{"a": 2, "b": "hello"}, {"a": 4, "b": "eh"}]`}
+
+	tk.assertTake(schm, tblJSON, `[]`, []string{`[]`})
+	expected310 := []string{
+		`[{"a": 4, "b": "eh"}, {"a": 1, "b": ""}, {"a": null, "b": "yo"}]`}
+
+	tk.assertTake(schm, tblJSON, `[3, 1, 0]`, expected310)
+	tk.assertChunkedTake(schm, tblJSON, []string{`[0, 1]`, `[2, 3]`}, tblJSON)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
@@ -1471,7 +1623,9 @@ func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelDenseUnion))
 	suite.Run(t, new(TakeKernelTestExtension))
 	suite.Run(t, new(TakeKernelStruct))
+	suite.Run(t, new(TakeKernelTestRecord))
 	suite.Run(t, new(TakeKernelTestChunked))
+	suite.Run(t, new(TakeKernelTestTable))
 }
 
 func TestFilterKernels(t *testing.T) {

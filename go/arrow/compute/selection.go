@@ -133,7 +133,7 @@ func takeTableImpl(ctx context.Context, opts FunctionOptions, args ...Datum) (Da
 		return nil, err
 	}
 
-	final := array.NewTable(tbl.Schema(), cols, tbl.NumRows())
+	final := array.NewTable(tbl.Schema(), cols, -1)
 	return &TableDatum{Value: final}, nil
 }
 
