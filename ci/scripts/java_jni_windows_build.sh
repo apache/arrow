@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -29,26 +29,16 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
-devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
-                       grep -o "^[0-9]*")
-devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
-: ${ARROW_GANDIVA:=ON}
+: ${ARROW_GANDIVA:=OFF}
 : ${ARROW_FILESYSTEM:=ON}
-: ${ARROW_JEMALLOC:=ON}
-: ${ARROW_RPATH_ORIGIN:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_UNITY_BUILD:=ON}
-: ${VCPKG_ROOT:=/opt/vcpkg}
-: ${VCPKG_FEATURE_FLAGS:=-manifests}
-: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
@@ -67,30 +57,17 @@ cmake \
   -DARROW_BUILD_TESTS=ON \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
-  -DARROW_DEPENDENCY_SOURCE="VCPKG" \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
-  -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
-  -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
-  -DARROW_PLASMA=${ARROW_PLASMA} \
-  -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-  -DGTest_SOURCE=BUNDLED \
-  -DORC_SOURCE=BUNDLED \
-  -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
-  -DPARQUET_BUILD_EXAMPLES=OFF \
-  -DPARQUET_BUILD_EXECUTABLES=OFF \
-  -DPARQUET_REQUIRE_ENCRYPTION=OFF \
-  -DVCPKG_MANIFEST_MODE=OFF \
-  -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
   -GNinja \
   ${arrow_dir}/cpp
 ninja install
@@ -114,10 +91,6 @@ fi
 popd
 
 
-JAVA_JNI_CMAKE_ARGS=""
-JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
-export JAVA_JNI_CMAKE_ARGS
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
   ${ARROW_HOME} \
@@ -145,7 +118,5 @@ archery linking check-dependencies \
   --allow linux-vdso \
   libarrow_cdata_jni.so \
   libarrow_dataset_jni.so \
-  libarrow_orc_jni.so \
-  libgandiva_jni.so \
-  libplasma_java.so
+  libarrow_orc_jni.so
 popd
