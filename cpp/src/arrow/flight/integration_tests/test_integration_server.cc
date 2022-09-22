@@ -103,7 +103,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
       flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
-      *info = std::unique_ptr<FlightInfo>(new FlightInfo(value));
+      *info = std::make_unique<FlightInfo>(value);
       return Status::OK();
     } else {
       return Status::NotImplemented(request.type);
@@ -119,8 +119,8 @@ class FlightIntegrationTestServer : public FlightServerBase {
     auto flight = data->second;
 
     *data_stream = std::unique_ptr<FlightDataStream>(
-        new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-            std::shared_ptr<RecordBatchReader>(new RecordBatchListReader(flight))))));
+        new NumberingStream(std::unique_ptr<FlightDataStream>(
+            new RecordBatchStream(std::make_shared<RecordBatchListReader>(flight)))));
 
     return Status::OK();
   }

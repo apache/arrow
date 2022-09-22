@@ -231,7 +231,7 @@ TEST(TestTableFromTupleVector, ListType) {
   using tuple_type = std::tuple<std::vector<int64_t>>;
 
   auto expected_schema =
-      std::shared_ptr<Schema>(new Schema({field("column1", list(int64()), false)}));
+      std::make_shared<Schema>(FieldVector{field("column1", list(int64()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int64()), "[[1, 1, 2, 34], [2, -4]]");
   std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array});
@@ -455,7 +455,7 @@ TEST(TestTupleVectorFromTable, ListType) {
   compute::ExecContext ctx;
   compute::CastOptions cast_options;
   auto expected_schema =
-      std::shared_ptr<Schema>(new Schema({field("column1", list(int64()), false)}));
+      std::make_shared<Schema>(FieldVector{field("column1", list(int64()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int64()), "[[1, 1, 2, 34], [2, -4]]");
   std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array});
@@ -474,7 +474,7 @@ TEST(TestTupleVectorFromTable, CastingNeeded) {
   compute::ExecContext ctx;
   compute::CastOptions cast_options;
   auto expected_schema =
-      std::shared_ptr<Schema>(new Schema({field("column1", list(int16()), false)}));
+      std::make_shared<Schema>(FieldVector{field("column1", list(int16()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int16()), "[[1, 1, 2, 34], [2, -4]]");
   std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array});

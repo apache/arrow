@@ -530,7 +530,7 @@ ORCFileReader::~ORCFileReader() {}
 
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
     const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
-  auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
+  auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader);
   RETURN_NOT_OK(result->impl_->Open(file, pool));
   return std::move(result);
 }

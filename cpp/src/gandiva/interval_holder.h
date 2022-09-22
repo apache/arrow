@@ -67,7 +67,7 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
   }
 
   static Status Make(int32_t suppress_errors, std::shared_ptr<INTERVAL_TYPE>* holder) {
-    auto lholder = std::shared_ptr<INTERVAL_TYPE>(new INTERVAL_TYPE(suppress_errors));
+    auto lholder = std::make_shared<INTERVAL_TYPE>(suppress_errors);
 
     *holder = lholder;
     return Status::OK();

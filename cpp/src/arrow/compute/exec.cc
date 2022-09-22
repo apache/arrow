@@ -1097,7 +1097,7 @@ Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
                                                      const FunctionOptions* options) {
   DCHECK_EQ(ExecutorType::function_kind, func->kind());
   auto typed_func = checked_cast<const FunctionType*>(func);
-  return std::unique_ptr<KernelExecutor>(new ExecutorType(ctx, typed_func, options));
+  return std::make_unique<ExecutorType>(ctx, typed_func, options);
 }
 
 }  // namespace

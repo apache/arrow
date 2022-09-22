@@ -771,7 +771,7 @@ Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor,
   std::shared_ptr<Buffer> metadata;
   ARROW_ASSIGN_OR_RAISE(metadata,
                         internal::WriteTensorMessage(*tensor_to_write, 0, options));
-  return std::unique_ptr<Message>(new Message(metadata, tensor_to_write->data()));
+  return std::make_unique<Message>(metadata, tensor_to_write->data());
 }
 
 namespace internal {

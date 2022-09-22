@@ -502,7 +502,7 @@ constexpr char kDummyRootCert[] =
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
-    return std::unique_ptr<internal::ClientTransport>(new GrpcClientImpl());
+    return std::make_unique<GrpcClientImpl>();
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,

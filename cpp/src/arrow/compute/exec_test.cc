@@ -765,7 +765,7 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 }
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
-  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+  auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;

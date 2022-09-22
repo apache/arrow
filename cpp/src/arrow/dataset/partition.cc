@@ -851,7 +851,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
 
 std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
     HivePartitioningFactoryOptions options) {
-  return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
+  return std::make_shared<HivePartitioningFactory>(options);
 }
 
 std::string StripPrefix(const std::string& path, const std::string& prefix) {

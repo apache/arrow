@@ -3548,7 +3548,7 @@ Result<std::unique_ptr<TpchGen>> TpchGen::Make(ExecPlan* plan, double scale_fact
                                                int64_t batch_size,
                                                std::optional<int64_t> seed) {
   if (!seed.has_value()) seed = GetRandomSeed();
-  return std::unique_ptr<TpchGen>(new TpchGenImpl(plan, scale_factor, batch_size, *seed));
+  return std::make_unique<TpchGenImpl>(plan, scale_factor, batch_size, *seed);
 }
 
 }  // namespace internal

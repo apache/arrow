@@ -288,7 +288,7 @@ class TlsTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
     auto buf = Buffer::FromString("Hello, world!");
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>({Result{buf}});
     return Status::OK();
   }
 };
@@ -632,7 +632,7 @@ class ReportContextTestServer : public FlightServerBase {
     } else {
       buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
     }
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>({Result{buf}});
     return Status::OK();
   }
 };
@@ -645,7 +645,7 @@ class ErrorMiddlewareServer : public FlightServerBase {
 
     std::shared_ptr<FlightStatusDetail> flightStatusDetail(
         new FlightStatusDetail(FlightStatusCode::Failed, msg));
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>({Result{buf}});
     return Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
   }
 };
@@ -815,8 +815,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     ASSERT_OK(MakeServer<HeaderAuthTestServer>(
         &server_, &client_,
         [&](FlightServerOptions* options) {
-          options->auth_handler =
-              std::unique_ptr<ServerAuthHandler>(new NoOpAuthHandler());
+          options->auth_handler = std::make_unique<NoOpAuthHandler>();
           options->middleware.push_back({"header-auth-server", header_middleware_});
           options->middleware.push_back({"bearer-auth-server", bearer_middleware_});
           return Status::OK();
@@ -1030,8 +1029,7 @@ TEST_F(TestFlightClient, Close) {
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   ASSERT_OK(client_->Authenticate(
-      {},
-      std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
+      {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   Status status;
   status = client_->ListFlights().status();
@@ -1101,8 +1099,7 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
 
 TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(client_->Authenticate(
-      {},
-      std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
+      {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   Action action;
   action.type = "who-am-i";
