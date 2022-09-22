@@ -17,6 +17,7 @@
 
 #include <algorithm>  // Missing include in boost/process
 
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // This boost/asio/io_context.hpp include is needless for no MinGW
 // build.
 //

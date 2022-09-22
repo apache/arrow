@@ -30,11 +30,12 @@
 // We need Windows fixes before including Boost
 #include "arrow/util/windows_compatibility.h"
 
+#include <gtest/gtest.h>
 #include <boost/filesystem.hpp>
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <gtest/gtest.h>
 #include <boost/process.hpp>
 
 #include "arrow/array.h"
