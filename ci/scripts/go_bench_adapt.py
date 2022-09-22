@@ -68,5 +68,5 @@ class GoAdapter(BenchmarkAdapter):
 
 
 if __name__ == "__main__":
-    go_adapter = GoAdapter(result_fields_override={"info":{}})
+    go_adapter = GoAdapter(result_fields_override={"run_reason": "commit", "info":{}})
     go_adapter()
