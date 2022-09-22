@@ -438,8 +438,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
 
-  ARROW_EXPORT friend void PrintTo(const Field& field, std::ostream* os);
-
   // Field name
   std::string name_;
 
@@ -454,6 +452,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(Field);
 };
+
+ARROW_EXPORT void PrintTo(const Field& field, std::ostream* os);
 
 namespace detail {
 
@@ -1844,9 +1844,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   void Flatten(std::vector<FieldRef> children);
 
   std::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
-
-  ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };
+
+ARROW_EXPORT void PrintTo(const FieldRef& ref, std::ostream* os);
 
 // ----------------------------------------------------------------------
 // Schema
@@ -1955,11 +1955,11 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::string ComputeMetadataFingerprint() const override;
 
  private:
-  ARROW_EXPORT friend void PrintTo(const Schema& s, std::ostream* os);
-
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT void PrintTo(const Schema& s, std::ostream* os);
 
 ARROW_EXPORT
 std::string EndiannessToString(Endianness endianness);

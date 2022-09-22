@@ -246,12 +246,12 @@ struct ARROW_EXPORT ExecBatch {
   }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
 
 inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
 
 struct ExecValue {
   ArraySpan array = {};
