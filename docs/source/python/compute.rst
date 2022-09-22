@@ -377,7 +377,6 @@ User-Defined Functions
 
 .. warning::
    This API is **experimental**.
-   Also, only scalar functions can currently be user-defined.
 
 PyArrow allows defining and registering custom compute functions.
 These functions can then be called from Python as well as C++ (and potentially
@@ -434,35 +433,34 @@ This context exposes several useful attributes, particularly a
 :attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
 allocations in the context of the user-defined function.
 
-PyArrow UDFs accept input types of both scalar and array. Also it can have
-any combination of these types. It is important that the UDF author ensures
-the UDF can handle such combinations correctly. Also the ability to use UDFs
-with existing data processing libraries is very useful.
-
-Note that there is a helper function `to_np` to handle the conversion 
-of scalar and array inputs to the UDF. Also, the final output is returned
-as a scalr or an array depending on the inputs. Based on the usage of any
-libraries inside the UDF, make sure it is generalized to support the passed
-input values and return suitable values.
+PyArrow UDFs accept input types of both :class:`~pyarrow.Scalar` and :class:`~pyarrow.Array`,
+and there will always be at least one input of type :class:`~pyarrow.Array`.
+The output should always be a :class:`~pyarrow.Array`.
 
 You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
 
 .. code-block:: python
 
-   >>> pc.call_function(""numpy_gcd", [pa.scalar(27), pa.scalar(63)])
-   9
+   >>> pc.call_function("numpy_gcd", [pa.scalar(27), pa.scalar(63)])
+   <pyarrow.Int64Scalar: 9>
+   >>> pc.call_function("numpy_gcd", [pa.scalar(27), pa.array([81, 12, 5])])
+   <pyarrow.lib.Int64Array object at 0x7fcfa0e7b100>
+   [
+     27,
+     3,
+     1
+   ]
 
 Working with Datasets
 ---------------------
 
 More generally, user-defined functions are usable everywhere a compute function
 can be referred by its name. For example, they can be called on a dataset's
-column using :meth:`Expression._call`:
+column using :meth:`Expression._call`.
 
-Consider an instance where the data is in a table and you need to create a new 
-column using existing values in another column by using a mathematical formula.
-For instance, let's consider applying `gcd` math operation.
-Here, we will be re-using the registered `numpy_gcd` function.
+Consider an instance where the data is in a table and we want to compute
+the GCD of one column with the scalar value 30.  We will be re-using the
+"numpy_gcd" user-defined function that was created above:
 
 .. code-block:: python
 
@@ -486,20 +484,20 @@ Here, we will be re-using the registered `numpy_gcd` function.
    value: [[90,630,1827,2709]]
    category: [["A","B","C","D"]]
 
-Note that the `ds.field('')_call()` returns an expression. The passed arguments
-to this function call are expressions not scalar values 
-(i.e `pc.scalar(30), ds.field("value")`, notice the difference 
-of `pa.scalar` vs `pc.scalar`, the latter produces an expression). 
-This expression is evaluated when the project operator executes it.
+Note that ``ds.field('')_call(...)`` returns a :func:`pyarrow.compute.Expression`.
+The arguments passed to this function call are expressions, not scalar values 
+(notice the difference between :func:`pyarrow.scalar` and :func:`pyarrow.compute.scalar`,
+the latter produces an expression). 
+This expression is evaluated when the projection operator executes it.
 
 Projection Expressions
 ^^^^^^^^^^^^^^^^^^^^^^
-In the above example we used an expression to add a new column (`gcd_value`)
+In the above example we used an expression to add a new column (``gcd_value``)
 to our table.  Adding new, dynamically computed, columns to a table is known as "projection"
 and there are limitations on what kinds of functions can be used in projection expressions.
 A projection function must emit a single output value for each input row.  That output value
 should be calculated entirely from the input row and should not depend on any other row.
 For example, the "numpy_gcd" function that we've been using as an example above is a valid
 function to use in a projection.  A "cumulative sum" function would not be a valid function
-since the result of each input rows depends on the rows that came before.  A "drop nulls"
+since the result of each input row depends on the rows that came before.  A "drop nulls"
 function would also be invalid because it doesn't emit a value for some rows.

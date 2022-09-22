@@ -556,8 +556,8 @@ Compute Options
    VarianceOptions
    WeekOptions
 
-Custom Functions
-----------------
+User-Defined Functions
+----------------------
 
 .. autosummary::
    :toctree: ../generated/
