@@ -41,8 +41,11 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://github.com/junit-team/junit5/issues/2811")
 public class OrcReaderTest {
 
   @TempDir

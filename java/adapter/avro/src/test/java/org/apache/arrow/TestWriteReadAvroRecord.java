@@ -35,9 +35,12 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://github.com/junit-team/junit5/issues/2811")
 public class TestWriteReadAvroRecord {
 
   @TempDir
