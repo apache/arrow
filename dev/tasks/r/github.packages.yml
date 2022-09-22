@@ -324,6 +324,7 @@ jobs:
         env:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
+          CMAKE_FIND_DEBUG_MODE: "ON"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
