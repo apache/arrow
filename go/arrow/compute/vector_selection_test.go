@@ -1340,6 +1340,124 @@ func (tk *TakeKernelStruct) TestStruct() {
 	tk.assertNoValidityBitmapUnknownNullCountJSON(tk.dt, `[{"a": 1}, {"a": 2, "b": "hello"}]`, `[0, 1, 0]`)
 }
 
+type TakeKernelTestChunked struct {
+	TakeKernelTestTyped
+}
+
+func (tk *TakeKernelTestChunked) assertTake(dt arrow.DataType, values []string, indices string, expected []string) {
+	actual, err := tk.takeWithArray(dt, values, indices)
+	tk.Require().NoError(err)
+	defer actual.Release()
+
+	exp, err := array.ChunkedFromJSON(tk.mem, dt, expected)
+	tk.Require().NoError(err)
+	defer exp.Release()
+
+	if !tk.True(array.ChunkedEqual(exp, actual)) {
+		var s strings.Builder
+		s.WriteString("expected: \n")
+		for _, c := range exp.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		s.WriteString("actual: \n")
+		for _, c := range actual.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		tk.T().Log(s.String())
+	}
+}
+
+func (tk *TakeKernelTestChunked) assertChunkedTake(dt arrow.DataType, values, indices, expected []string) {
+	actual, err := tk.takeWithChunked(dt, values, indices)
+	tk.Require().NoError(err)
+	defer actual.Release()
+
+	exp, err := array.ChunkedFromJSON(tk.mem, dt, expected)
+	tk.Require().NoError(err)
+	defer exp.Release()
+
+	if !tk.True(array.ChunkedEqual(exp, actual)) {
+		var s strings.Builder
+		s.WriteString("expected: \n")
+		for _, c := range exp.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		s.WriteString("actual: \n")
+		for _, c := range actual.Chunks() {
+			fmt.Fprintf(&s, "%s\n", c)
+		}
+		tk.T().Log(s.String())
+	}
+}
+
+func (tk *TakeKernelTestChunked) takeWithArray(dt arrow.DataType, values []string, indices string) (*arrow.Chunked, error) {
+	chunked, err := array.ChunkedFromJSON(tk.mem, dt, values)
+	tk.Require().NoError(err)
+	defer chunked.Release()
+
+	indicesArr, _, err := array.FromJSON(tk.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(indices))
+	tk.Require().NoError(err)
+	defer indicesArr.Release()
+
+	result, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), &compute.ChunkedDatum{chunked}, &compute.ArrayDatum{indicesArr.Data()})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*compute.ChunkedDatum).Value, nil
+
+}
+
+func (tk *TakeKernelTestChunked) takeWithChunked(dt arrow.DataType, values, indices []string) (*arrow.Chunked, error) {
+	chunked, err := array.ChunkedFromJSON(tk.mem, dt, values)
+	tk.Require().NoError(err)
+	defer chunked.Release()
+
+	chunkedIndices, err := array.ChunkedFromJSON(tk.mem, arrow.PrimitiveTypes.Int8, indices)
+	tk.Require().NoError(err)
+	defer chunkedIndices.Release()
+
+	result, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), &compute.ChunkedDatum{chunked}, &compute.ChunkedDatum{chunkedIndices})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*compute.ChunkedDatum).Value, nil
+}
+
+func (tk *TakeKernelTestChunked) TestChunkedArray() {
+	tk.assertTake(arrow.PrimitiveTypes.Int8, []string{`[]`}, `[]`, []string{`[]`})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{}, []string{}, []string{})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{}, []string{`[]`}, []string{`[]`})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{}, []string{`[null]`}, []string{`[null]`})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{`[]`}, []string{}, []string{})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{`[]`}, []string{`[]`}, []string{`[]`})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{`[]`}, []string{`[null]`}, []string{`[null]`})
+
+	tk.assertTake(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, `[0, 1, 0, 2]`, []string{`[7, 8, 7, 9]`})
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, []string{`[0, 1, 0]`, `[]`, `[2]`}, []string{`[7, 8, 7]`, `[]`, `[9]`})
+	tk.assertTake(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, `[2, 1]`, []string{`[9, 8]`})
+
+	tk.assertChunkedTake(arrow.FixedWidthTypes.Boolean, []string{`[true]`, `[false, true]`}, []string{`[0, 1, 0]`, `[]`, `[2]`},
+		[]string{`[true, false, true]`, `[]`, `[true]`})
+
+	tk.assertChunkedTake(arrow.PrimitiveTypes.Int32,
+		[]string{`[7, null]`, `[8, 9, 10]`, `[21, null, 42]`}, []string{`[2, 1]`, `[7, 6, 6, 4]`},
+		[]string{`[8, null]`, `[42, null, null, 10]`})
+
+	tk.assertChunkedTake(arrow.BinaryTypes.String,
+		[]string{`["hello", "world", null]`, `["foo", "bar", "baz"]`},
+		[]string{`[3]`, `[null, 2]`, `[0, 1]`, `[4, 5]`},
+		[]string{`["foo"]`, `[null, null]`, `["hello", "world"]`, `["bar", "baz"]`})
+
+	_, err := tk.takeWithArray(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, `[0, 5]`)
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeWithChunked(arrow.PrimitiveTypes.Int8, []string{`[7]`, `[8, 9]`}, []string{`[0, 1, 0]`, `[5, 1]`})
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeWithChunked(arrow.PrimitiveTypes.Int8, []string{}, []string{`[0]`})
+	tk.ErrorIs(err, arrow.ErrIndex)
+	_, err = tk.takeWithChunked(arrow.PrimitiveTypes.Int8, []string{`[]`}, []string{`[0]`})
+	tk.ErrorIs(err, arrow.ErrIndex)
+}
+
 func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelTest))
 	for _, dt := range numericTypes {
@@ -1353,6 +1471,7 @@ func TestTakeKernels(t *testing.T) {
 	suite.Run(t, new(TakeKernelDenseUnion))
 	suite.Run(t, new(TakeKernelTestExtension))
 	suite.Run(t, new(TakeKernelStruct))
+	suite.Run(t, new(TakeKernelTestChunked))
 }
 
 func TestFilterKernels(t *testing.T) {
