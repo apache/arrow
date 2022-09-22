@@ -295,6 +295,85 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
               Raises(StatusCode::Invalid, HasSubstr("batch_size > 0")));
 }
 
+template <typename ElementType, typename OptionsType>
+void test_source_sink_error(
+    std::string source_factory_name,
+    std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
+        to_elements) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  std::shared_ptr<Schema> no_schema;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
+  auto element_it_maker = [&elements]() {
+    return MakeVectorIterator<ElementType>(elements);
+  };
+
+  auto null_executor_options = OptionsType{exp_batches.schema, element_it_maker};
+  ASSERT_OK(MakeExecNode(source_factory_name, plan.get(), {}, null_executor_options));
+
+  auto null_schema_options = OptionsType{no_schema, element_it_maker};
+  ASSERT_THAT(MakeExecNode(source_factory_name, plan.get(), {}, null_schema_options),
+              Raises(StatusCode::Invalid, HasSubstr("not null")));
+}
+
+template <typename ElementType, typename OptionsType>
+void test_source_sink(
+    std::string source_factory_name,
+    std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
+        to_elements) {
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
+  ExecContext exec_context(default_memory_pool(), io_executor.get());
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_context));
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto elements, to_elements(exp_batches));
+  auto element_it_maker = [&elements]() {
+    return MakeVectorIterator<ElementType>(elements);
+  };
+
+  ASSERT_OK(Declaration::Sequence({
+                                      {source_factory_name,
+                                       OptionsType{exp_batches.schema, element_it_maker}},
+                                      {"sink", SinkNodeOptions{&sink_gen}},
+                                  })
+                .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
+}
+
+TEST(ExecPlanExecution, ArrayVectorSourceSink) {
+  test_source_sink<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+      "array_vector_source", ToArrayVectors);
+}
+
+TEST(ExecPlanExecution, ArrayVectorSourceSinkError) {
+  test_source_sink_error<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+      "array_vector_source", ToArrayVectors);
+}
+
+TEST(ExecPlanExecution, ExecBatchSourceSink) {
+  test_source_sink<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+      "exec_batch_source", ToExecBatches);
+}
+
+TEST(ExecPlanExecution, ExecBatchSourceSinkError) {
+  test_source_sink_error<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+      "exec_batch_source", ToExecBatches);
+}
+
+TEST(ExecPlanExecution, RecordBatchSourceSink) {
+  test_source_sink<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+      "record_batch_source", ToRecordBatches);
+}
+
+TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
+  test_source_sink_error<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+      "record_batch_source", ToRecordBatches);
+}
+
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
   std::optional<ExecBatch> batch =
       ExecBatchFromJSON({int32(), boolean()},

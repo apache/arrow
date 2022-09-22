@@ -27,6 +27,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
@@ -76,6 +77,34 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   // the table to be processed in parallel.
   int64_t max_batch_size;
 };
+
+/// \brief An extended Source node which accepts a schema
+///
+/// ItMaker is a maker of an iterator of tabular data.
+template <typename ItMaker>
+class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
+ public:
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker)
+      : schema(schema), it_maker(std::move(it_maker)) {}
+
+  // the schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+
+  // maker of an iterator which acts as the data source
+  ItMaker it_maker;
+};
+
+/// \brief An extended Source node which accepts a schema and array-vectors
+using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
+using ArrayVectorSourceNodeOptions = SchemaSourceNodeOptions<ArrayVectorIteratorMaker>;
+
+using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+/// \brief An extended Source node which accepts a schema and exec-batches
+using ExecBatchSourceNodeOptions = SchemaSourceNodeOptions<ExecBatchIteratorMaker>;
+
+using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+/// \brief An extended Source node which accepts a schema and record-batches
+using RecordBatchSourceNodeOptions = SchemaSourceNodeOptions<RecordBatchIteratorMaker>;
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
