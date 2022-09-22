@@ -25,13 +25,13 @@ The Gandiva Expression Compiler
 
 Gandiva is a runtime expression compiler that uses `LLVM`_ to generate
 efficient native code for projections and filters on Arrow record batches.
-Gandiva only handles projections and filters. For other transformation, see
+Gandiva only handles projections and filters. For other transformations, see
 :ref:`Compute Functions <compute-cpp>`.
 
 Gandiva was designed to take advantage of the Arrow memory format and modern
 hardware. Compiling expressions using LLVM allows the execution to be optimized
 to the local runtime environment and hardware, including available SIMD
-instructions. To minimize optimization overhead, all Gandiva functions are
+instructions. To reduce optimization overhead, many Gandiva functions are
 pre-compiled into LLVM IR (intermediate representation).
 
 .. _LLVM: https://llvm.org/
@@ -115,7 +115,7 @@ section, here is an example of creating a Projector and a Filter:
 
 Once a Projector or Filter is created, it can be evaluated on Arrow record batches.
 These execution kernels are single-threaded on their own, but are designed to be
-reused to process record batches in parallel.
+reused to process distinct record batches in parallel.
 
 Execution is performed with :func:`gandiva::Projector::Evaluate` and
 :func:`gandiva::Filter::Evaluate`. Filters produce :class:`gandiva::SelectionVector`,
@@ -129,7 +129,9 @@ Here is an example of evaluating the Filter and Projector created above:
 
    auto pool = arrow::default_memory_pool();
    int num_records = 4;
-   auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+   arrow::Int32Buider builder;
+   int32_t values[4] = {1, 2, 3, 4};
+   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> array, builder.Finish());
    auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
 
    // Just project
@@ -146,3 +148,4 @@ Here is an example of evaluating the Filter and Projector created above:
    arrow::ArrayVector outputs_filtered;
    status = projector->Evaluate(*in_batch, selection_vector.get(),
                                 pool, &outputs_filtered);
+   ARROW_CHECK_OK(status);
