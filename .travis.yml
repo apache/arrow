@@ -187,6 +187,7 @@ script:
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \
+      -e DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
 
