@@ -164,7 +164,10 @@ jobs:
           key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: ruby-ccache-macos-
       - name: Build C++
+        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
         run: |
+          export CC=$(brew --prefix llvm)/bin/clang
+          export CXX=$(brew --prefix llvm)/bin/clang++
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Build GLib
         run: |
@@ -195,7 +198,8 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
-      ARROW_GANDIVA: ON
+      # ARROW-17728: SEGV on MinGW
+      ARROW_GANDIVA: OFF
       ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}

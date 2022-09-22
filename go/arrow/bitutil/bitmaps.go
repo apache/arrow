@@ -17,6 +17,7 @@
 package bitutil
 
 import (
+	"bytes"
 	"math/bits"
 	"unsafe"
 
@@ -529,4 +530,57 @@ func BitmapAndAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset i
 
 func BitmapOrAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
 	return BitmapOpAlloc(mem, bitOrOp, left, right, lOffset, rOffset, length, outOffset)
+}
+
+func BitmapEquals(left, right []byte, lOffset, rOffset int64, length int64) bool {
+	if lOffset%8 == 0 && rOffset%8 == 0 {
+		// byte aligned, fast path, can use bytes.Equal (memcmp)
+		byteLen := length / 8
+		lStart := lOffset / 8
+		rStart := rOffset / 8
+		if !bytes.Equal(left[lStart:lStart+byteLen], right[rStart:rStart+byteLen]) {
+			return false
+		}
+
+		// check trailing bits
+		for i := (length / 8) * 8; i < length; i++ {
+			if BitIsSet(left, int(lOffset+i)) != BitIsSet(right, int(rOffset+i)) {
+				return false
+			}
+		}
+		return true
+	}
+
+	lrdr := NewBitmapWordReader(left, int(lOffset), int(length))
+	rrdr := NewBitmapWordReader(right, int(rOffset), int(length))
+
+	nwords := lrdr.Words()
+	for nwords > 0 {
+		nwords--
+		if lrdr.NextWord() != rrdr.NextWord() {
+			return false
+		}
+	}
+
+	nbytes := lrdr.TrailingBytes()
+	for nbytes > 0 {
+		nbytes--
+		lbt, _ := lrdr.NextTrailingByte()
+		rbt, _ := rrdr.NextTrailingByte()
+		if lbt != rbt {
+			return false
+		}
+	}
+	return true
+}
+
+// OptionalBitIndexer is a convenience wrapper for getting bits from
+// a bitmap which may or may not be nil.
+type OptionalBitIndexer struct {
+	Bitmap []byte
+	Offset int
+}
+
+func (b *OptionalBitIndexer) GetBit(i int) bool {
+	return b.Bitmap == nil || BitIsSet(b.Bitmap, b.Offset+i)
 }

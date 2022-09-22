@@ -463,7 +463,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
     }
     return Status::OK();
@@ -484,7 +484,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
   if (iter == incoming_headers.end()) {
     return "";
   }
-  const std::string val = iter->second.to_string();
+  const std::string val(iter->second);
   if (val.size() > prefix.length()) {
     if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
                    char_compare)) {
@@ -773,8 +773,8 @@ class TestPropagatingMiddleware : public ::testing::Test {
   void CheckHeader(const std::string& header, const std::string& value,
                    const CallHeaders::const_iterator& it) {
     // Construct a string_view before comparison to satisfy MSVC
-    util::string_view header_view(header.data(), header.length());
-    util::string_view value_view(value.data(), value.length());
+    std::string_view header_view(header.data(), header.length());
+    std::string_view value_view(value.data(), value.length());
     ASSERT_EQ(header_view, (*it).first);
     ASSERT_EQ(value_view, (*it).second);
   }

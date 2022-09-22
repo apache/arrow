@@ -217,6 +217,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           .withFlightSqlServerVersion(metaData.getDatabaseProductVersion())
           .withFlightSqlServerArrowVersion(metaData.getDriverVersion())
           .withFlightSqlServerReadOnly(metaData.isReadOnly())
+          .withFlightSqlServerSql(true)
+          .withFlightSqlServerSubstrait(false)
+          .withFlightSqlServerTransaction(SqlSupportedTransaction.SQL_SUPPORTED_TRANSACTION_NONE)
           .withSqlIdentifierQuoteChar(metaData.getIdentifierQuoteString())
           .withSqlDdlCatalog(metaData.supportsCatalogsInDataManipulation())
           .withSqlDdlSchema( metaData.supportsSchemasInDataManipulation())
@@ -576,6 +579,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             final String catalogName = columnsData.getString("TABLE_CAT");
             final String schemaName = columnsData.getString("TABLE_SCHEM");
             final String tableName = columnsData.getString("TABLE_NAME");
+            final String typeName = columnsData.getString("TYPE_NAME");
             final String fieldName = columnsData.getString("COLUMN_NAME");
             final int dataType = columnsData.getInt("DATA_TYPE");
             final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
@@ -590,6 +594,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                 .catalogName(catalogName)
                 .schemaName(schemaName)
                 .tableName(tableName)
+                .typeName(typeName)
                 .precision(precision)
                 .scale(scale)
                 .isAutoIncrement(isAutoIncrement)

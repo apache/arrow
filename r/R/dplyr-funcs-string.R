@@ -161,32 +161,44 @@ register_bindings_string_join <- function() {
     }
   }
 
-  register_binding("base::paste", function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
-    assert_that(
-      is.null(collapse),
-      msg = "paste() with the collapse argument is not yet supported in Arrow"
-    )
-    if (!inherits(sep, "Expression")) {
-      assert_that(!is.na(sep), msg = "Invalid separator")
-    }
-    arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
-  })
+  register_binding(
+    "base::paste",
+    function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
+      assert_that(
+        is.null(collapse),
+        msg = "paste() with the collapse argument is not yet supported in Arrow"
+      )
+      if (!inherits(sep, "Expression")) {
+        assert_that(!is.na(sep), msg = "Invalid separator")
+      }
+      arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
 
-  register_binding("base::paste0", function(..., collapse = NULL, recycle0 = FALSE) {
-    assert_that(
-      is.null(collapse),
-      msg = "paste0() with the collapse argument is not yet supported in Arrow"
-    )
-    arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
-  })
+  register_binding(
+    "base::paste0",
+    function(..., collapse = NULL, recycle0 = FALSE) {
+      assert_that(
+        is.null(collapse),
+        msg = "paste0() with the collapse argument is not yet supported in Arrow"
+      )
+      arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
 
-  register_binding("stringr::str_c", function(..., sep = "", collapse = NULL) {
-    assert_that(
-      is.null(collapse),
-      msg = "str_c() with the collapse argument is not yet supported in Arrow"
-    )
-    arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
-  })
+  register_binding(
+    "stringr::str_c",
+    function(..., sep = "", collapse = NULL) {
+      assert_that(
+        is.null(collapse),
+        msg = "str_c() with the collapse argument is not yet supported in Arrow"
+      )
+      arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
 }
 
 register_bindings_string_regex <- function() {
@@ -227,15 +239,17 @@ register_bindings_string_regex <- function() {
     out
   })
 
-  register_binding("stringr::str_like", function(string,
-                                                 pattern,
-                                                 ignore_case = TRUE) {
-    Expression$create(
-      "match_like",
-      string,
-      options = list(pattern = pattern, ignore_case = ignore_case)
-    )
-  })
+  register_binding(
+    "stringr::str_like",
+    function(string, pattern, ignore_case = TRUE) {
+      Expression$create(
+        "match_like",
+        string,
+        options = list(pattern = pattern, ignore_case = ignore_case)
+      )
+    },
+    notes = "not yet in a released version of `stringr`, but it is supported in `arrow`"
+  )
 
   register_binding("stringr::str_count", function(string, pattern) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
@@ -337,7 +351,7 @@ register_bindings_string_regex <- function() {
   register_binding("stringr::str_replace_all", arrow_stringr_string_replace_function(-1L))
 
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
-                                        useBytes = FALSE) {
+                                              useBytes = FALSE) {
     assert_that(is.string(split))
 
     arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")

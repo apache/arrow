@@ -22,6 +22,8 @@
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
+%define is_centos_7 (%{rhel} == 7 && !%{is_amazon_linux})
+
 %define major_version %(echo @VERSION@ | grep -o '^[0-9]*')
 
 %define boost_version %( \
@@ -56,6 +58,12 @@
 %define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
 
+%if %{is_centos_7}
+%define gcc_package devtoolset-11-gcc
+%else
+%define gcc_package gcc
+%endif
+
 %define use_boost (!%{is_amazon_linux})
 # TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
 %define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
@@ -64,7 +72,6 @@
 %define use_gflags (!%{is_amazon_linux})
 %define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %%define use_s3 (%%{rhel} >= 8)
@@ -97,7 +104,7 @@ BuildRequires:	c-ares-devel
 BuildRequires:	cmake%{cmake_version}
 BuildRequires:	curl-devel
 BuildRequires:	flex
-BuildRequires:	gcc-c++
+BuildRequires:	%{gcc_package}-c++
 %if %{use_gflags}
 BuildRequires:	gflags-devel
 %endif
@@ -115,10 +122,6 @@ BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
-%if %{use_python}
-BuildRequires:	python%{python_version}-devel
-BuildRequires:	python%{python_version}-numpy
-%endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
@@ -175,9 +178,6 @@ cd cpp
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
-%if %{use_python}
-  -DARROW_PYTHON=ON \
-%endif
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -191,10 +191,6 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
-%if %{use_python}
-  -DPythonInterp_FIND_VERSION=ON \
-  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%endif
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
@@ -324,29 +320,7 @@ Libraries and header files for Apache Arrow C++.
 %exclude %{_includedir}/arrow/flight/
 %endif
 %exclude %{_includedir}/arrow/python/
-%{_libdir}/cmake/arrow/ArrowConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowOptions.cmake
-%{_libdir}/cmake/arrow/ArrowTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrow.cmake
-%{_libdir}/cmake/arrow/FindBrotli.cmake
-%{_libdir}/cmake/arrow/FindSnappyAlt.cmake
-%if %{have_thrift}
-%{_libdir}/cmake/arrow/FindThrift.cmake
-%endif
-%if %{use_flight}
-%{_libdir}/cmake/arrow/Findc-aresAlt.cmake
-%endif
-%{_libdir}/cmake/arrow/Findlz4Alt.cmake
-%if %{have_re2}
-%{_libdir}/cmake/arrow/Findre2Alt.cmake
-%endif
-%if %{have_utf8proc}
-%{_libdir}/cmake/arrow/Findutf8proc.cmake
-%endif
-%if %{have_zstd}
-%{_libdir}/cmake/arrow/Findzstd.cmake
-%endif
-%{_libdir}/cmake/arrow/arrow-config.cmake
+%{_libdir}/cmake/Arrow/
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
 %{_libdir}/libarrow_bundled_dependencies.a
@@ -385,9 +359,7 @@ Libraries and header files for Apache Arrow dataset.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/dataset/
-%{_libdir}/cmake/arrow/ArrowDatasetConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowDatasetTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowDataset.cmake
+%{_libdir}/cmake/ArrowDataset/
 %{_libdir}/libarrow_dataset.a
 %{_libdir}/libarrow_dataset.so
 %{_libdir}/pkgconfig/arrow-dataset.pc
@@ -424,9 +396,7 @@ Libraries and header files for Apache Arrow Flight.
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/
 %exclude %{_includedir}/arrow/flight/sql/
-%{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowFlight.cmake
+%{_libdir}/cmake/ArrowFlight/
 %{_libdir}/libarrow_flight.a
 %{_libdir}/libarrow_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
@@ -459,9 +429,7 @@ Libraries and header files for Apache Arrow Flight SQL.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/sql/
-%{_libdir}/cmake/arrow/ArrowFlightSqlConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowFlightSqlTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowFlightSql.cmake
+%{_libdir}/cmake/ArrowFlightSql/
 %{_libdir}/libarrow_flight_sql.a
 %{_libdir}/libarrow_flight_sql.so
 %{_libdir}/pkgconfig/arrow-flight-sql.pc
@@ -498,92 +466,10 @@ Libraries and header files for Gandiva.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva/
-%{_libdir}/cmake/arrow/GandivaConfig*.cmake
-%{_libdir}/cmake/arrow/GandivaTargets*.cmake
-%{_libdir}/cmake/arrow/FindGandiva.cmake
+%{_libdir}/cmake/Gandiva/
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
 %{_libdir}/pkgconfig/gandiva.pc
-%endif
-
-%if %{use_python}
-%package -n %{name}%{major_version}-python-libs
-Summary:	Python integration library for Apache Arrow
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	python%{python_version}-numpy
-
-%description -n %{name}%{major_version}-python-libs
-This package contains the Python integration library for Apache Arrow.
-
-%files -n %{name}%{major_version}-python-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/libarrow_python.so.*
-
-%package python-devel
-Summary:	Libraries and header files for Python integration library for Apache Arrow
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
-Requires:	%{name}-devel = %{version}-%{release}
-Requires:	python%{python_version}-devel
-
-%description python-devel
-Libraries and header files for Python integration library for Apache Arrow.
-
-%files python-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_includedir}/arrow/python/
-%exclude %{_includedir}/arrow/python/flight.h
-%{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowPythonTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowPython.cmake
-%{_libdir}/libarrow_python.a
-%{_libdir}/libarrow_python.so
-%{_libdir}/pkgconfig/arrow-python.pc
-
-%if %{use_flight}
-%package -n %{name}%{major_version}-python-flight-libs
-Summary:	Python integration library for Apache Arrow Flight
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
-Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
-
-%description -n %{name}%{major_version}-python-flight-libs
-This package contains the Python integration library for Apache Arrow Flight.
-
-%files -n %{name}%{major_version}-python-flight-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/libarrow_python_flight.so.*
-
-%package python-flight-devel
-Summary:	Libraries and header files for Python integration library for Apache Arrow Flight.
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-python-flight-libs = %{version}-%{release}
-Requires:	%{name}-flight-devel = %{version}-%{release}
-Requires:	%{name}-python-devel = %{version}-%{release}
-
-%description python-flight-devel
-Libraries and header files for Python integration library for
-Apache Arrow Flight.
-
-%files python-flight-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_includedir}/arrow/python/flight.h
-%{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
-%{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
-%{_libdir}/cmake/arrow/FindArrowPythonFlight.cmake
-%{_libdir}/libarrow_python_flight.a
-%{_libdir}/libarrow_python_flight.so
-%{_libdir}/pkgconfig/arrow-python-flight.pc
-%endif
 %endif
 
 %package -n plasma%{major_version}-libs
@@ -628,9 +514,7 @@ Libraries and header files for Plasma in-memory object store.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/plasma/
-%{_libdir}/cmake/arrow/PlasmaConfig*.cmake
-%{_libdir}/cmake/arrow/PlasmaTargets*.cmake
-%{_libdir}/cmake/arrow/FindPlasma.cmake
+%{_libdir}/cmake/Plasma/
 %{_libdir}/libplasma.a
 %{_libdir}/libplasma.so
 %{_libdir}/pkgconfig/plasma*.pc
@@ -679,9 +563,7 @@ Libraries and header files for Apache Parquet C++.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/parquet/
-%{_libdir}/cmake/arrow/ParquetConfig*.cmake
-%{_libdir}/cmake/arrow/ParquetTargets*.cmake
-%{_libdir}/cmake/arrow/FindParquet.cmake
+%{_libdir}/cmake/Parquet/
 %{_libdir}/libparquet.a
 %{_libdir}/libparquet.so
 %{_libdir}/pkgconfig/parquet*.pc

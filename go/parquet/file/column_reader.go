@@ -279,8 +279,12 @@ func (c *columnChunkReader) initLevelDecodersV2(page *DataPageV2) (int64, error)
 
 	if c.descr.MaxRepetitionLevel() > 0 {
 		c.repetitionDecoder.SetDataV2(page.repLvlByteLen, c.descr.MaxRepetitionLevel(), int(c.numBuffered), buf)
-		buf = buf[page.repLvlByteLen:]
 	}
+	// ARROW-17453: Some writers will write repetition levels even when
+	// the max repetition level is 0, so we should respect the value
+	// in the page header regardless of whether MaxRepetitionLevel is 0
+	// or not.
+	buf = buf[page.repLvlByteLen:]
 
 	if c.descr.MaxDefinitionLevel() > 0 {
 		c.definitionDecoder.SetDataV2(page.defLvlByteLen, c.descr.MaxDefinitionLevel(), int(c.numBuffered), buf)

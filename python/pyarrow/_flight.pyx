@@ -289,6 +289,31 @@ cdef class Action(_Weakrefable):
                 type(action)))
         return (<Action> action).action
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.action.SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef Action action = Action.__new__(Action)
+        action.action = GetResultValue(
+            CAction.Deserialize(tobytes(serialized)))
+        return action
+
+    def __eq__(self, Action other):
+        return self.action == other.action
+
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
 
@@ -327,6 +352,31 @@ cdef class Result(_Weakrefable):
         """Get the Buffer containing the result."""
         return pyarrow_wrap_buffer(self.result.get().body)
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.result.get().SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef Result result = Result.__new__(Result)
+        result.result.reset(new CFlightResult(GetResultValue(
+            CFlightResult.Deserialize(tobytes(serialized)))))
+        return result
+
+    def __eq__(self, Result other):
+        return deref(self.result.get()) == deref(other.result.get())
+
 
 cdef class BasicAuth(_Weakrefable):
     """A container for basic auth."""
@@ -360,12 +410,15 @@ cdef class BasicAuth(_Weakrefable):
     @staticmethod
     def deserialize(serialized):
         auth = BasicAuth()
-        check_flight_status(
-            CBasicAuth.Deserialize(serialized).Value(auth.basic_auth.get()))
+        auth.basic_auth.reset(new CBasicAuth(GetResultValue(
+            CBasicAuth.Deserialize(tobytes(serialized)))))
         return auth
 
     def serialize(self):
         return GetResultValue(self.basic_auth.get().SerializeToString())
+
+    def __eq__(self, BasicAuth other):
+        return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
 
 
 class DescriptorType(enum.Enum):
@@ -686,6 +739,28 @@ cdef class FlightEndpoint(_Weakrefable):
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.endpoint.SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef FlightEndpoint endpoint = FlightEndpoint.__new__(FlightEndpoint)
+        endpoint.endpoint = GetResultValue(
+            CFlightEndpoint.Deserialize(tobytes(serialized)))
+        return endpoint
+
     def __repr__(self):
         return "<FlightEndpoint ticket: {!r} locations: {!r}>".format(
             self.ticket, self.locations)
@@ -720,6 +795,31 @@ cdef class SchemaResult(_Weakrefable):
 
         check_flight_status(self.result.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
+
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.result.get().SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
+        result.result.reset(new CSchemaResult(GetResultValue(
+            CSchemaResult.Deserialize(tobytes(serialized)))))
+        return result
+
+    def __eq__(self, SchemaResult other):
+        return deref(self.result.get()) == deref(other.result.get())
 
 
 cdef class FlightInfo(_Weakrefable):

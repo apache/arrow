@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"hash/maphash"
+	"strings"
 
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
@@ -170,16 +171,34 @@ type DataType interface {
 	Layout() DataTypeLayout
 }
 
+// TypesToString is a convenience function to create a list of types
+// which are comma delimited as a string
+func TypesToString(types []DataType) string {
+	var b strings.Builder
+	b.WriteByte('(')
+	for i, t := range types {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(t.String())
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
 // FixedWidthDataType is the representation of an Arrow type that
 // requires a fixed number of bits in memory for each element.
 type FixedWidthDataType interface {
 	DataType
 	// BitWidth returns the number of bits required to store a single element of this data type in memory.
 	BitWidth() int
+	// Bytes returns the number of bytes required to store a single element of this data type in memory.
+	Bytes() int
 }
 
 type BinaryDataType interface {
 	DataType
+	IsUtf8() bool
 	binary()
 }
 

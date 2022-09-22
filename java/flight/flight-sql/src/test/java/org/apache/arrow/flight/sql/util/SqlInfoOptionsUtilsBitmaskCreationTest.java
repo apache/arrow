@@ -22,29 +22,15 @@ import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_A;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_B;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_C;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
-import static org.hamcrest.CoreMatchers.is;
 
 import java.util.List;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public final class SqlInfoOptionsUtilsBitmaskCreationTest {
 
-  @Parameter
-  public AdhocTestOption[] adhocTestOptions;
-  @Parameter(value = 1)
-  public long expectedBitmask;
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
-
-  @Parameters
   public static List<Object[]> provideParameters() {
     return asList(
         new Object[][]{
@@ -59,8 +45,11 @@ public final class SqlInfoOptionsUtilsBitmaskCreationTest {
         });
   }
 
-  @Test
-  public void testShouldBuildBitmaskFromEnums() {
-    collector.checkThat(createBitmaskFromEnums(adhocTestOptions), is(expectedBitmask));
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testShouldBuildBitmaskFromEnums(
+      AdhocTestOption[] adhocTestOptions, long expectedBitmask
+  ) {
+    Assertions.assertEquals(createBitmaskFromEnums(adhocTestOptions), expectedBitmask);
   }
 }

@@ -385,13 +385,6 @@ register_scalar_function <- function(name, fun, in_type, out_type,
     update_cache = TRUE
   )
 
-  # User-defined functions require some special handling
-  # in the query engine which currently require an opt-in using
-  # the R_ARROW_COLLECT_WITH_UDF environment variable while this
-  # behaviour is stabilized.
-  # TODO(ARROW-17178) remove the need for this!
-  Sys.setenv(R_ARROW_COLLECT_WITH_UDF = "true")
-
   invisible(NULL)
 }
 

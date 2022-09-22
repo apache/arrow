@@ -141,9 +141,10 @@ final class ArrayImporter {
     for (long bufferPtr : buffers) {
       ArrowBuf buffer = null;
       if (bufferPtr != NULL) {
-        // TODO(roee88): an API for getting the size for each buffer is not yet
-        // available
-        buffer = new ArrowBuf(referenceManager, null, Integer.MAX_VALUE, bufferPtr);
+        // See ARROW-17720: [Java] C data interface: Add API to compute imported buffer size
+        int capacity = Integer.MAX_VALUE;
+        buffer = new ArrowBuf(referenceManager, null, capacity, bufferPtr);
+        buffer.writerIndex(capacity);
       }
       result.add(buffer);
     }

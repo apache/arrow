@@ -1867,7 +1867,9 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       [&](const NativePathString& base_dir) -> Result<std::unique_ptr<TemporaryDir>> {
     Status st;
     for (int attempt = 0; attempt < 3; ++attempt) {
-      PlatformFilename fn(base_dir + kNativeSep + base_name + kNativeSep);
+      PlatformFilename fn_base_dir(base_dir);
+      PlatformFilename fn_base_name(base_name + kNativeSep);
+      PlatformFilename fn = fn_base_dir.Join(fn_base_name);
       auto result = CreateDir(fn);
       if (!result.ok()) {
         // Probably a permissions error or a non-existing base_dir

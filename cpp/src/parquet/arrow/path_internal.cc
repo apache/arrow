@@ -89,6 +89,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array.h"
@@ -104,7 +105,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/variant.h"
 #include "arrow/visit_array_inline.h"
 
 #include "parquet/properties.h"
@@ -519,9 +519,9 @@ struct PathInfo {
   // The vectors are expected to the same length info.
 
   // Note index order matters here.
-  using Node = ::arrow::util::Variant<NullableTerminalNode, ListNode, LargeListNode,
-                                      FixedSizeListNode, NullableNode,
-                                      AllPresentTerminalNode, AllNullsTerminalNode>;
+  using Node =
+      std::variant<NullableTerminalNode, ListNode, LargeListNode, FixedSizeListNode,
+                   NullableNode, AllPresentTerminalNode, AllNullsTerminalNode>;
 
   std::vector<Node> path;
   std::shared_ptr<Array> primitive_array;
@@ -578,32 +578,32 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
     struct {
-      IterationResult operator()(NullableNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(NullableNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(ListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(ListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(NullableTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(NullableTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(FixedSizeListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(FixedSizeListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(AllPresentTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(AllPresentTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(AllNullsTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(AllNullsTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(LargeListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(LargeListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
       ElementRange* stack_position;
       PathWriteContext* context;
     } visitor = {stack_position, &context};
 
-    IterationResult result = ::arrow::util::visit(visitor, &node);
+    IterationResult result = std::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
@@ -640,39 +640,39 @@ struct FixupVisitor {
   int16_t rep_level_if_null = kLevelNotSet;
 
   template <typename T>
-  void HandleListNode(T* arg) {
-    if (arg->rep_level() == max_rep_level) {
-      arg->SetLast();
+  void HandleListNode(T& arg) {
+    if (arg.rep_level() == max_rep_level) {
+      arg.SetLast();
       // after the last list node we don't need to fill
       // rep levels on null.
       rep_level_if_null = kLevelNotSet;
     } else {
-      rep_level_if_null = arg->rep_level();
+      rep_level_if_null = arg.rep_level();
     }
   }
-  void operator()(ListNode* node) { HandleListNode(node); }
-  void operator()(LargeListNode* node) { HandleListNode(node); }
-  void operator()(FixedSizeListNode* node) { HandleListNode(node); }
+  void operator()(ListNode& node) { HandleListNode(node); }
+  void operator()(LargeListNode& node) { HandleListNode(node); }
+  void operator()(FixedSizeListNode& node) { HandleListNode(node); }
 
   // For non-list intermediate nodes.
   template <typename T>
-  void HandleIntermediateNode(T* arg) {
+  void HandleIntermediateNode(T& arg) {
     if (rep_level_if_null != kLevelNotSet) {
-      arg->SetRepLevelIfNull(rep_level_if_null);
+      arg.SetRepLevelIfNull(rep_level_if_null);
     }
   }
 
-  void operator()(NullableNode* arg) { HandleIntermediateNode(arg); }
+  void operator()(NullableNode& arg) { HandleIntermediateNode(arg); }
 
-  void operator()(AllNullsTerminalNode* arg) {
+  void operator()(AllNullsTerminalNode& arg) {
     // Even though no processing happens past this point we
     // still need to adjust it if a list occurred after an
     // all null array.
     HandleIntermediateNode(arg);
   }
 
-  void operator()(NullableTerminalNode*) {}
-  void operator()(AllPresentTerminalNode*) {}
+  void operator()(NullableTerminalNode&) {}
+  void operator()(AllPresentTerminalNode&) {}
 };
 
 PathInfo Fixup(PathInfo info) {
@@ -687,7 +687,7 @@ PathInfo Fixup(PathInfo info) {
     visitor.rep_level_if_null = 0;
   }
   for (size_t x = 0; x < info.path.size(); x++) {
-    ::arrow::util::visit(visitor, &info.path[x]);
+    std::visit(visitor, info.path[x]);
   }
   return info;
 }

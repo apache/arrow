@@ -42,10 +42,8 @@ test_that("CSV dataset", {
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
-  if (getRversion() >= "4.0.0") {
-    # CountRows segfaults on RTools35/R 3.6, so don't test it there
-    expect_identical(dim(ds), c(20L, 7L))
-  }
+  expect_identical(dim(ds), c(20L, 7L))
+
   expect_equal(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -381,4 +379,14 @@ test_that("skip argument in open_dataset", {
     skip = 1
   )
   expect_equal(collect(ds), tbl)
+})
+
+test_that("error message if non-schema passed in as schema to open_dataset", {
+
+  # passing in the schema function, not an actual schema
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema),
+    regexp = "`schema` must be an object of class 'Schema' not 'function'.",
+    fixed = TRUE
+  )
 })

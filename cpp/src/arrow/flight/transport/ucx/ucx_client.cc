@@ -581,7 +581,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       ARROW_ASSIGN_OR_RAISE(auto incoming_message, driver->ReadNextFrame());
       if (incoming_message->type == FrameType::kBuffer) {
         ARROW_ASSIGN_OR_RAISE(
-            *info, FlightInfo::Deserialize(util::string_view(*incoming_message->buffer)));
+            *info, FlightInfo::Deserialize(std::string_view(*incoming_message->buffer)));
         ARROW_ASSIGN_OR_RAISE(incoming_message, driver->ReadNextFrame());
       }
       RETURN_NOT_OK(driver->ExpectFrameType(*incoming_message, FrameType::kHeaders));

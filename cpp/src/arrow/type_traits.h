@@ -622,6 +622,13 @@ using is_fixed_size_binary_type = std::is_base_of<FixedSizeBinaryType, T>;
 template <typename T, typename R = void>
 using enable_if_fixed_size_binary = enable_if_t<is_fixed_size_binary_type<T>::value, R>;
 
+// This includes primitive, dictionary, and fixed-size-binary types
+template <typename T>
+using is_fixed_width_type = std::is_base_of<FixedWidthType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
+
 template <typename T>
 using is_binary_like_type =
     std::integral_constant<bool, (is_base_binary_type<T>::value &&

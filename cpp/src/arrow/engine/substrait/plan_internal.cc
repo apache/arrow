@@ -17,6 +17,8 @@
 
 #include "arrow/engine/substrait/plan_internal.h"
 
+#include "arrow/dataset/plan.h"
+#include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -38,7 +40,7 @@ using ::arrow::internal::make_unique;
 Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
 
-  std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash> map;
+  std::unordered_map<std::string_view, int, ::arrow::internal::StringViewHash> map;
 
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
@@ -47,7 +49,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     if (uri.empty()) continue;
 
     auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
-    ext_uri->set_uri(uri.to_string());
+    ext_uri->set_uri(std::string(uri));
     ext_uri->set_extension_uri_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
 
@@ -68,7 +70,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     auto type = internal::make_unique<ExtDecl::ExtensionType>();
     type->set_extension_uri_reference(map[type_record.id.uri]);
     type->set_type_anchor(anchor);
-    type->set_name(type_record.id.name.to_string());
+    type->set_name(std::string(type_record.id.name));
     ext_decl->set_allocated_extension_type(type.release());
     extensions->AddAllocated(ext_decl.release());
   }
@@ -79,7 +81,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
     fn->set_extension_uri_reference(map[function_id.uri]);
     fn->set_function_anchor(anchor);
-    fn->set_name(function_id.name.to_string());
+    fn->set_name(std::string(function_id.name));
 
     auto ext_decl = internal::make_unique<ExtDecl>();
     ext_decl->set_allocated_extension_function(fn.release());
@@ -94,7 +96,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
   if (registry == NULLPTR) {
     registry = default_extension_id_registry();
   }
-  std::unordered_map<uint32_t, util::string_view> uris;
+  std::unordered_map<uint32_t, std::string_view> uris;
   uris.reserve(plan.extension_uris_size());
   for (const auto& uri : plan.extension_uris()) {
     uris[uri.extension_uri_anchor()] = uri.uri();
@@ -112,14 +114,14 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
-        util::string_view uri = uris[type.extension_uri_reference()];
+        std::string_view uri = uris[type.extension_uri_reference()];
         type_ids[type.type_anchor()] = Id{uri, type.name()};
         break;
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
-        util::string_view uri = uris[fn.extension_uri_reference()];
+        std::string_view uri = uris[fn.extension_uri_reference()];
         function_ids[fn.function_anchor()] = Id{uri, fn.name()};
         break;
       }
@@ -131,6 +133,20 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
   return ExtensionSet::Make(std::move(uris), std::move(type_ids), std::move(function_ids),
                             registry);
+}
+
+Result<std::unique_ptr<substrait::Plan>> PlanToProto(
+    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  auto subs_plan = internal::make_unique<substrait::Plan>();
+  auto plan_rel = internal::make_unique<substrait::PlanRel>();
+  auto rel_root = internal::make_unique<substrait::RelRoot>();
+  ARROW_ASSIGN_OR_RAISE(auto rel, ToProto(declr, ext_set, conversion_options));
+  rel_root->set_allocated_input(rel.release());
+  plan_rel->set_allocated_root(rel_root.release());
+  subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
+  RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));
+  return std::move(subs_plan);
 }
 
 }  // namespace engine

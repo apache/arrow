@@ -51,7 +51,7 @@ Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
         call->SetEnumArg(idx, enum_val.specified());
         break;
       case substrait::FunctionArgument::Enum::EnumKindCase::kUnspecified:
-        call->SetEnumArg(idx, util::nullopt);
+        call->SetEnumArg(idx, std::nullopt);
         break;
       default:
         return Status::Invalid("Unrecognized enum kind case: ",
@@ -138,7 +138,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
 
-      util::optional<compute::Expression> out;
+      std::optional<compute::Expression> out;
       if (expr.selection().has_expression()) {
         ARROW_ASSIGN_OR_RAISE(
             out, FromProto(expr.selection().expression(), ext_set, conversion_options));
@@ -906,10 +906,9 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
       auto enum_val = internal::make_unique<substrait::FunctionArgument::Enum>();
-      ARROW_ASSIGN_OR_RAISE(util::optional<util::string_view> enum_arg,
-                            call.GetEnumArg(i));
+      ARROW_ASSIGN_OR_RAISE(std::optional<std::string_view> enum_arg, call.GetEnumArg(i));
       if (enum_arg) {
-        enum_val->set_specified(enum_arg->to_string());
+        enum_val->set_specified(std::string(*enum_arg));
       } else {
         enum_val->set_allocated_unspecified(new google::protobuf::Empty());
       }
@@ -1011,7 +1010,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().literal_type_case() ==
-                                             substrait::Expression_Literal::kI32) {
+                                             substrait::Expression::Literal::kI32) {
         return MakeListElementReference(std::move(arguments[0]),
                                         arguments[1]->literal().i32());
       }

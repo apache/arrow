@@ -419,7 +419,7 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);
@@ -1045,7 +1045,7 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);

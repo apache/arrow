@@ -33,9 +33,6 @@ OUT_DIR="$SOURCE_DIR/generated"
 FILES=($(find $FORMAT_DIR -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
-# add compute ir files
-FILES+=($(find "$TOP/experimental/computeir" -name '*.fbs'))
-
 $FLATC --cpp --cpp-std c++11 \
   --scoped-enums \
   -o "$OUT_DIR" \

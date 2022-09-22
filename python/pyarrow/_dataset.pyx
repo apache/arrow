@@ -21,6 +21,7 @@
 
 from cython.operator cimport dereference as deref
 
+import codecs
 import collections
 import os
 import warnings
@@ -831,8 +832,14 @@ cdef class FileFormat(_Weakrefable):
 
     @property
     def default_fragment_scan_options(self):
-        return FragmentScanOptions.wrap(
+        dfso = FragmentScanOptions.wrap(
             self.wrapped.get().default_fragment_scan_options)
+        # CsvFileFormat stores a Python-specific encoding field that needs
+        # to be restored because it does not exist in the C++ struct
+        if isinstance(self, CsvFileFormat):
+            if self._read_options_py is not None:
+                dfso.read_options = self._read_options_py
+        return dfso
 
     @default_fragment_scan_options.setter
     def default_fragment_scan_options(self, FragmentScanOptions options):
@@ -1148,10 +1155,17 @@ cdef class IpcFileFormat(FileFormat):
 
     @property
     def default_extname(self):
-        return "feather"
+        return "arrow"
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class FeatherFileFormat(IpcFileFormat):
+
+    @property
+    def default_extname(self):
+        return "feather"
 
 
 cdef class CsvFileFormat(FileFormat):
@@ -1171,6 +1185,10 @@ cdef class CsvFileFormat(FileFormat):
     """
     cdef:
         CCsvFileFormat* csv_format
+        # The encoding field in ReadOptions does not exist in the C++ struct.
+        # We need to store it here and override it when reading
+        # default_fragment_scan_options.read_options
+        public ReadOptions _read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1198,6 +1216,8 @@ cdef class CsvFileFormat(FileFormat):
             raise TypeError('`default_fragment_scan_options` must be either '
                             'a dictionary or an instance of '
                             'CsvFragmentScanOptions')
+        if read_options is not None:
+            self._read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1220,6 +1240,8 @@ cdef class CsvFileFormat(FileFormat):
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
         if options.type_name == 'csv':
             self.csv_format.default_fragment_scan_options = options.wrapped
+            self.default_fragment_scan_options.read_options = options.read_options
+            self._read_options_py = options.read_options
         else:
             super()._set_default_fragment_scan_options(options)
 
@@ -1251,6 +1273,9 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     cdef:
         CCsvFragmentScanOptions* csv_options
+        # The encoding field in ReadOptions does not exist in the C++ struct.
+        # We need to store it here and override it when reading read_options
+        ReadOptions _read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1263,6 +1288,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
             self.convert_options = convert_options
         if read_options is not None:
             self.read_options = read_options
+            self._read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1278,11 +1304,18 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     @property
     def read_options(self):
-        return ReadOptions.wrap(self.csv_options.read_options)
+        read_options = ReadOptions.wrap(self.csv_options.read_options)
+        if self._read_options_py is not None:
+            read_options.encoding = self._read_options_py.encoding
+        return read_options
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
+        self._read_options_py = read_options
+        if codecs.lookup(read_options.encoding).name != 'utf-8':
+            self.csv_options.stream_transform_func = deref(
+                make_streamwrap_func(read_options.encoding, 'utf-8'))
 
     def equals(self, CsvFragmentScanOptions other):
         return (
@@ -2168,11 +2201,14 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
 
 
 _DEFAULT_BATCH_SIZE = 2**17
-
+_DEFAULT_BATCH_READAHEAD = 16
+_DEFAULT_FRAGMENT_READAHEAD = 4
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
+                            int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                            int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                             bint use_threads=True, MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
@@ -2207,6 +2243,8 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
             )
 
     check_status(builder.BatchSize(batch_size))
+    check_status(builder.BatchReadahead(batch_readahead))
+    check_status(builder.FragmentReadahead(fragment_readahead))
     check_status(builder.UseThreads(use_threads))
     if memory_pool:
         check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
@@ -2254,6 +2292,12 @@ cdef class Scanner(_Weakrefable):
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
+    batch_readahead : int, default 16
+        The number of batches to read ahead in a file. Increasing this number 
+        will increase RAM usage but could also improve IO utilization.
+    fragment_readahead : int, default 4
+        The number of files to read ahead. Increasing this number will increase
+        RAM usage but could also improve IO utilization.
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
@@ -2291,6 +2335,8 @@ cdef class Scanner(_Weakrefable):
                      MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
+                     int batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                     int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Dataset,
@@ -2328,6 +2374,13 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
+        fragment_readahead : int, default 4
+            The number of files to read ahead. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2354,7 +2407,8 @@ cdef class Scanner(_Weakrefable):
 
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=batch_readahead,
+                          fragment_readahead=fragment_readahead, use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -2367,6 +2421,7 @@ cdef class Scanner(_Weakrefable):
                       MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
+                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                       FragmentScanOptions fragment_scan_options=None):
         """
         Create Scanner from Fragment,
@@ -2406,6 +2461,10 @@ cdef class Scanner(_Weakrefable):
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
+        batch_readahead : int, default 16
+            The number of batches to read ahead in a file. This might not work
+            for all file formats. Increasing this number will increase
+            RAM usage but could also improve IO utilization.
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
@@ -2435,7 +2494,9 @@ cdef class Scanner(_Weakrefable):
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=batch_readahead,
+                          fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
+                          use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -2508,7 +2569,8 @@ cdef class Scanner(_Weakrefable):
                           FutureWarning)
 
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size, use_threads=use_threads,
+                          batch_size=batch_size, batch_readahead=_DEFAULT_BATCH_READAHEAD,
+                          fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD, use_threads=use_threads,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())

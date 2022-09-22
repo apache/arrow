@@ -397,6 +397,7 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join_node.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
+       compute/exec/map_node.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
        compute/exec/options.cc
@@ -551,7 +552,23 @@ else()
 endif()
 
 if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
+  arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
+  arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
+  arrow_create_merged_static_lib(arrow_bundled_dependencies
+                                 NAME
+                                 arrow_bundled_dependencies
+                                 ROOT
+                                 ${_FIRST_LIB}
+                                 TO_MERGE
+                                 ${_OTHER_LIBS})
+  # We can't use install(TARGETS) here because
+  # arrow_bundled_dependencies is an IMPORTED library.
+  get_target_property(arrow_bundled_dependencies_path arrow_bundled_dependencies
+                      IMPORTED_LOCATION)
+  install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
+          DESTINATION ${CMAKE_INSTALL_LIBDIR})
   string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
+  list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
 # Need -latomic on Raspbian.
 # See also: https://issues.apache.org/jira/browse/ARROW-12860
@@ -575,11 +592,12 @@ add_arrow_lib(arrow
               SHARED_LINK_FLAGS
               ${ARROW_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
-              ${ARROW_LINK_LIBS}
+              ${ARROW_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
               ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
@@ -619,6 +637,8 @@ endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+  # C++17 is required to compile against Arrow C++ headers and libraries
+  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_17)
 endforeach()
 
 if(ARROW_WITH_BACKTRACE)
@@ -629,18 +649,6 @@ if(ARROW_WITH_BACKTRACE)
       target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
     endif()
   endforeach()
-endif()
-
-if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
-  arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
-  arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
-  create_merged_static_lib(arrow_bundled_dependencies
-                           NAME
-                           arrow_bundled_dependencies
-                           ROOT
-                           ${_FIRST_LIB}
-                           TO_MERGE
-                           ${_OTHER_LIBS})
 endif()
 
 if(ARROW_TESTING)
@@ -663,10 +671,16 @@ if(ARROW_TESTING)
                 rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
+                SHARED_INSTALL_INTERFACE_LIBS
+                Arrow::arrow_shared
+                GTest::gtest
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
+                GTest::gtest
+                STATIC_INSTALL_INTERFACE_LIBS
+                Arrow::arrow_static
                 GTest::gtest)
 
   add_custom_target(arrow_testing)
@@ -685,11 +699,11 @@ arrow_install_all_headers("arrow")
 
 config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
-        DESTINATION "${ARROW_CMAKE_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
 
 # For backward compatibility for find_package(arrow)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
-        DESTINATION "${ARROW_CMAKE_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
 
 #
 # Unit tests
@@ -803,10 +817,6 @@ endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(python)
 endif()
 
 if(ARROW_TENSORFLOW)

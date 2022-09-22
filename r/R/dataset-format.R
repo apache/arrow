@@ -128,6 +128,13 @@ CsvFileFormat$create <- function(...,
 
   options <- list(...)
   schema <- options[["schema"]]
+  if (!is.null(schema) && !inherits(schema, "Schema")) {
+    abort(paste0(
+      "`schema` must be an object of class 'Schema' not '",
+      class(schema)[1],
+      "'."
+    ))
+  }
 
   column_names <- read_options$column_names
   schema_names <- names(schema)

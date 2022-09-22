@@ -21,13 +21,13 @@
 #include <iosfwd>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/basic_decimal.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -95,13 +95,13 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
 
   /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Status FromString(const util::string_view& s, Decimal128* out,
-                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string_view& s, Decimal128* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
   static Status FromString(const std::string& s, Decimal128* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal128* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
-  static Result<Decimal128> FromString(const util::string_view& s);
+  static Result<Decimal128> FromString(const std::string_view& s);
   static Result<Decimal128> FromString(const std::string& s);
   static Result<Decimal128> FromString(const char* s);
 
@@ -211,13 +211,13 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
   /// \brief Convert a decimal string to a Decimal256 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Status FromString(const util::string_view& s, Decimal256* out,
-                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string_view& s, Decimal256* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
   static Status FromString(const std::string& s, Decimal256* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal256* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
-  static Result<Decimal256> FromString(const util::string_view& s);
+  static Result<Decimal256> FromString(const std::string_view& s);
   static Result<Decimal256> FromString(const std::string& s);
   static Result<Decimal256> FromString(const char* s);
 

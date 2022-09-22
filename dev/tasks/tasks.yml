@@ -87,7 +87,7 @@ groups:
     # r-conda tasks
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
-    - conda-win-vs2017-py*-r*
+    - conda-win-vs2019-py*-r*
     - r-binary-packages
 
   ruby:
@@ -408,7 +408,7 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py37-r40:
+  conda-win-vs2019-py37-r40:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -418,7 +418,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py37-r41:
+  conda-win-vs2019-py37-r41:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -428,7 +428,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py38:
+  conda-win-vs2019-py38:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -437,7 +437,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py39:
+  conda-win-vs2019-py39:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -446,7 +446,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py310:
+  conda-win-vs2019-py310:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
@@ -478,9 +478,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
-                                                              ("10.13", "high-sierra", "ON", "ON")] %}
+{% for macos_version, macos_codename in [("10.14", "mojave")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -489,8 +487,6 @@ tasks:
     params:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      arrow_s3: "{{ arrow_s3 }}"
-      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -542,9 +538,9 @@ tasks:
     params:
       arch: universal2
       python_version: "{{ python_version }}"
-      macos_deployment_target: "10.13"
+      macos_deployment_target: "10.14"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_13_universal2.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_14_universal2.whl
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -627,14 +623,6 @@ tasks:
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-glib1000_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if target != "ubuntu-bionic" %}
-      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python-flight1000_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python1000_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
       - libarrow1000-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow1000_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -748,16 +736,6 @@ tasks:
       - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow-python-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% if architecture == "amd64" %}
-      - arrow-python-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% endif %}
-      - arrow[0-9]+-python-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-python-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
     {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
     {% endif %}
@@ -840,115 +818,120 @@ tasks:
     ci: github
     template: java-jars/github.yml
     artifacts:
-      - arrow-algorithm-{no_rc_version}-javadoc.jar
-      - arrow-algorithm-{no_rc_version}-sources.jar
-      - arrow-algorithm-{no_rc_version}-tests.jar
-      - arrow-algorithm-{no_rc_version}.jar
-      - arrow-algorithm-{no_rc_version}.pom
-      - arrow-avro-{no_rc_version}-javadoc.jar
-      - arrow-avro-{no_rc_version}-sources.jar
-      - arrow-avro-{no_rc_version}-tests.jar
-      - arrow-avro-{no_rc_version}.jar
-      - arrow-avro-{no_rc_version}.pom
-      - arrow-c-data-{no_rc_version}-javadoc.jar
-      - arrow-c-data-{no_rc_version}-sources.jar
-      - arrow-c-data-{no_rc_version}-tests.jar
-      - arrow-c-data-{no_rc_version}.jar
-      - arrow-c-data-{no_rc_version}.pom
-      - arrow-compression-{no_rc_version}-javadoc.jar
-      - arrow-compression-{no_rc_version}-sources.jar
-      - arrow-compression-{no_rc_version}-tests.jar
-      - arrow-compression-{no_rc_version}.jar
-      - arrow-compression-{no_rc_version}.pom
-      - arrow-dataset-{no_rc_version}-javadoc.jar
-      - arrow-dataset-{no_rc_version}-sources.jar
-      - arrow-dataset-{no_rc_version}-tests.jar
-      - arrow-dataset-{no_rc_version}.jar
-      - arrow-dataset-{no_rc_version}.pom
-      - arrow-flight-{no_rc_version}.pom
-      - arrow-format-{no_rc_version}-javadoc.jar
-      - arrow-format-{no_rc_version}-sources.jar
-      - arrow-format-{no_rc_version}-tests.jar
-      - arrow-format-{no_rc_version}.jar
-      - arrow-format-{no_rc_version}.pom
-      - arrow-gandiva-{no_rc_version}-javadoc.jar
-      - arrow-gandiva-{no_rc_version}-sources.jar
-      - arrow-gandiva-{no_rc_version}-tests.jar
-      - arrow-gandiva-{no_rc_version}.jar
-      - arrow-gandiva-{no_rc_version}.pom
-      - arrow-java-root-{no_rc_version}-source-release.zip
-      - arrow-java-root-{no_rc_version}.pom
-      - arrow-jdbc-{no_rc_version}-javadoc.jar
-      - arrow-jdbc-{no_rc_version}-sources.jar
-      - arrow-jdbc-{no_rc_version}-tests.jar
-      - arrow-jdbc-{no_rc_version}.jar
-      - arrow-jdbc-{no_rc_version}.pom
-      - arrow-memory-core-{no_rc_version}-javadoc.jar
-      - arrow-memory-core-{no_rc_version}-sources.jar
-      - arrow-memory-core-{no_rc_version}-tests.jar
-      - arrow-memory-core-{no_rc_version}.jar
-      - arrow-memory-core-{no_rc_version}.pom
-      - arrow-memory-netty-{no_rc_version}-javadoc.jar
-      - arrow-memory-netty-{no_rc_version}-sources.jar
-      - arrow-memory-netty-{no_rc_version}-tests.jar
-      - arrow-memory-netty-{no_rc_version}.jar
-      - arrow-memory-netty-{no_rc_version}.pom
-      - arrow-memory-unsafe-{no_rc_version}-javadoc.jar
-      - arrow-memory-unsafe-{no_rc_version}-sources.jar
-      - arrow-memory-unsafe-{no_rc_version}-tests.jar
-      - arrow-memory-unsafe-{no_rc_version}.jar
-      - arrow-memory-unsafe-{no_rc_version}.pom
-      - arrow-memory-{no_rc_version}.pom
-      - arrow-orc-{no_rc_version}-javadoc.jar
-      - arrow-orc-{no_rc_version}-sources.jar
-      - arrow-orc-{no_rc_version}-tests.jar
-      - arrow-orc-{no_rc_version}.jar
-      - arrow-orc-{no_rc_version}.pom
-      - arrow-performance-{no_rc_version}-sources.jar
-      - arrow-performance-{no_rc_version}-tests.jar
-      - arrow-performance-{no_rc_version}.jar
-      - arrow-performance-{no_rc_version}.pom
-      - arrow-plasma-{no_rc_version}-javadoc.jar
-      - arrow-plasma-{no_rc_version}-sources.jar
-      - arrow-plasma-{no_rc_version}-tests.jar
-      - arrow-plasma-{no_rc_version}.jar
-      - arrow-plasma-{no_rc_version}.pom
-      - arrow-tools-{no_rc_version}-jar-with-dependencies.jar
-      - arrow-tools-{no_rc_version}-javadoc.jar
-      - arrow-tools-{no_rc_version}-sources.jar
-      - arrow-tools-{no_rc_version}-tests.jar
-      - arrow-tools-{no_rc_version}.jar
-      - arrow-tools-{no_rc_version}.pom
-      - arrow-vector-{no_rc_version}-javadoc.jar
-      - arrow-vector-{no_rc_version}-shade-format-flatbuffers.jar
-      - arrow-vector-{no_rc_version}-sources.jar
-      - arrow-vector-{no_rc_version}-tests.jar
-      - arrow-vector-{no_rc_version}.jar
-      - arrow-vector-{no_rc_version}.pom
-      - flight-core-{no_rc_version}-jar-with-dependencies.jar
-      - flight-core-{no_rc_version}-javadoc.jar
-      - flight-core-{no_rc_version}-shaded-ext.jar
-      - flight-core-{no_rc_version}-shaded.jar
-      - flight-core-{no_rc_version}-sources.jar
-      - flight-core-{no_rc_version}-tests.jar
-      - flight-core-{no_rc_version}.jar
-      - flight-core-{no_rc_version}.pom
-      - flight-grpc-{no_rc_version}-javadoc.jar
-      - flight-grpc-{no_rc_version}-sources.jar
-      - flight-grpc-{no_rc_version}-tests.jar
-      - flight-grpc-{no_rc_version}.jar
-      - flight-grpc-{no_rc_version}.pom
-      - flight-integration-tests-{no_rc_version}-jar-with-dependencies.jar
-      - flight-integration-tests-{no_rc_version}-javadoc.jar
-      - flight-integration-tests-{no_rc_version}-sources.jar
-      - flight-integration-tests-{no_rc_version}-tests.jar
-      - flight-integration-tests-{no_rc_version}.jar
-      - flight-integration-tests-{no_rc_version}.pom
-      - flight-sql-{no_rc_version}-javadoc.jar
-      - flight-sql-{no_rc_version}-sources.jar
-      - flight-sql-{no_rc_version}-tests.jar
-      - flight-sql-{no_rc_version}.jar
-      - flight-sql-{no_rc_version}.pom
+      - arrow-algorithm-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-algorithm-{no_rc_snapshot_version}-sources.jar
+      - arrow-algorithm-{no_rc_snapshot_version}-tests.jar
+      - arrow-algorithm-{no_rc_snapshot_version}.jar
+      - arrow-algorithm-{no_rc_snapshot_version}.pom
+      - arrow-avro-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-avro-{no_rc_snapshot_version}-sources.jar
+      - arrow-avro-{no_rc_snapshot_version}-tests.jar
+      - arrow-avro-{no_rc_snapshot_version}.jar
+      - arrow-avro-{no_rc_snapshot_version}.pom
+      - arrow-c-data-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-c-data-{no_rc_snapshot_version}-sources.jar
+      - arrow-c-data-{no_rc_snapshot_version}-tests.jar
+      - arrow-c-data-{no_rc_snapshot_version}.jar
+      - arrow-c-data-{no_rc_snapshot_version}.pom
+      - arrow-compression-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-compression-{no_rc_snapshot_version}-sources.jar
+      - arrow-compression-{no_rc_snapshot_version}-tests.jar
+      - arrow-compression-{no_rc_snapshot_version}.jar
+      - arrow-compression-{no_rc_snapshot_version}.pom
+      - arrow-dataset-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-dataset-{no_rc_snapshot_version}-sources.jar
+      - arrow-dataset-{no_rc_snapshot_version}-tests.jar
+      - arrow-dataset-{no_rc_snapshot_version}.jar
+      - arrow-dataset-{no_rc_snapshot_version}.pom
+      - arrow-flight-{no_rc_snapshot_version}.pom
+      - arrow-format-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-format-{no_rc_snapshot_version}-sources.jar
+      - arrow-format-{no_rc_snapshot_version}-tests.jar
+      - arrow-format-{no_rc_snapshot_version}.jar
+      - arrow-format-{no_rc_snapshot_version}.pom
+      - arrow-gandiva-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-gandiva-{no_rc_snapshot_version}-sources.jar
+      - arrow-gandiva-{no_rc_snapshot_version}-tests.jar
+      - arrow-gandiva-{no_rc_snapshot_version}.jar
+      - arrow-gandiva-{no_rc_snapshot_version}.pom
+      - arrow-java-root-{no_rc_snapshot_version}-source-release.zip
+      - arrow-java-root-{no_rc_snapshot_version}.pom
+      - arrow-jdbc-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-jdbc-{no_rc_snapshot_version}-sources.jar
+      - arrow-jdbc-{no_rc_snapshot_version}-tests.jar
+      - arrow-jdbc-{no_rc_snapshot_version}.jar
+      - arrow-jdbc-{no_rc_snapshot_version}.pom
+      - arrow-memory-core-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-memory-core-{no_rc_snapshot_version}-sources.jar
+      - arrow-memory-core-{no_rc_snapshot_version}-tests.jar
+      - arrow-memory-core-{no_rc_snapshot_version}.jar
+      - arrow-memory-core-{no_rc_snapshot_version}.pom
+      - arrow-memory-netty-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-memory-netty-{no_rc_snapshot_version}-sources.jar
+      - arrow-memory-netty-{no_rc_snapshot_version}-tests.jar
+      - arrow-memory-netty-{no_rc_snapshot_version}.jar
+      - arrow-memory-netty-{no_rc_snapshot_version}.pom
+      - arrow-memory-unsafe-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-memory-unsafe-{no_rc_snapshot_version}-sources.jar
+      - arrow-memory-unsafe-{no_rc_snapshot_version}-tests.jar
+      - arrow-memory-unsafe-{no_rc_snapshot_version}.jar
+      - arrow-memory-unsafe-{no_rc_snapshot_version}.pom
+      - arrow-memory-{no_rc_snapshot_version}.pom
+      - arrow-orc-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-orc-{no_rc_snapshot_version}-sources.jar
+      - arrow-orc-{no_rc_snapshot_version}-tests.jar
+      - arrow-orc-{no_rc_snapshot_version}.jar
+      - arrow-orc-{no_rc_snapshot_version}.pom
+      - arrow-performance-{no_rc_snapshot_version}-sources.jar
+      - arrow-performance-{no_rc_snapshot_version}-tests.jar
+      - arrow-performance-{no_rc_snapshot_version}.jar
+      - arrow-performance-{no_rc_snapshot_version}.pom
+      - arrow-plasma-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-plasma-{no_rc_snapshot_version}-sources.jar
+      - arrow-plasma-{no_rc_snapshot_version}-tests.jar
+      - arrow-plasma-{no_rc_snapshot_version}.jar
+      - arrow-plasma-{no_rc_snapshot_version}.pom
+      - arrow-tools-{no_rc_snapshot_version}-jar-with-dependencies.jar
+      - arrow-tools-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-tools-{no_rc_snapshot_version}-sources.jar
+      - arrow-tools-{no_rc_snapshot_version}-tests.jar
+      - arrow-tools-{no_rc_snapshot_version}.jar
+      - arrow-tools-{no_rc_snapshot_version}.pom
+      - arrow-vector-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-vector-{no_rc_snapshot_version}-shade-format-flatbuffers.jar
+      - arrow-vector-{no_rc_snapshot_version}-sources.jar
+      - arrow-vector-{no_rc_snapshot_version}-tests.jar
+      - arrow-vector-{no_rc_snapshot_version}.jar
+      - arrow-vector-{no_rc_snapshot_version}.pom
+      - flight-core-{no_rc_snapshot_version}-jar-with-dependencies.jar
+      - flight-core-{no_rc_snapshot_version}-javadoc.jar
+      - flight-core-{no_rc_snapshot_version}-shaded-ext.jar
+      - flight-core-{no_rc_snapshot_version}-shaded.jar
+      - flight-core-{no_rc_snapshot_version}-sources.jar
+      - flight-core-{no_rc_snapshot_version}-tests.jar
+      - flight-core-{no_rc_snapshot_version}.jar
+      - flight-core-{no_rc_snapshot_version}.pom
+      - flight-grpc-{no_rc_snapshot_version}-javadoc.jar
+      - flight-grpc-{no_rc_snapshot_version}-sources.jar
+      - flight-grpc-{no_rc_snapshot_version}-tests.jar
+      - flight-grpc-{no_rc_snapshot_version}.jar
+      - flight-grpc-{no_rc_snapshot_version}.pom
+      - flight-integration-tests-{no_rc_snapshot_version}-jar-with-dependencies.jar
+      - flight-integration-tests-{no_rc_snapshot_version}-javadoc.jar
+      - flight-integration-tests-{no_rc_snapshot_version}-sources.jar
+      - flight-integration-tests-{no_rc_snapshot_version}-tests.jar
+      - flight-integration-tests-{no_rc_snapshot_version}.jar
+      - flight-integration-tests-{no_rc_snapshot_version}.pom
+      - flight-sql-{no_rc_snapshot_version}-javadoc.jar
+      - flight-sql-{no_rc_snapshot_version}-sources.jar
+      - flight-sql-{no_rc_snapshot_version}-tests.jar
+      - flight-sql-{no_rc_snapshot_version}.jar
+      - flight-sql-{no_rc_snapshot_version}.pom
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-javadoc.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-sources.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
+      - flight-sql-jdbc-driver-{no_rc_snapshot_version}.pom
 
   ############################## NuGet packages ###############################
 
@@ -973,13 +956,17 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
-      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      # The centos job is currently disabled due to the
+      # change to C++ 17
+      #- r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
       - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
       - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_[0-9\.]+\.tgz
       - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
@@ -1107,7 +1094,6 @@ tasks:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       github_runner: ["self-hosted", "macOS", "arm64"]
-      arch_emulation: arm64
       target: "wheels"
 
   ######################## Windows verification ##############################
@@ -1224,7 +1210,7 @@ tasks:
       flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
       image: ubuntu-cpp
 
-{% for cpp_standard in [14, 17] %}
+{% for cpp_standard in [17] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1471,13 +1457,13 @@ tasks:
     ci: github
     template: r/github.linux.revdepcheck.yml
 
-  test-debian-11-go-1.16:
+  test-debian-11-go-1.17:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
-        GO: 1.16
+        GO: 1.17
       image: debian-go
 
   test-ubuntu-default-docs:
@@ -1609,6 +1595,13 @@ tasks:
       type: minimal_build
       run: {{ kind }}
 {% endfor %}
+
+  cpp-tutorial-example:
+    ci: github
+    template: cpp-examples/github.linux.yml
+    params:
+      type: tutorial_examples
+      run: tutorial
 
 ############################## Utility tasks ############################
   preview-docs:

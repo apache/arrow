@@ -22,6 +22,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array/data.h"
@@ -30,7 +31,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -51,9 +51,9 @@ struct ARROW_EXPORT Datum {
   // current variant does not have a length.
   static constexpr int64_t kUnknownLength = -1;
 
-  util::Variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
-                std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
-                std::shared_ptr<Table>>
+  std::variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
+               std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
+               std::shared_ptr<Table>>
       value;
 
   /// \brief Empty datum, to be populated elsewhere
@@ -136,7 +136,7 @@ struct ARROW_EXPORT Datum {
   }
 
   const std::shared_ptr<ArrayData>& array() const {
-    return util::get<std::shared_ptr<ArrayData>>(this->value);
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   /// \brief The sum of bytes in each buffer referenced by the datum
@@ -149,19 +149,19 @@ struct ARROW_EXPORT Datum {
   std::shared_ptr<Array> make_array() const;
 
   const std::shared_ptr<ChunkedArray>& chunked_array() const {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value);
+    return std::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
 
   const std::shared_ptr<RecordBatch>& record_batch() const {
-    return util::get<std::shared_ptr<RecordBatch>>(this->value);
+    return std::get<std::shared_ptr<RecordBatch>>(this->value);
   }
 
   const std::shared_ptr<Table>& table() const {
-    return util::get<std::shared_ptr<Table>>(this->value);
+    return std::get<std::shared_ptr<Table>>(this->value);
   }
 
   const std::shared_ptr<Scalar>& scalar() const {
-    return util::get<std::shared_ptr<Scalar>>(this->value);
+    return std::get<std::shared_ptr<Scalar>>(this->value);
   }
 
   template <typename ExactType>

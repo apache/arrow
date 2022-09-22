@@ -18,8 +18,7 @@
 #pragma once
 
 #include <string>
-
-#include "arrow/util/variant.h"
+#include <variant>
 
 #include "parquet/encryption/key_material.h"
 #include "parquet/exception.h"
@@ -70,14 +69,14 @@ class PARQUET_EXPORT KeyMetadata {
     if (!is_internal_storage_) {
       throw ParquetException("key material is stored externally.");
     }
-    return ::arrow::util::get<KeyMaterial>(key_material_or_reference_);
+    return ::std::get<KeyMaterial>(key_material_or_reference_);
   }
 
   const std::string& key_reference() const {
     if (is_internal_storage_) {
       throw ParquetException("key material is stored internally.");
     }
-    return ::arrow::util::get<std::string>(key_material_or_reference_);
+    return ::std::get<std::string>(key_material_or_reference_);
   }
 
  private:
@@ -87,7 +86,7 @@ class PARQUET_EXPORT KeyMetadata {
   bool is_internal_storage_;
   /// If is_internal_storage_ is true, KeyMaterial is set,
   /// else a string referencing to an outside "key material" is set.
-  ::arrow::util::Variant<KeyMaterial, std::string> key_material_or_reference_;
+  ::std::variant<KeyMaterial, std::string> key_material_or_reference_;
 };
 
 }  // namespace encryption

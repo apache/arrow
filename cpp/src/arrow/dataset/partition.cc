@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -37,7 +38,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/utf8.h"
 
@@ -45,7 +45,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::string_view;
+using std::string_view;
 
 using internal::DictionaryMemoTable;
 
@@ -53,7 +53,7 @@ namespace dataset {
 
 namespace {
 /// Apply UriUnescape, then ensure the results are valid UTF-8.
-Result<std::string> SafeUriUnescape(util::string_view encoded) {
+Result<std::string> SafeUriUnescape(std::string_view encoded) {
   auto decoded = ::arrow::internal::UriUnescape(encoded);
   if (!util::ValidateUTF8(decoded)) {
     return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
@@ -330,12 +330,12 @@ Result<PartitionPathFormat> KeyValuePartitioning::Format(
   return FormatValues(values);
 }
 
-inline util::optional<int> NextValid(const ScalarVector& values, int first_null) {
+inline std::optional<int> NextValid(const ScalarVector& values, int first_null) {
   auto it = std::find_if(values.begin() + first_null + 1, values.end(),
                          [](const std::shared_ptr<Scalar>& v) { return v != nullptr; });
 
   if (it == values.end()) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   return static_cast<int>(it - values.begin());
@@ -473,7 +473,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     return it_inserted.first->second;
   }
 
-  Status InsertRepr(const std::string& name, util::optional<string_view> repr) {
+  Status InsertRepr(const std::string& name, std::optional<string_view> repr) {
     auto field_index = GetOrInsertField(name);
     if (repr.has_value()) {
       return InsertRepr(field_index, *repr);
@@ -482,7 +482,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     }
   }
 
-  Status InsertRepr(int index, util::string_view repr) {
+  Status InsertRepr(int index, std::string_view repr) {
     int dummy;
     return repr_memos_[index]->GetOrInsert<StringType>(repr, &dummy);
   }
@@ -715,12 +715,12 @@ bool FilenamePartitioning::Equals(const Partitioning& other) const {
   return KeyValuePartitioning::Equals(other);
 }
 
-Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
+Result<std::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
     const std::string& segment, const HivePartitioningOptions& options) {
   auto name_end = string_view(segment).find_first_of('=');
   // Not round-trippable
   if (name_end == string_view::npos) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   // Static method, so we have no better place for it
@@ -738,9 +738,9 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
       break;
     }
     case SegmentEncoding::Uri: {
-      auto raw_value = util::string_view(segment).substr(name_end + 1);
+      auto raw_value = std::string_view(segment).substr(name_end + 1);
       ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
-      auto raw_key = util::string_view(segment).substr(0, name_end);
+      auto raw_key = std::string_view(segment).substr(0, name_end);
       ARROW_ASSIGN_OR_RAISE(name, SafeUriUnescape(raw_key));
       break;
     }
@@ -750,7 +750,7 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
   }
 
   if (value == options.null_fallback) {
-    return Key{std::move(name), util::nullopt};
+    return Key{std::move(name), std::nullopt};
   }
   return Key{std::move(name), std::move(value)};
 }

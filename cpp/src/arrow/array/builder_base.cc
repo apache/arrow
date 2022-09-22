@@ -144,7 +144,7 @@ struct AppendScalarImpl {
            raw++) {
         auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
         if (scalar->is_valid) {
-          builder->UnsafeAppend(util::string_view{*scalar->value});
+          builder->UnsafeAppend(std::string_view{*scalar->value});
         } else {
           builder->UnsafeAppendNull();
         }

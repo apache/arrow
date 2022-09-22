@@ -56,7 +56,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +122,7 @@ jobs:
     name: AMD64 macOS 11 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
     env:
@@ -146,8 +146,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # System Abseil installed by Homebrew uses C++ 17
-      CMAKE_CXX_STANDARD: 17
+      GTest_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -180,7 +179,11 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
+        run: |
+          export CC=$(brew --prefix llvm)/bin/clang
+          export CXX=$(brew --prefix llvm)/bin/clang++
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: |
@@ -257,7 +260,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.2 /usr
+          ci/scripts/install_ccache.sh 4.6.3 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -271,8 +274,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-
+          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2022-09-13"
       - name: Build
         shell: cmd
         run: |
