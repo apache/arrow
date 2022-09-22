@@ -17,8 +17,8 @@
 
 package org.apache.arrow.dataset.file;
 
+import org.apache.arrow.dataset.jni.CRecordBatchIterator;
 import org.apache.arrow.dataset.jni.JniLoader;
-import org.apache.arrow.dataset.jni.NativeRecordBatchIterator;
 
 /**
  * JniWrapper for filesystem based {@link org.apache.arrow.dataset.source.Dataset} implementations.
@@ -59,7 +59,7 @@ public class JniWrapper {
    * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
    *                         ID around all written files.
    */
-  public native void writeFromScannerToFile(NativeRecordBatchIterator itr, byte[] schema,
+  public native void writeFromScannerToFile(CRecordBatchIterator itr, byte[] schema,
                                             long fileFormat, String uri, String[] partitionColumns, int maxPartitions,
                                             String baseNameTemplate);
 

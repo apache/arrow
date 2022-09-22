@@ -17,7 +17,6 @@
 
 package org.apache.arrow.dataset.file;
 
-import org.apache.arrow.dataset.jni.NativeRecordBatchIterator;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -42,8 +41,7 @@ public class DatasetFileWriter {
    */
   public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
-    final NativeScannerAdaptorImpl adaptor = new NativeScannerAdaptorImpl(scanner, allocator);
-    final NativeRecordBatchIterator itr = adaptor.scan();
+    final CRecordBatchIteratorImpl itr = new CRecordBatchIteratorImpl(scanner, allocator);
     RuntimeException throwableWrapper = null;
     try {
       JniWrapper.get().writeFromScannerToFile(itr, SchemaUtility.serialize(scanner.schema()),

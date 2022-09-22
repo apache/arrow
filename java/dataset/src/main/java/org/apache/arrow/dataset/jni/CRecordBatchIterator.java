@@ -17,16 +17,16 @@
 
 package org.apache.arrow.dataset.jni;
 
-import java.util.Iterator;
 /**
  * Iterate on the memory address of ArrowArray
  * next() should be called from C++ scanner to read the memory address of ArrowArray.
  */
-public interface NativeRecordBatchIterator extends Iterator<byte[]>, AutoCloseable {
+public interface CRecordBatchIterator extends AutoCloseable {
 
   /**
    * Return next {@link org.apache.arrow.c.ArrowArray} memory address.
    */
-  @Override
-  byte[] next();
+
+  void next(long cArrowArray, long cArrowSchema);
+  boolean hasNext();
 }
