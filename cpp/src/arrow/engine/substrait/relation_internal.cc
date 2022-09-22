@@ -99,7 +99,7 @@ Status CheckRelCommon(const RelMessage& rel) {
 // Other helper functions
 Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs,
                             const std::string& dirpath,
-                            std::vector<fs::FileInfo> *rel_fpaths) {
+                            std::vector<fs::FileInfo>* rel_fpaths) {
   // Define a selector for a recursive descent
   fs::FileSelector selector;
   selector.base_dir = dirpath;
@@ -283,7 +283,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
               case fs::FileType::Unknown:
                 [[fallthrough]];
               default:
-                return Status::NotImplemented("unsupported: URI path is of unknown file type.");
+                return Status::NotImplemented("URI path is of unknown file type.");
             }
             break;
           }
