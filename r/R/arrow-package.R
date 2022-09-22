@@ -102,10 +102,8 @@ supported_dplyr_methods <- list(
     configure_tzdb()
   }
 
-  # Set interrupt handlers if in an interactive session
-  if (rlang::is_interactive()) {
-    SetEnableSignalStopSource(TRUE)
-  }
+  # Set interrupt handlers
+  SetEnableSignalStopSource(TRUE)
 
   # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
