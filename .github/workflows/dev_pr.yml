@@ -46,8 +46,8 @@ jobs:
 
       - name: Comment JIRA link
         if: |
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -57,8 +57,8 @@ jobs:
 
       - name: Check title
         if: |
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -68,8 +68,8 @@ jobs:
 
       - name: Check Jira Issue
         if: |
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           debug: true
@@ -80,8 +80,8 @@ jobs:
 
       - name: Assign GitHub labels
         if: |
-            (github.event.action == 'opened' ||
-             github.event.action == 'synchronize')
+          (github.event.action == 'opened' ||
+           github.event.action == 'synchronize')
         uses: actions/labeler@4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
