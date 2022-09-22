@@ -162,6 +162,7 @@ struct CastFixedList {
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
 
+    values = values->Slice(in_array.offset * in_size, in_array.length * in_size);
     auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                           Cast(values, child_type, options, ctx->exec_context()));
