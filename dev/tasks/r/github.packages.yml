@@ -310,6 +310,12 @@ jobs:
             https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
             bash -s unknown-linux-musl /usr/local/bin
       - run: sudo apt update && sudo apt install libcurl4-openssl-dev
+      - name: Prepare PKG_CONFIG_PATH
+        run: |
+          env | sort
+          set -x
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
+            >> "$GITHUB_ENV"
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
