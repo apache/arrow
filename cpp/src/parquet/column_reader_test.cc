@@ -616,9 +616,8 @@ TEST(RecordReaderTest, BasicReadRepeatedField) {
   ASSERT_EQ(record_reader->levels_position(), 3);
 
   const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-  std::vector<int32_t> read_vals(
-      read_values,
-      read_values + record_reader->values_written() );
+  std::vector<int32_t> read_vals(read_values,
+                                 read_values + record_reader->values_written());
   std::vector<int16_t> read_defs(
       record_reader->def_levels(),
       record_reader->def_levels() + record_reader->levels_position());
