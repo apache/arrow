@@ -2209,6 +2209,39 @@ TEST(Cast, ListToListOptionsPassthru) {
   }
 }
 
+static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,
+                          const std::string& json_data) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      const auto src_type = fixed_size_list(src_value_type, 2);
+      const auto dest_type = fixed_size_list(dest_value_type, 2);
+      ARROW_SCOPED_TRACE("src_type = ", src_type->ToString(),
+                         ", dest_type = ", dest_type->ToString());
+      auto src_array = ArrayFromJSON(src_type, json_data);
+      auto dst_array = ArrayFromJSON(dest_type, json_data);
+      CheckCast(src_array, dst_array);
+    }
+  }
+}
+
+TEST(Cast, FSLToFSL) {
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5]]");
+}
+
+TEST(Cast, FSLToFSLNoNulls) {
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [4, 5]]");
+}
+
+TEST(Cast, FSLToFSLOptionsPassThru) {
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+
+  auto options = CastOptions::Safe(fixed_size_list(int16(), 1));
+  CheckCastFails(fsl_int32, options);
+
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+}
+
 static void CheckStructToStruct(
     const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {
