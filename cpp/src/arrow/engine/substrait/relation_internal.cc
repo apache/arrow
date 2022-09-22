@@ -593,7 +593,8 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
   // set local files
   auto read_rel_lfs = std::make_unique<substrait::ReadRel::LocalFiles>();
   for (const auto& file : dataset->files()) {
-    auto read_rel_lfs_ffs = std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
+    auto read_rel_lfs_ffs =
+        std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     auto format_type_name = dataset->format()->type_name();

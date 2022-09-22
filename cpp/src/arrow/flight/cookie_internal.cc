@@ -27,8 +27,6 @@
 #include "arrow/util/uri.h"
 #include "arrow/util/value_parsing.h"
 
-#include <memory>
-
 // Mingw-w64 defines strcasecmp in string.h
 #if defined(_WIN32) && !defined(strcasecmp)
 #define strcasecmp stricmp
