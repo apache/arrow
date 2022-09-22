@@ -48,8 +48,8 @@ std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
           func->AddKernel(in_ty->id(), {in_ty}, kOutputTargetType, CastToExtension));
     }
   }
-  for (auto in_ty :
-       {Type::DICTIONARY, Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST}) {
+  for (auto in_ty : {Type::DICTIONARY, Type::LIST, Type::LARGE_LIST,
+                     Type::FIXED_SIZE_LIST, Type::EXTENSION}) {
     DCHECK_OK(
         func->AddKernel(in_ty, {InputType(in_ty)}, kOutputTargetType, CastToExtension));
   }

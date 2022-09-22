@@ -1377,7 +1377,7 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
-| Any*                        | Extension                          | \(3)    |
+| Any                         | Extension                          | \(3)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
@@ -1388,8 +1388,8 @@ null input value is converted into a null output value.
   input value type to the output value type (if a conversion is
   available).
 
-* \(3) Any input type except Extension types. Can cast any input type
-  which can be cast to the resulting extension's storage type.
+* \(3) Any input type where the type, or storage type if Extension type, can
+  be cast to the resulting extension's storage type.
 
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

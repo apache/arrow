@@ -25,6 +25,15 @@ import pyarrow as pa
 import pytest
 
 
+class TinyIntType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int8())
+
+    def __reduce__(self):
+        return TinyIntType, ()
+
+
 class IntegerType(pa.PyExtensionType):
 
     def __init__(self):
@@ -531,6 +540,16 @@ def test_casting_to_extension_type(data, ty):
     assert isinstance(out, pa.ExtensionArray)
     assert out.type == IntegerType()
     assert out.to_pylist() == [1, 2]
+
+
+def test_cast_between_extension_types():
+    array = pa.array([1, 2, 3], pa.int8())
+
+    tiny_int_arr = array.cast(TinyIntType())
+    assert tiny_int_arr.type == TinyIntType()
+
+    int_arr = tiny_int_arr.cast(IntegerType())
+    assert int_arr.type == IntegerType()
 
 
 def test_casting_dict_array_to_extension_type():

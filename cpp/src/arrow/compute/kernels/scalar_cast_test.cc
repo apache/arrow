@@ -225,7 +225,8 @@ TEST(Cast, CanCast) {
   ExpectCanCast(smallint(), {int16()});  // cast storage
   ExpectCanCast(smallint(),
                 kNumericTypes);  // any cast which is valid for storage is supported
-  ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
+  ExpectCanCast(null(), {smallint()});
+  ExpectCanCast(tinyint(), {smallint()});  // cast between compatible storage types
 
   ExpectCanCast(date32(), {utf8(), large_utf8()});
   ExpectCanCast(date64(), {utf8(), large_utf8()});
@@ -2830,7 +2831,7 @@ TEST(Cast, IntToExtensionTypeDowncast) {
     CastOptions options;
     options.to_type = smallint();
     auto tiny_array = TinyintArrayFromJSON("[0, 1, 3]");
-    ASSERT_NOT_OK(Cast(tiny_array, smallint(), options));
+    ASSERT_OK(Cast(tiny_array, smallint(), options));
   }
 }
 
