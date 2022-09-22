@@ -75,7 +75,6 @@
 #pragma warning(pop)
 #endif
 
-#include "arrow/util/make_unique.h"
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
@@ -121,7 +120,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
                bool cached)
     : context_(std::move(ctx)),
       execution_engine_(std::move(engine)),
-      ir_builder_(arrow::internal::make_unique<llvm::IRBuilder<>>(*context_)),
+      ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
       module_(module),
       types_(*context_),
       optimize_(conf->optimize()),
@@ -148,8 +147,8 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
                     std::unique_ptr<Engine>* out) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
-  auto ctx = arrow::internal::make_unique<llvm::LLVMContext>();
-  auto module = arrow::internal::make_unique<llvm::Module>("codegen", *ctx);
+  auto ctx = std::make_unique<llvm::LLVMContext>();
+  auto module = std::make_unique<llvm::Module>("codegen", *ctx);
 
   // Capture before moving, ExecutionEngine does not allow retrieving the
   // original Module.

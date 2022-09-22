@@ -18,6 +18,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <string_view>
@@ -34,7 +35,6 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
@@ -210,7 +210,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
   auto exec_ctx =
-      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+      std::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   Declaration join{"asofjoin", join_options};

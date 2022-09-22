@@ -25,7 +25,6 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 #include <cstdint>
@@ -126,10 +125,10 @@ class JoinBenchmark {
 
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
-    ctx_ = arrow::internal::make_unique<ExecContext>(default_memory_pool(),
+    ctx_ = std::make_unique<ExecContext>(default_memory_pool(),
                                                      arrow::internal::GetCpuThreadPool());
 
-    schema_mgr_ = arrow::internal::make_unique<HashJoinSchema>();
+    schema_mgr_ = std::make_unique<HashJoinSchema>();
     Expression filter = literal(true);
     DCHECK_OK(schema_mgr_->Init(settings.join_type, *l_batches_with_schema.schema,
                                 left_keys, *r_batches_with_schema.schema, right_keys,

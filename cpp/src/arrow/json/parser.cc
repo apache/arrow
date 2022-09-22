@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <limits>
+#include <memory>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
@@ -36,7 +37,6 @@
 #include "arrow/util/bitset_stack.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/trie.h"
 #include "arrow/visit_type_inline.h"
 
@@ -44,8 +44,6 @@ namespace arrow {
 
 using internal::BitsetStack;
 using internal::checked_cast;
-using internal::make_unique;
-using std::string_view;
 
 namespace json {
 
@@ -365,7 +363,7 @@ class RawArrayBuilder<Kind::kObject> {
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-    std::vector<string_view> field_names(num_fields());
+    std::vector<std::string_view> field_names(num_fields());
     for (const auto& name_index : name_to_index_) {
       field_names[name_index.second] = name_index.first;
     }
@@ -612,12 +610,12 @@ class HandlerBase : public BlockParser,
   }
 
   bool RawNumber(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kNumber>(builder_, string_view(data, size));
+    status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
     return status_.ok();
   }
 
   bool String(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kString>(builder_, string_view(data, size));
+    status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
     return status_.ok();
   }
 
@@ -718,7 +716,7 @@ class HandlerBase : public BlockParser,
   /// @{
 
   template <Kind::type kind>
-  Status AppendScalar(BuilderPtr builder, string_view scalar) {
+  Status AppendScalar(BuilderPtr builder, std::string_view scalar) {
     if (ARROW_PREDICT_FALSE(builder.kind != kind)) {
       return IllegallyChangedTo(kind);
     }
@@ -747,7 +745,7 @@ class HandlerBase : public BlockParser,
   ///
   /// sets the field builder with name key, or returns false if
   /// there is no field with that name
-  bool SetFieldBuilder(string_view key, bool* duplicate_keys) {
+  bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(std::string(key));
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
@@ -872,7 +870,8 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
   /// if an unexpected field is encountered, emit a parse error and bail
   bool Key(const char* key, rj::SizeType len, ...) {
     bool duplicate_keys = false;
-    if (ARROW_PREDICT_FALSE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
+    if (ARROW_PREDICT_FALSE(
+            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
       return true;
     }
     if (!duplicate_keys) {
@@ -936,7 +935,8 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
       return true;
     }
     bool duplicate_keys = false;
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
+    if (ARROW_PREDICT_TRUE(
+            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
       return true;
     }
     if (ARROW_PREDICT_FALSE(duplicate_keys)) {
@@ -1027,7 +1027,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   /// will probably trigger promotion of this field from null
   bool Key(const char* key, rj::SizeType len, ...) {
     bool duplicate_keys = false;
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
+    if (ARROW_PREDICT_TRUE(SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
       return true;
     }
     if (ARROW_PREDICT_FALSE(duplicate_keys)) {
@@ -1085,15 +1085,15 @@ Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
 
   switch (options.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
-      *out = make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
-      *out = make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
-      *out = make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
       break;
   }
   return static_cast<HandlerBase&>(**out).Initialize(options.explicit_schema);

@@ -31,7 +31,6 @@
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -542,7 +541,7 @@ CudaContext::~CudaContext() {}
 Result<std::unique_ptr<CudaBuffer>> CudaContext::Allocate(int64_t nbytes) {
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->Allocate(nbytes, &data));
-  return arrow::internal::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(),
+  return std::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(),
                                                   true);
 }
 

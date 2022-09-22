@@ -47,7 +47,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -75,7 +74,7 @@ struct OptionsWrapper : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<OptionsWrapper>(*options);
+      return std::make_unique<OptionsWrapper>(*options);
     }
 
     return Status::Invalid(
@@ -101,7 +100,7 @@ struct KernelStateFromFunctionOptions : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<KernelStateFromFunctionOptions>(ctx,
+      return std::make_unique<KernelStateFromFunctionOptions>(ctx,
                                                                             *options);
     }
 

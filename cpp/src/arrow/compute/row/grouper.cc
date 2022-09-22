@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/grouper.h"
 
+#include <memory>
 #include <mutex>
 
 #include "arrow/compute/exec/key_hash.h"
@@ -33,7 +34,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -47,7 +47,7 @@ namespace {
 struct GrouperImpl : Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
-    auto impl = ::arrow::internal::make_unique<GrouperImpl>();
+    auto impl = std::make_unique<GrouperImpl>();
 
     impl->encoders_.resize(key_types.size());
     impl->ctx_ = ctx;
@@ -58,38 +58,38 @@ struct GrouperImpl : Grouper {
 
       if (key->id() == Type::BOOL) {
         impl->encoders_[i] =
-            ::arrow::internal::make_unique<internal::BooleanKeyEncoder>();
+            std::make_unique<internal::BooleanKeyEncoder>();
         continue;
       }
 
       if (key->id() == Type::DICTIONARY) {
         impl->encoders_[i] =
-            ::arrow::internal::make_unique<internal::DictionaryKeyEncoder>(
+            std::make_unique<internal::DictionaryKeyEncoder>(
                 key, ctx->memory_pool());
         continue;
       }
 
       if (is_fixed_width(key->id())) {
         impl->encoders_[i] =
-            ::arrow::internal::make_unique<internal::FixedWidthKeyEncoder>(key);
+            std::make_unique<internal::FixedWidthKeyEncoder>(key);
         continue;
       }
 
       if (is_binary_like(key->id())) {
         impl->encoders_[i] =
-            ::arrow::internal::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(
+            std::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(
                 key);
         continue;
       }
 
       if (is_large_binary_like(key->id())) {
-        impl->encoders_[i] = ::arrow::internal::make_unique<
+        impl->encoders_[i] = std::make_unique<
             internal::VarLengthKeyEncoder<LargeBinaryType>>(key);
         continue;
       }
 
       if (key->id() == Type::NA) {
-        impl->encoders_[i] = ::arrow::internal::make_unique<internal::NullKeyEncoder>();
+        impl->encoders_[i] = std::make_unique<internal::NullKeyEncoder>();
         continue;
       }
 
@@ -202,7 +202,7 @@ struct GrouperFastImpl : Grouper {
 
   static Result<std::unique_ptr<GrouperFastImpl>> Make(
       const std::vector<TypeHolder>& keys, ExecContext* ctx) {
-    auto impl = ::arrow::internal::make_unique<GrouperFastImpl>();
+    auto impl = std::make_unique<GrouperFastImpl>();
     impl->ctx_ = ctx;
 
     RETURN_NOT_OK(impl->temp_stack_.Init(ctx->memory_pool(), 64 * minibatch_size_max_));

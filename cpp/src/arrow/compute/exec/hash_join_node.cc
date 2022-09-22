@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <mutex>
 #include <unordered_set>
 #include <utility>
@@ -29,7 +30,6 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -580,7 +580,7 @@ struct BloomFilterPushdownContext {
                                  selected.data());
     }
     auto selected_buffer =
-        arrow::internal::make_unique<Buffer>(selected.data(), bit_vector_bytes);
+        std::make_unique<Buffer>(selected.data(), bit_vector_bytes);
     ArrayData selected_arraydata(boolean(), batch.length,
                                  {nullptr, std::move(selected_buffer)});
     Datum selected_datum(selected_arraydata);
@@ -716,7 +716,7 @@ class HashJoinNode : public ExecNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "HashJoinNode"));
 
     std::unique_ptr<HashJoinSchema> schema_mgr =
-        ::arrow::internal::make_unique<HashJoinSchema>();
+        std::make_unique<HashJoinSchema>();
 
     const auto& join_options = checked_cast<const HashJoinNodeOptions&>(options);
     RETURN_NOT_OK(ValidateHashJoinNodeOptions(join_options));
@@ -1093,7 +1093,7 @@ void BloomFilterPushdownContext::Init(
   eval_.all_received_callback_ = std::move(on_bloom_filters_received);
   if (!disable_bloom_filter_) {
     ARROW_CHECK(push_.pushdown_target_);
-    push_.bloom_filter_ = arrow::internal::make_unique<BlockedBloomFilter>();
+    push_.bloom_filter_ = std::make_unique<BlockedBloomFilter>();
     push_.pushdown_target_->pushdown_context_.ExpectBloomFilter();
 
     build_.builder_ = BloomFilterBuilder::Make(

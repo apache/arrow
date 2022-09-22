@@ -22,7 +22,8 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
@@ -119,7 +120,7 @@ struct CountImpl : public ScalarAggregator {
 
 Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
                                                const KernelInitArgs& args) {
-  return ::arrow::internal::make_unique<CountImpl>(
+  return std::make_unique<CountImpl>(
       static_cast<const CountOptions&>(*args.options));
 }
 
@@ -194,7 +195,7 @@ struct CountDistinctImpl : public ScalarAggregator {
 template <typename Type, typename VisitorArgType>
 Result<std::unique_ptr<KernelState>> CountDistinctInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
-  return ::arrow::internal::make_unique<CountDistinctImpl<Type, VisitorArgType>>(
+  return std::make_unique<CountDistinctImpl<Type, VisitorArgType>>(
       ctx->memory_pool(), static_cast<const CountOptions&>(*args.options));
 }
 
@@ -516,7 +517,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
 Result<std::unique_ptr<KernelState>> AnyInit(KernelContext*, const KernelInitArgs& args) {
   const ScalarAggregateOptions options =
       static_cast<const ScalarAggregateOptions&>(*args.options);
-  return ::arrow::internal::make_unique<BooleanAnyImpl>(
+  return std::make_unique<BooleanAnyImpl>(
       static_cast<const ScalarAggregateOptions&>(*args.options));
 }
 
@@ -586,7 +587,7 @@ struct BooleanAllImpl : public ScalarAggregator {
 };
 
 Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArgs& args) {
-  return ::arrow::internal::make_unique<BooleanAllImpl>(
+  return std::make_unique<BooleanAllImpl>(
       static_cast<const ScalarAggregateOptions&>(*args.options));
 }
 

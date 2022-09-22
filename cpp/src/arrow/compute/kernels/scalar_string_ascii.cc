@@ -1222,7 +1222,7 @@ struct PlainSubstringMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
+    return std::make_unique<PlainSubstringMatcher>(options);
   }
 
   explicit PlainSubstringMatcher(const MatchSubstringOptions& options)
@@ -1275,7 +1275,7 @@ struct PlainStartsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+    return std::make_unique<PlainStartsWithMatcher>(options);
   }
 
   bool Match(std::string_view current) const {
@@ -1293,7 +1293,7 @@ struct PlainEndsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+    return std::make_unique<PlainEndsWithMatcher>(options);
   }
 
   bool Match(std::string_view current) const {
@@ -1309,7 +1309,7 @@ struct RegexSubstringMatcher {
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher =
-        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
+        std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
@@ -1974,7 +1974,7 @@ struct PlainSubstringReplacer {
 
   static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    return arrow::internal::make_unique<PlainSubstringReplacer>(options);
+    return std::make_unique<PlainSubstringReplacer>(options);
   }
 
   explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
@@ -2023,7 +2023,7 @@ struct RegexSubstringReplacer {
 
   static Result<std::unique_ptr<RegexSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    auto replacer = arrow::internal::make_unique<RegexSubstringReplacer>(options);
+    auto replacer = std::make_unique<RegexSubstringReplacer>(options);
 
     RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
     RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
@@ -2581,7 +2581,7 @@ struct SplitRegexFinder : public StringSplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split = arrow::internal::make_unique<RE2>(pattern, MakeRE2Options<Type>());
+    regex_split = std::make_unique<RE2>(pattern, MakeRE2Options<Type>());
     return RegexStatus(*regex_split);
   }
 

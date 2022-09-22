@@ -51,7 +51,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -92,7 +91,7 @@ void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema>
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
+    return std::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -114,7 +113,7 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+  return std::make_unique<GeneratedRecordBatch<Gen>>(
       schema, std::forward<Gen>(gen));
 }
 

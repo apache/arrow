@@ -104,7 +104,6 @@
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_array_inline.h"
 
 #include "parquet/properties.h"
@@ -878,9 +877,9 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
 // static
 ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Make(
     const ::arrow::Array& array, bool array_field_nullable) {
-  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
+  auto constructor = std::make_unique<PathBuilder>(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
-  return ::arrow::internal::make_unique<MultipathLevelBuilderImpl>(
+  return std::make_unique<MultipathLevelBuilderImpl>(
       array.data(), std::move(constructor));
 }
 

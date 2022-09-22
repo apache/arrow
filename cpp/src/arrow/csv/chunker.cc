@@ -26,7 +26,6 @@
 #include "arrow/csv/lexing_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace csv {
@@ -395,7 +394,7 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
       }
     }
   }
-  return ::arrow::internal::make_unique<Chunker>(std::move(delimiter));
+  return std::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace csv

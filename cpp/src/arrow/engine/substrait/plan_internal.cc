@@ -22,9 +22,9 @@
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/unreachable.h"
 
+#include <memory>
 #include <unordered_map>
 
 namespace arrow {
@@ -32,10 +32,6 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace engine {
-
-namespace internal {
-using ::arrow::internal::make_unique;
-}  // namespace internal
 
 Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
@@ -48,7 +44,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     auto uri = ext_set.uris().at(anchor);
     if (uri.empty()) continue;
 
-    auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
+    auto ext_uri = std::make_unique<substrait::extensions::SimpleExtensionURI>();
     ext_uri->set_uri(std::string(uri));
     ext_uri->set_extension_uri_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
@@ -65,9 +61,9 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
     if (type_record.id.empty()) continue;
 
-    auto ext_decl = internal::make_unique<ExtDecl>();
+    auto ext_decl = std::make_unique<ExtDecl>();
 
-    auto type = internal::make_unique<ExtDecl::ExtensionType>();
+    auto type = std::make_unique<ExtDecl::ExtensionType>();
     type->set_extension_uri_reference(map[type_record.id.uri]);
     type->set_type_anchor(anchor);
     type->set_name(std::string(type_record.id.name));
@@ -78,12 +74,12 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   for (uint32_t anchor = 0; anchor < ext_set.num_functions(); ++anchor) {
     ARROW_ASSIGN_OR_RAISE(Id function_id, ext_set.DecodeFunction(anchor));
 
-    auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
+    auto fn = std::make_unique<ExtDecl::ExtensionFunction>();
     fn->set_extension_uri_reference(map[function_id.uri]);
     fn->set_function_anchor(anchor);
     fn->set_name(std::string(function_id.name));
 
-    auto ext_decl = internal::make_unique<ExtDecl>();
+    auto ext_decl = std::make_unique<ExtDecl>();
     ext_decl->set_allocated_extension_function(fn.release());
     extensions->AddAllocated(ext_decl.release());
   }
@@ -138,9 +134,9 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 Result<std::unique_ptr<substrait::Plan>> PlanToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto subs_plan = internal::make_unique<substrait::Plan>();
-  auto plan_rel = internal::make_unique<substrait::PlanRel>();
-  auto rel_root = internal::make_unique<substrait::RelRoot>();
+  auto subs_plan = std::make_unique<substrait::Plan>();
+  auto plan_rel = std::make_unique<substrait::PlanRel>();
+  auto rel_root = std::make_unique<substrait::RelRoot>();
   ARROW_ASSIGN_OR_RAISE(auto rel, ToProto(declr, ext_set, conversion_options));
   rel_root->set_allocated_input(rel.release());
   plan_rel->set_allocated_root(rel_root.release());
