@@ -17,11 +17,15 @@
 
 import json
 import uuid
+import logging
 from pathlib import Path
 from typing import List
 
 from benchadapt import BenchmarkResult
 from benchadapt.adapters import BenchmarkAdapter
+from benchadapt.log import log
+
+log.setLevel(logging.DEBUG)
 
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
