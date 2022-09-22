@@ -35,8 +35,8 @@ class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
     command = ["bash", SCRIPTS_PATH / "go_bench.sh", ARROW_ROOT, "-json"]
 
-    def __init__(self) -> None:
-        super().__init__(command=self.command)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(command=self.command, *args, **kwargs)
 
     def _transform_results(self) -> List[BenchmarkResult]:
         with open(self.result_file, "r") as f:
