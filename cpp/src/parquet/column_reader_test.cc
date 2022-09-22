@@ -28,7 +28,9 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
+#include "arrow/api.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string_view.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/schema.h"
@@ -39,6 +41,8 @@ namespace parquet {
 
 using schema::NodePtr;
 using testing::ElementsAre;
+using parquet::internal::BinaryRecordReader;
+using ::arrow::util::string_view;
 
 namespace test {
 
@@ -582,9 +586,7 @@ TEST(RecordReaderTest, BasicReadRepeatedField) {
   level_info.rep_level = 1;
 
   NodePtr type = schema::Int32("b", Repetition::OPTIONAL);
-  const ColumnDescriptor descr(type, level_info.def_level,
-                               level_info.rep_level);
-
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   // Records look like: {[10], [20, 20], [30, 30, 30]}
   std::vector<std::shared_ptr<Page>> pages;
@@ -613,10 +615,10 @@ TEST(RecordReaderTest, BasicReadRepeatedField) {
   ASSERT_EQ(record_reader->levels_written(), 6);
   ASSERT_EQ(record_reader->levels_position(), 3);
 
-  const auto read_values =
-      reinterpret_cast<const int32_t*>(record_reader->values());
-  std::vector<int32_t> read_vals(read_values,
-                                 read_values + record_reader->values_written());
+  const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
+  std::vector<int32_t> read_vals(
+      read_values,
+      read_values + record_reader->values_written() );
   std::vector<int16_t> read_defs(
       record_reader->def_levels(),
       record_reader->def_levels() + record_reader->levels_position());
@@ -636,8 +638,7 @@ TEST(RecordReaderTest, SkipRequiredTopLevel) {
   level_info.rep_level = 0;
 
   NodePtr type = schema::Int32("b", Repetition::REQUIRED);
-  const ColumnDescriptor descr(type, level_info.def_level,
-                               level_info.rep_level);
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   std::vector<std::shared_ptr<Page>> pages;
   std::vector<int32_t> values = {10, 20, 20, 30, 30, 30};
@@ -666,14 +667,15 @@ TEST(RecordReaderTest, SkipRequiredTopLevel) {
 
   ASSERT_EQ(records_read, 2);
   ASSERT_EQ(record_reader->values_written(), 2);
+  ASSERT_EQ(record_reader->null_count(), 0);
   ASSERT_EQ(record_reader->levels_written(), 0);
   ASSERT_EQ(record_reader->levels_position(), 0);
 
-  const auto read_values =
-      reinterpret_cast<const int32_t*>(record_reader->values());
+  const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
   std::vector<int32_t> read_vals(read_values,
                                  read_values + record_reader->values_written());
 
+  // There are no null values to account for here.
   ASSERT_THAT(read_vals, ElementsAre(30, 30));
 }
 
@@ -686,10 +688,10 @@ TEST(RecordReaderTest, SkipOptional) {
   NodePtr type = schema::Int32("b", Repetition::OPTIONAL);
   const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
-  // Records look like {null, 20, 20, 20, null, 30, 30}
+  // Records look like {null, 10, 20, 30, null, 40, 50, 60}
   std::vector<std::shared_ptr<Page>> pages;
-  std::vector<int32_t> values = {20, 20, 20, 30, 30};
-  std::vector<int16_t> def_levels = {0, 1, 1, 1, 0, 1, 1};
+  std::vector<int32_t> values = {10, 20, 30, 40, 50, 60};
+  std::vector<int16_t> def_levels = {0, 1, 1, 0, 1, 1, 1, 1};
 
   std::unique_ptr<PageReader> pager;
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
@@ -705,7 +707,7 @@ TEST(RecordReaderTest, SkipOptional) {
   record_reader->SetPageReader(std::move(pager));
 
   {
-    // Skip {null, 20}
+    // Skip {null, 10}
     // This also tests when we start with a Skip.
     int64_t records_skipped = record_reader->SkipRecords(/*num_records=*/2);
 
@@ -718,62 +720,80 @@ TEST(RecordReaderTest, SkipOptional) {
   }
 
   {
-    // Read 3 records: {20, 20, null}
+    // Read 3 records: {20, null, 30}
     int64_t records_read = record_reader->ReadRecords(/*num_records=*/3);
 
     ASSERT_EQ(records_read, 3);
     // One of these values is null. values_written() includes null values.
     ASSERT_EQ(record_reader->values_written(), 3);
+    ASSERT_EQ(record_reader->null_count(), 1);
     // When we read, we buffer some levels. Since there are only a few levels
     // in our whole column, all of them are read.
-    // We had skipped 2 of the levels above. So there is only 5 left in total to
+    // We had skipped 2 of the levels above. So there is only 6 left in total to
     // read, and we read 3 of them here.
-    ASSERT_EQ(record_reader->levels_written(), 5);
+    ASSERT_EQ(record_reader->levels_written(), 6);
     ASSERT_EQ(record_reader->levels_position(), 3);
 
-    // Check that definition levels are correct. Repetition levels are not
-    // relevant since this is not a repeated field.
     std::vector<int16_t> read_defs(
         record_reader->def_levels(),
         record_reader->def_levels() + record_reader->levels_position());
 
-    // Double check that the values are untouched.
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
 
-    ASSERT_THAT(read_vals, ElementsAre(20, 20));
-    ASSERT_THAT(read_defs, ElementsAre(1, 1, 0));
+    // ReadRecords for optional fields uses ReadValuesSpaced, so there is a
+    // placeholder for null.
+    ASSERT_EQ(read_vals[0], 20);
+    // read_vals[1] is a space for null.
+    ASSERT_EQ(read_vals[2], 30);
+    ASSERT_THAT(read_defs, ElementsAre(1, 0, 1));
   }
 
   {
-    // Skip to the end of the column. Skip {30, 30}.
-    int64_t records_skipped = record_reader->SkipRecords(/*num_records=*/5);
+    // Skip {40, 50}.
+    int64_t records_skipped = record_reader->SkipRecords(/*num_records=*/2);
 
     ASSERT_EQ(records_skipped, 2);
 
-    // When we skip number of values written does not change. However, we will
-    // throw away the levels that were skipped from the buffer, thus levels_written()
-    // is reduced by 2.
     ASSERT_EQ(record_reader->values_written(), 3);
-    ASSERT_EQ(record_reader->levels_written(), 3);
+    ASSERT_EQ(record_reader->levels_written(), 4);
     ASSERT_EQ(record_reader->levels_position(), 3);
 
-    // Check the definition levels to make sure we can read it correctly and we
-    // threw away the levels in the buffer that were skipped.
     std::vector<int16_t> read_defs(
         record_reader->def_levels(),
         record_reader->def_levels() + record_reader->levels_position());
 
-    // Double check that the values are untouched.
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
+  }
 
-    ASSERT_THAT(read_vals, ElementsAre(20, 20));
-    ASSERT_THAT(read_defs, ElementsAre(1, 1, 0));
+  {
+    // Read to the end of the column. Read {60}
+    // This test checks that ReadAndThrowAwayValues works, since if it
+    // does not we would read the wrong values.
+    int64_t records_read = record_reader->ReadRecords(/*num_records=*/1);
+
+    ASSERT_EQ(records_read, 1);
+    ASSERT_EQ(record_reader->values_written(), 4);
+    ASSERT_EQ(record_reader->null_count(), 1);
+    ASSERT_EQ(record_reader->levels_written(), 4);
+    ASSERT_EQ(record_reader->levels_position(), 4);
+
+    std::vector<int16_t> read_defs(
+        record_reader->def_levels(),
+        record_reader->def_levels() + record_reader->levels_position());
+
+    const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
+
+    ASSERT_EQ(read_vals[0], 20);
+    // read_vals[1] is a space for null.
+    ASSERT_EQ(read_vals[2], 30);
+    ASSERT_EQ(read_vals[3], 60);
+    ASSERT_THAT(read_defs, ElementsAre(1, 0, 1, 1));
   }
 
   // We have exhausted all the records.
@@ -956,9 +976,8 @@ TEST(RecordReaderTest, ReadPartialRecord) {
     ASSERT_EQ(records_read, 1);
 
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
 
     ASSERT_THAT(read_vals, ElementsAre(10));
   }
@@ -970,9 +989,8 @@ TEST(RecordReaderTest, ReadPartialRecord) {
     ASSERT_EQ(records_read, 1);
 
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
 
     ASSERT_THAT(read_vals, ElementsAre(10, 20, 20, 20, 20, 20, 20));
   }
@@ -984,9 +1002,8 @@ TEST(RecordReaderTest, ReadPartialRecord) {
     ASSERT_EQ(records_read, 1);
 
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
 
     ASSERT_THAT(read_vals, ElementsAre(10, 20, 20, 20, 20, 20, 20, 30));
   }
@@ -1048,9 +1065,8 @@ TEST(RecordReaderTest, SkipPartialRecord) {
     ASSERT_EQ(records_read, 1);
 
     const auto read_values = reinterpret_cast<const int32_t*>(record_reader->values());
-    std::vector<int32_t> read_vals(
-        read_values,
-        read_values + record_reader->values_written() - record_reader->null_count());
+    std::vector<int32_t> read_vals(read_values,
+                                   read_values + record_reader->values_written());
 
     ASSERT_THAT(read_vals, ElementsAre(10));
     ASSERT_EQ(record_reader->values_written(), 1);
@@ -1094,6 +1110,83 @@ TEST(RecordReaderTest, SkipPartialRecord) {
     ASSERT_THAT(read_vals, ElementsAre(10, 30));
     ASSERT_THAT(read_defs, ElementsAre(1, 1));
     ASSERT_THAT(read_reps, ElementsAre(0, 0));
+  }
+}
+
+// Test that Skip works on ByteArrays. Specifically, this is testing
+// ReadAndThrowAwayValues for ByteArrays.
+TEST(RecordReaderTest, SkipByteArray) {
+  internal::LevelInfo level_info;
+  level_info.def_level = 1;
+  level_info.rep_level = 0;
+
+  // Must use REPEATED to excercise ReadAndThrowAwayValues for ByteArrays. It
+  // does not do any buffering for Optional or Required fields as it calls
+  // ResetValues after every read.
+  NodePtr type = schema::ByteArray("b", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
+
+  std::vector<std::shared_ptr<Page>> pages;
+  std::unique_ptr<PageReader> pager;
+
+  int levels_per_page = 90;
+  int num_pages = 1;
+
+  std::vector<int16_t> def_levels;
+  std::vector<int16_t> rep_levels;
+  std::vector<ByteArray> values;
+  std::vector<uint8_t> buffer;
+
+  MakePages<ByteArrayType>(&descr, num_pages, levels_per_page, def_levels, rep_levels,
+                           values, buffer, pages, Encoding::PLAIN);
+
+  pager.reset(new test::MockPageReader(pages));
+
+  std::shared_ptr<internal::RecordReader> record_reader =
+      internal::RecordReader::Make(&descr, level_info);
+  record_reader->SetPageReader(std::move(pager));
+
+  // Read one-third of the page.
+  ASSERT_EQ(record_reader->ReadRecords(/*num_records=*/30), 30);
+
+  // Skip 30 records.
+  ASSERT_EQ(record_reader->SkipRecords(/*num_records=*/30), 30);
+
+  // Read 60 more records. Only 30 will be read, since we read 30 and skipped 30,
+  // so only 30 is left.
+  ASSERT_EQ(record_reader->ReadRecords(/*num_records=*/60), 30);
+
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader.get());
+  ASSERT_NE(binary_reader, nullptr);
+  // Chunks are reset after this call.
+  ::arrow::ArrayVector array_vector = binary_reader->GetBuilderChunks();
+  ASSERT_EQ(array_vector.size(), 1);
+  auto binary_array = dynamic_cast<::arrow::BinaryArray*>(array_vector[0].get());
+  ASSERT_NE(binary_array, nullptr);
+  ASSERT_EQ(binary_array->length(), 60);
+
+  // Our values above are not spaced, however, the RecordReader will
+  // read spaced for nullable values.
+  // Create spaced expected values.
+  std::vector<string_view> expected_values;
+  size_t values_index = 0;
+  for (int i = 0; i < 90; ++i) {
+    if (def_levels[i] == 0) {
+      expected_values.emplace_back();
+      continue;
+    }
+    expected_values.emplace_back(reinterpret_cast<const char*>(values[values_index].ptr),
+                                 values[values_index].len);
+    ++values_index;
+  }
+
+  // Check that the expected values match the actual values.
+  for (size_t i = 0; i < 30; ++i) {
+    ASSERT_EQ(expected_values[i].compare(binary_array->GetView(i)), 0);
+  }
+  // Repeat for the next range that we read.
+  for (size_t i = 60; i < 90; ++i) {
+    ASSERT_EQ(expected_values[i].compare(binary_array->GetView(i - 30)), 0);
   }
 }
 

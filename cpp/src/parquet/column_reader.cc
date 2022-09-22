@@ -1383,7 +1383,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Now that we have figured out number of values to read, we do not need
     // these levels anymore. Updates levels_position_ and levels_written.
     ThrowAwayLevels(start_levels_position);
-    ReadAndThrowAway(values_to_read);
+    ReadAndThrowAwayValues(values_to_read);
 
     // Mark the levels as read in the underlying column reader.
     this->ConsumeBufferedValues(skipped_records);
@@ -1450,7 +1450,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
          int64_t remaining_records = num_records - skipped_records;
          int64_t values_seen = 0;
          skipped_records += DelimitRecords(remaining_records, &values_seen);
-         if (ReadAndThrowAway(values_seen) != values_seen) {
+         if (ReadAndThrowAwayValues(values_seen) != values_seen) {
         throw ParquetException("Could not read and throw away requested values");
          }
          // Mark those levels and values as consumed in the the underlying page.
@@ -1465,7 +1465,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   // Read 'num_values' values and throw them away.
-  int64_t ReadAndThrowAway(int64_t num_values) {
+  int64_t ReadAndThrowAwayValues(int64_t num_values) {
     int64_t values_left = num_values;
     int64_t batch_size = kMinLevelBatchSize;  // ReadBatch with a smaller memory footprint
     int64_t values_read = 0;
@@ -1496,10 +1496,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       // First consume whatever is in the buffer.
       skipped_records = SkipRecordsInBufferNonRepeated(num_records);
 
-      // If there are more records left, we should have exhausted all the
-      // buffer.
-      ARROW_DCHECK(!this->has_values_to_process() ||
-                   skipped_records < num_records);
+      ARROW_DCHECK_LE(skipped_records, num_records);
+
       // For records that we have not buffered, we will use the column
       // reader's Skip to do the remaining Skip. Since the field is not
       // repeated number of levels to skip is the same as number of records
