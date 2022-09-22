@@ -2132,6 +2132,15 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   EXPECT_TRUE(expected_table->Equals(*rnd_trp_table));
 }
 
+/// \brief Create a NamedTableProvider that provides `table` regardless of the name
+NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
+  return [table = std::move(table)](const std::vector<std::string>&) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::TableSourceNodeOptions>(table);
+    return compute::Declaration("table_source", {}, options, "mock_source");
+  };
+}
+
 TEST(Substrait, ProjectRel) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
@@ -2238,11 +2247,7 @@ TEST(Substrait, ProjectRel) {
     [2, 2, 60, true]
   ])"});
 
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -2361,11 +2366,7 @@ TEST(Substrait, ProjectRelOnFunctionWithEmit) {
       [5, 50, true],
       [2, 60, true]
   ])"});
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -2424,11 +2425,7 @@ TEST(Substrait, ReadRelWithEmit) {
       [4, 20]
   ])"});
 
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -2546,11 +2543,7 @@ TEST(Substrait, FilterRelWithEmit) {
       [6, 2],
       [7, 1]
   ])"});
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -2961,11 +2954,7 @@ TEST(Substrait, AggregateRel) {
       [60, 40]
   ])"});
 
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -3080,17 +3069,122 @@ TEST(Substrait, AggregateRelEmit) {
       [60]
   ])"});
 
-  NamedTableProvider table_provider = [input_table](const std::vector<std::string>&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
-  };
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
 
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
   CheckRoundTripResult(std::move(output_schema), std::move(expected_table), exec_context,
                        buf, {}, conversion_options);
+}
+
+TEST(Substrait, IsthmustPlan) {
+  // This is a plan generated from Isthmus
+  // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
+  //
+  // The plan had to be modified slightly to introduce the missing enum
+  // argument that isthmus did not put there.
+  std::string substrait_json = R"({
+    "extensionUris": [{
+      "extensionUriAnchor": 1,
+      "uri": "/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 0,
+        "name": "add:opt_i32_i32"
+      }
+    }],
+    "relations": [{
+      "root": {
+        "input": {
+          "project": {
+            "common": {
+              "emit": {
+                "outputMapping": [1]
+              }
+            },
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["FOO"],
+                  "struct": {
+                    "types": [{
+                      "i32": {
+                        "typeVariationReference": 0,
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["T1"]
+                }
+              }
+            },
+            "expressions": [{
+              "scalarFunction": {
+                "functionReference": 0,
+                "args": [],
+                "outputType": {
+                  "i32": {
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_NULLABLE"
+                  }
+                },
+                "arguments": [{
+                  "enum": {
+                    "unspecified": {}
+                  }
+                }, {
+                  "value": {
+                    "selection": {
+                      "directReference": {
+                        "structField": {
+                          "field": 0
+                        }
+                      },
+                      "rootReference": {
+                      }
+                    }
+                  }
+                }, {
+                  "value": {
+                    "literal": {
+                      "i32": 1,
+                      "nullable": false,
+                      "typeVariationReference": 0
+                    }
+                  }
+                }]
+              }
+            }]
+          }
+        },
+        "names": ["EXPR$0"]
+      }
+    }],
+    "expectedTypeUrls": []
+  })";
+
+  auto test_schema = schema({field("foo", int32())});
+  auto input_table = TableFromJSON(test_schema, {"[[1], [2], [5]]"});
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto expected_table = TableFromJSON(test_schema, {"[[2], [3], [6]]"});
+  CheckRoundTripResult(std::move(test_schema), std::move(expected_table),
+                       *compute::default_exec_context(), buf, {}, conversion_options);
 }
 
 }  // namespace engine

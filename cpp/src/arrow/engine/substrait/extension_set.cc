@@ -119,9 +119,7 @@ class IdStorageImpl : public IdStorage {
   std::list<std::string> owned_names_;
 };
 
-std::unique_ptr<IdStorage> IdStorage::Make() {
-  return std::make_unique<IdStorageImpl>();
-}
+std::unique_ptr<IdStorage> IdStorage::Make() { return std::make_unique<IdStorageImpl>(); }
 
 Result<std::optional<std::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
   if (index >= size_) {
@@ -533,7 +531,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   }
 
   Result<SubstraitCallToArrow> GetSubstraitCallToArrowFallback(
-      util::string_view function_name) const override {
+      std::string_view function_name) const override {
     for (const auto& converter_item : substrait_to_arrow_) {
       if (converter_item.first.name == function_name) {
         return converter_item.second;
@@ -563,7 +561,7 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   }
 
   Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrowFallback(
-      util::string_view function_name) const override {
+      std::string_view function_name) const override {
     for (const auto& converter_item : substrait_to_arrow_agg_) {
       if (converter_item.first.name == function_name) {
         return converter_item.second;
