@@ -49,8 +49,10 @@ public class ArrowFlightJdbcFactoryTest {
         new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder().host("localhost").randomPort()
-        .authentication(authentication).producer(PRODUCER).build();
+    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
+        .authentication(authentication)
+        .producer(PRODUCER)
+        .build();
   }
 
   private BufferAllocator allocator;
