@@ -56,7 +56,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +122,7 @@ jobs:
     name: AMD64 macOS 11 C++
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
     env:
@@ -179,7 +179,11 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
+        run: |
+          export CC=$(brew --prefix llvm)/bin/clang
+          export CXX=$(brew --prefix llvm)/bin/clang++
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: |
