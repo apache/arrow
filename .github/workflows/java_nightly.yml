@@ -30,6 +30,10 @@ on:
         default: 14
   schedule:
     - cron: '0 14 * * *'
+
+permissions:
+  contents: read
+
 jobs:
   upload:
     if: github.repository == 'apache/arrow'
