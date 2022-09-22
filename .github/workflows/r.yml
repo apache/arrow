@@ -43,10 +43,11 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
   ubuntu:
@@ -69,7 +70,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -87,6 +88,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -101,12 +105,15 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ubuntu-r
 
@@ -138,6 +145,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -153,12 +163,15 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push r
 
@@ -186,7 +199,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -208,7 +221,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -238,19 +251,19 @@ jobs:
       - run: mkdir r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools != 42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools !=42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows

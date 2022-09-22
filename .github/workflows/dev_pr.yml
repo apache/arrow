@@ -29,9 +29,14 @@ on:
       - edited
       - synchronize
 
-# NOTE: not using the "cancel-in-progress" feature here as the group key
-# does not have enough information for linking it to a particular PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.number }}
+  cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  
 jobs:
   process:
     name: Process
@@ -41,9 +46,8 @@ jobs:
 
       - name: Comment JIRA link
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,9 +57,8 @@ jobs:
 
       - name: Check title
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -65,9 +68,8 @@ jobs:
 
       - name: Check Jira Issue
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           debug: true
@@ -78,10 +80,9 @@ jobs:
 
       - name: Assign GitHub labels
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'synchronize')
-        uses: actions/labeler@2.2.0
+          (github.event.action == 'opened' ||
+           github.event.action == 'synchronize')
+        uses: actions/labeler@4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/workflows/dev_pr/labeler.yml

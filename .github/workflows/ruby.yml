@@ -47,10 +47,11 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
@@ -73,7 +74,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
@@ -85,6 +86,9 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -97,6 +101,9 @@ jobs:
             ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         shell: bash
         run: archery docker push ubuntu-ruby
@@ -106,8 +113,6 @@ jobs:
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
     env:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
@@ -158,7 +163,7 @@ jobs:
         run: |
           echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
@@ -250,7 +255,7 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ccache
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
@@ -274,7 +279,7 @@ jobs:
         run: |
           Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
       - name: Cache RubyGems
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
           key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
