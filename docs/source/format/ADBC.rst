@@ -285,8 +285,15 @@ Endowment*, 1022–1033, 2017.
 ADBC 1.0.0 Header
 =================
 
-.. literalinclude:: ../../../format/adbc.h
-   :language: c
+.. dropdown:: ``adbc.h``
+
+   From apache/arrow-adbc commit 7866a566f5b7b635267bfb7a87ea49b01dfe89fa_.
+
+   .. literalinclude:: ../../../format/adbc.h
+      :language: c
+      :linenos:
+      :lineno-match:
+      :lines: 159-1120
 
 .. External link definitions follow
 
