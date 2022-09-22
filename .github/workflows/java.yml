@@ -120,8 +120,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.jdk }}
           distribution: 'zulu'
+          java-version: ${{ matrix.jdk }}
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
