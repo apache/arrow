@@ -98,14 +98,15 @@ Status CheckRelCommon(const RelMessage& rel) {
 
 // Other helper functions
 Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs,
-                            const std::string& dirpath, std::vector<fs::FileInfo> *rel_fpaths) {
+                            const std::string& dirpath,
+                            std::vector<fs::FileInfo> *rel_fpaths) {
   // Define a selector for a recursive descent
   fs::FileSelector selector;
   selector.base_dir = dirpath;
   selector.recursive = true;
 
   ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
-  std::move(file_infos.begin(), file_infos.end(), std::back_inserter(rel_fpaths));
+  std::move(file_infos.begin(), file_infos.end(), std::back_inserter(*rel_fpaths));
 
   return Status::OK();
 }
