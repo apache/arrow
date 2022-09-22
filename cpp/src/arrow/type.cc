@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
@@ -40,7 +41,6 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
@@ -1717,13 +1717,13 @@ class SchemaBuilder::Impl {
 
 SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(policy, field_merge_options);
+  impl_ = std::make_unique<Impl>(policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
                              ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy,
+  impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy,
                                       field_merge_options);
 }
 
@@ -1734,7 +1734,7 @@ SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPoli
     metadata = schema->metadata()->Copy();
   }
 
-  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
+  impl_ = std::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
                                       field_merge_options);
 }
 

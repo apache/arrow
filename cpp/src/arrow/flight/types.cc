@@ -29,7 +29,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -154,7 +153,7 @@ arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
 arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
   std::string schema_in;
   RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
-  return arrow::internal::make_unique<SchemaResult>(std::move(schema_in));
+  return std::make_unique<SchemaResult>(std::move(schema_in));
 }
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,

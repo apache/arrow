@@ -31,7 +31,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -612,7 +611,7 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
       row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
   EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
 
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(num_rows);
+  auto indices = std::make_unique<int32_t[]>(num_rows);
   const double* dict = nullptr;
   int32_t dict_len = 0;
   for (int row_index = 0; row_index < num_rows; ++row_index) {

@@ -37,7 +37,6 @@
 #include "arrow/scalar.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/utf8.h"
 
@@ -562,7 +561,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
   }
 
   std::unique_ptr<DictionaryMemoTable> MakeMemo() {
-    return ::arrow::internal::make_unique<DictionaryMemoTable>(default_memory_pool(),
+    return std::make_unique<DictionaryMemoTable>(default_memory_pool(),
                                                                utf8());
   }
 

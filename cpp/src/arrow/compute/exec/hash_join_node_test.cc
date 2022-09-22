@@ -17,6 +17,7 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <memory>
 #include <numeric>
 #include <random>
 #include <unordered_set>
@@ -32,7 +33,6 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
@@ -69,7 +69,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const std::vector<FieldRef>& left_keys,
                     const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -890,7 +890,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
     const std::shared_ptr<Schema>& output_schema,
     const std::vector<std::shared_ptr<Array>>& l,
     const std::vector<std::shared_ptr<Array>>& r, int num_batches_l, int num_batches_r) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -1009,7 +1009,7 @@ TEST(HashJoin, Random) {
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
     bool disable_bloom_filter = (rng.from_range(0, 1) == 1);
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     // Constraints
@@ -1310,7 +1310,7 @@ void TestHashJoinDictionaryHelper(
     r_batches.batches.resize(0);
   }
 
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
   ASSERT_OK_AND_ASSIGN(
@@ -1735,7 +1735,7 @@ TEST(HashJoin, DictNegative) {
                                           i == 3 ? datumSecondB : datumSecondA}));
 
     auto exec_ctx =
-        arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+        std::make_unique<ExecContext>(default_memory_pool(), nullptr);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     ASSERT_OK_AND_ASSIGN(
         ExecNode * l_source,
@@ -1912,7 +1912,7 @@ TEST(HashJoin, ExtensionTypesHashJoin) {
 
 TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
   auto exec_ctx =
-      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+      std::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   BatchesWithSchema input_left;
@@ -1997,7 +1997,7 @@ TEST(HashJoin, ResidualFilter) {
     input_right.schema =
         schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -2074,7 +2074,7 @@ TEST(HashJoin, TrivialResidualFilter) {
                  ])")};
       input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
 
-      auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+      auto exec_ctx = std::make_unique<ExecContext>(
           default_memory_pool(),
           parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
@@ -2214,7 +2214,7 @@ void TestSingleChainOfHashJoins(Random64Bit& rng) {
   for (bool bloom_filters : {false, true}) {
     bool kParallel = true;
     ARROW_SCOPED_TRACE(bloom_filters ? "bloom filtered" : "unfiltered");
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), kParallel ? arrow::internal::GetCpuThreadPool() : nullptr);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 

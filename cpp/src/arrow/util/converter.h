@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +26,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -223,7 +223,7 @@ struct MakeConverterImpl {
     switch (t.value_type()->id()) {
 #define DICTIONARY_CASE(TYPE)                                                       \
   case TYPE::type_id:                                                               \
-    out = internal::make_unique<                                                    \
+    out = std::make_unique<                                                    \
         typename ConverterTrait<DictionaryType>::template dictionary_type<TYPE>>(); \
     break;
       DICTIONARY_CASE(BooleanType);
@@ -404,7 +404,7 @@ class Chunker {
 
 template <typename T>
 static Result<std::unique_ptr<Chunker<T>>> MakeChunker(std::unique_ptr<T> converter) {
-  return internal::make_unique<Chunker<T>>(std::move(converter));
+  return std::make_unique<Chunker<T>>(std::move(converter));
 }
 
 }  // namespace internal

@@ -26,9 +26,10 @@
 #include "arrow/stl_allocator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
+
+#include <memory>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 #include <xsimd/xsimd.hpp>

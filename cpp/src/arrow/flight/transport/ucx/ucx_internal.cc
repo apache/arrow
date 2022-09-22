@@ -19,6 +19,7 @@
 
 #include <array>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -28,7 +29,6 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -621,7 +621,7 @@ class UcpCallDriver::Impl {
       // Preliminary profiling shows ~5% overhead just from mapping the buffer
       // alone (on Infiniband; it seems to be trivial for shared memory)
       request_param.datatype = ucp_dt_make_contig(1);
-      pending_send = arrow::internal::make_unique<PendingContigSend>();
+      pending_send = std::make_unique<PendingContigSend>();
       auto* pending_contig = reinterpret_cast<PendingContigSend*>(pending_send.get());
 
       const int64_t body_length = std::max<int64_t>(payload.ipc_message.body_length, 1);
@@ -654,7 +654,7 @@ class UcpCallDriver::Impl {
     } else {
       // IOV - let UCX use scatter-gather path
       request_param.datatype = UCP_DATATYPE_IOV;
-      pending_send = arrow::internal::make_unique<PendingIovSend>();
+      pending_send = std::make_unique<PendingIovSend>();
       auto* pending_iov = reinterpret_cast<PendingIovSend*>(pending_send.get());
 
       pending_iov->payload = payload;
@@ -911,7 +911,7 @@ class UcpCallDriver::Impl {
       // because we might run the callback synchronously (which might
       // free the buffer) when we call Push here.
       frame->buffer =
-          arrow::internal::make_unique<UcxDataBuffer>(worker_, data, data_length);
+          std::make_unique<UcxDataBuffer>(worker_, data, data_length);
       Push(std::move(frame));
       return UCS_INPROGRESS;
     }

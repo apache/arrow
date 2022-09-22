@@ -16,6 +16,7 @@
 // under the License.
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string_view>
@@ -37,7 +38,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace compute {
@@ -850,7 +850,7 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
-      state_.push_back(::arrow::internal::make_unique<InputState>(
+      state_.push_back(std::make_unique<InputState>(
           must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
@@ -1060,7 +1060,7 @@ class AsofJoinNode : public ExecNode {
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
       key_hashers.push_back(
-          ::arrow::internal::make_unique<KeyHasher>(indices_of_by_key[i]));
+          std::make_unique<KeyHasher>(indices_of_by_key[i]));
     }
     bool must_hash =
         n_by > 1 ||

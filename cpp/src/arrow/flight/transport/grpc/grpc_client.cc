@@ -43,7 +43,6 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
@@ -809,7 +808,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return arrow::internal::make_unique<SchemaResult>(std::move(str));
+    return std::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,

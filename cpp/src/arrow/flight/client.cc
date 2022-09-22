@@ -33,7 +33,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
@@ -634,7 +633,7 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
   std::unique_ptr<FlightStreamReader> stream_reader =
-      arrow::internal::make_unique<ClientStreamReader>(
+      std::make_unique<ClientStreamReader>(
           std::move(remote_stream), options.read_options, options.stop_token,
           options.memory_manager);
   // Eagerly read the schema
@@ -656,8 +655,8 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
   RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoPutResult result;
-  result.reader = arrow::internal::make_unique<ClientMetadataReader>(shared_stream);
-  result.writer = arrow::internal::make_unique<ClientStreamWriter>(
+  result.reader = std::make_unique<ClientMetadataReader>(shared_stream);
+  result.writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
@@ -682,9 +681,9 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoExchangeResult result;
-  result.reader = arrow::internal::make_unique<ClientStreamReader>(
+  result.reader = std::make_unique<ClientStreamReader>(
       shared_stream, options.read_options, options.stop_token, options.memory_manager);
-  auto stream_writer = arrow::internal::make_unique<ClientStreamWriter>(
+  auto stream_writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(stream_writer->Begin());

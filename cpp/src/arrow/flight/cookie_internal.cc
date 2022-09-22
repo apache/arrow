@@ -23,10 +23,11 @@
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/platform.h"
 #include "arrow/util/base64.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/value_parsing.h"
+
+#include <memory>
 
 // Mingw-w64 defines strcasecmp in string.h
 #if defined(_WIN32) && !defined(strcasecmp)

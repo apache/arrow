@@ -19,11 +19,11 @@
 
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #include <deque>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <mutex>
 
 namespace arrow {
@@ -69,7 +69,7 @@ class ThrottleImpl : public AsyncTaskScheduler::Throttle {
 
 std::unique_ptr<AsyncTaskScheduler::Throttle> AsyncTaskScheduler::MakeThrottle(
     int max_concurrent_cost) {
-  return ::arrow::internal::make_unique<ThrottleImpl>(max_concurrent_cost);
+  return std::make_unique<ThrottleImpl>(max_concurrent_cost);
 }
 
 namespace {
@@ -107,13 +107,13 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
         throttle_(throttle),
         finish_callback_(std::move(finish_callback)) {
     if (parent == nullptr) {
-      owned_global_abort_ = ::arrow::internal::make_unique<std::atomic<bool>>(0);
+      owned_global_abort_ = std::make_unique<std::atomic<bool>>(0);
       global_abort_ = owned_global_abort_.get();
     } else {
       global_abort_ = parent->global_abort_;
     }
     if (throttle != nullptr && !queue_) {
-      queue_ = ::arrow::internal::make_unique<FifoQueue>();
+      queue_ = std::make_unique<FifoQueue>();
     }
   }
 
@@ -172,7 +172,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                                        Throttle* throttle,
                                        std::unique_ptr<Queue> queue) override {
     std::unique_ptr<AsyncTaskSchedulerImpl> owned_child =
-        ::arrow::internal::make_unique<AsyncTaskSchedulerImpl>(
+        std::make_unique<AsyncTaskSchedulerImpl>(
             this, std::move(queue), throttle, std::move(finish_callback));
     AsyncTaskScheduler* child = owned_child.get();
     std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
@@ -351,7 +351,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
 std::unique_ptr<AsyncTaskScheduler> AsyncTaskScheduler::Make(
     Throttle* throttle, std::unique_ptr<Queue> queue) {
-  return ::arrow::internal::make_unique<AsyncTaskSchedulerImpl>(
+  return std::make_unique<AsyncTaskSchedulerImpl>(
       nullptr, std::move(queue), throttle, FnOnce<Status()>());
 }
 

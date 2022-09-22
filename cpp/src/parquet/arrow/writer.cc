@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -33,7 +34,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #include "parquet/arrow/path_internal.h"
 #include "parquet/arrow/reader_internal.h"
@@ -166,7 +166,7 @@ class ArrowColumnWriterV2 {
     int chunk_index = 0;
     int64_t chunk_offset = 0;
     if (data.length() == 0) {
-      return ::arrow::internal::make_unique<ArrowColumnWriterV2>(
+      return std::make_unique<ArrowColumnWriterV2>(
           std::vector<std::unique_ptr<MultipathLevelBuilder>>{},
           CalculateLeafCount(data.type().get()), row_group_writer);
     }
@@ -239,7 +239,7 @@ class ArrowColumnWriterV2 {
       }
       values_written += chunk_write_size;
     }
-    return ::arrow::internal::make_unique<ArrowColumnWriterV2>(
+    return std::make_unique<ArrowColumnWriterV2>(
         std::move(builders), leaf_count, row_group_writer);
   }
 

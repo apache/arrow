@@ -18,6 +18,7 @@
 #include "arrow/dataset/dataset_writer.h"
 
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -27,7 +28,6 @@
 #include "arrow/table.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 
@@ -316,7 +316,7 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<DatasetWriterFileQueue*> OpenFileQueue(const std::string& filename) {
-    auto file_queue = ::arrow::internal::make_unique<DatasetWriterFileQueue>(
+    auto file_queue = std::make_unique<DatasetWriterFileQueue>(
         schema_, write_options_, writer_state_);
     DatasetWriterFileQueue* file_queue_view = file_queue.get();
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
@@ -365,7 +365,7 @@ class DatasetWriterDirectoryQueue {
       const FileSystemDatasetWriteOptions& write_options,
       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
       std::string directory, std::string prefix) {
-    auto dir_queue = ::arrow::internal::make_unique<DatasetWriterDirectoryQueue>(
+    auto dir_queue = std::make_unique<DatasetWriterDirectoryQueue>(
         scheduler, std::move(directory), std::move(prefix), std::move(schema),
         write_options, writer_state);
     dir_queue->PrepareDirectory();
@@ -566,7 +566,7 @@ class DatasetWriter::DatasetWriterImpl {
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              util::AsyncTaskScheduler* scheduler,
                              uint64_t max_rows_queued)
-    : impl_(::arrow::internal::make_unique<DatasetWriterImpl>(
+    : impl_(std::make_unique<DatasetWriterImpl>(
           std::move(write_options), scheduler, max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
