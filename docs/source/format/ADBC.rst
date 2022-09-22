@@ -141,7 +141,7 @@ databases that use different client technologies underneath.
 Hence, the two projects complement each other.  While Flight SQL
 provides a client that can be used directly, we expect applications
 would prefer to use ADBC instead of tying themselves to a particular
-dadtabase.
+database.
 
 Comparison with JDBC/ODBC
 -------------------------
