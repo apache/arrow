@@ -2218,8 +2218,14 @@ static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_ty
       ARROW_SCOPED_TRACE("src_type = ", src_type->ToString(),
                          ", dest_type = ", dest_type->ToString());
       auto src_array = ArrayFromJSON(src_type, json_data);
-      auto dst_array = ArrayFromJSON(dest_type, json_data);
-      CheckCast(src_array, dst_array);
+      CheckCast(src_array, ArrayFromJSON(dest_type, json_data));
+
+      // Invalid fixed_size_list cast.
+      const auto incorrect_dest_type = fixed_size_list(dest_value_type, 3);
+      ASSERT_RAISES(
+          TypeError,
+          Cast(src_array, CastOptions::Safe(fixed_size_list(src_value_type, 1))))
+          << "Size of FixedList is not the same.";
     }
   }
 }
