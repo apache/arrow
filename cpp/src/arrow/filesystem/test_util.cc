@@ -979,6 +979,7 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(1));
   AssertBufferEqual(*buffer, "");
   ASSERT_OK_AND_EQ(9, stream->Tell());
+  ASSERT_OK(stream->Close());
 
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
   ASSERT_OK(stream->Advance(4));
@@ -1077,8 +1078,8 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(buffer, file->Read(6));
   AssertBufferEqual(*buffer, "other ");
   // Should return the same slice independent of the current position
-  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(0, 4));
-  AssertBufferEqual(*buffer, "some");
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(2, 3));
+  AssertBufferEqual(*buffer, "me ");
   ASSERT_OK_AND_EQ(15, file->GetSize());
   ASSERT_OK(file->Close());
   ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
