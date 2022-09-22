@@ -42,14 +42,7 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), Type::EXTENSION);
-  for (auto types : {PrimitiveTypes(), IntervalTypes(), TemporalTypes()}) {
-    for (auto in_ty : types) {
-      DCHECK_OK(
-          func->AddKernel(in_ty->id(), {in_ty}, kOutputTargetType, CastToExtension));
-    }
-  }
-  for (auto in_ty : {Type::DICTIONARY, Type::LIST, Type::LARGE_LIST,
-                     Type::FIXED_SIZE_LIST, Type::EXTENSION}) {
+  for (Type::type in_ty : AllTypeIds()) {
     DCHECK_OK(
         func->AddKernel(in_ty, {InputType(in_ty)}, kOutputTargetType, CastToExtension));
   }
