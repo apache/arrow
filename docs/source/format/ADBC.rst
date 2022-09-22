@@ -93,16 +93,14 @@ repository ``apache/arrow-adbc``, which is commit
 7866a566f5b7b635267bfb7a87ea49b01dfe89fa_.  Note that is is separate
 from releases of the actual implementations.
 
-In C, ADBC consists of a self-contained header.  The header is
-reproduced in full at the end of this document, and is intended to be
-self-documenting.
+See the language-specific pages for details:
 
-In Go, ADBC consists of a module,
-``github.com/apache/arrow-adbc/go/adbc``, containing interface
-definitions.
+.. toctree::
+   :maxdepth: 1
 
-In Java, ADBC consists of a package,
-``org.apache.arrow.adbc:adbc-core``, containing interface definitions.
+   ADBC/C
+   ADBC/Go
+   ADBC/Java
 
 Updating this specification
 ===========================
@@ -281,19 +279,6 @@ Papers
 Raasveldt, Mark, and Hannes Mühleisen. `“Don't Hold My Data Hostage -
 A Case for Client Protocol Redesign”`_. In *Proceedings of the VLDB
 Endowment*, 1022–1033, 2017.
-
-ADBC 1.0.0 Header
-=================
-
-.. dropdown:: ``adbc.h``
-
-   From apache/arrow-adbc commit 7866a566f5b7b635267bfb7a87ea49b01dfe89fa_.
-
-   .. literalinclude:: ../../../format/adbc.h
-      :language: c
-      :linenos:
-      :lineno-match:
-      :lines: 159-1120
 
 .. External link definitions follow
 
