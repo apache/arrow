@@ -411,46 +411,7 @@ struct Type {
 };
 
 /// \brief Get a vector of all type ids
-inline std::vector<Type::type> AllTypeIds() {
-  return {Type::NA,
-          Type::BOOL,
-          Type::INT8,
-          Type::INT16,
-          Type::INT32,
-          Type::INT64,
-          Type::UINT8,
-          Type::UINT16,
-          Type::UINT32,
-          Type::UINT64,
-          Type::HALF_FLOAT,
-          Type::FLOAT,
-          Type::DOUBLE,
-          Type::DECIMAL128,
-          Type::DECIMAL256,
-          Type::DATE32,
-          Type::DATE64,
-          Type::TIME32,
-          Type::TIME64,
-          Type::TIMESTAMP,
-          Type::INTERVAL_DAY_TIME,
-          Type::INTERVAL_MONTHS,
-          Type::DURATION,
-          Type::STRING,
-          Type::BINARY,
-          Type::LARGE_STRING,
-          Type::LARGE_BINARY,
-          Type::FIXED_SIZE_BINARY,
-          Type::STRUCT,
-          Type::LIST,
-          Type::LARGE_LIST,
-          Type::FIXED_SIZE_LIST,
-          Type::MAP,
-          Type::DENSE_UNION,
-          Type::SPARSE_UNION,
-          Type::DICTIONARY,
-          Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
-}
+std::vector<Type::type> AllTypeIds();
 
 /// \defgroup type-factories Factory functions for creating data types
 ///
