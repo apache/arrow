@@ -106,7 +106,11 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   selector.recursive = true;
 
   ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
-  std::move(file_infos.begin(), file_infos.end(), std::back_inserter(*rel_fpaths));
+  for (auto& file_info : file_infos) {
+    if (file_info.IsFile()) {
+      rel_fpaths->push_back(file_info);
+    }
+  }
 
   return Status::OK();
 }
