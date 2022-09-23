@@ -72,6 +72,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_HDFS=ON ^
       -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
+      -DARROW_ORC=ON
       -DARROW_PARQUET=ON ^
       -DARROW_S3=%ARROW_S3% ^
       -DARROW_SUBSTRAIT=ON ^
