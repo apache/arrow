@@ -297,7 +297,8 @@ on:
 
   library(arrow)
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
-
+  print(arrow_info())
+  
   # Our Version should always be > CRAN so we would detect a CRAN version here.
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
