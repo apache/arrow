@@ -17,6 +17,8 @@
 
 package org.apache.arrow.dataset.file;
 
+import org.apache.arrow.c.ArrowSchema;
+import org.apache.arrow.c.Data;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -42,14 +44,19 @@ public class DatasetFileWriter {
   public static void write(BufferAllocator allocator, Scanner scanner, FileFormat format, String uri,
                            String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
     final CRecordBatchIteratorImpl itr = new CRecordBatchIteratorImpl(scanner, allocator);
+    ArrowSchema arrowSchema = ArrowSchema.allocateNew(allocator);
+    Data.exportSchema(allocator, scanner.schema(), null, arrowSchema);
+
     RuntimeException throwableWrapper = null;
     try {
-      JniWrapper.get().writeFromScannerToFile(itr, SchemaUtility.serialize(scanner.schema()),
+      JniWrapper.get().writeFromScannerToFile(itr, arrowSchema.memoryAddress(),
           format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
     } catch (Throwable t) {
       throwableWrapper = new RuntimeException(t);
       throw throwableWrapper;
     } finally {
+      arrowSchema.release();
+      arrowSchema.close();
       try {
         AutoCloseables.close(itr);
       } catch (Exception e) {

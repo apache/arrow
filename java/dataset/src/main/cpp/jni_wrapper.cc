@@ -24,6 +24,7 @@
 #include "arrow/filesystem/localfs.h"
 #include "arrow/ipc/api.h"
 #include "arrow/c/helpers.h"
+#include "arrow/c/bridge.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
 #include "org_apache_arrow_dataset_file_JniWrapper.h"
@@ -254,7 +255,7 @@ class SimpleIteratorFragment : public arrow::dataset::Fragment {
 
 /// \brief Create scanner that scans over Java dataset API's components.
 ///
-/// Currently, we use a NativeRecordBatchIterator as the underlying
+/// Currently, we use a CRecordBatchIterator as the underlying
 /// Java object to do scanning. Which means, only one single task will
 /// be produced from C++ code.
 arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
@@ -280,8 +281,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
         std::shared_ptr<arrow::RecordBatch> rb = JniGetOrThrow(
             arrow::dataset::jni::ImportRecordBatch(env, schema, reinterpret_cast<jlong>(c_array.get())));
     
-        // Release the ArrowArray
-        // auto c_array = reinterpret_cast<struct ArrowArray*>(memory_address);
+        // Release the ArrowArray and ArrowSchema
         ArrowArrayRelease(c_array.get());
         ArrowSchemaRelease(c_schema.get());
         return rb;
@@ -664,11 +664,11 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
  * Class:     org_apache_arrow_dataset_file_JniWrapper
  * Method:    writeFromScannerToFile
  * Signature:
- * (Lorg/apache/arrow/dataset/jni/NativeRecordBatchIterator;[BJLjava/lang/String;[Ljava/lang/String;ILjava/lang/String;)V
+ * (Lorg/apache/arrow/dataset/jni/CRecordBatchIterator;JJLjava/lang/String;[Ljava/lang/String;ILjava/lang/String;)V
  */
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
-    JNIEnv* env, jobject, jobject itr, jbyteArray schema_bytes, jlong file_format_id,
+    JNIEnv* env, jobject, jobject itr, jlong c_schema_address, jlong file_format_id,
     jstring uri, jobjectArray partition_columns, jint max_partitions,
     jstring base_name_template) {
   JNI_METHOD_START
@@ -676,7 +676,10 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   if (env->GetJavaVM(&vm) != JNI_OK) {
     JniThrow("Unable to get JavaVM instance");
   }
-  auto schema = JniGetOrThrow(FromSchemaByteArray(env, schema_bytes));
+
+  std::shared_ptr<arrow::Schema> schema = JniGetOrThrow(
+        arrow::ImportSchema(reinterpret_cast<struct ArrowSchema*>(c_schema_address)));
+
   auto scanner = JniGetOrThrow(MakeJavaDatasetScanner(vm, itr, schema));
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));

@@ -59,7 +59,7 @@ public class JniWrapper {
    * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
    *                         ID around all written files.
    */
-  public native void writeFromScannerToFile(CRecordBatchIterator itr, byte[] schema,
+  public native void writeFromScannerToFile(CRecordBatchIterator itr, long schema_address,
                                             long fileFormat, String uri, String[] partitionColumns, int maxPartitions,
                                             String baseNameTemplate);
 
