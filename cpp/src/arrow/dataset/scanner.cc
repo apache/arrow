@@ -155,6 +155,12 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
+    } else {
+      
+      auto projection = scan_options->projection;
+      if(!projection.IsBound()) {
+        ARROW_ASSIGN_OR_RAISE(scan_options->projection, projection.Bind(*dataset_schema));
+      }
     }
 
     // If we couldn't infer it from the projection expression then just grab all
