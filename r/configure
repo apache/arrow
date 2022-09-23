@@ -165,7 +165,6 @@ else
       fi
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
-      set -x
       cat libarrow/arrow-${VERSION}/lib/pkgconfig/arrow.pc
       PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
@@ -187,11 +186,6 @@ else
         # Use pkg-config to do static linking of libarrow's dependencies
         if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
           export PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
-          pkg-config --libs-only-l --static  ${PKG_CONFIG_NAME} || :
-          pkg-config --libs-only-other --static  ${PKG_CONFIG_NAME} || :
-          pkg-config --libs --static  ${PKG_CONFIG_NAME} || :
-          # PKG_LIBS="`pkg-config --libs-only-l --static  --silence-errors ${PKG_CONFIG_NAME}`"
-          # PKG_LIBS="$PKG_LIBS `pkg-config --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
           PKG_LIBS="`pkg-config --libs --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
