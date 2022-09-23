@@ -152,7 +152,6 @@ jobs:
         with:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
-          Ncpus: 2
       - name: Setup R Self-Hosted
         if: contains(matrix.platform.runs_on, 'self-hosted')
         run: |
