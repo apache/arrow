@@ -2224,14 +2224,14 @@ static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_ty
       const auto incorrect_dest_type = fixed_size_list(dest_value_type, 3);
       ASSERT_RAISES(
           TypeError,
-          Cast(src_array, CastOptions::Safe(fixed_size_list(src_value_type, 1))))
+          Cast(src_array, CastOptions::Safe(incorrect_dest_type)))
           << "Size of FixedList is not the same.";
     }
   }
 }
 
 TEST(Cast, FSLToFSL) {
-  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5]]");
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5], null]");
 }
 
 TEST(Cast, FSLToFSLNoNulls) {

@@ -20,6 +20,7 @@
 #include <limits>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
@@ -156,16 +157,15 @@ struct CastFixedList {
 
     const ArraySpan& in_array = batch[0].array;
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-    // Take care of data if input are is a view.
-    values = values->Slice(in_array.offset * in_size, in_array.length * in_size);
-
     ArrayData* out_array = out->array_data().get();
     out_array->buffers[0] = in_array.GetBuffer(0);
+
+    // Take care of data if input is a view.
+    out_array->offset = in_array.offset;
 
     auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                           Cast(values, child_type, options, ctx->exec_context()));
-
     DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
     return Status::OK();
