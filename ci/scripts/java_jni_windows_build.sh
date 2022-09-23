@@ -29,10 +29,9 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
+install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
-: ${ARROW_GANDIVA:=OFF}
-: ${ARROW_FILESYSTEM:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_S3:=ON}
@@ -58,8 +57,6 @@ cmake \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
-  -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
-  -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_S3=${ARROW_S3} \
@@ -70,7 +67,7 @@ cmake \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
+  -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -GNinja \
   ${arrow_dir}/cpp
@@ -97,7 +94,7 @@ popd
 
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
-  ${ARROW_HOME} \
+  ${install_dir} \
   ${build_dir} \
   ${dist_dir}
 
@@ -120,7 +117,7 @@ archery linking check-dependencies \
   --allow libstdc++ \
   --allow libz \
   --allow linux-vdso \
-  libarrow_cdata_jni.so \
-  libarrow_dataset_jni.so \
-  libarrow_orc_jni.so
+  libarrow_cdata_jni.dll \
+  libarrow_dataset_jni.dll \
+  libarrow_orc_jni.dll
 popd
