@@ -89,7 +89,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 
-${CMAKE} --build . -j $N_JOBS --target install
+${CMAKE} --build . --target install -- -j $N_JOBS
 
 if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
