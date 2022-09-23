@@ -272,9 +272,9 @@ class ARROW_EXPORT ORCFileWriter {
       io::OutputStream* output_stream,
       const WriteOptions& write_options = WriteOptions());
 
-  /// \brief Write a table
+  /// \brief Write a table. This can be called multiple times.
   ///
-  /// \param[in] table the Arrow table from which data is extracted. This can be called multiple times.
+  /// \param[in] table the Arrow table from which data is extracted.
   /// \return Status
   Status Write(const Table& table);
 
