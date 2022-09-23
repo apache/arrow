@@ -124,6 +124,10 @@ void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
 void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
                        Datum expected, const FunctionOptions* options = nullptr);
 
+void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
+                                  Datum right_input, Datum expected,
+                                  const FunctionOptions* options = nullptr);
+
 void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
 
@@ -153,12 +157,12 @@ void TestRandomPrimitiveCTypes() {
 }
 
 // Check that DispatchBest on a given function yields the same Kernel as
-// produced by DispatchExact on another set of ValueDescrs.
-void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> descrs,
-                       std::vector<ValueDescr> exact_descrs);
+// produced by DispatchExact on another set of types
+void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> types,
+                       std::vector<TypeHolder> exact_types);
 
-// Check that function fails to produce a Kernel for the set of ValueDescrs.
-void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> descrs);
+// Check that function fails to produce a Kernel for the set of types
+void CheckDispatchFails(std::string func_name, std::vector<TypeHolder> types);
 
 // Helper to get a default instance of a type, including parameterized types
 template <typename T>

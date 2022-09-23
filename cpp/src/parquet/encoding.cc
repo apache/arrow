@@ -23,6 +23,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -39,10 +40,9 @@
 #include "arrow/util/byte_stream_split.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
@@ -56,7 +56,7 @@ using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
-using arrow::util::string_view;
+using std::string_view;
 
 template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
@@ -152,9 +152,9 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         array.value_offset(array.length()) - array.value_offset(0);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
-    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
-        [&](::arrow::util::string_view view) {
+        [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
@@ -615,9 +615,9 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
-        [&](::arrow::util::string_view view) {
+        [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
@@ -658,7 +658,7 @@ void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
 template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&buffer](const ::arrow::util::string_view& v) {
+  memo_table_.VisitValues(0, [&buffer](const ::std::string_view& v) {
     uint32_t len = static_cast<uint32_t>(v.length());
     memcpy(buffer, &len, sizeof(len));
     buffer += sizeof(len);
@@ -669,7 +669,7 @@ void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
 
 template <>
 void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) {
-  memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
+  memo_table_.VisitValues(0, [&](const ::std::string_view& v) {
     DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
     memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
@@ -2757,6 +2757,11 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::unique_ptr<Decoder>(new DeltaByteArrayDecoder(descr));
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
+  } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
+    if (type_num == Type::BYTE_ARRAY) {
+      return std::unique_ptr<Decoder>(new DeltaLengthByteArrayDecoder(descr));
+    }
+    throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

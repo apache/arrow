@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
 left <- example_data
@@ -27,7 +25,6 @@ to_join <- tibble::tibble(
   capital_letters = c("A", "B"),
   another_column = TRUE
 )
-
 
 test_that("left_join", {
   expect_message(
@@ -248,28 +245,96 @@ test_that("arrow dplyr query correctly filters then joins", {
   )
 })
 
+test_that("suffix", {
+  left_suf <- Table$create(
+    key = c(1, 2),
+    left_unique = c(2.1, 3.1),
+    shared = c(10.1, 10.3)
+  )
 
-test_that("arrow dplyr query can join with tibble", {
-  # ARROW-14908
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
+  output <- collect(join_op)
+  res_col_names <- names(output)
+  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
+  expect_equal(expected_col_names, res_col_names)
+})
+
+test_that("suffix and implicit schema", {
+  left_suf <- Table$create(
+    key = c(1, 2),
+    left_unique = c(2.1, 3.1),
+    shared = c(10.1, 10.3)
+  )
+
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
+  output <- collect(join_op)
+  impl_schema <- implicit_schema(join_op)
+  expect_equal(names(output), names(implicit_schema(join_op)))
+})
+
+test_that("summarize and join", {
+  left_suf <- Table$create(
+    key = c(1, 2, 1, 2),
+    left_unique = c(2.1, 3.1, 4.1, 6.1),
+    shared = c(10.1, 10.3, 10.2, 10.4)
+  )
+
+  right_suf <- Table$create(
+    key = c(1, 2, 3, 10, 20),
+    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
+    shared = c(20.1, 30, 40, 50, 60)
+  )
+
+  joined <- left_suf %>%
+    group_by(key) %>%
+    summarize(left_unique = mean(left_unique), shared = mean(shared)) %>%
+    inner_join(right_suf, by = "key", suffix = c("_left", "_right"))
+
+  output <- collect(joined)
+  res_col_names <- names(output)
+  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
+  expect_equal(expected_col_names, res_col_names)
+})
+
+test_that("arrow dplyr query can join two datasets", {
+  # ARROW-14908 and ARROW-15718
+  skip_if_not_available("dataset")
 
   # By default, snappy encoding will be used, and
   # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
   skip_on_linux_devel()
-  skip_if_not_available("dataset")
 
   dir_out <- tempdir()
-  write_dataset(iris, file.path(dir_out, "iris"))
-  species_codes <- data.frame(
-    Species = c("setosa", "versicolor", "virginica"),
-    code = c("SET", "VER", "VIR")
-  )
+
+  quakes %>%
+    select(stations, lat, long) %>%
+    group_by(stations) %>%
+    write_dataset(file.path(dir_out, "ds1"))
+
+  quakes %>%
+    select(stations, mag, depth) %>%
+    group_by(stations) %>%
+    write_dataset(file.path(dir_out, "ds2"))
 
   withr::with_options(
     list(arrow.use_threads = FALSE),
     {
-      iris <- open_dataset(file.path(dir_out, "iris"))
-      res <- left_join(iris, species_codes) %>% collect() # We should not segfault here.
-      expect_equal(nrow(res), 150)
+      res <- open_dataset(file.path(dir_out, "ds1")) %>%
+        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") %>%
+        collect() # We should not segfault here.
+      expect_equal(nrow(res), 21872)
     }
   )
 })

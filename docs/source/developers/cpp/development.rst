@@ -16,6 +16,7 @@
 .. under the License.
 
 .. highlight:: console
+.. _development-cpp:
 
 ======================
 Development Guidelines
@@ -74,7 +75,7 @@ Code Style, Linting, and CI
 ===========================
 
 This project follows `Google's C++ Style Guide
-<https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
+<https://google.github.io/styleguide/cppguide.html>`_ with these exceptions:
 
 * We relax the line length restriction to 90 characters.
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
@@ -85,6 +86,8 @@ This project follows `Google's C++ Style Guide
   conveniences.  For private headers the rules are relaxed further and structs
   can be used where convenient for types that do not need access control even
   though they may not be simple data containers.
+* We prefer pointers for output and input/output parameters (the
+  style guide recommends mutable references in some cases).
 
 Our continuous integration builds on GitHub Actions run the unit test
 suites on a variety of platforms and configuration, including using

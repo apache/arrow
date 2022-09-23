@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -112,5 +112,5 @@ func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {
 }
 
 var (
-	_ Interface = (*FixedSizeBinary)(nil)
+	_ arrow.Array = (*FixedSizeBinary)(nil)
 )

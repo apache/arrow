@@ -24,8 +24,8 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/slice_util_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {

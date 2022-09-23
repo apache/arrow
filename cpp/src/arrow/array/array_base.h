@@ -133,6 +133,7 @@ class ARROW_EXPORT Array {
                    int64_t end_idx, int64_t other_start_idx,
                    const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Apply the ArrayVisitor::Visit() method specialized to the array type
   Status Accept(ArrayVisitor* visitor) const;
 
   /// Construct a zero-copy view of this array with the given type.
@@ -206,7 +207,7 @@ class ARROW_EXPORT Array {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 
-  ARROW_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
+  ARROW_FRIEND_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {

@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+ARG arch=amd64
+ARG jdk=8
+ARG maven=3.5.4
+FROM ${arch}/maven:${maven}-jdk-${jdk}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
 # step
@@ -45,6 +47,7 @@ RUN apt-get update -y -q && \
         g++ \
         gcc \
         libboost-all-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -67,18 +70,18 @@ ARG cmake=3.11.4
 RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | tar -xzf - -C /opt
 ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
 
-ENV ARROW_BUILD_TESTS=OFF \
+ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
-    ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
     ARROW_JAVA_CDATA=ON \
-    ARROW_JNI=ON \
+    ARROW_JAVA_JNI=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA_JAVA_CLIENT=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     CC=gcc \
     CXX=g++ \

@@ -27,6 +27,8 @@ import { instance as setVisitor } from '../visitor/set.js';
 
 export type StructRowProxy<T extends TypeMap = any> = StructRow<T> & {
     [P in keyof T]: T[P]['TValue'];
+} & {
+    [key: symbol]: any;
 };
 
 export class StructRow<T extends TypeMap = any> {
@@ -149,7 +151,7 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
             setVisitor.visit(row[kParent].children[idx], row[kRowIndex], val);
             // Cache key/val lookups
             return Reflect.set(row, key, val);
-        } else if (Reflect.has(row, key)) {
+        } else if (Reflect.has(row, key) || typeof key === 'symbol') {
             return Reflect.set(row, key, val);
         }
         return false;

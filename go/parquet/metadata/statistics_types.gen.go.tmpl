@@ -17,10 +17,14 @@
 package metadata
 
 import (
-  "github.com/apache/arrow/go/v8/parquet"
-  "github.com/apache/arrow/go/v8/parquet/schema"
-  "github.com/apache/arrow/go/v8/parquet/internal/utils"
-  "github.com/apache/arrow/go/v8/parquet/internal/encoding"
+  "fmt"
+  
+  "github.com/apache/arrow/go/v10/parquet"
+  "github.com/apache/arrow/go/v10/parquet/schema"
+  "github.com/apache/arrow/go/v10/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v10/internal/utils"
+  "github.com/apache/arrow/go/v10/parquet/internal/encoding"
+  "github.com/apache/arrow/go/v10/internal/bitutils"
 )
 
 {{range .In}}
@@ -33,7 +37,7 @@ type {{.Name}}Statistics struct {
   min {{.name}}
   max {{.name}}
 
-  bitSetReader utils.SetBitRunReader
+  bitSetReader bitutils.SetBitRunReader
 }
 
 // New{{.Name}}Statistics constructs an appropriate stat object type using the
@@ -42,7 +46,7 @@ type {{.Name}}Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}
 func New{{.Name}}Statistics(descr *schema.Column, mem memory.Allocator) *{{.Name}}Statistics {
   if descr.PhysicalType() != parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}} {
-    panic(xerrors.Errorf("parquet: invalid type %s for constructing a {{.Name}} stat object", descr.PhysicalType()))
+    panic(fmt.Errorf("parquet: invalid type %s for constructing a {{.Name}} stat object", descr.PhysicalType()))
   }
 
   return &{{.Name}}Statistics{
@@ -87,7 +91,9 @@ func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
 
 func (s *{{.Name}}Statistics) plainEncode(src {{.name}}) []byte {
 {{- if eq .Name "ByteArray"}}
-  return src
+  out := make([]byte, len(src))
+  copy(out, src)
+  return out
 {{- else}}
   s.encoder.(encoding.{{.Name}}Encoder).Put([]{{.name}}{src})
   buf, err := s.encoder.FlushValues()
@@ -192,9 +198,9 @@ func (s *{{.Name}}Statistics) coalesce(val, fallback {{.name}}) {{.name}} {
 func (s *{{.Name}}Statistics) getMinMax(values []{{.name}}) (min, max {{.name}}) {
 {{- if or (eq .name "int32") (eq .name "int64")}}
   if s.order == schema.SortSIGNED {
-    min, max = utils.GetMinMax{{.Name}}(values)
+    min, max = shared_utils.GetMinMax{{.Name}}(values)
   } else {
-    umin, umax := utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
+    umin, umax := shared_utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
     min, max = {{.name}}(umin), {{.name}}(umax)
   }
 {{- else}}
@@ -224,17 +230,17 @@ func (s *{{.Name}}Statistics) getMinMaxSpaced(values []{{.name}}, validBits []by
 {{- if or (eq .name "int32") (eq .name "int64")}}
   var fn func([]{{.name}}) ({{.name}}, {{.name}})
   if s.order == schema.SortSIGNED {
-    fn = utils.GetMinMax{{.Name}}
+    fn = shared_utils.GetMinMax{{.Name}}
   } else {
     fn = func(v []{{.name}}) ({{.name}}, {{.name}}) {
-      umin, umax := utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
+      umin, umax := shared_utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
       return {{.name}}(umin), {{.name}}(umax)
     }
   }
 {{- end}}
 
   if s.bitSetReader == nil {
-    s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+    s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
   } else {
     s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
   }
@@ -367,7 +373,7 @@ func (s *{{.Name}}Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
     }
   }()

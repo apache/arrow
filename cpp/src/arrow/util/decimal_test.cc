@@ -1510,6 +1510,14 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(12345, out);
 
+  result = Decimal128("5").ReduceScaleBy(1, true);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(1, out);
+
+  result = Decimal128("0").ReduceScaleBy(1, true);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(0, out);
+
   result = Decimal128("-123789").ReduceScaleBy(2, true);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1238, out);
@@ -1521,6 +1529,10 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   result = Decimal128("-123750").ReduceScaleBy(2, true);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1238, out);
+
+  result = Decimal128("-5").ReduceScaleBy(1, true);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(-1, out);
 }
 
 TEST(Decimal128Test, FitsInPrecision) {
@@ -1972,6 +1984,12 @@ TEST(Decimal256Test, ReduceScaleAndRound) {
   result = Decimal256("123451").ReduceScaleBy(1, true);
   ASSERT_EQ("12345", result.ToIntegerString());
 
+  result = Decimal256("5").ReduceScaleBy(1, true);
+  ASSERT_EQ("1", result.ToIntegerString());
+
+  result = Decimal256("0").ReduceScaleBy(1, true);
+  ASSERT_EQ("0", result.ToIntegerString());
+
   result = Decimal256("-123789").ReduceScaleBy(2, true);
   ASSERT_EQ("-1238", result.ToIntegerString());
 
@@ -1980,6 +1998,9 @@ TEST(Decimal256Test, ReduceScaleAndRound) {
 
   result = Decimal256("-123750").ReduceScaleBy(2, true);
   ASSERT_EQ("-1238", result.ToIntegerString());
+
+  result = Decimal256("-5").ReduceScaleBy(1, true);
+  ASSERT_EQ("-1", result.ToIntegerString());
 }
 
 TEST(Decimal256, FromBigEndianTest) {

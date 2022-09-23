@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/goccy/go-json"
 )
 
@@ -103,5 +103,5 @@ func arrayEqualFloat16(left, right *Float16) bool {
 }
 
 var (
-	_ Interface = (*Float16)(nil)
+	_ arrow.Array = (*Float16)(nil)
 )

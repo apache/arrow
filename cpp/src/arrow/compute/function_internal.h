@@ -345,6 +345,10 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
   return MakeNullScalar(value);
 }
 
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const TypeHolder& value) {
+  return GenericToScalar(value.GetSharedPtr());
+}
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<Scalar>& value) {
   return value;
@@ -426,6 +430,12 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
 
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  return value->type;
+}
+
+template <typename T>
+static inline enable_if_same_result<T, TypeHolder> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
   return value->type;
 }

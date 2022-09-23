@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/array.h>
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
@@ -87,7 +85,6 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
 }
 
 struct ArrayResolve {
-  // TODO: ARROW-11989
   ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
     for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
       std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
@@ -673,7 +670,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
                                  Transpose transpose, int* out) {
     using index_type = typename Type::c_type;
 
-    VisitArrayDataInline<Type>(
+    VisitArraySpanInline<Type>(
         *array->data(),
         /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
@@ -782,37 +779,18 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     std::string stripped_string_;
     const bool strip_out_nuls_;
     bool nul_was_stripped_;
-    util::string_view view_;
+    std::string_view view_;
   };
 
-  // Get a single string, as a CHARSXP SEXP,
-  // either from data2 or directly from the Array
+  // Get a single string, as a CHARSXP SEXP from data2.
+  // Materialize if not done so yet, given that it is
+  // likely that there will be another call from R if there is a call (e.g. unique()),
+  // and getting a string from Array is much more costly than from data2.
   static SEXP Elt(SEXP alt, R_xlen_t i) {
-    if (Base::IsMaterialized(alt)) {
-      return STRING_ELT(Representation(alt), i);
+    if (!Base::IsMaterialized(alt)) {
+      Materialize(alt);
     }
-    BEGIN_CPP11
-
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
-
-    RStringViewer r_string_viewer;
-    r_string_viewer.SetArray(array);
-
-    // r_string_viewer.Convert() might jump so it's wrapped
-    // in cpp11::unwind_protect() so that string_viewer
-    // can be properly destructed before the unwinding continues
-    SEXP s = NA_STRING;
-    cpp11::unwind_protect([&]() {
-      s = r_string_viewer.Convert(j);
-      if (r_string_viewer.nul_was_stripped()) {
-        cpp11::warning("Stripping '\\0' (nul) from character vector");
-      }
-    });
-    return s;
-
-    END_CPP11
+    return STRING_ELT(Representation(alt), i);
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
@@ -1045,5 +1023,3 @@ void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden"));
 
 // [[arrow::export]]
 bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
-
-#endif

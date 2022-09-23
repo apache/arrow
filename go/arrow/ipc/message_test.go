@@ -18,12 +18,13 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func TestMessageReaderBodyInAllocator(t *testing.T) {
@@ -38,7 +39,7 @@ func TestMessageReaderBodyInAllocator(t *testing.T) {
 	msgs := make([]*Message, 0)
 	for {
 		m, err := r.Message()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

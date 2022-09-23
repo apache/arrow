@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include array.R
 #' @title RecordBatch class
 #' @description A record batch is a collection of equal-length arrays matching
@@ -102,7 +102,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     ReplaceSchemaMetadata = function(new) {
-      RecordBatch__ReplaceSchemaMetadata(self, new)
+      RecordBatch__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
@@ -176,7 +176,7 @@ RecordBatch$import_from_c <- ImportRecordBatch
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
-#' @examplesIf arrow_available()
+#' @examples
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)
 #' dim(head(batch))
@@ -189,3 +189,122 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
+
+#' @export
+rbind.RecordBatch <- function(...) {
+  abort("Use `Table$create()` to combine RecordBatches into a Table")
+}
+
+cbind_check_length <- function(inputs, call = caller_env()) {
+  sizes <- map_dbl(inputs, NROW)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1)
+  if (!all(ok_lengths)) {
+    first_bad_one <- which.min(ok_lengths)
+    abort(
+      c("Non-scalar inputs must have an equal number of rows.",
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])
+      ),
+      call = call
+    )
+  }
+}
+
+#' @export
+cbind.RecordBatch <- function(...) {
+  call <- sys.call()
+  inputs <- list(...)
+  arg_names <- if (is.null(names(inputs))) {
+    rep("", length(inputs))
+  } else {
+    names(inputs)
+  }
+
+  cbind_check_length(inputs, call)
+
+  columns <- flatten(map(seq_along(inputs), function(i) {
+    input <- inputs[[i]]
+    name <- arg_names[i]
+
+    if (inherits(input, "RecordBatch")) {
+      set_names(input$columns, names(input))
+    } else if (inherits(input, "data.frame")) {
+      as.list(input)
+    } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
+      abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
+        i = "Hint: consider converting the RecordBatch into a Table first"
+      )
+    } else {
+      if (name == "") {
+        abort("Vector and array arguments must have names",
+          i = sprintf("Argument ..%d is missing a name", i)
+        )
+      }
+      list2("{name}" := input)
+    }
+  }))
+
+  RecordBatch$create(!!!columns)
+}
+
+#' Convert an object to an Arrow RecordBatch
+#'
+#' Whereas [record_batch()] constructs a [RecordBatch] from one or more columns,
+#' `as_record_batch()` converts a single object to an Arrow [RecordBatch].
+#'
+#' @param x An object to convert to an Arrow RecordBatch
+#' @param ... Passed to S3 methods
+#' @inheritParams record_batch
+#'
+#' @return A [RecordBatch]
+#' @export
+#'
+#' @examples
+#' # use as_record_batch() for a single object
+#' as_record_batch(data.frame(col1 = 1, col2 = "two"))
+#'
+#' # use record_batch() to create from columns
+#' record_batch(col1 = 1, col2 = "two")
+#'
+as_record_batch <- function(x, ..., schema = NULL) {
+  UseMethod("as_record_batch")
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.RecordBatch <- function(x, ..., schema = NULL) {
+  if (is.null(schema)) {
+    x
+  } else {
+    x$cast(schema)
+  }
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.Table <- function(x, ..., schema = NULL) {
+  if (x$num_columns == 0) {
+    batch <- record_batch(data.frame())
+    return(batch$Take(rep_len(0, x$num_rows)))
+  }
+
+  arrays_out <- lapply(x$columns, as_arrow_array)
+  names(arrays_out) <- names(x)
+  out <- RecordBatch$create(!!!arrays_out)
+  if (!is.null(schema)) {
+    out <- out$cast(schema)
+  }
+
+  out
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.arrow_dplyr_query <- function(x, ...) {
+  as_record_batch(compute.arrow_dplyr_query(x), ...)
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.data.frame <- function(x, ..., schema = NULL) {
+  RecordBatch$create(x, schema = schema)
+}

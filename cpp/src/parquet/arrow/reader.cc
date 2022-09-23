@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -35,9 +36,9 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
+#include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -270,6 +271,17 @@ class FileReaderImpl : public FileReader {
       records_to_read +=
           reader_->metadata()->RowGroup(row_group)->ColumnChunk(i)->num_values();
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    std::string column_name = reader_->metadata()->schema()->Column(i)->name();
+    std::string phys_type =
+        TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
+    ::arrow::util::tracing::Span span;
+    START_SPAN(span, "parquet::arrow::read_column",
+               {{"parquet.arrow.columnindex", i},
+                {"parquet.arrow.columnname", column_name},
+                {"parquet.arrow.physicaltype", phys_type},
+                {"parquet.arrow.records_to_read", records_to_read}});
+#endif
     return reader->NextBatch(records_to_read, out);
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -329,7 +341,7 @@ class FileReaderImpl : public FileReader {
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
                           ::arrow::internal::Executor* cpu_executor,
-                          int row_group_readahead) override;
+                          int64_t rows_to_readahead) override;
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
@@ -470,8 +482,8 @@ class LeafReader : public ColumnReaderImpl {
         NextRowGroup();
       }
     }
-    RETURN_NOT_OK(TransferColumnData(record_reader_.get(), field_->type(), descr_,
-                                     ctx_->pool, &out_));
+    RETURN_NOT_OK(
+        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -982,7 +994,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
       }
     }
 
-    *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+    *out = std::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
 
     return Status::OK();
@@ -1026,7 +1038,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
             [table, table_reader] { return table_reader->Next(); });
       });
 
-  *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+  *out = std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 
   return Status::OK();
@@ -1039,33 +1051,71 @@ class RowGroupGenerator {
   using RecordBatchGenerator =
       ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>;
 
+  struct ReadRequest {
+    ::arrow::Future<RecordBatchGenerator> read;
+    int64_t num_rows;
+  };
+
   explicit RowGroupGenerator(std::shared_ptr<FileReaderImpl> arrow_reader,
                              ::arrow::internal::Executor* cpu_executor,
-                             std::vector<int> row_groups, std::vector<int> column_indices)
+                             std::vector<int> row_groups, std::vector<int> column_indices,
+                             int64_t min_rows_in_flight)
       : arrow_reader_(std::move(arrow_reader)),
         cpu_executor_(cpu_executor),
         row_groups_(std::move(row_groups)),
         column_indices_(std::move(column_indices)),
-        index_(0) {}
+        min_rows_in_flight_(min_rows_in_flight),
+        rows_in_flight_(0),
+        index_(0),
+        readahead_index_(0) {}
 
   ::arrow::Future<RecordBatchGenerator> operator()() {
     if (index_ >= row_groups_.size()) {
       return ::arrow::AsyncGeneratorEnd<RecordBatchGenerator>();
     }
-    int row_group = row_groups_[index_++];
-    std::vector<int> column_indices = column_indices_;
-    auto reader = arrow_reader_;
-    if (!reader->properties().pre_buffer()) {
-      return SubmitRead(cpu_executor_, reader, row_group, column_indices);
-    }
-    auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
-    if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-    return ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
-      return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
-    });
+    index_++;
+    FillReadahead();
+    ReadRequest next = std::move(in_flight_reads_.front());
+    DCHECK(!in_flight_reads_.empty());
+    in_flight_reads_.pop();
+    rows_in_flight_ -= next.num_rows;
+    return next.read;
   }
 
  private:
+  void FillReadahead() {
+    if (min_rows_in_flight_ == 0) {
+      // No readahead, fetch the batch when it is asked for
+      FetchNext();
+    } else {
+      while (readahead_index_ < row_groups_.size() &&
+             rows_in_flight_ < min_rows_in_flight_) {
+        FetchNext();
+      }
+    }
+  }
+
+  void FetchNext() {
+    size_t row_group_index = readahead_index_++;
+    int row_group = row_groups_[row_group_index];
+    std::vector<int> column_indices = column_indices_;
+    auto reader = arrow_reader_;
+    int64_t num_rows =
+        reader->parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
+    rows_in_flight_ += num_rows;
+    ::arrow::Future<RecordBatchGenerator> row_group_read;
+    if (!reader->properties().pre_buffer()) {
+      row_group_read = SubmitRead(cpu_executor_, reader, row_group, column_indices);
+    } else {
+      auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
+      if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
+      row_group_read = ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
+        return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+      });
+    }
+    in_flight_reads_.push({std::move(row_group_read), num_rows});
+  }
+
   // Synchronous fallback for when pre-buffer isn't enabled.
   //
   // Making the Parquet reader truly asynchronous requires heavy refactoring, so the
@@ -1092,8 +1142,7 @@ class RowGroupGenerator {
                   -> ::arrow::Result<RecordBatchGenerator> {
           ::arrow::TableBatchReader table_reader(*table);
           table_reader.set_chunksize(batch_size);
-          ::arrow::RecordBatchVector batches;
-          RETURN_NOT_OK(table_reader.ReadAll(&batches));
+          ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
   }
@@ -1102,7 +1151,11 @@ class RowGroupGenerator {
   ::arrow::internal::Executor* cpu_executor_;
   std::vector<int> row_groups_;
   std::vector<int> column_indices_;
+  int64_t min_rows_in_flight_;
+  std::queue<ReadRequest> in_flight_reads_;
+  int64_t rows_in_flight_;
   size_t index_;
+  size_t readahead_index_;
 };
 
 ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
@@ -1110,8 +1163,11 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         const std::vector<int> row_group_indices,
                                         const std::vector<int> column_indices,
                                         ::arrow::internal::Executor* cpu_executor,
-                                        int row_group_readahead) {
+                                        int64_t rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
+  if (rows_to_readahead < 0) {
+    return Status::Invalid("rows_to_readahead must be > 0");
+  }
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     reader_->PreBuffer(row_group_indices, column_indices, reader_properties_.io_context(),
@@ -1120,12 +1176,12 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
   }
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
-                        cpu_executor, row_group_indices, column_indices);
-  if (row_group_readahead > 0) {
-    row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
-                                                          row_group_readahead);
-  }
-  return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
+                        cpu_executor, row_group_indices, column_indices,
+                        rows_to_readahead);
+  ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> concatenated =
+      ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
+  WRAP_ASYNC_GENERATOR(std::move(concatenated));
+  return concatenated;
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,

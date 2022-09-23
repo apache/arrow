@@ -236,6 +236,48 @@ TEST(TestStringOps, TestCharLength) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestConvertUtf8) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  // test first call to convert_from being empty string
+  std::string a("");
+  auto a_in_out_len = static_cast<int>(a.length());
+  const char* a_str =
+      convert_fromUTF8_binary(ctx_ptr, a.data(), a_in_out_len, &a_in_out_len);
+  EXPECT_EQ(std::string(a_str, a_in_out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // subsequent valid calls
+  std::string b("abc");
+  auto b_in_out_len = static_cast<int>(b.length());
+  const char* b_str =
+      convert_fromUTF8_binary(ctx_ptr, b.data(), b_in_out_len, &b_in_out_len);
+  EXPECT_EQ(std::string(b_str, b_in_out_len), "abc");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string c("hello");
+  auto c_in_out_len = static_cast<int>(c.length());
+  const char* c_str =
+      convert_fromUTF8_binary(ctx_ptr, c.data(), c_in_out_len, &c_in_out_len);
+  EXPECT_EQ(std::string(c_str, c_in_out_len), "hello");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("zero length");
+  int d_in_out_len = 0;
+  const char* d_str =
+      convert_fromUTF8_binary(ctx_ptr, d.data(), d_in_out_len, &d_in_out_len);
+  EXPECT_EQ(std::string(d_str, d_in_out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string e("substring");
+  int e_in_out_len = 3;
+  const char* e_str =
+      convert_fromUTF8_binary(ctx_ptr, e.data(), e_in_out_len, &e_in_out_len);
+  EXPECT_EQ(std::string(e_str, e_in_out_len), "sub");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -835,6 +877,39 @@ TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
   ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestCastBinaryUtf8) {
+  int32_t out_len = 0;
+  const char* input = "abc";
+  const char* out;
+
+  out = castBINARY_utf8(input, 3, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castBINARY_utf8(input, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "ab");
+
+  out = castBINARY_utf8(input, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "a");
+
+  out = castBINARY_utf8(input, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
+TEST(TestGdvFnStubs, TestCastBinaryBinary) {
+  int32_t out_len = 0;
+  const char* input = "\\x41\\x42\\x43";
+  const char* out;
+
+  out = castBINARY_binary(input, 12, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castBINARY_binary(input, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
+
+  out = castBINARY_binary(input, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
 }
 
 TEST(TestStringOps, TestConcat) {
@@ -1734,10 +1809,22 @@ TEST(TestStringOps, TestLeftString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestStr");
 
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = left_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "абв");
+
+  out_str = left_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestRightString) {
@@ -1766,10 +1853,22 @@ TEST(TestStringOps, TestRightString) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "tString");
 
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -10, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -11, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
   // the text length for this string is 10 (each utf8 char is represented by two bytes)
   out_str = right_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "вгд");
+
+  out_str = right_utf8_int32(ctx_ptr, "¥¥abdc", 8, -6, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestBinaryString) {
@@ -1956,41 +2055,101 @@ TEST(TestStringOps, TestConcatWs) {
   const char* word2 = "hello";
   int32_t word2_len = static_cast<int32_t>(strlen(word2));
 
-  const char* out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
-                                        word2, word2_len, &out_len);
+  bool out_result;
+  const char* out =
+      concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len, true,
+                          word2, word2_len, true, &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey-hello");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8(ctx_ptr, "", 0, true, "", 0, true, "", 0, true, &out_result,
+                            &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, "", 0, true, word2,
+                            word2_len, true, &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "-hello");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, false, word1, word1_len, true,
+                            word2, word2_len, true, &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(out_result, false);
+
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len, false,
+                            word2, word2_len, true, &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hello");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len, true,
+                            word2, word2_len, false, &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey");
+  EXPECT_EQ(out_result, true);
 
   separator = "#";
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word3 = "wow";
   int32_t word3_len = static_cast<int32_t>(strlen(word3));
 
-  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len, word2,
-                                 word2_len, word3, word3_len, &out_len);
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len,
+                                 true, word2, word2_len, true, word3, word3_len, true,
+                                 &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey#hello#wow");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, "", 0, true, word2,
+                                 word2_len, false, word3, word3_len, true, &out_result,
+                                 &out_len);
+  EXPECT_EQ(std::string(out, out_len), "#wow");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, false, word1, word1_len,
+                                 true, word2, word2_len, true, word3, word3_len, true,
+                                 &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(out_result, false);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len,
+                                 false, word2, word2_len, true, word3, word3_len, true,
+                                 &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hello#wow");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len,
+                                 true, word2, word2_len, false, word3, word3_len, true,
+                                 &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "hey#wow");
+  EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len,
+                                 false, word2, word2_len, false, word3, word3_len, true,
+                                 &out_result, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "wow");
+  EXPECT_EQ(out_result, true);
 
   separator = "=";
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word4 = "awesome";
   int32_t word4_len = static_cast<int32_t>(strlen(word4));
 
-  out = concat_ws_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
-                                      word2, word2_len, word3, word3_len, word4,
-                                      word4_len, &out_len);
+  out = concat_ws_utf8_utf8_utf8_utf8(
+      ctx_ptr, separator, sep_len, true, word1, word1_len, true, word2, word2_len, true,
+      word3, word3_len, true, word4, word4_len, true, &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey=hello=wow=awesome");
+  EXPECT_EQ(out_result, true);
 
   separator = "&&";
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word5 = "super";
   int32_t word5_len = static_cast<int32_t>(strlen(word5));
 
-  out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, word1, word1_len,
-                                           word2, word2_len, word3, word3_len, word4,
-                                           word4_len, word5, word5_len, &out_len);
+  out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
+                                           word1_len, true, word2, word2_len, true, word3,
+                                           word3_len, true, word4, word4_len, true, word5,
+                                           word5_len, true, &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey&&hello&&wow&&awesome&&super");
-
-  out = concat_ws_utf8_utf8(ctx_ptr, "", 0, "", 0, "", 0, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(out_result, true);
 }
 
 TEST(TestStringOps, TestEltFunction) {
@@ -2244,87 +2403,182 @@ TEST(TestStringOps, TestFromHex) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
+  bool out_valid = false;
   const char* out_str;
 
-  out_str = from_hex_utf8(ctx_ptr, "414243", 6, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "414243", 6, true, &out_valid, &out_len);
   std::string output = std::string(out_str, out_len);
   EXPECT_EQ(output, "ABC");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "", 0, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "", 0, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "41", 2, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "41", 2, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "A");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "6d6D", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "6d6D", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "mm");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "6f6d", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "6f6d", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "om");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
+  EXPECT_EQ(out_valid, true);
 
-  out_str = from_hex_utf8(ctx_ptr, "T", 1, &out_len);
+  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, false, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Error parsing hex string, length was not a multiple of"));
-  ctx.Reset();
+  EXPECT_EQ(out_valid, false);
 
-  out_str = from_hex_utf8(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
+  out_str =
+      from_hex_utf8(ctx_ptr, "egular courts above th", 22, true, &out_valid, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
-  ctx.Reset();
+  EXPECT_EQ(out_valid, false);
+
+  out_str =
+      from_hex_utf8(ctx_ptr, "lites. fluffily even de", 23, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
+
+  out_str = from_hex_utf8(ctx_ptr, "T", 1, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
+
+  out_str = from_hex_utf8(ctx_ptr, "\\x41\\x42\\x43", 12, true, &out_valid, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_EQ(out_valid, false);
 }
+
 TEST(TestStringOps, TestSoundex) {
   gandiva::ExecutionContext ctx;
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
+  bool validity = false;
   const char* out;
 
-  out = soundex_utf8(ctx_ptr, "Miller", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "3Miller", 7, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "Mill3r", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "M460");
-
-  out = soundex_utf8(ctx_ptr, "abc", 3, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "A120");
-
-  out = soundex_utf8(ctx_ptr, "123abc", 6, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "A120");
-
-  out = soundex_utf8(ctx_ptr, "test", 4, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T230");
-
-  out = soundex_utf8(ctx_ptr, "", 0, &out_len);
+  out = soundex_utf8(ctx_ptr, "123456789", 9, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(validity, false);
 
-  out = soundex_utf8(ctx_ptr, "Elvis", 5, &out_len);
+  out = soundex_utf8(ctx_ptr, "a", 1, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123456789a", 10, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "a123456789", 10, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A000");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "robert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "r-O-b-E-r-T", 11, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Robert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Rupert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Honeyman", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "H555");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Tymczak", 7, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T522");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Ashcraft", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Ashcroft", 8, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Jjjice", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "J200");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Luke Garcia", 11, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123 321 Luke 987 Gar4cia", 24, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "L226");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Alice Ichabod", 13, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A422");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Miller", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "3Miller", 7, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Mill3r", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "M460");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "abc", 3, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "123abc", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "A120");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "test", 4, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "T230");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "", 0, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(validity, true);
+
+  out = soundex_utf8(ctx_ptr, "Elvis", 5, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "E412");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "waterloo", 8, &out_len);
+  out = soundex_utf8(ctx_ptr, "waterloo", 8, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "W364");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "eowolf", 6, &out_len);
+  out = soundex_utf8(ctx_ptr, "eowolf", 6, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), "E410");
+  EXPECT_EQ(validity, true);
 
-  out = soundex_utf8(ctx_ptr, "Smith", 5, &out_len);
-  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, &out_len);
+  out = soundex_utf8(ctx_ptr, "Smith", 5, true, &validity, &out_len);
+  auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
+  EXPECT_EQ(validity, true);
 }
 
 TEST(TestStringOps, TestInstr) {

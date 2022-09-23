@@ -72,6 +72,10 @@ TEST(StatusTest, TestWithDetail) {
   ASSERT_EQ(new_status.detail(), detail);
 }
 
+TEST(StatusTest, TestCoverageWarnNotOK) {
+  ARROW_WARN_NOT_OK(Status::Invalid("invalid"), "Expected warning");
+}
+
 TEST(StatusTest, AndStatus) {
   Status a = Status::OK();
   Status b = Status::OK();

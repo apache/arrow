@@ -18,22 +18,10 @@
 module Arrow
   class Time32ArrayBuilder
     class << self
-      def build(unit_or_data_type, values)
-        builder = new(unit_or_data_type)
+      def build(data_type, values)
+        builder = new(data_type)
         builder.build(values)
       end
-    end
-
-    alias_method :initialize_raw, :initialize
-    def initialize(unit_or_data_type)
-      case unit_or_data_type
-      when DataType
-        data_type = unit_or_data_type
-      else
-        unit = unit_or_data_type
-        data_type = Time32DataType.new(unit)
-      end
-      initialize_raw(data_type)
     end
 
     def unit

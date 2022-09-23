@@ -19,10 +19,13 @@
 
 #include <google/cloud/storage/client.h>
 #include <algorithm>
+#include <chrono>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/thread_pool.h"
@@ -32,17 +35,28 @@
 
 namespace arrow {
 namespace fs {
-struct GcsCredentials {
-  explicit GcsCredentials(std::shared_ptr<google::cloud::Credentials> c)
-      : credentials(std::move(c)) {}
-
+struct GcsCredentialsHolder {
+  // Constructor needed for make_shared
+  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
+      : credentials(std::move(credentials)) {}
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
+
+bool GcsCredentials::Equals(const GcsCredentials& other) const {
+  if (holder_->credentials == other.holder_->credentials) {
+    return true;
+  }
+  return anonymous_ == other.anonymous_ && access_token_ == other.access_token_ &&
+         expiration_ == other.expiration_ &&
+         json_credentials_ == other.json_credentials_ &&
+         target_service_account_ == other.target_service_account_;
+}
 
 namespace {
 
 namespace gcs = google::cloud::storage;
 using GcsCode = google::cloud::StatusCode;
+using GcsStatus = google::cloud::Status;
 
 // Change the default upload buffer size. In general, sending larger buffers is more
 // efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
@@ -67,7 +81,7 @@ struct GcsPath {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      return GcsPath{s, internal::RemoveTrailingSlash(s).to_string(), ""};
+      return GcsPath{s, std::string(internal::RemoveTrailingSlash(s)), ""};
     }
     GcsPath path;
     path.full_path = s;
@@ -92,14 +106,11 @@ struct GcsPath {
 
 class GcsInputStream : public arrow::io::InputStream {
  public:
-  explicit GcsInputStream(gcs::ObjectReadStream stream, std::string bucket_name,
-                          std::string object_name, gcs::Generation generation,
-                          gcs::ReadFromOffset offset, gcs::Client client)
+  explicit GcsInputStream(gcs::ObjectReadStream stream, GcsPath path,
+                          gcs::Generation generation, gcs::Client client)
       : stream_(std::move(stream)),
-        bucket_name_(std::move(bucket_name)),
-        object_name_(std::move(object_name)),
+        path_(std::move(path)),
         generation_(generation),
-        offset_(offset.value_or(0)),
         client_(std::move(client)) {}
 
   ~GcsInputStream() override = default;
@@ -112,9 +123,20 @@ class GcsInputStream : public arrow::io::InputStream {
     return Status::OK();
   }
 
-  Result<int64_t> Tell() const override {
+  Result<int64_t> Tell() const override { return TellOr(nread_); }
+
+  // At EOF, gcs::ObjectReadStream::tellg() returns -1, but our APIs canonically return
+  // the stream size. This method helps with the conversion.
+  Result<int64_t> TellOr(int64_t max_pos) const {
     if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
-    return stream_.tellg() + offset_;
+    int64_t pos = stream_.tellg();
+    if (pos < 0) {
+      if (!stream_.eof()) {
+        return Status::IOError("Tell() failed before end of stream");
+      }
+      return max_pos;
+    }
+    return pos;
   }
 
   // A gcs::ObjectReadStream can be "born closed".  For small objects the stream returns
@@ -129,7 +151,9 @@ class GcsInputStream : public arrow::io::InputStream {
     if (closed()) return Status::Invalid("Cannot read from a closed stream");
     stream_.read(static_cast<char*>(out), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
-    return stream_.gcount();
+    int64_t nread = stream_.gcount();
+    nread_ += nread;
+    return nread;
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
@@ -137,7 +161,9 @@ class GcsInputStream : public arrow::io::InputStream {
     ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(nbytes));
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
-    RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
+    int64_t nread = stream_.gcount();
+    nread_ += nread;
+    RETURN_NOT_OK(buffer->Resize(nread, true));
     return std::shared_ptr<Buffer>(std::move(buffer));
   }
   //@}
@@ -145,7 +171,7 @@ class GcsInputStream : public arrow::io::InputStream {
   //@{
   // @name InputStream
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
-    auto metadata = client_.GetObjectMetadata(bucket_name_, object_name_, generation_);
+    auto metadata = client_.GetObjectMetadata(path_.bucket, path_.object, generation_);
     ARROW_GCS_RETURN_NOT_OK(metadata.status());
     return internal::FromObjectMetadata(*metadata);
   }
@@ -153,20 +179,27 @@ class GcsInputStream : public arrow::io::InputStream {
 
  private:
   mutable gcs::ObjectReadStream stream_;
-  std::string bucket_name_;
-  std::string object_name_;
+  GcsPath path_;
   gcs::Generation generation_;
-  std::int64_t offset_;
   gcs::Client client_;
+  int64_t nread_ = 0;  // Total bytes consumed (updated after each Read())
   bool closed_ = false;
 };
 
 class GcsOutputStream : public arrow::io::OutputStream {
  public:
   explicit GcsOutputStream(gcs::ObjectWriteStream stream) : stream_(std::move(stream)) {}
-  ~GcsOutputStream() override = default;
+  ~GcsOutputStream() {
+    if (!closed_) {
+      // The common pattern is to close OutputStreams from destructor in arrow.
+      io::internal::CloseFromDestructor(this);
+    }
+  }
 
   Status Close() override {
+    if (closed_) {
+      return Status::OK();
+    }
     stream_.Close();
     closed_ = true;
     return internal::ToArrowStatus(stream_.last_status());
@@ -209,13 +242,13 @@ class GcsOutputStream : public arrow::io::OutputStream {
   bool closed_ = false;
 };
 
-using InputStreamFactory = std::function<Result<std::shared_ptr<io::InputStream>>(
-    const std::string&, const std::string&, gcs::Generation, gcs::ReadFromOffset)>;
+using InputStreamFactory = std::function<Result<std::shared_ptr<GcsInputStream>>(
+    gcs::Generation, gcs::ReadFromOffset)>;
 
 class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
  public:
   GcsRandomAccessFile(InputStreamFactory factory, gcs::ObjectMetadata metadata,
-                      std::shared_ptr<io::InputStream> stream)
+                      std::shared_ptr<GcsInputStream> stream)
       : factory_(std::move(factory)),
         metadata_(std::move(metadata)),
         stream_(std::move(stream)) {}
@@ -225,7 +258,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // @name FileInterface
   Status Close() override { return stream_->Close(); }
   Status Abort() override { return stream_->Abort(); }
-  Result<int64_t> Tell() const override { return stream_->Tell(); }
+  Result<int64_t> Tell() const override { return stream_->TellOr(metadata_.size()); }
   bool closed() const override { return stream_->closed(); }
   //@}
 
@@ -255,16 +288,14 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
-    ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
-                                           gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
                                            gcs::ReadFromOffset(position)));
     return stream->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
-    ARROW_ASSIGN_OR_RAISE(stream, factory_(metadata_.bucket(), metadata_.name(),
-                                           gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
                                            gcs::ReadFromOffset(position)));
     return stream->Read(nbytes);
   }
@@ -273,8 +304,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // from Seekable
   Status Seek(int64_t position) override {
     if (closed()) return Status::Invalid("Cannot seek in a closed file");
-    ARROW_ASSIGN_OR_RAISE(stream_, factory_(metadata_.bucket(), metadata_.name(),
-                                            gcs::Generation(metadata_.generation()),
+    ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
                                             gcs::ReadFromOffset(position)));
     return Status::OK();
   }
@@ -282,7 +312,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
  private:
   InputStreamFactory factory_;
   gcs::ObjectMetadata metadata_;
-  std::shared_ptr<io::InputStream> stream_;
+  std::shared_ptr<GcsInputStream> stream_;
 };
 
 google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
@@ -300,8 +330,15 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (!o.endpoint_override.empty()) {
     options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
   }
-  if (o.credentials && o.credentials->credentials) {
-    options.set<google::cloud::UnifiedCredentialsOption>(o.credentials->credentials);
+  if (o.credentials.holder() && o.credentials.holder()->credentials) {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        o.credentials.holder()->credentials);
+  }
+  if (o.retry_limit_seconds.has_value()) {
+    options.set<gcs::RetryPolicyOption>(
+        gcs::LimitedTimeRetryPolicy(
+            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
+            .clone());
   }
   return options;
 }
@@ -321,19 +358,44 @@ class GcsFileSystem::Impl {
       return GetFileInfoBucket(path, std::move(meta).status());
     }
     auto meta = client_.GetObjectMetadata(path.bucket, path.object);
-    return GetFileInfoObject(path, meta);
+    Result<FileInfo> info = GetFileInfoObject(path, meta);
+    if (!info.ok() || info->type() != FileType::NotFound) {
+      return info;
+    }
+    // Not found case.  It could be this was written to GCS with a different
+    // "Directory" convention, so if there is at least one object that
+    // matches the prefix we assume it is a directory.
+    std::string canonical = internal::EnsureTrailingSlash(path.object);
+    auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
+    if (list_result.begin() != list_result.end()) {
+      // If there is at least one result it indicates this is a directory (at
+      // least one object exists that starts with "path/")
+      return FileInfo(path.full_path, FileType::Directory);
+    }
+    // Return the original not-found info if there was no match.
+    return info;
   }
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
     ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
-    // Adding the trailing '/' avoids problems with files named 'a', 'ab', 'ac'  where GCS
-    // would return all of them if the prefix is 'a'.
+    // Adding the trailing '/' avoids problems with files named 'a', 'ab', 'ac'  where
+    // GCS would return all of them if the prefix is 'a'.
     const auto canonical = internal::EnsureTrailingSlash(p.object);
-    const auto max_depth = internal::Depth(canonical) + select.max_recursion;
+    // Need to add one level when the object is not empty because all
+    // directories have an extra slash.
+    const auto max_depth =
+        internal::Depth(canonical) + select.max_recursion + !p.object.empty();
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
     auto delimiter = select.recursive ? gcs::Delimiter() : gcs::Delimiter("/");
+    // Include trailing delimiters ensures that files matching "directory"
+    // conventions are also included in the listing.
+    // Only included for select.recursive false because a delimiter needs
+    // to be specified.
+    auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
+                                             : gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
-    for (auto const& o : client_.ListObjects(p.bucket, prefix, delimiter)) {
+    for (auto const& o :
+         client_.ListObjects(p.bucket, prefix, delimiter, include_trailing)) {
       if (!o.ok()) {
         if (select.allow_not_found &&
             o.status().code() == google::cloud::StatusCode::kNotFound) {
@@ -343,11 +405,11 @@ class GcsFileSystem::Impl {
       }
       // Skip the directory itself from the results, and any result that is "too deep"
       // into the recursion.
-      if (o->name() == p.object || internal::Depth(o->name()) > max_depth) {
+      if (o->name() == canonical || internal::Depth(o->name()) > max_depth) {
         continue;
       }
       auto path = internal::ConcatAbstractPath(o->bucket(), o->name());
-      result.push_back(ToFileInfo(path, *o));
+      result.push_back(ToFileInfo(path, *o, /*normalize_directories=*/true));
     }
     // Finding any elements indicates the directory was found.
     if (!result.empty() || select.allow_not_found) {
@@ -366,9 +428,9 @@ class GcsFileSystem::Impl {
   // limitations) using marker objects.  That and listing with prefixes creates the
   // illusion of folders.
   google::cloud::StatusOr<gcs::ObjectMetadata> CreateDirMarker(const std::string& bucket,
-                                                               util::string_view name) {
+                                                               std::string_view name) {
     // Make the name canonical.
-    const auto canonical = internal::RemoveTrailingSlash(name).to_string();
+    const auto canonical = internal::EnsureTrailingSlash(name);
     google::cloud::StatusOr<gcs::ObjectMetadata> object = client_.InsertObject(
         bucket, canonical, std::string(),
         gcs::WithObjectMetadata(
@@ -401,6 +463,13 @@ class GcsFileSystem::Impl {
       if (o) {
         if (IsDirectory(*o)) break;
         return NotDirectoryError(*o);
+      } else {
+        // If we didn't find the raw path, check if there is an entry
+        // ending in a slash.
+        o = client_.GetObjectMetadata(bucket, internal::EnsureTrailingSlash(dir));
+        if (o) {
+          break;
+        }
       }
       missing_parents.push_back(dir);
     }
@@ -433,15 +502,17 @@ class GcsFileSystem::Impl {
 
   Status CreateDir(const GcsPath& p) {
     if (p.object.empty()) {
-      return internal::ToArrowStatus(
-          client_
-              .CreateBucket(p.bucket, gcs::BucketMetadata().set_location(
-                                          options_.default_bucket_location))
-              .status());
+      auto metadata =
+          gcs::BucketMetadata().set_location(options_.default_bucket_location);
+      return internal::ToArrowStatus(client_.CreateBucket(p.bucket, metadata).status());
     }
     auto parent = p.parent();
     if (!parent.object.empty()) {
-      auto o = client_.GetObjectMetadata(p.bucket, parent.object);
+      auto o = client_.GetObjectMetadata(p.bucket,
+                                         internal::EnsureTrailingSlash(parent.object));
+      if (!o.ok()) {
+        return internal::ToArrowStatus(o.status());
+      }
       if (!IsDirectory(*o)) return NotDirectoryError(*o);
     }
     return internal::ToArrowStatus(CreateDirMarker(p.bucket, p.object).status());
@@ -452,14 +523,16 @@ class GcsFileSystem::Impl {
   }
 
   Status DeleteDir(const GcsPath& p, const io::IOContext& io_context) {
-    RETURN_NOT_OK(DeleteDirContents(p, io_context));
+    RETURN_NOT_OK(DeleteDirContents(p, /*missing_dir_ok=*/false, io_context));
     if (!p.object.empty()) {
-      return internal::ToArrowStatus(client_.DeleteObject(p.bucket, p.object));
+      auto canonical = std::string(internal::EnsureTrailingSlash(p.object));
+      return internal::ToArrowStatus(client_.DeleteObject(p.bucket, canonical));
     }
     return internal::ToArrowStatus(client_.DeleteBucket(p.bucket));
   }
 
-  Status DeleteDirContents(const GcsPath& p, const io::IOContext& io_context) {
+  Status DeleteDirContents(const GcsPath& p, bool missing_dir_ok,
+                           const io::IOContext& io_context) {
     // If the directory marker exists, it better be a directory.
     auto dir = client_.GetObjectMetadata(p.bucket, p.object);
     if (dir && !IsDirectory(*dir)) return NotDirectoryError(*dir);
@@ -480,8 +553,15 @@ class GcsFileSystem::Impl {
     std::vector<Future<>> submitted;
     // This iterates over all the objects, and schedules parallel deletes.
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
+    bool at_least_one_obj = false;
     for (const auto& o : client_.ListObjects(p.bucket, prefix)) {
+      at_least_one_obj = true;
       submitted.push_back(DeferNotOk(io_context.executor()->Submit(async_delete, o)));
+    }
+
+    if (!missing_dir_ok && !at_least_one_obj && !dir && !p.object.empty()) {
+      // No files were found and no directory marker exists
+      return Status::IOError("No such directory: ", p.full_path);
     }
 
     return AllFinished(submitted).status();
@@ -534,17 +614,15 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(metadata.status());
   }
 
-  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& bucket_name,
-                                                           const std::string& object_name,
-                                                           gcs::Generation generation,
-                                                           gcs::ReadFromOffset offset) {
-    auto stream = client_.ReadObject(bucket_name, object_name, generation, offset);
+  Result<std::shared_ptr<GcsInputStream>> OpenInputStream(const GcsPath& path,
+                                                          gcs::Generation generation,
+                                                          gcs::ReadFromOffset offset) {
+    auto stream = client_.ReadObject(path.bucket, path.object, generation, offset);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
-    return std::make_shared<GcsInputStream>(std::move(stream), bucket_name, object_name,
-                                            gcs::Generation(), offset, client_);
+    return std::make_shared<GcsInputStream>(std::move(stream), path, generation, client_);
   }
 
-  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+  Result<std::shared_ptr<GcsOutputStream>> OpenOutputStream(
       const GcsPath& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
     std::shared_ptr<const KeyValueMetadata> resolved_metadata = metadata;
     if (resolved_metadata == nullptr && options_.default_metadata != nullptr) {
@@ -599,10 +677,25 @@ class GcsFileSystem::Impl {
     return internal::ToArrowStatus(meta.status());
   }
 
+  // The normalize_directories parameter is needed because
+  // how a directory is listed.  If a specific path is asked
+  // for with a trailing slash it is expected to have a trailing
+  // slash [1] but for recursive listings it is expected that
+  // directories have their path normalized [2].
+  // [1]
+  // https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/python/pyarrow/tests/test_fs.py#L688
+  // [2]
+  // https://github.com/apache/arrow/blob/3eaa7dd0e8b3dabc5438203331f05e3e6c011e37/cpp/src/arrow/filesystem/test_util.cc#L767
   static FileInfo ToFileInfo(const std::string& full_path,
-                             const gcs::ObjectMetadata& meta) {
-    if (IsDirectory(meta)) {
-      return FileInfo(full_path, FileType::Directory);
+                             const gcs::ObjectMetadata& meta,
+                             bool normalize_directories = false) {
+    if (IsDirectory(meta) || (!full_path.empty() && full_path.back() == '/')) {
+      if (normalize_directories) {
+        auto normalized = std::string(internal::RemoveTrailingSlash(full_path));
+        return FileInfo(std::move(normalized), FileType::Directory);
+      } else {
+        return FileInfo(full_path, FileType::Directory);
+      }
     }
     auto info = FileInfo(full_path, FileType::File);
     info.set_size(static_cast<int64_t>(meta.size()));
@@ -617,33 +710,43 @@ class GcsFileSystem::Impl {
   gcs::Client client_;
 };
 
+GcsOptions::GcsOptions() {
+  this->credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
+      google::cloud::MakeGoogleDefaultCredentials());
+  this->scheme = "https";
+}
+
 bool GcsOptions::Equals(const GcsOptions& other) const {
-  return credentials == other.credentials &&
+  return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
-         default_bucket_location == other.default_bucket_location;
+         default_bucket_location == other.default_bucket_location &&
+         retry_limit_seconds == other.retry_limit_seconds;
 }
 
 GcsOptions GcsOptions::Defaults() {
-  GcsOptions options{};
-  options.credentials =
-      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials());
-  options.scheme = "https";
+  GcsOptions options;
   return options;
 }
 
 GcsOptions GcsOptions::Anonymous() {
   GcsOptions options{};
-  options.credentials =
-      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials());
+  options.credentials.holder_ =
+      std::make_shared<GcsCredentialsHolder>(google::cloud::MakeInsecureCredentials());
+  options.credentials.anonymous_ = true;
   options.scheme = "http";
   return options;
 }
 
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
-                                       std::chrono::system_clock::time_point expiration) {
+                                       TimePoint expiration) {
   GcsOptions options{};
-  options.credentials = std::make_shared<GcsCredentials>(
-      google::cloud::MakeAccessTokenCredentials(access_token, expiration));
+  options.credentials.holder_ =
+      std::make_shared<GcsCredentialsHolder>(google::cloud::MakeAccessTokenCredentials(
+          access_token,
+          std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
+              expiration)));
+  options.credentials.access_token_ = access_token;
+  options.credentials.expiration_ = expiration;
   options.scheme = "https";
   return options;
 }
@@ -651,17 +754,20 @@ GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
 GcsOptions GcsOptions::FromImpersonatedServiceAccount(
     const GcsCredentials& base_credentials, const std::string& target_service_account) {
   GcsOptions options{};
-  options.credentials = std::make_shared<GcsCredentials>(
+  options.credentials = base_credentials;
+  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
       google::cloud::MakeImpersonateServiceAccountCredentials(
-          base_credentials.credentials, target_service_account));
+          base_credentials.holder_->credentials, target_service_account));
+  options.credentials.target_service_account_ = target_service_account;
   options.scheme = "https";
   return options;
 }
 
 GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
   GcsOptions options{};
-  options.credentials = std::make_shared<GcsCredentials>(
+  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
       google::cloud::MakeServiceAccountCredentials(json_object));
+  options.credentials.json_credentials_ = json_object;
   options.scheme = "https";
   return options;
 }
@@ -694,11 +800,16 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
     options_map.emplace(kv.first, kv.second);
   }
 
-  if (!uri.password().empty() || !uri.username().empty()) {
-    return Status::Invalid("GCS does not accept username or password.");
+  const std::string& username = uri.username();
+  bool anonymous = username == "anonymous";
+  if (!username.empty() && !anonymous) {
+    return Status::Invalid("GCS URIs do not accept username except \"anonymous\".");
   }
+  if (!uri.password().empty()) {
+    return Status::Invalid("GCS URIs do not accept password.");
+  }
+  auto options = anonymous ? GcsOptions::Anonymous() : GcsOptions::Defaults();
 
-  auto options = GcsOptions::Defaults();
   for (const auto& kv : options_map) {
     if (kv.first == "location") {
       options.default_bucket_location = kv.second;
@@ -706,6 +817,13 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "retry_limit_seconds") {
+      double parsed_seconds = atof(kv.second.c_str());
+      if (parsed_seconds <= 0.0) {
+        return Status::Invalid("retry_limit_seconds must be a positive integer, got '",
+                               kv.second, "'");
+      }
+      options.retry_limit_seconds = parsed_seconds;
     } else {
       return Status::Invalid("Unexpected query parameter in GCS URI: '", kv.first, "'");
     }
@@ -722,6 +840,7 @@ Result<GcsOptions> GcsOptions::FromUri(const std::string& uri_string,
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }
+const GcsOptions& GcsFileSystem::options() const { return impl_->options(); }
 
 bool GcsFileSystem::Equals(const FileSystem& other) const {
   if (this == &other) {
@@ -754,9 +873,9 @@ Status GcsFileSystem::DeleteDir(const std::string& path) {
   return impl_->DeleteDir(p, io_context());
 }
 
-Status GcsFileSystem::DeleteDirContents(const std::string& path) {
+Status GcsFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->DeleteDirContents(p, io_context());
+  return impl_->DeleteDirContents(p, missing_dir_ok, io_context());
 }
 
 Status GcsFileSystem::DeleteRootDirContents() {
@@ -784,9 +903,9 @@ Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) 
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(),
-                                gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
@@ -795,25 +914,24 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
-  return impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(),
-                                gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const std::string& path) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
-  auto open_stream = [impl](const std::string& b, const std::string& o, gcs::Generation g,
-                            gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(b, o, g, offset);
+  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(
-      auto stream,
-      impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(metadata->generation()),
-                             gcs::ReadFromOffset()));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
+                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
                                                *std::move(metadata), std::move(stream));
@@ -825,18 +943,17 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
-  auto open_stream = [impl](const std::string& b, const std::string& o, gcs::Generation g,
-                            gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(b, o, g, offset);
+  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(
-      auto stream,
-      impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(metadata->generation()),
-                             gcs::ReadFromOffset()));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
+                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
                                                *std::move(metadata), std::move(stream));
@@ -844,6 +961,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->OpenOutputStream(p, metadata);
 }
@@ -856,8 +974,7 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
 std::shared_ptr<GcsFileSystem> GcsFileSystem::Make(const GcsOptions& options,
                                                    const io::IOContext& context) {
   // Cannot use `std::make_shared<>` as the constructor is private.
-  return std::shared_ptr<GcsFileSystem>(
-      new GcsFileSystem(options, io::default_io_context()));
+  return std::shared_ptr<GcsFileSystem>(new GcsFileSystem(options, context));
 }
 
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)

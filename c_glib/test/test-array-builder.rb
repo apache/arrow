@@ -1765,6 +1765,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       end
     end
 
+    test("#append_string") do
+      builder = create_builder
+      builder.append_string("Hello")
+      assert_equal(build_array(["Hello"]),
+                   builder.finish)
+    end
+
+    test("#append_string_len") do
+      builder = create_builder
+      builder.append_string_len("Hello", 3)
+      assert_equal(build_array(["Hel"]),
+                   builder.finish)
+    end
+
     sub_test_case("#append_strings") do
       include ArrayBuilderAppendStringsTests
     end
@@ -1833,6 +1847,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       def builder_class_name
         "large-binary-array-builder"
       end
+    end
+
+    test("#append_string") do
+      builder = create_builder
+      builder.append_string("Hello")
+      assert_equal(build_array(["Hello"]),
+                   builder.finish)
+    end
+
+    test("#append_string_len") do
+      builder = create_builder
+      builder.append_string_len("Hello", 3)
+      assert_equal(build_array(["Hel"]),
+                   builder.finish)
     end
 
     sub_test_case("#append_strings") do

@@ -23,13 +23,14 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet/compress"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -101,7 +102,7 @@ func (p *PageSerdeSuite) SetupTest() {
 func (p *PageSerdeSuite) InitSerializedPageReader(nrows int64, codec compress.Compression) {
 	p.EndStream()
 
-	p.pageReader, _ = file.NewPageReader(bytes.NewReader(p.buffer.Bytes()), nrows, codec, memory.DefaultAllocator, nil)
+	p.pageReader, _ = file.NewPageReader(utils.NewBufferedReader(bytes.NewReader(p.buffer.Bytes()), p.buffer.Len()), nrows, codec, memory.DefaultAllocator, nil)
 }
 
 func (p *PageSerdeSuite) WriteDataPageHeader(maxSerialized int, uncompressed, compressed int32) {

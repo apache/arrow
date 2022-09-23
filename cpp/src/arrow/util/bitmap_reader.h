@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 
@@ -79,7 +80,8 @@ class BitmapUInt64Reader {
       : bitmap_(util::MakeNonNull(bitmap) + start_offset / 8),
         num_carry_bits_(8 - start_offset % 8),
         length_(length),
-        remaining_length_(length_) {
+        remaining_length_(length_),
+        carry_bits_(0) {
     if (length_ > 0) {
       // Load carry bits from the first byte's MSBs
       if (length_ >= num_carry_bits_) {
@@ -259,8 +261,8 @@ struct OptionalBitIndexer {
   const uint8_t* bitmap;
   const int64_t offset;
 
-  explicit OptionalBitIndexer(const std::shared_ptr<Buffer>& buffer, int64_t offset = 0)
-      : bitmap(buffer == NULLPTR ? NULLPTR : buffer->data()), offset(offset) {}
+  explicit OptionalBitIndexer(const uint8_t* buffer = NULLPTR, int64_t offset = 0)
+      : bitmap(buffer), offset(offset) {}
 
   bool operator[](int64_t i) const {
     return bitmap == NULLPTR || bit_util::GetBit(bitmap, offset + i);

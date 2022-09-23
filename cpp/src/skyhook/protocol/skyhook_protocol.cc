@@ -116,7 +116,7 @@ arrow::Status DeserializeTable(ceph::bufferlist& bl, bool use_threads,
   options.use_threads = use_threads;
   ARROW_ASSIGN_OR_RAISE(
       auto reader, arrow::ipc::RecordBatchStreamReader::Open(buffer_reader, options));
-  ARROW_RETURN_NOT_OK(reader->ReadAll(batches));
+  ARROW_ASSIGN_OR_RAISE(*batches, reader->ToRecordBatches());
   return arrow::Status::OK();
 }
 

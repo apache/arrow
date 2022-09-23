@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title class arrow::DataType
 #'
 #' @usage NULL
@@ -56,29 +56,66 @@ DataType$import_from_c <- ImportType
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
 
-#' infer the arrow Array type from an R vector
+#' Infer the arrow Array type from an R object
 #'
-#' @param x an R vector
+#' [type()] is deprecated in favor of [infer_type()].
 #'
-#' @return an arrow logical type
-#' @examplesIf arrow_available()
-#' type(1:10)
-#' type(1L:10L)
-#' type(c(1, 1.5, 2))
-#' type(c("A", "B", "C"))
-#' type(mtcars)
-#' type(Sys.Date())
+#' @param x an R object (usually a vector) to be converted to an [Array] or
+#'   [ChunkedArray].
+#' @param ... Passed to S3 methods
+#'
+#' @return An arrow [data type][data-type]
+#' @examples
+#' infer_type(1:10)
+#' infer_type(1L:10L)
+#' infer_type(c(1, 1.5, 2))
+#' infer_type(c("A", "B", "C"))
+#' infer_type(mtcars)
+#' infer_type(Sys.Date())
+#' infer_type(as.POSIXlt(Sys.Date()))
+#' infer_type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
 #' @export
-type <- function(x) UseMethod("type")
+infer_type <- function(x, ...) UseMethod("infer_type")
+
+#' @rdname infer_type
+#' @export
+type <- function(x) {
+  .Deprecated("infer_type")
+  infer_type(x)
+}
 
 #' @export
-type.default <- function(x) Array__infer_type(x)
+infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
+  # If from_array_infer_type is TRUE, this is a call from C++ after
+  # checking the internal C++ type inference and S3 dispatch has failed
+  # to find a method for the object. This call happens when
+  # creating Array, ChunkedArray, RecordBatch, and Table objects from
+  # data.frame. If the C++ call has reached this default method,
+  # we error. If from_array_infer_type is FALSE, we call Array__infer_type
+  # to use the internal C++ type inference.
+  if (from_array_infer_type) {
+    # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
+    # extension type.
+    if (vctrs::vec_is(x)) {
+      vctrs_extension_type(x)
+    } else {
+      abort(
+        sprintf(
+          "Can't infer Arrow data type from object inheriting from %s",
+          paste(class(x), collapse = " / ")
+        )
+      )
+    }
+  } else {
+    Array__infer_type(x)
+  }
+}
 
 #' @export
-type.ArrowDatum <- function(x) x$type
+infer_type.ArrowDatum <- function(x, ...) x$type
 
 #' @export
-type.Expression <- function(x) x$type()
+infer_type.Expression <- function(x, ...) x$type()
 
 #----- metadata
 
@@ -320,11 +357,33 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
-#' @examplesIf arrow_available()
+#' @examples
 #' bool()
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
+#'
+#' # Use the cast method to change the type of data contained in Arrow objects.
+#' # Please check the documentation of each data object class for details.
+#' my_scalar <- Scalar$create(0L, type = int64()) # int64
+#' my_scalar$cast(timestamp("ns")) # timestamp[ns]
+#'
+#' my_array <- Array$create(0L, type = int64()) # int64
+#' my_array$cast(timestamp("s", timezone = "UTC")) # timestamp[s, tz=UTC]
+#'
+#' my_chunked_array <- chunked_array(0L, 1L) # int32
+#' my_chunked_array$cast(date32()) # date32[day]
+#'
+#' # You can also use `cast()` in an Arrow dplyr query.
+#' if (requireNamespace("dplyr", quietly = TRUE)) {
+#'   library(dplyr, warn.conflicts = FALSE)
+#'   arrow_table(mtcars) %>%
+#'     transmute(
+#'       col1 = cast(cyl, string()),
+#'       col2 = cast(cyl, int8())
+#'     ) %>%
+#'     compute()
+#' }
 int8 <- function() Int8__initialize()
 
 #' @rdname data-type
@@ -598,7 +657,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("fixed_size_list_of",  self$value_type$code(), list_size = self$list_size)
+      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size)
     }
   ),
   active = list(
@@ -691,6 +750,40 @@ canonical_type_str <- function(type_str) {
     stop("Unrecognized string representation of data type", call. = FALSE)
   )
 }
+
+#' Convert an object to an Arrow DataType
+#'
+#' @param x An object to convert to an Arrow [DataType][data-type]
+#' @param ... Passed to S3 methods.
+#'
+#' @return A [DataType][data-type] object.
+#' @export
+#'
+#' @examples
+#' as_data_type(int32())
+#'
+as_data_type <- function(x, ...) {
+  UseMethod("as_data_type")
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.DataType <- function(x, ...) {
+  x
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.Field <- function(x, ...) {
+  x$type
+}
+
+#' @rdname as_data_type
+#' @export
+as_data_type.Schema <- function(x, ...) {
+  struct__(x$fields)
+}
+
 
 # vctrs support -----------------------------------------------------------
 duplicate_string <- function(x, times) {

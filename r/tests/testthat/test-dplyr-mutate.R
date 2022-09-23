@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
@@ -74,6 +72,16 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute respect bespoke dplyr implementation", {
+  ## see: https://github.com/tidyverse/dplyr/issues/6086
+  compare_dplyr_binding(
+    .input %>%
+      transmute(dbl, int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute() with NULL inputs", {
   compare_dplyr_binding(
     .input %>%
@@ -87,6 +95,20 @@ test_that("empty transmute()", {
   compare_dplyr_binding(
     .input %>%
       transmute() %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute with unnamed expressions", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, padded_strings) %>%
+      transmute(
+        int, # bare column name
+        nchar(padded_strings) # expression
+      ) %>%
+      filter(int > 5) %>%
       collect(),
     tbl
   )
@@ -120,9 +142,12 @@ test_that("transmute() defuses dots arguments (ARROW-13262)", {
   expect_warning(
     tbl %>%
       Table$create() %>%
-      transmute(stringr::str_c(chr, chr)) %>%
+      transmute(
+        a = stringr::str_c(padded_strings, padded_strings),
+        b = stringr::str_squish(a)
+      ) %>%
       collect(),
-    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    "Expression stringr::str_squish(a) not supported in Arrow; pulling data into R",
     fixed = TRUE
   )
 })
@@ -252,14 +277,13 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
-  # across and autosplicing: ARROW-11699
+  # test modified from version in dplyr::mutate due to ARROW-12632
   compare_dplyr_binding(
     .input %>%
-      select(name, homeworld, species) %>%
-      mutate(across(!name, as.factor)) %>%
+      select(name, height, mass) %>%
+      mutate(across(!name, as.character)) %>%
       collect(),
     starwars,
-    warning = "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
@@ -329,19 +353,19 @@ test_that("dplyr::mutate's examples", {
   #>   <chr> <chr> <dbl>
   #> 1 a     b         3
   compare_dplyr_binding(
-    .input %>% mutate(z = x + y, .keep = "none") %>% collect(), # same as transmute()
+    .input %>% mutate(z = x + y, x, .keep = "none") %>% collect(),
     df
   )
-  #> # A tibble: 1 x 1
-  #>       z
-  #>   <dbl>
-  #> 1     3
+  #> # A tibble: 1 × 2
+  #>       x     z
+  #>   <dbl> <dbl>
+  #> 1     1     3
 
   # Grouping ----------------------------------------
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO: ARROW-13926
+  # TODO(ARROW-13926): support window functions
   compare_dplyr_binding(
     .input %>%
       select(name, mass, species) %>%
@@ -504,7 +528,11 @@ test_that("mutate and pmin/pmax", {
         max_val_1 = pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
         min_val_1 = pmin(val1, val2, val3),
-        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
+        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE),
+        max_val_1_nmspc = base::pmax(val1, val2, val3),
+        max_val_2_nmspc = base::pmax(val1, val2, val3, na.rm = TRUE),
+        min_val_1_nmspc = base::pmin(val1, val2, val3),
+        min_val_2_nmspc = base::pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
     df
@@ -518,5 +546,97 @@ test_that("mutate and pmin/pmax", {
       ) %>%
       collect(),
     df
+  )
+})
+
+test_that("mutate() and transmute() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # str_detect binding depends on RE2
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Can use across() within mutate()", {
+
+  # expressions work in the right order
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dbl2 = dbl * 2,
+        across(c(dbl, dbl2), round),
+        int2 = int * 2,
+        dbl = dbl + 3
+      ) %>%
+      collect(),
+    example_data
+  )
+
+  # this is valid is neither R nor Arrow
+  expect_error(
+    expect_warning(
+      compare_dplyr_binding(
+        .input %>%
+          arrow_table() %>%
+          mutate(across(c(dbl, dbl2), list("fun1" = round(sqrt(dbl))))) %>%
+          collect(),
+        example_data,
+        warning = TRUE
+      )
+    )
+  )
+
+  # ARROW-12778 - `where()` is not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(where(is.double))) %>%
+        collect(),
+      example_data
+    ),
+    "Unsupported selection helper"
+  )
+
+  # gives the right error with window functions
+  expect_warning(
+    arrow_table(example_data) %>%
+      mutate(
+        x = int + 2,
+        across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
+        exp(dbl2)
+      ) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 })

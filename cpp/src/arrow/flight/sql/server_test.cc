@@ -21,13 +21,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <condition_variable>
-#include <thread>
+#include <signal.h>
+#include <sqlite3.h>
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/testing/builder.h"
@@ -138,8 +140,7 @@ class TestFlightSqlServer : public ::testing::Test {
     ARROW_ASSIGN_OR_RAISE(auto stream,
                           sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-    std::shared_ptr<Table> table;
-    ARROW_RETURN_NOT_OK(stream->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, stream->ToTable());
 
     const std::shared_ptr<Array>& result_array = table->column(0)->chunk(0);
     ARROW_ASSIGN_OR_RAISE(auto count_scalar, result_array->GetScalar(0));
@@ -149,20 +150,13 @@ class TestFlightSqlServer : public ::testing::Test {
 
  protected:
   void SetUp() override {
-    port = GetListenPort();
-    server_thread.reset(new std::thread([&]() { RunServer(); }));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
+    arrow::flight::FlightServerOptions options(location);
+    ASSERT_OK_AND_ASSIGN(server, example::SQLiteFlightSqlServer::Create());
+    ASSERT_OK(server->Init(options));
 
-    std::unique_lock<std::mutex> lk(server_ready_m);
-    server_ready_cv.wait(lk);
-
-    std::stringstream ss;
-    ss << "grpc://localhost:" << port;
-    std::string uri = ss.str();
-
-    std::unique_ptr<FlightClient> client;
-    Location location;
-    ASSERT_OK(Location::Parse(uri, &location));
-    ASSERT_OK(FlightClient::Connect(location, &client));
+    ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", server->port()));
+    ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
 
     sql_client.reset(new FlightSqlClient(std::move(client)));
   }
@@ -172,31 +166,10 @@ class TestFlightSqlServer : public ::testing::Test {
     sql_client.reset();
 
     ASSERT_OK(server->Shutdown());
-    server_thread->join();
-    server_thread.reset();
   }
 
  private:
-  int port;
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
-  std::unique_ptr<std::thread> server_thread;
-  std::condition_variable server_ready_cv;
-  std::mutex server_ready_m;
-
-  void RunServer() {
-    arrow::flight::Location location;
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("localhost", port, &location));
-    arrow::flight::FlightServerOptions options(location);
-
-    ARROW_CHECK_OK(example::SQLiteFlightSqlServer::Create().Value(&server));
-
-    ARROW_CHECK_OK(server->Init(options));
-    // Exit with a clean error code (0) on SIGTERM
-    ARROW_CHECK_OK(server->SetShutdownOnSignals({SIGTERM}));
-
-    server_ready_cv.notify_all();
-    ARROW_CHECK_OK(server->Serve());
-  }
 };
 
 TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
@@ -206,8 +179,7 @@ TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const std::shared_ptr<Schema>& expected_schema =
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
@@ -241,8 +213,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTables) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   ASSERT_OK_AND_ASSIGN(auto catalog_name, MakeArrayOfNull(utf8(), 3))
   ASSERT_OK_AND_ASSIGN(auto schema_name, MakeArrayOfNull(utf8(), 3))
@@ -273,8 +244,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -303,8 +273,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableTypesFilter) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   AssertSchemaEqual(SqlSchema::GetTablesSchema(), table->schema());
 
@@ -327,8 +296,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null, null, null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null, null, null])");
@@ -358,8 +326,9 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
+
+  const char* db_table_name = "intTable";
 
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -367,8 +336,18 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
   const std::shared_ptr<Schema> schema_table = arrow::schema(
-      {arrow::field("id", int64(), true), arrow::field("keyName", utf8(), true),
-       arrow::field("value", int64(), true), arrow::field("foreignId", int64(), true)});
+      {arrow::field(
+           "id", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "keyName", utf8(), true,
+           example::GetColumnMetadata(SQLITE_TEXT, db_table_name).metadata_map()),
+       arrow::field(
+           "value", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "foreignId", int64(), true,
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
   ASSERT_OK_AND_ASSIGN(auto schema_buffer, ipc::SerializeSchema(*schema_table));
 
@@ -382,14 +361,42 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   AssertTablesEqual(*expected_table, *table);
 }
 
+TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}));
+
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+
+  auto batch = example::DoGetTypeInfoResult();
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
+
+  AssertTablesEqual(*expected_table, *table);
+}
+
+TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
+  int data_type = -4;
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}, data_type));
+
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+
+  auto batch = example::DoGetTypeInfoResult(data_type);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
+
+  AssertTablesEqual(*expected_table, *table);
+}
+
 TEST_F(TestFlightSqlServer, TestCommandGetCatalogs) {
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCatalogs({}));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetCatalogsSchema();
 
@@ -407,8 +414,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetDbSchemas) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetDbSchemasSchema();
 
@@ -422,8 +428,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTableTypes) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
@@ -462,12 +467,23 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
-  const std::shared_ptr<Schema>& expected_schema =
-      arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
-                     arrow::field("value", int64()), arrow::field("foreignId", int64())});
+  const char* db_table_name = "intTable";
+
+  const std::shared_ptr<Schema>& expected_schema = arrow::schema(
+      {arrow::field(
+           "id", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "keyName", utf8(),
+           example::GetColumnMetadata(SQLITE_TEXT, db_table_name).metadata_map()),
+       arrow::field(
+           "value", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
+       arrow::field(
+           "foreignId", int64(),
+           example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map())});
 
   const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
   const auto keyname_array =
@@ -516,8 +532,7 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQueryWithParameterBindin
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const std::shared_ptr<Schema>& expected_schema =
       arrow::schema({arrow::field("id", int64()), arrow::field("keyName", utf8()),
@@ -597,14 +612,13 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "int%"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "int%"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetPrimaryKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -622,14 +636,13 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "intTable"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "intTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetImportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -655,14 +668,13 @@ TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
   FlightCallOptions options = {};
-  TableRef table_ref = {util::nullopt, util::nullopt, "foreignTable"};
+  TableRef table_ref = {std::nullopt, std::nullopt, "foreignTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetExportedKeys(options, table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -688,16 +700,15 @@ TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetCrossReference) {
   FlightCallOptions options = {};
-  TableRef pk_table_ref = {util::nullopt, util::nullopt, "foreignTable"};
-  TableRef fk_table_ref = {util::nullopt, util::nullopt, "intTable"};
+  TableRef pk_table_ref = {std::nullopt, std::nullopt, "foreignTable"};
+  TableRef fk_table_ref = {std::nullopt, std::nullopt, "intTable"};
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetCrossReference(
                                              options, pk_table_ref, fk_table_ref));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(stream->ReadAll(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
 
   const auto pk_catalog_name = ArrayFromJSON(utf8(), R"([null])");
   const auto pk_schema_name = ArrayFromJSON(utf8(), R"([null])");
@@ -734,8 +745,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfo) {
                        sql_client->GetSqlInfo(call_options, sql_info_ids));
   ASSERT_OK_AND_ASSIGN(
       auto reader, sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
-  std::shared_ptr<Table> results;
-  ASSERT_OK(reader->ReadAll(&results));
+  ASSERT_OK_AND_ASSIGN(auto results, reader->ToTable());
   ASSERT_EQ(2, results->num_columns());
   ASSERT_EQ(sql_info_ids.size(), results->num_rows());
   const auto& col_name = results->column(0);
@@ -750,7 +760,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfo) {
           reinterpret_cast<const DenseUnionScalar&>(*scalar));
       const auto& expected_result =
           sql_info_expected_results.at(col_name_chunk_data[row]);
-      arrow::util::visit(validator, expected_result);
+      std::visit(validator, expected_result);
     }
   }
 }
@@ -762,6 +772,51 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, ::testing::HasSubstr("No information for SQL info number 999999"),
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
+}
+
+TEST_F(TestFlightSqlServer, CancelQuery) {
+  // Not supported
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  ASSERT_RAISES(NotImplemented, sql_client->CancelQuery({}, *flight_info));
+}
+
+TEST_F(TestFlightSqlServer, Transactions) {
+  ASSERT_OK_AND_ASSIGN(auto handle, sql_client->BeginTransaction({}));
+  ASSERT_TRUE(handle.is_valid());
+  ASSERT_NE(handle.transaction_id(), "");
+  ASSERT_RAISES(NotImplemented, sql_client->BeginSavepoint({}, handle, "savepoint"));
+
+  ASSERT_OK_AND_ASSIGN(auto flight_info,
+                       sql_client->Execute({}, "SELECT * FROM intTable", handle));
+  ASSERT_OK_AND_ASSIGN(auto stream,
+                       sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
+  int64_t row_count = table->num_rows();
+
+  int64_t result;
+  ASSERT_OK_AND_ASSIGN(result,
+                       sql_client->ExecuteUpdate(
+                           {},
+                           "INSERT INTO intTable (keyName, value) VALUES "
+                           "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)",
+                           handle));
+  ASSERT_EQ(3, result);
+
+  ASSERT_OK_AND_ASSIGN(flight_info,
+                       sql_client->Execute({}, "SELECT * FROM intTable", handle));
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  ASSERT_EQ(table->num_rows(), row_count + 3);
+
+  ASSERT_OK(sql_client->Rollback({}, handle));
+  // Commit/rollback invalidate the handle
+  ASSERT_RAISES(KeyError, sql_client->Rollback({}, handle));
+  ASSERT_RAISES(KeyError, sql_client->Commit({}, handle));
+
+  ASSERT_OK_AND_ASSIGN(flight_info, sql_client->Execute({}, "SELECT * FROM intTable"));
+  ASSERT_OK_AND_ASSIGN(stream, sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
+  ASSERT_OK_AND_ASSIGN(table, stream->ToTable());
+  ASSERT_EQ(table->num_rows(), row_count);
 }
 
 }  // namespace sql

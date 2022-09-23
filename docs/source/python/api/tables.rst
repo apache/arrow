@@ -44,6 +44,7 @@ Classes
    RecordBatch
    Table
    TableGroupBy
+   RecordBatchReader
 
 .. _api.tensor:
 

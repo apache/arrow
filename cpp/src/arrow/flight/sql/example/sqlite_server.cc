@@ -20,15 +20,17 @@
 #include <sqlite3.h>
 
 #include <boost/algorithm/string.hpp>
-#include <map>
+#include <mutex>
 #include <random>
 #include <sstream>
+#include <unordered_map>
+#include <utility>
 
-#include "arrow/api.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/sql/server.h"
 
 namespace arrow {
@@ -37,18 +39,6 @@ namespace sql {
 namespace example {
 
 namespace {
-
-/// \brief Gets a SqliteStatement by given handle
-arrow::Result<std::shared_ptr<SqliteStatement>> GetStatementByHandle(
-    const std::map<std::string, std::shared_ptr<SqliteStatement>>& prepared_statements,
-    const std::string& handle) {
-  auto search = prepared_statements.find(handle);
-  if (search == prepared_statements.end()) {
-    return Status::Invalid("Prepared statement not found");
-  }
-
-  return search->second;
-}
 
 std::string PrepareQueryForGetTables(const GetTables& command) {
   std::stringstream table_query;
@@ -88,9 +78,8 @@ std::string PrepareQueryForGetTables(const GetTables& command) {
 }
 
 Status SetParametersOnSQLiteStatement(sqlite3_stmt* stmt, FlightMessageReader* reader) {
-  FlightStreamChunk chunk;
   while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
     std::shared_ptr<RecordBatch>& record_batch = chunk.data;
     if (record_batch == nullptr) break;
 
@@ -206,7 +195,7 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
     return float64();
   } else if (boost::iequals(sqlite_type, "BLOB")) {
     return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") ||
+  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
              boost::istarts_with(sqlite_type, "char") ||
              boost::istarts_with(sqlite_type, "varchar")) {
     return utf8();
@@ -215,22 +204,105 @@ std::shared_ptr<DataType> GetArrowType(const char* sqlite_type) {
   }
 }
 
+int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
+  if (sqlite_type == NULLPTR) {
+    // SQLite may not know the column type yet.
+    return SQLITE_NULL;
+  }
+
+  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+    return SQLITE_INTEGER;
+  } else if (boost::iequals(sqlite_type, "REAL")) {
+    return SQLITE_FLOAT;
+  } else if (boost::iequals(sqlite_type, "BLOB")) {
+    return SQLITE_BLOB;
+  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
+             boost::istarts_with(sqlite_type, "char") ||
+             boost::istarts_with(sqlite_type, "varchar")) {
+    return SQLITE_TEXT;
+  } else {
+    return SQLITE_NULL;
+  }
+}
+
 class SQLiteFlightSqlServer::Impl {
+ private:
   sqlite3* db_;
-  std::map<std::string, std::shared_ptr<SqliteStatement>> prepared_statements_;
+  const std::string db_uri_;
+  std::mutex mutex_;
+  std::unordered_map<std::string, std::shared_ptr<SqliteStatement>> prepared_statements_;
+  std::unordered_map<std::string, sqlite3*> open_transactions_;
   std::default_random_engine gen_;
 
- public:
-  explicit Impl(sqlite3* db) : db_(db) {}
+  arrow::Result<std::shared_ptr<SqliteStatement>> GetStatementByHandle(
+      const std::string& handle) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    auto search = prepared_statements_.find(handle);
+    if (search == prepared_statements_.end()) {
+      return Status::KeyError("Prepared statement not found");
+    }
+    return search->second;
+  }
 
-  ~Impl() { sqlite3_close(db_); }
+  arrow::Result<sqlite3*> GetConnection(const std::string& transaction_id) {
+    if (transaction_id.empty()) return db_;
+
+    std::lock_guard<std::mutex> guard(mutex_);
+    auto it = open_transactions_.find(transaction_id);
+    if (it == open_transactions_.end()) {
+      return Status::KeyError("Unknown transaction ID: ", transaction_id);
+    }
+    return it->second;
+  }
+
+  // Create a Ticket that combines a query and a transaction ID.
+  arrow::Result<Ticket> EncodeTransactionQuery(const std::string& query,
+                                               const std::string& transaction_id) {
+    std::string transaction_query = transaction_id;
+    transaction_query += ':';
+    transaction_query += query;
+    ARROW_ASSIGN_OR_RAISE(auto ticket_string,
+                          CreateStatementQueryTicket(transaction_query));
+    return Ticket{std::move(ticket_string)};
+  }
+
+  arrow::Result<std::pair<std::string, std::string>> DecodeTransactionQuery(
+      const std::string& ticket) {
+    auto divider = ticket.find(':');
+    if (divider == std::string::npos) {
+      return Status::Invalid("Malformed ticket");
+    }
+    std::string transaction_id = ticket.substr(0, divider);
+    std::string query = ticket.substr(divider + 1);
+    return std::make_pair(std::move(query), std::move(transaction_id));
+  }
+
+ public:
+  explicit Impl(sqlite3* db, std::string uri) : db_(db), db_uri_(std::move(uri)) {}
+
+  ~Impl() {
+    sqlite3_close(db_);
+    for (const auto& pair : open_transactions_) {
+      sqlite3_close(pair.second);
+    }
+  }
 
   std::string GenerateRandomString() {
     uint32_t length = 16;
 
-    std::uniform_int_distribution<char> dist('0', 'z');
+    // MSVC doesn't support char types here
+    std::uniform_int_distribution<uint16_t> dist(static_cast<uint16_t>('0'),
+                                                 static_cast<uint16_t>('Z'));
     std::string ret(length, 0);
-    auto get_random_char = [&]() { return dist(gen_); };
+    // Don't generate symbols to simplify parsing in DecodeTransactionQuery
+    auto get_random_char = [&]() {
+      char res;
+      while (true) {
+        res = static_cast<char>(dist(gen_));
+        if (res <= '9' || res >= 'A') break;
+      }
+      return res;
+    };
     std::generate_n(ret.begin(), length, get_random_char);
     return ret;
   }
@@ -239,13 +311,12 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const StatementQuery& command,
       const FlightDescriptor& descriptor) {
     const std::string& query = command.query;
-
-    ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db_, query));
-
+    ARROW_ASSIGN_OR_RAISE(auto db, GetConnection(command.transaction_id));
+    ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db, query));
     ARROW_ASSIGN_OR_RAISE(auto schema, statement->GetSchema());
-
-    ARROW_ASSIGN_OR_RAISE(auto ticket_string, CreateStatementQueryTicket(query));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{ticket_string}, {}}};
+    ARROW_ASSIGN_OR_RAISE(auto ticket,
+                          EncodeTransactionQuery(query, command.transaction_id));
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{std::move(ticket), {}}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
 
@@ -254,10 +325,13 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetStatement(
       const ServerCallContext& context, const StatementQueryTicket& command) {
-    const std::string& sql = command.statement_handle;
+    ARROW_ASSIGN_OR_RAISE(auto pair, DecodeTransactionQuery(command.statement_handle));
+    const std::string& sql = pair.first;
+    const std::string transaction_id = pair.second;
+    ARROW_ASSIGN_OR_RAISE(auto db, GetConnection(transaction_id));
 
     std::shared_ptr<SqliteStatement> statement;
-    ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, sql));
+    ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db, sql));
 
     std::shared_ptr<SqliteStatementBatchReader> reader;
     ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement));
@@ -352,25 +426,25 @@ class SQLiteFlightSqlServer::Impl {
   arrow::Result<int64_t> DoPutCommandStatementUpdate(const ServerCallContext& context,
                                                      const StatementUpdate& command) {
     const std::string& sql = command.query;
-
-    ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db_, sql));
-
+    ARROW_ASSIGN_OR_RAISE(auto db, GetConnection(command.transaction_id));
+    ARROW_ASSIGN_OR_RAISE(auto statement, SqliteStatement::Create(db, sql));
     return statement->ExecuteUpdate();
   }
 
   arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request) {
+    std::lock_guard<std::mutex> guard(mutex_);
     std::shared_ptr<SqliteStatement> statement;
     ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, request.query));
-    const std::string handle = GenerateRandomString();
+    std::string handle = GenerateRandomString();
     prepared_statements_[handle] = statement;
 
     ARROW_ASSIGN_OR_RAISE(auto dataset_schema, statement->GetSchema());
 
     sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
     const int parameter_count = sqlite3_bind_parameter_count(stmt);
-    std::vector<std::shared_ptr<arrow::Field>> parameter_fields;
+    FieldVector parameter_fields;
     parameter_fields.reserve(parameter_count);
 
     // As SQLite doesn't know the parameter types before executing the query, the
@@ -389,17 +463,14 @@ class SQLiteFlightSqlServer::Impl {
       parameter_fields.push_back(field(parameter_name, dense_union_type));
     }
 
-    const std::shared_ptr<Schema>& parameter_schema = arrow::schema(parameter_fields);
-
-    ActionCreatePreparedStatementResult result{.dataset_schema = dataset_schema,
-                                               .parameter_schema = parameter_schema,
-                                               .prepared_statement_handle = handle};
-
-    return result;
+    std::shared_ptr<Schema> parameter_schema = arrow::schema(parameter_fields);
+    return ActionCreatePreparedStatementResult{
+        std::move(dataset_schema), std::move(parameter_schema), std::move(handle)};
   }
 
   Status ClosePreparedStatement(const ServerCallContext& context,
                                 const ActionClosePreparedStatementRequest& request) {
+    std::lock_guard<std::mutex> guard(mutex_);
     const std::string& prepared_statement_handle = request.prepared_statement_handle;
 
     auto search = prepared_statements_.find(prepared_statement_handle);
@@ -415,6 +486,7 @@ class SQLiteFlightSqlServer::Impl {
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPreparedStatement(
       const ServerCallContext& context, const PreparedStatementQuery& command,
       const FlightDescriptor& descriptor) {
+    std::lock_guard<std::mutex> guard(mutex_);
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
 
     auto search = prepared_statements_.find(prepared_statement_handle);
@@ -431,6 +503,7 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPreparedStatement(
       const ServerCallContext& context, const PreparedStatementQuery& command) {
+    std::lock_guard<std::mutex> guard(mutex_);
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
 
     auto search = prepared_statements_.find(prepared_statement_handle);
@@ -451,9 +524,8 @@ class SQLiteFlightSqlServer::Impl {
                                      FlightMessageReader* reader,
                                      FlightMetadataWriter* writer) {
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
-    ARROW_ASSIGN_OR_RAISE(
-        auto statement,
-        GetStatementByHandle(prepared_statements_, prepared_statement_handle));
+    ARROW_ASSIGN_OR_RAISE(auto statement,
+                          GetStatementByHandle(prepared_statement_handle));
 
     sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
     ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
@@ -465,9 +537,8 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader) {
     const std::string& prepared_statement_handle = command.prepared_statement_handle;
-    ARROW_ASSIGN_OR_RAISE(
-        auto statement,
-        GetStatementByHandle(prepared_statements_, prepared_statement_handle));
+    ARROW_ASSIGN_OR_RAISE(auto statement,
+                          GetStatementByHandle(prepared_statement_handle));
 
     sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
     ARROW_RETURN_NOT_OK(SetParametersOnSQLiteStatement(stmt, reader));
@@ -485,6 +556,22 @@ class SQLiteFlightSqlServer::Impl {
     std::string query = "SELECT DISTINCT type as table_type FROM sqlite_master";
 
     return DoGetSQLiteQuery(db_, query, SqlSchema::GetTableTypesSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor) {
+    return GetFlightInfoForCommand(descriptor, SqlSchema::GetXdbcTypeInfoSchema());
+  }
+
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command) {
+    const std::shared_ptr<RecordBatch>& type_info_result =
+        command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
+                                      : DoGetTypeInfoResult();
+
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
+    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(
@@ -592,20 +679,71 @@ class SQLiteFlightSqlServer::Impl {
     return DoGetSQLiteQuery(db_, query, SqlSchema::GetCrossReferenceSchema());
   }
 
-  Status ExecuteSql(const std::string& sql) {
+  Status ExecuteSql(const std::string& sql) { return ExecuteSql(db_, sql); }
+
+  Status ExecuteSql(sqlite3* db, const std::string& sql) {
     char* err_msg = nullptr;
-    int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &err_msg);
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &err_msg);
     if (rc != SQLITE_OK) {
       std::string error_msg;
       if (err_msg != nullptr) {
         error_msg = err_msg;
+        sqlite3_free(err_msg);
       }
-      sqlite3_free(err_msg);
-      return Status::ExecutionError(error_msg);
+      return Status::IOError(error_msg);
     }
+    if (err_msg) sqlite3_free(err_msg);
     return Status::OK();
   }
+
+  arrow::Result<ActionBeginTransactionResult> BeginTransaction(
+      const ServerCallContext& context, const ActionBeginTransactionRequest& request) {
+    std::string handle = GenerateRandomString();
+    sqlite3* new_db = nullptr;
+    if (sqlite3_open_v2(db_uri_.c_str(), &new_db,
+                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI,
+                        /*zVfs=*/nullptr) != SQLITE_OK) {
+      std::string error_message = "Can't open new connection: ";
+      if (new_db) {
+        error_message += sqlite3_errmsg(new_db);
+        sqlite3_close(new_db);
+      }
+      return Status::Invalid(error_message);
+    }
+
+    ARROW_RETURN_NOT_OK(ExecuteSql(new_db, "BEGIN TRANSACTION"));
+
+    std::lock_guard<std::mutex> guard(mutex_);
+    open_transactions_[handle] = new_db;
+    return ActionBeginTransactionResult{std::move(handle)};
+  }
+
+  Status EndTransaction(const ServerCallContext& context,
+                        const ActionEndTransactionRequest& request) {
+    Status status;
+    sqlite3* transaction = nullptr;
+    {
+      std::lock_guard<std::mutex> guard(mutex_);
+      auto it = open_transactions_.find(request.transaction_id);
+      if (it == open_transactions_.end()) {
+        return Status::KeyError("Unknown transaction ID: ", request.transaction_id);
+      }
+
+      if (request.action == ActionEndTransactionRequest::kCommit) {
+        status = ExecuteSql(it->second, "COMMIT");
+      } else {
+        status = ExecuteSql(it->second, "ROLLBACK");
+      }
+      transaction = it->second;
+      open_transactions_.erase(it);
+    }
+    sqlite3_close(transaction);
+    return status;
+  }
 };
+
+// Give each server instance its own in-memory DB
+std::atomic<int64_t> kDbCounter(0);
 
 SQLiteFlightSqlServer::SQLiteFlightSqlServer(std::shared_ptr<Impl> impl)
     : impl_(std::move(impl)) {}
@@ -613,7 +751,13 @@ SQLiteFlightSqlServer::SQLiteFlightSqlServer(std::shared_ptr<Impl> impl)
 arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Create() {
   sqlite3* db = nullptr;
 
-  if (sqlite3_open(":memory:", &db)) {
+  // All sqlite3* instances created from this URI will share data
+  std::string uri = "file:memorydb";
+  uri += std::to_string(kDbCounter++);
+  uri += "?mode=memory&cache=shared";
+  if (sqlite3_open_v2(uri.c_str(), &db,
+                      SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI,
+                      /*zVfs=*/nullptr)) {
     std::string err_msg = "Can't open database: ";
     if (db != nullptr) {
       err_msg += sqlite3_errmsg(db);
@@ -625,9 +769,10 @@ arrow::Result<std::shared_ptr<SQLiteFlightSqlServer>> SQLiteFlightSqlServer::Cre
     return Status::Invalid(err_msg);
   }
 
-  std::shared_ptr<Impl> impl = std::make_shared<Impl>(db);
+  std::shared_ptr<Impl> impl = std::make_shared<Impl>(db, std::move(uri));
 
-  std::shared_ptr<SQLiteFlightSqlServer> result(new SQLiteFlightSqlServer(impl));
+  std::shared_ptr<SQLiteFlightSqlServer> result(
+      new SQLiteFlightSqlServer(std::move(impl)));
   for (const auto& id_to_result : GetSqlInfoResultMap()) {
     result->RegisterSqlInfo(id_to_result.first, id_to_result.second);
   }
@@ -759,6 +904,19 @@ arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTab
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>>
+SQLiteFlightSqlServer::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const arrow::flight::sql::GetXdbcTypeInfo& command,
+    const FlightDescriptor& descriptor) {
+  return impl_->GetFlightInfoTypeInfo(context, command, descriptor);
+}
+
+arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetXdbcTypeInfo(
+    const ServerCallContext& context,
+    const arrow::flight::sql::GetXdbcTypeInfo& command) {
+  return impl_->DoGetTypeInfo(context, command);
+}
+
+arrow::Result<std::unique_ptr<FlightInfo>>
 SQLiteFlightSqlServer::GetFlightInfoPrimaryKeys(const ServerCallContext& context,
                                                 const GetPrimaryKeys& command,
                                                 const FlightDescriptor& descriptor) {
@@ -805,6 +963,15 @@ arrow::Result<std::unique_ptr<FlightDataStream>>
 SQLiteFlightSqlServer::DoGetCrossReference(const ServerCallContext& context,
                                            const GetCrossReference& command) {
   return impl_->DoGetCrossReference(context, command);
+}
+
+arrow::Result<ActionBeginTransactionResult> SQLiteFlightSqlServer::BeginTransaction(
+    const ServerCallContext& context, const ActionBeginTransactionRequest& request) {
+  return impl_->BeginTransaction(context, request);
+}
+Status SQLiteFlightSqlServer::EndTransaction(const ServerCallContext& context,
+                                             const ActionEndTransactionRequest& request) {
+  return impl_->EndTransaction(context, request);
 }
 
 }  // namespace example

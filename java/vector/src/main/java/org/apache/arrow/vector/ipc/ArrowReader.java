@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -97,6 +98,11 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     }
 
     return dictionaries.get(id);
+  }
+
+  @Override
+  public Set<Long> getDictionaryIds() {
+    return dictionaries.keySet();
   }
 
   /**

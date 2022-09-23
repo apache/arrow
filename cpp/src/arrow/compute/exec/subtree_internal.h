@@ -18,13 +18,13 @@
 #pragma once
 
 #include <stdint.h>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "arrow/compute/exec/expression.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace compute {
@@ -64,7 +64,7 @@ struct SubtreeImpl {
   struct Encoded {
     // An external index identifying the corresponding object (e.g. a Fragment) of the
     // guarantee.
-    util::optional<int> index;
+    std::optional<int> index;
     // An encoded expression representing a guarantee.
     expression_codes guarantee;
   };
@@ -112,7 +112,7 @@ struct SubtreeImpl {
   void GenerateSubtrees(expression_codes guarantee, std::vector<Encoded>* encoded) {
     while (!guarantee.empty()) {
       if (subtree_exprs_.insert(guarantee).second) {
-        Encoded encoded_subtree{/*index=*/util::nullopt, guarantee};
+        Encoded encoded_subtree{/*index=*/std::nullopt, guarantee};
         encoded->push_back(std::move(encoded_subtree));
       }
       guarantee.resize(guarantee.size() - 1);

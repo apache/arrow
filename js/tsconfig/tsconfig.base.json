@@ -10,8 +10,8 @@
     },
 
     /* Basic stuff */
-    "moduleResolution": "node",
-    "lib": ["dom", "esnext", "esnext.asynciterable"],
+    "moduleResolution": "Node",
+    "lib": ["DOM", "ESNext", "ESNext.AsyncIterable"],
     "esModuleInterop": true,
 
     /* Control what is emitted */

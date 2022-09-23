@@ -17,18 +17,20 @@
 package file
 
 import (
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -126,9 +128,9 @@ type primitiveRecordReader struct {
 	useValues bool
 }
 
-func createPrimitiveRecordReader(descr *schema.Column, mem memory.Allocator) primitiveRecordReader {
+func createPrimitiveRecordReader(descr *schema.Column, mem memory.Allocator, bufferPool *sync.Pool) primitiveRecordReader {
 	return primitiveRecordReader{
-		ColumnChunkReader: NewColumnReader(descr, nil, mem),
+		ColumnChunkReader: NewColumnReader(descr, nil, mem, bufferPool),
 		values:            memory.NewResizableBuffer(mem),
 		validBits:         memory.NewResizableBuffer(mem),
 		mem:               mem,
@@ -303,7 +305,6 @@ type recordReader struct {
 	recordReaderImpl
 	leafInfo LevelInfo
 
-	nullable    bool
 	atRecStart  bool
 	recordsRead int64
 
@@ -314,7 +315,6 @@ type recordReader struct {
 	defLevels *memory.Buffer
 	repLevels *memory.Buffer
 
-	readDict bool
 	refCount int64
 }
 
@@ -327,12 +327,12 @@ func (b *binaryRecordReader) GetBuilderChunks() []arrow.Array {
 	return b.recordReaderImpl.(binaryRecordReaderImpl).GetBuilderChunks()
 }
 
-func newRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator) RecordReader {
+func newRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	if mem == nil {
 		mem = memory.DefaultAllocator
 	}
 
-	pr := createPrimitiveRecordReader(descr, mem)
+	pr := createPrimitiveRecordReader(descr, mem, bufferPool)
 	return &recordReader{
 		refCount:         1,
 		recordReaderImpl: &pr,
@@ -415,7 +415,7 @@ func (rr *recordReader) reserveLevels(extra int64) error {
 		if newCap > rr.levelsCap {
 			capBytes, ok := overflow.Mul(int(newCap), arrow.Int16SizeBytes)
 			if !ok {
-				return xerrors.Errorf("allocation size too large (corrupt file?)")
+				return fmt.Errorf("allocation size too large (corrupt file?)")
 			}
 			rr.defLevels.ResizeNoShrink(capBytes)
 			if rr.Descriptor().MaxRepetitionLevel() > 0 {
@@ -723,7 +723,7 @@ func (fr *flbaRecordReader) GetBuilderChunks() []arrow.Array {
 	return []arrow.Array{fr.bldr.NewArray()}
 }
 
-func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator) RecordReader {
+func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	if mem == nil {
 		mem = memory.DefaultAllocator
 	}
@@ -732,7 +732,7 @@ func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Alloca
 
 	return &binaryRecordReader{&recordReader{
 		recordReaderImpl: &flbaRecordReader{
-			createPrimitiveRecordReader(descr, mem),
+			createPrimitiveRecordReader(descr, mem, bufferPool),
 			array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}),
 			nil,
 		},
@@ -751,7 +751,7 @@ type byteArrayRecordReader struct {
 	valueBuf []parquet.ByteArray
 }
 
-func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator) RecordReader {
+func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	if mem == nil {
 		mem = memory.DefaultAllocator
 	}
@@ -763,7 +763,7 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, mem memory.A
 
 	return &binaryRecordReader{&recordReader{
 		recordReaderImpl: &byteArrayRecordReader{
-			createPrimitiveRecordReader(descr, mem),
+			createPrimitiveRecordReader(descr, mem, bufferPool),
 			array.NewBinaryBuilder(mem, dt),
 			nil,
 		},
@@ -841,13 +841,13 @@ func (br *byteArrayRecordReader) GetBuilderChunks() []arrow.Array {
 
 // TODO(mtopol): create optimized readers for dictionary types after ARROW-7286 is done
 
-func NewRecordReader(descr *schema.Column, info LevelInfo, readDict bool, mem memory.Allocator) RecordReader {
+func NewRecordReader(descr *schema.Column, info LevelInfo, readDict bool, mem memory.Allocator, bufferPool *sync.Pool) RecordReader {
 	switch descr.PhysicalType() {
 	case parquet.Types.ByteArray:
-		return newByteArrayRecordReader(descr, info, mem)
+		return newByteArrayRecordReader(descr, info, mem, bufferPool)
 	case parquet.Types.FixedLenByteArray:
-		return newFLBARecordReader(descr, info, mem)
+		return newFLBARecordReader(descr, info, mem, bufferPool)
 	default:
-		return newRecordReader(descr, info, mem)
+		return newRecordReader(descr, info, mem, bufferPool)
 	}
 }

@@ -24,6 +24,7 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
+import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
@@ -42,8 +43,10 @@ try:
     import pygit2
 except ImportError:
     PygitRemoteCallbacks = object
+    GitError = Exception
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+    GitError = pygit2.GitError
 
 from ..utils.source import ArrowSources
 
@@ -206,12 +209,16 @@ def _git_ssh_to_https(url):
 
 
 def _parse_github_user_repo(remote_url):
-    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    # TODO: use a proper URL parser instead?
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git|/)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -265,9 +272,18 @@ class Repo:
                                 "Crossbow: {}".format(remote.url))
         return remote
 
-    def fetch(self):
+    def fetch(self, retry=3):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
-        self.origin.fetch([refspec])
+        attempt = 1
+        while True:
+            try:
+                self.origin.fetch([refspec])
+                break
+            except GitError as e:
+                if retry and attempt < retry:
+                    attempt += 1
+                else:
+                    raise e
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
@@ -530,6 +546,25 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head=None, base="master", body=None,
+                  github_token=None, create=False):
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
+            )
+
 
 class Queue(Repo):
 
@@ -541,6 +576,12 @@ class Queue(Repo):
         else:
             latest = -1
         return latest
+
+    def _prefix_contains_date(self, prefix):
+        prefix_date_pattern = re.compile(r'[\w\/-]*-(\d+)-(\d+)-(\d+)')
+        match_prefix = prefix_date_pattern.match(prefix)
+        if match_prefix:
+            return match_prefix.group(0)[-10:]
 
     def _latest_prefix_date(self, prefix):
         pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
@@ -558,8 +599,14 @@ class Queue(Repo):
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
+    def _new_hex_id(self, prefix):
+        """Append a new id to branch's identifier based on the prefix"""
+        hex_id = uuid.uuid4().hex[:10]
+        return '{}-{}'.format(prefix, hex_id)
+
     def latest_for_prefix(self, prefix):
-        if prefix == "nightly":
+        prefix_date = self._prefix_contains_date(prefix)
+        if prefix.startswith("nightly") and not prefix_date:
             latest_id = self._latest_prefix_date(prefix)
             if not latest_id:
                 raise RuntimeError(
@@ -610,16 +657,20 @@ class Queue(Repo):
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix='build', increment_job_id=True):
         if not isinstance(job, Job):
             raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        # auto increment and set next job id, e.g. build-85
         job._queue = self
-        job.branch = self._next_job_id(prefix)
+        if increment_job_id:
+            # auto increment and set next job id, e.g. build-85
+            job.branch = self._next_job_id(prefix)
+        else:
+            # set new branch to something unique, e.g. build-41d017af40
+            job.branch = self._new_hex_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
@@ -629,6 +680,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -649,7 +701,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
@@ -694,6 +746,9 @@ class Target(Serializable):
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        # TODO(ARROW-17552): Remove "master" from default_branch after
+        #                    migration to "main".
+        self.default_branch = ['main', 'master']
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -707,6 +762,14 @@ class Target(Serializable):
         #   '0.16.1-dev10'
         self.no_rc_semver_version = \
             re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
+        # Substitute dev version for SNAPSHOT
+        #
+        # Example:
+        #
+        # '10.0.0.dev235' ->
+        # '10.0.0-SNAPSHOT'
+        self.no_rc_snapshot_version = re.sub(
+            r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -731,6 +794,11 @@ class Target(Serializable):
         return cls(head=head, email=email, branch=branch, remote=remote,
                    version=version)
 
+    def is_default_branch(self):
+        # TODO(ARROW-17552): Switch the condition to "is" instead of "in"
+        #                    once "master" is removed from "default_branch".
+        return self.branch in self.default_branch
+
 
 class Task(Serializable):
     """
@@ -744,7 +812,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -753,6 +821,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -940,8 +1009,6 @@ class Job(Serializable):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
-        if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
         if not isinstance(params, dict):
             raise ValueError('`params` must be an instance of dict')
 
@@ -967,6 +1034,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():
@@ -1033,14 +1101,16 @@ class Job(Serializable):
 
         # instantiate the tasks
         tasks = {}
-        versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version,
-                    'no_rc_semver_version': target.no_rc_semver_version}
+        versions = {
+            'version': target.version,
+            'no_rc_version': target.no_rc_version,
+            'no_rc_semver_version': target.no_rc_semver_version,
+            'no_rc_snapshot_version': target.no_rc_snapshot_version}
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
-
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
 
@@ -1175,7 +1245,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1192,13 +1262,19 @@ class Config(dict):
             version='1.0.0dev123',
             email='dummy@example.ltd'
         )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )
@@ -1212,3 +1288,5 @@ yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
+yaml.register_class(Queue)
+yaml.register_class(TaskStatus)

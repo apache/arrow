@@ -42,7 +42,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::GetByteWidth;
 using internal::TemporaryDir;
 
 namespace ipc {
@@ -64,7 +63,7 @@ class TestTensorRoundTrip : public BaseTensorTest {
   void CheckTensorRoundTrip(const Tensor& tensor) {
     int32_t metadata_length;
     int64_t body_length;
-    const int elem_size = GetByteWidth(*tensor.type());
+    const int elem_size = tensor.type()->byte_width();
 
     ASSERT_OK(mmap_->Seek(0));
 
@@ -139,7 +138,7 @@ template <typename IndexValueType>
 class TestSparseTensorRoundTrip : public BaseTensorTest {
  public:
   void CheckSparseCOOTensorRoundTrip(const SparseCOOTensor& sparse_tensor) {
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
+    const int elem_size = sparse_tensor.type()->byte_width();
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -180,7 +179,7 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
                       std::is_same<SparseIndexType, SparseCSCIndex>::value,
                   "SparseIndexType must be either SparseCSRIndex or SparseCSCIndex");
 
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
+    const int elem_size = sparse_tensor.type()->byte_width();
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;
@@ -221,7 +220,7 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
   }
 
   void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
+    const int elem_size = sparse_tensor.type()->byte_width();
     const int index_elem_size = sizeof(typename IndexValueType::c_type);
 
     int32_t metadata_length;

@@ -155,6 +155,35 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "docs/source/_static/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+            "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_compatible_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
+            "+    },",
+          ],
+        ],
+      },
+      {
+        path: "go/arrow/doc.go",
+        hunks: [
+          ["-const PkgVersion = \"#{@snapshot_version}\"",
+           "+const PkgVersion = \"#{@release_version}\""],
+        ],
+      },
+      {
+        path: "go/parquet/writer_properties.go",
+        hunks: [
+          ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
+           "+\tDefaultCreatedBy          = \"parquet-go version #{@release_version}\""],
+        ],
+      },
+      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -166,6 +195,13 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
            "+set(MLARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "python/pyarrow/src/CMakeLists.txt",
+        hunks: [
+          ["-set(ARROW_PYTHON_VERSION \"#{@snapshot_version}\")",
+           "+set(ARROW_PYTHON_VERSION \"#{@release_version}\")"],
         ],
       },
       {
@@ -187,6 +223,21 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-\# arrow #{@previous_version}.9000",
            "+\# arrow #{@release_version}"],
+        ],
+      },
+      {
+        path: "r/pkgdown/assets/versions.json",
+        hunks: [
+          [
+            "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+            "-        \"name\": \"#{@previous_version} (release)\",",
+            "+        \"name\": \"#{@release_version} (release)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version}/\"",
+            "+    },",
+          ]
         ],
       },
     ]

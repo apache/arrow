@@ -45,15 +45,6 @@
 namespace ds = arrow::dataset;
 namespace cp = arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 char kLeftRelationCsvData[] = R"csv(lkey,shared,ldistinct
 1,4,7
 2,5,8
@@ -72,7 +63,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
   std::shared_ptr<arrow::io::InputStream> input;
   std::string csv_data = is_left ? kLeftRelationCsvData : kRightRelationCsvData;
   std::cout << csv_data << std::endl;
-  arrow::util::string_view sv = csv_data;
+  std::string_view sv = csv_data;
   input = std::make_shared<arrow::io::BufferReader>(sv);
   auto read_options = arrow::csv::ReadOptions::Defaults();
   auto parse_options = arrow::csv::ParseOptions::Defaults();
@@ -91,15 +82,14 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
-  cp::ExecContext exec_context(arrow::default_memory_pool(),
-                               ::arrow::internal::GetCpuThreadPool());
+  cp::ExecContext exec_context;
 
   arrow::dataset::internal::Initialize();
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   cp::ExecNode* left_source;
   cp::ExecNode* right_source;
@@ -144,9 +134,9 @@ arrow::Status DoHashJoin() {
       hashjoin->output_schema(), std::move(sink_gen), exec_context.memory_pool());
 
   // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;

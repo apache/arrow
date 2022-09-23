@@ -38,6 +38,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
+                          pyarrow_wrap_scalar,
                           NativeFile, get_reader, get_writer,
                           string_to_timeunit)
 
@@ -49,6 +50,8 @@ cimport cpython as cp
 
 
 cdef class Statistics(_Weakrefable):
+    """Statistics for a single column in a single row group."""
+
     def __cinit__(self):
         pass
 
@@ -74,6 +77,14 @@ cdef class Statistics(_Weakrefable):
                                         self.converted_type)
 
     def to_dict(self):
+        """
+        Get dictionary represenation of statistics.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
         d = dict(
             has_min_max=self.has_min_max,
             min=self.min,
@@ -92,22 +103,38 @@ cdef class Statistics(_Weakrefable):
             return NotImplemented
 
     def equals(self, Statistics other):
+        """
+        Return whether the two column statistics objects are equal.
+
+        Parameters
+        ----------
+        other : Statistics
+            Statistics to compare against.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         return self.statistics.get().Equals(deref(other.statistics.get()))
 
     @property
     def has_min_max(self):
+        """Whether min and max are present (bool)."""
         return self.statistics.get().HasMinMax()
 
     @property
     def has_null_count(self):
+        """Whether null count is present (bool)."""
         return self.statistics.get().HasNullCount()
 
     @property
     def has_distinct_count(self):
+        """Whether distinct count is preset (bool)."""
         return self.statistics.get().HasDistinctCount()
 
     @property
     def min_raw(self):
+        """Min value as physical type (bool, int, float, or bytes)."""
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())
         else:
@@ -115,6 +142,7 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def max_raw(self):
+        """Max value as physical type (bool, int, float, or bytes)."""
         if self.has_min_max:
             return _cast_statistic_raw_max(self.statistics.get())
         else:
@@ -122,46 +150,72 @@ cdef class Statistics(_Weakrefable):
 
     @property
     def min(self):
+        """
+        Min value as logical type.
+
+        Returned as the Python equivalent of logical type, such as datetime.date
+        for dates and decimal.Decimal for decimals.
+        """
         if self.has_min_max:
-            return _cast_statistic_min(self.statistics.get())
+            min_scalar, _ = _cast_statistics(self.statistics.get())
+            return min_scalar.as_py()
         else:
             return None
 
     @property
     def max(self):
+        """
+        Max value as logical type.
+
+        Returned as the Python equivalent of logical type, such as datetime.date
+        for dates and decimal.Decimal for decimals.
+        """
         if self.has_min_max:
-            return _cast_statistic_max(self.statistics.get())
+            _, max_scalar = _cast_statistics(self.statistics.get())
+            return max_scalar.as_py()
         else:
             return None
 
     @property
     def null_count(self):
+        """Number of null values in chunk (int)."""
         return self.statistics.get().null_count()
 
     @property
     def distinct_count(self):
+        """
+        Distinct number of values in chunk (int).
+
+        If this is not set, will return 0.
+        """
+        # This seems to be zero if not set. See: ARROW-11793
         return self.statistics.get().distinct_count()
 
     @property
     def num_values(self):
+        """Number of non-null values (int)."""
         return self.statistics.get().num_values()
 
     @property
     def physical_type(self):
+        """Physical type of column (str)."""
         raw_physical_type = self.statistics.get().physical_type()
         return physical_type_name_from_enum(raw_physical_type)
 
     @property
     def logical_type(self):
+        """Logical type of column (:class:`ParquetLogicalType`)."""
         return wrap_logical_type(self.statistics.get().descr().logical_type())
 
     @property
     def converted_type(self):
+        """Legacy converted type (str or None)."""
         raw_converted_type = self.statistics.get().descr().converted_type()
         return converted_type_name_from_enum(raw_converted_type)
 
 
 cdef class ParquetLogicalType(_Weakrefable):
+    """Logical type of parquet type."""
     cdef:
         shared_ptr[const CParquetLogicalType] type
 
@@ -171,14 +225,29 @@ cdef class ParquetLogicalType(_Weakrefable):
     cdef init(self, const shared_ptr[const CParquetLogicalType]& type):
         self.type = type
 
+    def __repr__(self):
+        return "{}\n  {}".format(object.__repr__(self), str(self))
+
     def __str__(self):
         return frombytes(self.type.get().ToString(), safe=True)
 
     def to_json(self):
+        """
+        Get a JSON string containing type and type parameters.
+
+        Returns
+        -------
+        json : str
+            JSON representation of type, with at least a field called 'Type'
+            which contains the type name. If the type is parameterized, such
+            as a decimal with scale and precision, will contain those as fields
+            as well.
+        """
         return frombytes(self.type.get().ToJSON())
 
     @property
     def type(self):
+        """Name of the logical type (str)."""
         return logical_type_name_from_enum(self.type.get().type())
 
 
@@ -226,61 +295,12 @@ cdef _cast_statistic_raw_max(CStatistics* statistics):
         return _box_flba((<CFLBAStatistics*> statistics).max(), type_length)
 
 
-cdef _cast_statistic_min(CStatistics* statistics):
-    min_raw = _cast_statistic_raw_min(statistics)
-    return _box_logical_type_value(min_raw, statistics.descr())
-
-
-cdef _cast_statistic_max(CStatistics* statistics):
-    max_raw = _cast_statistic_raw_max(statistics)
-    return _box_logical_type_value(max_raw, statistics.descr())
-
-
-cdef _box_logical_type_value(object value, const ColumnDescriptor* descr):
+cdef _cast_statistics(CStatistics* statistics):
     cdef:
-        const CParquetLogicalType* ltype = descr.logical_type().get()
-        ParquetTimeUnit time_unit
-        const CParquetIntType* itype
-        const CParquetTimestampType* ts_type
-
-    if ltype.type() == ParquetLogicalType_STRING:
-        return value.decode('utf8')
-    elif ltype.type() == ParquetLogicalType_TIME:
-        time_unit = (<const CParquetTimeType*> ltype).time_unit()
-        if time_unit == ParquetTimeUnit_MILLIS:
-            return _datetime_from_int(value, unit=TimeUnit_MILLI).time()
-        else:
-            return _datetime_from_int(value, unit=TimeUnit_MICRO).time()
-    elif ltype.type() == ParquetLogicalType_TIMESTAMP:
-        ts_type = <const CParquetTimestampType*> ltype
-        time_unit = ts_type.time_unit()
-        if ts_type.is_adjusted_to_utc():
-            import pytz
-            tzinfo = pytz.utc
-        else:
-            tzinfo = None
-        if time_unit == ParquetTimeUnit_MILLIS:
-            return _datetime_from_int(value, unit=TimeUnit_MILLI,
-                                      tzinfo=tzinfo)
-        elif time_unit == ParquetTimeUnit_MICROS:
-            return _datetime_from_int(value, unit=TimeUnit_MICRO,
-                                      tzinfo=tzinfo)
-        elif time_unit == ParquetTimeUnit_NANOS:
-            return _datetime_from_int(value, unit=TimeUnit_NANO,
-                                      tzinfo=tzinfo)
-        else:
-            raise ValueError("Unsupported time unit")
-    elif ltype.type() == ParquetLogicalType_INT:
-        itype = <const CParquetIntType*> ltype
-        if not itype.is_signed() and itype.bit_width() == 32:
-            return int(np.int32(value).view(np.uint32))
-        elif not itype.is_signed() and itype.bit_width() == 64:
-            return int(np.int64(value).view(np.uint64))
-        else:
-            return value
-    else:
-        # No logical boxing defined
-        return value
+        shared_ptr[CScalar] c_min
+        shared_ptr[CScalar] c_max
+    check_status(StatisticsAsScalars(statistics[0], &c_min, &c_max))
+    return (pyarrow_wrap_scalar(c_min), pyarrow_wrap_scalar(c_max))
 
 
 cdef _box_byte_array(ParquetByteArray val):
@@ -292,6 +312,8 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 
 cdef class ColumnChunkMetaData(_Weakrefable):
+    """Column metadata for a single row group."""
+
     def __cinit__(self):
         pass
 
@@ -329,6 +351,14 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.total_uncompressed_size)
 
     def to_dict(self):
+        """
+        Get dictionary represenation of the column chunk metadata.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
         d = dict(
             file_offset=self.file_offset,
@@ -355,35 +385,54 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, ColumnChunkMetaData other):
+        """
+        Return whether the two column chunk metadata objects are equal.
+
+        Parameters
+        ----------
+        other : ColumnChunkMetaData
+            Metadata to compare against.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         return self.metadata.Equals(deref(other.metadata))
 
     @property
     def file_offset(self):
+        """Offset into file where column chunk is located (int)."""
         return self.metadata.file_offset()
 
     @property
     def file_path(self):
+        """Optional file path if set (str or None)."""
         return frombytes(self.metadata.file_path())
 
     @property
     def physical_type(self):
+        """Physical type of column (str)."""
         return physical_type_name_from_enum(self.metadata.type())
 
     @property
     def num_values(self):
+        """Total number of values (int)."""
         return self.metadata.num_values()
 
     @property
     def path_in_schema(self):
+        """Nested path to field, separated by periods (str)."""
         path = self.metadata.path_in_schema().get().ToDotString()
         return frombytes(path)
 
     @property
     def is_stats_set(self):
+        """Whether or not statistics are present in metadata (bool)."""
         return self.metadata.is_stats_set()
 
     @property
     def statistics(self):
+        """Statistics for column chunk (:class:`Statistics`)."""
         if not self.metadata.is_stats_set():
             return None
         statistics = Statistics()
@@ -392,18 +441,32 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def compression(self):
+        """
+        Type of compression used for column (str).
+
+        One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD',
+        or 'UNKNOWN'.
+        """
         return compression_name_from_enum(self.metadata.compression())
 
     @property
     def encodings(self):
+        """
+        Encodings used for column (tuple of str).
+
+        One of 'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT', 'DELTA_BINARY_PACKED',
+        'DELTA_BYTE_ARRAY'.
+        """
         return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
 
     @property
     def has_dictionary_page(self):
+        """Whether there is dictionary data present in the column chunk (bool)."""
         return bool(self.metadata.has_dictionary_page())
 
     @property
     def dictionary_page_offset(self):
+        """Offset of dictionary page reglative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -411,26 +474,33 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
+        """Offset of data page reglative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
     def has_index_page(self):
+        """Not yet supported."""
         raise NotImplementedError('not supported in parquet-cpp')
 
     @property
     def index_page_offset(self):
+        """Not yet supported."""
         raise NotImplementedError("parquet-cpp doesn't return valid values")
 
     @property
     def total_compressed_size(self):
+        """Compresssed size in bytes (int)."""
         return self.metadata.total_compressed_size()
 
     @property
     def total_uncompressed_size(self):
+        """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
 
 
 cdef class RowGroupMetaData(_Weakrefable):
+    """Metadata for a single row group."""
+
     def __cinit__(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
@@ -449,9 +519,34 @@ cdef class RowGroupMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, RowGroupMetaData other):
+        """
+        Return whether the two row group metadata objects are equal.
+
+        Parameters
+        ----------
+        other : RowGroupMetaData
+            Metadata to compare against.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         return self.metadata.Equals(deref(other.metadata))
 
     def column(self, int i):
+        """
+        Get column metadata at given index.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to get metadata for.
+
+        Returns
+        -------
+        ColumnChunkMetaData
+            Metadata for column within this chunk.
+        """
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
@@ -468,6 +563,14 @@ cdef class RowGroupMetaData(_Weakrefable):
                                  self.total_byte_size)
 
     def to_dict(self):
+        """
+        Get dictionary represenation of the row group metadata.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
         columns = []
         d = dict(
             num_columns=self.num_columns,
@@ -481,14 +584,17 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     @property
     def num_columns(self):
+        """Number of columns in this row group (int)."""
         return self.metadata.num_columns()
 
     @property
     def num_rows(self):
+        """Number of rows in this row group (int)."""
         return self.metadata.num_rows()
 
     @property
     def total_byte_size(self):
+        """Total byte size of all the uncompressed column data in this row group (int)."""
         return self.metadata.total_byte_size()
 
 
@@ -504,6 +610,8 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 
 cdef class FileMetaData(_Weakrefable):
+    """Parquet metadata for a single file."""
+
     def __cinit__(self):
         pass
 
@@ -531,6 +639,14 @@ cdef class FileMetaData(_Weakrefable):
                                  self.serialized_size)
 
     def to_dict(self):
+        """
+        Get dictionary represenation of the file metadata.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
         row_groups = []
         d = dict(
             created_by=self.created_by,
@@ -551,33 +667,55 @@ cdef class FileMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, FileMetaData other):
+    def equals(self, FileMetaData other not None):
+        """
+        Return whether the two file metadata objects are equal.
+
+        Parameters
+        ----------
+        other : FileMetaData
+            Metadata to compare against.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         return self._metadata.Equals(deref(other._metadata))
 
     @property
     def schema(self):
+        """Schema of the file (:class:`ParquetSchema`)."""
         if self._schema is None:
             self._schema = ParquetSchema(self)
         return self._schema
 
     @property
     def serialized_size(self):
+        """Size of the original thrift encoded metadata footer (int)."""
         return self._metadata.size()
 
     @property
     def num_columns(self):
+        """Number of columns in file (int)."""
         return self._metadata.num_columns()
 
     @property
     def num_rows(self):
+        """Total number of rows in file (int)."""
         return self._metadata.num_rows()
 
     @property
     def num_row_groups(self):
+        """Number of row groups in file (int)."""
         return self._metadata.num_row_groups()
 
     @property
     def format_version(self):
+        """
+        Parquet format version used in file (str, such as '1.0', '2.4').
+
+        If version is missing or unparsable, will default to assuming '2.4'.
+        """
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
@@ -588,16 +726,23 @@ cdef class FileMetaData(_Weakrefable):
         elif version == ParquetVersion_V2_6:
             return '2.6'
         else:
-            warnings.warn('Unrecognized file version, assuming 1.0: {}'
+            warnings.warn('Unrecognized file version, assuming 2.4: {}'
                           .format(version))
-            return '1.0'
+            return '2.4'
 
     @property
     def created_by(self):
+        """
+        String describing source of the parquet file (str).
+
+        This typically includes library name and version number. For example, Arrow 7.0's
+        writer returns 'parquet-cpp-arrow version 7.0.0'.
+        """
         return frombytes(self._metadata.created_by())
 
     @property
     def metadata(self):
+        """Additional metadata as key value pairs (dict[bytes, bytes])."""
         cdef:
             unordered_map[c_string, c_string] metadata
             const CKeyValueMetadata* underlying_metadata
@@ -609,12 +754,31 @@ cdef class FileMetaData(_Weakrefable):
             return None
 
     def row_group(self, int i):
+        """
+        Get metadata for row group at index i.
+
+        Parameters
+        ----------
+        i : int
+            Row group index to get.
+
+        Returns
+        -------
+        row_group_metadata : RowGroupMetaData
+        """
         return RowGroupMetaData(self, i)
 
     def set_file_path(self, path):
         """
-        Modify the file_path field of each ColumnChunk in the
-        FileMetaData to be a particular value
+        Set ColumnChunk file paths to the given value.
+
+        This method modifies the ``file_path`` field of each ColumnChunk
+        in the FileMetaData to be a particular value.
+
+        Parameters
+        ----------
+        path : str
+            The file path to set on all ColumnChunks.
         """
         cdef:
             c_string c_path = tobytes(path)
@@ -622,7 +786,12 @@ cdef class FileMetaData(_Weakrefable):
 
     def append_row_groups(self, FileMetaData other):
         """
-        Append row groups of other FileMetaData object
+        Append row groups from other FileMetaData object.
+
+        Parameters
+        ----------
+        other : FileMetaData
+            Other metadata to append row groups from.
         """
         cdef shared_ptr[CFileMetaData] c_metadata
 
@@ -631,7 +800,13 @@ cdef class FileMetaData(_Weakrefable):
 
     def write_metadata_file(self, where):
         """
-        Write the metadata object to a metadata-only file
+        Write the metadata to a metadata-only Parquet file.
+
+        Parameters
+        ----------
+        where : path or file-like object
+            Where to write the metadata.  Should be a writable path on
+            the local filesystem, or a writable file-like object.
         """
         cdef:
             shared_ptr[COutputStream] sink
@@ -652,6 +827,8 @@ cdef class FileMetaData(_Weakrefable):
 
 
 cdef class ParquetSchema(_Weakrefable):
+    """A Parquet schema."""
+
     def __cinit__(self, FileMetaData container):
         self.parent = container
         self.schema = container._metadata.schema()
@@ -672,15 +849,16 @@ cdef class ParquetSchema(_Weakrefable):
 
     @property
     def names(self):
+        """Name of each field (list of str)."""
         return [self[i].name for i in range(len(self))]
 
     def to_arrow_schema(self):
         """
-        Convert Parquet schema to effective Arrow schema
+        Convert Parquet schema to effective Arrow schema.
 
         Returns
         -------
-        schema : pyarrow.Schema
+        schema : Schema
         """
         cdef shared_ptr[CSchema] sp_arrow_schema
 
@@ -700,11 +878,32 @@ cdef class ParquetSchema(_Weakrefable):
 
     def equals(self, ParquetSchema other):
         """
-        Returns True if the Parquet schemas are equal
+        Return whether the two schemas are equal.
+
+        Parameters
+        ----------
+        other : ParquetSchema
+            Schema to compare against.
+
+        Returns
+        -------
+        are_equal : bool
         """
         return self.schema.Equals(deref(other.schema))
 
     def column(self, i):
+        """
+        Return the schema for a single column.
+
+        Parameters
+        ----------
+        i : int
+            Index of column in schema.
+
+        Returns
+        -------
+        column_schema : ColumnSchema
+        """
         if i < 0 or i >= len(self):
             raise IndexError('{0} out of bounds'.format(i))
 
@@ -712,6 +911,7 @@ cdef class ParquetSchema(_Weakrefable):
 
 
 cdef class ColumnSchema(_Weakrefable):
+    """Schema for a single column."""
     cdef:
         int index
         ParquetSchema parent
@@ -733,7 +933,16 @@ cdef class ColumnSchema(_Weakrefable):
 
     def equals(self, ColumnSchema other):
         """
-        Returns True if the column schemas are equal
+        Return whether the two column schemas are equal.
+
+        Parameters
+        ----------
+        other : ColumnSchema
+            Schema to compare against.
+
+        Returns
+        -------
+        are_equal : bool
         """
         return self.descr.Equals(deref(other.descr))
 
@@ -763,48 +972,54 @@ cdef class ColumnSchema(_Weakrefable):
 
     @property
     def name(self):
+        """Name of field (str)."""
         return frombytes(self.descr.name())
 
     @property
     def path(self):
+        """Nested path to field, separated by periods (str)."""
         return frombytes(self.descr.path().get().ToDotString())
 
     @property
     def max_definition_level(self):
+        """Maximum definition level (int)."""
         return self.descr.max_definition_level()
 
     @property
     def max_repetition_level(self):
+        """Maximum repetition level (int)."""
         return self.descr.max_repetition_level()
 
     @property
     def physical_type(self):
+        """Name of physical type (str)."""
         return physical_type_name_from_enum(self.descr.physical_type())
 
     @property
     def logical_type(self):
+        """Logical type of column (:class:`ParquetLogicalType`)."""
         return wrap_logical_type(self.descr.logical_type())
 
     @property
     def converted_type(self):
+        """Legacy converted type (str or None)."""
         return converted_type_name_from_enum(self.descr.converted_type())
-
-    @property
-    def logical_type(self):
-        return wrap_logical_type(self.descr.logical_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
     @property
     def length(self):
+        """Array length if fixed length byte array type, None otherwise (int or None)."""
         return self.descr.type_length()
 
     # Decimal attributes
     @property
     def precision(self):
+        """Precision if decimal type, None otherwise (int or None)."""
         return self.descr.type_precision()
 
     @property
     def scale(self):
+        """Scale if decimal type, None otherwise (int or None)."""
         return self.descr.type_scale()
 
 
@@ -944,6 +1159,7 @@ cdef class ParquetReader(_Weakrefable):
         CMemoryPool* pool
         unique_ptr[FileReader] reader
         FileMetaData _metadata
+        shared_ptr[CRandomAccessFile] rd_handle
 
     cdef public:
         _column_idx_map
@@ -952,13 +1168,14 @@ cdef class ParquetReader(_Weakrefable):
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source not None, bint use_memory_map=True,
+    def open(self, object source not None, *, bint use_memory_map=False,
              read_dictionary=None, FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
-             FileDecryptionProperties decryption_properties=None):
+             FileDecryptionProperties decryption_properties=None,
+             thrift_string_size_limit=None,
+             thrift_container_size_limit=None):
         cdef:
-            shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
@@ -978,6 +1195,18 @@ cdef class ParquetReader(_Weakrefable):
         else:
             raise ValueError('Buffer size must be larger than zero')
 
+        if thrift_string_size_limit is not None:
+            if thrift_string_size_limit <= 0:
+                raise ValueError("thrift_string_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_string_size_limit(thrift_string_size_limit)
+        if thrift_container_size_limit is not None:
+            if thrift_container_size_limit <= 0:
+                raise ValueError("thrift_container_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_container_size_limit(
+                thrift_container_size_limit)
+
         if decryption_properties is not None:
             properties.file_decryption_properties(
                 decryption_properties.unwrap())
@@ -992,10 +1221,10 @@ cdef class ParquetReader(_Weakrefable):
                 string_to_timeunit(coerce_int96_timestamp_unit))
 
         self.source = source
+        get_reader(source, use_memory_map, &self.rd_handle)
 
-        get_reader(source, use_memory_map, &rd_handle)
         with nogil:
-            check_status(builder.Open(rd_handle, properties, c_metadata))
+            check_status(builder.Open(self.rd_handle, properties, c_metadata))
 
         # Set up metadata
         with nogil:
@@ -1173,17 +1402,17 @@ cdef class ParquetReader(_Weakrefable):
 
     def column_name_idx(self, column_name):
         """
-        Find the matching index of a column in the schema.
+        Find the index of a column by its name.
 
-        Parameter
-        ---------
-        column_name: str
-            Name of the column, separation of nesting levels is done via ".".
+        Parameters
+        ----------
+        column_name : str
+            Name of the column; separation of nesting levels is done via ".".
 
         Returns
         -------
-        column_idx: int
-            Integer index of the position of the column
+        column_idx : int
+            Integer index of the column in the schema.
         """
         cdef:
             FileMetaData container = self.metadata
@@ -1206,12 +1435,18 @@ cdef class ParquetReader(_Weakrefable):
                          .ReadColumn(column_index, &out))
         return pyarrow_wrap_chunked_array(out)
 
-    def read_schema_field(self, int field_index):
-        cdef shared_ptr[CChunkedArray] out
+    def close(self):
+        if not self.closed:
+            with nogil:
+                check_status(self.rd_handle.get().Close())
+
+    @property
+    def closed(self):
+        if self.rd_handle == NULL:
+            return True
         with nogil:
-            check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &out))
-        return pyarrow_wrap_chunked_array(out)
+            closed = self.rd_handle.get().closed()
+        return closed
 
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
@@ -1224,7 +1459,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_byte_stream_split=False,
         column_encoding=None,
         data_page_version=None,
-        FileEncryptionProperties encryption_properties=None) except *:
+        FileEncryptionProperties encryption_properties=None,
+        write_batch_size=None,
+        dictionary_pagesize_limit=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1347,6 +1584,12 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
+    if write_batch_size is not None:
+        props.write_batch_size(write_batch_size)
+
+    if dictionary_pagesize_limit is not None:
+        props.dictionary_pagesize_limit(dictionary_pagesize_limit)
+
     # encryption
 
     if encryption_properties is not None:
@@ -1441,6 +1684,8 @@ cdef class ParquetWriter(_Weakrefable):
         int row_group_size
         int64_t data_page_size
         FileEncryptionProperties encryption_properties
+        int64_t write_batch_size
+        int64_t dictionary_pagesize_limit
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
@@ -1456,7 +1701,9 @@ cdef class ParquetWriter(_Weakrefable):
                   writer_engine_version=None,
                   data_page_version=None,
                   use_compliant_nested_type=False,
-                  encryption_properties=None):
+                  encryption_properties=None,
+                  write_batch_size=None,
+                  dictionary_pagesize_limit=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1484,7 +1731,9 @@ cdef class ParquetWriter(_Weakrefable):
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,
             data_page_version=data_page_version,
-            encryption_properties=encryption_properties
+            encryption_properties=encryption_properties,
+            write_batch_size=write_batch_size,
+            dictionary_pagesize_limit=dictionary_pagesize_limit
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

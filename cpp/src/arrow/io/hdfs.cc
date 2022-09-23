@@ -46,25 +46,11 @@ using internal::IOErrorFromErrno;
 
 namespace io {
 
-namespace {
-
-std::string TranslateErrno(int error_code) {
-  std::stringstream ss;
-  ss << error_code << " (" << strerror(error_code) << ")";
-  if (error_code == 255) {
-    // Unknown error can occur if the host is correct but the port is not
-    ss << " Please check that you are connecting to the correct HDFS RPC port";
-  }
-  return ss.str();
-}
-
-}  // namespace
-
-#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                               \
-  do {                                                                                  \
-    if (RETURN_VALUE == -1) {                                                           \
-      return Status::IOError("HDFS ", WHAT, " failed, errno: ", TranslateErrno(errno)); \
-    }                                                                                   \
+#define CHECK_FAILURE(RETURN_VALUE, WHAT)                       \
+  do {                                                          \
+    if (RETURN_VALUE == -1) {                                   \
+      return IOErrorFromErrno(errno, "HDFS ", WHAT, " failed"); \
+    }                                                           \
   } while (0)
 
 static constexpr int kDefaultHdfsBufferSize = 1 << 16;
@@ -124,9 +110,7 @@ class HdfsAnyFileImpl {
 namespace {
 
 Status GetPathInfoFailed(const std::string& path) {
-  std::stringstream ss;
-  ss << "Calling GetPathInfo for " << path << " failed. errno: " << TranslateErrno(errno);
-  return Status::IOError(ss.str());
+  return IOErrorFromErrno(errno, "Calling GetPathInfo for '", path, "' failed");
 }
 
 }  // namespace
@@ -244,7 +228,9 @@ HdfsReadableFile::HdfsReadableFile(const io::IOContext& io_context) {
   impl_.reset(new HdfsReadableFileImpl(io_context.pool()));
 }
 
-HdfsReadableFile::~HdfsReadableFile() { ARROW_WARN_NOT_OK(impl_->Close()); }
+HdfsReadableFile::~HdfsReadableFile() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsReadableFile");
+}
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
@@ -330,7 +316,9 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
 HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
 
-HdfsOutputStream::~HdfsOutputStream() { ARROW_WARN_NOT_OK(impl_->Close()); }
+HdfsOutputStream::~HdfsOutputStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsOutputStream");
+}
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
 
@@ -447,8 +435,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   Status GetWorkingDirectory(std::string* out) {
     char buffer[2048];
     if (driver_->GetWorkingDirectory(fs_, buffer, sizeof(buffer) - 1) == nullptr) {
-      return Status::IOError("HDFS GetWorkingDirectory failed, errno: ",
-                             TranslateErrno(errno));
+      return IOErrorFromErrno(errno, "HDFS GetWorkingDirectory failed");
     }
     *out = buffer;
     return Status::OK();
@@ -502,8 +489,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       if ((errno == 0) || (errno == ENOENT && Exists(path))) {
         num_entries = 0;
       } else {
-        return Status::IOError("HDFS list directory failed, errno: ",
-                               TranslateErrno(errno));
+        return IOErrorFromErrno(errno, "HDFS list directory failed");
       }
     }
 
@@ -528,11 +514,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
-      if (errno) {
-        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
-      } else {
-        return Status::IOError("Opening HDFS file '", path, "' failed");
-      }
+      return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
     }
 
     // std::make_shared does not work with private ctors
@@ -555,11 +537,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
                           static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
-      if (errno) {
-        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
-      } else {
-        return Status::IOError("Opening HDFS file '", path, "' failed");
-      }
+      return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
     }
 
     // std::make_shared does not work with private ctors

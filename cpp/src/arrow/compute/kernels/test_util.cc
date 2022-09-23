@@ -273,6 +273,13 @@ void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_inpu
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
+void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
+                                  Datum right_input, Datum expected,
+                                  const FunctionOptions* options) {
+  CheckScalar(func_name, {left_input, right_input}, expected, options);
+  CheckScalar(func_name, {right_input, left_input}, expected, options);
+}
+
 namespace {
 
 void ValidateOutput(const ArrayData& output) {
@@ -329,8 +336,8 @@ void ValidateOutput(const Datum& output) {
   }
 }
 
-void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_values,
-                       std::vector<ValueDescr> expected_equivalent_values) {
+void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> original_values,
+                       std::vector<TypeHolder> expected_equivalent_values) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
 
   auto values = original_values;
@@ -340,22 +347,20 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_v
                        function->DispatchExact(expected_equivalent_values));
 
   EXPECT_EQ(actual_kernel, expected_kernel)
-      << "  DispatchBest" << ValueDescr::ToString(original_values) << " => "
+      << "  DispatchBest" << TypeHolder::ToString(original_values) << " => "
       << actual_kernel->signature->ToString() << "\n"
-      << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
+      << "  DispatchExact" << TypeHolder::ToString(expected_equivalent_values) << " => "
       << expected_kernel->signature->ToString();
   EXPECT_EQ(values.size(), expected_equivalent_values.size());
   for (size_t i = 0; i < values.size(); i++) {
-    EXPECT_EQ(values[i].shape, expected_equivalent_values[i].shape)
-        << "Argument " << i << " should have the same shape";
-    AssertTypeEqual(values[i].type, expected_equivalent_values[i].type);
+    AssertTypeEqual(*values[i], *expected_equivalent_values[i]);
   }
 }
 
-void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> values) {
+void CheckDispatchFails(std::string func_name, std::vector<TypeHolder> types) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
-  ASSERT_NOT_OK(function->DispatchBest(&values));
-  ASSERT_NOT_OK(function->DispatchExact(values));
+  ASSERT_NOT_OK(function->DispatchBest(&types));
+  ASSERT_NOT_OK(function->DispatchExact(types));
 }
 
 }  // namespace compute

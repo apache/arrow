@@ -282,7 +282,6 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
 
 size_t InputType::Hash() const {
   size_t result = kHashSeed;
-  hash_combine(result, static_cast<int>(shape_));
   hash_combine(result, static_cast<int>(kind_));
   switch (kind_) {
     case InputType::EXACT_TYPE:
@@ -296,21 +295,6 @@ size_t InputType::Hash() const {
 
 std::string InputType::ToString() const {
   std::stringstream ss;
-  switch (shape_) {
-    case ValueDescr::ANY:
-      ss << "any";
-      break;
-    case ValueDescr::ARRAY:
-      ss << "array";
-      break;
-    case ValueDescr::SCALAR:
-      ss << "scalar";
-      break;
-    default:
-      DCHECK(false);
-      break;
-  }
-  ss << "[";
   switch (kind_) {
     case InputType::ANY_TYPE:
       ss << "any";
@@ -325,7 +309,6 @@ std::string InputType::ToString() const {
       DCHECK(false);
       break;
   }
-  ss << "]";
   return ss.str();
 }
 
@@ -333,7 +316,7 @@ bool InputType::Equals(const InputType& other) const {
   if (this == &other) {
     return true;
   }
-  if (kind_ != other.kind_ || shape_ != other.shape_) {
+  if (kind_ != other.kind_) {
     return false;
   }
   switch (kind_) {
@@ -348,22 +331,30 @@ bool InputType::Equals(const InputType& other) const {
   }
 }
 
-bool InputType::Matches(const ValueDescr& descr) const {
-  if (shape_ != ValueDescr::ANY && descr.shape != shape_) {
-    return false;
-  }
+bool InputType::Matches(const DataType& type) const {
   switch (kind_) {
     case InputType::EXACT_TYPE:
-      return type_->Equals(*descr.type);
+      return type_->Equals(type);
     case InputType::USE_TYPE_MATCHER:
-      return type_matcher_->Matches(*descr.type);
+      return type_matcher_->Matches(type);
     default:
       // ANY_TYPE
       return true;
   }
 }
 
-bool InputType::Matches(const Datum& value) const { return Matches(value.descr()); }
+bool InputType::Matches(const Datum& value) const {
+  switch (value.kind()) {
+    case Datum::ARRAY:
+    case Datum::CHUNKED_ARRAY:
+    case Datum::SCALAR:
+      break;
+    default:
+      DCHECK(false);
+      return false;
+  }
+  return Matches(*value.type());
+}
 
 const std::shared_ptr<DataType>& InputType::type() const {
   DCHECK_EQ(InputType::EXACT_TYPE, kind_);
@@ -378,21 +369,12 @@ const TypeMatcher& InputType::type_matcher() const {
 // ----------------------------------------------------------------------
 // OutputType
 
-OutputType::OutputType(ValueDescr descr) : OutputType(descr.type) {
-  shape_ = descr.shape;
-}
-
-Result<ValueDescr> OutputType::Resolve(KernelContext* ctx,
-                                       const std::vector<ValueDescr>& args) const {
-  ValueDescr::Shape broadcasted_shape = GetBroadcastShape(args);
+Result<TypeHolder> OutputType::Resolve(KernelContext* ctx,
+                                       const std::vector<TypeHolder>& types) const {
   if (kind_ == OutputType::FIXED) {
-    return ValueDescr(type_, shape_ == ValueDescr::ANY ? broadcasted_shape : shape_);
+    return type_.get();
   } else {
-    ARROW_ASSIGN_OR_RAISE(ValueDescr resolved_descr, resolver_(ctx, args));
-    if (resolved_descr.shape == ValueDescr::ANY) {
-      resolved_descr.shape = broadcasted_shape;
-    }
-    return resolved_descr;
+    return resolver_(ctx, types);
   }
 }
 
@@ -448,19 +430,19 @@ bool KernelSignature::Equals(const KernelSignature& other) const {
   return true;
 }
 
-bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
+bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const {
   if (is_varargs_) {
-    for (size_t i = 0; i < args.size(); ++i) {
-      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(args[i])) {
+    for (size_t i = 0; i < types.size(); ++i) {
+      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(*types[i])) {
         return false;
       }
     }
   } else {
-    if (args.size() != in_types_.size()) {
+    if (types.size() != in_types_.size()) {
       return false;
     }
     for (size_t i = 0; i < in_types_.size(); ++i) {
-      if (!in_types_[i].Matches(args[i])) {
+      if (!in_types_[i].Matches(*types[i])) {
         return false;
       }
     }
@@ -495,7 +477,7 @@ std::string KernelSignature::ToString() const {
     ss << in_types_[i].ToString();
   }
   if (is_varargs_) {
-    ss << "]";
+    ss << "*]";
   } else {
     ss << ")";
   }

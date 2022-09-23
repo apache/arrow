@@ -17,15 +17,15 @@
 package array
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/float16"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/float16"
 )
 
 // RecordEqual reports whether the two provided records are equal.
-func RecordEqual(left, right Record) bool {
+func RecordEqual(left, right arrow.Record) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -45,7 +45,7 @@ func RecordEqual(left, right Record) bool {
 
 // RecordApproxEqual reports whether the two provided records are approximately equal.
 // For non-floating point columns, it is equivalent to RecordEqual.
-func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
+func RecordApproxEqual(left, right arrow.Record, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -68,7 +68,7 @@ func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
 // helper function to evaluate a function on two chunked object having possibly different
 // chunk layouts. the function passed in will be called for each corresponding slice of the
 // two chunked arrays and if the function returns false it will end the loop early.
-func chunkedBinaryApply(left, right *Chunked, fn func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool) {
+func chunkedBinaryApply(left, right *arrow.Chunked, fn func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool) {
 	var (
 		pos               int64
 		length            int64 = int64(left.Len())
@@ -105,7 +105,7 @@ func chunkedBinaryApply(left, right *Chunked, fn func(left arrow.Array, lbeg, le
 }
 
 // ChunkedEqual reports whether two chunked arrays are equal regardless of their chunkings
-func ChunkedEqual(left, right *Chunked) bool {
+func ChunkedEqual(left, right *arrow.Chunked) bool {
 	switch {
 	case left == right:
 		return true
@@ -117,9 +117,9 @@ func ChunkedEqual(left, right *Chunked) bool {
 		return false
 	}
 
-	var isequal bool
+	var isequal bool = true
 	chunkedBinaryApply(left, right, func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
-		isequal = ArraySliceEqual(left, lbeg, lend, right, rbeg, rend)
+		isequal = SliceEqual(left, lbeg, lend, right, rbeg, rend)
 		return isequal
 	})
 
@@ -128,7 +128,7 @@ func ChunkedEqual(left, right *Chunked) bool {
 
 // ChunkedApproxEqual reports whether two chunked arrays are approximately equal regardless of their chunkings
 // for non-floating point arrays, this is equivalent to ChunkedEqual
-func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
+func ChunkedApproxEqual(left, right *arrow.Chunked, opts ...EqualOption) bool {
 	switch {
 	case left == right:
 		return true
@@ -142,7 +142,7 @@ func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
 
 	var isequal bool
 	chunkedBinaryApply(left, right, func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
-		isequal = ArraySliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
+		isequal = SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
 		return isequal
 	})
 
@@ -150,7 +150,7 @@ func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
 }
 
 // TableEqual returns if the two tables have the same data in the same schema
-func TableEqual(left, right Table) bool {
+func TableEqual(left, right arrow.Table) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -173,7 +173,7 @@ func TableEqual(left, right Table) bool {
 }
 
 // TableEqual returns if the two tables have the approximately equal data in the same schema
-func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
+func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -196,7 +196,16 @@ func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
 }
 
 // ArrayEqual reports whether the two provided arrays are equal.
+//
+// Deprecated: This currently just delegates to calling Equal. This will be
+// removed in v9 so please update any calling code to just call array.Equal
+// directly instead.
 func ArrayEqual(left, right arrow.Array) bool {
+	return Equal(left, right)
+}
+
+// Equal reports whether the two provided arrays are equal.
+func Equal(left, right arrow.Array) bool {
 	switch {
 	case !baseArrayEqual(left, right):
 		return false
@@ -225,6 +234,12 @@ func ArrayEqual(left, right arrow.Array) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -261,6 +276,9 @@ func ArrayEqual(left, right arrow.Array) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -279,6 +297,9 @@ func ArrayEqual(left, right arrow.Array) bool {
 	case *List:
 		r := right.(*List)
 		return arrayEqualList(l, r)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayEqualLargeList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -303,29 +324,59 @@ func ArrayEqual(left, right arrow.Array) bool {
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayEqualExtension(l, r)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayEqualDict(l, r)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionEqual(l, r)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionEqual(l, r)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 
 // ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
+//
+// Deprecated: Renamed to just array.SliceEqual, this currently will just delegate to the renamed
+// function and will be removed in v9. Please update any calling code.
 func ArraySliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
+	return SliceEqual(left, lbeg, lend, right, rbeg, rend)
+}
+
+// SliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
+func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ArrayEqual(l, r)
+	return Equal(l, r)
 }
 
 // ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
+//
+// Deprecated: renamed to just SliceApproxEqual and will be removed in v9. Please update
+// calling code to just call array.SliceApproxEqual.
 func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
+	return SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
+}
+
+// SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
+func SliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
+	opt := newEqualOption(opts...)
+	return sliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opt)
+}
+
+func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opt equalOption) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ArrayApproxEqual(l, r, opts...)
+	return arrayApproxEqual(l, r, opt)
 }
 
 const defaultAbsoluteTolerance = 1e-5
@@ -398,7 +449,16 @@ func WithAbsTolerance(atol float64) EqualOption {
 
 // ArrayApproxEqual reports whether the two provided arrays are approximately equal.
 // For non-floating point arrays, it is equivalent to ArrayEqual.
+//
+// Deprecated: renamed to just ApproxEqual, this alias will be removed in v9. Please update
+// calling code to just call array.ApproxEqual
 func ArrayApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
+	return ApproxEqual(left, right, opts...)
+}
+
+// ApproxEqual reports whether the two provided arrays are approximately equal.
+// For non-floating point arrays, it is equivalent to ArrayEqual.
+func ApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
 	opt := newEqualOption(opts...)
 	return arrayApproxEqual(left, right, opt)
 }
@@ -432,6 +492,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -468,6 +534,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -486,6 +555,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *List:
 		r := right.(*List)
 		return arrayApproxEqualList(l, r, opt)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayApproxEqualLargeList(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -507,11 +579,20 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Map:
 		r := right.(*Map)
 		return arrayApproxEqualList(l.List, r.List, opt)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayApproxEqualDict(l, r, opt)
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionApproxEqual(l, r, opt)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionApproxEqual(l, r, opt)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 
@@ -580,6 +661,25 @@ func arrayApproxEqualFloat64(left, right *Float64, opt equalOption) bool {
 }
 
 func arrayApproxEqualList(left, right *List, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

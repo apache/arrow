@@ -17,6 +17,7 @@
 
 # Miscellaneous utility code
 
+import os
 import contextlib
 import functools
 import gc
@@ -81,11 +82,11 @@ def _stringify_path(path):
     Convert *path* to a string or unicode path if possible.
     """
     if isinstance(path, str):
-        return path
+        return os.path.expanduser(path)
 
     # checking whether path implements the filesystem protocol
     try:
-        return path.__fspath__()
+        return os.path.expanduser(path.__fspath__())
     except AttributeError:
         pass
 

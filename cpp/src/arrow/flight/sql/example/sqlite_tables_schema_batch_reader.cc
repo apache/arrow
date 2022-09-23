@@ -21,6 +21,7 @@
 
 #include <sstream>
 
+#include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/server.h"
@@ -77,8 +78,11 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
             sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
         int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
 
-        column_fields.push_back(
-            arrow::field(column_name, GetArrowType(column_type), nullable == 0, NULL));
+        const ColumnMetadata& column_metadata = GetColumnMetadata(
+            GetSqlTypeFromTypeName(column_type), sqlite_table_name.c_str());
+        column_fields.push_back(arrow::field(column_name, GetArrowType(column_type),
+                                             nullable == 0,
+                                             column_metadata.metadata_map()));
       }
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =
@@ -88,8 +92,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
     ARROW_ASSIGN_OR_RAISE(schema_buffer, value);
 
     column_fields.clear();
-    ARROW_RETURN_NOT_OK(
-        schema_builder.Append(schema_buffer->data(), schema_buffer->size()));
+    ARROW_RETURN_NOT_OK(schema_builder.Append(::std::string_view(*schema_buffer)));
   }
 
   std::shared_ptr<Array> schema_array;

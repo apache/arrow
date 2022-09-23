@@ -26,10 +26,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v8/parquet"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/parquet"
 )
 
 // important constants for handling the aes encryption
@@ -97,10 +97,10 @@ func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce 
 		panic(err)
 	}
 	if aead.NonceSize() != NonceLength {
-		panic(xerrors.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
+		panic(fmt.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
 	}
 	if aead.Overhead() != GcmTagLength {
-		panic(xerrors.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
+		panic(fmt.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
 	}
 
 	ciphertext := aead.Seal(nil, nonce, footer, aad)
@@ -131,10 +131,10 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 			panic(err)
 		}
 		if aead.NonceSize() != NonceLength {
-			panic(xerrors.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
+			panic(fmt.Errorf("nonce size mismatch %d, %d", aead.NonceSize(), NonceLength))
 		}
 		if aead.Overhead() != GcmTagLength {
-			panic(xerrors.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
+			panic(fmt.Errorf("tagsize mismatch %d %d", aead.Overhead(), GcmTagLength))
 		}
 
 		ciphertext := aead.Seal(nil, nonce, src, aad)
@@ -190,6 +190,52 @@ func newAesDecryptor(alg parquet.Cipher, metadata bool) *aesDecryptor {
 // plaintext due to be used for the decryption. The total size - the CiphertextSizeDelta is
 // the length of the plaintext after decryption.
 func (a *aesDecryptor) CiphertextSizeDelta() int { return a.ciphertextSizeDelta }
+
+// DecryptFrom
+func (a *aesDecryptor) DecryptFrom(r io.Reader, key, aad []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	var writtenCiphertextLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &writtenCiphertextLen); err != nil {
+		panic(err)
+	}
+
+	cipherText := make([]byte, writtenCiphertextLen)
+	if n, err := io.ReadFull(r, cipherText); n != int(writtenCiphertextLen) || err != nil {
+		panic(err)
+	}
+
+	nonce := cipherText[:NonceLength]
+	cipherText = cipherText[NonceLength:]
+	if a.mode == gcmMode {
+		aead, err := cipher.NewGCM(block)
+		if err != nil {
+			panic(err)
+		}
+
+		plain, err := aead.Open(cipherText[:0], nonce, cipherText, aad)
+		if err != nil {
+			panic(err)
+		}
+		return plain
+	}
+
+	// Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
+	// counter field.
+	// The first 31 bits of the initial counter field are set to 0, the last bit
+	// is set to 1.
+	iv := make([]byte, ctrIVLen)
+	copy(iv, nonce)
+	iv[ctrIVLen-1] = 1
+
+	stream := cipher.NewCTR(block, iv)
+	// dst := make([]byte, len(cipherText))
+	stream.XORKeyStream(cipherText, cipherText)
+	return cipherText
+}
 
 // Decrypt returns the plaintext version of the given ciphertext when decrypted
 // with the provided key and AAD security bytes.

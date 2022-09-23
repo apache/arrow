@@ -19,7 +19,7 @@ package memory
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Buffer is a wrapper type for a buffer of bytes.
@@ -29,6 +29,8 @@ type Buffer struct {
 	length   int
 	mutable  bool
 	mem      Allocator
+
+	parent *Buffer
 }
 
 // NewBufferBytes creates a fixed-size buffer from the specified data.
@@ -41,9 +43,18 @@ func NewResizableBuffer(mem Allocator) *Buffer {
 	return &Buffer{refCount: 1, mutable: true, mem: mem}
 }
 
+func SliceBuffer(buf *Buffer, offset, length int) *Buffer {
+	buf.Retain()
+	return &Buffer{refCount: 1, parent: buf, buf: buf.Bytes()[offset : offset+length], length: length}
+}
+
+// Parent returns either nil or a pointer to the parent buffer if this buffer
+// was sliced from another.
+func (b *Buffer) Parent() *Buffer { return b.parent }
+
 // Retain increases the reference count by 1.
 func (b *Buffer) Retain() {
-	if b.mem != nil {
+	if b.mem != nil || b.parent != nil {
 		atomic.AddInt64(&b.refCount, 1)
 	}
 }
@@ -51,11 +62,16 @@ func (b *Buffer) Retain() {
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Buffer) Release() {
-	if b.mem != nil {
+	if b.mem != nil || b.parent != nil {
 		debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 		if atomic.AddInt64(&b.refCount, -1) == 0 {
-			b.mem.Free(b.buf)
+			if b.mem != nil {
+				b.mem.Free(b.buf)
+			} else {
+				b.parent.Release()
+				b.parent = nil
+			}
 			b.buf, b.length = nil, 0
 		}
 	}
@@ -63,6 +79,10 @@ func (b *Buffer) Release() {
 
 // Reset resets the buffer for reuse.
 func (b *Buffer) Reset(buf []byte) {
+	if b.parent != nil {
+		b.parent.Release()
+		b.parent = nil
+	}
 	b.buf = buf
 	b.length = len(buf)
 }

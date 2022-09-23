@@ -17,12 +17,14 @@
 
 add_arrow_example(row_wise_conversion_example)
 
+add_arrow_example(rapidjson_row_converter)
+
 if(ARROW_COMPUTE)
   add_arrow_example(compute_register_example)
 endif()
 
-if(ARROW_ENGINE)
-  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_engine_shared)
+if(ARROW_SUBSTRAIT)
+  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_substrait_shared)
 endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)
@@ -34,10 +36,14 @@ if(ARROW_FLIGHT)
   # we'll violate ODR for gRPC symbols
   if(ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
-    # We don't directly use symbols from the reflection library, so
-    # ensure the linker still links to it
-    set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
-                                  -Wl,--as-needed)
+    if(APPLE)
+      set(GRPC_REFLECTION_LINK_LIBS gRPC::grpc++_reflection)
+    else()
+      # We don't directly use symbols from the reflection library, so
+      # ensure the linker still links to it
+      set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
+                                    -Wl,--as-needed)
+    endif()
   elseif(NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()
@@ -133,4 +139,19 @@ if(ARROW_PARQUET AND ARROW_DATASET)
 
   add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(join-example parquet)
+
+  add_arrow_example(udf_example)
+
+  if(ARROW_SKYHOOK)
+    if(ARROW_BUILD_SHARED)
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_shared)
+    else()
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_static)
+    endif()
+
+    add_arrow_example(dataset_skyhook_scan_example EXTRA_LINK_LIBS
+                      ${DATASET_EXAMPLES_LINK_LIBS})
+    add_dependencies(dataset-skyhook-scan-example parquet)
+  endif()
+
 endif()

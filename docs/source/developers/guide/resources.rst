@@ -31,9 +31,10 @@ Additional information and resources
 On this page we have listed resources that may be relevant or useful for
 contributors who want to learn more about different parts of Apache Arrow.
 
-.. Annotation Glossary
-.. -------------------
-.. ARROW-15130
+Glossary
+--------
+List of common terms in Apache Arrow project with a short description can
+be found in :doc:`the glossary <../../format/Glossary>`.
 
 Additional information
 ----------------------
@@ -55,16 +56,24 @@ Additional information
 
   It is possible to install the Arrow R package from the nightly builds which are daily development
   builds of the R package and are not the official releases. See more on the
-  `Install R package article <https://ursalabs.org/arrow-r-nightly/articles/install.html#install-the-nightly-build>`_.
+  `Install R package article <https://arrow.apache.org/docs/dev/r/articles/install.html#install-the-nightly-build>`_.
 
 - `Apache Arrow releases <https://arrow.apache.org/release/>`_
 
 Other resources
 ---------------
+Github
+
+- `GitHub docs: Fork a repo <https://docs.github.com/en/get-started/quickstart/fork-a-repo>`_
+- `GitHub: Creating a pull request from a fork <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork>`_
+
+Contributing
 
 - :ref:`contributing`
 - `Arrow R Developer Guide <https://arrow.apache.org/docs/r/articles/developing.html>`_
 - `Writing Bindings article for R package <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
+
+Reproducible examples:
 
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_

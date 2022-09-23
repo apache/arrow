@@ -21,12 +21,23 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
+#include "arrow/array/util.h"
 #include "arrow/flight/api.h"
 #include "arrow/flight/test_util.h"
+#include "arrow/table.h"
 #include "arrow/testing/generator.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
+#include "arrow/util/logging.h"
+
+#if defined(ARROW_CUDA)
+#include "arrow/gpu/cuda_api.h"
+#endif
 
 namespace arrow {
 namespace flight {
+
+using arrow::internal::checked_cast;
 
 //------------------------------------------------------------
 // Tests of initialization/shutdown
@@ -34,7 +45,7 @@ namespace flight {
 void ConnectivityTest::TestGetPort() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
@@ -42,7 +53,7 @@ void ConnectivityTest::TestGetPort() {
 void ConnectivityTest::TestBuilderHook() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   bool builder_hook_run = false;
   options.builder_hook = [&builder_hook_run](void* builder) {
@@ -57,7 +68,7 @@ void ConnectivityTest::TestBuilderHook() {
 void ConnectivityTest::TestShutdown() {
   // Regression test for ARROW-15181
   constexpr int kIterations = 10;
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   for (int i = 0; i < kIterations; i++) {
     std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
@@ -73,7 +84,7 @@ void ConnectivityTest::TestShutdown() {
 void ConnectivityTest::TestShutdownWithDeadline() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
@@ -83,40 +94,55 @@ void ConnectivityTest::TestShutdownWithDeadline() {
   ASSERT_OK(server->Shutdown(&deadline));
   ASSERT_OK(server->Wait());
 }
+void ConnectivityTest::TestBrokenConnection() {
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+
+  std::unique_ptr<FlightClient> client;
+  ASSERT_OK_AND_ASSIGN(location,
+                       Location::ForScheme(transport(), "127.0.0.1", server->port()));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location));
+
+  ASSERT_OK(server->Shutdown());
+  ASSERT_OK(server->Wait());
+
+  ASSERT_RAISES(IOError, client->GetFlightInfo(FlightDescriptor::Command("")));
+}
 
 //------------------------------------------------------------
 // Tests of data plane methods
 
-void DataTest::SetUp() {
+void DataTest::SetUpTest() {
   server_ = ExampleTestServer();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server_->Init(options));
 
   ASSERT_OK(ConnectClient());
 }
-void DataTest::TearDown() {
+void DataTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
 Status DataTest::ConnectClient() {
   ARROW_ASSIGN_OR_RAISE(auto location,
-                        Location::ForScheme(transport(), "localhost", server_->port()));
-  return FlightClient::Connect(location, &client_);
+                        Location::ForScheme(transport(), "127.0.0.1", server_->port()));
+  ARROW_ASSIGN_OR_RAISE(client_, FlightClient::Connect(location));
+  return Status::OK();
 }
 void DataTest::CheckDoGet(
     const FlightDescriptor& descr, const RecordBatchVector& expected_batches,
     std::function<void(const std::vector<FlightEndpoint>&)> check_endpoints) {
   auto expected_schema = expected_batches[0]->schema();
 
-  std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(client_->GetFlightInfo(descr, &info));
+  ASSERT_OK_AND_ASSIGN(auto info, client_->GetFlightInfo(descr));
   check_endpoints(info->endpoints());
 
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  ASSERT_OK(info->GetSchema(&dict_memo, &schema));
+  ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
   AssertSchemaEqual(*expected_schema, *schema);
 
   // By convention, fetch the first endpoint
@@ -128,17 +154,14 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   auto num_batches = static_cast<int>(expected_batches.size());
   ASSERT_GE(num_batches, 2);
 
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
 
-  std::unique_ptr<FlightStreamReader> stream2;
-  ASSERT_OK(client_->DoGet(ticket, &stream2));
+  ASSERT_OK_AND_ASSIGN(auto stream2, client_->DoGet(ticket));
   ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
 
-  FlightStreamChunk chunk;
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
     ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, batch);
@@ -161,7 +184,7 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   }
 
   // Stream exhausted
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
   ASSERT_OK(reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, batch);
@@ -214,6 +237,21 @@ void DataTest::TestDoGetLargeBatch() {
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
 }
+// Ensure FlightDataStream/RecordBatchStream::Close errors are propagated
+void DataTest::TestFlightDataStreamError() {
+  Ticket ticket{"ticket-stream-error"};
+
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+  Status status;
+  while (true) {
+    FlightStreamChunk chunk;
+    status = stream->Next().Value(&chunk);
+    if (!chunk.data) break;
+    if (!status.ok()) break;
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  status);
+}
 void DataTest::TestOverflowServerBatch() {
   // Regression test for ARROW-13253
   // N.B. this is rather a slow and memory-hungry test
@@ -221,43 +259,39 @@ void DataTest::TestOverflowServerBatch() {
     // DoGet: check for overflow on large batch
     Ticket ticket{"ARROW-13253-DoGet-Batch"};
     std::unique_ptr<FlightStreamReader> stream;
-    ASSERT_OK(client_->DoGet(ticket, &stream));
+    ASSERT_OK_AND_ASSIGN(stream, client_->DoGet(ticket));
     FlightStreamChunk chunk;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        stream->Next(&chunk));
+        stream->Next());
   }
   {
     // DoExchange: check for overflow on large batch from server
     auto descr = FlightDescriptor::Command("large_batch");
-    std::unique_ptr<FlightStreamReader> reader;
-    std::unique_ptr<FlightStreamWriter> writer;
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto do_exchange_result, client_->DoExchange(descr));
     RecordBatchVector batches;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        reader->ReadAll(&batches));
+        do_exchange_result.reader->ToRecordBatches().Value(&batches));
+    ARROW_UNUSED(do_exchange_result.writer->Close());
   }
 }
 void DataTest::TestOverflowClientBatch() {
   ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
   {
     // DoPut: check for overflow on large batch
-    std::unique_ptr<FlightStreamWriter> stream;
-    std::unique_ptr<FlightMetadataReader> reader;
     auto descr = FlightDescriptor::Path({""});
-    ASSERT_OK(client_->DoPut(descr, batch->schema(), &stream, &reader));
+    ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, batch->schema()));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        stream->WriteRecordBatch(*batch));
-    ASSERT_OK(stream->Close());
+        do_put_result.writer->WriteRecordBatch(*batch));
+    ASSERT_OK(do_put_result.writer->Close());
   }
   {
     // DoExchange: check for overflow on large batch from client
     auto descr = FlightDescriptor::Command("counter");
-    std::unique_ptr<FlightStreamReader> reader;
-    std::unique_ptr<FlightStreamWriter> writer;
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+    auto writer = std::move(exchange.writer);
     ASSERT_OK(writer->Begin(batch->schema()));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
@@ -271,23 +305,22 @@ void DataTest::TestDoExchange() {
   auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
   auto schema = arrow::schema({field("f1", a1->type())});
   batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   ASSERT_OK(writer->Begin(schema));
   for (const auto& batch : batches) {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
   }
   ASSERT_OK(writer->DoneWriting());
-  FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ("1", chunk.app_metadata->ToString());
   ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
   AssertSchemaEqual(schema, server_schema);
   for (const auto& batch : batches) {
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_BATCHES_EQUAL(*batch, *chunk.data);
   }
   ASSERT_OK(writer->Close());
@@ -296,12 +329,11 @@ void DataTest::TestDoExchange() {
 // schema messages
 void DataTest::TestDoExchangeNoData() {
   auto descr = FlightDescriptor::Command("counter");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   ASSERT_OK(writer->DoneWriting());
-  FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ("0", chunk.app_metadata->ToString());
@@ -311,15 +343,14 @@ void DataTest::TestDoExchangeNoData() {
 // in the client-side writer.
 void DataTest::TestDoExchangeWriteOnlySchema() {
   auto descr = FlightDescriptor::Command("counter");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   auto schema = arrow::schema({field("f1", arrow::int32())});
   ASSERT_OK(writer->Begin(schema));
   ASSERT_OK(writer->WriteMetadata(Buffer::FromString("foo")));
   ASSERT_OK(writer->DoneWriting());
-  FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_NE(nullptr, chunk.app_metadata);
   ASSERT_EQ("0", chunk.app_metadata->ToString());
@@ -328,20 +359,19 @@ void DataTest::TestDoExchangeWriteOnlySchema() {
 // Emulate DoGet
 void DataTest::TestDoExchangeGet() {
   auto descr = FlightDescriptor::Command("get");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
   AssertSchemaEqual(*ExampleIntSchema(), *server_schema);
   RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
-  FlightStreamChunk chunk;
   for (const auto& batch : batches) {
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     AssertBatchesEqual(*batch, *chunk.data);
   }
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -349,9 +379,9 @@ void DataTest::TestDoExchangeGet() {
 // Emulate DoPut
 void DataTest::TestDoExchangePut() {
   auto descr = FlightDescriptor::Command("put");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   ASSERT_OK(writer->Begin(ExampleIntSchema()));
   RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
@@ -359,11 +389,10 @@ void DataTest::TestDoExchangePut() {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
   }
   ASSERT_OK(writer->DoneWriting());
-  FlightStreamChunk chunk;
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_NE(nullptr, chunk.app_metadata);
   AssertBufferEqual(*chunk.app_metadata, "done");
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -371,16 +400,15 @@ void DataTest::TestDoExchangePut() {
 // Test the echo server
 void DataTest::TestDoExchangeEcho() {
   auto descr = FlightDescriptor::Command("echo");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
   ASSERT_OK(writer->Begin(ExampleIntSchema()));
   RecordBatchVector batches;
-  FlightStreamChunk chunk;
   ASSERT_OK(ExampleIntBatches(&batches));
   for (const auto& batch : batches) {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_EQ(nullptr, chunk.app_metadata);
     AssertBatchesEqual(*batch, *chunk.data);
@@ -388,7 +416,7 @@ void DataTest::TestDoExchangeEcho() {
   for (int i = 0; i < 10; i++) {
     const auto buf = Buffer::FromString(std::to_string(i));
     ASSERT_OK(writer->WriteMetadata(buf));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
     ASSERT_EQ(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     AssertBufferEqual(*buf, *chunk.app_metadata);
@@ -397,7 +425,7 @@ void DataTest::TestDoExchangeEcho() {
   for (const auto& batch : batches) {
     const auto buf = Buffer::FromString(std::to_string(index));
     ASSERT_OK(writer->WriteWithMetadata(*batch, buf));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     AssertBatchesEqual(*batch, *chunk.data);
@@ -405,7 +433,7 @@ void DataTest::TestDoExchangeEcho() {
     index++;
   }
   ASSERT_OK(writer->DoneWriting());
-  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   ASSERT_EQ(nullptr, chunk.data);
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
@@ -424,7 +452,9 @@ void DataTest::TestDoExchangeTotal() {
     // here.
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Field is not INT64: f1"), ([&]() {
-          RETURN_NOT_OK(client_->DoExchange(descr, &writer, &reader));
+          ARROW_ASSIGN_OR_RAISE(auto exchange, client_->DoExchange(descr));
+          reader = std::move(exchange.reader);
+          writer = std::move(exchange.writer);
           RETURN_NOT_OK(writer->Begin(schema));
           auto batch = RecordBatch::Make(schema, /* num_rows */ 4, {a1});
           RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
@@ -435,15 +465,16 @@ void DataTest::TestDoExchangeTotal() {
     auto a1 = ArrayFromJSON(arrow::int64(), "[1, 2, null, 3]");
     auto a2 = ArrayFromJSON(arrow::int64(), "[null, 4, 5, 6]");
     auto schema = arrow::schema({field("f1", a1->type()), field("f2", a2->type())});
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+    reader = std::move(exchange.reader);
+    writer = std::move(exchange.writer);
     ASSERT_OK(writer->Begin(schema));
     auto batch = RecordBatch::Make(schema, /* num_rows */ 4, {a1, a2});
-    FlightStreamChunk chunk;
     ASSERT_OK(writer->WriteRecordBatch(*batch));
     ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
     AssertSchemaEqual(*schema, *server_schema);
 
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     auto expected1 = RecordBatch::Make(
         schema, /* num_rows */ 1,
@@ -451,7 +482,7 @@ void DataTest::TestDoExchangeTotal() {
     AssertBatchesEqual(*expected1, *chunk.data);
 
     ASSERT_OK(writer->WriteRecordBatch(*batch));
-    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, reader->Next());
     ASSERT_NE(nullptr, chunk.data);
     auto expected2 = RecordBatch::Make(
         schema, /* num_rows */ 1,
@@ -464,42 +495,101 @@ void DataTest::TestDoExchangeTotal() {
 // Ensure server errors get propagated no matter what we try
 void DataTest::TestDoExchangeError() {
   auto descr = FlightDescriptor::Command("error");
-  std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightStreamReader> reader;
   {
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+    writer = std::move(exchange.writer);
+    reader = std::move(exchange.reader);
     auto status = writer->Close();
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Expected error"), writer->Close());
   }
   {
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    FlightStreamChunk chunk;
+    ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+    writer = std::move(exchange.writer);
+    reader = std::move(exchange.reader);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next(&chunk));
+        NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next());
+    ARROW_UNUSED(writer->Close());
   }
   {
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+    writer = std::move(exchange.writer);
+    reader = std::move(exchange.reader);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Expected error"), reader->GetSchema());
+    ARROW_UNUSED(writer->Close());
   }
   // writer->Begin isn't tested here because, as noted in client.cc,
   // OpenRecordBatchWriter lazily writes the initial message - hence
-  // Begin() won't fail. Additionally, it appears gRPC may buffer
-  // writes - a write won't immediately fail even when the server
-  // immediately fails.
+  // Begin() won't fail. Additionally, transports are allowed to
+  // buffer writes - a write won't immediately fail even if the server
+  // would immediately return an error.
+}
+void DataTest::TestDoExchangeConcurrency() {
+  // Ensure that we can do reads/writes on separate threads
+  auto descr = FlightDescriptor::Command("echo");
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
+
+  RecordBatchVector batches;
+  ASSERT_OK(ExampleIntBatches(&batches));
+  ASSERT_OK(writer->Begin(ExampleIntSchema()));
+
+  std::thread reader_thread([&reader, &batches]() {
+    for (size_t i = 0; i < batches.size(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
+      ASSERT_NE(nullptr, chunk.data);
+      ASSERT_EQ(nullptr, chunk.app_metadata);
+      AssertBatchesEqual(*batches[i], *chunk.data);
+    }
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
+    ASSERT_EQ(nullptr, chunk.data);
+    ASSERT_EQ(nullptr, chunk.app_metadata);
+  });
+
+  for (const auto& batch : batches) {
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  reader_thread.join();
+  ASSERT_OK(writer->Close());
+}
+void DataTest::TestDoExchangeUndrained() {
+  // Ensure if the application doesn't drain all messages, that the
+  // server/transport does
+
+  auto descr = FlightDescriptor::Command("TestUndrained");
+  auto schema = arrow::schema({arrow::field("ints", int64())});
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamReader> reader = std::move(exchange.reader);
+  std::unique_ptr<FlightStreamWriter> writer = std::move(exchange.writer);
+
+  auto batch = RecordBatchFromJSON(schema, "[[1], [2], [3], [4]]");
+  ASSERT_OK(writer->Begin(schema));
+  // These calls may or may not fail depending on how quickly the
+  // transport reacts, whether it batches, writes, etc.
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+
+  // We should be able to make another call
+  TestDoExchangeGet();
 }
 void DataTest::TestIssue5095() {
   // Make sure the server-side error message is reflected to the
   // client
   Ticket ticket1{"ARROW-5095-fail"};
-  std::unique_ptr<FlightStreamReader> stream;
-  Status status = client_->DoGet(ticket1, &stream);
+  Status status = client_->DoGet(ticket1).status();
   ASSERT_RAISES(UnknownError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
 
   Ticket ticket2{"ARROW-5095-success"};
-  status = client_->DoGet(ticket2, &stream);
+  status = client_->DoGet(ticket2).status();
   ASSERT_RAISES(KeyError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
@@ -507,13 +597,52 @@ void DataTest::TestIssue5095() {
 //------------------------------------------------------------
 // Specific tests for DoPut
 
+static constexpr char kExpectedMetadata[] = "foo bar";
+
 class DoPutTestServer : public FlightServerBase {
  public:
   Status DoPut(const ServerCallContext& context,
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
     descriptor_ = reader->descriptor();
-    return reader->ReadAll(&batches_);
+
+    if (descriptor_.type == FlightDescriptor::DescriptorType::CMD) {
+      if (descriptor_.cmd == "TestUndrained") {
+        // Don't read all the messages
+        return Status::OK();
+      }
+    }
+
+    int counter = 0;
+    FlightStreamChunk chunk;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
+      if (!chunk.data) break;
+      if (counter % 2 == 1) {
+        if (!chunk.app_metadata) {
+          return Status::Invalid("Expected app_metadata");
+        } else if (chunk.app_metadata->ToString() != std::to_string(counter)) {
+          return Status::Invalid("Expected app_metadata to be ", counter, " but got ",
+                                 chunk.app_metadata->ToString());
+        }
+      } else if (chunk.app_metadata) {
+        return Status::Invalid("Expected no app_metadata");
+      }
+      batches_.push_back(std::move(chunk.data));
+      auto buffer = Buffer::FromString(std::to_string(counter));
+      RETURN_NOT_OK(writer->WriteMetadata(*buffer));
+      counter++;
+    }
+
+    // Expect a metadata-only message
+    if (!chunk.app_metadata) {
+      return Status::Invalid("Expected app_metadata at end of stream (#1)");
+    } else if (chunk.app_metadata->ToString() != kExpectedMetadata) {
+      return Status::Invalid("Expected app_metadata to be ", kExpectedMetadata,
+                             " but got ", chunk.app_metadata->ToString());
+    }
+
+    return Status::OK();
   }
 
  protected:
@@ -523,14 +652,17 @@ class DoPutTestServer : public FlightServerBase {
   friend class DoPutTest;
 };
 
-void DoPutTest::SetUp() {
+void DoPutTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<DoPutTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void DoPutTest::TearDown() {
+void DoPutTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
+  reinterpret_cast<DoPutTestServer*>(server_.get())->batches_.clear();
 }
 void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
                              const RecordBatchVector& expected_batches) {
@@ -544,14 +676,33 @@ void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
 void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
                            const std::shared_ptr<Schema>& schema,
                            const RecordBatchVector& batches) {
-  std::unique_ptr<FlightStreamWriter> stream;
-  std::unique_ptr<FlightMetadataReader> reader;
-  ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
+  std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
+
+  // Ensure that the reader can be used independently of the writer
+  std::thread reader_thread([&reader, &batches]() {
+    for (size_t i = 0; i < batches.size(); i++) {
+      std::shared_ptr<Buffer> out;
+      ASSERT_OK(reader->ReadMetadata(&out));
+    }
+  });
+
+  int64_t counter = 0;
   for (const auto& batch : batches) {
-    ASSERT_OK(stream->WriteRecordBatch(*batch));
+    if (counter % 2 == 0) {
+      ASSERT_OK(writer->WriteRecordBatch(*batch));
+    } else {
+      auto buffer = Buffer::FromString(std::to_string(counter));
+      ASSERT_OK(writer->WriteWithMetadata(*batch, std::move(buffer)));
+    }
+    counter++;
   }
-  ASSERT_OK(stream->DoneWriting());
-  ASSERT_OK(stream->Close());
+  // Write a metadata-only message
+  ASSERT_OK(writer->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
+  ASSERT_OK(writer->DoneWriting());
+  reader_thread.join();
+  ASSERT_OK(writer->Close());
 
   CheckBatches(descr, batches);
 }
@@ -579,7 +730,7 @@ void DoPutTest::TestInts() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutFloats() {
+void DoPutTest::TestFloats() {
   auto descr = FlightDescriptor::Path({"floats"});
   RecordBatchVector batches;
   auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
@@ -590,7 +741,7 @@ void DoPutTest::TestDoPutFloats() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutEmptyBatch() {
+void DoPutTest::TestEmptyBatch() {
   // Sending and receiving a 0-sized batch shouldn't fail
   auto descr = FlightDescriptor::Path({"ints"});
   RecordBatchVector batches;
@@ -601,7 +752,7 @@ void DoPutTest::TestDoPutEmptyBatch() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutDicts() {
+void DoPutTest::TestDicts() {
   auto descr = FlightDescriptor::Path({"dicts"});
   RecordBatchVector batches;
   auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
@@ -619,7 +770,7 @@ void DoPutTest::TestDoPutDicts() {
 
 // Ensure the server is configured to allow large messages by default
 // Tests a 32 MiB batch
-void DoPutTest::TestDoPutLargeBatch() {
+void DoPutTest::TestLargeBatch() {
   auto descr = FlightDescriptor::Path({"large-batches"});
   auto schema = ExampleLargeSchema();
   RecordBatchVector batches;
@@ -627,29 +778,27 @@ void DoPutTest::TestDoPutLargeBatch() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutSizeLimit() {
+void DoPutTest::TestSizeLimit() {
   const int64_t size_limit = 4096;
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+  ASSERT_OK_AND_ASSIGN(auto location,
+                       Location::ForScheme(transport(), "127.0.0.1", server_->port()));
   auto client_options = FlightClientOptions::Defaults();
   client_options.write_size_limit_bytes = size_limit;
-  std::unique_ptr<FlightClient> client;
-  ASSERT_OK(FlightClient::Connect(location, client_options, &client));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, client_options));
 
-  auto descr = FlightDescriptor::Path({"ints"});
+  auto descr = FlightDescriptor::Command("simple");
   // Batch is too large to fit in one message
   auto schema = arrow::schema({field("f1", arrow::int64())});
   auto batch = arrow::ConstantArrayGenerator::Zeroes(768, schema);
-  RecordBatchVector batches;
-  batches.push_back(batch->Slice(0, 384));
-  batches.push_back(batch->Slice(384));
+  auto batch1 = batch->Slice(0, 384);
+  auto batch2 = batch->Slice(384);
 
-  std::unique_ptr<FlightStreamWriter> stream;
-  std::unique_ptr<FlightMetadataReader> reader;
-  ASSERT_OK(client->DoPut(descr, schema, &stream, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client->DoPut(descr, schema));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
+  std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
 
   // Large batch will exceed the limit
-  const auto status = stream->WriteRecordBatch(*batch);
+  const auto status = writer->WriteRecordBatch(*batch);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exceeded soft limit"),
                                   status);
   auto detail = FlightWriteSizeStatusDetail::UnwrapStatus(status);
@@ -657,14 +806,37 @@ void DoPutTest::TestDoPutSizeLimit() {
   ASSERT_EQ(size_limit, detail->limit());
   ASSERT_GT(detail->actual(), size_limit);
 
-  // But we can retry with a smaller batch
-  for (const auto& batch : batches) {
-    ASSERT_OK(stream->WriteRecordBatch(*batch));
-  }
+  // But we can retry with smaller batches
+  ASSERT_OK(writer->WriteRecordBatch(*batch1));
+  ASSERT_OK(writer->WriteWithMetadata(*batch2, Buffer::FromString("1")));
 
-  ASSERT_OK(stream->DoneWriting());
-  ASSERT_OK(stream->Close());
-  CheckBatches(descr, batches);
+  // Write a metadata-only message
+  ASSERT_OK(writer->WriteMetadata(Buffer::FromString(kExpectedMetadata)));
+
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(writer->Close());
+  CheckBatches(descr, {batch1, batch2});
+}
+void DoPutTest::TestUndrained() {
+  // Ensure if the application doesn't drain all messages, that the
+  // server/transport does
+
+  auto descr = FlightDescriptor::Command("TestUndrained");
+  auto schema = arrow::schema({arrow::field("ints", int64())});
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
+  std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
+  auto batch = RecordBatchFromJSON(schema, "[[1], [2], [3], [4]]");
+  // These calls may or may not fail depending on how quickly the
+  // transport reacts, whether it batches, writes, etc.
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ARROW_UNUSED(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+
+  // We should be able to make another call
+  CheckDoPut(FlightDescriptor::Command("foo"), schema, {batch, batch});
 }
 
 //------------------------------------------------------------
@@ -692,7 +864,7 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
   FlightStreamChunk chunk;
   int counter = 0;
   while (true) {
-    RETURN_NOT_OK(reader->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
     if (chunk.data == nullptr) break;
     if (chunk.app_metadata == nullptr) {
       return Status::Invalid("Expected application metadata to be provided");
@@ -708,33 +880,34 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
   return Status::OK();
 }
 
-void AppMetadataTest::SetUp() {
+void AppMetadataTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<AppMetadataTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void AppMetadataTest::TearDown() {
+void AppMetadataTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
 void AppMetadataTest::TestDoGet() {
   Ticket ticket{""};
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightStreamReader> stream,
+                       client_->DoGet(ticket));
 
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
-  FlightStreamChunk chunk;
   auto num_batches = static_cast<int>(expected_batches.size());
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
   }
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
   ASSERT_EQ(nullptr, chunk.data);
 }
 // Test dictionaries. This tests a corner case in the reader:
@@ -743,29 +916,27 @@ void AppMetadataTest::TestDoGet() {
 // from the record batch, and not one of the dictionary batches.
 void AppMetadataTest::TestDoGetDictionaries() {
   Ticket ticket{"dicts"};
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightStreamReader> stream,
+                       client_->DoGet(ticket));
 
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
 
-  FlightStreamChunk chunk;
   auto num_batches = static_cast<int>(expected_batches.size());
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
     ASSERT_NE(nullptr, chunk.data);
     ASSERT_NE(nullptr, chunk.app_metadata);
     ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
   }
-  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
   ASSERT_EQ(nullptr, chunk.data);
 }
 void AppMetadataTest::TestDoPut() {
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = ExampleIntSchema();
-  ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
 
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
@@ -777,16 +948,15 @@ void AppMetadataTest::TestDoPut() {
     ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
                                         Buffer::FromString(std::to_string(i))));
   }
-  // This eventually calls grpc::ClientReaderWriter::Finish which can
-  // hang if there are unread messages. So make sure our wrapper
-  // around this doesn't hang (because it drains any unread messages)
+  // Transports may behave unpredictably if streams are not
+  // drained. So explicitly close to see if the transport misbehaves
+  // (e.g. gRPC will hang if the Flight transport layer doesn't drain
+  // messages)
   ASSERT_OK(writer->Close());
 }
 // Test DoPut() with dictionaries. This tests a corner case in the
 // server-side reader; see DoGetDictionaries above.
 void AppMetadataTest::TestDoPutDictionaries() {
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
   // ARROW-8749: don't get the schema via ExampleDictSchema because
@@ -795,8 +965,10 @@ void AppMetadataTest::TestDoPutDictionaries() {
   // (identity-wise) than the schema of the first batch we write,
   // we'll end up generating a duplicate set of dictionaries that
   // confuses the reader.
-  ASSERT_OK(client_->DoPut(FlightDescriptor{}, expected_batches[0]->schema(), &writer,
-                           &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result,
+                       client_->DoPut(FlightDescriptor{}, expected_batches[0]->schema()));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
+
   std::shared_ptr<RecordBatch> chunk;
   std::shared_ptr<Buffer> metadata;
   auto num_batches = static_cast<int>(expected_batches.size());
@@ -807,10 +979,10 @@ void AppMetadataTest::TestDoPutDictionaries() {
   ASSERT_OK(writer->Close());
 }
 void AppMetadataTest::TestDoPutReadMetadata() {
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = ExampleIntSchema();
-  ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
+  std::unique_ptr<FlightMetadataReader> reader = std::move(do_put_result.reader);
 
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
@@ -848,10 +1020,9 @@ class IpcOptionsTestServer : public FlightServerBase {
   Status DoPut(const ServerCallContext& context,
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    FlightStreamChunk chunk;
     int counter = 0;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
       if (chunk.data == nullptr) break;
       counter++;
     }
@@ -864,12 +1035,11 @@ class IpcOptionsTestServer : public FlightServerBase {
   Status DoExchange(const ServerCallContext& context,
                     std::unique_ptr<FlightMessageReader> reader,
                     std::unique_ptr<FlightMessageWriter> writer) override {
-    FlightStreamChunk chunk;
     auto options = ipc::IpcWriteOptions::Defaults();
     options.max_recursion_depth = 1;
     bool begun = false;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
       if (!chunk.data && !chunk.app_metadata) {
         break;
       }
@@ -889,12 +1059,14 @@ class IpcOptionsTestServer : public FlightServerBase {
   }
 };
 
-void IpcOptionsTest::SetUp() {
+void IpcOptionsTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<IpcOptionsTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void IpcOptionsTest::TearDown() {
+void IpcOptionsTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
@@ -904,9 +1076,8 @@ void IpcOptionsTest::TestDoGetReadOptions() {
   auto options = FlightCallOptions();
   options.read_options.max_recursion_depth = 1;
   std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(options, ticket, &stream));
-  FlightStreamChunk chunk;
-  ASSERT_RAISES(Invalid, stream->Next(&chunk));
+  ASSERT_OK_AND_ASSIGN(stream, client_->DoGet(options, ticket));
+  ASSERT_RAISES(Invalid, stream->Next());
 }
 void IpcOptionsTest::TestDoPutWriteOptions() {
   // Call DoPut, but with a very low write nesting depth set to fail the call.
@@ -917,10 +1088,10 @@ void IpcOptionsTest::TestDoPutWriteOptions() {
 
   auto options = FlightCallOptions();
   options.write_options.max_recursion_depth = 1;
-  ASSERT_OK(client_->DoPut(options, FlightDescriptor{}, expected_batches[0]->schema(),
-                           &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(options, FlightDescriptor{},
+                                                          expected_batches[0]->schema()));
   for (const auto& batch : expected_batches) {
-    ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
+    ASSERT_RAISES(Invalid, do_put_result.writer->WriteRecordBatch(*batch));
   }
 }
 void IpcOptionsTest::TestDoExchangeClientWriteOptions() {
@@ -929,9 +1100,8 @@ void IpcOptionsTest::TestDoExchangeClientWriteOptions() {
   auto options = FlightCallOptions();
   options.write_options.max_recursion_depth = 1;
   auto descr = FlightDescriptor::Command("");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(options, descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_exchange_result, client_->DoExchange(options, descr));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_exchange_result.writer);
   RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   ASSERT_OK(writer->Begin(batches[0]->schema()));
@@ -946,9 +1116,8 @@ void IpcOptionsTest::TestDoExchangeClientWriteOptionsBegin() {
   // fail the call. Here the options are set explicitly when we write data and not in the
   // call options.
   auto descr = FlightDescriptor::Command("");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_exchange_result, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_exchange_result.writer);
   RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   auto options = ipc::IpcWriteOptions::Defaults();
@@ -964,9 +1133,8 @@ void IpcOptionsTest::TestDoExchangeServerWriteOptions() {
   // Call DoExchange and write nested data, but with a very low nesting depth set to fail
   // the call. (The low nesting depth is set on the server side.)
   auto descr = FlightDescriptor::Command("");
-  std::unique_ptr<FlightStreamReader> reader;
-  std::unique_ptr<FlightStreamWriter> writer;
-  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto do_exchange_result, client_->DoExchange(descr));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_exchange_result.writer);
   RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   ASSERT_OK(writer->Begin(batches[0]->schema()));
@@ -974,6 +1142,439 @@ void IpcOptionsTest::TestDoExchangeServerWriteOptions() {
   ASSERT_OK(writer->WriteRecordBatch(*batches[0]));
   ASSERT_OK(writer->DoneWriting());
   ASSERT_RAISES(Invalid, writer->Close());
+}
+
+//------------------------------------------------------------
+// Test CUDA memory in data plane methods
+
+#if defined(ARROW_CUDA)
+
+Status CheckBuffersOnDevice(const Array& array, const Device& device) {
+  if (array.num_fields() != 0) {
+    return Status::NotImplemented("Nested arrays");
+  }
+  for (const auto& buffer : array.data()->buffers) {
+    if (!buffer) continue;
+    if (!buffer->device()->Equals(device)) {
+      return Status::Invalid("Expected buffer on device: ", device.ToString(),
+                             ". Was allocated on device: ", buffer->device()->ToString());
+    }
+  }
+  return Status::OK();
+}
+
+Status CheckBuffersOnDevice(const RecordBatch& batch, const Device& device) {
+  for (const auto& column : batch.columns()) {
+    RETURN_NOT_OK(CheckBuffersOnDevice(*column, device));
+  }
+  return Status::OK();
+}
+
+// Copy a record batch to host memory.
+arrow::Result<std::shared_ptr<RecordBatch>> CopyBatchToHost(const RecordBatch& batch) {
+  auto mm = CPUDevice::Instance()->default_memory_manager();
+  ArrayVector arrays;
+  for (const auto& column : batch.columns()) {
+    std::shared_ptr<ArrayData> data = column->data()->Copy();
+    if (data->child_data.size() != 0) {
+      return Status::NotImplemented("Nested arrays");
+    }
+
+    for (size_t i = 0; i < data->buffers.size(); i++) {
+      const auto& buffer = data->buffers[i];
+      if (!buffer || buffer->is_cpu()) continue;
+      ARROW_ASSIGN_OR_RAISE(data->buffers[i], Buffer::Copy(buffer, mm));
+    }
+    arrays.push_back(MakeArray(data));
+  }
+  return RecordBatch::Make(batch.schema(), batch.num_rows(), std::move(arrays));
+}
+
+class CudaTestServer : public FlightServerBase {
+ public:
+  explicit CudaTestServer(std::shared_ptr<Device> device,
+                          std::shared_ptr<cuda::CudaContext> context)
+      : device_(std::move(device)), context_(std::move(context)) {}
+
+  Status DoGet(const ServerCallContext&, const Ticket&,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    RETURN_NOT_OK(ExampleIntBatches(&batches_));
+    ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches_));
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    return Status::OK();
+  }
+
+  Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    RETURN_NOT_OK(reader->ToRecordBatches().Value(&batches_));
+    return Status::OK();
+  }
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    FlightStreamChunk chunk;
+    bool begun = false;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
+      if (!chunk.data) break;
+      if (!begun) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
+      }
+      RETURN_NOT_OK(CheckBuffersOnDevice(*chunk.data, *device_));
+      // XXX: do not assume transport will synchronize, we must
+      // synchronize or else data will be "missing"
+      RETURN_NOT_OK(context_->Synchronize());
+      RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+    }
+    return Status::OK();
+  }
+
+  const RecordBatchVector& batches() const { return batches_; }
+
+ private:
+  RecordBatchVector batches_;
+  std::shared_ptr<Device> device_;
+  std::shared_ptr<cuda::CudaContext> context_;
+};
+
+// Store CUDA objects without exposing them in the public header
+class CudaDataTest::Impl {
+ public:
+  cuda::CudaDeviceManager* manager;
+  std::shared_ptr<cuda::CudaDevice> device;
+  std::shared_ptr<cuda::CudaContext> context;
+};
+
+void CudaDataTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto manager, cuda::CudaDeviceManager::Instance());
+  ASSERT_OK_AND_ASSIGN(auto device, manager->GetDevice(0));
+  ASSERT_OK_AND_ASSIGN(auto context, device->GetContext());
+  impl_.reset(new Impl());
+  impl_->manager = manager;
+  impl_->device = std::move(device);
+  impl_->context = std::move(context);
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
+  ASSERT_OK(MakeServer<CudaTestServer>(
+      location, &server_, &client_,
+      [this](FlightServerOptions* options) {
+        options->memory_manager = impl_->device->default_memory_manager();
+        return Status::OK();
+      },
+      [](FlightClientOptions* options) { return Status::OK(); }, impl_->device,
+      impl_->context));
+}
+void CudaDataTest::TearDownTest() {
+  ASSERT_OK(client_->Close());
+  ASSERT_OK(server_->Shutdown());
+}
+void CudaDataTest::TestDoGet() {
+  // Check that we can allocate the results of DoGet with a custom
+  // memory manager.
+  FlightCallOptions options;
+  options.memory_manager = impl_->device->default_memory_manager();
+
+  const RecordBatchVector& batches =
+      checked_cast<CudaTestServer*>(server_.get())->batches();
+
+  Ticket ticket{""};
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(options, ticket));
+
+  size_t idx = 0;
+  while (true) {
+    ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
+    if (!chunk.data) break;
+
+    ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
+    if (idx >= batches.size()) {
+      FAIL() << "Server returned more than " << batches.size() << " batches";
+      return;
+    }
+
+    // Bounce record batch back to host memory
+    ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*chunk.data));
+    AssertBatchesEqual(*batches[idx], *host_batch);
+    idx++;
+  }
+  ASSERT_EQ(idx, batches.size()) << "Server returned too few batches";
+}
+void CudaDataTest::TestDoPut() {
+  RecordBatchVector batches;
+  ASSERT_OK(ExampleIntBatches(&batches));
+
+  auto descriptor = FlightDescriptor::Path({""});
+  ASSERT_OK_AND_ASSIGN(auto do_put_result,
+                       client_->DoPut(descriptor, batches[0]->schema()));
+
+  ipc::DictionaryMemo memo;
+  for (const auto& batch : batches) {
+    ASSERT_OK_AND_ASSIGN(auto buffer,
+                         cuda::SerializeRecordBatch(*batch, impl_->context.get()));
+    ASSERT_OK_AND_ASSIGN(auto cuda_batch,
+                         cuda::ReadRecordBatch(batch->schema(), &memo, buffer));
+
+    ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
+    ASSERT_OK(do_put_result.writer->WriteRecordBatch(*cuda_batch));
+  }
+  ASSERT_OK(do_put_result.writer->Close());
+  ASSERT_OK(impl_->context->Synchronize());
+
+  const RecordBatchVector& written =
+      checked_cast<CudaTestServer*>(server_.get())->batches();
+  ASSERT_EQ(written.size(), batches.size());
+
+  size_t idx = 0;
+  for (const auto& batch : written) {
+    ASSERT_OK(CheckBuffersOnDevice(*batch, *impl_->device));
+    // Bounce record batch back to host memory
+    ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*batch));
+    AssertBatchesEqual(*batches[idx], *host_batch);
+    idx++;
+  }
+}
+void CudaDataTest::TestDoExchange() {
+  FlightCallOptions options;
+  options.memory_manager = impl_->device->default_memory_manager();
+
+  RecordBatchVector batches;
+  ASSERT_OK(ExampleIntBatches(&batches));
+
+  auto descriptor = FlightDescriptor::Path({""});
+  ASSERT_OK_AND_ASSIGN(auto exchange, client_->DoExchange(options, descriptor));
+  ASSERT_OK(exchange.writer->Begin(batches[0]->schema()));
+
+  ipc::DictionaryMemo write_memo;
+  ipc::DictionaryMemo read_memo;
+  for (const auto& batch : batches) {
+    ASSERT_OK_AND_ASSIGN(auto buffer,
+                         cuda::SerializeRecordBatch(*batch, impl_->context.get()));
+    ASSERT_OK_AND_ASSIGN(auto cuda_batch,
+                         cuda::ReadRecordBatch(batch->schema(), &write_memo, buffer));
+
+    ASSERT_OK(CheckBuffersOnDevice(*cuda_batch, *impl_->device));
+    ASSERT_OK(exchange.writer->WriteRecordBatch(*cuda_batch));
+
+    ASSERT_OK_AND_ASSIGN(auto chunk, exchange.reader->Next());
+    ASSERT_OK(CheckBuffersOnDevice(*chunk.data, *impl_->device));
+
+    // Bounce record batch back to host memory
+    ASSERT_OK_AND_ASSIGN(auto host_batch, CopyBatchToHost(*chunk.data));
+    AssertBatchesEqual(*batch, *host_batch);
+  }
+  ASSERT_OK(exchange.writer->Close());
+}
+
+#else
+
+void CudaDataTest::SetUpTest() {}
+void CudaDataTest::TearDownTest() {}
+void CudaDataTest::TestDoGet() { GTEST_SKIP() << "Arrow was built without ARROW_CUDA"; }
+void CudaDataTest::TestDoPut() { GTEST_SKIP() << "Arrow was built without ARROW_CUDA"; }
+void CudaDataTest::TestDoExchange() {
+  GTEST_SKIP() << "Arrow was built without ARROW_CUDA";
+}
+
+#endif
+
+//------------------------------------------------------------
+// Test error handling
+
+namespace {
+static const std::vector<StatusCode> kStatusCodes = {
+    StatusCode::OutOfMemory,
+    StatusCode::KeyError,
+    StatusCode::TypeError,
+    StatusCode::Invalid,
+    StatusCode::IOError,
+    StatusCode::CapacityError,
+    StatusCode::IndexError,
+    StatusCode::Cancelled,
+    StatusCode::UnknownError,
+    StatusCode::NotImplemented,
+    StatusCode::SerializationError,
+    StatusCode::RError,
+    StatusCode::CodeGenError,
+    StatusCode::ExpressionValidationError,
+    StatusCode::ExecutionError,
+    StatusCode::AlreadyExists,
+};
+
+static const std::vector<FlightStatusCode> kFlightStatusCodes = {
+    FlightStatusCode::Internal,     FlightStatusCode::TimedOut,
+    FlightStatusCode::Cancelled,    FlightStatusCode::Unauthenticated,
+    FlightStatusCode::Unauthorized, FlightStatusCode::Unavailable,
+    FlightStatusCode::Failed,
+};
+
+arrow::Result<StatusCode> TryConvertStatusCode(int raw_code) {
+  for (const auto status_code : kStatusCodes) {
+    if (raw_code == static_cast<int>(status_code)) {
+      return status_code;
+    }
+  }
+  return Status::Invalid(raw_code);
+}
+arrow::Result<FlightStatusCode> TryConvertFlightStatusCode(int raw_code) {
+  for (const auto status_code : kFlightStatusCodes) {
+    if (raw_code == static_cast<int>(status_code)) {
+      return status_code;
+    }
+  }
+  return Status::Invalid(raw_code);
+}
+
+class TestStatusDetail : public StatusDetail {
+ public:
+  const char* type_id() const override { return "test-status-detail"; }
+  std::string ToString() const override { return "Custom status detail"; }
+};
+class ErrorHandlingTestServer : public FlightServerBase {
+ public:
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    if (request.path.size() >= 2) {
+      const int raw_code = std::atoi(request.path[0].c_str());
+      ARROW_ASSIGN_OR_RAISE(StatusCode code, TryConvertStatusCode(raw_code));
+
+      if (request.path.size() == 2) {
+        return Status(code, request.path[1]);
+      } else if (request.path.size() == 3) {
+        return Status(code, request.path[1], std::make_shared<TestStatusDetail>());
+      } else {
+        const int raw_code = std::atoi(request.path[2].c_str());
+        ARROW_ASSIGN_OR_RAISE(FlightStatusCode flight_code,
+                              TryConvertFlightStatusCode(raw_code));
+        return Status(code, request.path[1],
+                      std::make_shared<FlightStatusDetail>(flight_code, request.path[3]));
+      }
+    }
+    return Status::NotImplemented("NYI");
+  }
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
+};
+}  // namespace
+
+void ErrorHandlingTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
+  ASSERT_OK(MakeServer<ErrorHandlingTestServer>(
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
+      [](FlightClientOptions* options) { return Status::OK(); }));
+}
+void ErrorHandlingTest::TearDownTest() {
+  ASSERT_OK(client_->Close());
+  ASSERT_OK(server_->Shutdown());
+}
+
+void ErrorHandlingTest::TestGetFlightInfo() {
+  std::unique_ptr<FlightInfo> info;
+  for (const auto code : kStatusCodes) {
+    ARROW_SCOPED_TRACE("C++ status code: ", static_cast<int>(code));
+    auto descr = FlightDescriptor::Path(
+        {std::to_string(static_cast<int>(code)), "Expected message"});
+    auto status = client_->GetFlightInfo(descr).status();
+    EXPECT_EQ(status.code(), code);
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+
+    // Custom status detail
+    descr = FlightDescriptor::Path(
+        {std::to_string(static_cast<int>(code)), "Expected message", ""});
+    status = client_->GetFlightInfo(descr).status();
+    EXPECT_EQ(status.code(), code);
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Detail: Custom status detail"));
+
+    // Flight status detail
+    for (const auto flight_code : kFlightStatusCodes) {
+      ARROW_SCOPED_TRACE("Flight status code: ", static_cast<int>(flight_code));
+      descr = FlightDescriptor::Path(
+          {std::to_string(static_cast<int>(code)), "Expected message",
+           std::to_string(static_cast<int>(flight_code)), "Expected detail message"});
+      status = client_->GetFlightInfo(descr).status();
+      // Don't check status code, since Flight code may override it
+      EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+      auto detail = FlightStatusDetail::UnwrapStatus(status);
+      ASSERT_NE(detail, nullptr);
+      EXPECT_EQ(detail->code(), flight_code);
+      EXPECT_THAT(detail->extra_info(), ::testing::HasSubstr("Expected detail message"));
+    }
+  }
+}
+
+void CheckErrorDetail(const Status& status) {
+  auto detail = FlightStatusDetail::UnwrapStatus(status);
+  ASSERT_NE(detail, nullptr) << status.ToString();
+  ASSERT_EQ(detail->code(), FlightStatusCode::Unauthorized);
+  ASSERT_EQ(detail->extra_info(), "extra info");
+}
+
+void ErrorHandlingTest::TestDoPut() {
+  // ARROW-16592
+  auto schema = arrow::schema({field("int64", int64())});
+  auto descr = FlightDescriptor::Path({""});
+  FlightClient::DoPutResult stream;
+  auto status = client_->DoPut(descr, schema).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    std::shared_ptr<Buffer> out;
+    while (true) {
+      if (!stream.reader->ReadMetadata(&out).ok()) {
+        return;
+      }
+    }
+  });
+
+  auto batch = RecordBatchFromJSON(schema, "[[0]]");
+  while (true) {
+    status = stream.writer->WriteRecordBatch(*batch);
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
+}
+
+void ErrorHandlingTest::TestDoExchange() {
+  // ARROW-16592
+  FlightClient::DoExchangeResult stream;
+  auto status = client_->DoExchange(FlightDescriptor::Path({""})).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    while (true) {
+      if (!stream.reader->Next().ok()) return;
+    }
+  });
+
+  while (true) {
+    status = stream.writer->WriteMetadata(Buffer::FromString("foo"));
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
 }
 
 }  // namespace flight

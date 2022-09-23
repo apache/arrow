@@ -55,6 +55,33 @@ def test_io_thread_count():
         pa.set_io_thread_count(n)
 
 
+def test_env_var_io_thread_count():
+    # Test that the number of IO threads can be overriden with the
+    # ARROW_IO_THREADS environment variable.
+    code = """if 1:
+        import pyarrow as pa
+        print(pa.io_thread_count())
+        """
+
+    def run_with_env_var(env_var):
+        env = os.environ.copy()
+        env['ARROW_IO_THREADS'] = env_var
+        res = subprocess.run([sys.executable, "-c", code], env=env,
+                             capture_output=True)
+        res.check_returncode()
+        return res.stdout.decode(), res.stderr.decode()
+
+    out, err = run_with_env_var('17')
+    assert out.strip() == '17'
+    assert err == ''
+
+    for v in ('-1', 'z'):
+        out, err = run_with_env_var(v)
+        assert out.strip() == '8'  # default value
+        assert ("ARROW_IO_THREADS does not contain a valid number of threads"
+                in err.strip())
+
+
 def test_build_info():
     assert isinstance(pa.cpp_build_info, pa.BuildInfo)
     assert isinstance(pa.cpp_version_info, pa.VersionInfo)

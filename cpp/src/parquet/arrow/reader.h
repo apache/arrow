@@ -152,6 +152,7 @@ class PARQUET_EXPORT FileReader {
   // 2 foo3
   //
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use ReadColumn instead.")
   virtual ::arrow::Status ReadSchemaField(
       int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
@@ -193,7 +194,7 @@ class PARQUET_EXPORT FileReader {
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
                           ::arrow::internal::Executor* cpu_executor = NULLPTR,
-                          int row_group_readahead = 0) = 0;
+                          int64_t rows_to_readahead = 0) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,

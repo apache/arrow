@@ -78,7 +78,7 @@ might think is not a good idea.
 .. seealso::
 
    - :ref:`create_jira`
-   - :ref:`jira-tips`
+   - :ref:`creating-issues` and :ref:`bug-report-tips`
 
 - If you want to **solve an issue that is already in JIRA**, you should
   connect with other contributors in the issue comments.
@@ -92,7 +92,7 @@ GitHub
 ~~~~~~
 
 Further options of communicating are provided through GitHub where the project
-is hosted. What we use are GitGub Issues and Pull Requests.
+is hosted. What we use are GitHub Issues and Pull Requests.
 
 When to use GitHub?
 

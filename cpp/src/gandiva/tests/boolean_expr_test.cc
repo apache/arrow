@@ -134,12 +134,19 @@ TEST_F(TestBooleanExpr, IsTrueFalse) {
                                 TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
-  int num_records = 4;
-  auto in_a = MakeArrowArrayBool({true, false, false, true}, {true, true, true, true});
-  auto expa = MakeArrowArrayBool({true, false, false, true}, {true, true, true, true});
-  auto expb = MakeArrowArrayBool({true, false, false, true}, {true, true, true, true});
-  auto expc = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
-  auto expd = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
+  int num_records = 6;
+  auto in_a = MakeArrowArrayBool({true, false, false, true, true, false},
+                                 {true, true, true, true, false, false});
+
+  auto expa = MakeArrowArrayBool({true, false, false, true, false, false},
+                                 {true, true, true, true, true, true});
+  auto expb = MakeArrowArrayBool({true, false, false, true, true, true},
+                                 {true, true, true, true, true, true});
+  auto expc = MakeArrowArrayBool({false, true, true, false, false, false},
+                                 {true, true, true, true, true, true});
+  auto expd = MakeArrowArrayBool({false, true, true, false, true, true},
+                                 {true, true, true, true, true, true});
+
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {in_a});
 
   arrow::ArrayVector outputs;
@@ -148,7 +155,7 @@ TEST_F(TestBooleanExpr, IsTrueFalse) {
   EXPECT_ARROW_ARRAY_EQUALS(expa, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(expb, outputs.at(1));
   EXPECT_ARROW_ARRAY_EQUALS(expc, outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(expc, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(expd, outputs.at(3));
 }
 
 TEST_F(TestBooleanExpr, SimpleOr) {

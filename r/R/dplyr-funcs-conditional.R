@@ -16,7 +16,7 @@
 # under the License.
 
 register_bindings_conditional <- function() {
-  register_binding("coalesce", function(...) {
+  register_binding("dplyr::coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
       abort("At least one argument must be supplied to coalesce()")
@@ -60,14 +60,14 @@ register_bindings_conditional <- function() {
     build_expr("if_else", condition, true, false)
   }
 
-  register_binding("if_else", if_else_binding)
+  register_binding("dplyr::if_else", if_else_binding)
 
   # Although base R ifelse allows `yes` and `no` to be different classes
-  register_binding("ifelse", function(test, yes, no) {
+  register_binding("base::ifelse", function(test, yes, no) {
     if_else_binding(condition = test, true = yes, false = no)
   })
 
-  register_binding("case_when", function(...) {
+  register_binding("dplyr::case_when", function(...) {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {

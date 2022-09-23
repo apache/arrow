@@ -118,9 +118,9 @@ for all things connected to the build, also for setting CMake flags.
 Building other Arrow libraries
 ==============================
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Building PyArrow
+   .. tab-item:: Building PyArrow
 
       After building the Arrow C++ library, you need to build PyArrow on top
       of it also. The reason is the same; so you can edit the code and run
@@ -131,7 +131,7 @@ Building other Arrow libraries
       As mentioned at the beginning of this page, the Python part of the Arrow
       project is built on top of the C++ library. In order to make changes in
       the Python part of Arrow as well as the C++ part of Arrow, you need to
-      build them separately..
+      build them separately.
 
       We hope this introduction was enough to help you start with the building
       process.
@@ -167,7 +167,7 @@ Building other Arrow libraries
       made changes to any C++ files. In this case,
       re-run the build commands again.
 
-   .. tab:: Building the R package
+   .. tab-item:: Building the R package
 
      When working on code in the R package, depending on your OS and planned
      changes, you may or may not need to build the Arrow C++ library (often

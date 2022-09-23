@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -62,16 +63,31 @@ static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
 static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderAsync(
     const FileSource& source,
     const ipc::IpcReadOptions& options = default_read_options()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::IpcFileFormat::OpenReaderAsync");
+#endif
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   auto path = source.path();
   return ipc::RecordBatchFileReader::OpenAsync(std::move(input), options)
-      .Then([](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> { return reader; },
-            [path](const Status& status)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
-              return status.WithMessage("Could not open IPC input source '", path,
-                                        "': ", status.message());
-            });
+      .Then(
+          [=](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+            span->End();
+#endif
+            return reader;
+          },
+          [=](const Status& status)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            arrow::internal::tracing::MarkSpan(status, span.get());
+            span->End();
+#endif
+            return status.WithMessage("Could not open IPC input source '", path,
+                                      "': ", status.message());
+          });
 }
 
 static inline Result<std::vector<int>> GetIncludedFields(
@@ -151,21 +167,23 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
+    WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
+        generator, "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }
 
-Future<util::optional<int64_t>> IpcFileFormat::CountRows(
+Future<std::optional<int64_t>> IpcFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
-      [self, file]() -> Result<util::optional<int64_t>> {
+      [self, file]() -> Result<std::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
         return reader->CountRows();
       }));

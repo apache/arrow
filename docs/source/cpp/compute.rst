@@ -319,41 +319,43 @@ The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| Function name           | Arity | Input types                        | Output type            | Options class                    | Notes |
-+=========================+=======+====================================+========================+==================================+=======+
-| hash_all                | Unary | Boolean                            | Boolean                | :struct:`ScalarAggregateOptions` | \(1)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_any                | Unary | Boolean                            | Boolean                | :struct:`ScalarAggregateOptions` | \(1)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_approximate_median | Unary | Numeric                            | Float64                | :struct:`ScalarAggregateOptions` |       |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_count              | Unary | Any                                | Int64                  | :struct:`CountOptions`           | \(2)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_count_distinct     | Unary | Any                                | Int64                  | :struct:`CountOptions`           | \(2)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_distinct           | Unary | Any                                | Input type             | :struct:`CountOptions`           | \(2)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_max                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` | \(3)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_min                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |       |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(4)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_one                | Unary | Any                                | Input type             |                                  | \(5)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(6)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(7)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(6)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(8)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(7)  |
-+-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| Function name           | Arity | Input types                        | Output type            | Options class                    | Notes     |
++=========================+=======+====================================+========================+==================================+===========+
+| hash_all                | Unary | Boolean                            | Boolean                | :struct:`ScalarAggregateOptions` | \(1)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_any                | Unary | Boolean                            | Boolean                | :struct:`ScalarAggregateOptions` | \(1)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_approximate_median | Unary | Numeric                            | Float64                | :struct:`ScalarAggregateOptions` |           |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_count              | Unary | Any                                | Int64                  | :struct:`CountOptions`           | \(2)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_count_distinct     | Unary | Any                                | Int64                  | :struct:`CountOptions`           | \(2)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_distinct           | Unary | Any                                | List of input type     | :struct:`CountOptions`           | \(2) \(3) |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_list               | Unary | Any                                | List of input type     |                                  | \(3)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_max                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |           |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_mean               | Unary | Numeric                            | Decimal/Float64        | :struct:`ScalarAggregateOptions` | \(4)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_min                | Unary | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |           |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(5)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_one                | Unary | Any                                | Input type             |                                  | \(6)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(9)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)      |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-----------+
 
 * \(1) If null values are taken into account, by setting the
   :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
@@ -365,25 +367,28 @@ equivalents above and reflects how they are implemented internally.
   are emitted. This never affects the grouping keys, only group values
   (i.e. you may get a group where the key is null).
 
-* \(3) For decimal inputs, the resulting decimal will have the same
+* \(3) ``hash_distinct`` and ``hash_list`` gather the grouped values
+  into a list array.
+
+* \(4) For decimal inputs, the resulting decimal will have the same
   precision and scale. The result is rounded away from zero.
 
-* \(4) Output is a ``{"min": input type, "max": input type}`` Struct array.
+* \(5) Output is a ``{"min": input type, "max": input type}`` Struct array.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(5) ``hash_one`` returns one arbitrary value from the input for each
+* \(6) ``hash_one`` returns one arbitrary value from the input for each
   group. The function is biased towards non-null values: if there is at least
   one non-null value for a certain group, that value is returned, and only if
-  all the values are ``null`` for the group will the function return ``null``. 
+  all the values are ``null`` for the group will the function return ``null``.
 
-* \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(7) Decimal arguments are cast to Float64 first.
+* \(8) Decimal arguments are cast to Float64 first.
 
-* \(8) T-digest computes approximate quantiles, and so only needs a
+* \(9) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -1172,6 +1177,8 @@ Categorizations
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
 | is_valid          | Unary      | Any                     | Boolean             |                        | \(5)    |
 +-------------------+------------+-------------------------+---------------------+------------------------+---------+
+| true_unless_null  | Unary      | Any                     | Boolean             |                        | \(6)    |
++-------------------+------------+-------------------------+---------------------+------------------------+---------+
 
 * \(1) Output is true iff the corresponding input element is finite (neither Infinity,
   -Infinity, nor NaN). Hence, for Decimal and integer inputs this always returns true.
@@ -1185,7 +1192,10 @@ Categorizations
 * \(4) Output is true iff the corresponding input element is null. NaN values
   can also be considered null by setting :member:`NullOptions::nan_is_null`.
 
-* \(5) Output is true iff the corresponding input element is non-null.
+* \(5) Output is true iff the corresponding input element is non-null, else false.
+
+* \(6) Output is true iff the corresponding input element is non-null, else null.
+       Mostly intended for expression simplification/guarantees.
 
 .. _cpp-compute-scalar-selections:
 
@@ -1542,6 +1552,32 @@ random generator.
 Array-wise ("vector") functions
 -------------------------------
 
+Cumulative Functions
+~~~~~~~~~~~~~~~~~~~~
+
+Cumulative functions are vector functions that perform a running total on their
+input using an given binary associatve operation and output an array containing
+the corresponding intermediate running values. The input is expected to be of
+numeric type. By default these functions do not detect overflow. They are also
+available in an overflow-checking variant, suffixed ``_checked``, which returns
+an ``Invalid`` :class:`Status` when overflow is detected.
+
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name          | Arity | Input types | Output type | Options class                  | Notes |
++========================+=======+=============+=============+================================+=======+
+| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
++------------------------+-------+-------------+-------------+--------------------------------+-------+
+
+* \(1) CumulativeSumOptions has two optional parameters. The first parameter
+  :member:`CumulativeSumOptions::start` is a starting value for the running
+  sum. It has a default value of 0. Specified values of ``start`` must have the
+  same type as the input. The second parameter 
+  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
+
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1630,10 +1666,13 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
 | partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(3)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(4) \(5)      |
+| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`          | \(4)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(4)      |
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(5)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
+
 
 * \(1) The output is an array of indices into the input, that define a
   stable sort of the input.
@@ -1647,11 +1686,13 @@ in the respective option classes.
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(4) The input can be an array, chunked array, record batch or
+* \(4) The output is a one-based numerical array of ranks
+
+* \(5) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
-* \(5) The output is an array of indices into the input, that define a
+* \(6) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:

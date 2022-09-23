@@ -28,9 +28,21 @@ class Decimal128Test < Test::Unit::TestCase
         end
       end
 
+      test("String") do
+        assert do
+          @decimal128 == "10.1"
+        end
+      end
+
+      test("Float") do
+        assert do
+          @decimal128 == 10.1
+        end
+      end
+
       test("not Arrow::Decimal128") do
         assert do
-          not (@decimal128 == 10.1)
+          not (@decimal128 == :"10.1")
         end
       end
     end
@@ -42,9 +54,21 @@ class Decimal128Test < Test::Unit::TestCase
         end
       end
 
+      test("String") do
+        assert do
+          not (@decimal128 != "10.1")
+        end
+      end
+
+      test("Float") do
+        assert do
+          not (@decimal128 != 10.1)
+        end
+      end
+
       test("not Arrow::Decimal128") do
         assert do
-          @decimal128 != 10.1
+          @decimal128 != :"10.1"
         end
       end
     end

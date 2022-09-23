@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
@@ -41,9 +42,6 @@ class Status;
 
 namespace flight {
 
-class ServerMiddleware;
-class ServerMiddlewareFactory;
-
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
 class ARROW_FLIGHT_EXPORT FlightDataStream {
@@ -53,15 +51,25 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
   virtual std::shared_ptr<Schema> schema() = 0;
 
   /// \brief Compute FlightPayload containing serialized RecordBatch schema
-  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
+  virtual arrow::Result<FlightPayload> GetSchemaPayload() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status GetSchemaPayload(FlightPayload* payload) {
+    return GetSchemaPayload().Value(payload);
+  }
 
   // When the stream is completed, the last payload written will have null
   // metadata
-  virtual Status Next(FlightPayload* payload) = 0;
+  virtual arrow::Result<FlightPayload> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(FlightPayload* payload) { return Next().Value(payload); }
+
+  virtual Status Close();
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
-/// a sequence of FlightData messages to be written to a gRPC stream
+/// a sequence of FlightData messages to be written to a stream
 class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
@@ -71,9 +79,15 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
       const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults());
   ~RecordBatchStream() override;
 
+  // inherit deprecated API
+  using FlightDataStream::GetSchemaPayload;
+  using FlightDataStream::Next;
+
   std::shared_ptr<Schema> schema() override;
-  Status GetSchemaPayload(FlightPayload* payload) override;
-  Status Next(FlightPayload* payload) override;
+  arrow::Result<FlightPayload> GetSchemaPayload() override;
+
+  arrow::Result<FlightPayload> Next() override;
+  Status Close() override;
 
  private:
   class RecordBatchStreamImpl;
@@ -183,6 +197,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// non-positive value if no port exists (e.g. when listening on a
   /// domain socket).
   int port() const;
+
+  /// \brief Get the address that the Flight server is listening on.
+  /// This method must only be called after Init().
+  Location location() const;
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.

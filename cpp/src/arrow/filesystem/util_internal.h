@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
@@ -38,16 +39,23 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const io::IOContext& io_context);
 
 ARROW_EXPORT
-Status PathNotFound(const std::string& path);
+Status PathNotFound(std::string_view path);
 
 ARROW_EXPORT
-Status NotADir(const std::string& path);
+Status NotADir(std::string_view path);
 
 ARROW_EXPORT
-Status NotAFile(const std::string& path);
+Status NotAFile(std::string_view path);
 
 ARROW_EXPORT
-Status InvalidDeleteDirContents(const std::string& path);
+Status InvalidDeleteDirContents(std::string_view path);
+
+/// \brief Return files matching the glob pattern on the filesystem
+///
+/// Globbing starts from the root of the filesystem.
+ARROW_EXPORT
+Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
+                                 const std::string& glob);
 
 extern FileSystemGlobalOptions global_options;
 

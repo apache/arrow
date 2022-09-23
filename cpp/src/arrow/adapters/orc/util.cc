@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array/builder_base.h"
@@ -30,7 +31,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 
 #include "orc/Exceptions.hh"
@@ -357,7 +357,7 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
         std::size_t size = struct_type->fields().size();
         std::vector<std::shared_ptr<Array>> new_children(size, nullptr);
         for (std::size_t i = 0; i < size; i++) {
-          std::shared_ptr<Array> child = struct_array->field(i);
+          std::shared_ptr<Array> child = struct_array->field(static_cast<int>(i));
           const std::shared_ptr<Buffer> child_bitmap = child->null_bitmap();
           std::shared_ptr<Buffer> final_child_bitmap;
           if (child_bitmap == nullptr) {
@@ -462,7 +462,7 @@ struct Appender<DataType, liborc::StringVectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     COffsetType data_length = 0;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
@@ -486,7 +486,7 @@ struct Appender<Decimal128Type, liborc::Decimal64VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] = static_cast<int64_t>(dec_value.low_bits());
@@ -507,7 +507,7 @@ struct Appender<Decimal128Type, liborc::Decimal128VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] =
@@ -557,7 +557,7 @@ struct FixedSizeBinaryAppender {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
         const_cast<uint8_t*>(array.GetValue(running_arrow_offset)));
@@ -586,8 +586,8 @@ Status WriteGenericBatch(const Array& array, int64_t orc_offset,
     batch->hasNulls = true;
   }
   Appender<DataType, BatchType> appender{array_, batch, orc_offset, 0};
-  ArrayDataVisitor<DataType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 
@@ -608,8 +608,8 @@ Status WriteTimestampBatch(const Array& array, int64_t orc_offset,
                                        0,
                                        conversion_factor_from_second,
                                        conversion_factor_to_nano};
-  ArrayDataVisitor<DataType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 
@@ -621,8 +621,8 @@ Status WriteFixedSizeBinaryBatch(const Array& array, int64_t orc_offset,
     batch->hasNulls = true;
   }
   FixedSizeBinaryAppender appender{array_, batch, orc_offset, 0, array_.byte_width()};
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 
@@ -649,7 +649,8 @@ Status WriteStructBatch(const Array& array, int64_t orc_offset,
   // Fill the fields
   for (std::size_t i = 0; i < size; i++) {
     batch->fields[i]->resize(orc_offset + arrow_length);
-    RETURN_NOT_OK(WriteBatch(*(struct_array->field(i)), orc_offset, batch->fields[i]));
+    RETURN_NOT_OK(WriteBatch(*(struct_array->field(static_cast<int>(i))), orc_offset,
+                             batch->fields[i]));
   }
   return Status::OK();
 }
@@ -944,62 +945,49 @@ Status WriteBatch(const ChunkedArray& chunked_array, int64_t length,
   return Status::OK();
 }
 
-Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
   // When subselecting fields on read, liborc will set some nodes to nullptr,
   // so we need to check for nullptr before progressing
   if (type == nullptr) {
-    *out = null();
-    return Status::OK();
+    return null();
   }
   liborc::TypeKind kind = type->getKind();
   const int subtype_count = static_cast<int>(type->getSubtypeCount());
 
   switch (kind) {
     case liborc::BOOLEAN:
-      *out = boolean();
-      break;
+      return boolean();
     case liborc::BYTE:
-      *out = int8();
-      break;
+      return int8();
     case liborc::SHORT:
-      *out = int16();
-      break;
+      return int16();
     case liborc::INT:
-      *out = int32();
-      break;
+      return int32();
     case liborc::LONG:
-      *out = int64();
-      break;
+      return int64();
     case liborc::FLOAT:
-      *out = float32();
-      break;
+      return float32();
     case liborc::DOUBLE:
-      *out = float64();
-      break;
+      return float64();
     case liborc::VARCHAR:
     case liborc::STRING:
-      *out = utf8();
-      break;
+      return utf8();
     case liborc::BINARY:
-      *out = binary();
-      break;
+      return binary();
     case liborc::CHAR:
-      *out = fixed_size_binary(static_cast<int>(type->getMaximumLength()));
-      break;
+      return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
-      *out = timestamp(TimeUnit::NANO);
-      break;
+      return timestamp(TimeUnit::NANO);
     case liborc::DATE:
-      *out = date32();
-      break;
+      return date32();
     case liborc::DECIMAL: {
       const int precision = static_cast<int>(type->getPrecision());
       const int scale = static_cast<int>(type->getScale());
       if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
-        *out = decimal128(38, 6);
+        return decimal128(38, 6);
       } else {
-        *out = decimal128(precision, scale);
+        return decimal128(precision, scale);
       }
       break;
     }
@@ -1007,60 +995,48 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       if (subtype_count != 1) {
         return Status::TypeError("Invalid Orc List type");
       }
-      std::shared_ptr<DataType> elemtype;
-      RETURN_NOT_OK(GetArrowType(type->getSubtype(0), &elemtype));
-      *out = list(elemtype);
-      break;
+      ARROW_ASSIGN_OR_RAISE(auto elemtype, GetArrowType(type->getSubtype(0)));
+      return list(std::move(elemtype));
     }
     case liborc::MAP: {
       if (subtype_count != 2) {
         return Status::TypeError("Invalid Orc Map type");
       }
-      std::shared_ptr<DataType> key_type, item_type;
-      RETURN_NOT_OK(GetArrowType(type->getSubtype(0), &key_type));
-      RETURN_NOT_OK(GetArrowType(type->getSubtype(1), &item_type));
-      *out = map(key_type, item_type);
-      break;
+      ARROW_ASSIGN_OR_RAISE(auto key_type, GetArrowType(type->getSubtype(0)));
+      ARROW_ASSIGN_OR_RAISE(auto item_type, GetArrowType(type->getSubtype(1)));
+      return map(std::move(key_type), std::move(item_type));
     }
     case liborc::STRUCT: {
-      std::vector<std::shared_ptr<Field>> fields;
+      FieldVector fields(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
-        std::shared_ptr<DataType> elem_type;
-        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elem_type));
+        ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
         std::string name = type->getFieldName(child);
-        fields.push_back(field(name, elem_type));
+        fields[child] = field(std::move(name), std::move(elem_type));
       }
-      *out = struct_(fields);
-      break;
+      return struct_(std::move(fields));
     }
     case liborc::UNION: {
-      std::vector<std::shared_ptr<Field>> fields;
-      std::vector<int8_t> type_codes;
+      FieldVector fields(subtype_count);
+      std::vector<int8_t> type_codes(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
-        std::shared_ptr<DataType> elem_type;
-        RETURN_NOT_OK(GetArrowType(type->getSubtype(child), &elem_type));
-        fields.push_back(field("_union_" + std::to_string(child), elem_type));
-        type_codes.push_back(static_cast<int8_t>(child));
+        ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
+        fields[child] = field("_union_" + std::to_string(child), std::move(elem_type));
+        type_codes[child] = static_cast<int8_t>(child);
       }
-      *out = sparse_union(fields, type_codes);
-      break;
+      return sparse_union(std::move(fields), std::move(type_codes));
     }
-    default: {
+    default:
       return Status::TypeError("Unknown Orc type kind: ", type->toString());
-    }
   }
-  return Status::OK();
 }
 
 Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema) {
   int numFields = schema.num_fields();
   ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
-    std::shared_ptr<Field> field = schema.field(i);
-    std::string field_name = field->name();
-    std::shared_ptr<DataType> arrow_child_type = field->type();
-    ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
-    out_type->addStructField(field_name, std::move(orc_subtype));
+    const auto& field = schema.field(i);
+    ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*field->type()));
+    out_type->addStructField(field->name(), std::move(orc_subtype));
   }
   return std::move(out_type);
 }

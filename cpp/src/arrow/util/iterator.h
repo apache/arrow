@@ -20,6 +20,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -30,7 +31,6 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -66,16 +66,16 @@ bool IsIterationEnd(const T& val) {
 }
 
 template <typename T>
-struct IterationTraits<util::optional<T>> {
+struct IterationTraits<std::optional<T>> {
   /// \brief by default when iterating through a sequence of optional,
   /// nullopt indicates the end of iteration.
   /// Specialize IterationTraits if different end semantics are required.
-  static util::optional<T> End() { return util::nullopt; }
+  static std::optional<T> End() { return std::nullopt; }
 
   /// \brief by default when iterating through a sequence of optional,
   /// nullopt (!has_value()) indicates the end of iteration.
   /// Specialize IterationTraits if different end semantics are required.
-  static bool IsEnd(const util::optional<T>& val) { return !val.has_value(); }
+  static bool IsEnd(const std::optional<T>& val) { return !val.has_value(); }
 
   // TODO(bkietz) The range-for loop over Iterator<optional<T>> yields
   // Result<optional<T>> which is unnecessary (since only the unyielded end optional
@@ -227,7 +227,7 @@ struct TransformFlow {
 
   bool finished_ = false;
   bool ready_for_next_ = false;
-  util::optional<YieldValueType> yield_value_;
+  std::optional<YieldValueType> yield_value_;
 };
 
 struct TransformFinish {
@@ -263,7 +263,7 @@ class TransformIterator {
 
   Result<V> Next() {
     while (!finished_) {
-      ARROW_ASSIGN_OR_RAISE(util::optional<V> next, Pump());
+      ARROW_ASSIGN_OR_RAISE(std::optional<V> next, Pump());
       if (next.has_value()) {
         return std::move(*next);
       }
@@ -278,7 +278,7 @@ class TransformIterator {
   // * If an invalid status is encountered that will be returned
   // * If finished it will return IterationTraits<V>::End()
   // * If a value is returned by the transformer that will be returned
-  Result<util::optional<V>> Pump() {
+  Result<std::optional<V>> Pump() {
     if (!finished_ && last_value_.has_value()) {
       auto next_res = transformer_(*last_value_);
       if (!next_res.ok()) {
@@ -302,12 +302,12 @@ class TransformIterator {
     if (finished_) {
       return IterationTraits<V>::End();
     }
-    return util::nullopt;
+    return std::nullopt;
   }
 
   Iterator<T> it_;
   Transformer<T, V> transformer_;
-  util::optional<T> last_value_;
+  std::optional<T> last_value_;
   bool finished_ = false;
 };
 

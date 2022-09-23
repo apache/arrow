@@ -22,15 +22,15 @@
 #include <gtest/gtest.h>
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/cookie_internal.h"
+#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_util.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
-
-#include "arrow/flight/internal.h"
-#include "arrow/flight/test_util.h"
 
 namespace arrow {
 namespace flight {
@@ -78,37 +78,73 @@ TEST(FlightTypes, FlightDescriptorToFromProto) {
 // ARROW-6017: we should be able to construct locations for unknown
 // schemes
 TEST(FlightTypes, LocationUnknownScheme) {
-  Location location;
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
+  ASSERT_OK(Location::Parse("s3://test"));
+  ASSERT_OK(Location::Parse("https://example.com/foo"));
 }
 
 TEST(FlightTypes, RoundTripTypes) {
+  ActionType action_type{"action-type1", "action-type1-description"};
+  ASSERT_OK_AND_ASSIGN(std::string action_type_serialized,
+                       action_type.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(ActionType action_type_deserialized,
+                       ActionType::Deserialize(action_type_serialized));
+  ASSERT_EQ(action_type, action_type_deserialized);
+
+  Criteria criteria{"criteria1"};
+  ASSERT_OK_AND_ASSIGN(std::string criteria_serialized, criteria.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Criteria criteria_deserialized,
+                       Criteria::Deserialize(criteria_serialized));
+  ASSERT_EQ(criteria, criteria_deserialized);
+
+  Action action{"action1", Buffer::FromString("action1-content")};
+  ASSERT_OK_AND_ASSIGN(std::string action_serialized, action.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Action action_deserialized,
+                       Action::Deserialize(action_serialized));
+  ASSERT_EQ(action, action_deserialized);
+
+  Result result{Buffer::FromString("result1-content")};
+  ASSERT_OK_AND_ASSIGN(std::string result_serialized, result.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Result result_deserialized,
+                       Result::Deserialize(result_serialized));
+  ASSERT_EQ(result, result_deserialized);
+
+  BasicAuth basic_auth{"username1", "password1"};
+  ASSERT_OK_AND_ASSIGN(std::string basic_auth_serialized, basic_auth.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(BasicAuth basic_auth_deserialized,
+                       BasicAuth::Deserialize(basic_auth_serialized));
+  ASSERT_EQ(basic_auth, basic_auth_deserialized);
+
+  SchemaResult schema_result{"schema_result1"};
+  ASSERT_OK_AND_ASSIGN(std::string schema_result_serialized,
+                       schema_result.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(SchemaResult schema_result_deserialized,
+                       SchemaResult::Deserialize(schema_result_serialized));
+  ASSERT_EQ(schema_result, schema_result_deserialized);
+
   Ticket ticket{"foo"};
   ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
   ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
                        Ticket::Deserialize(ticket_serialized));
-  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+  ASSERT_EQ(ticket, ticket_deserialized);
 
   FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
   ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
   ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
                        FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+  ASSERT_EQ(desc, desc_deserialized);
 
   desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
   ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
   ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+  ASSERT_EQ(desc, desc_deserialized);
 
   FlightInfo::Data data;
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 10010));
+  ASSERT_OK_AND_ASSIGN(auto location3, Location::ForGrpcUnix("/tmp/test.sock"));
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
@@ -116,10 +152,17 @@ TEST(FlightTypes, RoundTripTypes) {
   ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
                        FlightInfo::Deserialize(info_serialized));
-  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
+  ASSERT_EQ(info->descriptor(), info_deserialized->descriptor());
   ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
   ASSERT_EQ(info->total_records(), info_deserialized->total_records());
   ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
+
+  FlightEndpoint flight_endpoint{ticket, {location1, location2}};
+  ASSERT_OK_AND_ASSIGN(std::string flight_endpoint_serialized,
+                       flight_endpoint.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(FlightEndpoint flight_endpoint_deserialized,
+                       FlightEndpoint::Deserialize(flight_endpoint_serialized));
+  ASSERT_EQ(flight_endpoint, flight_endpoint_deserialized);
 }
 
 TEST(FlightTypes, RoundtripStatus) {
@@ -156,24 +199,63 @@ TEST(FlightTypes, RoundtripStatus) {
   ASSERT_NE(nullptr, detail);
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
 
-  Status status = internal::FromGrpcStatus(
-      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
+  Status status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::NotImplemented("Sentinel")));
   ASSERT_TRUE(status.IsNotImplemented());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::Invalid("Sentinel")));
   ASSERT_TRUE(status.IsInvalid());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::KeyError("Sentinel")));
   ASSERT_TRUE(status.IsKeyError());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 
-  status =
-      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
+  status = flight::transport::grpc::FromGrpcStatus(
+      flight::transport::grpc::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
   ASSERT_TRUE(status.IsAlreadyExists());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
+
+TEST(FlightTypes, LocationConstruction) {
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI").status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTcp("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcTls("This is not a hostname", 12345).status());
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename").status());
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("s3://test"));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTls("localhost", 12345));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcUnix("/tmp/test.sock"));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+TEST(FlightTypes, DeprecatedLocationConstruction) {
+  Location location;
+  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid,
+                Location::ForGrpcTls("This is not a hostname", 12345, &location));
+  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
+
+  ASSERT_OK(Location::Parse("s3://test", &location));
+  ASSERT_EQ(location.ToString(), "s3://test");
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
+  ASSERT_OK(Location::ForGrpcTls("localhost", 12345, &location));
+  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
+  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location));
+  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
+}
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 // ----------------------------------------------------------------------
 // Cookie authentication/middleware
@@ -192,8 +274,8 @@ class TestCookieMiddleware : public ::testing::Test {
   void AddAndValidate(const std::string& incoming_cookie) {
     // Add cookie
     CallHeaders call_headers;
-    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                       arrow::util::string_view(incoming_cookie)));
+    call_headers.insert(std::make_pair(std::string_view("set-cookie"),
+                                       std::string_view(incoming_cookie)));
     middleware_->ReceivedHeaders(call_headers);
     expected_cookie_cache_.UpdateCachedCookies(call_headers);
 
@@ -300,18 +382,18 @@ TEST_F(TestCookieMiddleware, Expires) {
 class TestCookieParsing : public ::testing::Test {
  public:
   void VerifyParseCookie(const std::string& cookie_str, bool expired) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(expired, cookie.IsExpired());
   }
 
   void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(name, cookie.GetName());
   }
 
   void VerifyCookieString(const std::string& cookie_str,
                           const std::string& cookie_as_string) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
   }
 
@@ -322,12 +404,12 @@ class TestCookieParsing : public ::testing::Test {
 
   void VerifyCookieAttributeParsing(
       const std::string cookie_str, std::string::size_type start_pos,
-      const util::optional<std::pair<std::string, std::string>> cookie_attribute,
+      const std::optional<std::pair<std::string, std::string>> cookie_attribute,
       const std::string::size_type start_pos_after) {
-    util::optional<std::pair<std::string, std::string>> attr =
+    std::optional<std::pair<std::string, std::string>> attr =
         internal::Cookie::ParseCookieAttribute(cookie_str, &start_pos);
 
-    if (cookie_attribute == util::nullopt) {
+    if (cookie_attribute == std::nullopt) {
       EXPECT_EQ(cookie_attribute, attr);
     } else {
       EXPECT_EQ(cookie_attribute.value(), attr.value());
@@ -341,8 +423,8 @@ class TestCookieParsing : public ::testing::Test {
     for (auto& cookie : cookies) {
       // Add cookie
       CallHeaders call_headers;
-      call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                         arrow::util::string_view(cookie)));
+      call_headers.insert(
+          std::make_pair(std::string_view("set-cookie"), std::string_view(cookie)));
       cookie_cache.UpdateCachedCookies(call_headers);
     }
     const std::string actual_cookies = cookie_cache.GetValidCookiesAsString();
@@ -417,7 +499,7 @@ TEST_F(TestCookieParsing, DateConversion) {
 }
 
 TEST_F(TestCookieParsing, ParseCookieAttribute) {
-  VerifyCookieAttributeParsing("", 0, util::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing("", 0, std::nullopt, std::string::npos);
 
   std::string cookie_string = "attr0=0; attr1=1; attr2=2; attr3=3";
   auto attr_length = std::string("attr0=0;").length();
@@ -433,8 +515,8 @@ TEST_F(TestCookieParsing, ParseCookieAttribute) {
   VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
                                std::make_pair("attr3", "3"), std::string::npos);
   VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length - 1)),
-                               util::nullopt, std::string::npos);
-  VerifyCookieAttributeParsing(cookie_string, std::string::npos, util::nullopt,
+                               std::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, std::string::npos, std::nullopt,
                                std::string::npos);
 }
 
@@ -443,6 +525,62 @@ TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
+}
+
+// ----------------------------------------------------------------------
+// Transport abstraction tests
+
+TEST(TransportErrorHandling, ReconstructStatus) {
+  Status current = Status::Invalid("Base error message");
+  // Invalid code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(". Also, server sent unknown or invalid Arrow status code -1"),
+      internal::ReconstructStatus("-1", current, std::nullopt, std::nullopt, std::nullopt,
+                                  /*detail=*/nullptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          ". Also, server sent unknown or invalid Arrow status code foobar"),
+      internal::ReconstructStatus("foobar", current, std::nullopt, std::nullopt,
+                                  std::nullopt, /*detail=*/nullptr));
+
+  // Override code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Base error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          std::nullopt, std::nullopt, std::nullopt, /*detail=*/nullptr));
+
+  // Override message
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Custom error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", std::nullopt, std::nullopt, /*detail=*/nullptr));
+
+  // With detail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", "Detail message", std::nullopt, /*detail=*/nullptr));
+
+  // With detail and bin
+  auto reconstructed = internal::ReconstructStatus(
+      std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+      "Custom error message", "Detail message", "Binary error details",
+      /*detail=*/nullptr);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      reconstructed);
+  auto detail = FlightStatusDetail::UnwrapStatus(reconstructed);
+  ASSERT_NE(detail, nullptr);
+  ASSERT_EQ(detail->extra_info(), "Binary error details");
 }
 
 }  // namespace flight

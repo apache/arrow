@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from contextlib import contextmanager
 import inspect
 import tokenize
-from contextlib import contextmanager
 
 try:
     from numpydoc.validate import Docstring, validate
@@ -26,6 +26,7 @@ except ImportError:
 else:
     have_numpydoc = True
 
+from ..compat import _get_module
 from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
 
@@ -118,8 +119,11 @@ class NumpyDoc:
 
         Parameters
         ----------
+        fn : callable
+            A function to apply on all traversed objects.
         obj : Any
-        from_package : string, default 'pyarrow'
+            The object to start from.
+        from_package : string
             Predicate to only consider objects from this package.
         """
         todo = [obj]
@@ -139,10 +143,20 @@ class NumpyDoc:
                     continue
 
                 member = getattr(obj, name)
-                module = getattr(member, '__module__', None)
-                if not (module and module.startswith(from_package)):
+                module = _get_module(member)
+                if module is None or not module.startswith(from_package):
                     continue
-
+                # Is it a Cython-generated method? If so, try to detect
+                # whether it only has a implicitly-generated docstring,
+                # and no user-defined docstring following it.
+                # The generated docstring would lack description of method
+                # parameters and therefore fail Numpydoc validation.
+                if hasattr(member, '__objclass__'):
+                    doc = getattr(member, '__doc__', None)
+                    # The Cython-generated docstring would be a one-liner,
+                    # such as "ReadOptions.equals(self, ReadOptions other)".
+                    if (doc and '\n' not in doc and f'.{name}(' in doc):
+                        continue
                 todo.append(member)
 
     @contextmanager
@@ -195,7 +209,7 @@ class NumpyDoc:
             try:
                 result = validate(obj)
             except OSError as e:
-                symbol = f"{obj.__module__}.{obj.__name__}"
+                symbol = f"{_get_module(obj, default='')}.{obj.__name__}"
                 logger.warning(f"Unable to validate `{symbol}` due to `{e}`")
                 return
 

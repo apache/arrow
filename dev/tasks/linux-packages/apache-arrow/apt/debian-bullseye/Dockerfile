@@ -65,13 +65,14 @@ RUN \
     llvm-dev \
     lsb-release \
     ninja-build \
+    nlohmann-json3-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
-    python3-numpy \
     python3-pip \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

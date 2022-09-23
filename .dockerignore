@@ -28,10 +28,10 @@
 !ci/**
 !c_glib/Gemfile
 !dev/archery/setup.py
+!dev/release/setup-*.sh
 !docs/requirements*.txt
 !python/requirements*.txt
 !python/manylinux1/**
-!python/manylinux2010/**
 !r/DESCRIPTION
 !ruby/Gemfile
 !ruby/red-arrow/Gemfile
@@ -61,3 +61,5 @@
 !rust/datafusion/Cargo.toml
 !rust/datafusion/benches
 !rust/integration-testing/Cargo.toml
+!go/go.mod
+!go/go.sum

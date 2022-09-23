@@ -34,10 +34,21 @@ docker build -t arrow_fedora_minimal -f Dockerfile.fedora .
 Then build PyArrow with conda or pip, respectively:
 ```
 # With pip
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /io/build_venv.sh
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /io/build_conda.sh
+```
+
+Alternatively you can use [Docker Compose][docker-compose] to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-fedora-conda
+
+# With pip
+docker-compose run --rm minimal-fedora-venv
 ```
 
 ## Ubuntu 20.04
@@ -50,10 +61,21 @@ docker build -t arrow_ubuntu_minimal -f Dockerfile.ubuntu .
 Then build PyArrow with conda or pip, respectively:
 ```
 # With pip
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /io/build_venv.sh
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /io/build_conda.sh
+```
+
+Alternatively you can use [Docker Compose][docker-compose] to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-ubuntu-conda
+
+# With pip
+docker-compose run --rm minimal-ubuntu-venv
 ```
 
 ## Building on Fedora - Podman and SELinux
@@ -69,5 +91,7 @@ podman build -t arrow_fedora_minimal -f Dockerfile.fedora
 Then build PyArrow with pip:
 ```
 # With pip
-podman run --rm -i -v $PWD:/io:Z -t arrow_fedora_minimal /io/build_venv.sh
+podman run --rm -i -v $PWD:/io:Z -v $PWD/../../..:/arrow:Z -t arrow_fedora_minimal /io/build_venv.sh
 ```
+
+[docker-compose]: https://docs.docker.com/compose/

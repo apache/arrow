@@ -19,10 +19,12 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"fmt"
+
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -68,11 +70,10 @@ func (w *Int32ColumnChunkWriter) WriteBatch(values []int32, defLevels, repLevels
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -131,13 +132,13 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -227,11 +228,10 @@ func (w *Int64ColumnChunkWriter) WriteBatch(values []int64, defLevels, repLevels
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -290,13 +290,13 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -386,11 +386,10 @@ func (w *Int96ColumnChunkWriter) WriteBatch(values []parquet.Int96, defLevels, r
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -449,13 +448,13 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -545,11 +544,10 @@ func (w *Float32ColumnChunkWriter) WriteBatch(values []float32, defLevels, repLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -608,13 +606,13 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -704,11 +702,10 @@ func (w *Float64ColumnChunkWriter) WriteBatch(values []float64, defLevels, repLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -767,13 +764,13 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -866,11 +863,10 @@ func (w *BooleanColumnChunkWriter) WriteBatch(values []bool, defLevels, repLevel
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -929,13 +925,13 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1025,11 +1021,10 @@ func (w *ByteArrayColumnChunkWriter) WriteBatch(values []parquet.ByteArray, defL
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -1088,13 +1083,13 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()
@@ -1184,11 +1179,10 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatch(values []parquet.FixedLe
 			case error:
 				err = r
 			default:
-				err = xerrors.Errorf("unknown error type: %s", r)
+				err = fmt.Errorf("unknown error type: %s", r)
 			}
 		}
 	}()
-
 	// We check for DataPage limits only after we have inserted the values. If a user
 	// writes a large number of values, the DataPage size can be much above the limit.
 	// The purpose of this chunking is to bound this. Even if a user writes large number
@@ -1247,13 +1241,13 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+			w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
 		} else {
-			w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+			w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
 		}
 		w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
 		valueOffset += info.numSpaced()

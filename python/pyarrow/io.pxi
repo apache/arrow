@@ -36,10 +36,13 @@ from pyarrow.util import _is_path_like, _stringify_path
 DEFAULT_BUFFER_SIZE = 2 ** 16
 
 
-# To let us get a PyObject* and avoid Cython auto-ref-counting
 cdef extern from "Python.h":
+    # To let us get a PyObject* and avoid Cython auto-ref-counting
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
+    # Workaround https://github.com/cython/cython/issues/4707
+    bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
 
 
 def io_thread_count():
@@ -98,6 +101,10 @@ cdef class NativeFile(_Weakrefable):
     will not flush any pending data.
     """
 
+    # Default chunk size for chunked reads.
+    # Use a large enough value for networked filesystems.
+    _default_chunk_size = 256 * 1024
+
     def __cinit__(self):
         self.own_file = False
         self.is_readable = False
@@ -113,6 +120,15 @@ cdef class NativeFile(_Weakrefable):
 
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
+
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"closed={self.closed} "
+                f"own_file={self.own_file} "
+                f"is_seekable={self.is_seekable} "
+                f"is_writable={self.is_writable} "
+                f"is_readable={self.is_readable}>")
 
     @property
     def mode(self):
@@ -323,8 +339,7 @@ cdef class NativeFile(_Weakrefable):
 
     def write(self, data):
         """
-        Write byte from any object implementing buffer protocol (bytes,
-        bytearray, ndarray, pyarrow.Buffer)
+        Write data to the file.
 
         Parameters
         ----------
@@ -346,8 +361,9 @@ cdef class NativeFile(_Weakrefable):
 
     def read(self, nbytes=None):
         """
-        Read indicated number of bytes from file, or read all remaining bytes
-        if no argument passed
+        Read and return up to n bytes.
+
+        If *nbytes* is None, then the entire remaining file contents are read.
 
         Parameters
         ----------
@@ -365,7 +381,7 @@ cdef class NativeFile(_Weakrefable):
         if nbytes is None:
             if not self.is_seekable:
                 # Cannot get file size => read chunkwise
-                bs = 16384
+                bs = self._default_chunk_size
                 chunks = []
                 while True:
                     chunk = self.read(bs)
@@ -391,6 +407,42 @@ cdef class NativeFile(_Weakrefable):
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
+
+    def get_stream(self, file_offset, nbytes):
+        """
+        Return an input stream that reads a file segment independent of the
+        state of the file.
+
+        Allows reading portions of a random access file as an input stream
+        without interfering with each other.
+
+        Parameters
+        ----------
+        file_offset : int
+        nbytes : int
+
+        Returns
+        -------
+        stream : NativeFile
+        """
+        cdef:
+            shared_ptr[CInputStream] data
+            int64_t c_file_offset
+            int64_t c_nbytes
+
+        c_file_offset = file_offset
+        c_nbytes = nbytes
+
+        handle = self.get_random_access_file()
+
+        data = GetResultValue(
+            CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
+
+        stream = NativeFile()
+        stream.set_input_stream(data)
+        stream.is_readable = True
+
+        return stream
 
     def read_at(self, nbytes, offset):
         """
@@ -433,8 +485,25 @@ cdef class NativeFile(_Weakrefable):
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
-        Alias for read, needed to match the IOBase interface."""
-        return self.read(nbytes=None)
+        Unlike read(), if *nbytes* is None then a chunk is read, not the
+        entire file.
+
+        Parameters
+        ----------
+        nbytes : int, default None
+            The maximum number of bytes to read.
+
+        Returns
+        -------
+        data : bytes
+        """
+        if nbytes is None:
+            # The expectation when passing `nbytes=None` is not to read the
+            # entire file but to issue a single underlying read call up to
+            # a reasonable size (the use case being to read a bufferable
+            # amount of bytes, such as with io.TextIOWrapper).
+            nbytes = self._default_chunk_size
+        return self.read(nbytes)
 
     def readall(self):
         return self.read()
@@ -444,12 +513,13 @@ cdef class NativeFile(_Weakrefable):
         Read into the supplied buffer
 
         Parameters
-        -----------
-        b: any python object supporting buffer interface
+        ----------
+        b : buffer-like object
+            A writable buffer object (such as a bytearray).
 
         Returns
-        --------
-        int
+        -------
+        written : int
             number of bytes written
         """
 
@@ -476,19 +546,22 @@ cdef class NativeFile(_Weakrefable):
         If size is specified, read at most size bytes.
 
         Line terminator is always b"\\n".
-        """
 
+        Parameters
+        ----------
+        size : int
+            maximum number of bytes read
+        """
         raise UnsupportedOperation()
 
     def readlines(self, hint=None):
         """NOT IMPLEMENTED. Read lines of the file
 
         Parameters
-        -----------
-
-        hint: int maximum number of bytes read until we stop
+        ----------
+        hint : int
+            maximum number of bytes read until we stop
         """
-
         raise UnsupportedOperation()
 
     def __iter__(self):
@@ -536,8 +609,17 @@ cdef class NativeFile(_Weakrefable):
 
     def download(self, stream_or_path, buffer_size=None):
         """
-        Read file completely to local path (rather than reading completely into
-        memory). First seeks to the beginning of the file.
+        Read this file completely to a local path or destination stream.
+
+        This method first seeks to the beginning of the file.
+
+        Parameters
+        ----------
+        stream_or_path : str or file-like object
+            If a string, a local file path to write to; otherwise,
+            should be a writable stream.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         cdef:
             int64_t bytes_read = 0
@@ -624,7 +706,14 @@ cdef class NativeFile(_Weakrefable):
 
     def upload(self, stream, buffer_size=None):
         """
-        Pipe file-like object to file
+        Write from a source stream to this file.
+
+        Parameters
+        ----------
+        stream : file-like object
+            Source stream to pipe to this file.
+        buffer_size : int, optional
+            The buffer size to use for data transfers.
         """
         write_queue = Queue(50)
         self._assert_writable()
@@ -686,6 +775,13 @@ cdef class PythonFile(NativeFile):
     As a downside, there is a non-zero redirection cost in translating
     Arrow stream calls to Python method calls.  Furthermore, Python's
     Global Interpreter Lock may limit parallelism in some situations.
+
+    Examples
+    --------
+    >>> import io
+    >>> import pyarrow as pa
+    >>> pa.PythonFile(io.BytesIO())
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
     """
     cdef:
         object handle
@@ -841,7 +937,7 @@ def memory_map(path, mode='r'):
     ----------
     path : str
     mode : {'r', 'r+', 'w'}, default 'r'
-        Whether the file is opened for reading ('r+'), writing ('w')
+        Whether the file is opened for reading ('r'), writing ('w')
         or both ('r+').
 
     Returns
@@ -973,6 +1069,14 @@ cdef class Buffer(_Weakrefable):
     def __len__(self):
         return self.size
 
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"address={hex(self.address)} "
+                f"size={self.size} "
+                f"is_cpu={self.is_cpu} "
+                f"is_mutable={self.is_mutable}>")
+
     @property
     def size(self):
         """
@@ -1024,7 +1128,7 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        if PySlice_Check(key):
+        if isinstance(key, slice):
             if (key.step or 1) != 1:
                 raise IndexError('only slices with step 1 supported')
             return _normalize_slice(self, key)
@@ -1091,9 +1195,16 @@ cdef class Buffer(_Weakrefable):
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
-            return py_buffer, (builtin_pickle.PickleBuffer(self),)
+            bufobj = builtin_pickle.PickleBuffer(self)
+        elif self.buffer.get().is_mutable():
+            # Need to pass a bytearray to recreate a mutable buffer when
+            # unpickling.
+            bufobj = PyByteArray_FromStringAndSize(
+                <const char*>self.buffer.get().data(),
+                self.buffer.get().size())
         else:
-            return py_buffer, (self.to_pybytes(),)
+            bufobj = self.to_pybytes()
+        return py_buffer, (bufobj,)
 
     def to_pybytes(self):
         """
@@ -1112,10 +1223,14 @@ cdef class Buffer(_Weakrefable):
                                   "buffer was not mutable")
             buffer.readonly = 1
         buffer.buf = <char *>self.buffer.get().data()
+        buffer.len = self.size
+        if buffer.buf == NULL:
+            # ARROW-16048: Ensure we don't export a NULL address.
+            assert buffer.len == 0
+            buffer.buf = cp.PyBytes_AS_STRING(b"")
         buffer.format = 'b'
         buffer.internal = NULL
         buffer.itemsize = 1
-        buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
         buffer.shape = self.shape
@@ -1256,6 +1371,10 @@ cdef class BufferReader(NativeFile):
     """
     cdef:
         Buffer buffer
+
+    # XXX Needed to make numpydoc happy
+    def __init__(self, obj):
+        pass
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)
@@ -1488,6 +1607,33 @@ class Transcoder:
         return self._encoder.encode(self._decoder.decode(buf, final), final)
 
 
+cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
+        src_encoding, dest_encoding) except *:
+    """
+    Create a function that will add a transcoding transformation to a stream.
+    Data from that stream will be decoded according to ``src_encoding`` and
+    then re-encoded according to ``dest_encoding``.
+    The created function can be used to wrap streams.
+
+    Parameters
+    ----------
+    src_encoding : str
+        The codec to use when reading data.
+    dest_encoding : str
+        The codec to use for emitted data.
+    """
+    cdef:
+        shared_ptr[function[StreamWrapFunc]] empty_func
+        CTransformInputStreamVTable vtable
+
+    vtable.transform = _cb_transform
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    return MakeStreamTransformFunc(move(vtable),
+                                   Transcoder(src_codec.incrementaldecoder(),
+                                   dest_codec.incrementalencoder()))
+
+
 def transcoding_input_stream(stream, src_encoding, dest_encoding):
     """
     Add a transcoding transformation to the stream.
@@ -1499,7 +1645,7 @@ def transcoding_input_stream(stream, src_encoding, dest_encoding):
     stream : NativeFile
         The stream to which the transformation should be applied.
     src_encoding : str
-        The codec to use when reading data data.
+        The codec to use when reading data.
     dest_encoding : str
         The codec to use for emitted data.
     """
@@ -1748,6 +1894,17 @@ cdef class Codec(_Weakrefable):
     ------
     ValueError
         If invalid compression value is passed.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.Codec.is_available('gzip')
+    True
+    >>> codec = pa.Codec('gzip')
+    >>> codec.name
+    'gzip'
+    >>> codec.compression_level
+    9
     """
 
     def __init__(self, str compression not None, compression_level=None):
@@ -1869,7 +2026,9 @@ cdef class Codec(_Weakrefable):
     @property
     def compression_level(self):
         """Returns the compression level parameter of the codec"""
-        return frombytes(self.unwrap().compression_level())
+        if self.name == 'snappy':
+            return None
+        return self.unwrap().compression_level()
 
     def compress(self, object buf, asbytes=False, memory_pool=None):
         """
@@ -1984,6 +2143,12 @@ cdef class Codec(_Weakrefable):
             )
 
         return pybuf if asbytes else out_buf
+
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"name={self.name} "
+                f"compression_level={self.compression_level}>")
 
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):

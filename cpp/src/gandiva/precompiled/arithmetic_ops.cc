@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include "arrow/util/basic_decimal.h"
 
 extern "C" {
 
@@ -234,19 +235,41 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
 
-#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP) \
-  FORCE_INLINE                                \
-  gdv_##TYPE NAME##_boolean(gdv_##TYPE in) { return OP in; }
+#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP)                      \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP in;                                      \
+  }
 
 IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
 IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
 
-#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP) \
-  FORCE_INLINE                                   \
-  gdv_boolean NAME##_##TYPE(gdv_##TYPE in) { return OP(in != 0 ? true : false); }
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(NAME, TYPE, OP)           \
+  FORCE_INLINE                                                     \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP in;                                     \
+  }
+
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnottrue, boolean, !)
+IS_NOT_TRUE_OR_IS_NOT_FALSE_BOOL(isnotfalse, boolean, +)
+
+#define IS_TRUE_OR_FALSE_NUMERIC(NAME, TYPE, OP)                   \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return is_valid && OP(in != 0);                                \
+  }
 
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, istrue, +)
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
+
+#define IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC(NAME, TYPE, OP)        \
+  FORCE_INLINE                                                     \
+  gdv_boolean NAME##_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { \
+    return !is_valid || OP(in != 0);                               \
+  }
+
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnottrue, !)
+NUMERIC_TYPES(IS_NOT_TRUE_OR_IS_NOT_FALSE_NUMERIC, isnotfalse, +)
 
 #define NUMERIC_FUNCTION_FOR_REAL(INNER) \
   INNER(float32)                         \
@@ -363,9 +386,43 @@ NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
 
 NEGATIVE_INTEGER(int32, 32)
 NEGATIVE_INTEGER(int64, 64)
+NEGATIVE_INTEGER(month_interval, 32)
+
+const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
+const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
+
+gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval) {
+  if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME ||
+      interval < INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME) {
+    gdv_fn_context_set_error_msg(
+        context, "Interval day time is out of boundaries for the negative function");
+    return 0;
+  }
+
+  int64_t left = interval >> 32;
+  int64_t right = interval & 0x00000000FFFFFFFF;
+
+  left = -1 * left;
+  right = -1 * right;
+
+  gdv_int64 out = (left & 0x00000000FFFFFFFF) << 32;
+  out |= (right & 0x00000000FFFFFFFF);
+
+  return out;
+}
 
 #undef NEGATIVE
 #undef NEGATIVE_INTEGER
+
+void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits) {
+  arrow::BasicDecimal128 res = arrow::BasicDecimal128(high_bits, low_bits).Negate();
+
+  *out_high_bits = res.high_bits();
+  *out_low_bits = res.low_bits();
+}
 
 #define DIV(TYPE)                                                                     \
   FORCE_INLINE                                                                        \
@@ -412,6 +469,45 @@ BITWISE_NOT(int64)
 #undef DATE_TYPES
 #undef NUMERIC_BOOL_DATE_TYPES
 #undef NUMERIC_DATE_TYPES
+
+#define SIGN(TYPE)                         \
+  FORCE_INLINE                             \
+  gdv_##TYPE sign_##TYPE(gdv_##TYPE in1) { \
+    gdv_##TYPE out;                        \
+    if (in1 > 0) {                         \
+      out = static_cast<gdv_##TYPE>(1);    \
+    } else if (in1 < 0) {                  \
+      out = static_cast<gdv_##TYPE>(-1);   \
+    } else {                               \
+      out = in1;                           \
+    }                                      \
+    return out;                            \
+  }
+
+SIGN(int32)
+SIGN(int64)
+SIGN(float32)
+SIGN(float64)
+
+#undef SIGN
+#define CEILING(TYPE) \
+  FORCE_INLINE        \
+  gdv_##TYPE ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
+
+CEILING(float32)
+CEILING(float64)
+
+#undef CEILING
+
+#define FLOOR(TYPE) \
+  FORCE_INLINE      \
+  gdv_##TYPE floor_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(floor(in1)); }
+
+FLOOR(float32)
+FLOOR(float64)
+
+#undef FLOOR
+
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES
 

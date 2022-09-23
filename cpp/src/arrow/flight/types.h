@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,6 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -148,12 +148,33 @@ struct ARROW_FLIGHT_EXPORT ActionType {
   friend bool operator!=(const ActionType& left, const ActionType& right) {
     return !(left == right);
   }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<ActionType> Deserialize(std::string_view serialized);
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
 struct ARROW_FLIGHT_EXPORT Criteria {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
+
+  bool Equals(const Criteria& other) const;
+
+  friend bool operator==(const Criteria& left, const Criteria& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Criteria& left, const Criteria& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<Criteria> Deserialize(std::string_view serialized);
 };
 
 /// \brief An action to perform with the DoAction RPC
@@ -163,11 +184,41 @@ struct ARROW_FLIGHT_EXPORT Action {
 
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
+
+  bool Equals(const Action& other) const;
+
+  friend bool operator==(const Action& left, const Action& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Action& left, const Action& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<Action> Deserialize(std::string_view serialized);
 };
 
 /// \brief Opaque result returned after executing an action
 struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
+
+  bool Equals(const Result& other) const;
+
+  friend bool operator==(const Result& left, const Result& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Result& left, const Result& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<Result> Deserialize(std::string_view serialized);
 };
 
 /// \brief message for simple auth
@@ -175,8 +226,17 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;
   std::string password;
 
+  bool Equals(const BasicAuth& other) const;
+
+  friend bool operator==(const BasicAuth& left, const BasicAuth& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const BasicAuth& left, const BasicAuth& right) {
+    return !(left == right);
+  }
+
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<BasicAuth> Deserialize(arrow::util::string_view serialized);
+  static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -224,7 +284,7 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<FlightDescriptor> Deserialize(arrow::util::string_view serialized);
+  static arrow::Result<FlightDescriptor> Deserialize(std::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
@@ -274,7 +334,7 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<Ticket> Deserialize(arrow::util::string_view serialized);
+  static arrow::Result<Ticket> Deserialize(std::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, Ticket* out);
@@ -299,26 +359,38 @@ struct ARROW_FLIGHT_EXPORT Location {
   Location();
 
   /// \brief Initialize a location by parsing a URI string
+  static arrow::Result<Location> Parse(const std::string& uri_string);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Parse(const std::string& uri_string, Location* location);
 
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcTls(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
   /// \param[in] path The path to the domain socket
-  /// \param[out] location The resulting location
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status ForGrpcUnix(const std::string& path, Location* location);
 
   /// \brief Initialize a location based on a URI scheme
@@ -365,6 +437,12 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   friend bool operator!=(const FlightEndpoint& left, const FlightEndpoint& right) {
     return !(left == right);
   }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -382,16 +460,39 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 /// \brief Schema result returned after a schema request RPC
 struct ARROW_FLIGHT_EXPORT SchemaResult {
  public:
+  SchemaResult() = default;
   explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
+
+  /// \brief Factory method to construct a SchemaResult.
+  static arrow::Result<std::unique_ptr<SchemaResult>> Make(const Schema& schema);
 
   /// \brief return schema
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \param[out] out the reconstructed Schema
+  /// \return Arrrow result with the reconstructed Schema
+  arrow::Result<std::shared_ptr<Schema>> GetSchema(
+      ipc::DictionaryMemo* dictionary_memo) const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
 
   const std::string& serialized_schema() const { return raw_schema_; }
+
+  bool Equals(const SchemaResult& other) const;
+
+  friend bool operator==(const SchemaResult& left, const SchemaResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SchemaResult& left, const SchemaResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SchemaResult> Deserialize(std::string_view serialized);
 
  private:
   std::string raw_schema_;
@@ -424,7 +525,11 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \param[out] out the reconstructed Schema
+  /// \return Arrrow result with the reconstructed Schema
+  arrow::Result<std::shared_ptr<Schema>> GetSchema(
+      ipc::DictionaryMemo* dictionary_memo) const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;
 
@@ -457,7 +562,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
-      arrow::util::string_view serialized);
+      std::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized,
@@ -475,10 +580,12 @@ class ARROW_FLIGHT_EXPORT FlightListing {
   virtual ~FlightListing() = default;
 
   /// \brief Retrieve the next FlightInfo from the iterator.
-  /// \param[out] info A single FlightInfo. Set to \a nullptr if there
+  /// \return Arrow result with a single FlightInfo. Set to \a nullptr if there
   /// are none left.
-  /// \return Status
-  virtual Status Next(std::unique_ptr<FlightInfo>* info) = 0;
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(std::unique_ptr<FlightInfo>* info);
 };
 
 /// \brief An iterator to Result instances returned by DoAction.
@@ -487,10 +594,11 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   virtual ~ResultStream() = default;
 
   /// \brief Retrieve the next Result from the iterator.
-  /// \param[out] info A single result. Set to \a nullptr if there
-  /// are none left.
-  /// \return Status
-  virtual Status Next(std::unique_ptr<Result>* info) = 0;
+  /// \return Arrow result with a single Result. Set to \a nullptr if there are none left.
+  virtual arrow::Result<std::unique_ptr<Result>> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(std::unique_ptr<Result>* info);
 };
 
 /// \brief A holder for a RecordBatch with associated Flight metadata.
@@ -507,14 +615,26 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Get the schema for this stream.
   virtual arrow::Result<std::shared_ptr<Schema>> GetSchema() = 0;
+
   /// \brief Get the next message from Flight. If the stream is
   /// finished, then the members of \a FlightStreamChunk will be
   /// nullptr.
-  virtual Status Next(FlightStreamChunk* next) = 0;
+  virtual arrow::Result<FlightStreamChunk> Next() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status Next(FlightStreamChunk* next);
+
   /// \brief Consume entire stream as a vector of record batches
-  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+
   /// \brief Consume entire stream as a Table
-  virtual Status ReadAll(std::shared_ptr<Table>* table);
+  virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
+  Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
@@ -544,7 +664,7 @@ class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
   explicit SimpleFlightListing(const std::vector<FlightInfo>& flights);
   explicit SimpleFlightListing(std::vector<FlightInfo>&& flights);
 
-  Status Next(std::unique_ptr<FlightInfo>* info) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> Next() override;
 
  private:
   int position_;
@@ -558,7 +678,7 @@ class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
 class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
  public:
   explicit SimpleResultStream(std::vector<Result>&& results);
-  Status Next(std::unique_ptr<Result>* result) override;
+  arrow::Result<std::unique_ptr<Result>> Next() override;
 
  private:
   std::vector<Result> results_;

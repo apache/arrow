@@ -67,7 +67,7 @@ export class Vector<T extends DataType = any> {
         const data: Data<T>[] = input[0] instanceof Vector
             ? (input as Vector<T>[]).flatMap(x => x.data)
             : input as Data<T>[];
-        if (data.some((x) => !(x instanceof Data))) {
+        if (data.length === 0 || data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
         const type = data[0]?.type;

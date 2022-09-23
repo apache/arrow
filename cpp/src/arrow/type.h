@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/result.h"
@@ -32,7 +33,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
@@ -126,7 +126,9 @@ struct ARROW_EXPORT DataTypeLayout {
 ///
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
-class ARROW_EXPORT DataType : public detail::Fingerprintable {
+class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
+                              public detail::Fingerprintable,
+                              public util::EqualityComparable<DataType> {
  public:
   explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
   ~DataType() override;
@@ -149,6 +151,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
+  /// \brief Apply the TypeVisitor::Visit() method specialized to the data type
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
@@ -173,6 +176,25 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
 
+  /// \brief Returns the type's fixed byte width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int32_t byte_width() const {
+    int32_t num_bits = this->bit_width();
+    return num_bits > 0 ? num_bits / 8 : -1;
+  }
+
+  /// \brief Returns the type's fixed bit width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int bit_width() const { return -1; }
+
+  // \brief EXPERIMENTAL: Enable retrieving shared_ptr<DataType> from a const
+  // context.
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return const_cast<DataType*>(this)->shared_from_this();
+  }
+
  protected:
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.
@@ -188,15 +210,67 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+/// \brief EXPERIMENTAL: Container for a type pointer which can hold a
+/// dynamically created shared_ptr<DataType> if it needs to.
+struct ARROW_EXPORT TypeHolder {
+  const DataType* type = NULLPTR;
+  std::shared_ptr<DataType> owned_type;
+
+  TypeHolder() = default;
+  TypeHolder(const TypeHolder& other) = default;
+  TypeHolder& operator=(const TypeHolder& other) = default;
+  TypeHolder(TypeHolder&& other) = default;
+  TypeHolder& operator=(TypeHolder&& other) = default;
+
+  TypeHolder(std::shared_ptr<DataType> owned_type)  // NOLINT implicit construction
+      : type(owned_type.get()), owned_type(std::move(owned_type)) {}
+
+  TypeHolder(const DataType* type)  // NOLINT implicit construction
+      : type(type) {}
+
+  Type::type id() const { return this->type->id(); }
+
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return this->type != NULLPTR ? this->type->GetSharedPtr() : NULLPTR;
+  }
+
+  const DataType& operator*() const { return *this->type; }
+
+  operator bool() { return this->type != NULLPTR; }
+
+  bool operator==(const TypeHolder& other) const {
+    if (type == other.type) return true;
+    if (type == NULLPTR || other.type == NULLPTR) return false;
+    return type->Equals(*other.type);
+  }
+
+  bool operator==(decltype(NULLPTR)) const { return this->type == NULLPTR; }
+
+  bool operator==(const DataType& other) const {
+    if (this->type == NULLPTR) return false;
+    return other.Equals(*this->type);
+  }
+
+  bool operator!=(const DataType& other) const { return !(*this == other); }
+
+  bool operator==(const std::shared_ptr<DataType>& other) const {
+    return *this == *other;
+  }
+
+  bool operator!=(const TypeHolder& other) const { return !(*this == other); }
+
+  std::string ToString() const {
+    return this->type ? this->type->ToString() : "<NULLPTR>";
+  }
+
+  static std::string ToString(const std::vector<TypeHolder>&);
+};
+
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
-inline bool operator==(const DataType& lhs, const DataType& rhs) {
-  return lhs.Equals(rhs);
-}
-inline bool operator!=(const DataType& lhs, const DataType& rhs) {
-  return !lhs.Equals(rhs);
-}
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 
 /// \brief Return the compatible physical data type
 ///
@@ -214,8 +288,6 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type)
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
-
-  virtual int bit_width() const = 0;
 };
 
 /// \brief Base class for all data types representing primitive values
@@ -260,7 +332,8 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
 ///
 /// A field's metadata is represented by a KeyValueMetadata instance,
 /// which holds arbitrary key-value pairs.
-class ARROW_EXPORT Field : public detail::Fingerprintable {
+class ARROW_EXPORT Field : public detail::Fingerprintable,
+                           public util::EqualityComparable<Field> {
  public:
   Field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
@@ -365,8 +438,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
 
-  ARROW_EXPORT friend void PrintTo(const Field& field, std::ostream* os);
-
   // Field name
   std::string name_;
 
@@ -381,6 +452,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(Field);
 };
+
+ARROW_EXPORT void PrintTo(const Field& field, std::ostream* os);
 
 namespace detail {
 
@@ -698,7 +771,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
   }
 
-  int32_t byte_width() const { return byte_width_; }
+  int byte_width() const override { return byte_width_; }
+
   int bit_width() const override;
 
   // Validating constructor
@@ -1596,7 +1670,7 @@ class ARROW_EXPORT FieldPath {
 /// matching children:
 ///     auto maybe_match = FieldRef("struct", "field_i32").FindOneOrNone(schema);
 ///     auto maybe_column = FieldRef("struct", "field_i32").GetOne(some_table);
-class ARROW_EXPORT FieldRef {
+class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
  public:
   FieldRef() = default;
 
@@ -1613,6 +1687,11 @@ class ARROW_EXPORT FieldRef {
 
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
+
+  /// Construct a nested FieldRef.
+  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
+    Flatten(std::move(refs));
+  }
 
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef
@@ -1645,8 +1724,6 @@ class ARROW_EXPORT FieldRef {
   std::string ToDotPath() const;
 
   bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
-  bool operator==(const FieldRef& other) const { return Equals(other); }
-  bool operator!=(const FieldRef& other) const { return !(*this == other); }
 
   std::string ToString() const;
 
@@ -1658,23 +1735,23 @@ class ARROW_EXPORT FieldRef {
   explicit operator bool() const { return Equals(FieldPath{}); }
   bool operator!() const { return !Equals(FieldPath{}); }
 
-  bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
-  bool IsName() const { return util::holds_alternative<std::string>(impl_); }
+  bool IsFieldPath() const { return std::holds_alternative<FieldPath>(impl_); }
+  bool IsName() const { return std::holds_alternative<std::string>(impl_); }
   bool IsNested() const {
     if (IsName()) return false;
-    if (IsFieldPath()) return util::get<FieldPath>(impl_).indices().size() > 1;
+    if (IsFieldPath()) return std::get<FieldPath>(impl_).indices().size() > 1;
     return true;
   }
 
   const FieldPath* field_path() const {
-    return IsFieldPath() ? &util::get<FieldPath>(impl_) : NULLPTR;
+    return IsFieldPath() ? &std::get<FieldPath>(impl_) : NULLPTR;
   }
   const std::string* name() const {
-    return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+    return IsName() ? &std::get<std::string>(impl_) : NULLPTR;
   }
   const std::vector<FieldRef>* nested_refs() const {
-    return util::holds_alternative<std::vector<FieldRef>>(impl_)
-               ? &util::get<std::vector<FieldRef>>(impl_)
+    return std::holds_alternative<std::vector<FieldRef>>(impl_)
+               ? &std::get<std::vector<FieldRef>>(impl_)
                : NULLPTR;
   }
 
@@ -1766,10 +1843,10 @@ class ARROW_EXPORT FieldRef {
  private:
   void Flatten(std::vector<FieldRef> children);
 
-  util::Variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
-
-  ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
+  std::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 };
+
+ARROW_EXPORT void PrintTo(const FieldRef& ref, std::ostream* os);
 
 // ----------------------------------------------------------------------
 // Schema
@@ -1878,11 +1955,11 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::string ComputeMetadataFingerprint() const override;
 
  private:
-  ARROW_EXPORT friend void PrintTo(const Schema& s, std::ostream* os);
-
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT void PrintTo(const Schema& s, std::ostream* os);
 
 ARROW_EXPORT
 std::string EndiannessToString(Endianness endianness);
@@ -2035,38 +2112,41 @@ std::string ToTypeName(Type::type id);
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
 
-ARROW_EXPORT
-int GetByteWidth(const DataType& type);
-
 }  // namespace internal
 
 // Helpers to get instances of data types based on general categories
 
+/// \brief Signed integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+/// \brief Unsigned integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+/// \brief Signed and unsigned integer types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
+/// \brief Floating point types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
-// Number types without boolean
+/// \brief Number types without boolean - integer and floating point types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-// Binary and string-like types (except fixed-size binary)
+/// \brief Binary and string-like types (except fixed-size binary)
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+/// \brief Binary and large-binary types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
+/// \brief String and large-string types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
-// Temporal types including time and timestamps for each unit
+/// \brief Temporal types including date, time and timestamps for each unit
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
-// Interval types
+/// \brief Interval types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
-// Integer, floating point, base binary, and temporal
+/// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 

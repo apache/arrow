@@ -19,16 +19,17 @@ package metadata
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/compress"
+	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -174,7 +175,7 @@ func NewKeyValueMetadata() KeyValueMetadata {
 // any invalid utf8 runes, then it is not added and an error is returned.
 func (k *KeyValueMetadata) Append(key, value string) error {
 	if !utf8.ValidString(key) || !utf8.ValidString(value) {
-		return xerrors.Errorf("metadata must be valid utf8 strings, got key = '%s' and value = '%s'", key, value)
+		return fmt.Errorf("metadata must be valid utf8 strings, got key = '%s' and value = '%s'", key, value)
 	}
 	*k = append(*k, &format.KeyValue{Key: key, Value: &value})
 	return nil
@@ -353,7 +354,7 @@ func (f *FileMetaData) Subset(rowGroups []int) (*FileMetaData, error) {
 		if i < len(f.RowGroups) {
 			continue
 		}
-		return nil, xerrors.Errorf("parquet: this file only has %d row groups, but requested a subset including row group: %d", len(f.RowGroups), i)
+		return nil, fmt.Errorf("parquet: this file only has %d row groups, but requested a subset including row group: %d", len(f.RowGroups), i)
 	}
 
 	out := &FileMetaData{

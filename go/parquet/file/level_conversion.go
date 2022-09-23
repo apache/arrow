@@ -17,14 +17,16 @@
 package file
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v10/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -68,10 +70,6 @@ type LevelInfo struct {
 	// struct array is only of length 3: [not-set, set, set] and
 	// the int array is also of length 3: [N/A, null, 1].
 	RepeatedAncestorDefLevel int16
-}
-
-func newDefaultLevelInfo() *LevelInfo {
-	return &LevelInfo{NullSlotUsage: 1}
 }
 
 func (l *LevelInfo) Equal(rhs *LevelInfo) bool {
@@ -146,7 +144,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 	var batch []int16
 	for len(defLevels) > 0 {
-		batchSize := utils.MinInt(maxbatch, len(defLevels))
+		batchSize := shared_utils.MinInt(maxbatch, len(defLevels))
 		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
 		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
 
@@ -214,7 +212,7 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 			}
 		} else {
 			if (wr != nil && int64(wr.Pos()) >= out.ReadUpperBound) || (offsetPos >= int(out.ReadUpperBound)) {
-				return xerrors.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
+				return fmt.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
 			}
 
 			// current_rep < list rep_level i.e. start of a list (ancestor empty lists

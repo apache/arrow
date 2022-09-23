@@ -21,11 +21,14 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.IntStream.range;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
+import static org.apache.arrow.flight.sql.impl.FlightSql.*;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
@@ -38,26 +41,21 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -69,28 +67,31 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
+import org.apache.arrow.adapter.jdbc.JdbcParameterBinder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
@@ -110,37 +111,18 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.Decimal256Vector;
-import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.LargeVarCharVector;
-import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TimeMicroVector;
-import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.TimeNanoVector;
-import org.apache.arrow.vector.TimeSecVector;
-import org.apache.arrow.vector.TimeStampMicroTZVector;
-import org.apache.arrow.vector.TimeStampMilliTZVector;
-import org.apache.arrow.vector.TimeStampNanoTZVector;
-import org.apache.arrow.vector.TimeStampSecTZVector;
-import org.apache.arrow.vector.TimeStampVector;
-import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt2Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -169,15 +151,8 @@ import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
 
 /**
- * Proof of concept {@link FlightSqlProducer} implementation showing an Apache Derby backed Flight SQL server capable
- * of the following workflows:
- * <!--
- * TODO Revise summary: is it still matching?
- * -->
- * - returning a list of tables from the action `GetTables`.
- * - creation of a prepared statement from the action `CreatePreparedStatement`.
- * - execution of a prepared statement by using a {@link CommandPreparedStatementQuery}
- * with {@link #getFlightInfo} and {@link #getStream}.
+ * Example {@link FlightSqlProducer} implementation showing an Apache Derby backed Flight SQL server that generally
+ * supports all current features of Flight SQL.
  */
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
@@ -191,6 +166,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
   private final SqlInfoBuilder sqlInfoBuilder;
+
+  public static void main(String[] args) throws Exception {
+    Location location = Location.forGrpcInsecure("localhost", 55555);
+    final FlightSqlExample example = new FlightSqlExample(location);
+    Location listenLocation = Location.forGrpcInsecure("0.0.0.0", 55555);
+    try (final BufferAllocator allocator = new RootAllocator();
+         final FlightServer server = FlightServer.builder(allocator, listenLocation, example).build()) {
+      server.start();
+      server.awaitTermination();
+    }
+  }
 
   public FlightSqlExample(final Location location) {
     // TODO Constructor should not be doing work.
@@ -231,6 +217,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           .withFlightSqlServerVersion(metaData.getDatabaseProductVersion())
           .withFlightSqlServerArrowVersion(metaData.getDriverVersion())
           .withFlightSqlServerReadOnly(metaData.isReadOnly())
+          .withFlightSqlServerSql(true)
+          .withFlightSqlServerSubstrait(false)
+          .withFlightSqlServerTransaction(SqlSupportedTransaction.SQL_SUPPORTED_TRANSACTION_NONE)
           .withSqlIdentifierQuoteChar(metaData.getIdentifierQuoteString())
           .withSqlDdlCatalog(metaData.supportsCatalogsInDataManipulation())
           .withSqlDdlSchema( metaData.supportsSchemasInDataManipulation())
@@ -323,6 +312,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
+  private static void saveToVector(final Byte data, final BitVector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
   private static void saveToVector(final String data, final VarCharVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
@@ -375,29 +372,68 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull)
       throws SQLException {
+    Predicate<ResultSet> alwaysTrue = (resultSet) -> true;
+    return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
+  }
+
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data, boolean emptyToNull,
+                                                           Predicate<ResultSet> resultSetPredicate)
+      throws SQLException {
     Objects.requireNonNull(vectorToColumnName, "vectorToColumnName cannot be null.");
     Objects.requireNonNull(data, "data cannot be null.");
     final Set<Entry<T, String>> entrySet = vectorToColumnName.entrySet();
     int rows = 0;
-    for (; data.next(); rows++) {
+
+    while (data.next()) {
+      if (!resultSetPredicate.test(data)) {
+        continue;
+      }
       for (final Entry<T, String> vectorToColumn : entrySet) {
         final T vector = vectorToColumn.getKey();
         final String columnName = vectorToColumn.getValue();
         if (vector instanceof VarCharVector) {
           String thisData = data.getString(columnName);
           saveToVector(emptyToNull ? emptyToNull(thisData) : thisData, (VarCharVector) vector, rows);
-          continue;
         } else if (vector instanceof IntVector) {
           final int intValue = data.getInt(columnName);
           saveToVector(data.wasNull() ? null : intValue, (IntVector) vector, rows);
-          continue;
         } else if (vector instanceof UInt1Vector) {
           final byte byteValue = data.getByte(columnName);
           saveToVector(data.wasNull() ? null : byteValue, (UInt1Vector) vector, rows);
-          continue;
+        } else if (vector instanceof BitVector) {
+          final byte byteValue = data.getByte(columnName);
+          saveToVector(data.wasNull() ? null : byteValue, (BitVector) vector, rows);
+        } else if (vector instanceof ListVector) {
+          String createParamsValues = data.getString(columnName);
+
+          UnionListWriter writer = ((ListVector) vector).getWriter();
+
+          BufferAllocator allocator = vector.getAllocator();
+          final ArrowBuf buf = allocator.buffer(1024);
+
+          writer.setPosition(rows);
+          writer.startList();
+
+          if (createParamsValues != null) {
+            String[] split = createParamsValues.split(",");
+
+            range(0, split.length)
+                .forEach(i -> {
+                  byte[] bytes = split[i].getBytes(UTF_8);
+                  Preconditions.checkState(bytes.length < 1024,
+                      "The amount of bytes is greater than what the ArrowBuf supports");
+                  buf.setBytes(0, bytes);
+                  writer.varChar().writeVarChar(0, bytes.length, buf);
+                });
+          }
+          buf.close();
+          writer.endList();
+        } else {
+          throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
         }
-        throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
       }
+      rows ++;
     }
     for (final Entry<T, String> vectorToColumn : entrySet) {
       vectorToColumn.getKey().setValueCount(rows);
@@ -431,6 +467,52 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final int rows = dataVector.getValueCount();
     dataVector.setValueCount(rows);
     return new VectorSchemaRoot(singletonList(dataVector));
+  }
+
+  private static VectorSchemaRoot getTypeInfoRoot(CommandGetXdbcTypeInfo request, ResultSet typeInfo,
+                                                  final BufferAllocator allocator)
+      throws SQLException {
+    Preconditions.checkNotNull(allocator, "BufferAllocator cannot be null.");
+
+    VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
+
+    Map<FieldVector, String> mapper = new HashMap<>();
+    mapper.put(root.getVector("type_name"), "TYPE_NAME");
+    mapper.put(root.getVector("data_type"), "DATA_TYPE");
+    mapper.put(root.getVector("column_size"), "PRECISION");
+    mapper.put(root.getVector("literal_prefix"), "LITERAL_PREFIX");
+    mapper.put(root.getVector("literal_suffix"), "LITERAL_SUFFIX");
+    mapper.put(root.getVector("create_params"), "CREATE_PARAMS");
+    mapper.put(root.getVector("nullable"), "NULLABLE");
+    mapper.put(root.getVector("case_sensitive"), "CASE_SENSITIVE");
+    mapper.put(root.getVector("searchable"), "SEARCHABLE");
+    mapper.put(root.getVector("unsigned_attribute"), "UNSIGNED_ATTRIBUTE");
+    mapper.put(root.getVector("fixed_prec_scale"), "FIXED_PREC_SCALE");
+    mapper.put(root.getVector("auto_increment"), "AUTO_INCREMENT");
+    mapper.put(root.getVector("local_type_name"), "LOCAL_TYPE_NAME");
+    mapper.put(root.getVector("minimum_scale"), "MINIMUM_SCALE");
+    mapper.put(root.getVector("maximum_scale"), "MAXIMUM_SCALE");
+    mapper.put(root.getVector("sql_data_type"), "SQL_DATA_TYPE");
+    mapper.put(root.getVector("datetime_subcode"), "SQL_DATETIME_SUB");
+    mapper.put(root.getVector("num_prec_radix"), "NUM_PREC_RADIX");
+
+    Predicate<ResultSet> predicate;
+    if (request.hasDataType()) {
+      predicate = (resultSet) -> {
+        try {
+          return resultSet.getInt("DATA_TYPE") == request.getDataType();
+        } catch (SQLException e) {
+          throw new RuntimeException(e);
+        }
+      };
+    } else {
+      predicate = (resultSet -> true);
+    }
+
+    int rows = saveToVectors(mapper, typeInfo, true, predicate);
+
+    root.setRowCount(rows);
+    return root;
   }
 
   private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
@@ -494,20 +576,38 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           final Map<String, List<Field>> tableToFields = new HashMap<>();
 
           while (columnsData.next()) {
+            final String catalogName = columnsData.getString("TABLE_CAT");
+            final String schemaName = columnsData.getString("TABLE_SCHEM");
             final String tableName = columnsData.getString("TABLE_NAME");
+            final String typeName = columnsData.getString("TYPE_NAME");
             final String fieldName = columnsData.getString("COLUMN_NAME");
             final int dataType = columnsData.getInt("DATA_TYPE");
             final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
-            final int precision = columnsData.getInt("NUM_PREC_RADIX");
+            final int precision = columnsData.getInt("COLUMN_SIZE");
             final int scale = columnsData.getInt("DECIMAL_DIGITS");
+            boolean isAutoIncrement =
+                Objects.equals(columnsData.getString("IS_AUTOINCREMENT"), "YES");
+
             final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+
+            final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata.Builder()
+                .catalogName(catalogName)
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .typeName(typeName)
+                .precision(precision)
+                .scale(scale)
+                .isAutoIncrement(isAutoIncrement)
+                .build();
+
             final Field field =
                 new Field(
                     fieldName,
                     new FieldType(
                         isNullable,
                         getArrowTypeFromJdbcType(dataType, precision, scale),
-                        null),
+                        null,
+                        columnMetadata.getMetadataMap()),
                     null);
             fields.add(field);
           }
@@ -569,7 +669,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       }
     } catch (final SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
-      listener.error(e);
+      listener.error(CallStatus.INTERNAL.withDescription("Failed to prepare statement: " + e).toRuntimeException());
     } finally {
       listener.completed();
     }
@@ -593,7 +693,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
 
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
@@ -670,7 +770,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
@@ -694,11 +794,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .setPreparedStatementHandle(preparedStatementHandle)
             .build();
         listener.onNext(new Result(pack(result).toByteArray()));
+      } catch (final SQLException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Failed to create prepared statement: " + e)
+            .toRuntimeException());
+        return;
       } catch (final Throwable t) {
-        listener.onError(t);
-      } finally {
-        listener.onCompleted();
+        listener.onError(CallStatus.INTERNAL.withDescription("Unknown error: " + t).toRuntimeException());
+        return;
       }
+      listener.onCompleted();
     });
   }
 
@@ -727,8 +832,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           ackStream.onNext(PutResult.metadata(buffer));
           ackStream.onCompleted();
         }
+      } catch (SQLSyntaxErrorException e) {
+        ackStream.onError(CallStatus.INVALID_ARGUMENT
+            .withDescription("Failed to execute statement (invalid syntax): " + e)
+            .toRuntimeException());
       } catch (SQLException e) {
-        ackStream.onError(e);
+        ackStream.onError(CallStatus.INTERNAL
+            .withDescription("Failed to execute statement: " + e)
+            .toRuntimeException());
       }
     };
   }
@@ -740,7 +851,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
     return () -> {
-      assert statement != null;
+      if (statement == null) {
+        ackStream.onError(CallStatus.NOT_FOUND
+            .withDescription("Prepared statement does not exist")
+            .toRuntimeException());
+        return;
+      }
       try {
         final PreparedStatement preparedStatement = statement.getStatement();
 
@@ -754,9 +870,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             preparedStatement.execute();
             recordCount = preparedStatement.getUpdateCount();
           } else {
-            setDataPreparedStatement(preparedStatement, root, true);
-            int[] recordCount1 = preparedStatement.executeBatch();
-            recordCount = Arrays.stream(recordCount1).sum();
+            final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
+            while (binder.next()) {
+              preparedStatement.addBatch();
+            }
+            int[] recordCounts = preparedStatement.executeBatch();
+            recordCount = Arrays.stream(recordCounts).sum();
           }
 
           final DoPutUpdateResult build =
@@ -768,499 +887,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           }
         }
       } catch (SQLException e) {
-        ackStream.onError(e);
+        ackStream.onError(CallStatus.INTERNAL.withDescription("Failed to execute update: " + e).toRuntimeException());
         return;
       }
       ackStream.onCompleted();
     };
-  }
-
-  /**
-   * Method responsible to set the parameters, to the preparedStatement object, sent via doPut request.
-   *
-   * @param preparedStatement the preparedStatement object for the operation.
-   * @param root              a {@link VectorSchemaRoot} object contain the values to be used in the
-   *                          PreparedStatement setters.
-   * @param isUpdate          a flag to indicate if is an update or query operation.
-   * @throws SQLException in case of error.
-   */
-  private void setDataPreparedStatement(PreparedStatement preparedStatement, VectorSchemaRoot root,
-                                        boolean isUpdate)
-      throws SQLException {
-    for (int i = 0; i < root.getRowCount(); i++) {
-      for (FieldVector vector : root.getFieldVectors()) {
-        final int vectorPosition = root.getFieldVectors().indexOf(vector);
-        final int position = vectorPosition + 1;
-
-        if (vector instanceof UInt1Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (UInt1Vector) vector);
-        } else if (vector instanceof TimeStampNanoTZVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeStampNanoTZVector) vector);
-        } else if (vector instanceof TimeStampMicroTZVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeStampMicroTZVector) vector);
-        } else if (vector instanceof TimeStampMilliTZVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeStampMilliTZVector) vector);
-        } else if (vector instanceof TimeStampSecTZVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeStampSecTZVector) vector);
-        } else if (vector instanceof UInt2Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (UInt2Vector) vector);
-        } else if (vector instanceof UInt4Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (UInt4Vector) vector);
-        } else if (vector instanceof UInt8Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (UInt8Vector) vector);
-        } else if (vector instanceof TinyIntVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TinyIntVector) vector);
-        } else if (vector instanceof SmallIntVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (SmallIntVector) vector);
-        } else if (vector instanceof IntVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (IntVector) vector);
-        } else if (vector instanceof BigIntVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (BigIntVector) vector);
-        } else if (vector instanceof Float4Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (Float4Vector) vector);
-        } else if (vector instanceof Float8Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (Float8Vector) vector);
-        } else if (vector instanceof BitVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (BitVector) vector);
-        } else if (vector instanceof DecimalVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (DecimalVector) vector);
-        } else if (vector instanceof Decimal256Vector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (Decimal256Vector) vector);
-        } else if (vector instanceof TimeStampVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeStampVector) vector);
-        } else if (vector instanceof TimeNanoVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeNanoVector) vector);
-        } else if (vector instanceof TimeMicroVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeMicroVector) vector);
-        } else if (vector instanceof TimeMilliVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeMilliVector) vector);
-        } else if (vector instanceof TimeSecVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (TimeSecVector) vector);
-        } else if (vector instanceof DateDayVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (DateDayVector) vector);
-        } else if (vector instanceof DateMilliVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (DateMilliVector) vector);
-        } else if (vector instanceof VarCharVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (VarCharVector) vector);
-        } else if (vector instanceof LargeVarCharVector) {
-          setOnPreparedStatement(preparedStatement, position, vectorPosition, (LargeVarCharVector) vector);
-        }
-      }
-      if (isUpdate) {
-        preparedStatement.addBatch();
-      }
-    }
-  }
-
-  protected TimeZone getTimeZoneForVector(TimeStampVector vector) {
-    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) vector.getField().getFieldType().getType();
-
-    String timezoneName = arrowType.getTimezone();
-    if (timezoneName == null) {
-      return TimeZone.getDefault();
-    }
-
-    return TimeZone.getTimeZone(timezoneName);
-  }
-
-  /**
-   * Set a string parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, VarCharVector vector)
-      throws SQLException {
-    final Text object = vector.getObject(vectorIndex);
-    statement.setObject(column, object.toString());
-  }
-
-  /**
-   * Set a string parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex,
-                                     LargeVarCharVector vector)
-      throws SQLException {
-    final Text object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a byte parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TinyIntVector vector)
-      throws SQLException {
-    final Byte object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a short parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, SmallIntVector vector)
-      throws SQLException {
-    final Short object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set an integer parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, IntVector vector)
-      throws SQLException {
-    final Integer object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a long parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, BigIntVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a float parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, Float4Vector vector)
-      throws SQLException {
-    final Float object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a double parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, Float8Vector vector)
-      throws SQLException {
-    final Double object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a BigDecimal parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, DecimalVector vector)
-      throws SQLException {
-    final BigDecimal object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a BigDecimal parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, Decimal256Vector vector)
-      throws SQLException {
-    final BigDecimal object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a timestamp parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TimeStampVector vector)
-      throws SQLException {
-    final Object object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a time parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TimeNanoVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTime(column, new Time(object * 1000L));
-  }
-
-  /**
-   * Set a time parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TimeMicroVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTime(column, new Time(object / 1000L));
-  }
-
-  /**
-   * Set a time parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TimeMilliVector vector)
-      throws SQLException {
-    final LocalDateTime object = vector.getObject(vectorIndex);
-    statement.setTime(column, Time.valueOf(object.toLocalTime()));
-  }
-
-  /**
-   * Set a time parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, TimeSecVector vector)
-      throws SQLException {
-    final Integer object = vector.getObject(vectorIndex);
-    statement.setTime(column, new Time(object));
-  }
-
-  /**
-   * Set a date parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, DateDayVector vector)
-      throws SQLException {
-    final Integer object = vector.getObject(vectorIndex);
-    statement.setDate(column, new Date(TimeUnit.DAYS.toMillis(object)));
-  }
-
-  /**
-   * Set a date parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, DateMilliVector vector)
-      throws SQLException {
-    final LocalDateTime object = vector.getObject(vectorIndex);
-    statement.setDate(column, Date.valueOf(object.toLocalDate()));
-
-  }
-
-  /**
-   * Set an unsigned 1 byte number parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, UInt1Vector vector)
-      throws SQLException {
-    final Byte object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set an unsigned 2 bytes number parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, UInt2Vector vector)
-      throws SQLException {
-    final Character object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set an unsigned 4 bytes number parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, UInt4Vector vector)
-      throws SQLException {
-    final Integer object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set an unsigned 8 bytes number parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, UInt8Vector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a boolean parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex, BitVector vector)
-      throws SQLException {
-    final Boolean object = vector.getObject(vectorIndex);
-    statement.setObject(column, object);
-  }
-
-  /**
-   * Set a timestamp parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex,
-                                     TimeStampNanoTZVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTimestamp(column, new Timestamp(object / 1000000L),
-        Calendar.getInstance(getTimeZoneForVector(vector)));
-  }
-
-  /**
-   * Set a timestamp parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex,
-                                     TimeStampMicroTZVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTimestamp(column, new Timestamp(object / 1000L),
-        Calendar.getInstance(getTimeZoneForVector(vector)));
-  }
-
-  /**
-   * Set a timestamp parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex,
-                                     TimeStampMilliTZVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTimestamp(column, new Timestamp(object),
-        Calendar.getInstance(getTimeZoneForVector(vector)));
-  }
-
-  /**
-   * Set a timestamp parameter to the preparedStatement object.
-   *
-   * @param statement   an instance of the {@link PreparedStatement} class.
-   * @param column      the index of the column in the  {@link PreparedStatement}.
-   * @param vectorIndex the index from the vector which contain the value.
-   * @param vector      an instance of the vector the will be accessed.
-   * @throws SQLException in case of error.
-   */
-  public void setOnPreparedStatement(PreparedStatement statement, int column, int vectorIndex,
-                                     TimeStampSecTZVector vector)
-      throws SQLException {
-    final Long object = vector.getObject(vectorIndex);
-    statement.setTimestamp(column, new Timestamp(object * 1000L),
-        Calendar.getInstance(getTimeZoneForVector(vector)));
   }
 
   @Override
@@ -1276,7 +907,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       try {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
-          setDataPreparedStatement(preparedStatement, root, false);
+          final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
+          while (binder.next()) {
+            // Do not execute() - will be done in a getStream call
+          }
         }
 
       } catch (SQLException e) {
@@ -1300,6 +934,28 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context,
                                final ServerStreamListener listener) {
     this.sqlInfoBuilder.send(command.getInfoList(), listener);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
+  public void getStreamTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
+                                ServerStreamListener listener) {
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet typeInfo = connection.getMetaData().getTypeInfo();
+         final VectorSchemaRoot vectorSchemaRoot = getTypeInfoRoot(request, typeInfo, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
@@ -1350,7 +1006,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TABLES_SCHEMA);
+    Schema schemaToUse = Schemas.GET_TABLES_SCHEMA;
+    if (!request.getIncludeSchema()) {
+      schemaToUse = Schemas.GET_TABLES_SCHEMA_NO_SCHEMA;
+    }
+    return getFlightInfoForSchema(request, descriptor, schemaToUse);
   }
 
   @Override

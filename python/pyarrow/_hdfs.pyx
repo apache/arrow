@@ -53,6 +53,13 @@ cdef class HadoopFileSystem(FileSystem):
     extra_conf : dict, default None
         Extra key/value pairs for configuration; will override any
         hdfs-site.xml properties.
+
+    Examples
+    --------
+    >>> from pyarrow import fs
+    >>> hdfs = fs.HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path) # doctest: +SKIP
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     cdef:

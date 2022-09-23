@@ -17,13 +17,13 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 
 // [[arrow::export]]
-int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return message->body_length();
+r_vec_size ipc___Message__body_length(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  return r_vec_size(message->body_length());
 }
 
 // [[arrow::export]]
@@ -39,8 +39,8 @@ std::shared_ptr<arrow::Buffer> ipc___Message__body(
 }
 
 // [[arrow::export]]
-int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return message->Verify();
+r_vec_size ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
+  return r_vec_size(message->Verify());
 }
 
 // [[arrow::export]]
@@ -101,5 +101,3 @@ std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
 }
-
-#endif

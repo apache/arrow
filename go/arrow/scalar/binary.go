@@ -18,11 +18,11 @@ package scalar
 
 import (
 	"bytes"
+	"fmt"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 type BinaryScalar interface {
@@ -30,6 +30,7 @@ type BinaryScalar interface {
 
 	Retain()
 	Release()
+	Buffer() *memory.Buffer
 	Data() []byte
 }
 
@@ -39,13 +40,24 @@ type Binary struct {
 	Value *memory.Buffer
 }
 
-func (b *Binary) Retain()            { b.Value.Retain() }
-func (b *Binary) Release()           { b.Value.Release() }
+func (b *Binary) Retain() {
+	if b.Value != nil {
+		b.Value.Retain()
+	}
+}
+
+func (b *Binary) Release() {
+	if b.Value != nil {
+		b.Value.Release()
+	}
+}
+
 func (b *Binary) value() interface{} { return b.Value }
 func (b *Binary) Data() []byte       { return b.Value.Bytes() }
 func (b *Binary) equals(rhs Scalar) bool {
 	return bytes.Equal(b.Value.Bytes(), rhs.(BinaryScalar).Data())
 }
+func (b *Binary) Buffer() *memory.Buffer { return b.Value }
 func (b *Binary) String() string {
 	if !b.Valid {
 		return "null"
@@ -61,16 +73,20 @@ func (b *Binary) CastTo(to arrow.DataType) (Scalar, error) {
 
 	switch to.ID() {
 	case arrow.BINARY:
-		return b, nil
+		return NewBinaryScalar(b.Value, b.Type), nil
+	case arrow.LARGE_BINARY:
+		return NewLargeBinaryScalar(b.Value), nil
 	case arrow.STRING:
 		return NewStringScalarFromBuffer(b.Value), nil
+	case arrow.LARGE_STRING:
+		return NewLargeStringScalarFromBuffer(b.Value), nil
 	case arrow.FIXED_SIZE_BINARY:
 		if b.Value.Len() == to.(*arrow.FixedSizeBinaryType).ByteWidth {
 			return NewFixedSizeBinaryScalar(b.Value, to), nil
 		}
 	}
 
-	return nil, xerrors.Errorf("cannot cast non-null binary scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-null binary scalar to type %s", to)
 }
 
 func (b *Binary) Validate() (err error) {
@@ -86,7 +102,16 @@ func (b *Binary) ValidateFull() error {
 }
 
 func NewBinaryScalar(val *memory.Buffer, typ arrow.DataType) *Binary {
+	val.Retain()
 	return &Binary{scalar{typ, true}, val}
+}
+
+type LargeBinary struct {
+	*Binary
+}
+
+func NewLargeBinaryScalar(val *memory.Buffer) *LargeBinary {
+	return &LargeBinary{NewBinaryScalar(val, arrow.BinaryTypes.LargeBinary)}
 }
 
 type String struct {
@@ -102,7 +127,7 @@ func (s *String) ValidateFull() (err error) {
 		return
 	}
 	if s.Valid && !utf8.ValidString(string(s.Value.Bytes())) {
-		err = xerrors.Errorf("%s scalar contains invalid utf8 data", s.Type)
+		err = fmt.Errorf("%s scalar contains invalid utf8 data", s.Type)
 	}
 	return
 }
@@ -116,7 +141,7 @@ func (s *String) CastTo(to arrow.DataType) (Scalar, error) {
 		if s.Value.Len() == to.(*arrow.FixedSizeBinaryType).ByteWidth {
 			return NewFixedSizeBinaryScalar(s.Value, to), nil
 		}
-		return nil, xerrors.Errorf("cannot convert string scalar of %s to type %s", string(s.Value.Bytes()), to)
+		return nil, fmt.Errorf("cannot convert string scalar of %s to type %s", string(s.Value.Bytes()), to)
 	}
 
 	return ParseScalar(to, string(s.Value.Bytes()))
@@ -129,8 +154,27 @@ func NewStringScalar(val string) *String {
 }
 
 func NewStringScalarFromBuffer(val *memory.Buffer) *String {
-	val.Retain()
+	// NewBinaryScalar will call Retain on val, so we don't have to
 	return &String{NewBinaryScalar(val, arrow.BinaryTypes.String)}
+}
+
+// alias the String struct we are embedding so it doesn't hide the
+// String() function that we want to expose
+type stringScalar = String
+
+type LargeString struct {
+	*stringScalar
+}
+
+func NewLargeStringScalar(val string) *LargeString {
+	buf := memory.NewBufferBytes([]byte(val))
+	defer buf.Release()
+	return NewLargeStringScalarFromBuffer(buf)
+}
+
+func NewLargeStringScalarFromBuffer(val *memory.Buffer) *LargeString {
+	// NewBinaryScalar will call retain on val, so we don't have to
+	return &LargeString{stringScalar: &String{NewBinaryScalar(val, arrow.BinaryTypes.LargeString)}}
 }
 
 type FixedSizeBinary struct {
@@ -145,7 +189,7 @@ func (b *FixedSizeBinary) Validate() (err error) {
 	if b.Valid {
 		width := b.Type.(*arrow.FixedSizeBinaryType).ByteWidth
 		if b.Value.Len() != width {
-			err = xerrors.Errorf("%s scalar should have a value of size %d, got %d", b.Type, width, b.Value.Len())
+			err = fmt.Errorf("%s scalar should have a value of size %d, got %d", b.Type, width, b.Value.Len())
 		}
 	}
 	return
@@ -154,6 +198,6 @@ func (b *FixedSizeBinary) Validate() (err error) {
 func (b *FixedSizeBinary) ValidateFull() error { return b.Validate() }
 
 func NewFixedSizeBinaryScalar(val *memory.Buffer, typ arrow.DataType) *FixedSizeBinary {
-	val.Retain()
+	// NewBinaryScalar will call Retain on val, so we don't have to
 	return &FixedSizeBinary{NewBinaryScalar(val, typ)}
 }

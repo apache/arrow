@@ -21,125 +21,235 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/types.h"
-#include "arrow/util/optional.h"
+#include "arrow/flight/sql/visibility.h"
+#include "arrow/flight/types.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
 
-struct StatementQuery {
+/// \defgroup flight-sql-protocol-messages Flight SQL Protocol Messages
+/// Simple struct wrappers for various protocol messages, used to
+/// avoid exposing Protobuf types in the API.
+/// @{
+
+/// \brief A SQL query.
+struct ARROW_FLIGHT_SQL_EXPORT StatementQuery {
+  /// \brief The SQL query.
   std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
-struct StatementUpdate {
-  std::string query;
+/// \brief A Substrait plan to execute.
+struct ARROW_FLIGHT_SQL_EXPORT StatementSubstraitPlan {
+  /// \brief The Substrait plan.
+  SubstraitPlan plan;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
-struct StatementQueryTicket {
+/// \brief A SQL update query.
+struct ARROW_FLIGHT_SQL_EXPORT StatementUpdate {
+  /// \brief The SQL query.
+  std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
+};
+
+/// \brief A request to execute a query.
+struct ARROW_FLIGHT_SQL_EXPORT StatementQueryTicket {
+  /// \brief The server-generated opaque identifier for the query.
   std::string statement_handle;
+
+  static arrow::Result<StatementQueryTicket> Deserialize(std::string_view serialized);
 };
 
-struct PreparedStatementQuery {
+/// \brief A prepared query statement.
+struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementQuery {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
-struct PreparedStatementUpdate {
+/// \brief A prepared update statement.
+struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementUpdate {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
-struct GetSqlInfo {
+/// \brief A request to fetch server metadata.
+struct ARROW_FLIGHT_SQL_EXPORT GetSqlInfo {
+  /// \brief A list of metadata IDs to fetch.
   std::vector<int32_t> info;
 };
 
-struct GetDbSchemas {
-  util::optional<std::string> catalog;
-  util::optional<std::string> db_schema_filter_pattern;
+/// \brief A request to list database schemas.
+struct ARROW_FLIGHT_SQL_EXPORT GetDbSchemas {
+  /// \brief An optional database catalog to filter on.
+  std::optional<std::string> catalog;
+  /// \brief An optional database schema to filter on.
+  std::optional<std::string> db_schema_filter_pattern;
 };
 
-struct GetTables {
-  util::optional<std::string> catalog;
-  util::optional<std::string> db_schema_filter_pattern;
-  util::optional<std::string> table_name_filter_pattern;
+/// \brief A request to list database tables.
+struct ARROW_FLIGHT_SQL_EXPORT GetTables {
+  /// \brief An optional database catalog to filter on.
+  std::optional<std::string> catalog;
+  /// \brief An optional database schema to filter on.
+  std::optional<std::string> db_schema_filter_pattern;
+  /// \brief An optional table name to filter on.
+  std::optional<std::string> table_name_filter_pattern;
+  /// \brief A list of table types to filter on.
   std::vector<std::string> table_types;
+  /// \brief Whether to include the Arrow schema in the response.
   bool include_schema;
 };
 
-struct GetPrimaryKeys {
+/// \brief A request to get SQL data type information.
+struct ARROW_FLIGHT_SQL_EXPORT GetXdbcTypeInfo {
+  /// \brief A specific SQL type ID to fetch information about.
+  std::optional<int> data_type;
+};
+
+/// \brief A request to list primary keys of a table.
+struct ARROW_FLIGHT_SQL_EXPORT GetPrimaryKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
-struct GetExportedKeys {
+/// \brief A request to list foreign key columns referencing primary key
+///   columns of a table.
+struct ARROW_FLIGHT_SQL_EXPORT GetExportedKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
-struct GetImportedKeys {
+/// \brief A request to list foreign keys of a table.
+struct ARROW_FLIGHT_SQL_EXPORT GetImportedKeys {
+  /// \brief The given table.
   TableRef table_ref;
 };
 
-struct GetCrossReference {
+/// \brief A request to list foreign key columns of a table that
+///   reference columns in a given parent table.
+struct ARROW_FLIGHT_SQL_EXPORT GetCrossReference {
+  /// \brief The parent table (the one containing referenced columns).
   TableRef pk_table_ref;
+  /// \brief The foreign table (for which foreign key columns will be listed).
   TableRef fk_table_ref;
 };
 
-struct ActionCreatePreparedStatementRequest {
+/// \brief A request to start a new transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginTransactionRequest {};
+
+/// \brief A request to create a new savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginSavepointRequest {
+  std::string transaction_id;
+  std::string name;
+};
+
+/// \brief The result of starting a new savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginSavepointResult {
+  std::string savepoint_id;
+};
+
+/// \brief The result of starting a new transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionBeginTransactionResult {
+  std::string transaction_id;
+};
+
+/// \brief A request to end a savepoint.
+struct ARROW_FLIGHT_SQL_EXPORT ActionEndSavepointRequest {
+  enum EndSavepoint {
+    kRelease,
+    kRollback,
+  };
+
+  std::string savepoint_id;
+  EndSavepoint action;
+};
+
+/// \brief A request to end a transaction.
+struct ARROW_FLIGHT_SQL_EXPORT ActionEndTransactionRequest {
+  enum EndTransaction {
+    kCommit,
+    kRollback,
+  };
+
+  std::string transaction_id;
+  EndTransaction action;
+};
+
+/// \brief An explicit request to cancel a running query.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCancelQueryRequest {
+  std::unique_ptr<FlightInfo> info;
+};
+
+/// \brief A request to create a new prepared statement.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementRequest {
+  /// \brief The SQL query.
   std::string query;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
 };
 
-struct ActionClosePreparedStatementRequest {
+/// \brief A request to create a new prepared statement with a Substrait plan.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedSubstraitPlanRequest {
+  /// \brief The serialized Substrait plan.
+  SubstraitPlan plan;
+  /// \brief The transaction ID, if specified (else a blank string).
+  std::string transaction_id;
+};
+
+/// \brief A request to close a prepared statement.
+struct ARROW_FLIGHT_SQL_EXPORT ActionClosePreparedStatementRequest {
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
-struct ActionCreatePreparedStatementResult {
+/// \brief The result of creating a new prepared statement.
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
+  /// \brief The schema of the query results, if applicable.
   std::shared_ptr<Schema> dataset_schema;
+  /// \brief The schema of the query parameters, if applicable.
   std::shared_ptr<Schema> parameter_schema;
+  /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
-/// \brief A utility function to create a ticket (a opaque binary token that the server
-///        uses to identify this query) for a statement query.
-///        Intended for Flight SQL server implementations.
+/// @}
+
+/// \brief A utility function to create a ticket (a opaque binary
+/// token that the server uses to identify this query) for a statement
+/// query. Intended for Flight SQL server implementations.
+///
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.
+ARROW_FLIGHT_SQL_EXPORT
 arrow::Result<std::string> CreateStatementQueryTicket(
     const std::string& statement_handle);
 
-class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
+/// \brief The base class for Flight SQL servers.
+///
+/// Applications should subclass this class and override the virtual
+/// methods declared on this class.
+class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
   SqlInfoResultMap sql_info_id_to_result_;
 
  public:
-  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
-                       std::unique_ptr<FlightInfo>* info) override;
-
-  Status DoGet(const ServerCallContext& context, const Ticket& request,
-               std::unique_ptr<FlightDataStream>* stream) override;
-
-  Status DoPut(const ServerCallContext& context,
-               std::unique_ptr<FlightMessageReader> reader,
-               std::unique_ptr<FlightMetadataWriter> writer) override;
-
-  const ActionType kCreatePreparedStatementActionType =
-      ActionType{"CreatePreparedStatement",
-                 "Creates a reusable prepared statement resource on the server.\n"
-                 "Request Message: ActionCreatePreparedStatementRequest\n"
-                 "Response Message: ActionCreatePreparedStatementResult"};
-  const ActionType kClosePreparedStatementActionType =
-      ActionType{"ClosePreparedStatement",
-                 "Closes a reusable prepared statement resource on the server.\n"
-                 "Request Message: ActionClosePreparedStatementRequest\n"
-                 "Response Message: N/A"};
-
-  Status ListActions(const ServerCallContext& context,
-                     std::vector<ActionType>* actions) override;
-
-  Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* result) override;
+  /// \name Flight SQL methods
+  /// Applications should override these methods to implement the
+  /// Flight SQL endpoints.
+  /// @{
 
   /// \brief Get a FlightInfo for executing a SQL query.
   /// \param[in] context      Per-call context.
@@ -148,6 +258,15 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return                 The FlightInfo describing where to access the dataset.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoStatement(
       const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Get a FlightInfo for executing a Substrait plan.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementSubstraitPlan object containing the plan.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The FlightInfo describing where to access the dataset.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command,
       const FlightDescriptor& descriptor);
 
   /// \brief Get a FlightDataStream containing the query results.
@@ -183,11 +302,57 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
       const ServerCallContext& context, const FlightDescriptor& descriptor);
 
+  /// \brief Get the schema of the result set of a query.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementQuery containing the SQL query.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaStatement(
+      const ServerCallContext& context, const StatementQuery& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Get the schema of the result set of a Substrait plan.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The StatementQuery containing the plan.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Get the schema of the result set of a prepared statement.
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      The PreparedStatementQuery containing the
+  ///                         prepared statement handle.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 The schema of the result set.
+  virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaPreparedStatement(
+      const ServerCallContext& context, const PreparedStatementQuery& command,
+      const FlightDescriptor& descriptor);
+
   /// \brief Get a FlightDataStream containing the list of catalogs.
   /// \param[in] context  Per-call context.
   /// \return             An interface for sending data back to the client.
   virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetCatalogs(
       const ServerCallContext& context);
+
+  /// \brief Gets a FlightInfo for retrieving other information (See TypeInfo).
+  /// \param[in] context      Per-call context.
+  /// \param[in] command      An optional filter for on the data type.
+  /// \param[in] descriptor   The descriptor identifying the data stream.
+  /// \return                 Status.
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoXdbcTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor);
+
+  /// \brief Gets a FlightDataStream containing information about the data types
+  ///        supported.
+  /// \param[in] context  Per-call context.
+  /// \param[in] command  The GetXdbcTypeInfo object which may contain filter for
+  ///                     the date type to be search for.
+  /// \return             Status.
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetXdbcTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command);
 
   /// \brief Get a FlightInfo for retrieving other information (See SqlInfo).
   /// \param[in] context      Per-call context.
@@ -347,7 +512,14 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<int64_t> DoPutCommandStatementUpdate(
       const ServerCallContext& context, const StatementUpdate& command);
 
-  /// \brief Create a prepared statement from given SQL statement.
+  /// \brief Execute an update Substrait plan.
+  /// \param[in] context  The call context.
+  /// \param[in] command  The StatementSubstraitPlan object containing the plan.
+  /// \return             The changed record count.
+  virtual arrow::Result<int64_t> DoPutCommandSubstraitPlan(
+      const ServerCallContext& context, const StatementSubstraitPlan& command);
+
+  /// \brief Create a prepared statement from a given SQL statement.
   /// \param[in] context  The call context.
   /// \param[in] request  The ActionCreatePreparedStatementRequest object containing the
   ///                     SQL statement.
@@ -356,6 +528,16 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
       const ServerCallContext& context,
       const ActionCreatePreparedStatementRequest& request);
+
+  /// \brief Create a prepared statement from a Substrait plan.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The ActionCreatePreparedSubstraitPlanRequest object containing
+  ///                     the Substrait plan.
+  /// \return             A ActionCreatePreparedStatementResult containing the dataset
+  ///                     and parameter schemas and a handle for created statement.
+  virtual arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedSubstraitPlan(
+      const ServerCallContext& context,
+      const ActionCreatePreparedSubstraitPlanRequest& request);
 
   /// \brief Close a prepared statement.
   /// \param[in] context  The call context.
@@ -386,14 +568,121 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
       const ServerCallContext& context, const PreparedStatementUpdate& command,
       FlightMessageReader* reader);
 
+  /// \brief Begin a new transaction.
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request parameters.
+  /// \return             The transaction ID.
+  virtual arrow::Result<ActionBeginTransactionResult> BeginTransaction(
+      const ServerCallContext& context, const ActionBeginTransactionRequest& request);
+
+  /// \brief Create a new savepoint.
+  /// \param[in] context  The call context.
+  /// \param[in] request  Request parameters.
+  /// \return             The savepoint ID.
+  virtual arrow::Result<ActionBeginSavepointResult> BeginSavepoint(
+      const ServerCallContext& context, const ActionBeginSavepointRequest& request);
+
+  /// \brief Release/rollback a savepoint.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The savepoint.
+  virtual Status EndSavepoint(const ServerCallContext& context,
+                              const ActionEndSavepointRequest& request);
+
+  /// \brief Commit/rollback a transaction.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The tranaction.
+  virtual Status EndTransaction(const ServerCallContext& context,
+                                const ActionEndTransactionRequest& request);
+
+  /// \brief Attempt to explicitly cancel a query.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The query to cancel.
+  /// \return             The cancellation result.
+  virtual arrow::Result<CancelResult> CancelQuery(
+      const ServerCallContext& context, const ActionCancelQueryRequest& request);
+
+  /// @}
+
+  /// \name Utility methods
+  /// @{
+
   /// \brief Register a new SqlInfo result, making it available when calling GetSqlInfo.
   /// \param[in] id the SqlInfo identifier.
   /// \param[in] result the result.
   void RegisterSqlInfo(int32_t id, const SqlInfoResult& result);
+
+  /// @}
+
+  /// \name Flight RPC handlers
+  /// Applications should not override these methods; they implement
+  /// the Flight SQL protocol.
+  /// @{
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) final;
+
+  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
+                   std::unique_ptr<SchemaResult>* schema) override;
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) final;
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) final;
+
+  const ActionType kBeginSavepointActionType =
+      ActionType{"BeginSavepoint",
+                 "Create a new savepoint.\n"
+                 "Request Message: ActionBeginSavepointRequest\n"
+                 "Response Message: ActionBeginSavepointResult"};
+  const ActionType kBeginTransactionActionType =
+      ActionType{"BeginTransaction",
+                 "Start a new transaction.\n"
+                 "Request Message: ActionBeginTransactionRequest\n"
+                 "Response Message: ActionBeginTransactionResult"};
+  const ActionType kCreatePreparedStatementActionType =
+      ActionType{"CreatePreparedStatement",
+                 "Creates a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionCreatePreparedStatementRequest\n"
+                 "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType kCreatePreparedSubstraitPlanActionType =
+      ActionType{"CreatePreparedSubstraitPlan",
+                 "Creates a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionCreatePreparedSubstraitPlanRequest\n"
+                 "Response Message: ActionCreatePreparedStatementResult"};
+  const ActionType kCancelQueryActionType =
+      ActionType{"CancelQuery",
+                 "Explicitly cancel a running query.\n"
+                 "Request Message: ActionCancelQueryRequest\n"
+                 "Response Message: ActionCancelQueryResult"};
+  const ActionType kClosePreparedStatementActionType =
+      ActionType{"ClosePreparedStatement",
+                 "Closes a reusable prepared statement resource on the server.\n"
+                 "Request Message: ActionClosePreparedStatementRequest\n"
+                 "Response Message: N/A"};
+  const ActionType kEndSavepointActionType =
+      ActionType{"EndSavepoint",
+                 "End a savepoint.\n"
+                 "Request Message: ActionEndSavepointRequest\n"
+                 "Response Message: N/A"};
+  const ActionType kEndTransactionActionType =
+      ActionType{"EndTransaction",
+                 "End a savepoint.\n"
+                 "Request Message: ActionEndTransactionRequest\n"
+                 "Response Message: N/A"};
+
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* actions) final;
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) final;
+
+  /// @}
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
-class ARROW_EXPORT SqlSchema {
+class ARROW_FLIGHT_SQL_EXPORT SqlSchema {
  public:
   /// \brief Get the Schema used on GetCatalogs response.
   /// \return The default schema template.
@@ -433,6 +722,10 @@ class ARROW_EXPORT SqlSchema {
   /// \brief Get the Schema used on GetCrossReference response.
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCrossReferenceSchema();
+
+  /// \brief Get the Schema used on GetXdbcTypeInfo response.
+  /// \return The default schema template.
+  static std::shared_ptr<Schema> GetXdbcTypeInfoSchema();
 
   /// \brief Get the Schema used on GetSqlInfo response.
   /// \return The default schema template.

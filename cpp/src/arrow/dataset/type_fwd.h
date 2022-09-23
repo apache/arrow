@@ -51,6 +51,7 @@ class FileWriteOptions;
 class FileSystemDataset;
 class FileSystemDatasetFactory;
 struct FileSystemDatasetWriteOptions;
+class WriteNodeOptions;
 
 /// \brief Controls what happens if files exist in an output directory during a dataset
 /// write
@@ -89,7 +90,10 @@ struct KeyValuePartitioningOptions;
 class DirectoryPartitioning;
 class HivePartitioning;
 struct HivePartitioningOptions;
+class FilenamePartitioning;
+struct FilenamePartitioningOptions;
 
+class ScanNodeOptions;
 struct ScanOptions;
 
 class Scanner;

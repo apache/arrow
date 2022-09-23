@@ -61,7 +61,6 @@ TEST(Datum, ImplicitConstructors) {
 
 TEST(Datum, Constructors) {
   Datum val(std::make_shared<Int64Scalar>(1));
-  ASSERT_EQ(ValueDescr::SCALAR, val.shape());
   AssertTypeEqual(*int64(), *val.type());
   ASSERT_TRUE(val.is_scalar());
   ASSERT_FALSE(val.is_array());
@@ -77,7 +76,6 @@ TEST(Datum, Constructors) {
 
   Datum val2(arr);
   ASSERT_EQ(Datum::ARRAY, val2.kind());
-  ASSERT_EQ(ValueDescr::ARRAY, val2.shape());
   AssertTypeEqual(*int64(), *val2.type());
   AssertArraysEqual(*arr, *val2.make_array());
   ASSERT_TRUE(val2.is_array());
@@ -149,30 +147,6 @@ TEST(Datum, TotalBufferSize) {
   ASSERT_EQ(4, chunked_datum.TotalBufferSize());
   ASSERT_EQ(4, rb_datum.TotalBufferSize());
   ASSERT_EQ(4, tab_datum.TotalBufferSize());
-}
-
-TEST(ValueDescr, Basics) {
-  ValueDescr d1(utf8(), ValueDescr::SCALAR);
-  ValueDescr d2 = ValueDescr::Any(utf8());
-  ValueDescr d3 = ValueDescr::Scalar(utf8());
-  ValueDescr d4 = ValueDescr::Array(utf8());
-
-  ASSERT_EQ(ValueDescr::SCALAR, d1.shape);
-  AssertTypeEqual(*utf8(), *d1.type);
-  ASSERT_EQ(ValueDescr::Scalar(utf8()), d1);
-
-  ASSERT_EQ(ValueDescr::ANY, d2.shape);
-  AssertTypeEqual(*utf8(), *d2.type);
-  ASSERT_EQ(ValueDescr::Any(utf8()), d2);
-  ASSERT_NE(ValueDescr::Any(int32()), d2);
-
-  ASSERT_EQ(ValueDescr::SCALAR, d3.shape);
-  ASSERT_EQ(ValueDescr::ARRAY, d4.shape);
-
-  ASSERT_EQ("scalar[string]", d1.ToString());
-  ASSERT_EQ("any[string]", d2.ToString());
-  ASSERT_EQ("scalar[string]", d3.ToString());
-  ASSERT_EQ("array[string]", d4.ToString());
 }
 
 }  // namespace arrow

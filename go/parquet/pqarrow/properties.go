@@ -19,9 +19,9 @@ package pqarrow
 import (
 	"context"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
 )
 
 // ArrowWriterProperties are used to determine how to manipulate the arrow data
@@ -166,6 +166,4 @@ type ArrowReadProperties struct {
 	// BatchSize is the size used for calls to NextBatch when reading whole columns
 	BatchSize int64
 
-	readDict  map[int]bool
-	preBuffer bool
 }

@@ -15,30 +15,48 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+=======================
 Installing Java Modules
 =======================
 
 .. contents::
 
 System Compatibility
---------------------
+====================
 
 Java modules are regularly built and tested on macOS and Linux distributions.
 
 Java Compatibility
-------------------
+==================
 
-Java modules are currently compatible with Java 8 / 9 / 10 / 11.
+Java modules are compatible with JDK 8 and above.
+Currently, JDK 8, 11, 17, and 18 are tested in CI.
+
+When using Java 9 or later, some JDK internals must be exposed by
+adding ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the ``java`` command:
+
+.. code-block:: shell
+
+   # Directly on the command line
+   $ java --add-opens=java.base/java.nio=ALL-UNNAMED -jar ...
+   # Indirectly via environment variables
+   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" java -jar ...
+
+Otherwise, you may see errors like ``module java.base does not "opens
+java.nio" to unnamed module``.
+
+If using Maven and Surefire for unit testing, :ref:`this argument must
+be added to Surefire as well <java-install-maven-testing>`.
 
 Installing from Maven
----------------------
+=====================
 
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
 Configure your pom.xml with the Java modules needed, for example:
-``arrow-memory-netty``, ``arrow-format``, and ``arrow-vector``.
+arrow-vector, and arrow-memory-netty.
 
-.. code-block::
+.. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8"?>
     <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -49,7 +67,7 @@ Configure your pom.xml with the Java modules needed, for example:
         <artifactId>demo</artifactId>
         <version>1.0-SNAPSHOT</version>
         <properties>
-            <arrow.version>7.0.0</arrow.version>
+            <arrow.version>9.0.0</arrow.version>
         </properties>
         <dependencies>
             <dependency>
@@ -62,105 +80,79 @@ Configure your pom.xml with the Java modules needed, for example:
                 <artifactId>arrow-memory-netty</artifactId>
                 <version>${arrow.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-format</artifactId>
-                <version>${arrow.version}</version>
-            </dependency>
         </dependencies>
     </project>
 
-Installing from Source
-----------------------
-
-See :ref:`java-development`.
-
-Installing Nightly Packages
----------------------------
-
-.. warning::
-    These packages are not official releases. Use them at your own risk.
-
-Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
-The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
-
-Maven cannot directly use the artifacts from GitHub.
-Instead, install them to the local Maven repository:
-
-1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-03-0-github-java-jars
-2. Add packages to your pom.xml, for example: ``arrow-vector`` and ``arrow-format``:
+To use the Arrow Flight dependencies, also add the ``os-maven-plugin``
+plugin. This plugin generates useful platform-dependent properties
+such as ``os.detected.name`` and ``os.detected.arch`` needed to resolve
+transitive dependencies of Flight.
 
 .. code-block:: xml
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-        <arrow.version>8.0.0.dev165</arrow.version>
-    </properties>
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>org.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <properties>
+            <arrow.version>9.0.0</arrow.version>
+        </properties>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-core</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+        </dependencies>
+        <build>
+            <extensions>
+                <extension>
+                    <groupId>kr.motd.maven</groupId>
+                    <artifactId>os-maven-plugin</artifactId>
+                    <version>1.7.0</version>
+                </extension>
+            </extensions>
+        </build>
+    </project>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-vector</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-format</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
-    </dependencies>
+.. _java-install-maven-testing:
 
-3. Download packages needed to a temporary directory:
+The ``--add-opens`` flag must be added when running unit tests through Maven:
 
-.. code-block:: shell
+.. code-block:: xml
 
-    $ mkdir nightly-2022-03-03-0-github-java-jars
-    $ cd nightly-2022-03-03-0-github-java-jars
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar
-    $ tree
-    |__ arrow-format-8.0.0.dev165.jar
-    |__ arrow-vector-8.0.0.dev165.jar
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M6</version>
+                <configuration>
+                        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
-4. Install the artifacts to the local Maven repository with ``mvn install:install-file``:
+Or they can be added via environment variable, for example when executing your code:
 
-.. code-block:: shell
+.. code-block::
 
-    $ mvn install:install-file \
-        -Dfile="$(pwd)/arrow-format-8.0.0.dev165.jar" \
-        -DgroupId=org.apache.arrow \
-        -DartifactId=arrow-format \
-        -Dversion=8.0.0.dev165 \
-        -Dpackaging=jar \
-        -DcreateChecksum=true \
-        -Dgenerate.pom=true
-    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-format/8.0.0.dev165/arrow-format-8.0.0.dev165.jar
-    $ mvn install:install-file \
-        -Dfile="$(pwd)/arrow-vector-8.0.0.dev165.jar" \
-        -DgroupId=org.apache.arrow \
-        -DartifactId=arrow-vector \
-        -Dversion=8.0.0.dev165 \
-        -Dpackaging=jar \
-        -DcreateChecksum=true \
-        -Dgenerate.pom=true
-    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-vector/8.0.0.dev165/arrow-vector-8.0.0.dev165.jar
+    _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
 
-5. Validate that the packages were installed:
+Installing from Source
+======================
 
-.. code-block:: shell
+See :ref:`java-development`.
 
-    $ tree /Users/arrow/.m2/repository/org/apache/arrow
-    |__ arrow-format
-        |__ 8.0.0.dev165
-            |__ arrow-format-8.0.0.dev165.jar
-            |__ arrow-format-8.0.0.dev165.pom
-    |__ arrow-vector
-        |__ 8.0.0.dev165
-            |__ arrow-vector-8.0.0.dev165.jar
-            |__ arrow-vector-8.0.0.dev165.pom
+IDE Configuration
+=================
 
-6. Compile your project like usual with ``mvn install``.
-
-.. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
-.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars
+Generally, no additional configuration should be needed.  However,
+ensure your Maven or other build configuration has the ``--add-opens``
+flag as described above, so that the IDE picks it up and runs tests
+with that flag as well.

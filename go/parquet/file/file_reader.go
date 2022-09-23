@@ -19,14 +19,16 @@ package file
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
+	"runtime"
+	"sync"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"golang.org/x/exp/mmap"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -47,47 +49,8 @@ type Reader struct {
 	metadata      *metadata.FileMetaData
 	footerOffset  int64
 	fileDecryptor encryption.FileDecryptor
-}
 
-// an adapter for mmap'd files
-type mmapAdapter struct {
-	*mmap.ReaderAt
-
-	pos int64
-}
-
-func (m *mmapAdapter) Close() error {
-	return m.ReaderAt.Close()
-}
-
-func (m *mmapAdapter) ReadAt(p []byte, off int64) (int, error) {
-	return m.ReaderAt.ReadAt(p, off)
-}
-
-func (m *mmapAdapter) Read(p []byte) (n int, err error) {
-	n, err = m.ReaderAt.ReadAt(p, m.pos)
-	m.pos += int64(n)
-	return
-}
-
-func (m *mmapAdapter) Seek(offset int64, whence int) (int64, error) {
-	newPos, offs := int64(0), offset
-	switch whence {
-	case io.SeekStart:
-		newPos = offs
-	case io.SeekCurrent:
-		newPos = m.pos + offs
-	case io.SeekEnd:
-		newPos = int64(m.ReaderAt.Len()) + offs
-	}
-	if newPos < 0 {
-		return 0, xerrors.New("negative result pos")
-	}
-	if newPos > int64(m.ReaderAt.Len()) {
-		return 0, xerrors.New("new position exceeds size of file")
-	}
-	m.pos = newPos
-	return newPos, nil
+	bufferPool sync.Pool
 }
 
 type ReadOption func(*Reader)
@@ -118,11 +81,10 @@ func OpenParquetFile(filename string, memoryMap bool, opts ...ReadOption) (*Read
 
 	var err error
 	if memoryMap {
-		rdr, err := mmap.Open(filename)
+		source, err = mmapOpen(filename)
 		if err != nil {
 			return nil, err
 		}
-		source = &mmapAdapter{rdr, 0}
 	} else {
 		source, err = os.Open(filename)
 		if err != nil {
@@ -147,7 +109,7 @@ func NewParquetReader(r parquet.ReaderAtSeeker, opts ...ReadOption) (*Reader, er
 	if f.footerOffset <= 0 {
 		f.footerOffset, err = r.Seek(0, io.SeekEnd)
 		if err != nil {
-			return nil, xerrors.Errorf("parquet: could not retrieve footer offset: %w", err)
+			return nil, fmt.Errorf("parquet: could not retrieve footer offset: %w", err)
 		}
 	}
 
@@ -155,11 +117,29 @@ func NewParquetReader(r parquet.ReaderAtSeeker, opts ...ReadOption) (*Reader, er
 		f.props = parquet.NewReaderProperties(memory.NewGoAllocator())
 	}
 
+	f.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(f.props.Allocator())
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
+
 	if f.metadata == nil {
 		return f, f.parseMetaData()
 	}
 
 	return f, nil
+}
+
+// BufferPool returns the internal buffer pool being utilized by this reader.
+// This is primarily for use by the pqarrow.FileReader or anything that builds
+// on top of the Reader and constructs their own ColumnReaders (like the
+// RecordReader)
+func (f *Reader) BufferPool() *sync.Pool {
+	return &f.bufferPool
 }
 
 // Close will close the current reader, and if the underlying reader being used
@@ -177,17 +157,17 @@ func (f *Reader) MetaData() *metadata.FileMetaData { return f.metadata }
 // parseMetaData handles parsing the metadata from the opened file.
 func (f *Reader) parseMetaData() error {
 	if f.footerOffset <= int64(footerSize) {
-		return xerrors.Errorf("parquet: file too small (size=%d)", f.footerOffset)
+		return fmt.Errorf("parquet: file too small (size=%d)", f.footerOffset)
 	}
 
 	buf := make([]byte, footerSize)
 	// backup 8 bytes to read the footer size (first four bytes) and the magic bytes (last 4 bytes)
 	n, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize))
 	if err != nil {
-		return xerrors.Errorf("parquet: could not read footer: %w", err)
+		return fmt.Errorf("parquet: could not read footer: %w", err)
 	}
 	if n != len(buf) {
-		return xerrors.Errorf("parquet: could not read %d bytes from end of file", len(buf))
+		return fmt.Errorf("parquet: could not read %d bytes from end of file", len(buf))
 	}
 
 	size := int64(binary.LittleEndian.Uint32(buf[:4]))
@@ -201,17 +181,17 @@ func (f *Reader) parseMetaData() error {
 	case bytes.Equal(buf[4:], magicBytes): // non-encrypted metadata
 		buf = make([]byte, size)
 		if _, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize)-size); err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		f.metadata, err = metadata.NewFileMetaData(buf, nil)
 		if err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		if !f.metadata.IsSetEncryptionAlgorithm() {
 			if fileDecryptProps != nil && !fileDecryptProps.PlaintextFilesAllowed() {
-				return xerrors.Errorf("parquet: applying decryption properties on plaintext file")
+				return fmt.Errorf("parquet: applying decryption properties on plaintext file")
 			}
 		} else {
 			if err := f.parseMetaDataEncryptedFilePlaintextFooter(fileDecryptProps, buf); err != nil {
@@ -221,7 +201,7 @@ func (f *Reader) parseMetaData() error {
 	case bytes.Equal(buf[4:], magicEBytes): // encrypted metadata
 		buf = make([]byte, size)
 		if _, err := f.r.ReadAt(buf, f.footerOffset-int64(footerSize)-size); err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 
 		if fileDecryptProps == nil {
@@ -241,10 +221,10 @@ func (f *Reader) parseMetaData() error {
 
 		f.metadata, err = metadata.NewFileMetaData(buf[fileCryptoMetadata.Len():], f.fileDecryptor)
 		if err != nil {
-			return xerrors.Errorf("parquet: could not read footer: %w", err)
+			return fmt.Errorf("parquet: could not read footer: %w", err)
 		}
 	default:
-		return xerrors.Errorf("parquet: magic bytes not found in footer. Either the file is corrupted or this isn't a parquet file")
+		return fmt.Errorf("parquet: magic bytes not found in footer. Either the file is corrupted or this isn't a parquet file")
 	}
 
 	return nil
@@ -332,5 +312,6 @@ func (f *Reader) RowGroup(i int) *RowGroupReader {
 		r:             f.r,
 		sourceSz:      f.footerOffset,
 		fileDecryptor: f.fileDecryptor,
+		bufferPool:    &f.bufferPool,
 	}
 }

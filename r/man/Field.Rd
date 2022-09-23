@@ -31,7 +31,5 @@ field(name, type, metadata, nullable = TRUE)
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 field("x", int32())
-\dontshow{\}) # examplesIf}
 }

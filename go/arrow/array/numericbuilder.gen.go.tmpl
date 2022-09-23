@@ -17,10 +17,10 @@
 package array
 
 import (
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"	
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"	
 	"github.com/goccy/go-json"
 )
 
@@ -40,10 +40,15 @@ type {{.Name}}Builder struct {
 func New{{.Name}}Builder(mem memory.Allocator, dtype *arrow.{{.Name}}Type) *{{.Name}}Builder {
 	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}, dtype: dtype}
 }
+
+func (b *{{.Name}}Builder) Type() arrow.DataType { return b.dtype }
+
 {{else}}
 func New{{.Name}}Builder(mem memory.Allocator) *{{.Name}}Builder {
 	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}}
 }
+
+func (b *{{.Name}}Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.{{.Name}} }
 {{end}}
 
 // Release decreases the reference count by 1.
@@ -72,6 +77,10 @@ func (b *{{.Name}}Builder) Append(v {{or .QualifiedType .Type}}) {
 func (b *{{.Name}}Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *{{.Name}}Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *{{.Name}}Builder) UnsafeAppend(v {{or .QualifiedType .Type}}) {
@@ -196,9 +205,26 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append({{.QualifiedType}}FromTime(tm))
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 {{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
 	case string:
+{{if (eq .Name "Timestamp") -}}
+		loc, _ := b.dtype.GetZone()
+		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
+{{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
+{{end}}
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value: v,
@@ -208,7 +234,31 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(tm)
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 {{else if eq .Name "Duration" -}}
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 	case string:
 		// be flexible for specifying durations by accepting forms like
 		// 3h2m0.5s regardless of the unit and converting it to the proper

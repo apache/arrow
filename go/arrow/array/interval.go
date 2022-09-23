@@ -22,15 +22,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
-	"golang.org/x/xerrors"
 )
 
-func NewIntervalData(data arrow.ArrayData) Interface {
+func NewIntervalData(data arrow.ArrayData) arrow.Array {
 	switch data.DataType().(type) {
 	case *arrow.MonthIntervalType:
 		return NewMonthIntervalData(data.(*Data))
@@ -39,7 +38,7 @@ func NewIntervalData(data arrow.ArrayData) Interface {
 	case *arrow.MonthDayNanoIntervalType:
 		return NewMonthDayNanoIntervalData(data.(*Data))
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
+		panic(fmt.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
 	}
 }
 
@@ -137,6 +136,8 @@ func NewMonthIntervalBuilder(mem memory.Allocator) *MonthIntervalBuilder {
 	return &MonthIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.MonthInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthIntervalBuilder) Release() {
@@ -163,6 +164,10 @@ func (b *MonthIntervalBuilder) Append(v arrow.MonthInterval) {
 func (b *MonthIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthInterval(0))
 }
 
 func (b *MonthIntervalBuilder) UnsafeAppend(v arrow.MonthInterval) {
@@ -394,6 +399,8 @@ func NewDayTimeIntervalBuilder(mem memory.Allocator) *DayTimeIntervalBuilder {
 	return &DayTimeIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *DayTimeIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.DayTimeInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *DayTimeIntervalBuilder) Release() {
@@ -420,6 +427,10 @@ func (b *DayTimeIntervalBuilder) Append(v arrow.DayTimeInterval) {
 func (b *DayTimeIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DayTimeIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.DayTimeInterval{})
 }
 
 func (b *DayTimeIntervalBuilder) UnsafeAppend(v arrow.DayTimeInterval) {
@@ -652,6 +663,10 @@ func NewMonthDayNanoIntervalBuilder(mem memory.Allocator) *MonthDayNanoIntervalB
 	return &MonthDayNanoIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthDayNanoIntervalBuilder) Type() arrow.DataType {
+	return arrow.FixedWidthTypes.MonthDayNanoInterval
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthDayNanoIntervalBuilder) Release() {
@@ -678,6 +693,10 @@ func (b *MonthDayNanoIntervalBuilder) Append(v arrow.MonthDayNanoInterval) {
 func (b *MonthDayNanoIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthDayNanoInterval{})
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnsafeAppend(v arrow.MonthDayNanoInterval) {
@@ -818,9 +837,9 @@ func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*MonthInterval)(nil)
-	_ Interface = (*DayTimeInterval)(nil)
-	_ Interface = (*MonthDayNanoInterval)(nil)
+	_ arrow.Array = (*MonthInterval)(nil)
+	_ arrow.Array = (*DayTimeInterval)(nil)
+	_ arrow.Array = (*MonthDayNanoInterval)(nil)
 
 	_ Builder = (*MonthIntervalBuilder)(nil)
 	_ Builder = (*DayTimeIntervalBuilder)(nil)

@@ -26,6 +26,7 @@
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
@@ -263,6 +264,70 @@ TEST(PathUtil, ToSlashes) {
   ASSERT_EQ(ToSlashes("foo\\bar"), "foo\\bar");
   ASSERT_EQ(ToSlashes("\\\\foo\\bar\\"), "\\\\foo\\bar\\");
 #endif
+}
+
+TEST(PathUtil, Globber) {
+  Globber empty("");
+  ASSERT_FALSE(empty.Matches("/1.txt"));
+
+  Globber star("/*");
+  ASSERT_TRUE(star.Matches("/a.txt"));
+  ASSERT_TRUE(star.Matches("/b.csv"));
+  ASSERT_FALSE(star.Matches("/foo/c.parquet"));
+
+  Globber question("/a?b");
+  ASSERT_TRUE(question.Matches("/acb"));
+  ASSERT_FALSE(question.Matches("/a/b"));
+
+  Globber localfs_linux("/f?o/bar/a?/1*.txt");
+  ASSERT_TRUE(localfs_linux.Matches("/foo/bar/a1/1.txt"));
+  ASSERT_TRUE(localfs_linux.Matches("/f#o/bar/ab/1000.txt"));
+  ASSERT_FALSE(localfs_linux.Matches("/f#o/bar/ab/1/23.txt"));
+
+  Globber localfs_windows("C:/f?o/bar/a?/1*.txt");
+  ASSERT_TRUE(localfs_windows.Matches("C:/f_o/bar/ac/1000.txt"));
+
+  Globber remotefs("/my|bucket(#?)/foo{*}/[?]bar~/b&z/a: *-c.txt");
+  ASSERT_TRUE(remotefs.Matches("/my|bucket(#0)/foo{}/[?]bar~/b&z/a: -c.txt"));
+  ASSERT_TRUE(remotefs.Matches("/my|bucket(#%)/foo{abc}/[_]bar~/b&z/a: ab-c.txt"));
+
+  Globber wildcards("/bucket?/f\\?o/\\*/*.parquet");
+  ASSERT_TRUE(wildcards.Matches("/bucket0/f?o/*/abc.parquet"));
+  ASSERT_FALSE(wildcards.Matches("/bucket0/foo/ab/a.parquet"));
+}
+
+TEST(InternalUtil, GlobFiles) {
+  auto fs = std::make_shared<MockFileSystem>(TimePoint{});
+
+  auto check_entries = [](const std::vector<FileInfo>& infos,
+                          std::vector<std::string> expected) -> void {
+    std::vector<std::string> actual(infos.size());
+    std::transform(infos.begin(), infos.end(), actual.begin(),
+                   [](const FileInfo& file) { return file.path(); });
+    std::sort(actual.begin(), actual.end());
+    ASSERT_EQ(actual, expected);
+  };
+
+  ASSERT_OK(fs->CreateDir("A/CD"));
+  ASSERT_OK(fs->CreateDir("AB/CD"));
+  ASSERT_OK(fs->CreateDir("AB/CD/ab"));
+  CreateFile(fs.get(), "A/CD/ab.txt", "data");
+  CreateFile(fs.get(), "AB/CD/a.txt", "data");
+  CreateFile(fs.get(), "AB/CD/abc.txt", "data");
+  CreateFile(fs.get(), "AB/CD/ab/c.txt", "data");
+
+  FileInfoVector infos;
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?b*.txt"));
+  ASSERT_EQ(infos.size(), 2);
+  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
+
+  // Leading slash is optional but doesn't change behavior
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "/A*/CD/?b*.txt"));
+  ASSERT_EQ(infos.size(), 2);
+  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
+
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?/b*.txt"));
+  ASSERT_EQ(infos.size(), 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////

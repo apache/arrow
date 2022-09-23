@@ -33,9 +33,6 @@ lang-java:
 lang-js:
   - js/**/*
 
-lang-julia:
-  - julia/**/*
-
 lang-matlab:
   - matlab/**/*
 
@@ -64,3 +61,7 @@ parquet:
   - cpp/src/parquet/**/*
   - r/R/parquet.*
   - ruby/red-parquet/**/*
+
+docs:
+  - docs/**/*
+  - "**/*.{md, rst, Rmd, Rd}"

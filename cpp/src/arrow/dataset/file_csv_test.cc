@@ -43,8 +43,7 @@ class CsvFormatHelper {
   using FormatType = CsvFileFormat;
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(reader->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
     auto options = csv::WriteOptions::Defaults();
     RETURN_NOT_OK(csv::WriteCSV(*table, options, sink.get()));
     return sink->Finish();
@@ -66,7 +65,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return ::arrow::internal::make_unique<FileSource>(
+      return std::make_unique<FileSource>(
           Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
@@ -95,7 +94,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
     EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-    return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
+    return std::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
@@ -103,6 +102,24 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     return MakeGeneratorIterator(batch_gen);
   }
 };
+
+TEST_P(TestCsvFileFormat, BOMQuoteInHeader) {
+  // ARROW-17382: quoted headers after a BOM should be parsed correctly
+  auto source = GetFileSource("\xef\xbb\xbf\"ab\",\"cd\"\nef,gh\nij,kl\n");
+  auto fields = {field("ab", utf8()), field("cd", utf8())};
+  SetSchema(fields);
+  auto fragment = MakeFragment(*source);
+
+  int64_t row_count = 0;
+
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    AssertSchemaEqual(batch->schema(), schema(fields));
+    row_count += batch->num_rows();
+  }
+
+  ASSERT_EQ(row_count, 2);
+}
 
 // Basic scanning tests (to exercise compression support); see the parameterized test
 // below for more comprehensive testing of scan behaviors
@@ -360,6 +377,8 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 
+TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::UNCOMPRESSED));
 #ifdef ARROW_WITH_BZ2
@@ -398,6 +417,7 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestCsvFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),

@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/memory_pool.h>
 #include <arrow/util/mutex.h>
+#include "./arrow_types.h"
 
 class GcMemoryPool : public arrow::MemoryPool {
  public:
@@ -88,5 +87,3 @@ std::string MemoryPool__backend_name(const std::shared_ptr<arrow::MemoryPool>& p
 std::vector<std::string> supported_memory_backends() {
   return arrow::SupportedMemoryBackendNames();
 }
-
-#endif

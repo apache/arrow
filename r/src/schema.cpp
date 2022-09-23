@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
@@ -113,14 +112,17 @@ cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& sch
   return out;
 }
 
-// [[arrow::export]]
-std::shared_ptr<arrow::Schema> Schema__WithMetadata(
-    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata) {
   auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
 
-  auto kv =
-      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+  return std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__WithMetadata(
+    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+  auto kv = strings_to_kvm(metadata);
   return schema->WithMetadata(std::move(kv));
 }
 
@@ -142,5 +144,3 @@ std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
     const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
   return ValueOrStop(arrow::UnifySchemas(schemas));
 }
-
-#endif

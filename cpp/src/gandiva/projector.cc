@@ -61,55 +61,40 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   // see if equivalent projector was already built
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();
-#else
-  static Cache<ExpressionCacheKey, std::shared_ptr<Projector>> cache;
-#endif
 
   ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
-  auto prev_cached_obj = cache->GetObjectCode(cache_key);
-#else
-  auto prev_cached_obj = cache.GetObjectCode(cache_key);
-#endif
+  bool is_cached = false;
 
-  bool was_cached = false;
+  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
+  prev_cached_obj = cache->GetObjectCode(cache_key);
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   // Verify if previous projector obj code was cached
   if (prev_cached_obj != nullptr) {
-    was_cached = true;
+    is_cached = true;
   }
 
   GandivaObjectCache obj_cache(cache, cache_key);
-#else
-  if (prev_cached_obj != nullptr) {
-    *projector = prev_cached_obj;
-    projector->get()->SetBuiltFromCache(true);
-    return Status::OK();
-  }
-#endif
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, &llvm_gen));
+  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
   // we will not be able to process further.
-  ExprValidator expr_validator(llvm_gen->types(), schema);
-  for (auto& expr : exprs) {
-    ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
+  if (!is_cached) {
+    ExprValidator expr_validator(llvm_gen->types(), schema);
+    for (auto& expr : exprs) {
+      ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
+    }
   }
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   // Set the object cache for LLVM
   llvm_gen->SetLLVMObjectCache(obj_cache);
-#endif
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
@@ -123,11 +108,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  projector->get()->SetBuiltFromCache(was_cached);
-
-#ifndef GANDIVA_ENABLE_OBJECT_CODE_CACHE
-  cache.PutObjectCode(cache_key, *projector);
-#endif
+  projector->get()->SetBuiltFromCache(is_cached);
 
   return Status::OK();
 }

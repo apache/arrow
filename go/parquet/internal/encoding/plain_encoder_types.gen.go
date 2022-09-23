@@ -21,12 +21,14 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/endian"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -118,7 +120,7 @@ func init() {
 type PlainInt32Encoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -134,7 +136,7 @@ func (enc *PlainInt32Encoder) PutSpaced(in []int32, validBits []byte, validBitsO
 	enc.ReserveForWrite(nbytes)
 
 	if enc.bitSetReader == nil {
-		enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 	} else {
 		enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 	}
@@ -158,7 +160,7 @@ func (PlainInt32Encoder) Type() parquet.Type {
 type PlainInt32Decoder struct {
 	decoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -173,7 +175,7 @@ func (dec *PlainInt32Decoder) Decode(out []int32) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt32LE(out, dec.data[:nbytes])
@@ -201,7 +203,7 @@ func (dec *PlainInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits
 
 	idxDecode := nvalues - nullCount
 	if dec.bitSetReader == nil {
-		dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+		dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
 	} else {
 		dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
 	}
@@ -223,7 +225,7 @@ func (dec *PlainInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits
 type PlainInt64Encoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -239,7 +241,7 @@ func (enc *PlainInt64Encoder) PutSpaced(in []int64, validBits []byte, validBitsO
 	enc.ReserveForWrite(nbytes)
 
 	if enc.bitSetReader == nil {
-		enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 	} else {
 		enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 	}
@@ -263,7 +265,7 @@ func (PlainInt64Encoder) Type() parquet.Type {
 type PlainInt64Decoder struct {
 	decoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -278,7 +280,7 @@ func (dec *PlainInt64Decoder) Decode(out []int64) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt64LE(out, dec.data[:nbytes])
@@ -306,7 +308,7 @@ func (dec *PlainInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits
 
 	idxDecode := nvalues - nullCount
 	if dec.bitSetReader == nil {
-		dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+		dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
 	} else {
 		dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
 	}
@@ -328,7 +330,7 @@ func (dec *PlainInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits
 type PlainInt96Encoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -344,7 +346,7 @@ func (enc *PlainInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, va
 	enc.ReserveForWrite(nbytes)
 
 	if enc.bitSetReader == nil {
-		enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 	} else {
 		enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 	}
@@ -368,7 +370,7 @@ func (PlainInt96Encoder) Type() parquet.Type {
 type PlainInt96Decoder struct {
 	decoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -383,7 +385,7 @@ func (dec *PlainInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(parquet.Int96SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromInt96LE(out, dec.data[:nbytes])
@@ -411,7 +413,7 @@ func (dec *PlainInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, v
 
 	idxDecode := nvalues - nullCount
 	if dec.bitSetReader == nil {
-		dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+		dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
 	} else {
 		dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
 	}
@@ -433,7 +435,7 @@ func (dec *PlainInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, v
 type PlainFloat32Encoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -449,7 +451,7 @@ func (enc *PlainFloat32Encoder) PutSpaced(in []float32, validBits []byte, validB
 	enc.ReserveForWrite(nbytes)
 
 	if enc.bitSetReader == nil {
-		enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 	} else {
 		enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 	}
@@ -473,7 +475,7 @@ func (PlainFloat32Encoder) Type() parquet.Type {
 type PlainFloat32Decoder struct {
 	decoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -488,7 +490,7 @@ func (dec *PlainFloat32Decoder) Decode(out []float32) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromFloat32LE(out, dec.data[:nbytes])
@@ -516,7 +518,7 @@ func (dec *PlainFloat32Decoder) DecodeSpaced(out []float32, nullCount int, valid
 
 	idxDecode := nvalues - nullCount
 	if dec.bitSetReader == nil {
-		dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+		dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
 	} else {
 		dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
 	}
@@ -538,7 +540,7 @@ func (dec *PlainFloat32Decoder) DecodeSpaced(out []float32, nullCount int, valid
 type PlainFloat64Encoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Put encodes a slice of values into the underlying buffer
@@ -554,7 +556,7 @@ func (enc *PlainFloat64Encoder) PutSpaced(in []float64, validBits []byte, validB
 	enc.ReserveForWrite(nbytes)
 
 	if enc.bitSetReader == nil {
-		enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 	} else {
 		enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 	}
@@ -578,7 +580,7 @@ func (PlainFloat64Encoder) Type() parquet.Type {
 type PlainFloat64Decoder struct {
 	decoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // Type returns the physical type this decoder is able to decode for
@@ -593,7 +595,7 @@ func (dec *PlainFloat64Decoder) Decode(out []float64) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
-		return 0, xerrors.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
+		return 0, fmt.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
 	copyFromFloat64LE(out, dec.data[:nbytes])
@@ -621,7 +623,7 @@ func (dec *PlainFloat64Decoder) DecodeSpaced(out []float64, nullCount int, valid
 
 	idxDecode := nvalues - nullCount
 	if dec.bitSetReader == nil {
-		dec.bitSetReader = utils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
+		dec.bitSetReader = bitutils.NewReverseSetBitRunReader(validBits, validBitsOffset, int64(nvalues))
 	} else {
 		dec.bitSetReader.Reset(validBits, validBitsOffset, int64(nvalues))
 	}

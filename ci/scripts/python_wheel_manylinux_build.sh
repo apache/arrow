@@ -51,7 +51,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
-: ${ARROW_GCS:=OFF}
+: ${ARROW_GCS:=ON}
 : ${ARROW_HDFS:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_MIMALLOC:=ON}
@@ -59,6 +59,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_PARQUET:=ON}
 : ${PARQUET_REQUIRE_ENCRYPTION:=ON}
 : ${ARROW_PLASMA:=ON}
+: ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
 : ${ARROW_TENSORFLOW:=ON}
 : ${ARROW_WITH_BROTLI:=ON}
@@ -84,6 +85,9 @@ fi
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 
+# ARROW-17501: We can remove -DAWSSDK_SOURCE=BUNDLED once
+# https://github.com/aws/aws-sdk-cpp/issues/1809 is fixed and vcpkg
+# ships the fix.
 cmake \
     -DARROW_BROTLI_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=ON \
@@ -105,6 +109,7 @@ cmake \
     -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT} \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
     -DARROW_USE_CCACHE=ON \
@@ -142,14 +147,17 @@ export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
+export PYARROW_WITH_GCS=${ARROW_GCS}
 export PYARROW_WITH_HDFS=${ARROW_HDFS}
 export PYARROW_WITH_ORC=${ARROW_ORC}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
+export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
+export ARROW_HOME=/tmp/arrow-dist
 # PyArrow build configuration
-export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/tmp/arrow-dist/lib/pkgconfig
+export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python setup.py bdist_wheel

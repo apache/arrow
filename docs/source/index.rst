@@ -46,7 +46,7 @@ target environment.**
    Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
-   Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
+   Julia <https://github.com/apache/arrow-julia/blob/main/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    R <r/index>
    Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
@@ -60,6 +60,7 @@ target environment.**
    :caption: Cookbooks
 
    C++ <https://arrow.apache.org/cookbook/cpp/>
+   Java <https://arrow.apache.org/cookbook/java/>
    Python <https://arrow.apache.org/cookbook/py/>
    R <https://arrow.apache.org/cookbook/r/>
 

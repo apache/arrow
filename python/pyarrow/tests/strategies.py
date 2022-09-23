@@ -16,12 +16,25 @@
 # under the License.
 
 import datetime
+import sys
 
-import pytz
+import pytest
 import hypothesis as h
 import hypothesis.strategies as st
 import hypothesis.extra.numpy as npst
-import hypothesis.extra.pytz as tzst
+try:
+    import hypothesis.extra.pytz as tzst
+except ImportError:
+    tzst = None
+try:
+    import zoneinfo
+except ImportError:
+    zoneinfo = None
+if sys.platform == 'win32':
+    try:
+        import tzdata  # noqa:F401
+    except ImportError:
+        zoneinfo = None
 import numpy as np
 
 import pyarrow as pa
@@ -96,10 +109,19 @@ time_types = st.sampled_from([
     pa.time64('us'),
     pa.time64('ns')
 ])
+
+if tzst and zoneinfo:
+    timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
+elif tzst:
+    timezones = st.one_of(st.none(), tzst.timezones())
+elif zoneinfo:
+    timezones = st.one_of(st.none(), st.timezones())
+else:
+    timezones = st.none()
 timestamp_types = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
-    tz=tzst.timezones()
+    tz=timezones
 )
 duration_types = st.builds(
     pa.duration,
@@ -261,15 +283,23 @@ def arrays(draw, type, size=None, nullable=True):
     elif pa.types.is_date(ty):
         value = st.dates()
     elif pa.types.is_timestamp(ty):
+        if zoneinfo is None:
+            pytest.skip('no module named zoneinfo (or tzdata on Windows)')
+        if ty.tz is None:
+            pytest.skip('requires timezone not None')
         min_int64 = -(2**63)
         max_int64 = 2**63 - 1
-        min_datetime = datetime.datetime.fromtimestamp(min_int64 // 10**9)
-        max_datetime = datetime.datetime.fromtimestamp(max_int64 // 10**9)
+        min_datetime = datetime.datetime.fromtimestamp(
+            min_int64 // 10**9) + datetime.timedelta(hours=12)
+        max_datetime = datetime.datetime.fromtimestamp(
+            max_int64 // 10**9) - datetime.timedelta(hours=12)
         try:
-            offset_hours = int(ty.tz)
-            tz = pytz.FixedOffset(offset_hours * 60)
+            offset = ty.tz.split(":")
+            offset_hours = int(offset[0])
+            offset_min = int(offset[1])
+            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
         except ValueError:
-            tz = pytz.timezone(ty.tz)
+            tz = zoneinfo.ZoneInfo(ty.tz)
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):

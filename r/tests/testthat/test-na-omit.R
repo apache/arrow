@@ -40,12 +40,6 @@ test_that("na.fail on Array and ChunkedArray", {
   compare_expression_error(na.fail(.input), data_na)
 })
 
-test_that("na.fail on Scalar", {
-  scalar_one <- Scalar$create(1)
-  expect_error(na.fail(scalar_na), regexp = "missing values in object")
-  expect_as_vector(na.fail(scalar_one), na.fail(1))
-})
-
 test_that("na.omit on Table", {
   tbl <- Table$create(example_data)
   expect_equal(

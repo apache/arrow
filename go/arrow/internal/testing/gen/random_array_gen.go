@@ -17,10 +17,10 @@
 package gen
 
 import (
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -304,4 +304,60 @@ func (r *RandomArrayGenerator) String(size int64, minLength, maxLength int, null
 	}
 
 	return bldr.NewArray()
+}
+
+func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int64, nullprob float64) arrow.Array {
+	lengths := r.Int64(size, minLength, maxLength, nullprob).(*array.Int64)
+	defer lengths.Release()
+
+	bldr := array.NewLargeStringBuilder(r.mem)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int64) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int63n(int64('z')-int64('A')+1) + int64('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsValid(i) {
+			bldr.Append(gen(lengths.Value(i)))
+		} else {
+			bldr.AppendNull()
+		}
+	}
+
+	return bldr.NewArray()
+}
+
+func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64, nullprob float64) arrow.Array {
+	switch dt {
+	case arrow.INT8:
+		return r.Int8(size, int8(min), int8(max), nullprob)
+	case arrow.UINT8:
+		return r.Uint8(size, uint8(min), uint8(max), nullprob)
+	case arrow.INT16:
+		return r.Int16(size, int16(min), int16(max), nullprob)
+	case arrow.UINT16:
+		return r.Uint16(size, uint16(min), uint16(max), nullprob)
+	case arrow.INT32:
+		return r.Int32(size, int32(min), int32(max), nullprob)
+	case arrow.UINT32:
+		return r.Uint32(size, uint32(min), uint32(max), nullprob)
+	case arrow.INT64:
+		return r.Int64(size, int64(min), int64(max), nullprob)
+	case arrow.UINT64:
+		return r.Uint64(size, uint64(min), uint64(max), nullprob)
+	case arrow.FLOAT32:
+		return r.Float32(size, float32(min), float32(max), nullprob)
+	case arrow.FLOAT64:
+		return r.Float64(size, float64(min), float64(max), nullprob)
+	}
+	panic("invalid type for random numeric array")
 }

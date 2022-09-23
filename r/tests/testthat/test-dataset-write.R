@@ -63,7 +63,7 @@ test_that("Writing a dataset: CSV->IPC", {
 
   # Check whether "int" is present in the files or just in the dirs
   first <- read_feather(
-    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    dir(dst_dir, pattern = ".arrow$", recursive = TRUE, full.names = TRUE)[1],
     as_data_frame = FALSE
   )
   # It shouldn't be there
@@ -136,6 +136,40 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: `basename_template` default behavier", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".parquet")
+  )
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", basename_template = "{i}.data", max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0(0:3, ".data")
+  )
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(ds, dst_dir, format = "parquet", basename_template = "part-i.parquet"),
+    "basename_template did not contain '\\{i\\}'"
+  )
+  feather_dir <- make_temp_dir()
+  write_dataset(ds, feather_dir, format = "feather", partitioning = "int")
+  expect_identical(
+    dir(feather_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
+  )
+  ipc_dir <- make_temp_dir()
+  write_dataset(ds, ipc_dir, format = "ipc", partitioning = "int")
+  expect_identical(
+    dir(ipc_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
   )
 })
 
@@ -244,6 +278,24 @@ test_that("Dataset writing: dplyr methods", {
     new_ds %>% select(c(names(df1), "twice")) %>% collect(),
     df1 %>% filter(int == 4) %>% mutate(twice = int * 2)
   )
+
+  # head
+  dst_dir4 <- tempfile()
+  ds %>%
+    mutate(twice = int * 2) %>%
+    arrange(int) %>%
+    head(3) %>%
+    write_dataset(dst_dir4, format = "feather")
+  new_ds <- open_dataset(dst_dir4, format = "feather")
+
+  expect_equal(
+    new_ds %>%
+      select(c(names(df1), "twice")) %>%
+      collect(),
+    df1 %>%
+      mutate(twice = int * 2) %>%
+      head(3)
+  )
 })
 
 test_that("Dataset writing: non-hive", {
@@ -321,6 +373,7 @@ test_that("Dataset writing: from RecordBatch", {
   dst_dir <- tempfile()
   stacked <- record_batch(rbind(df1, df2))
   stacked %>%
+    mutate(twice = int * 2) %>%
     group_by(int) %>%
     write_dataset(dst_dir, format = "feather")
   expect_true(dir.exists(dst_dir))
@@ -438,7 +491,11 @@ test_that("Writing a dataset: CSV format options", {
 
 test_that("Dataset writing: unsupported features/input validation", {
   skip_if_not_available("parquet")
-  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
+  expect_error(write_dataset(4), "You must supply a")
+  expect_error(
+    write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
+    "Field names must be unique"
+  )
 
   ds <- open_dataset(hive_dir)
   expect_error(
@@ -506,6 +563,23 @@ test_that("Max partitions fails with non-integer values and less than required p
   )
 })
 
+test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+  dst_dir <- make_temp_dir()
+
+  # max_rows_per_group unset adjust silently
+  expect_silent(
+    write_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+})
+
+
 test_that("write_dataset checks for format-specific arguments", {
   df <- tibble::tibble(
     int = 1:10,
@@ -553,17 +627,27 @@ test_that("Dataset write max open files", {
   partitioning <- "c2"
   num_of_unique_c2_groups <- 5
 
-  record_batch_1 <- record_batch(c1 = c(1, 2, 3, 4, 0, 10),
-                                 c2 = c("a", "b", "c", "d", "e", "a"))
-  record_batch_2 <- record_batch(c1 = c(5, 6, 7, 8, 0, 1),
-                                 c2 = c("a", "b", "c", "d", "e", "c"))
-  record_batch_3 <- record_batch(c1 = c(9, 10, 11, 12, 0, 1),
-                                 c2 = c("a", "b", "c", "d", "e", "d"))
-  record_batch_4 <- record_batch(c1 = c(13, 14, 15, 16, 0, 1),
-                                 c2 = c("a", "b", "c", "d", "e", "b"))
+  record_batch_1 <- record_batch(
+    c1 = c(1, 2, 3, 4, 0, 10),
+    c2 = c("a", "b", "c", "d", "e", "a")
+  )
+  record_batch_2 <- record_batch(
+    c1 = c(5, 6, 7, 8, 0, 1),
+    c2 = c("a", "b", "c", "d", "e", "c")
+  )
+  record_batch_3 <- record_batch(
+    c1 = c(9, 10, 11, 12, 0, 1),
+    c2 = c("a", "b", "c", "d", "e", "d")
+  )
+  record_batch_4 <- record_batch(
+    c1 = c(13, 14, 15, 16, 0, 1),
+    c2 = c("a", "b", "c", "d", "e", "b")
+  )
 
-  table <- Table$create(d1 = record_batch_1, d2 = record_batch_2,
-                        d3 = record_batch_3, d4 = record_batch_4)
+  table <- Table$create(
+    d1 = record_batch_1, d2 = record_batch_2,
+    d3 = record_batch_3, d4 = record_batch_4
+  )
 
   write_dataset(table, path = dst_dir, format = file_format, partitioning = partitioning)
 
@@ -625,12 +709,18 @@ test_that("Dataset write max rows per files", {
 
 test_that("Dataset min_rows_per_group", {
   skip_if_not_available("parquet")
-  rb1 <- record_batch(c1 = c(1, 2, 3, 4),
-                      c2 = c("a", "b", "e", "a"))
-  rb2 <- record_batch(c1 = c(5, 6, 7, 8, 9),
-                      c2 = c("a", "b", "c", "d", "h"))
-  rb3 <- record_batch(c1 = c(10, 11),
-                      c2 = c("a", "b"))
+  rb1 <- record_batch(
+    c1 = c(1, 2, 3, 4),
+    c2 = c("a", "b", "e", "a")
+  )
+  rb2 <- record_batch(
+    c1 = c(5, 6, 7, 8, 9),
+    c2 = c("a", "b", "c", "d", "h")
+  )
+  rb3 <- record_batch(
+    c1 = c(10, 11),
+    c2 = c("a", "b")
+  )
 
   dataset <- Table$create(d1 = rb1, d2 = rb2, d3 = rb3)
 
@@ -648,9 +738,8 @@ test_that("Dataset min_rows_per_group", {
   ds <- open_dataset(dst_dir)
 
   row_group_sizes <- ds %>%
-    select() %>%
-    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-    unlist()
+    map_batches(~ record_batch(nrows = .$num_rows)) %>%
+    pull(nrows)
   index <- 1
 
   # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
@@ -687,9 +776,8 @@ test_that("Dataset write max rows per group", {
   file_path <- paste(dst_dir, written_files[[1]], sep = "/")
   ds <- open_dataset(file_path)
   row_group_sizes <- ds %>%
-    select() %>%
-    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-    unlist() %>% # Returns list because .data.frame is FALSE
+    map_batches(~ record_batch(nrows = .$num_rows)) %>%
+    pull(nrows) %>%
     sort()
 
   expect_equal(row_group_sizes, c(12, 18))

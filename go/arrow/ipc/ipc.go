@@ -19,10 +19,10 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/arrio"
-	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/arrio"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 const (
@@ -66,14 +66,17 @@ type config struct {
 	footer struct {
 		offset int64
 	}
-	codec      flatbuf.CompressionType
-	compressNP int
+	codec              flatbuf.CompressionType
+	compressNP         int
+	ensureNativeEndian bool
+	noAutoSchema       bool
 }
 
 func newConfig(opts ...Option) *config {
 	cfg := &config{
-		alloc: memory.NewGoAllocator(),
-		codec: -1, // uncompressed
+		alloc:              memory.NewGoAllocator(),
+		codec:              -1, // uncompressed
+		ensureNativeEndian: true,
 	}
 
 	for _, opt := range opts {
@@ -131,6 +134,29 @@ func WithZstd() Option {
 func WithCompressConcurrency(n int) Option {
 	return func(cfg *config) {
 		cfg.compressNP = n
+	}
+}
+
+// WithEnsureNativeEndian specifies whether or not to automatically byte-swap
+// buffers with endian-sensitive data if the schema's endianness is not the
+// platform-native endianness. This includes all numeric types, temporal types,
+// decimal types, as well as the offset buffers of variable-sized binary and
+// list-like types.
+//
+// This is only relevant to ipc Reader objects, not to writers. This defaults
+// to true.
+func WithEnsureNativeEndian(v bool) Option {
+	return func(cfg *config) {
+		cfg.ensureNativeEndian = v
+	}
+}
+
+// WithDelayedReadSchema alters the ipc.Reader behavior to delay attempting
+// to read the schema from the stream until the first call to Next instead
+// of immediately attempting to read a schema from the stream when created.
+func WithDelayReadSchema(v bool) Option {
+	return func(cfg *config) {
+		cfg.noAutoSchema = v
 	}
 }
 

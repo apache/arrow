@@ -1,12 +1,14 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 7.0.0.9000
+Version: 9.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
     person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut")),
-    person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
+    person("Dewey", "Dunnington", role = c("aut"), email = "dewey@fishandwhistle.net", comment = c(ORCID = "0000-0002-9415-4582")),
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
+    person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
+    person("Drago\u0219", "Moldovan-Gr\u00fcnfeld", email = "dragos.mold@gmail.com", role = c("aut")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Karl", "Dunkle Werner", email = "karldw@users.noreply.github.com", role = c("ctb"), comment = c(ORCID = "0000-0003-0523-7309")),
@@ -24,24 +26,26 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
+SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional)
 Biarch: true
 Imports:
     assertthat,
     bit64 (>= 0.9-7),
+    glue,
     methods,
     purrr,
     R6,
     rlang,
     stats,
-    tidyselect,
+    tidyselect (>= 1.0.0),
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    cli,
     DBI,
     dbplyr,
     decor,
@@ -51,6 +55,7 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pillar,
     pkgload,
     reticulate,
     rmarkdown,
@@ -58,16 +63,19 @@ Suggests:
     stringr,
     testthat (>= 3.1.0),
     tibble,
+    tzdb,
     withr
 LinkingTo: cpp11 (>= 0.4.2)
 Collate:
     'arrowExports.R'
     'enums.R'
-    'arrow-package.R'
+    'arrow-object.R'
     'type.R'
     'array-data.R'
     'arrow-datum.R'
     'array.R'
+    'arrow-info.R'
+    'arrow-package.R'
     'arrow-tabular.R'
     'buffer.R'
     'chunked-array.R'
@@ -83,36 +91,42 @@ Collate:
     'dataset-partition.R'
     'dataset-scan.R'
     'dataset-write.R'
-    'deprecated.R'
     'dictionary.R'
+    'dplyr-across.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
     'dplyr-count.R'
+    'dplyr-datetime-helpers.R'
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
+    'dplyr-funcs-doc.R'
     'dplyr-funcs-math.R'
     'dplyr-funcs-string.R'
     'dplyr-funcs-type.R'
     'expression.R'
     'dplyr-funcs.R'
+    'dplyr-glimpse.R'
     'dplyr-group-by.R'
     'dplyr-join.R'
     'dplyr-mutate.R'
     'dplyr-select.R'
     'dplyr-summarize.R'
+    'dplyr-union.R'
     'record-batch.R'
     'table.R'
     'dplyr.R'
     'duckdb.R'
+    'extension.R'
     'feather.R'
     'field.R'
     'filesystem.R'
     'flight.R'
     'install-arrow.R'
-    'ipc_stream.R'
+    'ipc-stream.R'
     'json.R'
     'memory-pool.R'
     'message.R'

@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(utf8proc_FOUND)
+  return()
+endif()
+
 function(extract_utf8proc_version)
   if(utf8proc_INCLUDE_DIR)
     file(READ "${utf8proc_INCLUDE_DIR}/utf8proc.h" UTF8PROC_H_CONTENT)
@@ -95,7 +99,7 @@ if(utf8proc_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
-    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILER_DEFINITIONS
+    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
                                                         "UTF8PROC_STATIC")
   endif()
 endif()

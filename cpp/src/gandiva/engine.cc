@@ -56,7 +56,11 @@
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
+#if LLVM_VERSION_MAJOR >= 14
+#include <llvm/MC/TargetRegistry.h>
+#else
 #include <llvm/Support/TargetRegistry.h>
+#endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
@@ -71,7 +75,6 @@
 #pragma warning(pop)
 #endif
 
-#include "arrow/util/make_unique.h"
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
@@ -113,31 +116,39 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::LLVMContext> ctx,
-               std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module)
+               std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module,
+               bool cached)
     : context_(std::move(ctx)),
       execution_engine_(std::move(engine)),
-      ir_builder_(arrow::internal::make_unique<llvm::IRBuilder<>>(*context_)),
+      ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
       module_(module),
       types_(*context_),
-      optimize_(conf->optimize()) {}
+      optimize_(conf->optimize()),
+      cached_(cached) {}
 
 Status Engine::Init() {
-  // Add mappings for functions that can be accessed from LLVM/IR module.
+  // Add mappings for global functions that can be accessed from LLVM/IR module.
   AddGlobalMappings();
-
-  ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
-  ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
 
   return Status::OK();
 }
 
+Status Engine::LoadFunctionIRs() {
+  if (!functions_loaded_) {
+    ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
+    ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+    functions_loaded_ = true;
+  }
+  return Status::OK();
+}
+
 /// factory method to construct the engine.
-Status Engine::Make(const std::shared_ptr<Configuration>& conf,
+Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
                     std::unique_ptr<Engine>* out) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
-  auto ctx = arrow::internal::make_unique<llvm::LLVMContext>();
-  auto module = arrow::internal::make_unique<llvm::Module>("codegen", *ctx);
+  auto ctx = std::make_unique<llvm::LLVMContext>();
+  auto module = std::make_unique<llvm::Module>("codegen", *ctx);
 
   // Capture before moving, ExecutionEngine does not allow retrieving the
   // original Module.
@@ -169,7 +180,7 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   }
 
   std::unique_ptr<Engine> engine{
-      new Engine(conf, std::move(ctx), std::move(exec_engine), module_ptr)};
+      new Engine(conf, std::move(ctx), std::move(exec_engine), module_ptr, cached)};
   ARROW_RETURN_NOT_OK(engine->Init());
   *out = std::move(engine);
   return Status::OK();
@@ -222,11 +233,11 @@ Status Engine::LoadPreCompiledIR() {
                   Status::CodeGenError("Could not load module from IR: ",
                                        buffer_or_error.getError().message()));
 
-  std::unique_ptr<llvm::MemoryBuffer> buffer = move(buffer_or_error.get());
+  std::unique_ptr<llvm::MemoryBuffer> buffer = std::move(buffer_or_error.get());
 
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
-      llvm::getOwningLazyBitcodeModule(move(buffer), *context());
+      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
   if (!module_or_error) {
     // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
     // (ARROW-5148)
@@ -235,14 +246,14 @@ Status Engine::LoadPreCompiledIR() {
     stream << module_or_error.takeError();
     return Status::CodeGenError(stream.str());
   }
-  std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
+  std::unique_ptr<llvm::Module> ir_module = std::move(module_or_error.get());
 
   // set dataLayout
   SetDataLayout(ir_module.get());
 
   ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
                   Status::CodeGenError("verify of IR Module failed"));
-  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, move(ir_module)),
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
                   Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
@@ -274,35 +285,37 @@ Status Engine::RemoveUnusedFunctions() {
 
 // Optimise and compile the module.
 Status Engine::FinalizeModule() {
-  ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
+  if (!cached_) {
+    ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
-  if (optimize_) {
-    // misc passes to allow for inlining, vectorization, ..
-    std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-        new llvm::legacy::PassManager());
+    if (optimize_) {
+      // misc passes to allow for inlining, vectorization, ..
+      std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+          new llvm::legacy::PassManager());
 
-    llvm::TargetIRAnalysis target_analysis =
-        execution_engine_->getTargetMachine()->getTargetIRAnalysis();
-    pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
-    pass_manager->add(llvm::createFunctionInliningPass());
-    pass_manager->add(llvm::createInstructionCombiningPass());
-    pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
-    pass_manager->add(llvm::createGVNPass());
-    pass_manager->add(llvm::createNewGVNPass());
-    pass_manager->add(llvm::createCFGSimplificationPass());
-    pass_manager->add(llvm::createLoopVectorizePass());
-    pass_manager->add(llvm::createSLPVectorizerPass());
-    pass_manager->add(llvm::createGlobalOptimizerPass());
+      llvm::TargetIRAnalysis target_analysis =
+          execution_engine_->getTargetMachine()->getTargetIRAnalysis();
+      pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
+      pass_manager->add(llvm::createFunctionInliningPass());
+      pass_manager->add(llvm::createInstructionCombiningPass());
+      pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
+      pass_manager->add(llvm::createGVNPass());
+      pass_manager->add(llvm::createNewGVNPass());
+      pass_manager->add(llvm::createCFGSimplificationPass());
+      pass_manager->add(llvm::createLoopVectorizePass());
+      pass_manager->add(llvm::createSLPVectorizerPass());
+      pass_manager->add(llvm::createGlobalOptimizerPass());
 
-    // run the optimiser
-    llvm::PassManagerBuilder pass_builder;
-    pass_builder.OptLevel = 3;
-    pass_builder.populateModulePassManager(*pass_manager);
-    pass_manager->run(*module_);
+      // run the optimiser
+      llvm::PassManagerBuilder pass_builder;
+      pass_builder.OptLevel = 3;
+      pass_builder.populateModulePassManager(*pass_manager);
+      pass_manager->run(*module_);
+    }
+
+    ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
+                    Status::CodeGenError("Module verification failed after optimizer"));
   }
-
-  ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
-                  Status::CodeGenError("Module verification failed after optimizer"));
 
   // do the compilation
   execution_engine_->finalizeObject();
@@ -311,9 +324,9 @@ Status Engine::FinalizeModule() {
   return Status::OK();
 }
 
-void* Engine::CompiledFunction(llvm::Function* irFunction) {
+void* Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
-  return execution_engine_->getPointerToFunction(irFunction);
+  return reinterpret_cast<void*>(execution_engine_->getFunctionAddress(function));
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,

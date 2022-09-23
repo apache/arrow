@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -134,7 +134,7 @@ func TestArrow14769(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = reader.Read()
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Fatalf("Expected an error, got %s", err)
 	}
 	if err.Error() != "Error!" {
@@ -273,4 +273,60 @@ func TestWriteColumnWithOffset(t *testing.T) {
 			assert.False(t, colArr.IsNull(i))
 		}
 	})
+}
+
+func TestIPCTable(t *testing.T) {
+	pool := memory.NewGoAllocator()
+	schema := arrow.NewSchema([]arrow.Field{{Name: "f1", Type: arrow.PrimitiveTypes.Int32}}, nil)
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4}, []bool{true, true, false, true})
+
+	rec1 := b.NewRecord()
+	defer rec1.Release()
+
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1})
+	defer tbl.Release()
+
+	var buf bytes.Buffer
+	ipcWriter := ipc.NewWriter(&buf, ipc.WithAllocator(pool), ipc.WithSchema(schema))
+	defer func(ipcWriter *ipc.Writer) {
+		err := ipcWriter.Close()
+		if err != nil {
+			t.Fatalf("error closing ipc writer: %s", err.Error())
+		}
+	}(ipcWriter)
+
+	t.Log("Reading data before")
+	tr := array.NewTableReader(tbl, 2)
+	defer tr.Release()
+
+	n := 0
+	for tr.Next() {
+		rec := tr.Record()
+		for i, col := range rec.Columns() {
+			t.Logf("rec[%d][%q]: %v nulls:%v\n", n,
+				rec.ColumnName(i), col, col.NullBitmapBytes())
+		}
+		n++
+		err := ipcWriter.Write(rec)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	t.Log("Reading data after")
+	ipcReader, err := ipc.NewReader(bytes.NewReader(buf.Bytes()), ipc.WithAllocator(pool))
+	if err != nil {
+		panic(err)
+	}
+	n = 0
+	for ipcReader.Next() {
+		rec := ipcReader.Record()
+		for i, col := range rec.Columns() {
+			t.Logf("rec[%d][%q]: %v nulls:%v\n", n,
+				rec.ColumnName(i), col, col.NullBitmapBytes())
+		}
+		n++
+	}
 }

@@ -24,18 +24,15 @@ jobs:
     name: |
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
-  {% if env is defined %}
-    env:
-    {% for key, value in env.items() %}
-      {{ key }}: "{{ value }}"
-    {% endfor %}
-  {% endif %}
+{{ macros.github_set_env(env) }}
     steps:
-      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth if fetch_depth is defined else 1)|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
@@ -67,7 +64,7 @@ jobs:
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
           if-no-files-found: ignore
 
-    {% if arrow.branch == 'master' %}
+    {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash

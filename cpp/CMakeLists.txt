@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "8.0.0-SNAPSHOT")
+set(ARROW_VERSION "10.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -104,13 +104,32 @@ include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
 include(GNUInstallDirs)
+if(IS_ABSOLUTE "${CMAKE_INSTALL_BINDIR}")
+  set(ARROW_PKG_CONFIG_BINDIR "${CMAKE_INSTALL_BINDIR}")
+else()
+  set(ARROW_PKG_CONFIG_BINDIR "\${prefix}/${CMAKE_INSTALL_BINDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+  set(ARROW_PKG_CONFIG_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+else()
+  set(ARROW_PKG_CONFIG_INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+  set(ARROW_PKG_CONFIG_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+else()
+  set(ARROW_PKG_CONFIG_LIBDIR "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
+endif()
+set(ARROW_GDB_DIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/gdb")
+set(ARROW_FULL_GDB_DIR "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/gdb")
+set(ARROW_GDB_AUTO_LOAD_DIR "${CMAKE_INSTALL_DATADIR}/gdb/auto-load")
+set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake")
+set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
-set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
-
 set(ARROW_LLVM_VERSIONS
+    "15.0"
+    "14.0"
     "13.0"
     "12.0"
     "11.1"
@@ -129,30 +148,6 @@ string(REGEX REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
                      "${ARROW_ENV_CLANG_TOOLS_VERSION}")
 string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
                      "${ARROW_CLANG_TOOLS_VERSION}")
-
-if(APPLE)
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix
-                            "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT LLVM_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
-                    OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT CLANG_TOOLS_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-  endif()
-endif()
 
 if(WIN32 AND NOT MINGW)
   # This is used to handle builds using e.g. clang in an MSVC setting.
@@ -176,6 +171,12 @@ endif()
 # cmake options
 include(DefineOptions)
 
+if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
+  message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
+  )
+  set(ARROW_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
   find_package(PythonInterp)
@@ -191,16 +192,47 @@ else()
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()
 
-if(ARROW_USE_CCACHE)
+if(ARROW_USE_SCCACHE
+   AND NOT CMAKE_C_COMPILER_LAUNCHER
+   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
+  find_program(SCCACHE_FOUND sccache)
+
+  if(NOT SCCACHE_FOUND AND DEFINED ENV{SCCACHE_PATH})
+    # cmake has problems finding sccache from within mingw
+    message(STATUS "Did not find sccache, using envvar fallback.")
+    set(SCCACHE_FOUND $ENV{SCCACHE_PATH})
+  endif()
+
+  # Only use sccache if a storage backend is configured
+  if(SCCACHE_FOUND
+     AND (DEFINED ENV{SCCACHE_AZURE_BLOB_CONTAINER}
+          OR DEFINED ENV{SCCACHE_BUCKET}
+          OR DEFINED ENV{SCCACHE_DIR}
+          OR DEFINED ENV{SCCACHE_GCS_BUCKET}
+          OR DEFINED ENV{SCCACHE_MEMCACHED}
+          OR DEFINED ENV{SCCACHE_REDIS}
+         ))
+    message(STATUS "Using sccache: ${SCCACHE_FOUND}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+  endif()
+endif()
+
+if(ARROW_USE_CCACHE
+   AND NOT CMAKE_C_COMPILER_LAUNCHER
+   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
   find_program(CCACHE_FOUND ccache)
+
   if(CCACHE_FOUND)
     message(STATUS "Using ccache: ${CCACHE_FOUND}")
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
     # ARROW-3985: let ccache preserve C++ comments, because some of them may be
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
-  endif(CCACHE_FOUND)
+  endif()
 endif()
 
 if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
@@ -326,12 +358,12 @@ if(ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_TESTS
    OR ARROW_BUILD_INTEGRATION
    OR ARROW_FUZZING)
-  set(ARROW_JSON ON)
   set(ARROW_TESTING ON)
 endif()
 
 if(ARROW_GANDIVA)
   set(ARROW_WITH_RE2 ON)
+  set(ARROW_WITH_UTF8PROC ON)
 endif()
 
 if(ARROW_BUILD_INTEGRATION AND ARROW_FLIGHT)
@@ -350,8 +382,9 @@ if(ARROW_CUDA
   set(ARROW_IPC ON)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   set(ARROW_PARQUET ON)
+  set(ARROW_IPC ON)
   set(ARROW_COMPUTE ON)
   set(ARROW_DATASET ON)
 endif()
@@ -361,6 +394,10 @@ if(ARROW_SKYHOOK)
   set(ARROW_PARQUET ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
+endif()
+
+if(ARROW_TESTING)
+  set(ARROW_JSON ON)
 endif()
 
 if(ARROW_DATASET)
@@ -386,10 +423,6 @@ if(MSVC_TOOLCHAIN)
   set(ARROW_ORC OFF)
   # Plasma using glog is not fully tested on windows.
   set(ARROW_USE_GLOG OFF)
-endif()
-
-if(ARROW_JNI)
-  set(ARROW_BUILD_STATIC ON)
 endif()
 
 if(ARROW_ORC)
@@ -555,10 +588,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 # C++ specific flags.
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CXX_COMMON_FLAGS} ${ARROW_CXXFLAGS}")
 
-# Remove --std=c++11 to avoid errors from C compilers
-string(REPLACE "-std=c++11" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+# Remove --std=c++17 to avoid errors from C compilers
+string(REPLACE "-std=c++17" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
-# Add C++-only flags, like -std=c++11
+# Add C++-only flags, like -std=c++17
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 # ASAN / TSAN / UBSAN
@@ -687,14 +720,24 @@ endif()
 # Linker and Dependencies
 #
 
-# Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS)
-set(ARROW_STATIC_LINK_LIBS)
+# Libraries to link statically with libarrow.so.
+#
+# Note that arrow::hadoop is a header only target that refers
+# cpp/thirdparty/hadoop/include/. See
+# cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
+set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
+set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
+set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
+
+if(ARROW_USE_BOOST)
+  list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
+  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
+endif()
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
-  list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
@@ -702,7 +745,7 @@ endif()
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
   set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_BROTLI_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
   if(Brotli_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
@@ -718,15 +761,15 @@ endif()
 
 if(ARROW_WITH_LZ4)
   list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
-  if(Lz4_SOURCE STREQUAL "SYSTEM")
+  if(lz4_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
   endif()
 endif()
 
 if(ARROW_WITH_SNAPPY)
-  list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
+  list(APPEND ARROW_STATIC_LINK_LIBS ${Snappy_TARGET})
   if(Snappy_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Snappy::snappy)
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
   endif()
 endif()
 
@@ -745,7 +788,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
+  list(APPEND ARROW_SHARED_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
@@ -754,7 +797,7 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_GCS)
-  list(APPEND ARROW_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
   list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
   if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
@@ -762,7 +805,7 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_USE_GLOG)
-  list(APPEND ARROW_LINK_LIBS glog::glog)
+  list(APPEND ARROW_SHARED_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
   if(GLOG_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
@@ -771,13 +814,26 @@ if(ARROW_USE_GLOG)
 endif()
 
 if(ARROW_S3)
-  list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
+    list(APPEND
+         ARROW_STATIC_INSTALL_INTERFACE_LIBS
+         aws-cpp-sdk-identity-management
+         aws-cpp-sdk-sts
+         aws-cpp-sdk-cognito-identity
+         aws-cpp-sdk-s3
+         aws-cpp-sdk-core)
+  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+    if(UNIX)
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+    endif()
+  endif()
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND
-       ARROW_LINK_LIBS
+       ARROW_SHARED_LINK_LIBS
        opentelemetry-cpp::trace
        opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
@@ -786,10 +842,21 @@ if(ARROW_WITH_OPENTELEMETRY)
        opentelemetry-cpp::trace
        opentelemetry-cpp::ostream_span_exporter
        opentelemetry-cpp::otlp_http_exporter)
+  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
+    list(APPEND
+         ARROW_STATIC_INSTALL_INTERFACE_LIBS
+         opentelemetry-cpp::trace
+         opentelemetry-cpp::ostream_span_exporter
+         opentelemetry-cpp::otlp_http_exporter)
+  endif()
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
 endif()
 
 if(ARROW_WITH_UTF8PROC)
-  list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
+  list(APPEND ARROW_SHARED_LINK_LIBS utf8proc::utf8proc)
   list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
   if(utf8proc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
@@ -797,11 +864,21 @@ if(ARROW_WITH_UTF8PROC)
 endif()
 
 if(ARROW_WITH_RE2)
-  list(APPEND ARROW_LINK_LIBS re2::re2)
+  list(APPEND ARROW_SHARED_LINK_LIBS re2::re2)
   list(APPEND ARROW_STATIC_LINK_LIBS re2::re2)
   if(re2_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS re2::re2)
   endif()
+endif()
+
+if(ARROW_WITH_RAPIDJSON)
+  list(APPEND ARROW_SHARED_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
+endif()
+
+if(ARROW_USE_XSIMD)
+  list(APPEND ARROW_SHARED_LINK_LIBS xsimd)
+  list(APPEND ARROW_STATIC_LINK_LIBS xsimd)
 endif()
 
 add_custom_target(arrow_dependencies)
@@ -816,7 +893,10 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-  if(ARROW_ORC)
+  if(ARROW_HDFS OR ARROW_ORC)
+    if(Protobuf_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+    endif()
     if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
@@ -826,26 +906,12 @@ endif()
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-# boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT
-     OR ARROW_S3
-     OR ARROW_GCS)
-    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
-   ))
-  list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
-endif()
-
 if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
-  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN
-    GTest::gtest_main
-    GTest::gtest
-    GTest::gmock
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
+                              GTest::gmock)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -857,11 +923,11 @@ if(ARROW_BUILD_BENCHMARKS)
                    toolchain-benchmarks)
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
 
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared ${ARROW_LINK_LIBS}
-                                ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
+                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
@@ -901,15 +967,13 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
   add_definitions(-DARROW_MIMALLOC)
-  list(APPEND ARROW_LINK_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_SHARED_LINK_LIBS mimalloc::mimalloc)
   list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
 endif()
 
@@ -933,7 +997,7 @@ if(NOT WIN32 AND NOT APPLE)
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
 
-list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
@@ -955,10 +1019,6 @@ if(ARROW_PARQUET)
   endif()
 endif()
 
-if(ARROW_JNI)
-  add_subdirectory(src/jni)
-endif()
-
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()
@@ -975,6 +1035,8 @@ endif()
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION "${ARROW_DOC_DIR}")
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py DESTINATION "${ARROW_GDB_DIR}")
 
 #
 # Validate and print out Arrow configuration options

@@ -37,7 +37,6 @@
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
-#include "arrow/util/make_unique.h"
 
 namespace boost {
 namespace process {
@@ -54,11 +53,10 @@ namespace flight {
 // Helpers to compare values for equality
 
 inline void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  std::shared_ptr<Schema> ex_schema, actual_schema;
   ipc::DictionaryMemo expected_memo;
   ipc::DictionaryMemo actual_memo;
-  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
+  ASSERT_OK_AND_ASSIGN(auto ex_schema, expected.GetSchema(&expected_memo));
+  ASSERT_OK_AND_ASSIGN(auto actual_schema, actual.GetSchema(&actual_memo));
 
   AssertSchemaEqual(*ex_schema, *actual_schema);
   ASSERT_EQ(expected.total_records(), actual.total_records());
@@ -104,35 +102,48 @@ std::unique_ptr<FlightServerBase> ExampleTestServer();
 // Helper to initialize a server and matching client with callbacks to
 // populate options.
 template <typename T, typename... Args>
+Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* server,
+                  std::unique_ptr<FlightClient>* client,
+                  std::function<Status(FlightServerOptions*)> make_server_options,
+                  std::function<Status(FlightClientOptions*)> make_client_options,
+                  Args&&... server_args) {
+  *server = std::make_unique<T>(std::forward<Args>(server_args)...);
+  FlightServerOptions server_options(location);
+  RETURN_NOT_OK(make_server_options(&server_options));
+  RETURN_NOT_OK((*server)->Init(server_options));
+  std::string uri =
+      location.scheme() + "://127.0.0.1:" + std::to_string((*server)->port());
+  ARROW_ASSIGN_OR_RAISE(auto real_location, Location::Parse(uri));
+  FlightClientOptions client_options = FlightClientOptions::Defaults();
+  RETURN_NOT_OK(make_client_options(&client_options));
+  return FlightClient::Connect(real_location, client_options).Value(client);
+}
+
+// Helper to initialize a server and matching client with callbacks to
+// populate options.
+template <typename T, typename... Args>
 Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                   std::unique_ptr<FlightClient>* client,
                   std::function<Status(FlightServerOptions*)> make_server_options,
                   std::function<Status(FlightClientOptions*)> make_client_options,
                   Args&&... server_args) {
-  Location location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
-  FlightServerOptions server_options(location);
-  RETURN_NOT_OK(make_server_options(&server_options));
-  RETURN_NOT_OK((*server)->Init(server_options));
-  Location real_location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", (*server)->port(), &real_location));
-  FlightClientOptions client_options = FlightClientOptions::Defaults();
-  RETURN_NOT_OK(make_client_options(&client_options));
-  return FlightClient::Connect(real_location, client_options, client);
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 0));
+  return MakeServer<T>(location, server, client, std::move(make_server_options),
+                       std::move(make_client_options),
+                       std::forward<Args>(server_args)...);
 }
 
 // ----------------------------------------------------------------------
 // A FlightDataStream that numbers the record batches
 /// \brief A basic implementation of FlightDataStream that will provide
-/// a sequence of FlightData messages to be written to a gRPC stream
+/// a sequence of FlightData messages to be written to a stream
 class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
  public:
   explicit NumberingStream(std::unique_ptr<FlightDataStream> stream);
 
   std::shared_ptr<Schema> schema() override;
-  Status GetSchemaPayload(FlightPayload* payload) override;
-  Status Next(FlightPayload* payload) override;
+  arrow::Result<FlightPayload> GetSchemaPayload() override;
+  arrow::Result<FlightPayload> Next() override;
 
  private:
   int counter_;

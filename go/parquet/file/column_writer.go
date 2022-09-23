@@ -21,14 +21,14 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata column_writer_types.gen.go.tmpl
@@ -597,7 +597,8 @@ func levelSliceOrNil(rep []int16, offset, batch int64) []int16 {
 	return rep[offset : batch+offset]
 }
 
-func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values array.Interface, newNullCount int64) array.Interface {
+//lint:ignore U1000 maybeReplaceValidity
+func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values arrow.Array, newNullCount int64) arrow.Array {
 	if w.bitsBuffer == nil {
 		return values
 	}

@@ -24,12 +24,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# https://github.com/Homebrew/homebrew-core/blob/master/Formula/apache-arrow.rb
+# https://github.com/Homebrew/homebrew-core/blob/-/Formula/apache-arrow.rb
 
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-8.0.0-SNAPSHOT/apache-arrow-8.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-10.0.0-SNAPSHOT/apache-arrow-10.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
@@ -45,7 +45,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.9"
+  depends_on "python@3.10"
   depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"
@@ -60,6 +60,8 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
+    python = "python3.10"
+
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
@@ -72,6 +74,7 @@ class ApacheArrow < Formula
     args = %W[
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
+      -DARROW_GCS=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_MIMALLOC=ON
@@ -88,10 +91,10 @@ class ApacheArrow < Formula
       -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DCMAKE_CXX_STANDARD=17
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
-      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
+      -DPython3_EXECUTABLE=#{which(python)}
     ]
-    # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
     mkdir "build" do
       system "cmake", "../cpp", *std_cmake_args, *args
@@ -108,7 +111,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
     system "./test"
   end
 end

@@ -20,7 +20,7 @@ import { BN } from '../util/bn.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
-import { StructRow } from '../row/struct.js';
+import { StructRow, StructRowProxy } from '../row/struct.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -109,8 +109,12 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
 const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number) => {
-    const { [index]: x, [index + 1]: y } = valueOffsets;
-    return x != null && y != null ? values.subarray(x, y) : null as any;
+    if (index + 1 >= valueOffsets.length) {
+        return null as any;
+    }
+    const x = valueOffsets[index];
+    const y = valueOffsets[index + 1];
+    return values.subarray(x, y);
 };
 
 /** @ignore */
@@ -207,26 +211,24 @@ const getDecimal = <T extends Decimal>({ values, stride }: Data<T>, index: numbe
 
 /** @ignore */
 const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
-    const { valueOffsets, stride } = data;
-    const { [index * stride]: begin } = valueOffsets;
-    const { [index * stride + 1]: end } = valueOffsets;
-    const child: Data<T['valueType']> = data.children[0];
+    const { valueOffsets, stride, children } = data;
+    const { [index * stride]: begin, [index * stride + 1]: end } = valueOffsets;
+    const child: Data<T['valueType']> = children[0];
     const slice = child.slice(begin, end - begin);
     return new Vector([slice]) as T['TValue'];
 };
 
 /** @ignore */
 const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
-    const { valueOffsets } = data;
-    const { [index]: begin } = valueOffsets;
-    const { [index + 1]: end } = valueOffsets;
-    const child = data.children[0] as Data<T['childType']>;
+    const { valueOffsets, children } = data;
+    const { [index]: begin, [index + 1]: end } = valueOffsets;
+    const child = children[0] as Data<T['childType']>;
     return new MapRow(child.slice(begin, end - begin));
 };
 
 /** @ignore */
 const getStruct = <T extends Struct>(data: Data<T>, index: number): T['TValue'] => {
-    return new StructRow(data, index);
+    return new StructRow(data, index) as StructRowProxy<T['TValue']>;
 };
 
 /* istanbul ignore next */
@@ -279,8 +281,8 @@ const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, 
 
 /** @ignore */
 const getFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] => {
-    const { stride } = data;
-    const child: Data<T['valueType']> = data.children[0];
+    const { stride, children } = data;
+    const child: Data<T['valueType']> = children[0];
     const slice = child.slice(index * stride, stride);
     return new Vector([slice]);
 };

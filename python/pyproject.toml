@@ -20,6 +20,6 @@ requires = [
     "cython >= 0.29.22",
     "oldest-supported-numpy>=0.14",
     "setuptools_scm",
-    "setuptools >= 38.6.0",
+    "setuptools >= 40.1.0",
     "wheel"
 ]

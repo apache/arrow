@@ -17,10 +17,10 @@
 
 .. currentmodule:: pyarrow.fs
 
+.. _api.fs:
+
 Filesystems
 ===========
-
-.. _api.fs:
 
 Interface
 ---------
@@ -40,6 +40,7 @@ Filesystem Implementations
 
    LocalFileSystem
    S3FileSystem
+   GcsFileSystem
    HadoopFileSystem
    SubTreeFileSystem
 

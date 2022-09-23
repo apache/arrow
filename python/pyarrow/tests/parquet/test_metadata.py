@@ -16,6 +16,7 @@
 # under the License.
 
 import datetime
+import decimal
 from collections import OrderedDict
 
 import numpy as np
@@ -23,6 +24,8 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
+from pyarrow.fs import LocalFileSystem
+from pyarrow.tests import util
 
 try:
     import pyarrow.parquet as pq
@@ -40,6 +43,8 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -245,7 +250,13 @@ def test_statistics_convert_logical_types(tempdir):
               pa.timestamp('ms')),
              (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
               datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
-              pa.timestamp('us'))]
+              pa.timestamp('us')),
+             (datetime.date(2019, 6, 24),
+              datetime.date(2019, 6, 25),
+              pa.date32()),
+             (decimal.Decimal("20.123"),
+              decimal.Decimal("20.124"),
+              pa.decimal128(12, 5))]
 
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
@@ -522,3 +533,50 @@ def test_metadata_exceeds_message_size():
         buf = out.getvalue()
 
     metadata = pq.read_metadata(pa.BufferReader(buf))
+
+
+def test_metadata_schema_filesystem(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+
+    # URI writing to local file.
+    fname = "data.parquet"
+    file_path = str(tempdir / fname)
+    file_uri = 'file:///' + file_path
+
+    pq.write_table(table, file_path)
+
+    # Get expected `metadata` from path.
+    metadata = pq.read_metadata(tempdir / fname)
+    schema = table.schema
+
+    assert pq.read_metadata(file_uri).equals(metadata)
+    assert pq.read_metadata(
+        file_path, filesystem=LocalFileSystem()).equals(metadata)
+    assert pq.read_metadata(
+        fname, filesystem=f'file:///{tempdir}').equals(metadata)
+
+    assert pq.read_schema(file_uri).equals(schema)
+    assert pq.read_schema(
+        file_path, filesystem=LocalFileSystem()).equals(schema)
+    assert pq.read_schema(
+        fname, filesystem=f'file:///{tempdir}').equals(schema)
+
+    with util.change_cwd(tempdir):
+        # Pass `filesystem` arg
+        assert pq.read_metadata(
+            fname, filesystem=LocalFileSystem()).equals(metadata)
+
+        assert pq.read_schema(
+            fname, filesystem=LocalFileSystem()).equals(schema)
+
+
+def test_metadata_equals():
+    table = pa.table({"a": [1, 2, 3]})
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    match = "Argument 'other' has incorrect type"
+    with pytest.raises(TypeError, match=match):
+        original_metadata.equals(None)

@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,10 +31,13 @@ type testDataType struct {
 	id arrow.Type
 }
 
-func (d *testDataType) ID() arrow.Type      { return d.id }
-func (d *testDataType) Name() string        { panic("implement me") }
-func (d *testDataType) BitWidth() int       { return 8 }
-func (d *testDataType) Fingerprint() string { return "" }
+func (d *testDataType) ID() arrow.Type            { return d.id }
+func (d *testDataType) Name() string              { panic("implement me") }
+func (d *testDataType) BitWidth() int             { return 8 }
+func (d *testDataType) Bytes() int                { return 1 }
+func (d *testDataType) Fingerprint() string       { return "" }
+func (testDataType) Layout() arrow.DataTypeLayout { return arrow.DataTypeLayout{} }
+func (testDataType) String() string               { return "" }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {
@@ -42,6 +45,7 @@ func TestMakeFromData(t *testing.T) {
 		d        arrow.DataType
 		size     int
 		child    []arrow.ArrayData
+		dict     *array.Data
 		expPanic bool
 		expError string
 	}{
@@ -60,6 +64,8 @@ func TestMakeFromData(t *testing.T) {
 		{name: "float64", d: &testDataType{arrow.FLOAT64}},
 		{name: "string", d: &testDataType{arrow.STRING}, size: 3},
 		{name: "binary", d: &testDataType{arrow.BINARY}, size: 3},
+		{name: "large_string", d: &testDataType{arrow.LARGE_STRING}, size: 3},
+		{name: "large_binary", d: &testDataType{arrow.LARGE_BINARY}, size: 3},
 		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}},
 		{name: "date32", d: &testDataType{arrow.DATE32}},
 		{name: "date64", d: &testDataType{arrow.DATE64}},
@@ -69,9 +75,15 @@ func TestMakeFromData(t *testing.T) {
 		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
 		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
 		{name: "decimal128", d: &testDataType{arrow.DECIMAL128}},
+		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}},
 		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []arrow.ArrayData{
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+		}},
+
+		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, child: []arrow.ArrayData{
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
@@ -95,17 +107,22 @@ func TestMakeFromData(t *testing.T) {
 			}, 0 /* nulls */, 0 /* offset */)},
 		},
 
+		{name: "sparse union", d: arrow.SparseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 2},
+		{name: "dense union", d: arrow.DenseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 3},
+
+		// various dictionary index types and value types
+		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "arrow/array: no dictionary set in Data for Dictionary array"},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: &testDataType{arrow.INT64}}, dict: array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: &testDataType{arrow.INT32}}, dict: array.NewData(&testDataType{arrow.INT32}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: &testDataType{arrow.UINT16}}, dict: array.NewData(&testDataType{arrow.UINT16}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint16, ValueType: &testDataType{arrow.INT64}}, dict: array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: &testDataType{arrow.UINT32}}, dict: array.NewData(&testDataType{arrow.UINT32}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: &testDataType{arrow.TIMESTAMP}}, dict: array.NewData(&testDataType{arrow.TIMESTAMP}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int64, ValueType: &testDataType{arrow.UINT32}}, dict: array.NewData(&testDataType{arrow.UINT32}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: &testDataType{arrow.TIMESTAMP}}, dict: array.NewData(&testDataType{arrow.TIMESTAMP}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
+
 		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
 		{name: "extension", d: types.NewUUIDType()},
-
-		// unsupported types
-		{name: "sparse union", d: &testDataType{arrow.SPARSE_UNION}, expPanic: true, expError: "unsupported data type: SPARSE_UNION"},
-		{name: "dense union", d: &testDataType{arrow.DENSE_UNION}, expPanic: true, expError: "unsupported data type: DENSE_UNION"},
-		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "unsupported data type: DICTIONARY"},
-		{name: "large string", d: &testDataType{arrow.LARGE_STRING}, expPanic: true, expError: "unsupported data type: LARGE_STRING"},
-		{name: "large binary", d: &testDataType{arrow.LARGE_BINARY}, expPanic: true, expError: "unsupported data type: LARGE_BINARY"},
-		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, expPanic: true, expError: "unsupported data type: LARGE_LIST"},
-		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}, expPanic: true, expError: "unsupported data type: DECIMAL256"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},
@@ -113,12 +130,19 @@ func TestMakeFromData(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var b [4]*memory.Buffer
-			var n = 4
+			var (
+				b    [4]*memory.Buffer
+				n    = 4
+				data arrow.ArrayData
+			)
 			if test.size != 0 {
 				n = test.size
 			}
-			data := array.NewData(test.d, 0, b[:n], test.child, 0, 0)
+			if test.dict != nil {
+				data = array.NewDataWithDictionary(test.d, 0, b[:n], 0, 0, test.dict)
+			} else {
+				data = array.NewData(test.d, 0, b[:n], test.child, 0, 0)
+			}
 
 			if test.expPanic {
 				assert.PanicsWithValue(t, test.expError, func() {

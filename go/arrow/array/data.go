@@ -22,20 +22,24 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // Data represents the memory and metadata of an Arrow array.
 type Data struct {
-	refCount  int64
-	dtype     arrow.DataType
-	nulls     int
-	offset    int
-	length    int
-	buffers   []*memory.Buffer  // TODO(sgc): should this be an interface?
-	childData []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
+	refCount int64
+	dtype    arrow.DataType
+	nulls    int
+	offset   int
+	length   int
+
+	// for dictionary arrays: buffers will be the null validity bitmap and the indexes that reference
+	// values in the dictionary member. childData would be empty in a dictionary array
+	buffers    []*memory.Buffer  // TODO(sgc): should this be an interface?
+	childData  []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
+	dictionary *Data             // only populated for dictionary arrays
 }
 
 // NewData creates a new Data.
@@ -61,6 +65,29 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 		buffers:   buffers,
 		childData: childData,
 	}
+}
+
+// NewDataWithDictionary creates a new data object, but also sets the provided dictionary into the data if it's not nil
+func NewDataWithDictionary(dtype arrow.DataType, length int, buffers []*memory.Buffer, nulls, offset int, dict *Data) *Data {
+	data := NewData(dtype, length, buffers, nil, nulls, offset)
+	if dict != nil {
+		dict.Retain()
+	}
+	data.dictionary = dict
+	return data
+}
+
+func (d *Data) Copy() *Data {
+	// don't pass the slices directly, otherwise it retains the connection
+	// we need to make new slices and populate them with the same pointers
+	bufs := make([]*memory.Buffer, len(d.buffers))
+	copy(bufs, d.buffers)
+	children := make([]arrow.ArrayData, len(d.childData))
+	copy(children, d.childData)
+
+	data := NewData(d.dtype, d.length, bufs, children, d.nulls, d.offset)
+	data.SetDictionary(d.dictionary)
+	return data
 }
 
 // Reset sets the Data for re-use.
@@ -121,12 +148,18 @@ func (d *Data) Release() {
 		for _, b := range d.childData {
 			b.Release()
 		}
-		d.buffers, d.childData = nil, nil
+
+		if d.dictionary != nil {
+			d.dictionary.Release()
+		}
+		d.dictionary, d.buffers, d.childData = nil, nil, nil
 	}
 }
 
 // DataType returns the DataType of the data.
 func (d *Data) DataType() arrow.DataType { return d.dtype }
+
+func (d *Data) SetNullN(n int) { d.nulls = n }
 
 // NullN returns the number of nulls.
 func (d *Data) NullN() int { return d.nulls }
@@ -141,6 +174,21 @@ func (d *Data) Offset() int { return d.offset }
 func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 
 func (d *Data) Children() []arrow.ArrayData { return d.childData }
+
+// Dictionary returns the ArrayData object for the dictionary member, or nil
+func (d *Data) Dictionary() arrow.ArrayData { return d.dictionary }
+
+// SetDictionary allows replacing the dictionary for this particular Data object
+func (d *Data) SetDictionary(dict arrow.ArrayData) {
+	if d.dictionary != nil {
+		d.dictionary.Release()
+		d.dictionary = nil
+	}
+	if dict.(*Data) != nil {
+		dict.Retain()
+		d.dictionary = dict.(*Data)
+	}
+}
 
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
@@ -166,14 +214,19 @@ func NewSliceData(data arrow.ArrayData, i, j int64) arrow.ArrayData {
 		}
 	}
 
+	if data.(*Data).dictionary != nil {
+		data.(*Data).dictionary.Retain()
+	}
+
 	o := &Data{
-		refCount:  1,
-		dtype:     data.DataType(),
-		nulls:     UnknownNullCount,
-		length:    int(j - i),
-		offset:    data.Offset() + int(i),
-		buffers:   data.Buffers(),
-		childData: data.Children(),
+		refCount:   1,
+		dtype:      data.DataType(),
+		nulls:      UnknownNullCount,
+		length:     int(j - i),
+		offset:     data.Offset() + int(i),
+		buffers:    data.Buffers(),
+		childData:  data.Children(),
+		dictionary: data.(*Data).dictionary,
 	}
 
 	if data.NullN() == 0 {

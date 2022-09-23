@@ -53,7 +53,7 @@ class AtomicWithPadding {
 //
 // Also allows for executing next pending tasks immediately using a caller thread.
 //
-class TaskScheduler {
+class ARROW_EXPORT TaskScheduler {
  public:
   using TaskImpl = std::function<Status(size_t, int64_t)>;
   using TaskGroupContinuationImpl = std::function<Status(size_t)>;

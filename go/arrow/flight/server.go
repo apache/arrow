@@ -17,13 +17,14 @@
 package flight
 
 import (
-	context "context"
+	"context"
 	"net"
 	"os"
 	"os/signal"
 
-	"github.com/apache/arrow/go/v8/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type (
@@ -56,8 +57,14 @@ type (
 // it slightly easier to manage a flight service, slightly modeled after
 // the C++ implementation
 type Server interface {
-	// Init takes in the address to bind to and creates the listener
+	// Init takes in the address to bind to and creates the listener. If both this
+	// and InitListener are called, then whichever was called last will be used.
 	Init(addr string) error
+	// InitListener initializes with an already created listener rather than
+	// creating a new one like Init does. If both this and Init are called,
+	// whichever was called last is what will be used as they both set a listener
+	// into the server.
+	InitListener(lis net.Listener)
 	// Addr will return the address that was bound to for the service to listen on
 	Addr() net.Addr
 	// SetShutdownOnSignals sets notifications on the given signals to call GracefulStop
@@ -73,6 +80,12 @@ type Server interface {
 	// RegisterFlightService sets up the handler for the Flight Endpoints as per
 	// normal Grpc setups
 	RegisterFlightService(FlightServer)
+	// ServiceRegistrar wraps a single method that supports service registration.
+	// For example, it may be used to register health check provided by grpc-go.
+	grpc.ServiceRegistrar
+	// ServiceInfoProvider is an interface used to retrieve metadata about the services to expose.
+	// If reflection is enabled on the server, all the endpoints can be invoked using grpcurl.
+	reflection.ServiceInfoProvider
 }
 
 // BaseFlightServer is the base flight server implementation and must be
@@ -209,6 +222,10 @@ func (s *server) Init(addr string) (err error) {
 	return
 }
 
+func (s *server) InitListener(lis net.Listener) {
+	s.lis = lis
+}
+
 func (s *server) Addr() net.Addr {
 	return s.lis.Addr()
 }
@@ -239,4 +256,12 @@ func (s *server) RegisterFlightService(svc FlightServer) {
 
 func (s *server) Shutdown() {
 	s.server.GracefulStop()
+}
+
+func (s *server) RegisterService(sd *grpc.ServiceDesc, ss interface{}) {
+	s.server.RegisterService(sd, ss)
+}
+
+func (s *server) GetServiceInfo() map[string]grpc.ServiceInfo {
+	return s.server.GetServiceInfo()
 }

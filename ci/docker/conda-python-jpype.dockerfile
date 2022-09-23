@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=11
 ARG maven=3.6
-RUN mamba install -q \
+RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         jpype1 && \

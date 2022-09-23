@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+int_types <- c(int8(), int16(), int32(), int64())
+uint_types <- c(uint8(), uint16(), uint32(), uint64())
+float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+all_numeric_types <- c(int_types, uint_types, float_types)
 
 expect_chunked_roundtrip <- function(x, type) {
   a <- ChunkedArray$create(!!!x)
@@ -91,6 +95,27 @@ test_that("ChunkedArray", {
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 })
 
+test_that("ChunkedArray can be constructed from Array and ChunkedArrays", {
+  expect_equal(
+    chunked_array(Array$create(1:2), Array$create(3:4)),
+    chunked_array(1:2, 3:4),
+  )
+  expect_equal(
+    chunked_array(chunked_array(1:2, 3:4), chunked_array(5:6)),
+    chunked_array(1:2, 3:4, 5:6),
+  )
+
+  # Cannot mix array types
+  expect_error(
+    chunked_array(Array$create(1:2), Array$create(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+  expect_error(
+    chunked_array(chunked_array(1:2), chunked_array(c("a", "b"))),
+    regexp = "Array chunks must all be same type"
+  )
+})
+
 test_that("print ChunkedArray", {
   verify_output(test_path("test-chunked-array.txt"), {
     chunked_array(c(1, 2, 3), c(4, 5, 6))
@@ -98,6 +123,18 @@ test_that("print ChunkedArray", {
     chunked_array(1:30)
     chunked_array(factor(c("a", "b")), factor(c("c", "d")))
   })
+})
+
+test_that("ChunkedArray can be concatenated with c()", {
+  a <- chunked_array(c(1, 2), 3)
+  b <- chunked_array(c(4, 5), 6)
+  expected <- chunked_array(c(1, 2), 3, c(4, 5), 6)
+  expect_equal(c(a, b), expected)
+
+  # Can handle Arrays and base vectors
+  vectors <- list(chunked_array(1:10), Array$create(1:10), 1:10)
+  expected <- chunked_array(1:10, 1:10, 1:10)
+  expect_equal(do.call(c, vectors), expected)
 })
 
 test_that("ChunkedArray handles !!! splicing", {
@@ -237,15 +274,6 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
 })
 
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
-  int_types <- c(int8(), int16(), int32(), int64())
-  uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
-  all_types <- c(
-    int_types,
-    uint_types,
-    float_types
-  )
-
   a <- chunked_array(1:10, 1:10)
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
@@ -261,7 +289,7 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
 test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
   num_int32 <- 12L
   num_int64 <- bit64::as.integer64(10)
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     expect_type_equal(chunked_array(num_int32, type = type)$type, type)
     expect_type_equal(chunked_array(num_int64, type = type)$type, type)
   }
@@ -320,7 +348,7 @@ test_that("chunked_array() makes chunks of the same type", {
 })
 
 test_that("chunked_array() handles 0 chunks if given a type", {
-  for (type in all_types) {
+  for (type in all_numeric_types) {
     a <- chunked_array(type = type)
     expect_type_equal(a$type, as_type(type))
     expect_equal(length(a), 0L)
@@ -450,7 +478,7 @@ test_that("Handling string data with embedded nuls", {
   # The behavior of the warnings/errors is slightly different with and without
   # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
   # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_if_r_version("3.5.0")
+  skip_on_r_older_than("3.6")
 
   v <- expect_error(as.vector(chunked_array_with_nul), NA)
 
@@ -471,4 +499,45 @@ test_that("Handling string data with embedded nuls", {
       fixed = TRUE
     )
   })
+})
+
+test_that("as_chunked_array() default method calls chunked_array()", {
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5)),
+    chunked_array(1:3, 4:5)
+  )
+
+  expect_equal(
+    as_chunked_array(chunked_array(1:3, 4:5), type = float64()),
+    chunked_array(
+      Array$create(1:3, type = float64()),
+      Array$create(4:5, type = float64())
+    )
+  )
+})
+
+test_that("as_chunked_array() works for ChunkedArray", {
+  array <- chunked_array(type = null())
+  expect_identical(as_chunked_array(array), array)
+  expect_equal(
+    as_chunked_array(array, type = int32()),
+    chunked_array(type = int32())
+  )
+})
+
+test_that("as_chunked_array() works for Array", {
+  expect_equal(
+    as_chunked_array(Array$create(logical(), type = null())),
+    chunked_array(type = null())
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6)),
+    chunked_array(Array$create(1:6))
+  )
+
+  expect_equal(
+    as_chunked_array(Array$create(1:6), type = float64()),
+    chunked_array(Array$create(1:6, type = float64()))
+  )
 })

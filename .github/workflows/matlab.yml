@@ -35,6 +35,9 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
 
   ubuntu:
@@ -43,7 +46,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install ninja-build
@@ -69,12 +72,12 @@ jobs:
         with:
           select-by-folder: matlab/test
   macos:
-    name: AMD64 MacOS 10.15 MATLAB
+    name: AMD64 macOS 11 MATLAB
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
-      - name: Check out repository        
-        uses: actions/checkout@v2
+      - name: Check out repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install ninja-build

@@ -19,14 +19,16 @@
 package metadata
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -39,7 +41,7 @@ type Int32Statistics struct {
 	min int32
 	max int32
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt32Statistics constructs an appropriate stat object type using the
@@ -48,7 +50,7 @@ type Int32Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int32
 func NewInt32Statistics(descr *schema.Column, mem memory.Allocator) *Int32Statistics {
 	if descr.PhysicalType() != parquet.Types.Int32 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int32 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int32 stat object", descr.PhysicalType()))
 	}
 
 	return &Int32Statistics{
@@ -150,9 +152,9 @@ func (s *Int32Statistics) Equals(other TypedStatistics) bool {
 
 func (s *Int32Statistics) getMinMax(values []int32) (min, max int32) {
 	if s.order == schema.SortSIGNED {
-		min, max = utils.GetMinMaxInt32(values)
+		min, max = shared_utils.GetMinMaxInt32(values)
 	} else {
-		umin, umax := utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
+		umin, umax := shared_utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
 		min, max = int32(umin), int32(umax)
 	}
 	return
@@ -163,16 +165,16 @@ func (s *Int32Statistics) getMinMaxSpaced(values []int32, validBits []byte, vali
 	max = s.defaultMax()
 	var fn func([]int32) (int32, int32)
 	if s.order == schema.SortSIGNED {
-		fn = utils.GetMinMaxInt32
+		fn = shared_utils.GetMinMaxInt32
 	} else {
 		fn = func(v []int32) (int32, int32) {
-			umin, umax := utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
+			umin, umax := shared_utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
 			return int32(umin), int32(umax)
 		}
 	}
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -293,7 +295,7 @@ func (s *Int32Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -319,7 +321,7 @@ type Int64Statistics struct {
 	min int64
 	max int64
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt64Statistics constructs an appropriate stat object type using the
@@ -328,7 +330,7 @@ type Int64Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int64
 func NewInt64Statistics(descr *schema.Column, mem memory.Allocator) *Int64Statistics {
 	if descr.PhysicalType() != parquet.Types.Int64 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int64 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int64 stat object", descr.PhysicalType()))
 	}
 
 	return &Int64Statistics{
@@ -430,9 +432,9 @@ func (s *Int64Statistics) Equals(other TypedStatistics) bool {
 
 func (s *Int64Statistics) getMinMax(values []int64) (min, max int64) {
 	if s.order == schema.SortSIGNED {
-		min, max = utils.GetMinMaxInt64(values)
+		min, max = shared_utils.GetMinMaxInt64(values)
 	} else {
-		umin, umax := utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
+		umin, umax := shared_utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
 		min, max = int64(umin), int64(umax)
 	}
 	return
@@ -443,16 +445,16 @@ func (s *Int64Statistics) getMinMaxSpaced(values []int64, validBits []byte, vali
 	max = s.defaultMax()
 	var fn func([]int64) (int64, int64)
 	if s.order == schema.SortSIGNED {
-		fn = utils.GetMinMaxInt64
+		fn = shared_utils.GetMinMaxInt64
 	} else {
 		fn = func(v []int64) (int64, int64) {
-			umin, umax := utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
+			umin, umax := shared_utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
 			return int64(umin), int64(umax)
 		}
 	}
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -573,7 +575,7 @@ func (s *Int64Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -599,7 +601,7 @@ type Int96Statistics struct {
 	min parquet.Int96
 	max parquet.Int96
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewInt96Statistics constructs an appropriate stat object type using the
@@ -608,7 +610,7 @@ type Int96Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Int96
 func NewInt96Statistics(descr *schema.Column, mem memory.Allocator) *Int96Statistics {
 	if descr.PhysicalType() != parquet.Types.Int96 {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Int96 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Int96 stat object", descr.PhysicalType()))
 	}
 
 	return &Int96Statistics{
@@ -727,7 +729,7 @@ func (s *Int96Statistics) getMinMaxSpaced(values []parquet.Int96, validBits []by
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -845,7 +847,7 @@ func (s *Int96Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -871,7 +873,7 @@ type Float32Statistics struct {
 	min float32
 	max float32
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFloat32Statistics constructs an appropriate stat object type using the
@@ -880,7 +882,7 @@ type Float32Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Float
 func NewFloat32Statistics(descr *schema.Column, mem memory.Allocator) *Float32Statistics {
 	if descr.PhysicalType() != parquet.Types.Float {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Float32 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Float32 stat object", descr.PhysicalType()))
 	}
 
 	return &Float32Statistics{
@@ -1006,7 +1008,7 @@ func (s *Float32Statistics) getMinMaxSpaced(values []float32, validBits []byte, 
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1124,7 +1126,7 @@ func (s *Float32Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1150,7 +1152,7 @@ type Float64Statistics struct {
 	min float64
 	max float64
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFloat64Statistics constructs an appropriate stat object type using the
@@ -1159,7 +1161,7 @@ type Float64Statistics struct {
 // Panics if the physical type of descr is not parquet.Type.Double
 func NewFloat64Statistics(descr *schema.Column, mem memory.Allocator) *Float64Statistics {
 	if descr.PhysicalType() != parquet.Types.Double {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Float64 stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Float64 stat object", descr.PhysicalType()))
 	}
 
 	return &Float64Statistics{
@@ -1285,7 +1287,7 @@ func (s *Float64Statistics) getMinMaxSpaced(values []float64, validBits []byte, 
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1403,7 +1405,7 @@ func (s *Float64Statistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1429,7 +1431,7 @@ type BooleanStatistics struct {
 	min bool
 	max bool
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewBooleanStatistics constructs an appropriate stat object type using the
@@ -1438,7 +1440,7 @@ type BooleanStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.Boolean
 func NewBooleanStatistics(descr *schema.Column, mem memory.Allocator) *BooleanStatistics {
 	if descr.PhysicalType() != parquet.Types.Boolean {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a Boolean stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a Boolean stat object", descr.PhysicalType()))
 	}
 
 	return &BooleanStatistics{
@@ -1557,7 +1559,7 @@ func (s *BooleanStatistics) getMinMaxSpaced(values []bool, validBits []byte, val
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1675,7 +1677,7 @@ func (s *BooleanStatistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1701,7 +1703,7 @@ type ByteArrayStatistics struct {
 	min parquet.ByteArray
 	max parquet.ByteArray
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewByteArrayStatistics constructs an appropriate stat object type using the
@@ -1710,7 +1712,7 @@ type ByteArrayStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.ByteArray
 func NewByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *ByteArrayStatistics {
 	if descr.PhysicalType() != parquet.Types.ByteArray {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a ByteArray stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a ByteArray stat object", descr.PhysicalType()))
 	}
 
 	return &ByteArrayStatistics{
@@ -1753,7 +1755,9 @@ func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocato
 }
 
 func (s *ByteArrayStatistics) plainEncode(src parquet.ByteArray) []byte {
-	return src
+	out := make([]byte, len(src))
+	copy(out, src)
+	return out
 }
 
 func (s *ByteArrayStatistics) plainDecode(src []byte) parquet.ByteArray {
@@ -1830,7 +1834,7 @@ func (s *ByteArrayStatistics) getMinMaxSpaced(values []parquet.ByteArray, validB
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -1948,7 +1952,7 @@ func (s *ByteArrayStatistics) Encode() (enc EncodedStatistics, err error) {
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()
@@ -1974,7 +1978,7 @@ type FixedLenByteArrayStatistics struct {
 	min parquet.FixedLenByteArray
 	max parquet.FixedLenByteArray
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // NewFixedLenByteArrayStatistics constructs an appropriate stat object type using the
@@ -1983,7 +1987,7 @@ type FixedLenByteArrayStatistics struct {
 // Panics if the physical type of descr is not parquet.Type.FixedLenByteArray
 func NewFixedLenByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *FixedLenByteArrayStatistics {
 	if descr.PhysicalType() != parquet.Types.FixedLenByteArray {
-		panic(xerrors.Errorf("parquet: invalid type %s for constructing a FixedLenByteArray stat object", descr.PhysicalType()))
+		panic(fmt.Errorf("parquet: invalid type %s for constructing a FixedLenByteArray stat object", descr.PhysicalType()))
 	}
 
 	return &FixedLenByteArrayStatistics{
@@ -2114,7 +2118,7 @@ func (s *FixedLenByteArrayStatistics) getMinMaxSpaced(values []parquet.FixedLenB
 	max = s.defaultMax()
 
 	if s.bitSetReader == nil {
-		s.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
+		s.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(values)))
 	} else {
 		s.bitSetReader.Reset(validBits, validBitsOffset, int64(len(values)))
 	}
@@ -2232,7 +2236,7 @@ func (s *FixedLenByteArrayStatistics) Encode() (enc EncodedStatistics, err error
 			case string:
 				err = xerrors.New(r)
 			default:
-				err = xerrors.Errorf("unknown error type thrown from panic: %v", r)
+				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
 			}
 		}
 	}()

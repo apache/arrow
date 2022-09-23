@@ -38,14 +38,20 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
 #endif
 
-#include "arrow/flight/internal.h"
-#include "arrow/flight/middleware_internal.h"
+#ifdef GRPCPP_PP_INCLUDE
+#include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
+
+// Include before test_util.h (boost), contains Windows fixes
+#include "arrow/flight/platform.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"
 
@@ -66,73 +72,61 @@ const char kAuthHeader[] = "authorization";
 //------------------------------------------------------------
 // Common transport tests
 
-class GrpcConnectivityTest : public ConnectivityTest {
+class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
-TEST_F(GrpcConnectivityTest, GetPort) { TestGetPort(); }
-TEST_F(GrpcConnectivityTest, BuilderHook) { TestBuilderHook(); }
-TEST_F(GrpcConnectivityTest, Shutdown) { TestShutdown(); }
-TEST_F(GrpcConnectivityTest, ShutdownWithDeadline) { TestShutdownWithDeadline(); }
+ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 
-class GrpcDataTest : public DataTest {
+class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
-TEST_F(GrpcDataTest, TestDoGetInts) { TestDoGetInts(); }
-TEST_F(GrpcDataTest, TestDoGetFloats) { TestDoGetFloats(); }
-TEST_F(GrpcDataTest, TestDoGetDicts) { TestDoGetDicts(); }
-TEST_F(GrpcDataTest, TestDoGetLargeBatch) { TestDoGetLargeBatch(); }
-TEST_F(GrpcDataTest, TestOverflowServerBatch) { TestOverflowServerBatch(); }
-TEST_F(GrpcDataTest, TestOverflowClientBatch) { TestOverflowClientBatch(); }
-TEST_F(GrpcDataTest, TestDoExchange) { TestDoExchange(); }
-TEST_F(GrpcDataTest, TestDoExchangeNoData) { TestDoExchangeNoData(); }
-TEST_F(GrpcDataTest, TestDoExchangeWriteOnlySchema) { TestDoExchangeWriteOnlySchema(); }
-TEST_F(GrpcDataTest, TestDoExchangeGet) { TestDoExchangeGet(); }
-TEST_F(GrpcDataTest, TestDoExchangePut) { TestDoExchangePut(); }
-TEST_F(GrpcDataTest, TestDoExchangeEcho) { TestDoExchangeEcho(); }
-TEST_F(GrpcDataTest, TestDoExchangeTotal) { TestDoExchangeTotal(); }
-TEST_F(GrpcDataTest, TestDoExchangeError) { TestDoExchangeError(); }
-TEST_F(GrpcDataTest, TestIssue5095) { TestIssue5095(); }
+ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 
-class GrpcDoPutTest : public DoPutTest {
+class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
-TEST_F(GrpcDoPutTest, TestInts) { TestInts(); }
-TEST_F(GrpcDoPutTest, TestDoPutFloats) { TestDoPutFloats(); }
-TEST_F(GrpcDoPutTest, TestDoPutEmptyBatch) { TestDoPutEmptyBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutDicts) { TestDoPutDicts(); }
-TEST_F(GrpcDoPutTest, TestDoPutLargeBatch) { TestDoPutLargeBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutSizeLimit) { TestDoPutSizeLimit(); }
+ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 
-class GrpcAppMetadataTest : public AppMetadataTest {
+class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
+ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 
-TEST_F(GrpcAppMetadataTest, TestDoGet) { TestDoGet(); }
-TEST_F(GrpcAppMetadataTest, TestDoGetDictionaries) { TestDoGetDictionaries(); }
-TEST_F(GrpcAppMetadataTest, TestDoPut) { TestDoPut(); }
-TEST_F(GrpcAppMetadataTest, TestDoPutDictionaries) { TestDoPutDictionaries(); }
-TEST_F(GrpcAppMetadataTest, TestDoPutReadMetadata) { TestDoPutReadMetadata(); }
-
-class GrpcIpcOptionsTest : public IpcOptionsTest {
+class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
+ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 
-TEST_F(GrpcIpcOptionsTest, TestDoGetReadOptions) { TestDoGetReadOptions(); }
-TEST_F(GrpcIpcOptionsTest, TestDoPutWriteOptions) { TestDoPutWriteOptions(); }
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptions) {
-  TestDoExchangeClientWriteOptions();
-}
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptionsBegin) {
-  TestDoExchangeClientWriteOptionsBegin();
-}
-TEST_F(GrpcIpcOptionsTest, TestDoExchangeServerWriteOptions) {
-  TestDoExchangeServerWriteOptions();
-}
+class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
+ protected:
+  std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
+};
+ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
+
+class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
+ protected:
+  std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
+};
+ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -147,13 +141,11 @@ TEST(TestFlight, ConnectUri) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
-  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location1));
   ASSERT_OK(client->Close());
-  ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->Close());
 }
 
@@ -168,32 +160,28 @@ TEST(TestFlight, ConnectUriUnix) {
   std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
-  Location location1;
-  Location location2;
-  ASSERT_OK(Location::Parse(uri, &location1));
-  ASSERT_OK(Location::Parse(uri, &location2));
-  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK_AND_ASSIGN(auto location1, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::Parse(uri));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location1));
   ASSERT_OK(client->Close());
-  ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->Close());
 }
 #endif
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
-  Location location, location2;
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
-  ASSERT_OK(Location::ForGrpcTcp("[::1]", 0, &location));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
 
-  ASSERT_OK(Location::ForGrpcTcp("[::1]", server->port(), &location2));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTcp("[::1]", server->port()));
   std::unique_ptr<FlightClient> client;
-  ASSERT_OK(FlightClient::Connect(location2, &client));
-  std::unique_ptr<FlightListing> listing;
-  ASSERT_OK(client->ListFlights(&listing));
+  ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
+  ASSERT_OK(client->ListFlights());
 }
 
 // ----------------------------------------------------------------------
@@ -204,8 +192,7 @@ class TestFlightClient : public ::testing::Test {
   void SetUp() {
     server_ = ExampleTestServer();
 
-    Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
     FlightServerOptions options(location);
     ASSERT_OK(server_->Init(options));
 
@@ -218,9 +205,9 @@ class TestFlightClient : public ::testing::Test {
   }
 
   Status ConnectClient() {
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
-    return FlightClient::Connect(location, &client_);
+    ARROW_ASSIGN_OR_RAISE(auto location,
+                          Location::ForGrpcTcp("localhost", server_->port()));
+    return FlightClient::Connect(location).Value(&client_);
   }
 
   template <typename EndpointCheckFunc>
@@ -229,13 +216,11 @@ class TestFlightClient : public ::testing::Test {
                   EndpointCheckFunc&& check_endpoints) {
     auto expected_schema = expected_batches[0]->schema();
 
-    std::unique_ptr<FlightInfo> info;
-    ASSERT_OK(client_->GetFlightInfo(descr, &info));
+    ASSERT_OK_AND_ASSIGN(auto info, client_->GetFlightInfo(descr));
     check_endpoints(info->endpoints());
 
-    std::shared_ptr<Schema> schema;
     ipc::DictionaryMemo dict_memo;
-    ASSERT_OK(info->GetSchema(&dict_memo, &schema));
+    ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
     AssertSchemaEqual(*expected_schema, *schema);
 
     // By convention, fetch the first endpoint
@@ -247,17 +232,14 @@ class TestFlightClient : public ::testing::Test {
     auto num_batches = static_cast<int>(expected_batches.size());
     ASSERT_GE(num_batches, 2);
 
-    std::unique_ptr<FlightStreamReader> stream;
-    ASSERT_OK(client_->DoGet(ticket, &stream));
-
-    std::unique_ptr<FlightStreamReader> stream2;
-    ASSERT_OK(client_->DoGet(ticket, &stream2));
+    ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+    ASSERT_OK_AND_ASSIGN(auto stream2, client_->DoGet(ticket));
     ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
 
     FlightStreamChunk chunk;
     std::shared_ptr<RecordBatch> batch;
     for (int i = 0; i < num_batches; ++i) {
-      ASSERT_OK(stream->Next(&chunk));
+      ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
       ASSERT_OK(reader->ReadNext(&batch));
       ASSERT_NE(nullptr, chunk.data);
       ASSERT_NE(nullptr, batch);
@@ -280,7 +262,7 @@ class TestFlightClient : public ::testing::Test {
     }
 
     // Stream exhausted
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(chunk, stream->Next());
     ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_EQ(nullptr, chunk.data);
     ASSERT_EQ(nullptr, batch);
@@ -378,14 +360,13 @@ class TestTls : public ::testing::Test {
 
     server_.reset(new TlsTestServer);
 
-    Location location;
-    ASSERT_OK(Location::ForGrpcTls("localhost", 0, &location));
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTls("localhost", 0));
     FlightServerOptions options(location);
     ASSERT_RAISES(UnknownError, server_->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
     ASSERT_OK(server_->Init(options));
 
-    ASSERT_OK(Location::ForGrpcTls("localhost", server_->port(), &location_));
+    ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", server_->port()));
     ASSERT_OK(ConnectClient());
   }
 
@@ -400,7 +381,7 @@ class TestTls : public ::testing::Test {
     CertKeyPair root_cert;
     RETURN_NOT_OK(ExampleTlsCertificateRoot(&root_cert));
     options.tls_root_certs = root_cert.pem_cert;
-    return FlightClient::Connect(location_, options, &client_);
+    return FlightClient::Connect(location_, options).Value(&client_);
   }
 
  protected:
@@ -481,7 +462,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
     }
     return Status::OK();
@@ -502,7 +483,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
   if (iter == incoming_headers.end()) {
     return "";
   }
-  const std::string val = iter->second.to_string();
+  const std::string val(iter->second);
   if (val.size() > prefix.length()) {
     if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
                    char_compare)) {
@@ -626,7 +607,7 @@ class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     recorded_calls_.push_back(info.method);
-    *middleware = arrow::internal::make_unique<PropagatingClientMiddleware>(
+    *middleware = std::make_unique<PropagatingClientMiddleware>(
         &received_headers_, &recorded_status_);
   }
 
@@ -683,7 +664,7 @@ class PropagatingTestServer : public FlightServerBase {
       current_span_id = ((const TracingServerMiddleware*)middleware)->span_id;
     }
 
-    return client_->DoAction(action, result);
+    return client_->DoAction(action).Value(result);
   }
 
  private:
@@ -791,8 +772,8 @@ class TestPropagatingMiddleware : public ::testing::Test {
   void CheckHeader(const std::string& header, const std::string& value,
                    const CallHeaders::const_iterator& it) {
     // Construct a string_view before comparison to satisfy MSVC
-    util::string_view header_view(header.data(), header.length());
-    util::string_view value_view(value.data(), value.length());
+    std::string_view header_view(header.data(), header.length());
+    std::string_view value_view(value.data(), value.length());
     ASSERT_EQ(header_view, (*it).first);
     ASSERT_EQ(value_view, (*it).second);
   }
@@ -853,7 +834,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     std::unique_ptr<FlightListing> listing;
     FlightCallOptions call_options;
     call_options.headers.push_back(bearer_result.ValueOrDie());
-    ASSERT_OK(client_->ListFlights(call_options, {}, &listing));
+    ASSERT_OK_AND_ASSIGN(listing, client_->ListFlights(call_options, {}));
     ASSERT_TRUE(bearer_middleware_->GetIsValid());
   }
 
@@ -879,13 +860,12 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
   Action action;
-  std::unique_ptr<ResultStream> stream;
 
   // Run action1
   action.type = "action1";
 
   action.body = Buffer::FromString("action1-content");
-  Status s = client_->DoAction(action, &stream);
+  Status s = client_->DoAction(action).status();
   ASSERT_FALSE(s.ok());
   std::shared_ptr<FlightStatusDetail> flightStatusDetail =
       FlightStatusDetail::UnwrapStatus(s);
@@ -894,37 +874,33 @@ TEST_F(TestErrorMiddleware, TestMetadata) {
 }
 
 TEST_F(TestFlightClient, ListFlights) {
-  std::unique_ptr<FlightListing> listing;
-  ASSERT_OK(client_->ListFlights(&listing));
+  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights());
   ASSERT_TRUE(listing != nullptr);
 
   std::vector<FlightInfo> flights = ExampleFlightInfo();
 
   std::unique_ptr<FlightInfo> info;
   for (const FlightInfo& flight : flights) {
-    ASSERT_OK(listing->Next(&info));
+    ASSERT_OK_AND_ASSIGN(info, listing->Next());
     AssertEqual(flight, *info);
   }
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 }
 
 TEST_F(TestFlightClient, ListFlightsWithCriteria) {
-  std::unique_ptr<FlightListing> listing;
-  ASSERT_OK(client_->ListFlights(FlightCallOptions(), {"foo"}, &listing));
+  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights(FlightCallOptions(), {"foo"}));
   std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(listing->Next(&info));
+  ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);
 }
 
 TEST_F(TestFlightClient, GetFlightInfo) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<FlightInfo> info;
-
-  ASSERT_OK(client_->GetFlightInfo(descr, &info));
+  ASSERT_OK_AND_ASSIGN(auto info, client_->GetFlightInfo(descr));
   ASSERT_NE(info, nullptr);
 
   std::vector<FlightInfo> flights = ExampleFlightInfo();
@@ -933,28 +909,24 @@ TEST_F(TestFlightClient, GetFlightInfo) {
 
 TEST_F(TestFlightClient, GetSchema) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> schema_result;
-  std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
 
-  ASSERT_OK(client_->GetSchema(descr, &schema_result));
+  ASSERT_OK_AND_ASSIGN(auto schema_result, client_->GetSchema(descr));
   ASSERT_NE(schema_result, nullptr);
-  ASSERT_OK(schema_result->GetSchema(&dict_memo, &schema));
+  ASSERT_OK(schema_result->GetSchema(&dict_memo));
 }
 
 TEST_F(TestFlightClient, GetFlightInfoNotFound) {
   auto descr = FlightDescriptor::Path({"examples", "things"});
-  std::unique_ptr<FlightInfo> info;
   // XXX Ideally should be Invalid (or KeyError), but gRPC doesn't support
   // multiple error codes.
-  auto st = client_->GetFlightInfo(descr, &info);
+  auto st = client_->GetFlightInfo(descr).status();
   ASSERT_RAISES(Invalid, st);
   ASSERT_NE(st.message().find("Flight not found"), std::string::npos);
 }
 
 TEST_F(TestFlightClient, ListActions) {
-  std::vector<ActionType> actions;
-  ASSERT_OK(client_->ListActions(&actions));
+  ASSERT_OK_AND_ASSIGN(std::vector<ActionType> actions, client_->ListActions());
 
   std::vector<ActionType> expected = ExampleActionTypes();
   EXPECT_THAT(actions, ::testing::ContainerEq(expected));
@@ -962,7 +934,6 @@ TEST_F(TestFlightClient, ListActions) {
 
 TEST_F(TestFlightClient, DoAction) {
   Action action;
-  std::unique_ptr<ResultStream> stream;
   std::unique_ptr<Result> result;
 
   // Run action1
@@ -970,63 +941,56 @@ TEST_F(TestFlightClient, DoAction) {
 
   const std::string action1_value = "action1-content";
   action.body = Buffer::FromString(action1_value);
-  ASSERT_OK(client_->DoAction(action, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(action));
 
   for (int i = 0; i < 3; ++i) {
-    ASSERT_OK(stream->Next(&result));
+    ASSERT_OK_AND_ASSIGN(result, stream->Next());
     std::string expected = action1_value + "-part" + std::to_string(i);
     ASSERT_EQ(expected, result->body->ToString());
   }
 
   // stream consumed
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ(nullptr, result);
 
   // Run action2, no results
   action.type = "action2";
-  ASSERT_OK(client_->DoAction(action, &stream));
+  ASSERT_OK_AND_ASSIGN(stream, client_->DoAction(action));
 
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ(nullptr, result);
 }
 
 TEST_F(TestFlightClient, RoundTripStatus) {
   const auto descr = FlightDescriptor::Command("status-outofmemory");
-  std::unique_ptr<FlightInfo> info;
-  const auto status = client_->GetFlightInfo(descr, &info);
+  const auto status = client_->GetFlightInfo(descr).status();
   ASSERT_RAISES(OutOfMemory, status);
 }
 
 // Test setting generic transport options by configuring gRPC to fail
 // all calls.
 TEST_F(TestFlightClient, GenericOptions) {
-  std::unique_ptr<FlightClient> client;
   auto options = FlightClientOptions::Defaults();
   // Set a very low limit at the gRPC layer to fail all calls
   options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
-  ASSERT_OK(FlightClient::Connect(location, options, &client));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", server_->port()));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, options));
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> schema_result;
   std::shared_ptr<Schema> schema;
   ipc::DictionaryMemo dict_memo;
-  auto status = client->GetSchema(descr, &schema_result);
+  auto status = client->GetSchema(descr).status();
   ASSERT_RAISES(Invalid, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("resource exhausted"));
 }
 
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 30001, &location));
-  ASSERT_OK(FlightClient::Connect(location, &client));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 30001));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
   FlightCallOptions options;
   options.timeout = TimeoutDuration{0.2};
-  std::unique_ptr<FlightInfo> info;
   auto start = std::chrono::system_clock::now();
-  Status status = client->GetFlightInfo(options, FlightDescriptor{}, &info);
+  Status status = client->GetFlightInfo(options, FlightDescriptor{}).status();
   auto end = std::chrono::system_clock::now();
 #ifdef ARROW_WITH_TIMING_TESTS
   EXPECT_LE(end - start, std::chrono::milliseconds{400});
@@ -1043,7 +1007,7 @@ TEST_F(TestFlightClient, NoTimeout) {
   std::unique_ptr<FlightInfo> info;
   auto start = std::chrono::system_clock::now();
   auto descriptor = FlightDescriptor::Path({"examples", "ints"});
-  Status status = client_->GetFlightInfo(options, descriptor, &info);
+  Status status = client_->GetFlightInfo(options, descriptor).Value(&info);
   auto end = std::chrono::system_clock::now();
 #ifdef ARROW_WITH_TIMING_TESTS
   EXPECT_LE(end - start, std::chrono::milliseconds{600});
@@ -1060,9 +1024,8 @@ TEST_F(TestFlightClient, Close) {
   // Idempotent
   ASSERT_OK(client_->Close());
 
-  std::unique_ptr<FlightListing> listing;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("FlightClient is closed"),
-                                  client_->ListFlights(&listing));
+                                  client_->ListFlights());
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
@@ -1071,65 +1034,52 @@ TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
       std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
 
   Status status;
-  std::unique_ptr<FlightListing> listing;
-  status = client_->ListFlights(&listing);
+  status = client_->ListFlights().status();
   ASSERT_RAISES(NotImplemented, status);
 
   std::unique_ptr<ResultStream> results;
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action, &results);
-  ASSERT_OK(status);
+  ASSERT_OK_AND_ASSIGN(results, client_->DoAction(action));
 
-  std::vector<ActionType> actions;
-  status = client_->ListActions(&actions);
+  status = client_->ListActions().status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightInfo> info;
-  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightStreamReader> stream;
-  status = client_->DoGet(Ticket{}, &stream);
+  status = client_->DoGet(Ticket{}).status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = arrow::schema({});
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
-  status = writer->Close();
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
+  status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
 }
 
 TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   Status status;
-  std::unique_ptr<FlightListing> listing;
-  status = client_->ListFlights(&listing);
+  status = client_->ListFlights().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<ResultStream> results;
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action, &results);
+  status = client_->DoAction(action).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::vector<ActionType> actions;
-  status = client_->ListActions(&actions);
+  status = client_->ListActions().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<FlightInfo> info;
-  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  status = client_->DoGet(Ticket{}, &stream);
+  status = client_->DoGet(Ticket{}).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
@@ -1137,9 +1087,10 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
-  status = writer->Close();
+  FlightClient::DoPutResult do_put_result;
+  status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
+  // ARROW-16053: gRPC may or may not fail the call immediately
+  if (status.ok()) status = do_put_result.writer->Close();
   ASSERT_RAISES(IOError, status);
   // ARROW-7583: don't check the error message here.
   // Because gRPC reports errors in some paths with booleans, instead
@@ -1157,16 +1108,16 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   action.type = "who-am-i";
   action.body = Buffer::FromString("");
   std::unique_ptr<ResultStream> results;
-  ASSERT_OK(client_->DoAction(action, &results));
+  ASSERT_OK_AND_ASSIGN(results, client_->DoAction(action));
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
 
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
 #ifndef _WIN32
@@ -1182,75 +1133,64 @@ TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {
                                     new TestClientBasicAuthHandler("user", "p4ssw0rd"))));
 
   Status status;
-  std::unique_ptr<FlightListing> listing;
-  status = client_->ListFlights(&listing);
+  status = client_->ListFlights().status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<ResultStream> results;
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action, &results);
+  status = client_->DoAction(action).status();
   ASSERT_OK(status);
 
-  std::vector<ActionType> actions;
-  status = client_->ListActions(&actions);
+  status = client_->ListActions().status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightInfo> info;
-  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightStreamReader> stream;
-  status = client_->DoGet(Ticket{}, &stream);
+  status = client_->DoGet(Ticket{}).status();
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = arrow::schema({});
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
-  status = writer->Close();
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(FlightDescriptor{}, schema));
+  status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
 }
 
 TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   Status status;
-  std::unique_ptr<FlightListing> listing;
-  status = client_->ListFlights(&listing);
+  status = client_->ListFlights().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<ResultStream> results;
   Action action;
   action.type = "";
   action.body = Buffer::FromString("");
-  status = client_->DoAction(action, &results);
+  status = client_->DoAction(action).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::vector<ActionType> actions;
-  status = client_->ListActions(&actions);
+  status = client_->ListActions().status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<FlightInfo> info;
-  status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<FlightStreamReader> stream;
-  status = client_->DoGet(Ticket{}, &stream);
+  status = client_->DoGet(Ticket{}).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
-  status = client_->DoPut(FlightDescriptor{}, schema, &writer, &reader);
-  ASSERT_OK(status);
-  status = writer->Close();
+  FlightClient::DoPutResult do_put_result;
+  // May or may not succeed depending on if the transport buffers the write
+  status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
+  if (do_put_result.writer) {
+    status = do_put_result.writer->Close();
+  }
+  // But this should definitely fail
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 }
@@ -1263,12 +1203,11 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   Action action;
   action.type = "who-am-i";
   action.body = Buffer::FromString("");
-  std::unique_ptr<ResultStream> results;
-  ASSERT_OK(client_->DoAction(action, &results));
+  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(action));
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
@@ -1280,103 +1219,92 @@ TEST_F(TestTls, DoAction) {
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  std::unique_ptr<ResultStream> results;
-  ASSERT_OK(client_->DoAction(options, action, &results));
+  ASSERT_OK_AND_ASSIGN(auto results, client_->DoAction(options, action));
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 TEST_F(TestTls, DisableServerVerification) {
-  std::unique_ptr<FlightClient> client;
   auto client_options = FlightClientOptions::Defaults();
   // For security reasons, if encryption is being used,
   // the client should be configured to verify the server by default.
   ASSERT_EQ(client_options.disable_server_verification, false);
   client_options.disable_server_verification = true;
-  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location_, client_options));
 
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  std::unique_ptr<ResultStream> results;
-  ASSERT_OK(client->DoAction(options, action, &results));
+  ASSERT_OK_AND_ASSIGN(auto results, client->DoAction(options, action));
   ASSERT_NE(results, nullptr);
 
   std::unique_ptr<Result> result;
-  ASSERT_OK(results->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, results->Next());
   ASSERT_NE(result, nullptr);
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 #endif
 
 TEST_F(TestTls, OverrideHostname) {
-  std::unique_ptr<FlightClient> client;
   auto client_options = FlightClientOptions::Defaults();
   client_options.override_hostname = "fakehostname";
   CertKeyPair root_cert;
   ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
   client_options.tls_root_certs = root_cert.pem_cert;
-  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location_, client_options));
 
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  std::unique_ptr<ResultStream> results;
-  ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+  ASSERT_RAISES(IOError, client->DoAction(options, action));
 }
 
 // Test the facility for setting generic transport options.
 TEST_F(TestTls, OverrideHostnameGeneric) {
-  std::unique_ptr<FlightClient> client;
   auto client_options = FlightClientOptions::Defaults();
   client_options.generic_options.emplace_back(GRPC_SSL_TARGET_NAME_OVERRIDE_ARG,
                                               "fakehostname");
   CertKeyPair root_cert;
   ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
   client_options.tls_root_certs = root_cert.pem_cert;
-  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location_, client_options));
 
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
   Action action;
   action.type = "test";
   action.body = Buffer::FromString("");
-  std::unique_ptr<ResultStream> results;
-  ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+  ASSERT_RAISES(IOError, client->DoAction(options, action));
   // Could check error message for the gRPC error message but it isn't
   // necessarily stable
 }
 
 TEST_F(TestRejectServerMiddleware, Rejected) {
-  std::unique_ptr<FlightInfo> info;
-  const auto& status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  const Status status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("All calls are rejected"));
 }
 
 TEST_F(TestCountingServerMiddleware, Count) {
-  std::unique_ptr<FlightInfo> info;
-  const auto& status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  const Status status = client_->GetFlightInfo(FlightDescriptor{}).status();
   ASSERT_RAISES(NotImplemented, status);
 
   Ticket ticket{""};
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
 
   ASSERT_EQ(1, request_counter_->failed_);
 
   while (true) {
-    FlightStreamChunk chunk;
-    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK_AND_ASSIGN(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       break;
     }
@@ -1388,7 +1316,6 @@ TEST_F(TestCountingServerMiddleware, Count) {
 
 TEST_F(TestPropagatingMiddleware, Propagate) {
   Action action;
-  std::unique_ptr<ResultStream> stream;
   std::unique_ptr<Result> result;
 
   current_span_id = "trace-id";
@@ -1396,9 +1323,9 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
 
   action.type = "action1";
   action.body = Buffer::FromString("action1-content");
-  ASSERT_OK(client_->DoAction(action, &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoAction(action));
 
-  ASSERT_OK(stream->Next(&result));
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
   ASSERT_EQ("trace-id", result->body->ToString());
   ValidateStatus(Status::OK(), FlightMethod::DoAction);
 }
@@ -1408,8 +1335,7 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
 // passed to the interceptor
 TEST_F(TestPropagatingMiddleware, ListFlights) {
   client_middleware_->Reset();
-  std::unique_ptr<FlightListing> listing;
-  const Status status = client_->ListFlights(&listing);
+  const Status status = client_->ListFlights().status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::ListFlights);
 }
@@ -1417,8 +1343,7 @@ TEST_F(TestPropagatingMiddleware, ListFlights) {
 TEST_F(TestPropagatingMiddleware, GetFlightInfo) {
   client_middleware_->Reset();
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<FlightInfo> info;
-  const Status status = client_->GetFlightInfo(descr, &info);
+  const Status status = client_->GetFlightInfo(descr).status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::GetFlightInfo);
 }
@@ -1426,8 +1351,7 @@ TEST_F(TestPropagatingMiddleware, GetFlightInfo) {
 TEST_F(TestPropagatingMiddleware, GetSchema) {
   client_middleware_->Reset();
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  std::unique_ptr<SchemaResult> result;
-  const Status status = client_->GetSchema(descr, &result);
+  const Status status = client_->GetSchema(descr).status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::GetSchema);
 }
@@ -1435,7 +1359,7 @@ TEST_F(TestPropagatingMiddleware, GetSchema) {
 TEST_F(TestPropagatingMiddleware, ListActions) {
   client_middleware_->Reset();
   std::vector<ActionType> actions;
-  const Status status = client_->ListActions(&actions);
+  const Status status = client_->ListActions().status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::ListActions);
 }
@@ -1444,7 +1368,7 @@ TEST_F(TestPropagatingMiddleware, DoGet) {
   client_middleware_->Reset();
   Ticket ticket1{"ARROW-5095-fail"};
   std::unique_ptr<FlightStreamReader> stream;
-  Status status = client_->DoGet(ticket1, &stream);
+  Status status = client_->DoGet(ticket1).status();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoGet);
 }
@@ -1455,10 +1379,8 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
   auto schema = arrow::schema({field("f1", a1->type())});
 
-  std::unique_ptr<FlightStreamWriter> stream;
-  std::unique_ptr<FlightMetadataReader> reader;
-  ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
-  const Status status = stream->Close();
+  ASSERT_OK_AND_ASSIGN(auto do_put_result, client_->DoPut(descr, schema));
+  const Status status = do_put_result.writer->Close();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoPut);
 }
@@ -1468,19 +1390,18 @@ TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); 
 TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
 
 class ForeverFlightListing : public FlightListing {
-  Status Next(std::unique_ptr<FlightInfo>* info) override {
+  arrow::Result<std::unique_ptr<FlightInfo>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    *info = arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
-    return Status::OK();
+    return std::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
   }
 };
 
 class ForeverResultStream : public ResultStream {
-  Status Next(std::unique_ptr<Result>* result) override {
+  arrow::Result<std::unique_ptr<Result>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    *result = arrow::internal::make_unique<Result>();
-    (*result)->body = Buffer::FromString("foo");
-    return Status::OK();
+    auto result = std::make_unique<Result>();
+    result->body = Buffer::FromString("foo");
+    return result;
   }
 };
 
@@ -1489,15 +1410,19 @@ class ForeverDataStream : public FlightDataStream {
   ForeverDataStream() : schema_(arrow::schema({})), mapper_(*schema_) {}
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(), mapper_,
-                                 &payload->ipc_message);
+  arrow::Result<FlightPayload> GetSchemaPayload() override {
+    FlightPayload payload;
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema_, ipc::IpcWriteOptions::Defaults(),
+                                        mapper_, &payload.ipc_message));
+    return payload;
   }
 
-  Status Next(FlightPayload* payload) override {
+  arrow::Result<FlightPayload> Next() override {
     auto batch = RecordBatch::Make(schema_, 0, ArrayVector{});
-    return ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(),
-                                      &payload->ipc_message);
+    FlightPayload payload;
+    RETURN_NOT_OK(ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(),
+                                             &payload.ipc_message));
+    return payload;
   }
 
  private:
@@ -1509,12 +1434,12 @@ class CancelTestServer : public FlightServerBase {
  public:
   Status ListFlights(const ServerCallContext&, const Criteria*,
                      std::unique_ptr<FlightListing>* listings) override {
-    *listings = arrow::internal::make_unique<ForeverFlightListing>();
+    *listings = std::make_unique<ForeverFlightListing>();
     return Status::OK();
   }
   Status DoAction(const ServerCallContext&, const Action&,
                   std::unique_ptr<ResultStream>* result) override {
-    *result = arrow::internal::make_unique<ForeverResultStream>();
+    *result = std::make_unique<ForeverResultStream>();
     return Status::OK();
   }
   Status ListActions(const ServerCallContext&,
@@ -1524,7 +1449,7 @@ class CancelTestServer : public FlightServerBase {
   }
   Status DoGet(const ServerCallContext&, const Ticket&,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    *data_stream = arrow::internal::make_unique<ForeverDataStream>();
+    *data_stream = std::make_unique<ForeverDataStream>();
     return Status::OK();
   }
 };
@@ -1550,20 +1475,18 @@ TEST_F(TestCancel, ListFlights) {
   StopSource stop_source;
   FlightCallOptions options;
   options.stop_token = stop_source.token();
-  std::unique_ptr<FlightListing> listing;
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  client_->ListFlights(options, {}, &listing));
+                                  client_->ListFlights(options, {}));
 }
 
 TEST_F(TestCancel, DoAction) {
   StopSource stop_source;
   FlightCallOptions options;
   options.stop_token = stop_source.token();
-  std::unique_ptr<ResultStream> results;
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  client_->DoAction(options, {}, &results));
+                                  client_->DoAction(options, {}));
 }
 
 TEST_F(TestCancel, ListActions) {
@@ -1573,7 +1496,7 @@ TEST_F(TestCancel, ListActions) {
   std::vector<ActionType> results;
   stop_source.RequestStop(Status::Cancelled("StopSource"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  client_->ListActions(options, &results));
+                                  client_->ListActions(options));
 }
 
 TEST_F(TestCancel, DoGet) {
@@ -1582,15 +1505,13 @@ TEST_F(TestCancel, DoGet) {
   options.stop_token = stop_source.token();
   std::unique_ptr<ResultStream> results;
   stop_source.RequestStop(Status::Cancelled("StopSource"));
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(client_->DoGet(options, {}, &stream));
-  std::shared_ptr<Table> table;
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(options, {}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table));
+                                  stream->ToTable());
 
-  ASSERT_OK(client_->DoGet({}, &stream));
+  ASSERT_OK_AND_ASSIGN(stream, client_->DoGet({}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table, options.stop_token));
+                                  stream->ToTable(options.stop_token));
 }
 
 TEST_F(TestCancel, DoExchange) {
@@ -1599,17 +1520,17 @@ TEST_F(TestCancel, DoExchange) {
   options.stop_token = stop_source.token();
   std::unique_ptr<ResultStream> results;
   stop_source.RequestStop(Status::Cancelled("StopSource"));
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightStreamReader> stream;
-  ASSERT_OK(
-      client_->DoExchange(options, FlightDescriptor::Command(""), &writer, &stream));
-  std::shared_ptr<Table> table;
+  ASSERT_OK_AND_ASSIGN(auto do_exchange_result,
+                       client_->DoExchange(options, FlightDescriptor::Command("")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table));
+                                  do_exchange_result.reader->ToTable());
+  ARROW_UNUSED(do_exchange_result.writer->Close());
 
-  ASSERT_OK(client_->DoExchange(FlightDescriptor::Command(""), &writer, &stream));
+  ASSERT_OK_AND_ASSIGN(do_exchange_result,
+                       client_->DoExchange(FlightDescriptor::Command("")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
-                                  stream->ReadAll(&table, options.stop_token));
+                                  do_exchange_result.reader->ToTable(options.stop_token));
+  ARROW_UNUSED(do_exchange_result.writer->Close());
 }
 
 }  // namespace flight

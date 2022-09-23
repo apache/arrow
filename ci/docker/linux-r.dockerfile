@@ -27,11 +27,14 @@ ENV R_BIN=${r_bin}
 ARG r_dev=FALSE
 ENV ARROW_R_DEV=${r_dev}
 
-ARG devtoolset_version=-1
+ARG devtoolset_version=
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
 ARG r_prune_deps=FALSE
 ENV R_PRUNE_DEPS=${r_prune_deps}
+
+ARG r_custom_ccache=false
+ENV R_CUSTOM_CCACHE=${r_custom_ccache}
 
 ARG tz="UTC"
 ENV TZ=${tz}

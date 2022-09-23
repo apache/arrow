@@ -180,4 +180,10 @@ class ChunkedArrayTest < Test::Unit::TestCase
                    @chunked_array.take(indices))
     end
   end
+
+  test("#cast") do
+    chunked_array = Arrow::ChunkedArray.new([[1, nil, 3]])
+    assert_equal(Arrow::ChunkedArray.new([["1", nil, "3"]]),
+                 chunked_array.cast(:string))
+  end
 end

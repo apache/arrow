@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -52,7 +53,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -62,7 +62,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::CopyBitmap;
-using internal::GetByteWidth;
 
 namespace ipc {
 
@@ -128,9 +127,11 @@ static inline bool NeedTruncate(int64_t offset, const Buffer* buffer,
 
 class RecordBatchSerializer {
  public:
-  RecordBatchSerializer(int64_t buffer_start_offset, const IpcWriteOptions& options,
-                        IpcPayload* out)
+  RecordBatchSerializer(int64_t buffer_start_offset,
+                        const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+                        const IpcWriteOptions& options, IpcPayload* out)
       : out_(out),
+        custom_metadata_(custom_metadata),
         options_(options),
         max_recursion_depth_(options.max_recursion_depth),
         buffer_start_offset_(buffer_start_offset) {
@@ -173,13 +174,6 @@ class RecordBatchSerializer {
   virtual Status SerializeMetadata(int64_t num_rows) {
     return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
                                    field_nodes_, buffer_meta_, options_, &out_->metadata);
-  }
-
-  void AppendCustomMetadata(const std::string& key, const std::string& value) {
-    if (!custom_metadata_) {
-      custom_metadata_ = std::make_shared<KeyValueMetadata>();
-    }
-    custom_metadata_->Append(key, value);
   }
 
   Status CompressBuffer(const Buffer& buffer, util::Codec* codec,
@@ -327,7 +321,7 @@ class RecordBatchSerializer {
   Visit(const T& array) {
     std::shared_ptr<Buffer> data = array.values();
 
-    const int64_t type_width = GetByteWidth(*array.type());
+    const int64_t type_width = array.type()->byte_width();
     int64_t min_length = PaddedLength(array.length() * type_width);
 
     if (NeedTruncate(array.offset(), data.get(), min_length)) {
@@ -540,7 +534,7 @@ class RecordBatchSerializer {
   // Destination for output buffers
   IpcPayload* out_;
 
-  std::shared_ptr<KeyValueMetadata> custom_metadata_;
+  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
 
   std::vector<internal::FieldMetadata> field_nodes_;
   std::vector<internal::BufferMetadata> buffer_meta_;
@@ -554,7 +548,7 @@ class DictionarySerializer : public RecordBatchSerializer {
  public:
   DictionarySerializer(int64_t dictionary_id, bool is_delta, int64_t buffer_start_offset,
                        const IpcWriteOptions& options, IpcPayload* out)
-      : RecordBatchSerializer(buffer_start_offset, options, out),
+      : RecordBatchSerializer(buffer_start_offset, NULLPTR, options, out),
         dictionary_id_(dictionary_id),
         is_delta_(is_delta) {}
 
@@ -636,8 +630,16 @@ Status GetDictionaryPayload(int64_t id, bool is_delta,
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
+  return GetRecordBatchPayload(batch, NULLPTR, options, out);
+}
+
+Status GetRecordBatchPayload(
+    const RecordBatch& batch,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const IpcWriteOptions& options, IpcPayload* out) {
   out->type = MessageType::RECORD_BATCH;
-  RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
+  RecordBatchSerializer assembler(/*buffer_start_offset=*/0, custom_metadata, options,
+                                  out);
   return assembler.Assemble(batch);
 }
 
@@ -645,7 +647,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
                         int64_t* body_length, const IpcWriteOptions& options) {
   IpcPayload payload;
-  RecordBatchSerializer assembler(buffer_start_offset, options, &payload);
+  RecordBatchSerializer assembler(buffer_start_offset, NULLPTR, options, &payload);
   RETURN_NOT_OK(assembler.Assemble(batch));
 
   // TODO: it's a rough edge that the metadata and body length here are
@@ -702,7 +704,7 @@ Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
 
 Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
                            std::unique_ptr<Tensor>* out) {
-  const int elem_size = GetByteWidth(*tensor.type());
+  const int elem_size = tensor.type()->byte_width();
 
   ARROW_ASSIGN_OR_RAISE(
       auto scratch_space,
@@ -724,7 +726,7 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
-  const int elem_size = GetByteWidth(*tensor.type());
+  const int elem_size = tensor.type()->byte_width();
 
   *body_length = tensor.size() * elem_size;
 
@@ -1000,6 +1002,12 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    return WriteRecordBatch(batch, NULLPTR);
+  }
+
+  Status WriteRecordBatch(
+      const RecordBatch& batch,
+      const std::shared_ptr<const KeyValueMetadata>& custom_metadata) override {
     if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
       return Status::Invalid("Tried to write record batch with different schema");
     }
@@ -1009,7 +1017,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(WriteDictionaries(batch));
 
     IpcPayload payload;
-    RETURN_NOT_OK(GetRecordBatchPayload(batch, options_, &payload));
+    RETURN_NOT_OK(GetRecordBatchPayload(batch, custom_metadata, options_, &payload));
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
 
@@ -1320,7 +1328,7 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadStreamWriter>(sink, options),
+      std::make_unique<internal::PayloadStreamWriter>(sink, options),
       schema, options, /*is_file_format=*/false);
 }
 
@@ -1328,7 +1336,7 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
     std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadStreamWriter>(std::move(sink),
+      std::make_unique<internal::PayloadStreamWriter>(std::move(sink),
                                                                     options),
       schema, options, /*is_file_format=*/false);
 }
@@ -1344,7 +1352,7 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
+      std::make_unique<internal::PayloadFileWriter>(options, schema,
                                                                   metadata, sink),
       schema, options, /*is_file_format=*/true);
 }
@@ -1354,7 +1362,7 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadFileWriter>(
+      std::make_unique<internal::PayloadFileWriter>(
           options, schema, metadata, std::move(sink)),
       schema, options, /*is_file_format=*/true);
 }
@@ -1371,21 +1379,22 @@ namespace internal {
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
-  // XXX should we call Start()?
-  return ::arrow::internal::make_unique<internal::IpcFormatWriter>(
+  auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
+  RETURN_NOT_OK(writer->Start());
+  return std::move(writer);
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(
     io::OutputStream* sink, const IpcWriteOptions& options) {
-  return ::arrow::internal::make_unique<internal::PayloadStreamWriter>(sink, options);
+  return std::make_unique<internal::PayloadStreamWriter>(sink, options);
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
+  return std::make_unique<internal::PayloadFileWriter>(options, schema,
                                                                      metadata, sink);
 }
 
@@ -1437,7 +1446,7 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema, MemoryPool
   auto options = IpcWriteOptions::Defaults();
   const bool is_file_format = false;  // indifferent as we don't write dictionaries
   internal::IpcFormatWriter writer(
-      ::arrow::internal::make_unique<internal::PayloadStreamWriter>(stream.get()), schema,
+      std::make_unique<internal::PayloadStreamWriter>(stream.get()), schema,
       options, is_file_format);
   RETURN_NOT_OK(writer.Start());
   return stream->Finish();

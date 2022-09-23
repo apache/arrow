@@ -119,11 +119,12 @@
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
 #' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_feather()] on how to specify these).
+#' @inheritParams dataset_factory
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
 #' tf <- tempfile()
@@ -178,6 +179,7 @@ open_dataset <- function(sources,
                          hive_style = NA,
                          unify_schemas = NULL,
                          format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                         factory_options = list(),
                          ...) {
   stop_if_no_datasets()
 
@@ -194,8 +196,7 @@ open_dataset <- function(sources,
     # Enforce that all datasets have the same schema
     assert_is(schema, "Schema")
     sources <- lapply(sources, function(x) {
-      x$schema <- schema
-      x
+      x$WithSchema(schema)
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
@@ -213,13 +214,17 @@ open_dataset <- function(sources,
     format = format,
     schema = schema,
     hive_style = hive_style,
+    factory_options = factory_options,
     ...
   )
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
-    error = function(e) {
-      handle_parquet_io_error(e, format)
+    # n = 4 because we want the error to show up as being from open_dataset()
+    # and not handle_parquet_io_error()
+    error = function(e, call = caller_env(n = 4)) {
+      handle_parquet_io_error(e, format, call)
+      abort(conditionMessage(e), call = call)
     }
   )
 }
@@ -268,10 +273,11 @@ open_dataset <- function(sources,
 #'
 #' A `Dataset` has the following methods:
 #' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
-#' - `$schema`: Active binding that returns the [Schema] of the Dataset; you
-#'   may also replace the dataset's schema by using `ds$schema <- new_schema`.
+#' - `$WithSchema()`: Returns a new Dataset with the specified schema.
 #'   This method currently supports only adding, removing, or reordering
 #'   fields in the schema: you cannot alter or cast the field types.
+#' - `$schema`: Active binding that returns the [Schema] of the Dataset; you
+#'   may also replace the dataset's schema by using `ds$schema <- new_schema`.
 #'
 #' `FileSystemDataset` has the following methods:
 #' - `$files`: Active binding, returns the files of the `FileSystemDataset`
@@ -289,15 +295,22 @@ Dataset <- R6Class("Dataset",
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() dataset___Dataset__NewScan(self),
-    ToString = function() self$schema$ToString()
+    ToString = function() self$schema$ToString(),
+    WithSchema = function(schema) {
+      assert_is(schema, "Schema")
+      dataset___Dataset__ReplaceSchema(self, schema)
+    }
   ),
   active = list(
     schema = function(schema) {
       if (missing(schema)) {
         dataset___Dataset__schema(self)
       } else {
-        assert_is(schema, "Schema")
-        invisible(dataset___Dataset__ReplaceSchema(self, schema))
+        out <- self$WithSchema(schema)
+        # WithSchema returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out$pointer())
+        self
       }
     },
     metadata = function() self$schema$metadata,

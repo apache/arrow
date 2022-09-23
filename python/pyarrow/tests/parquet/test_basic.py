@@ -26,7 +26,8 @@ from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          parametrize_legacy_dataset)
+                                          parametrize_legacy_dataset,
+                                          _test_dataframe)
 
 try:
     import pyarrow.parquet as pq
@@ -45,6 +46,8 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -68,6 +71,31 @@ def test_set_data_page_size(use_legacy_dataset):
     for target_page_size in page_sizes:
         _check_roundtrip(t, data_page_size=target_page_size,
                          use_legacy_dataset=use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_set_write_batch_size(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(
+        table, data_page_size=10, write_batch_size=1, version='2.4'
+    )
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_set_dictionary_pagesize_limit(use_legacy_dataset):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    _check_roundtrip(table, dictionary_pagesize_limit=1,
+                     data_page_size=10, version='2.4')
+
+    with pytest.raises(TypeError):
+        _check_roundtrip(table, dictionary_pagesize_limit="a",
+                         data_page_size=10, version='2.4')
 
 
 @pytest.mark.pandas
@@ -593,7 +621,11 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
         pq.read_table(datadir / 'v0.7.1.parquet',
                       use_legacy_dataset=use_legacy_dataset)
 
-    assert len(record) == 0
+    if use_legacy_dataset:
+        # FutureWarning: 'use_legacy_dataset=True'
+        assert len(record) == 1
+    else:
+        assert len(record) == 0
 
 
 @pytest.mark.pandas
@@ -758,3 +790,42 @@ def test_permutation_of_column_order(tempdir):
                       names=['a', 'b'])
 
     assert table == table2
+
+
+def test_read_table_legacy_deprecated(tempdir):
+    # ARROW-15870
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+    pq.write_table(table, path)
+
+    with pytest.warns(
+        FutureWarning, match="Passing 'use_legacy_dataset=True'"
+    ):
+        pq.read_table(path, use_legacy_dataset=True)
+
+
+def test_thrift_size_limits(tempdir):
+    path = tempdir / 'largethrift.parquet'
+
+    array = pa.array(list(range(10)))
+    num_cols = 1000
+    table = pa.table(
+        [array] * num_cols,
+        names=[f'some_long_column_name_{i}' for i in range(num_cols)])
+    pq.write_table(table, path)
+
+    with pytest.raises(
+            OSError,
+            match="Couldn't deserialize thrift:.*Exceeded size limit"):
+        pq.read_table(path, thrift_string_size_limit=50 * num_cols)
+    with pytest.raises(
+            OSError,
+            match="Couldn't deserialize thrift:.*Exceeded size limit"):
+        pq.read_table(path, thrift_container_size_limit=num_cols)
+
+    got = pq.read_table(path, thrift_string_size_limit=100 * num_cols)
+    assert got == table
+    got = pq.read_table(path, thrift_container_size_limit=2 * num_cols)
+    assert got == table
+    got = pq.read_table(path)
+    assert got == table

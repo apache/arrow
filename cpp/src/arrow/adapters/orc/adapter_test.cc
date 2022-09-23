@@ -173,7 +173,7 @@ void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
     return static_cast<U>(res);
   });
   (*out)[n - 1] += remaining_sum;
-  std::random_shuffle(out->begin(), out->end());
+  std::shuffle(out->begin(), out->end(), gen);
 }
 
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
@@ -406,6 +406,23 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
 
 // Trivial
 
+class TestORCWriterTrivialNoWrite : public ::testing::Test {};
+TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(kDefaultSmallMemStreamSize / 16));
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
+  write_options.compression_block_size = 32768;
+  write_options.row_index_stride = 5000;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+  ARROW_EXPECT_OK(writer->Close());
+}
 class TestORCWriterTrivialNoConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialNoConversion() {
@@ -526,7 +543,7 @@ class TestORCWriterWithConversion : public ::testing::Test {
       EXPECT_OK_AND_ASSIGN(av[i], compute::Cast(*(input_table->column(i)->chunk(0)),
                                                 output_schema->field(i)->type()));
     }
-    for (int i = num_cols - 2; i < num_cols; i++) {
+    for (int i = static_cast<int>(num_cols - 2); i < static_cast<int>(num_cols); i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
     }
     std::shared_ptr<Table> expected_output_table = Table::Make(output_schema, av);
@@ -552,9 +569,9 @@ class TestORCWriterSingleArray : public ::testing::Test {
 TEST_F(TestORCWriterSingleArray, WriteStruct) {
   std::vector<std::shared_ptr<Field>> subfields{field("int32", boolean())};
   const int64_t num_rows = 1234;
-  int num_subcols = subfields.size();
+  std::size_t num_subcols = subfields.size();
   ArrayVector av0(num_subcols);
-  for (int i = 0; i < num_subcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subcols); i++) {
     av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.4);
   }
   std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.5);
@@ -575,9 +592,9 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
       field("string", utf8()),
       field("binary", binary())};
   const int64_t num_rows = 1234;
-  int num_subsubcols = subsubfields.size();
+  std::size_t num_subsubcols = subsubfields.size();
   ArrayVector av00(num_subsubcols), av0(1);
-  for (int i = 0; i < num_subsubcols; i++) {
+  for (int i = 0; i < static_cast<int>(num_subsubcols); i++) {
     av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0);
   }
   std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0);

@@ -20,6 +20,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <type_traits>
 #include <unordered_set>
@@ -27,14 +28,15 @@
 
 #include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/optional.h"
 #include "arrow/visit_type_inline.h"
 #include "arrow/visitor.h"
 
@@ -146,10 +148,7 @@ ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
 }
 
 Result<RecordBatchVector> BatchesFromTable(const Table& table) {
-  RecordBatchVector batches;
-  TableBatchReader reader(table);
-  RETURN_NOT_OK(reader.ReadAll(&batches));
-  return batches;
+  return TableBatchReader(table).ToRecordBatches();
 }
 
 // ----------------------------------------------------------------------
@@ -852,10 +851,10 @@ class TableSorter {
           order(order),
           null_count(null_count) {}
 
-    using LocationType = ChunkLocation;
+    using LocationType = ::arrow::internal::ChunkLocation;
 
     template <typename ArrayType>
-    ResolvedChunk<ArrayType> GetChunk(ChunkLocation loc) const {
+    ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
       return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]),
               loc.index_in_chunk};
     }
@@ -898,8 +897,8 @@ class TableSorter {
         batches_(MakeBatches(table, &status_)),
         options_(options),
         null_placement_(options.null_placement),
-        left_resolver_(ChunkResolver::FromBatches(batches_)),
-        right_resolver_(ChunkResolver::FromBatches(batches_)),
+        left_resolver_(batches_),
+        right_resolver_(batches_),
         sort_keys_(ResolveSortKeys(table, batches_, options.sort_keys, &status_)),
         indices_begin_(indices_begin),
         indices_end_(indices_end),
@@ -937,11 +936,7 @@ class TableSorter {
 
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
-    RecordBatchVector batches;
-    {
-      TableBatchReader reader(table_);
-      RETURN_NOT_OK(reader.ReadAll(&batches));
-    }
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
     const int64_t num_batches = static_cast<int64_t>(batches.size());
     if (num_batches == 0) {
       return Status::OK();
@@ -1138,17 +1133,17 @@ class TableSorter {
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }
 
+  Status status_;
   ExecContext* ctx_;
   const Table& table_;
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const NullPlacement null_placement_;
-  const ChunkResolver left_resolver_, right_resolver_;
+  const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Comparator comparator_;
-  Status status_;
 };
 
 // ----------------------------------------------------------------------
@@ -1173,7 +1168,7 @@ const FunctionDoc sort_indices_doc(
 class SortIndicesMetaFunction : public MetaFunction {
  public:
   SortIndicesMetaFunction()
-      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc,
+      : MetaFunction("sort_indices", Arity::Unary(), sort_indices_doc,
                      GetDefaultSortOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
@@ -1678,9 +1673,8 @@ class TableSelecter : public TypeVisitor {
         : order(order),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
-          chunk_pointers(GetArrayPointers(chunks)),
           null_count(chunked_array->null_count()),
-          resolver(chunk_pointers) {}
+          resolver(GetArrayPointers(chunks)) {}
 
     using LocationType = int64_t;
 
@@ -1694,7 +1688,6 @@ class TableSelecter : public TypeVisitor {
     const SortOrder order;
     const std::shared_ptr<DataType> type;
     const ArrayVector chunks;
-    const std::vector<const Array*> chunk_pointers;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
   };
@@ -1847,7 +1840,7 @@ static Status CheckConsistency(const Schema& schema,
 class SelectKUnstableMetaFunction : public MetaFunction {
  public:
   SelectKUnstableMetaFunction()
-      : MetaFunction("select_k_unstable", Arity::Unary(), &select_k_unstable_doc,
+      : MetaFunction("select_k_unstable", Arity::Unary(), select_k_unstable_doc,
                      GetDefaultSelectKOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
@@ -1861,18 +1854,14 @@ class SelectKUnstableMetaFunction : public MetaFunction {
       return Status::Invalid("select_k_unstable requires a non-empty `sort_keys`");
     }
     switch (args[0].kind()) {
-      case Datum::ARRAY: {
+      case Datum::ARRAY:
         return SelectKth(*args[0].make_array(), select_k_options, ctx);
-      } break;
-      case Datum::CHUNKED_ARRAY: {
+      case Datum::CHUNKED_ARRAY:
         return SelectKth(*args[0].chunked_array(), select_k_options, ctx);
-      } break;
       case Datum::RECORD_BATCH:
         return SelectKth(*args[0].record_batch(), select_k_options, ctx);
-        break;
       case Datum::TABLE:
         return SelectKth(*args[0].table(), select_k_options, ctx);
-        break;
       default:
         break;
     }
@@ -1916,6 +1905,222 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   }
 };
 
+// ----------------------------------------------------------------------
+// Rank implementation
+
+const RankOptions* GetDefaultRankOptions() {
+  static const auto kDefaultRankOptions = RankOptions::Defaults();
+  return &kDefaultRankOptions;
+}
+
+class ArrayRanker : public TypeVisitor {
+ public:
+  ArrayRanker(ExecContext* ctx, const Array& array, const RankOptions& options,
+              Datum* output)
+      : TypeVisitor(),
+        ctx_(ctx),
+        array_(array),
+        options_(options),
+        null_placement_(options.null_placement),
+        tiebreaker_(options.tiebreaker),
+        physical_type_(GetPhysicalType(array.type())),
+        output_(output) {}
+
+  Status Run() { return physical_type_->Accept(this); }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return RankInternal<TYPE>(); }
+
+  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+  template <typename InType>
+  Status RankInternal() {
+    using GetView = GetViewType<InType>;
+    using T = typename GetViewType<InType>::T;
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    ArrayType arr(array_.data());
+
+    SortOrder order = SortOrder::Ascending;
+    if (!options_.sort_keys.empty()) {
+      order = options_.sort_keys[0].order;
+    }
+    ArraySortOptions array_options(order, null_placement_);
+
+    auto length = array_.length();
+    ARROW_ASSIGN_OR_RAISE(auto sort_indices,
+                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+    auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
+    auto sort_end = sort_begin + length;
+    std::iota(sort_begin, sort_end, 0);
+
+    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
+
+    NullPartitionResult sorted =
+        array_sorter(sort_begin, sort_end, arr, 0, array_options);
+    uint64_t rank;
+
+    ARROW_ASSIGN_OR_RAISE(auto rankings,
+                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
+
+    switch (tiebreaker_) {
+      case RankOptions::Dense: {
+        T curr_value, prev_value{};
+        rank = 0;
+
+        if (null_placement_ == NullPlacement::AtStart && sorted.null_count() > 0) {
+          rank++;
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+
+        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
+          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+            rank++;
+          }
+
+          out_begin[*it] = rank;
+          prev_value = curr_value;
+        }
+
+        if (null_placement_ == NullPlacement::AtEnd) {
+          rank++;
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+        break;
+      }
+
+      case RankOptions::First: {
+        rank = 0;
+        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
+          out_begin[*it] = ++rank;
+        }
+        break;
+      }
+
+      case RankOptions::Min: {
+        T curr_value, prev_value{};
+        rank = 0;
+
+        if (null_placement_ == NullPlacement::AtStart) {
+          rank++;
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+
+        for (auto it = sorted.non_nulls_begin; it < sorted.non_nulls_end; it++) {
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
+          if (it == sorted.non_nulls_begin || curr_value != prev_value) {
+            rank = (it - sorted.overall_begin()) + 1;
+          }
+          out_begin[*it] = rank;
+          prev_value = curr_value;
+        }
+
+        if (null_placement_ == NullPlacement::AtEnd) {
+          rank = sorted.non_null_count() + 1;
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+        break;
+      }
+
+      case RankOptions::Max: {
+        // The algorithm for Max is just like Min, but in reverse order.
+        T curr_value, prev_value{};
+        rank = length;
+
+        if (null_placement_ == NullPlacement::AtEnd) {
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+
+        for (auto it = sorted.non_nulls_end - 1; it >= sorted.non_nulls_begin; it--) {
+          curr_value = GetView::LogicalValue(arr.GetView(*it));
+          if (it == sorted.non_nulls_end - 1 || curr_value != prev_value) {
+            rank = (it - sorted.overall_begin()) + 1;
+          }
+          out_begin[*it] = rank;
+          prev_value = curr_value;
+        }
+
+        if (null_placement_ == NullPlacement::AtStart) {
+          rank = sorted.null_count();
+          for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
+            out_begin[*it] = rank;
+          }
+        }
+
+        break;
+      }
+    }
+
+    *output_ = Datum(rankings);
+    return Status::OK();
+  }
+
+  ExecContext* ctx_;
+  const Array& array_;
+  const RankOptions& options_;
+  const NullPlacement null_placement_;
+  const RankOptions::Tiebreaker tiebreaker_;
+  const std::shared_ptr<DataType> physical_type_;
+  Datum* output_;
+};
+
+const FunctionDoc rank_doc(
+    "Compute numerical ranks of an array (1-based)",
+    ("This function computes a rank of the input array.\n"
+     "By default, null values are considered greater than any other value and\n"
+     "are therefore sorted at the end of the input. For floating-point types,\n"
+     "NaNs are considered greater than any other non-null value, but smaller\n"
+     "than null values. The default tiebreaker is to assign ranks in order of\n"
+     "when ties appear in the input.\n"
+     "\n"
+     "The handling of nulls, NaNs and tiebreakers can be changed in RankOptions."),
+    {"input"}, "RankOptions");
+
+class RankMetaFunction : public MetaFunction {
+ public:
+  RankMetaFunction()
+      : MetaFunction("rank", Arity::Unary(), rank_doc, GetDefaultRankOptions()) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options, ExecContext* ctx) const {
+    const RankOptions& rank_options = checked_cast<const RankOptions&>(*options);
+    switch (args[0].kind()) {
+      case Datum::ARRAY: {
+        return Rank(*args[0].make_array(), rank_options, ctx);
+      } break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for rank operation: "
+        "values=",
+        args[0].ToString());
+  }
+
+ private:
+  Result<Datum> Rank(const Array& array, const RankOptions& options,
+                     ExecContext* ctx) const {
+    Datum output;
+    ArrayRanker ranker(ctx, array, options, &output);
+    ARROW_RETURN_NOT_OK(ranker.Run());
+    return output;
+  }
+};
+
 }  // namespace
 
 Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
@@ -1929,6 +2134,7 @@ Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* ind
 void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));
   DCHECK_OK(registry->AddFunction(std::make_shared<SelectKUnstableMetaFunction>()));
+  DCHECK_OK(registry->AddFunction(std::make_shared<RankMetaFunction>()));
 }
 
 #undef VISIT_SORTABLE_PHYSICAL_TYPES

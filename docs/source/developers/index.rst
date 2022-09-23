@@ -22,7 +22,9 @@ Developers documentation
    :maxdepth: 2
 
    contributing
+   bug_reports
    guide/index
+   overview
    reviewing
    cpp/index
    java/index
@@ -30,4 +32,4 @@ Developers documentation
    continuous_integration/index
    benchmarks
    documentation
-   computeir
+   release

@@ -107,7 +107,9 @@ enum class CalendarUnit : int8_t {
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                bool week_starts_monday = true);
+                                bool week_starts_monday = true,
+                                bool ceil_is_strictly_greater = false,
+                                bool calendar_based_origin = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -117,6 +119,25 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   CalendarUnit unit;
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
+  /// Enable this flag to return a rounded value that is strictly greater than the input.
+  /// For example: ceiling 1970-01-01T00:00:00 to 3 hours would yield 1970-01-01T03:00:00
+  /// if set to true and 1970-01-01T00:00:00 if set to false.
+  /// This applies for ceiling only.
+  bool ceil_is_strictly_greater;
+  /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
+  /// By setting calendar_based_origin to true, time will be rounded to a number
+  /// of units since the last greater calendar unit.
+  /// For example: rounding to a multiple of days since the beginning of the month or
+  /// to hours since the beginning of the day.
+  /// Exceptions: week and quarter are not used as greater units, therefore days will
+  /// will be rounded to the beginning of the month not week. Greater unit of week
+  /// is year.
+  /// Note that ceiling and rounding might change sorting order of an array near greater
+  /// unit change. For example rounding YYYY-mm-dd 23:00:00 to 5 hours will ceil and
+  /// round to YYYY-mm-dd+1 01:00:00 and floor to YYYY-mm-dd 20:00:00. On the other hand
+  /// YYYY-mm-dd+1 00:00:00 will ceil, round and floor to YYYY-mm-dd+1 00:00:00. This
+  /// can break the order of an already ordered array.
+  bool calendar_based_origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
@@ -129,10 +150,9 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
-  /// Should be a scalar of a type compatible with the argument to be rounded.
-  /// For example, rounding a decimal value means a decimal multiple is
-  /// required. Rounding a floating point or integer value means a floating
-  /// point scalar is required.
+  /// Should be a positive numeric scalar of a type compatible with the
+  /// argument to be rounded. The cast kernel is used to convert the rounding
+  /// multiple to match the result type.
   std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
@@ -267,12 +287,17 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit,
+                           bool error_is_null = false);
   StrptimeOptions();
   static constexpr char const kTypeName[] = "StrptimeOptions";
 
+  /// The desired format string.
   std::string format;
+  /// The desired time resolution
   TimeUnit::type unit;
+  /// Return null on parsing errors if true or raise if false
+  bool error_is_null;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
@@ -453,20 +478,14 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
  public:
   enum Initializer { SystemRandom, Seed };
 
-  static RandomOptions FromSystemRandom(int64_t length) {
-    return RandomOptions{length, SystemRandom, 0};
-  }
-  static RandomOptions FromSeed(int64_t length, uint64_t seed) {
-    return RandomOptions{length, Seed, seed};
-  }
+  static RandomOptions FromSystemRandom() { return RandomOptions{SystemRandom, 0}; }
+  static RandomOptions FromSeed(uint64_t seed) { return RandomOptions{Seed, seed}; }
 
-  RandomOptions(int64_t length, Initializer initializer, uint64_t seed);
+  RandomOptions(Initializer initializer, uint64_t seed);
   RandomOptions();
   static constexpr char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
-  /// The length of the array returned. Negative is invalid.
-  int64_t length;
   /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
   /// The seed value used to initialize the random number generation.
@@ -1398,6 +1417,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);
 
+/// \brief Parse timestamps according to a format string
+///
+/// Return parsed timestamps according to the format string
+/// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
+/// raised depending on the `Strftime::error_is_null` setting.
+///
+/// \param[in] values input strings
+/// \param[in] options for setting format string, unit and error_is_null
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
 /// \brief Converts timestamps from local timestamp without a timezone to a timestamp with
 /// timezone, interpreting the local timestamp as being in the specified timezone for each
 /// element of `values`
@@ -1425,6 +1460,163 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
+
+/// \brief Years Between finds the number of years between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Quarters Between finds the number of quarters between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> QuartersBetween(const Datum& left, const Datum& right,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Months Between finds the number of month between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
+                                         ExecContext* ctx = NULLPTR);
+
+/// \brief Weeks Between finds the number of weeks between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief DayTime Between finds the number of days and milliseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayTimeBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Days Between finds the number of days between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DaysBetween(const Datum& left, const Datum& right,
+                                       ExecContext* ctx = NULLPTR);
+
+/// \brief Hours Between finds the number of hours between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> HoursBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Minutes Between finds the number of minutes between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MinutesBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Seconds Between finds the number of hours between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> SecondsBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Milliseconds Between finds the number of milliseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MillisecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief Microseconds Between finds the number of microseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief Nanoseconds Between finds the number of nanoseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& right,
+                                              ExecContext* ctx = NULLPTR);
 
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.

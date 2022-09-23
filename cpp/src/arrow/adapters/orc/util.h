@@ -21,18 +21,17 @@
 #include <memory>
 
 #include "arrow/array/builder_base.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "orc/OrcFile.hh"
 
 namespace liborc = orc;
 
 namespace arrow {
-
 namespace adapters {
-
 namespace orc {
 
-Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out);
+Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type);
 
 Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema);
 

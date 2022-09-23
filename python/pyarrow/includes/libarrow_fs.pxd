@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport CTimePoint
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
@@ -66,7 +67,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[vector[CFileInfo]] GetFileInfo(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
-        CStatus DeleteDirContents(const c_string& path)
+        CStatus DeleteDirContents(const c_string& path, c_bool missing_dir_ok)
         CStatus DeleteRootDirContents()
         CStatus DeleteFile(const c_string& path)
         CStatus DeleteFiles(const vector[c_string]& paths)
@@ -149,11 +150,22 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CS3CredentialsKind_WebIdentity \
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
+    cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
+
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(int64_t max_attempts)
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
+        double connect_timeout
+        double request_timeout
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_bool allow_bucket_creation
+        c_bool allow_bucket_deletion
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name
@@ -161,6 +173,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int load_frequency
         CS3ProxyOptions proxy_options
         CS3CredentialsKind credentials_kind
+        shared_ptr[CS3RetryStrategy] retry_strategy
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
@@ -198,6 +211,40 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
+
+    cdef cppclass CGcsCredentials "arrow::fs::GcsCredentials":
+        c_bool anonymous()
+        CTimePoint expiration()
+        c_string access_token()
+        c_string target_service_account()
+
+    cdef cppclass CGcsOptions "arrow::fs::GcsOptions":
+        CGcsCredentials credentials
+        c_string endpoint_override
+        c_string scheme
+        c_string default_bucket_location
+        optional[double] retry_limit_seconds
+        shared_ptr[const CKeyValueMetadata] default_metadata
+        c_bool Equals(const CS3Options& other)
+
+        @staticmethod
+        CGcsOptions Defaults()
+
+        @staticmethod
+        CGcsOptions Anonymous()
+
+        @staticmethod
+        CGcsOptions FromAccessToken(const c_string& access_token,
+                                    CTimePoint expiration)
+
+        @staticmethod
+        CGcsOptions FromImpersonatedServiceAccount(const CGcsCredentials& base_credentials,
+                                                   c_string& target_service_account)
+
+    cdef cppclass CGcsFileSystem "arrow::fs::GcsFileSystem":
+        @staticmethod
+        CResult[shared_ptr[CGcsFileSystem]] Make(const CGcsOptions& options)
+        CGcsOptions options()
 
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config
@@ -253,7 +300,7 @@ ctypedef void CallbackGetFileInfoSelector(object, const CFileSelector&,
                                           vector[CFileInfo]*)
 ctypedef void CallbackCreateDir(object, const c_string&, c_bool)
 ctypedef void CallbackDeleteDir(object, const c_string&)
-ctypedef void CallbackDeleteDirContents(object, const c_string&)
+ctypedef void CallbackDeleteDirContents(object, const c_string&, c_bool)
 ctypedef void CallbackDeleteRootDirContents(object)
 ctypedef void CallbackDeleteFile(object, const c_string&)
 ctypedef void CallbackMove(object, const c_string&, const c_string&)

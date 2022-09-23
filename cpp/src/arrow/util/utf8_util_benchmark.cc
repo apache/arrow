@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 
-// Do not benchmark inlined functions directly inside the benchmark loop
+// Do not benchmark potentially inlined functions directly inside the benchmark loop
 static ARROW_NOINLINE bool ValidateUTF8NoInline(const uint8_t* data, int64_t size) {
-  return ::arrow::util::ValidateUTF8(data, size);
+  return ::arrow::util::ValidateUTF8Inline(data, size);
 }
 
 static ARROW_NOINLINE bool ValidateAsciiNoInline(const uint8_t* data, int64_t size) {

@@ -34,8 +34,9 @@
 #' use the current `group_by()` columns.
 #' @param basename_template string template for the names of files to be written.
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example, `"part-{i}.feather"`
-#' will yield `"part-0.feather", ...`.
+#' integer to generate basenames of datafiles. For example, `"part-{i}.arrow"`
+#' will yield `"part-0.arrow", ...`.
+#' If not specified, it defaults to `"part-{i}.<default extension>"`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
@@ -133,40 +134,72 @@ write_dataset <- function(dataset,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
+  if (format %in% c("feather", "ipc")) {
+    format <- "arrow"
+  }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
-  } else if (inherits(dataset, "grouped_df")) {
-    force(partitioning)
-    # Drop the grouping metadata before writing; we've already consumed it
-    # now to construct `partitioning` and don't want it in the metadata$r
-    dataset <- dplyr::ungroup(dataset)
+  } else {
+    if (inherits(dataset, "grouped_df")) {
+      force(partitioning)
+      # Drop the grouping metadata before writing; we've already consumed it
+      # now to construct `partitioning` and don't want it in the metadata$r
+      dataset <- dplyr::ungroup(dataset)
+    }
+    dataset <- as_adq(dataset)
   }
 
-  scanner <- Scanner$create(dataset)
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(dataset)
+  if (!is.null(final_node$extras$sort %||% final_node$extras$head %||% final_node$extras$tail)) {
+    # Because sorting and topK are only handled in the SinkNode (or in R!),
+    # they wouldn't get picked up in the WriteNode. So let's Run this ExecPlan
+    # to capture those, and then create a new plan for writing
+    # TODO(ARROW-15681): do sorting in WriteNode in C++
+    dataset <- as_adq(plan$Run(final_node))
+    plan <- ExecPlan$create()
+    final_node <- plan$Build(dataset)
+  }
+
   if (!inherits(partitioning, "Partitioning")) {
-    partition_schema <- scanner$schema[partitioning]
+    partition_schema <- final_node$schema[partitioning]
     if (isTRUE(hive_style)) {
-      partitioning <- HivePartitioning$create(partition_schema, null_fallback = list(...)$null_fallback)
+      partitioning <- HivePartitioning$create(
+        partition_schema,
+        null_fallback = list(...)$null_fallback
+      )
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
   }
 
   path_and_fs <- get_path_and_filesystem(path)
-  options <- FileWriteOptions$create(format, table = scanner, ...)
+  output_schema <- final_node$schema
+  options <- FileWriteOptions$create(
+    format,
+    column_names = names(output_schema),
+    ...
+  )
 
+  # TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
+  # and encapsulate this logic better
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
-  validate_positive_int_value(max_partitions, "max_partitions must be a positive, non-missing integer")
-  validate_positive_int_value(max_open_files, "max_open_files must be a positive, non-missing integer")
-  validate_positive_int_value(min_rows_per_group, "min_rows_per_group must be a positive, non-missing integer")
-  validate_positive_int_value(max_rows_per_group, "max_rows_per_group must be a positive, non-missing integer")
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
 
-  dataset___Dataset__Write(
+  validate_positive_int_value(max_partitions)
+  validate_positive_int_value(max_open_files)
+  validate_positive_int_value(min_rows_per_group)
+  validate_positive_int_value(max_rows_per_group)
+
+  plan$Write(
+    final_node,
     options, path_and_fs$fs, path_and_fs$path,
-    partitioning, basename_template, scanner,
+    partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group
@@ -175,6 +208,6 @@ write_dataset <- function(dataset,
 
 validate_positive_int_value <- function(value, msg) {
   if (!is_integerish(value, n = 1) || is.na(value) || value < 0) {
-    abort(msg)
+    abort(paste(substitute(value), "must be a positive, non-missing integer"))
   }
 }

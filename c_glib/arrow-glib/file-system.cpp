@@ -54,6 +54,8 @@ G_BEGIN_DECLS
  * #GArrowS3GlobalOptions is a class for options to initialize S3 APIs.
  *
  * #GArrowS3FileSystem is a class for S3-backed file system.
+ *
+ * #GArrowGCSFileSystem is a class for GCS-backed file system.
  */
 
 /* arrow::fs::FileInfo */
@@ -1593,6 +1595,21 @@ garrow_s3_file_system_class_init(GArrowS3FileSystemClass *klass)
 }
 
 
+G_DEFINE_TYPE(GArrowGCSFileSystem,
+              garrow_gcs_file_system,
+              GARROW_TYPE_FILE_SYSTEM)
+
+static void
+garrow_gcs_file_system_init(GArrowGCSFileSystem *file_system)
+{
+}
+
+static void
+garrow_gcs_file_system_class_init(GArrowGCSFileSystemClass *klass)
+{
+}
+
+
 G_END_DECLS
 
 GArrowFileInfo *
@@ -1623,6 +1640,8 @@ garrow_file_system_new_raw(
     file_system_type = GARROW_TYPE_HDFS_FILE_SYSTEM;
   } else if (type_name == "s3") {
     file_system_type = GARROW_TYPE_S3_FILE_SYSTEM;
+  } else if (type_name == "gcs") {
+    file_system_type = GARROW_TYPE_GCS_FILE_SYSTEM;
   } else if (type_name == "mock") {
     file_system_type = GARROW_TYPE_MOCK_FILE_SYSTEM;
   }

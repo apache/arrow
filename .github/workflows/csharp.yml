@@ -33,6 +33,9 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
 
   ubuntu:
@@ -43,14 +46,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link
@@ -71,14 +74,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link
@@ -91,21 +94,21 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
+    name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['3.1.x']
+        dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Install Source Link

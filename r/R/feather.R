@@ -15,27 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Write data in the Feather format
+#' Write a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function writes both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [write_feather()] can write both the Feather Version 1 (V1),
+#' a legacy version available starting in 2016, and the Version 2 (V2),
+#' which is the Apache Arrow IPC file format.
+#' The default version is V2.
+#' V1 files are distinct from Arrow IPC files and lack many feathures,
+#' such as the ability to store all Arrow data tyeps, and compression support.
+#' [write_ipc_file()] can only write V2 files.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param version integer Feather file version. Version 2 is the current.
-#' Version 1 is the more limited legacy format.
+#' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
 #' should have in the file. Use a smaller `chunk_size` when you need faster
 #' random row access. Default is 64K. This option is not supported for V1.
 #' @param compression Name of compression codec to use, if any. Default is
 #' "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
 #' "uncompressed". "zstd" is the other available codec and generally has better
-#' compression ratios in exchange for slower read and write performance
-#' See [codec_is_available()]. This option is not supported for V1.
+#' compression ratios in exchange for slower read and write performance.
+#' "lz4" is shorthand for the "lz4_frame" codec.
+#' See [codec_is_available()] for details. This option is not supported for V1.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
@@ -45,20 +50,31 @@
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
-#' @examplesIf arrow_available()
-#' tf <- tempfile()
-#' on.exit(unlink(tf))
-#' write_feather(mtcars, tf)
-#' @include arrow-package.R
+#' @examples
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+#' tf1 <- tempfile(fileext = ".feather")
+#' tf2 <- tempfile(fileext = ".arrow")
+#' tf3 <- tempfile(fileext = ".arrow")
+#' on.exit({
+#'   unlink(tf1)
+#'   unlink(tf2)
+#'   unlink(tf3)
+#' })
+#' write_feather(mtcars, tf1, version = 1)
+#' write_feather(mtcars, tf2)
+#' write_ipc_file(mtcars, tf3)
+#' @include arrow-object.R
 write_feather <- function(x,
                           sink,
                           version = 2,
                           chunk_size = 65536L,
-                          compression = c("default", "lz4", "uncompressed", "zstd"),
+                          compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
                           compression_level = NULL) {
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
+
+  # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
@@ -100,11 +116,7 @@ write_feather <- function(x,
   compression <- compression_from_name(compression)
 
   x_out <- x
-  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
-    x <- Table$create(x)
-  }
-
-  assert_that(is_writable_table(x))
+  x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -114,34 +126,53 @@ write_feather <- function(x,
   invisible(x_out)
 }
 
-#' Read a Feather file
+#' @rdname write_feather
+#' @export
+write_ipc_file <- function(x,
+                           sink,
+                           chunk_size = 65536L,
+                           compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
+                           compression_level = NULL) {
+  mc <- match.call()
+  mc$version <- 2
+  mc[[1]] <- get("write_feather", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+#' Read a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function reads both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [read_feather()] can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
+#' and the Version 2 (V2), which is the Apache Arrow IPC file format.
+#' [read_ipc_file()] is an alias of [read_feather()].
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [make_readable_file()].
+#' @inheritParams make_readable_file
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #'
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
-#' @examplesIf arrow_available()
-#' tf <- tempfile()
+#' @examples
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+#' tf <- tempfile(fileext = ".arrow")
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
 #' df <- read_feather(tf)
 #' dim(df)
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
-read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file, ...)
+    # Compression is handled inside the IPC file format, so we don't need
+    # to detect from the file extension and wrap in a CompressedInputStream
+    # TODO: Why is this the only read_format() functions that allows passing
+    # mmap to make_readable_file?
+    file <- make_readable_file(file, mmap)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file)
@@ -161,6 +192,10 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   }
   out
 }
+
+#' @rdname read_feather
+#' @export
+read_ipc_file <- read_feather
 
 #' @title FeatherReader class
 #' @rdname FeatherReader
@@ -189,7 +224,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'   file version
 #'
 #' @export
-#' @include arrow-package.R
+#' @include arrow-object.R
 FeatherReader <- R6Class("FeatherReader",
   inherit = ArrowObject,
   public = list(

@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v10/arrow"
+	format "github.com/apache/arrow/go/v10/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -54,7 +54,7 @@ var (
 // to be able to call ReadAt, Read, and Seek
 type ReaderAtSeeker interface {
 	io.ReaderAt
-	io.ReadSeeker
+	io.Seeker
 }
 
 // NewInt96 creates a new Int96 from the given 3 uint32 values.

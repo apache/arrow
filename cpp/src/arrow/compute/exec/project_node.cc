@@ -21,6 +21,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
@@ -64,9 +65,10 @@ class ProjectNode : public MapNode {
     int i = 0;
     for (auto& expr : exprs) {
       if (!expr.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*inputs[0]->output_schema()));
+        ARROW_ASSIGN_OR_RAISE(
+            expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
       }
-      fields[i] = field(std::move(names[i]), expr.type());
+      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
@@ -80,10 +82,10 @@ class ProjectNode : public MapNode {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
-      START_SPAN(span, "Project",
-                 {{"project.descr", exprs_[i].descr().ToString()},
-                  {"project.length", target.length},
-                  {"project.expression", exprs_[i].ToString()}});
+      START_COMPUTE_SPAN(span, "Project",
+                         {{"project.type", exprs_[i].type()->ToString()},
+                          {"project.length", target.length},
+                          {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
@@ -98,10 +100,10 @@ class ProjectNode : public MapNode {
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
       util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"project", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
+      START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                                     {{"project", ToStringExtra()},
+                                      {"node.label", label()},
+                                      {"batch.length", batch.length}});
       auto result = DoProject(std::move(batch));
       MARK_SPAN(span, result.status());
       END_SPAN(span);

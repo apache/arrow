@@ -128,11 +128,18 @@ CsvFileFormat$create <- function(...,
 
   options <- list(...)
   schema <- options[["schema"]]
+  if (!is.null(schema) && !inherits(schema, "Schema")) {
+    abort(paste0(
+      "`schema` must be an object of class 'Schema' not '",
+      class(schema)[1],
+      "'."
+    ))
+  }
 
   column_names <- read_options$column_names
   schema_names <- names(schema)
 
-  if (!is.null(schema) & !identical(schema_names, column_names)) {
+  if (!is.null(schema) && !identical(schema_names, column_names)) {
     missing_from_schema <- setdiff(column_names, schema_names)
     missing_from_colnames <- setdiff(schema_names, column_names)
     message_colnames <- NULL
@@ -153,7 +160,7 @@ CsvFileFormat$create <- function(...,
       )
     }
 
-    if (length(missing_from_schema) == 0 & length(missing_from_colnames) == 0) {
+    if (length(missing_from_schema) == 0 && length(missing_from_colnames) == 0) {
       message_order <- "`column_names` and `schema` field names match but are not in the same order"
     }
 
@@ -390,7 +397,7 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
-    update = function(table, ...) {
+    update = function(column_names, ...) {
       check_additional_args <- function(format, passed_args) {
         if (format == "parquet") {
           supported_args <- names(formals(write_parquet))
@@ -437,7 +444,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
-          ParquetWriterProperties$create(table, ...),
+          ParquetWriterProperties$create(column_names, ...),
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {

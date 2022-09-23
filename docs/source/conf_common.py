@@ -38,7 +38,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx_tabs.tabs',
+    'sphinx_copybutton',
+    'sphinx_design',
 ]
 
 # Show members for classes in .. autosummary
@@ -51,6 +52,11 @@ autodoc_default_options = {
 
 # Overriden conditionally below
 autodoc_mock_imports = []
+
+# copybutton configuration
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: "
+copybutton_prompt_is_regexp = True
+copybutton_line_continuation_character = "\\"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -99,7 +105,7 @@ if "+" in release:
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -160,7 +166,6 @@ html_theme = 'pydata_sphinx_theme'
 #
 html_theme_options = {
     "show_toc_level": 2,
-    "google_analytics_id": "UA-107500873-1",
     "use_edit_page_button": True,
 }
 

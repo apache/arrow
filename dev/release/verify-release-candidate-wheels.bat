@@ -101,6 +101,8 @@ python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
 
 pip install -r arrow\python\requirements-test.txt || EXIT /B 1
+
+set PYARROW_TEST_CYTHON=OFF
 pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 :done

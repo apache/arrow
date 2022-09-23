@@ -59,6 +59,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
     -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
     -DARROW_FILESYSTEM=ON \
+    -DARROW_GCS=${ARROW_GCS:-$ARROW_DEFAULT_PARAM} \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \
     -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_JSON=${ARROW_JSON:-ON} \
@@ -79,10 +80,16 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 
 ${CMAKE} --build . --target install
+
+if command -v sccache &> /dev/null; then
+  echo "=== sccache stats after the build ==="
+  sccache --show-stats
+fi
 
 popd

@@ -42,6 +42,20 @@ cdef class DatasetFactory(_Weakrefable):
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil
 
 
+cdef class Dataset(_Weakrefable):
+
+    cdef:
+        shared_ptr[CDataset] wrapped
+        CDataset* dataset
+
+    cdef void init(self, const shared_ptr[CDataset]& sp)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CDataset]& sp)
+
+    cdef shared_ptr[CDataset] unwrap(self) nogil
+
+
 cdef class FragmentScanOptions(_Weakrefable):
 
     cdef:
@@ -146,3 +160,5 @@ cdef class WrittenFile(_Weakrefable):
     # This metadata will have the file path attribute set to the path of
     # the written file.
     cdef public object metadata
+    # The size of the file in bytes
+    cdef public int64_t size

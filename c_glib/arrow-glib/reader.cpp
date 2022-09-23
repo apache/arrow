@@ -343,7 +343,7 @@ garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow_reader->ReadAll(&arrow_table);
+  auto status = arrow_reader->ToTable().Value(&arrow_table);
 
   if (garrow::check(error,
                     status,

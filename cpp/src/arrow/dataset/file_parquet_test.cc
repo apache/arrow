@@ -218,6 +218,8 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
+TEST_F(TestParquetFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
@@ -229,7 +231,7 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 
   auto fragment = MakeFragment(*source);
 
-  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(kTotalNumRows),
                             fragment->CountRows(literal(true), options));
 
   for (int i = 1; i <= kNumRowGroups; i++) {
@@ -238,18 +240,18 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     auto predicate = less_equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
     auto expected = i * (i + 1) / 2;
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected),
                               fragment->CountRows(predicate, options));
 
     predicate = and_(less_equal(field_ref("i64"), literal(i)),
                      greater_equal(field_ref("i64"), literal(i)));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
   }
 
@@ -265,17 +267,27 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 [1],
 [2]
 ])");
-    ASSERT_OK_AND_ASSIGN(auto reader,
-                         RecordBatchReader::Make({null_batch, batch}, dataset_schema));
+    auto batch2 = RecordBatchFromJSON(dataset_schema, R"([
+[4],
+[4]
+])");
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({null_batch, batch, batch2},
+                                                              dataset_schema));
     auto source = GetFileSource(reader.get());
     auto fragment = MakeFragment(*source);
     ASSERT_OK_AND_ASSIGN(
         auto predicate,
         greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(2),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
-    // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
-    // not(is_null) so trying to count with is_null doesn't work
+
+    ASSERT_OK_AND_ASSIGN(predicate, is_null(field_ref("i64")).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(3),
+                              fragment->CountRows(predicate, options));
+
+    ASSERT_OK_AND_ASSIGN(predicate, is_valid(field_ref("i64")).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
+                              fragment->CountRows(predicate, options));
   }
 }
 
@@ -393,6 +405,7 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestParquetFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
   auto source = GetFileSource(reader.get());

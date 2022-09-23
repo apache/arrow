@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/decimal128"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -126,6 +126,8 @@ func NewDecimal128Builder(mem memory.Allocator, dtype *arrow.Decimal128Type) *De
 	}
 }
 
+func (b *Decimal128Builder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Decimal128Builder) Release() {
@@ -158,6 +160,10 @@ func (b *Decimal128Builder) UnsafeAppend(v decimal128.Num) {
 func (b *Decimal128Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Decimal128Builder) AppendEmptyValue() {
+	b.Append(decimal128.Num{})
 }
 
 func (b *Decimal128Builder) UnsafeAppendBoolToBitmap(isValid bool) {
@@ -260,6 +266,7 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 	}
 
 	var out *big.Float
+	var tmp big.Int
 
 	switch v := t.(type) {
 	case float64:
@@ -269,12 +276,12 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		// what got me the closest equivalent values with the values
 		// that I tested with, and there isn't a good way to push
 		// an option all the way down here to control it.
-		out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
 	case json.Number:
-		out, _, err = big.ParseFloat(v.String(), 10, 128, big.ToNearestAway)
+		out, _, err = big.ParseFloat(v.String(), 10, 127, big.ToNearestAway)
 		if err != nil {
 			return err
 		}
@@ -289,7 +296,7 @@ func (b *Decimal128Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 	}
 
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(nil)
+	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(b.dtype.Scale)))).Int(&tmp)
 	b.Append(decimal128.FromBigInt(val))
 	return nil
 }
@@ -322,6 +329,6 @@ func (b *Decimal128Builder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*Decimal128)(nil)
-	_ Builder   = (*Decimal128Builder)(nil)
+	_ arrow.Array = (*Decimal128)(nil)
+	_ Builder     = (*Decimal128Builder)(nil)
 )

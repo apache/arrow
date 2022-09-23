@@ -52,7 +52,11 @@ test_that("Table metadata", {
 
 test_that("Table R metadata", {
   tab <- Table$create(example_with_metadata)
-  expect_output(print(tab$metadata), "arrow_r_metadata")
+  expect_output(
+    print(tab$metadata),
+    "$r$columns$c$columns$c1$attributes$extra_attr",
+    fixed = TRUE
+  )
   expect_identical(as.data.frame(tab), example_with_metadata)
 })
 
@@ -61,6 +65,13 @@ test_that("R metadata is not stored for types that map to Arrow types (factor, D
   expect_null(tab$metadata$r)
 
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
+})
+
+test_that("R metadata is not stored for ExtensionType columns", {
+  tab <- Table$create(
+    x = vctrs::new_vctr(1:5, class = "special_integer")
+  )
+  expect_null(tab$metadata$r)
 })
 
 test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
@@ -89,6 +100,7 @@ test_that("Garbage R metadata doesn't break things", {
   )
   # serialize data like .serialize_arrow_r_metadata does, but don't call that
   # directly since it checks to ensure that the data is a list
+  tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),
@@ -182,7 +194,7 @@ test_that("haven types roundtrip via feather", {
 
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
-  expect_r6_class(rb$schema$posixlt$type, "StructType")
+  expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
   expect_identical(as.data.frame(rb), example_with_times)
 })
 
@@ -226,11 +238,13 @@ test_that("Row-level metadata (does not by default) roundtrip", {
   # But we can re-enable this / read data that has already been written with
   # row-level metadata
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
       tab <- Table$create(df)
       expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
       expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    })
+    }
+  )
 })
 
 
@@ -256,7 +270,8 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   dst_dir <- make_temp_dir()
 
   withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
+    list("arrow.preserve_row_level_metadata" = TRUE),
+    {
       expect_warning(
         write_dataset(df, dst_dir, partitioning = "part"),
         "Row-level metadata is not compatible with datasets and will be discarded"
@@ -286,30 +301,32 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
         df_from_ds <- ds %>% select(int) %>% collect(),
         NA
       )
-    })
+    }
+  )
 })
 
-test_that("When we encounter SF cols, we warn", {
-  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, baz = "qux"))))
-  class(df$x) <- c("sfc_MULTIPOLYGON", "sfc", "list")
+test_that("Dataset writing does handle other metadata", {
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
 
-  expect_warning(
-    tab <- Table$create(df),
-    "One of the columns given appears to be an"
+  dst_dir <- make_temp_dir()
+  tab <- Table$create(example_with_metadata)
+  # Tack on extra non-R metadata: sfarrow 0.4.1 relies on this
+  tab$metadata[["other_stuff"]] <- "hello"
+
+  write_dataset(tab, dst_dir, partitioning = "b")
+
+  ds <- open_dataset(dst_dir)
+  expect_equal(
+    ds %>%
+      # partitioning on b puts it last, so move it back
+      select(a, b, c, d) %>%
+      collect(),
+    example_with_metadata
   )
 
-  # but the table was read fine, just sans (row-level) metadata
-  r_metadata <- .unserialize_arrow_r_metadata(tab$metadata$r)
-  expect_null(r_metadata$columns$x$columns)
-
-  # But we can re-enable this / read data that has already been written with
-  # row-level metadata without a warning
-  withr::with_options(
-    list("arrow.preserve_row_level_metadata" = TRUE), {
-      expect_warning(tab <- Table$create(df), NA)
-      expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
-      expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
-    })
+  # Check for that extra metadata in the schema:
+  expect_equal(ds$metadata$other_stuff, "hello")
 })
 
 test_that("dplyr with metadata", {
@@ -335,7 +352,7 @@ test_that("dplyr with metadata", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(z = nchar(a)) %>%
+      mutate(z = nchar(d)) %>%
       select(z, a) %>%
       collect(),
     example_with_metadata
@@ -344,7 +361,7 @@ test_that("dplyr with metadata", {
   # of grouping columns appear to come through
   compare_dplyr_binding(
     .input %>%
-      group_by(a) %>%
+      group_by(d) %>%
       summarize(n()) %>%
       collect(),
     example_with_metadata
@@ -353,7 +370,7 @@ test_that("dplyr with metadata", {
   # carry through
   compare_dplyr_binding(
     .input %>%
-      mutate(a = nchar(a)) %>%
+      mutate(a = b) %>%
       select(a) %>%
       collect(),
     example_with_metadata
@@ -365,11 +382,10 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_s3_class(grouped, "grouped_df")
   grouped_tab <- Table$create(grouped)
   expect_r6_class(grouped_tab, "Table")
-  expect_equal(grouped_tab$r_metadata$attributes$.group_vars, "a")
+  expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
 })
 
 test_that("grouped_df non-arrow metadata is preserved", {
-
   simple_tbl <- tibble(a = 1:2, b = 3:4)
   attr(simple_tbl, "other_metadata") <- "look I'm still here!"
   grouped <- group_by(simple_tbl, a)

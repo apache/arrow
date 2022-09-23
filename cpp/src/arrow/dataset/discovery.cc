@@ -30,8 +30,12 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::StartsWith;
+
 namespace dataset {
 
 DatasetFactory::DatasetFactory() : root_partition_(compute::literal(true)) {}
@@ -158,10 +162,9 @@ bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& pr
   }
 
   auto parts = fs::internal::SplitAbstractPath(path);
-  return std::any_of(parts.cbegin(), parts.cend(), [&](util::string_view part) {
-    return std::any_of(prefixes.cbegin(), prefixes.cend(), [&](util::string_view prefix) {
-      return util::string_view(part).starts_with(prefix);
-    });
+  return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
+    return std::any_of(prefixes.cbegin(), prefixes.cend(),
+                       [&](std::string_view prefix) { return StartsWith(part, prefix); });
   });
 }
 
@@ -279,7 +282,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
 
   std::vector<std::shared_ptr<FileFragment>> fragments;
   for (const auto& info : files_) {
-    auto fixed_path = StripPrefixAndFilename(info.path(), options_.partition_base_dir);
+    auto fixed_path = StripPrefix(info.path(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({info, fs_}, partition));
     fragments.push_back(fragment);

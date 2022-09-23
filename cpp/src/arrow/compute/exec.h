@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -29,8 +30,8 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -68,7 +69,7 @@ class ARROW_EXPORT ExecContext {
   /// default_memory_pool().
   MemoryPool* memory_pool() const { return pool_; }
 
-  ::arrow::internal::CpuInfo* cpu_info() const;
+  const ::arrow::internal::CpuInfo* cpu_info() const;
 
   /// \brief An Executor which may be used to parallelize execution.
   ::arrow::internal::Executor* executor() const { return executor_; }
@@ -126,8 +127,6 @@ class ARROW_EXPORT ExecContext {
   bool use_threads_ = true;
 };
 
-ARROW_EXPORT ExecContext* default_exec_context();
-
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
 
@@ -173,6 +172,10 @@ class ARROW_EXPORT SelectionVector {
 /// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
+
+/// \addtogroup execnode-components
+/// @{
+
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
@@ -208,9 +211,8 @@ struct ARROW_EXPORT ExecBatch {
   /// case, it would have scalar rows with length greater than 1.
   ///
   /// If the array values are of length 0 then the length is 0 regardless of
-  /// whether any values are Scalar. In general ExecBatch objects are produced
-  /// by ExecBatchIterator which by design does not yield length-0 batches.
-  int64_t length;
+  /// whether any values are Scalar.
+  int64_t length = 0;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
@@ -234,23 +236,173 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
-  /// \brief A convenience for returning the ValueDescr objects (types and
-  /// shapes) from the batch.
-  std::vector<ValueDescr> GetDescriptors() const {
-    std::vector<ValueDescr> result;
+  /// \brief A convenience for returning the types from the batch.
+  std::vector<TypeHolder> GetTypes() const {
+    std::vector<TypeHolder> result;
     for (const auto& value : this->values) {
-      result.emplace_back(value.descr());
+      result.emplace_back(value.type());
     }
     return result;
   }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
 
 inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
+
+struct ExecValue {
+  ArraySpan array = {};
+  const Scalar* scalar = NULLPTR;
+
+  ExecValue(Scalar* scalar)  // NOLINT implicit conversion
+      : scalar(scalar) {}
+
+  ExecValue(ArraySpan array)  // NOLINT implicit conversion
+      : array(std::move(array)) {}
+
+  ExecValue(const ArrayData& array) {  // NOLINT implicit conversion
+    this->array.SetMembers(array);
+  }
+
+  ExecValue() = default;
+  ExecValue(const ExecValue& other) = default;
+  ExecValue& operator=(const ExecValue& other) = default;
+  ExecValue(ExecValue&& other) = default;
+  ExecValue& operator=(ExecValue&& other) = default;
+
+  int64_t length() const { return this->is_array() ? this->array.length : 1; }
+
+  bool is_array() const { return this->scalar == NULLPTR; }
+  bool is_scalar() const { return !this->is_array(); }
+
+  void SetArray(const ArrayData& array) {
+    this->array.SetMembers(array);
+    this->scalar = NULLPTR;
+  }
+
+  void SetScalar(const Scalar* scalar) { this->scalar = scalar; }
+
+  template <typename ExactType>
+  const ExactType& scalar_as() const {
+    return ::arrow::internal::checked_cast<const ExactType&>(*this->scalar);
+  }
+
+  /// XXX: here temporarily for compatibility with datum, see
+  /// e.g. MakeStructExec in scalar_nested.cc
+  int64_t null_count() const {
+    if (this->is_array()) {
+      return this->array.GetNullCount();
+    } else {
+      return this->scalar->is_valid ? 0 : 1;
+    }
+  }
+
+  const DataType* type() const {
+    if (this->is_array()) {
+      return array.type;
+    } else {
+      return scalar->type.get();
+    }
+  }
+};
+
+struct ARROW_EXPORT ExecResult {
+  // The default value of the variant is ArraySpan
+  std::variant<ArraySpan, std::shared_ptr<ArrayData>> value;
+
+  int64_t length() const {
+    if (this->is_array_span()) {
+      return this->array_span()->length;
+    } else {
+      return this->array_data()->length;
+    }
+  }
+
+  const DataType* type() const {
+    if (this->is_array_span()) {
+      return this->array_span()->type;
+    } else {
+      return this->array_data()->type.get();
+    }
+  }
+
+  ArraySpan* array_span() const {
+    return const_cast<ArraySpan*>(&std::get<ArraySpan>(this->value));
+  }
+  bool is_array_span() const { return this->value.index() == 0; }
+
+  const std::shared_ptr<ArrayData>& array_data() const {
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
+  }
+
+  bool is_array_data() const { return this->value.index() == 1; }
+};
+
+/// \brief A "lightweight" column batch object which contains no
+/// std::shared_ptr objects and does not have any memory ownership
+/// semantics. Can represent a view onto an "owning" ExecBatch.
+struct ARROW_EXPORT ExecSpan {
+  ExecSpan() = default;
+  ExecSpan(const ExecSpan& other) = default;
+  ExecSpan& operator=(const ExecSpan& other) = default;
+  ExecSpan(ExecSpan&& other) = default;
+  ExecSpan& operator=(ExecSpan&& other) = default;
+
+  explicit ExecSpan(std::vector<ExecValue> values, int64_t length)
+      : length(length), values(std::move(values)) {}
+
+  explicit ExecSpan(const ExecBatch& batch) {
+    this->length = batch.length;
+    this->values.resize(batch.values.size());
+    for (size_t i = 0; i < batch.values.size(); ++i) {
+      const Datum& in_value = batch[i];
+      ExecValue* out_value = &this->values[i];
+      if (in_value.is_array()) {
+        out_value->SetArray(*in_value.array());
+      } else {
+        out_value->SetScalar(in_value.scalar().get());
+      }
+    }
+  }
+
+  /// \brief Return the value at the i-th index
+  template <typename index_type>
+  inline const ExecValue& operator[](index_type i) const {
+    return values[i];
+  }
+
+  /// \brief A convenience for the number of values / arguments.
+  int num_values() const { return static_cast<int>(values.size()); }
+
+  std::vector<TypeHolder> GetTypes() const {
+    std::vector<TypeHolder> result;
+    for (const auto& value : this->values) {
+      result.emplace_back(value.type());
+    }
+    return result;
+  }
+
+  ExecBatch ToExecBatch() const {
+    ExecBatch result;
+    result.length = this->length;
+    for (const ExecValue& value : this->values) {
+      if (value.is_array()) {
+        result.values.push_back(value.array.ToArrayData());
+      } else {
+        result.values.push_back(value.scalar->GetSharedPtr());
+      }
+    }
+    return result;
+  }
+
+  int64_t length = 0;
+  std::vector<ExecValue> values;
+};
+
+/// @}
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///
@@ -269,6 +421,21 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
 /// NB: Some functions require FunctionOptions be provided.
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           ExecContext* ctx = NULLPTR);
+
+/// \brief One-shot invoker for all types of functions.
+///
+/// Does kernel dispatch, argument checking, iteration of ChunkedArray inputs,
+/// and wrapping of outputs.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of CallFunction which uses a function's default options.
+///
+/// NB: Some functions require FunctionOptions be provided.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx = NULLPTR);
 
 /// @}

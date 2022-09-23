@@ -106,6 +106,17 @@ Helpers for looking up fields
 
 .. doxygenclass:: arrow::FieldPath
    :members:
+   :undoc-members:
 
 .. doxygenclass:: arrow::FieldRef
    :members:
+   :undoc-members:
+
+
+Utilities
+=========
+
+.. doxygenclass:: arrow::TypeVisitor
+   :project: arrow_cpp
+   :members:
+   :undoc-members:

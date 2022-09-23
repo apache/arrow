@@ -46,9 +46,15 @@ except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
+    from pyarrow._gcsfs import GcsFileSystem  # noqa
+except ImportError:
+    _not_imported.append("GcsFileSystem")
+
+try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,
-        resolve_s3_region)
+        AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
+        S3FileSystem, S3LogLevel, S3RetryStrategy, finalize_s3,
+        initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
@@ -222,15 +228,28 @@ def copy_files(source, destination,
 
     Examples
     --------
-    Copy an S3 bucket's files to a local directory:
+    Inspect an S3 bucket's files:
 
-    >>> copy_files("s3://your-bucket-name", "local-directory")
+    >>> s3, path = fs.FileSystem.from_uri(
+    ...            "s3://registry.opendata.aws/roda/ndjson/")
+    >>> selector = fs.FileSelector(path)
+    >>> s3.get_file_info(selector)
+    [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson':...]
 
-    Using a FileSystem object:
+    Copy one file from S3 bucket to a local directory:
 
-    >>> copy_files("your-bucket-name", "local-directory",
-    ...            source_filesystem=S3FileSystem(...))
+    >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path))
 
+    >>> fs.LocalFileSystem().get_file_info(str(local_path)+
+    ...                                    '/index_copy.ndjson')
+    <FileInfo for '.../index_copy.ndjson': type=FileType.File, size=...>
+
+    Copy file using a FileSystem object:
+
+    >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
         source, source_filesystem
@@ -263,7 +282,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Examples
     --------
-    >>> PyFileSystem(FSSpecHandler(fsspec_fs))
+    >>> PyFileSystem(FSSpecHandler(fsspec_fs)) # doctest: +SKIP
     """
 
     def __init__(self, fs):
@@ -346,18 +365,24 @@ class FSSpecHandler(FileSystemHandler):
     def delete_dir(self, path):
         self.fs.rm(path, recursive=True)
 
-    def _delete_dir_contents(self, path):
-        for subpath in self.fs.listdir(path, detail=False):
+    def _delete_dir_contents(self, path, missing_dir_ok):
+        try:
+            subpaths = self.fs.listdir(path, detail=False)
+        except FileNotFoundError:
+            if missing_dir_ok:
+                return
+            raise
+        for subpath in subpaths:
             if self.fs.isdir(subpath):
                 self.fs.rm(subpath, recursive=True)
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
 
-    def delete_dir_contents(self, path):
+    def delete_dir_contents(self, path, missing_dir_ok):
         if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")
-        self._delete_dir_contents(path)
+        self._delete_dir_contents(path, missing_dir_ok)
 
     def delete_root_dir_contents(self):
         self._delete_dir_contents("/")

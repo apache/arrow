@@ -47,7 +47,8 @@ The `arrow` package also includes a faster and more robust implementation of the
 on the same underlying C++ library as the Python version does,
 resulting in more reliable and consistent behavior across the two languages, as
 well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
-`arrow` also by default writes the Feather V2 format,
+`arrow` also by default writes the Feather V2 format
+([the Arrow IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)),
 which supports a wider range of data types, as well as compression.
 
 For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.

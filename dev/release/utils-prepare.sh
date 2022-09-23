@@ -121,6 +121,14 @@ update_versions() {
   git add setup.py
   popd
 
+  pushd "${ARROW_DIR}/python/pyarrow/src"
+  sed -i.bak -E -e \
+    "s/^set\(ARROW_PYTHON_VERSION \".+\"\)/set(ARROW_PYTHON_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
+  popd
+
   pushd "${ARROW_DIR}/r"
   sed -i.bak -E -e \
     "s/^Version: .+/Version: ${r_version}/" \
@@ -129,12 +137,12 @@ update_versions() {
   git add DESCRIPTION
   # Replace dev version with release version
   sed -i.bak -E -e \
-    "0,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
+    "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
     NEWS.md
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     sed -i.bak -E -e \
-      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      "/^<!--/,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
       NEWS.md
   fi
   rm -f NEWS.md.bak
@@ -152,17 +160,31 @@ update_versions() {
   pushd "${ARROW_DIR}/go"
   find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
     "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  # update parquet writer version
+  sed -i.bak -E -e \
+    "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
+    parquet/writer_properties.go
+  sed -i.bak -E -e \
+    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
+    arrow/doc.go  
+  # handle the pseudo version in the compute sub-module for now
+  # subsequent changes will allow this to remove the pseudo version but
+  # for now we have to overcome the slight conflict between the existing
+  # "compute" package and the new go.mod file.
+  sed -i.bak -E -e \
+    "s|v[0-9]+\\.0\\.0-00010101000000-000000000000|v${major_version}.0.0-00010101000000-000000000000|" \
+    arrow/compute/go.mod
+  
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
 
-  case ${type} in
-    snapshot)
-      pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
-      git add r/pkgdown/assets/versions.json
-      git add docs/source/_static/versions.json
-      popd
-      ;;
-  esac
+  pushd "${ARROW_DIR}"
+  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                     . \
+                     "${base_version}" \
+                     "${next_version}"
+  git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.json
+  popd
 }

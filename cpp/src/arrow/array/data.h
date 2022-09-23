@@ -25,10 +25,14 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -163,6 +167,11 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
+  bool IsNull(int64_t i) const {
+    return ((buffers[0] != NULLPTR) ? !bit_util::GetBit(buffers[0]->data(), i + offset)
+                                    : null_count.load() == length);
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
@@ -242,7 +251,131 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<ArrayData> dictionary;
 };
 
+/// \brief A non-owning Buffer reference
+struct ARROW_EXPORT BufferSpan {
+  // It is the user of this class's responsibility to ensure that
+  // buffers that were const originally are not written to
+  // accidentally.
+  uint8_t* data = NULLPTR;
+  int64_t size = 0;
+  // Pointer back to buffer that owns this memory
+  const std::shared_ptr<Buffer>* owner = NULLPTR;
+};
+
+/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
+/// copyable and does not contain any shared_ptr objects. Do not use in public
+/// APIs aside from compute kernels for now
+struct ARROW_EXPORT ArraySpan {
+  const DataType* type = NULLPTR;
+  int64_t length = 0;
+  mutable int64_t null_count = kUnknownNullCount;
+  int64_t offset = 0;
+  BufferSpan buffers[3];
+
+  // 16 bytes of scratch space to enable this ArraySpan to be a view onto
+  // scalar values including binary scalars (where we need to create a buffer
+  // that looks like two 32-bit or 64-bit offsets)
+  uint64_t scratch_space[2];
+
+  ArraySpan() = default;
+
+  explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
+
+  ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
+    SetMembers(data);
+  }
+  explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
+
+  /// If dictionary-encoded, put dictionary in the first entry
+  std::vector<ArraySpan> child_data;
+
+  /// \brief Populate ArraySpan to look like an array of length 1 pointing at
+  /// the data members of a Scalar value
+  void FillFromScalar(const Scalar& value);
+
+  void SetMembers(const ArrayData& data);
+
+  void SetBuffer(int index, const std::shared_ptr<Buffer>& buffer) {
+    this->buffers[index].data = const_cast<uint8_t*>(buffer->data());
+    this->buffers[index].size = buffer->size();
+    this->buffers[index].owner = &buffer;
+  }
+
+  const ArraySpan& dictionary() const { return child_data[0]; }
+
+  /// \brief Return the number of buffers (out of 3) that are used to
+  /// constitute this array
+  int num_buffers() const;
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline T* GetValues(int i, int64_t absolute_offset) {
+    return reinterpret_cast<T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline T* GetValues(int i) {
+    return GetValues<T>(i, this->offset);
+  }
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline const T* GetValues(int i, int64_t absolute_offset) const {
+    return reinterpret_cast<const T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline const T* GetValues(int i) const {
+    return GetValues<T>(i, this->offset);
+  }
+
+  inline bool IsValid(int64_t i) const {
+    return ((this->buffers[0].data != NULLPTR)
+                ? bit_util::GetBit(this->buffers[0].data, i + this->offset)
+                : this->null_count != this->length);
+  }
+
+  inline bool IsNull(int64_t i) const { return !IsValid(i); }
+
+  std::shared_ptr<ArrayData> ToArrayData() const;
+
+  std::shared_ptr<Array> ToArray() const;
+
+  std::shared_ptr<Buffer> GetBuffer(int index) const {
+    const BufferSpan& buf = this->buffers[index];
+    if (buf.owner) {
+      return *buf.owner;
+    } else if (buf.data != NULLPTR) {
+      // Buffer points to some memory without an owning buffer
+      return std::make_shared<Buffer>(buf.data, buf.size);
+    } else {
+      return NULLPTR;
+    }
+  }
+
+  void SetSlice(int64_t offset, int64_t length) {
+    this->offset = offset;
+    this->length = length;
+    if (this->type->id() != Type::NA) {
+      this->null_count = kUnknownNullCount;
+    } else {
+      this->null_count = this->length;
+    }
+  }
+
+  /// \brief Return null count, or compute and set it if it's not known
+  int64_t GetNullCount() const;
+
+  bool MayHaveNulls() const {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count != 0 && buffers[0].data != NULLPTR;
+  }
+};
+
 namespace internal {
+
+void FillZeroLengthArray(const DataType* type, ArraySpan* span);
 
 /// Construct a zero-copy view of this ArrayData with the given type.
 ///

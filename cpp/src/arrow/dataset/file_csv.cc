@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -39,6 +40,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow {
@@ -54,7 +56,13 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
-    util::string_view first_block, MemoryPool* pool) {
+    std::string_view first_block, MemoryPool* pool) {
+  // Skip BOM when reading column names (ARROW-14644, ARROW-17382)
+  auto size = first_block.length();
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
+  ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+  size = size - static_cast<uint32_t>(data_no_bom - data);
+  first_block = std::string_view(reinterpret_cast<const char*>(data_no_bom), size);
   if (!read_options.column_names.empty()) {
     std::unordered_set<std::string> column_names;
     for (const auto& s : read_options.column_names) {
@@ -70,7 +78,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
   csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
                           max_num_rows);
 
-  RETURN_NOT_OK(parser.Parse(util::string_view{first_block}, &parsed_size));
+  RETURN_NOT_OK(parser.Parse(std::string_view{first_block}, &parsed_size));
 
   if (parser.num_rows() != max_num_rows) {
     return Status::Invalid("Could not read first ", max_num_rows,
@@ -84,13 +92,19 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   std::unordered_set<std::string> column_names;
 
+  if (read_options.autogenerate_column_names) {
+    column_names.reserve(parser.num_cols());
+    for (int32_t i = 0; i < parser.num_cols(); ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      column_names.emplace(ss.str());
+    }
+    return column_names;
+  }
+
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        // Skip BOM when reading column names (ARROW-14644)
-        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
-        size = size - static_cast<uint32_t>(data_no_bom - data);
-
-        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
+        std::string_view view{reinterpret_cast<const char*>(data), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
@@ -102,7 +116,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const ScanOptions* scan_options,
-    const util::string_view first_block) {
+    const std::string_view first_block) {
   ARROW_ASSIGN_OR_RAISE(
       auto csv_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
@@ -167,9 +181,20 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
+#endif
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
+  const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
                                              default_memory_pool(), std::move(input)));
@@ -190,11 +215,20 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       }));
   return reader_fut.Then(
       // Adds the filename to the error
-      [](const std::shared_ptr<csv::StreamingReader>& reader)
-          -> Result<std::shared_ptr<csv::StreamingReader>> { return reader; },
-      [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
-        return err.WithMessage("Could not open CSV input source '", source.path(),
-                               "': ", err);
+      [=](const std::shared_ptr<csv::StreamingReader>& reader)
+          -> Result<std::shared_ptr<csv::StreamingReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+        span->End();
+#endif
+        return reader;
+      },
+      [=](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        arrow::internal::tracing::MarkSpan(err, span.get());
+        span->End();
+#endif
+        return err.WithMessage("Could not open CSV input source '", path, "': ", err);
       });
 }
 
@@ -250,22 +284,32 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto source = file->source();
   auto reader_fut =
       OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
-  return GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
+  auto generator = GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
+  WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
+      generator, "arrow::dataset::CsvFileFormat::ScanBatchesAsync::Next");
+  return generator;
 }
 
-Future<util::optional<int64_t>> CsvFileFormat::CountRows(
+Future<std::optional<int64_t>> CsvFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
-  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, options.get(), self->default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
+  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
-      .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
+      .Then([](int64_t count) { return std::make_optional<int64_t>(count); });
 }
 
 //

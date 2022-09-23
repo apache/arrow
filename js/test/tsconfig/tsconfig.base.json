@@ -2,8 +2,8 @@
 {
   "extends": "../../tsconfig/tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "commonjs",
+    "target": "ESNext",
+    "module": "CommonJS",
     "rootDir": "../../",
     "allowJs": true,
     "declaration": false,

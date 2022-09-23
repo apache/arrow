@@ -14,7 +14,7 @@
   <parent>
     <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>8.0.0-SNAPSHOT</version>
+    <version>10.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -53,27 +53,22 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-core</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-context</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>${dep.netty-tcnative.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -82,12 +77,10 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-handler</artifactId>
-      <version>${dep.netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-transport</artifactId>
-      <version>${dep.netty.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -96,27 +89,16 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${dep.protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-api</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
 
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-    </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
@@ -150,7 +132,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.5.0.Final</version>
+        <version>1.7.0</version>
       </extension>
     </extensions>
     <plugins>
@@ -232,10 +214,10 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.6.1</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
           <clearOutputDirectory>false</clearOutputDirectory>
           <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
         <executions>
           <execution>
@@ -263,25 +245,9 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
-        <configuration>
-          <executable>java</executable>
-          <classpathScope>test</classpathScope>
-          <arguments>
-            <argument>-classpath</argument>
-            <classpath />
-            <argument>-Xms64m</argument>
-            <argument>-Xmx64m</argument>
-            <argument>-XX:MaxDirectMemorySize=4g</argument>
-            <argument>org.apache.arrow.flight.example.ExampleFlightServer</argument>
-          </arguments>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>analyze</id>
@@ -336,44 +302,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>linux-netty-native</id>
-      <activation>
-        <os>
-          <family>linux</family>
-        </os>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${dep.netty.version}</version>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-      </dependencies>
-    </profile>
-    <profile>
-      <id>mac-netty-native</id>
-      <activation>
-        <os>
-          <family>mac</family>
-        </os>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${dep.netty.version}</version>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-kqueue</artifactId>
-          <version>${dep.netty.version}</version>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-      </dependencies>
-    </profile>
-  </profiles>
 </project>

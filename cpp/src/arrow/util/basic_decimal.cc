@@ -31,7 +31,7 @@
 #include "arrow/util/config.h"  // for ARROW_USE_NATIVE_INT128
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -1122,11 +1122,7 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {
-      if (result > 0) {
-        result += 1;
-      } else {
-        result -= 1;
-      }
+      result += Sign();
     }
   }
   return result;
@@ -1263,11 +1259,7 @@ BasicDecimal256 BasicDecimal256::ReduceScaleBy(int32_t reduce_by, bool round) co
   if (round) {
     auto divisor_half = ScaleMultipliersHalfDecimal256[reduce_by];
     if (remainder.Abs() >= divisor_half) {
-      if (result > 0) {
-        result += 1;
-      } else {
-        result -= 1;
-      }
+      result += Sign();
     }
   }
   return result;

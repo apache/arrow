@@ -17,11 +17,13 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"fmt"
+	"sync"
+
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -31,12 +33,14 @@ const (
 
 // RowGroupReader is the primary interface for reading a single row group
 type RowGroupReader struct {
-	r             ipc.ReadAtSeeker
+	r             parquet.ReaderAtSeeker
 	sourceSz      int64
 	fileMetadata  *metadata.FileMetaData
 	rgMetadata    *metadata.RowGroupMetaData
 	props         *parquet.ReaderProperties
 	fileDecryptor encryption.FileDecryptor
+
+	bufferPool *sync.Pool
 }
 
 // MetaData returns the metadata of the current Row Group
@@ -54,17 +58,17 @@ func (r *RowGroupReader) ByteSize() int64 { return r.rgMetadata.TotalByteSize() 
 // Column returns a column reader for the requested (0-indexed) column
 //
 // panics if passed a column not in the range [0, NumColumns)
-func (r *RowGroupReader) Column(i int) ColumnChunkReader {
+func (r *RowGroupReader) Column(i int) (ColumnChunkReader, error) {
 	if i >= r.NumColumns() || i < 0 {
-		panic(xerrors.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
+		return nil, fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns())
 	}
 
 	descr := r.fileMetadata.Schema.Column(i)
 	pageRdr, err := r.GetColumnPageReader(i)
 	if err != nil {
-		panic(xerrors.Errorf("parquet: unable to initialize page reader: %w", err))
+		return nil, fmt.Errorf("parquet: unable to initialize page reader: %w", err)
 	}
-	return NewColumnReader(descr, pageRdr, r.props.Allocator())
+	return NewColumnReader(descr, pageRdr, r.props.Allocator(), r.bufferPool), nil
 }
 
 func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {
@@ -85,10 +89,10 @@ func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {
 		// dictionary page header size in total_compressed_size and total_uncompressed_size
 		// (see IMPALA-694). We add padding to compensate.
 		if colStart < 0 || colLen < 0 {
-			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) should both be positive", colStart, colLen)
+			return nil, fmt.Errorf("invalid column chunk metadata, offset (%d) and length (%d) should both be positive", colStart, colLen)
 		}
 		if colStart > r.sourceSz || colLen > r.sourceSz {
-			return nil, xerrors.Errorf("invalid column chunk metadata, offset (%d) and length (%d) must both be less than total source size (%d)", colStart, colLen, r.sourceSz)
+			return nil, fmt.Errorf("invalid column chunk metadata, offset (%d) and length (%d) must both be less than total source size (%d)", colStart, colLen, r.sourceSz)
 		}
 		bytesRemain := r.sourceSz - (colStart + colLen)
 		padding := utils.Min(maxDictHeaderSize, bytesRemain)
