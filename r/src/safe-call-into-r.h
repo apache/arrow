@@ -163,6 +163,7 @@ class RunWithCapturedRContext {
   ~RunWithCapturedRContext() {
     if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
       arrow::UnregisterCancellingSignalHandler();
+
     }
   }
 };
@@ -280,8 +281,9 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
 
   // A StatusUnwindProtect error, if it was thrown, lives in the MainRThread and
   // should be returned if possible.
-  if (MainRThread::GetInstance().HasError()) {
-    return MainRThread::GetInstance().ReraiseErrorIfExists();
+  arrow::Status global_status = MainRThread::GetInstance().ReraiseErrorIfExists();
+  if (!global_status.ok()) {
+    return global_status;
   } else {
     return result;
   }
