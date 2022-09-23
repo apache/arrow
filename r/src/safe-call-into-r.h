@@ -163,7 +163,6 @@ class RunWithCapturedRContext {
   ~RunWithCapturedRContext() {
     if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
       arrow::UnregisterCancellingSignalHandler();
-
     }
   }
 };
