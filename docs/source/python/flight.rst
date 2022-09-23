@@ -27,7 +27,7 @@ over the network.
 
 .. seealso::
 
-   :doc:`Flight protocol documentation <../format/Flight>`
+   :doc:`Flight protocol documentation <arrow:format/Flight>`
         Documentation of the Flight protocol, including how to use
         Flight conceptually.
 

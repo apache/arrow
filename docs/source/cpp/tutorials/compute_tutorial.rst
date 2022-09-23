@@ -39,9 +39,9 @@ Pre-requisites
 
 Before continuing, make sure you have:
 
-1. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`
+1. An Arrow installation, which you can set up here: :doc:`/build_system`
 
-2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
+2. An understanding of basic Arrow data structures from :doc:`/tutorials/basic_arrow`
 
 Setup
 -----
@@ -87,7 +87,7 @@ Generating Tables for Computation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before we begin, we’ll initialize a :class:`Table` with two columns to play with. We’ll use
-the method from :doc:`/cpp/tutorials/basic_arrow`, so look back
+the method from :doc:`/tutorials/basic_arrow`, so look back
 there if anything’s confusing:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/compute_example.cc
@@ -128,7 +128,7 @@ Here, we’ll get our :class:`Table`, which has columns “A” and “B”, and
 column “A.” For summation, there is a convenience function, called
 :func:`compute::Sum`, which reduces the complexity of the compute interface. We’ll look
 at the more complex version for the next computation. For a given
-function, refer to :doc:`/cpp/api/compute` to see if there is a
+function, refer to :doc:`/api/compute` to see if there is a
 convenience function. :func:`compute::Sum` takes in a given :class:`Array` or :class:`ChunkedArray`
 – here, we use :func:`Table::GetColumnByName` to pass in column A. Then, it outputs to
 a :class:`Datum`. Putting that all together, we get this:

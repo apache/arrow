@@ -452,6 +452,7 @@ def setup_dropdown_href(app, pagename, templatename, context, doctree):
         # leave actual urls as is
         if ref.startswith("http"):
             return ref
+
         # internal references need to be corrected
         index_href = context["pathto"]('index')
 
@@ -460,9 +461,6 @@ def setup_dropdown_href(app, pagename, templatename, context, doctree):
 
         if context["subproject"] in ("Python", "C++"):
             index_href = "../" + index_href
-
-        if ref.startswith("status"):
-            breakpoint()
 
         return index_href.replace(
             'index.html', ref if ref.endswith(".html") else ref + '/index.html'

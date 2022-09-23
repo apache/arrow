@@ -32,8 +32,8 @@ in the codebase and suggested for users; and tutorials, including:
 * Executing compute kernels on arrays
 * Reading and writing multi-file partitioned datasets
 
-Start here to gain a basic understanding of Arrow, and move on to the :doc:`/cpp/user_guide` to
-explore more specific topics and underlying concepts, or the :doc:`/cpp/api` to explore Arrow's 
+Start here to gain a basic understanding of Arrow, and move on to the :doc:`/user_guide` to
+explore more specific topics and underlying concepts, or the :doc:`/api` to explore Arrow's
 API. 
 
 .. toctree::

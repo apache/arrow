@@ -83,7 +83,7 @@ and computation functions, possibly incremental.
 
 Record batches can be sent between implementations, such as via 
 :ref:`IPC <format-ipc>` or
-via the :doc:`C Data Interface <../format/CDataInterface>`. Tables and 
+via the :doc:`C Data Interface <arrow:format/CDataInterface>`. Tables and
 chunked arrays, on the other hand, are concepts in the C++ implementation,
 not in the Arrow format itself, so they aren't directly portable.
 
