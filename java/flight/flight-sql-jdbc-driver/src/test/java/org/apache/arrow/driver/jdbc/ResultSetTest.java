@@ -160,7 +160,6 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(
              CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
 
