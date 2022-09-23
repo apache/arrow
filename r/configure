@@ -165,6 +165,8 @@ else
       fi
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
+      set -x
+      cat libarrow/arrow-${VERSION}/lib/pkgconfig/arrow.pc
       PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"

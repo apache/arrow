@@ -314,7 +314,7 @@ jobs:
         run: |
           env | sort
           set -x
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
             >> "$GITHUB_ENV"
       - name: Install arrow from nightly repo
         env:
@@ -323,7 +323,7 @@ jobs:
           # Don't use zstd installed by Homebrew because it provides
           # zstdConfig.cmake but doesn't provide libzstd.pc. libzstd.pc
           # is required for "pkg-config --static --cflags --libs arrow".
-          zstd_SOURCE: "BUNDLED"
+          # zstd_SOURCE: "BUNDLED"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
@@ -338,7 +338,7 @@ jobs:
           # Don't use zstd installed by Homebrew because it provides
           # zstdConfig.cmake but doesn't provide libzstd.pc. libzstd.pc
           # is required for "pkg-config --static --cflags --libs arrow".
-          zstd_SOURCE: "BUNDLED"
+          # zstd_SOURCE: "BUNDLED"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
