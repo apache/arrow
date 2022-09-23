@@ -34,6 +34,7 @@ import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
@@ -49,12 +50,14 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@link FlightSqlClient} handler.
  */
 public final class ArrowFlightSqlClientHandler implements AutoCloseable {
-
+  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightSqlClientHandler.class);
   private final FlightSqlClient sqlClient;
   private final Set<CallOption> options = new HashSet<>();
 
@@ -189,7 +192,18 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
       @Override
       public void close() {
-        preparedStatement.close(getOptions());
+        try {
+          preparedStatement.close(getOptions());
+        } catch (FlightRuntimeException fre) {
+          // ARROW-17785: suppress exceptions caused by flaky gRPC layer
+          if (fre.status().code().equals(FlightStatusCode.UNAVAILABLE) ||
+              (fre.status().code().equals(FlightStatusCode.INTERNAL) &&
+                  fre.getMessage().contains("Connection closed after GOAWAY"))) {
+            LOGGER.warn("Supressed error closing PreparedStatement", fre);
+            return;
+          }
+          throw fre;
+        }
       }
     };
   }

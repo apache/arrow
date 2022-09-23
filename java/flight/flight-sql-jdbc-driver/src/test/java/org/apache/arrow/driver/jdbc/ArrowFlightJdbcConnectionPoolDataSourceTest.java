@@ -44,8 +44,6 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
             .build();
 
     FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
         .authentication(authentication)
         .producer(PRODUCER)
         .build();

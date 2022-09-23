@@ -63,8 +63,6 @@ public class ConnectionTlsTest {
             .build();
 
     FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
         .authentication(authentication)
         .useEncryption(certKey.cert, certKey.key)
         .producer(PRODUCER)
