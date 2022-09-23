@@ -73,6 +73,13 @@
     return Status::Invalid("Expected an error but did not got one."); \
   } \
 }
+#define ASSERT_TRUE_MSG(error, msg){ \
+  auto&& _err = (error); \
+  auto&& _msg = (msg); \
+  if (_err == false){ \
+    return Status::Invalid("Expected an error but did not got one: ", _msg); \
+  } \
+}
 #define ASSERT_OK(expr){ \
   for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
   return Status::Invalid(expr, "failed with", _st.ToString()); \
@@ -229,8 +236,7 @@ Status TestPyBufferInvalidInputObject() {
   auto old_refcnt = Py_REFCNT(input);
   {
     Status st = PyBuffer::FromPyObject(input).status();
-    // ASSERT_TRUE(IsPyError(st)) << st.ToString();
-    ASSERT_TRUE(IsPyError(st));
+    ASSERT_TRUE_MSG(IsPyError(st), st.ToString());
     ASSERT_FALSE_PY(PyErr_Occurred());
   }
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
