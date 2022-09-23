@@ -47,7 +47,7 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, 
 			case error:
 				err = fmt.Errorf("arrow/concat: %w", e)
 			default:
-				err = fmt.Errorf("arrow/concat: unknown error: %v", pErr)
+				err = fmt.Errorf("arrow/concat: %v", pErr)
 			}
 		}
 	}()
