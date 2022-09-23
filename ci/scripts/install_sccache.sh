@@ -30,6 +30,11 @@ PREFIX=$2
 VERSION=${3:-0.3.0}
 ARCH=$(uname -m)
 
+if [ "${ARCH}" != x86_64 ] && [ "${ARCH}" != aarch64 ]; then
+    echo "Skipped sccache installation on unsupported arch: ${ARCH}"
+    exit 0
+fi
+
 SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v$VERSION/sccache-v$VERSION-$ARCH-$BUILD.tar.gz"
 SCCACHE_ARCHIVE=sccache.tar.gz
 
