@@ -184,11 +184,10 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
+  - export DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
   - |
-    GITHUB_DEFAULT_BRANCH_NAME=git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@
     archery docker run \
       ${DOCKER_RUN_ARGS} \
-      -e DEFAULT_BRANCH=${GITHUB_DEFAULT_BRANCH_NAME} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
 
