@@ -42,6 +42,7 @@ class GoAdapter(BenchmarkAdapter):
         with open(self.result_file, "r") as f:
             raw_results = json.load(f)
 
+        run_id = uuid.uuid4().hex        
         parsed_results = []
         for suite in raw_results[0]["Suites"]:
             batch_id = uuid.uuid4().hex
@@ -55,8 +56,8 @@ class GoAdapter(BenchmarkAdapter):
                 ncpu = name[name.rfind('-')+1:]
                 pieces = name[:-(len(ncpu)+1)].split('/')                
 
-                parsed = BenchmarkResult(
-                    run_name=name,
+                parsed = BenchmarkResult(                    
+                    run_id=run_id,
                     batch_id=batch_id,
                     stats={
                         "data": [data],
@@ -76,13 +77,14 @@ class GoAdapter(BenchmarkAdapter):
                         "name": pieces[0],
                         "params": '/'.join(pieces[1:]),
                     },
+                    run_reason='commit',
                 )
-
+                parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)
 
         return parsed_results
 
 
 if __name__ == "__main__":
-    go_adapter = GoAdapter(result_fields_override={"run_reason": "commit", "info":{}})
+    go_adapter = GoAdapter(result_fields_override={"info":{}})
     go_adapter()
