@@ -51,7 +51,7 @@ const int64_t kMicroMin = static_cast<int>(std::ceil(kNanoMin / 1000));
 const int64_t kMilliMax = static_cast<int>(std::floor(kMicroMax / 1000));
 const int64_t kMilliMin = static_cast<int>(std::ceil(kMicroMin / 1000));
 const int64_t kSecondMax = static_cast<int>(std::floor(kMilliMax / 1000));
-const int64_t kSecondMin = static_cast<int>(std::ceil(kMilliMin / 1000))s;
+const int64_t kSecondMin = static_cast<int>(std::ceil(kMilliMin / 1000));
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
