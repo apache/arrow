@@ -271,7 +271,7 @@ For example, the code below shows how to build a :class:`ListVector` of int's us
 Dictionary Encoding
 ===================
 
-A :class:`ValueVector` can be dictionary encoded for performance or improved memory efficiency. While this is most often done with :class:`VarCharVector`, nearly any type of vector might be encoded if there are many values, but few unique values.
+A :class:`FieldVector` can be dictionary encoded for performance or improved memory efficiency. While this is most often done with :class:`VarCharVector`, nearly any type of vector might be encoded if there are many values, but few unique values.
 
 There are a few steps involved in the encoding process:
 
@@ -282,9 +282,9 @@ There are a few steps involved in the encoding process:
 5. Call the encode() method on the :class:`DictionaryEncoder` to produce an encoded version of the original vector.
 6. (Optional) Call the decode() method on the encoded vector to re-create the original values.
 
-The encoded values will be integers. Depending on how many unique values you have, you can use either TinyIntVector, SmallIntVector, or IntVector to hold them. You specify the type when you create your :class:`DictionaryEncoding` instance.
+The encoded values will be integers. Depending on how many unique values you have, you can use either TinyIntVector, SmallIntVector, or IntVector to hold them. You specify the type when you create your :class:`DictionaryEncoding` instance. You might wonder where those integers come from: the dictionary vector is a regular vector, so the value's index position in that vector is used as its encoded value.
 
-The dictionary vector is a regular vector, so the value's index position in that vector is used as its encoded value.
+Another critical attribute in :class:`DictionaryEncoding` is the id. It's important to understand how the id is used, so we cover that later in this section.
 
 This result will be a new vector (for example, an IntVector) that can act in place of the original vector (for example, a VarCharVector). When you write the data in arrow format, it is both the new IntVector plus the dictionary that is written: you will need the dictionary later to retrieve the original values.
 
@@ -311,7 +311,8 @@ This result will be a new vector (for example, an IntVector) that can act in pla
 
 One thing we haven't discussed is how to create the dictionary vector from the original un-encoded values. That is left to the library user since a custom method will likely be more efficient than a general utility.
 
-Finally, you can package a number of dictionaries together, which might be useful if you're working with a VectorSchemaRoot with several dictionary-encoded vectors. This is done using an object called a :class:`DictionaryProvider` as shown below.
+Finally, you can package a number of dictionaries together, which is useful if you're working with a :class:`VectorSchemaRoot` with several dictionary-encoded vectors. This is done using an object called a :class:`DictionaryProvider`. as shown in the example below. Note that we don't put the dictionary vectors in the same :class:`VectorSchemaRoot` as the data vectors, as they will generally have fewer values.
+
 
 .. code-block:: Java
 
@@ -320,9 +321,28 @@ Finally, you can package a number of dictionaries together, which might be usefu
 
     provider.put(dictionary)))
 
-The :class:`DictionaryProvider` is simply a map of identifiers to Dictionary objects, where each identifier is a long value. In the above code you will see it as the first argument to the DictionaryEncoding constructor.
+The :class:`DictionaryProvider` is simply a map of identifiers to :class:`Dictionary` objects, where each identifier is a long value. In the above code you will see it as the first argument to the :class:`DictionaryEncoding` constructor.
 
-Having a way to manage dictionaries is useful because none of the vectors involved (un-encoded, encoded, or dictionary) has any reference to the others; they're all just standard vectors. Nor do we put the dictionary vectors in the same :class:`VectorSchemaRoot` as the data, as they will generally have fewer values. Most importantly, the :class:`DictionaryProvider` is used to transport the dictionaries for a :class:`VectorSchemaRoot` when it's written. The classes :class:`ArrowFileWriter` and :class:`ArrowStreamWriter` both accept an optional :class:`DictionaryProvider` argument for that purpose. You can find example code for writing dictionaries in the documentation for (:ref:`ipc`).
+This is where the :class:`DictionaryEncoding`'s 'id' attribute comes in. This value is used to connect dictionaries to instances of :class:`VectorSchemaRoot`, using a :class:`DictionaryProvider`.  Here's how that works:
+
+* The :class:`VectorSchemaRoot` has a :class:`Schema` object containing a list of :class:`Field` objects.
+* The field has an attribute called 'dictionary', but it holds a :class:`DictionaryEncoding` rather than a :class:`Dictionary`
+* As mentioned, the :class:`DictionaryProvider` holds dictionaries indexed by a long value. This value is the id from your :class:`DictionaryEncoding`.
+* To retrieve the dictionary for a vector in a :class:`VectorSchemaRoot`, you get the field associated with the vector, get its dictionary attribute, and use that object's id to look up the correct dictionary in the provider.
+
+.. code-block:: Java
+
+    // create the encoded vector, the Dictionary and DictionaryProvider as discussed above
+
+    // Create a VectorSchemaRoot with one encoded vector
+    VectorSchemaRoot vsr = new VectorSchemaRoot(List.of(encoded));
+
+    // now we want to decode our vector, so we retrieve its dictionary from the provider
+    Field f = vsr.getField(encoded.getName());
+    DictionaryEncoding encoding = f.getDictionary();
+    Dictionary dictionary = provider.get(encoding.getId());
+
+As you can see, a :class:`DictionaryProvider` is handy for managing the dictionaries associated with a :class:`VectorSchemaRoot`. More importantly, it helps package the dictionaries for a :class:`VectorSchemaRoot` when it's written. The classes :class:`ArrowFileWriter` and :class:`ArrowStreamWriter` both accept an optional :class:`DictionaryProvider` argument for that purpose. You can find example code for writing dictionaries in the documentation for (:ref:`ipc`).
 
 Slicing
 =======
