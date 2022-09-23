@@ -65,8 +65,7 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return std::make_unique<FileSource>(
-          Buffer::FromString(std::move(csv)));
+      return std::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
     switch (GetCompression()) {

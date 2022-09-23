@@ -122,9 +122,7 @@ class IdStorageImpl : public IdStorage {
   std::list<std::string> owned_names_;
 };
 
-std::unique_ptr<IdStorage> IdStorage::Make() {
-  return std::make_unique<IdStorageImpl>();
-}
+std::unique_ptr<IdStorage> IdStorage::Make() { return std::make_unique<IdStorageImpl>(); }
 
 Result<std::optional<std::string_view>> SubstraitCall::GetEnumArg(uint32_t index) const {
   if (index >= size_) {

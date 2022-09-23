@@ -633,9 +633,8 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
   std::unique_ptr<FlightStreamReader> stream_reader =
-      std::make_unique<ClientStreamReader>(
-          std::move(remote_stream), options.read_options, options.stop_token,
-          options.memory_manager);
+      std::make_unique<ClientStreamReader>(std::move(remote_stream), options.read_options,
+                                           options.stop_token, options.memory_manager);
   // Eagerly read the schema
   RETURN_NOT_OK(
       static_cast<ClientStreamReader*>(stream_reader.get())->EnsureDataStarted());

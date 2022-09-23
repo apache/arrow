@@ -1328,17 +1328,16 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      std::make_unique<internal::PayloadStreamWriter>(sink, options),
-      schema, options, /*is_file_format=*/false);
+      std::make_unique<internal::PayloadStreamWriter>(sink, options), schema, options,
+      /*is_file_format=*/false);
 }
 
 Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
     std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      std::make_unique<internal::PayloadStreamWriter>(std::move(sink),
-                                                                    options),
-      schema, options, /*is_file_format=*/false);
+      std::make_unique<internal::PayloadStreamWriter>(std::move(sink), options), schema,
+      options, /*is_file_format=*/false);
 }
 
 Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
@@ -1352,8 +1351,7 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      std::make_unique<internal::PayloadFileWriter>(options, schema,
-                                                                  metadata, sink),
+      std::make_unique<internal::PayloadFileWriter>(options, schema, metadata, sink),
       schema, options, /*is_file_format=*/true);
 }
 
@@ -1362,8 +1360,8 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      std::make_unique<internal::PayloadFileWriter>(
-          options, schema, metadata, std::move(sink)),
+      std::make_unique<internal::PayloadFileWriter>(options, schema, metadata,
+                                                    std::move(sink)),
       schema, options, /*is_file_format=*/true);
 }
 
@@ -1394,8 +1392,7 @@ Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return std::make_unique<internal::PayloadFileWriter>(options, schema,
-                                                                     metadata, sink);
+  return std::make_unique<internal::PayloadFileWriter>(options, schema, metadata, sink);
 }
 
 }  // namespace internal
@@ -1446,8 +1443,8 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema, MemoryPool
   auto options = IpcWriteOptions::Defaults();
   const bool is_file_format = false;  // indifferent as we don't write dictionaries
   internal::IpcFormatWriter writer(
-      std::make_unique<internal::PayloadStreamWriter>(stream.get()), schema,
-      options, is_file_format);
+      std::make_unique<internal::PayloadStreamWriter>(stream.get()), schema, options,
+      is_file_format);
   RETURN_NOT_OK(writer.Start());
   return stream->Finish();
 }

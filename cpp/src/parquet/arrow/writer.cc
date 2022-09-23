@@ -239,8 +239,8 @@ class ArrowColumnWriterV2 {
       }
       values_written += chunk_write_size;
     }
-    return std::make_unique<ArrowColumnWriterV2>(
-        std::move(builders), leaf_count, row_group_writer);
+    return std::make_unique<ArrowColumnWriterV2>(std::move(builders), leaf_count,
+                                                 row_group_writer);
   }
 
  private:

@@ -541,8 +541,7 @@ CudaContext::~CudaContext() {}
 Result<std::unique_ptr<CudaBuffer>> CudaContext::Allocate(int64_t nbytes) {
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->Allocate(nbytes, &data));
-  return std::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(),
-                                                  true);
+  return std::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
 }
 
 Result<std::shared_ptr<CudaBuffer>> CudaContext::View(uint8_t* data, int64_t nbytes) {

@@ -561,8 +561,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
   }
 
   std::unique_ptr<DictionaryMemoTable> MakeMemo() {
-    return std::make_unique<DictionaryMemoTable>(default_memory_pool(),
-                                                               utf8());
+    return std::make_unique<DictionaryMemoTable>(default_memory_pool(), utf8());
   }
 
   Status InspectPartitionSegments(std::vector<std::string> segments,

@@ -579,8 +579,7 @@ struct BloomFilterPushdownContext {
       arrow::internal::BitmapAnd(bv.data(), 0, selected.data(), 0, key_batch.length, 0,
                                  selected.data());
     }
-    auto selected_buffer =
-        std::make_unique<Buffer>(selected.data(), bit_vector_bytes);
+    auto selected_buffer = std::make_unique<Buffer>(selected.data(), bit_vector_bytes);
     ArrayData selected_arraydata(boolean(), batch.length,
                                  {nullptr, std::move(selected_buffer)});
     Datum selected_datum(selected_arraydata);
@@ -715,8 +714,7 @@ class HashJoinNode : public ExecNode {
     // Number of input exec nodes must be 2
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "HashJoinNode"));
 
-    std::unique_ptr<HashJoinSchema> schema_mgr =
-        std::make_unique<HashJoinSchema>();
+    std::unique_ptr<HashJoinSchema> schema_mgr = std::make_unique<HashJoinSchema>();
 
     const auto& join_options = checked_cast<const HashJoinNodeOptions&>(options);
     RETURN_NOT_OK(ValidateHashJoinNodeOptions(join_options));

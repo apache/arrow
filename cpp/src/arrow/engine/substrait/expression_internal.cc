@@ -19,8 +19,8 @@
 
 #include "arrow/engine/substrait/expression_internal.h"
 
-#include <utility>
 #include <memory>
+#include <utility>
 
 #include "arrow/builder.h"
 #include "arrow/compute/exec/expression.h"

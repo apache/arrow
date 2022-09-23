@@ -1059,8 +1059,7 @@ class AsofJoinNode : public ExecNode {
 
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
-      key_hashers.push_back(
-          std::make_unique<KeyHasher>(indices_of_by_key[i]));
+      key_hashers.push_back(std::make_unique<KeyHasher>(indices_of_by_key[i]));
     }
     bool must_hash =
         n_by > 1 ||

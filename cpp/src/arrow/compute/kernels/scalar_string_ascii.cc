@@ -1308,8 +1308,7 @@ struct RegexSubstringMatcher {
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
-    auto matcher =
-        std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
+    auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
