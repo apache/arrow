@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/rle"
+	"github.com/apache/arrow/go/v10/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -68,6 +69,48 @@ func (r *RunLengthEncoded) Release() {
 	r.array.Release()
 	r.values.Release()
 	r.ends.Release()
+}
+
+// LogicalValuesArray returns an array holding the values of each
+// run, only over the range of run values inside the logical offset/length
+// range of the parent array.
+//
+// The return from this needs to be Released
+func (r *RunLengthEncoded) LogicalValuesArray() arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+	data := NewSliceData(r.data.Children()[1], int64(physOffset), int64(physOffset+physLength))
+	defer data.Release()
+	return MakeFromData(data)
+}
+
+// LogicalRunEndsArray returns an array holding the logical indexes
+// of each run end, only over the range of run end values relative
+// to the logical offset/length range of the parent array.
+//
+// For arrays with an offset, this is not a slice of the existing
+// internal run ends array.
+//
+// The return from this needs to be Released
+func (r *RunLengthEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+
+	if r.data.offset == 0 {
+		data := NewSliceData(r.data.childData[0], 0, int64(physLength))
+		defer data.Release()
+		return MakeFromData(data)
+	}
+
+	bldr := NewInt32Builder(mem)
+	defer bldr.Release()
+	bldr.Resize(physLength)
+	for _, v := range r.runEnds[physOffset:] {
+		v -= int32(r.data.offset)
+		v = int32(utils.MinInt(int(v), r.data.length))
+		bldr.Append(v)
+	}
+	return bldr.NewArray()
 }
 
 func (r *RunLengthEncoded) setData(data *Data) {

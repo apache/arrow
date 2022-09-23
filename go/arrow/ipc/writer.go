@@ -742,6 +742,21 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		w.depth++
 
+	case *arrow.RunLengthEncodedType:
+		arr := arr.(*array.RunLengthEncoded)
+		w.depth--
+		child := arr.LogicalRunEndsArray(w.mem)
+		defer child.Release()
+		if err := w.visit(p, child); err != nil {
+			return err
+		}
+		child = arr.LogicalValuesArray()
+		defer child.Release()
+		if err := w.visit(p, child); err != nil {
+			return err
+		}
+		w.depth++
+
 	default:
 		panic(fmt.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
 	}

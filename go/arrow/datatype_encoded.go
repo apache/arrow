@@ -46,3 +46,10 @@ func (t *RunLengthEncodedType) Fingerprint() string {
 }
 
 func (t *RunLengthEncodedType) Encoded() DataType { return t.enc }
+
+func (t *RunLengthEncodedType) Fields() []Field {
+	return []Field{
+		{Name: "run_ends", Type: PrimitiveTypes.Int32},
+		{Name: "values", Type: t.enc, Nullable: true},
+	}
+}
