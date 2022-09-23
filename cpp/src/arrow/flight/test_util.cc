@@ -470,7 +470,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status RunAction2(std::unique_ptr<ResultStream>* out) {
     // Empty
-    *out = std::make_unique<SimpleResultStream>({});
+    *out = std::make_unique<SimpleResultStream>(std::vector<Result>{});
     return Status::OK();
   }
 
@@ -507,7 +507,7 @@ class FlightTestServer : public FlightServerBase {
 };
 
 std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::unique_ptr<FlightServerBase>(new FlightTestServer);
+  return std::make_unique<FlightServerBase>();
 }
 
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,

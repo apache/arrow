@@ -118,9 +118,10 @@ class FlightIntegrationTestServer : public FlightServerBase {
     }
     auto flight = data->second;
 
-    *data_stream = std::unique_ptr<FlightDataStream>(
-        new NumberingStream(std::unique_ptr<FlightDataStream>(
-            new RecordBatchStream(std::make_shared<RecordBatchListReader>(flight)))));
+    std::unique_ptr<FlightDataStream> record_batch_stream =
+        std::make_unique<RecordBatchStream>(
+            std::make_shared<RecordBatchListReader>(flight));
+    *data_stream = std::make_unique<NumberingStream>(std::move(record_batch_stream));
 
     return Status::OK();
   }

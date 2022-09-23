@@ -416,8 +416,7 @@ class SQLiteFlightSqlServer::Impl {
     if (command.include_schema) {
       std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
           std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, query, db_);
-      return std::unique_ptr<FlightDataStream>(
-          new RecordBatchStream(table_schema_reader));
+      return std::make_unique<RecordBatchStream>(table_schema_reader);
     } else {
       return std::make_unique<RecordBatchStream>(reader);
     }

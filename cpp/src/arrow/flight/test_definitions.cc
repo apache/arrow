@@ -854,8 +854,8 @@ Status AppMetadataTestServer::DoGet(const ServerCallContext& context,
     RETURN_NOT_OK(ExampleIntBatches(&batches));
   }
   ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches));
-  *data_stream = std::make_unique<FlightDataStream>(
-      NumberingStream(std::make_unique<RecordBatchStream>(batch_reader)));
+  *data_stream = std::make_unique<NumberingStream>(
+      std::make_unique<RecordBatchStream>(batch_reader));
   return Status::OK();
 }
 Status AppMetadataTestServer::DoPut(const ServerCallContext& context,

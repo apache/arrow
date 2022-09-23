@@ -53,7 +53,7 @@ class AuthBasicProtoServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     // Respond with the authenticated username.
     auto buf = Buffer::FromString(context.peer_identity());
-    *result = std::make_unique<SimpleResultStream>({Result{buf}});
+    *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status::OK();
   }
 };
@@ -112,8 +112,8 @@ class AuthBasicProtoScenario : public Scenario {
       return Status::Invalid("Expected UNAUTHENTICATED but got ", detail->ToString());
     }
 
-    auto client_handler = std::unique_ptr<ClientAuthHandler>(
-        new TestClientBasicAuthHandler(kAuthUsername, kAuthPassword));
+    auto client_handler =
+        std::make_unique<TestClientBasicAuthHandler>(kAuthUsername, kAuthPassword);
     RETURN_NOT_OK(client->Authenticate({}, std::move(client_handler)));
     return CheckActionResults(client.get(), action, {kAuthUsername});
   }
