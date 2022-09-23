@@ -45,13 +45,18 @@ class GoAdapter(BenchmarkAdapter):
         parsed_results = []
         for suite in raw_results[0]["Suites"]:
             batch_id = uuid.uuid4().hex
+            pkg = suite["Pkg"]
 
             for benchmark in suite["Benchmarks"]:
                 data = benchmark["Mem"]["MBPerSec"] * 1e6
                 time = 1 / benchmark["NsPerOp"] * 1e9
 
+                name = benchmark["Name"].removeprefix('Benchmark')
+                ncpu = name[name.rfind('-')+1:]
+                pieces = name[:-(len(ncpu)+1)].split('/')                
+
                 parsed = BenchmarkResult(
-                    run_name=benchmark["Name"],
+                    run_name=name,
                     batch_id=batch_id,
                     stats={
                         "data": [data],
@@ -59,7 +64,17 @@ class GoAdapter(BenchmarkAdapter):
                         "times": [time],
                         "times_unit": "i/s",
                     },
-                    context={"benchmark_language": "Go"},
+                    context={
+                        "benchmark_language": "Go",
+                        "goos": suite["Goos"],
+                        "goarch": suite["Goarch"],
+                    },
+                    tags={
+                        "pkg": pkg,
+                        "num_cpu": ncpu,
+                        "name": pieces[0],
+                        "params": '/'.join(pieces[1:]),
+                    },
                 )
 
                 parsed_results.append(parsed)
