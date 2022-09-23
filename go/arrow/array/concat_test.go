@@ -625,3 +625,45 @@ func TestConcatRunLengthEncoded(t *testing.T) {
 	defer expectedValues.Release()
 	assert.Truef(t, array.Equal(expectedValues, rle.Values()), "expected: %s\ngot: %s", expectedValues, rle.Values())
 }
+
+func TestConcatRunLengthEncodedOverflow(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	arrs := make([]arrow.Array, 0)
+	bldr := array.NewRunLengthEncodedBuilder(mem, arrow.BinaryTypes.String)
+	defer bldr.Release()
+	valBldr := bldr.ValueBuilder().(*array.StringBuilder)
+
+	bldr.Append(1 << 29)
+	valBldr.Append("Hello")
+
+	bldr.Append(1 << 29)
+	valBldr.Append("World")
+	arrs = append(arrs, bldr.NewArray())
+
+	bldr.Append(1 << 29)
+	valBldr.Append("Goku")
+	bldr.Append(1 << 29)
+	valBldr.Append("Gohan")
+	bldr.Append(1 << 29)
+	valBldr.Append("Goten")
+	arrs = append(arrs, bldr.NewArray())
+
+	bldr.AppendNull()
+	bldr.ContinueRun(99)
+	bldr.Append(1 << 29)
+	valBldr.Append("Vegeta")
+	bldr.Append(1 << 29)
+	valBldr.Append("Trunks")
+	arrs = append(arrs, bldr.NewArray())
+
+	for _, a := range arrs {
+		defer a.Release()
+	}
+
+	result, err := array.Concatenate(arrs, mem)
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, arrow.ErrInvalid)
+	assert.ErrorContains(t, err, "overflow in run-length-encoded run ends concat")
+}
