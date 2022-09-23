@@ -50,8 +50,6 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import me.alexpanov.net.FreePortFinder;
-
 /**
  * Utility class for unit tests that need to instantiate a {@link FlightServer}
  * and interact with it.
@@ -95,19 +93,12 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
             .build();
 
     return new Builder()
-        .host("localhost")
-        .randomPort()
         .authentication(authentication)
         .producer(producer)
         .build();
   }
 
   ArrowFlightJdbcDataSource createDataSource() {
-    return ArrowFlightJdbcDataSource.createNewDataSource(properties);
-  }
-
-  ArrowFlightJdbcDataSource createDataSource(String token) {
-    properties.put("token", token);
     return ArrowFlightJdbcDataSource.createNewDataSource(properties);
   }
 
@@ -159,9 +150,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return new Statement() {
       @Override
       public void evaluate() throws Throwable {
-        try (FlightServer flightServer =
-                 getStartServer(location ->
-                     initiateServer(location), 3)) {
+        try (FlightServer flightServer = getStartServer(location -> initiateServer(location), 3)) {
+          properties.put("port", flightServer.getPort());
           LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
           base.evaluate();
         } finally {
@@ -174,12 +164,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private FlightServer getStartServer(CheckedFunction<Location, FlightServer> newServerFromLocation,
                                       int retries)
       throws IOException {
-
     final Deque<ReflectiveOperationException> exceptions = new ArrayDeque<>();
-
     for (; retries > 0; retries--) {
-      final Location location = Location.forGrpcInsecure(config.getHost(), config.getPort());
-      final FlightServer server = newServerFromLocation.apply(location);
+      final FlightServer server = newServerFromLocation.apply(Location.forGrpcInsecure("localhost", 0));
       try {
         Method start = server.getClass().getMethod("start");
         start.setAccessible(true);
@@ -189,9 +176,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         exceptions.add(e);
       }
     }
-
-    exceptions.forEach(
-        e -> LOGGER.error("Failed to start a new " + FlightServer.class.getName() + ".", e));
+    exceptions.forEach(e -> LOGGER.error("Failed to start FlightServer", e));
     throw new IOException(exceptions.pop().getCause());
   }
 
@@ -223,44 +208,14 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    * Builder for {@link FlightServerTestRule}.
    */
   public static final class Builder {
-    private final Properties properties = new Properties();
+    private final Properties properties;
     private FlightSqlProducer producer;
     private Authentication authentication;
     private CertKeyPair certKeyPair;
 
-    /**
-     * Sets the host for the server rule.
-     *
-     * @param host the host value.
-     * @return the Builder.
-     */
-    public Builder host(final String host) {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(),
-          host);
-      return this;
-    }
-
-    /**
-     * Sets a random port to be used by the server rule.
-     *
-     * @return the Builder.
-     */
-    public Builder randomPort() {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
-          FreePortFinder.findFreeLocalPort());
-      return this;
-    }
-
-    /**
-     * Sets a specific port to be used by the server rule.
-     *
-     * @param port the port value.
-     * @return the Builder.
-     */
-    public Builder port(final int port) {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
-          port);
-      return this;
+    public Builder() {
+      this.properties = new Properties();
+      this.properties.put("host", "localhost");
     }
 
     /**

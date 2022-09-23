@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -36,8 +37,6 @@
 #include "arrow/scalar.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/utf8.h"
 
@@ -45,7 +44,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::string_view;
+using std::string_view;
 
 using internal::DictionaryMemoTable;
 
@@ -53,7 +52,7 @@ namespace dataset {
 
 namespace {
 /// Apply UriUnescape, then ensure the results are valid UTF-8.
-Result<std::string> SafeUriUnescape(util::string_view encoded) {
+Result<std::string> SafeUriUnescape(std::string_view encoded) {
   auto decoded = ::arrow::internal::UriUnescape(encoded);
   if (!util::ValidateUTF8(decoded)) {
     return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
@@ -482,7 +481,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     }
   }
 
-  Status InsertRepr(int index, util::string_view repr) {
+  Status InsertRepr(int index, std::string_view repr) {
     int dummy;
     return repr_memos_[index]->GetOrInsert<StringType>(repr, &dummy);
   }
@@ -562,8 +561,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
   }
 
   std::unique_ptr<DictionaryMemoTable> MakeMemo() {
-    return ::arrow::internal::make_unique<DictionaryMemoTable>(default_memory_pool(),
-                                                               utf8());
+    return std::make_unique<DictionaryMemoTable>(default_memory_pool(), utf8());
   }
 
   Status InspectPartitionSegments(std::vector<std::string> segments,
@@ -738,9 +736,9 @@ Result<std::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
       break;
     }
     case SegmentEncoding::Uri: {
-      auto raw_value = util::string_view(segment).substr(name_end + 1);
+      auto raw_value = std::string_view(segment).substr(name_end + 1);
       ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
-      auto raw_key = util::string_view(segment).substr(0, name_end);
+      auto raw_key = std::string_view(segment).substr(0, name_end);
       ARROW_ASSIGN_OR_RAISE(name, SafeUriUnescape(raw_key));
       break;
     }

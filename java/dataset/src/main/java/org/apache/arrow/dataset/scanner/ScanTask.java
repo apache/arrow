@@ -26,6 +26,7 @@ import org.apache.arrow.vector.ipc.ArrowReader;
  * ScanTask is meant to be a unit of work to be dispatched. The implementation
  * must be thread and concurrent safe.
  */
+@Deprecated
 public interface ScanTask extends AutoCloseable {
 
   /**

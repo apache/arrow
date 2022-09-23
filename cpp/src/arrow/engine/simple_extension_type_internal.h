@@ -21,6 +21,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/extension_type.h"
@@ -41,7 +42,7 @@ namespace engine {
 /// Note: The serialization is a very barebones JSON-like format and
 /// probably shouldn't be hand-edited
 
-template <const util::string_view& kExtensionName, typename Params,
+template <const std::string_view& kExtensionName, typename Params,
           typename ParamsProperties, const ParamsProperties* kProperties,
           std::shared_ptr<DataType> GetStorage(const Params&)>
 class SimpleExtensionType : public ExtensionType {
@@ -67,7 +68,7 @@ class SimpleExtensionType : public ExtensionType {
     return &::arrow::internal::checked_cast<const SimpleExtensionType&>(type).params_;
   }
 
-  std::string extension_name() const override { return kExtensionName.to_string(); }
+  std::string extension_name() const override { return std::string(kExtensionName); }
 
   std::string ToString() const override { return "extension<" + this->Serialize() + ">"; }
 
@@ -101,16 +102,15 @@ class SimpleExtensionType : public ExtensionType {
   }
 
   struct DeserializeImpl {
-    explicit DeserializeImpl(util::string_view repr) {
+    explicit DeserializeImpl(std::string_view repr) {
       Init(kExtensionName, repr, kProperties->size());
       kProperties->ForEach(*this);
     }
 
     void Fail() { params_ = std::nullopt; }
 
-    void Init(util::string_view class_name, util::string_view repr,
-              size_t num_properties) {
-      if (!repr.starts_with(class_name)) return Fail();
+    void Init(std::string_view class_name, std::string_view repr, size_t num_properties) {
+      if (!::arrow::internal::StartsWith(repr, class_name)) return Fail();
 
       repr = repr.substr(class_name.size());
       if (repr.empty()) return Fail();
@@ -127,7 +127,7 @@ class SimpleExtensionType : public ExtensionType {
       if (!params_) return;
 
       auto first_colon = members_[i].find_first_of(':');
-      if (first_colon == util::string_view::npos) return Fail();
+      if (first_colon == std::string_view::npos) return Fail();
 
       auto name = members_[i].substr(0, first_colon);
       if (name != prop.name()) return Fail();
@@ -135,7 +135,7 @@ class SimpleExtensionType : public ExtensionType {
       auto value_repr = members_[i].substr(first_colon + 1);
       typename Property::Type value;
       try {
-        std::stringstream ss(value_repr.to_string());
+        std::stringstream ss{std::string{value_repr}};
         ss >> value;
         if (!ss.eof()) return Fail();
       } catch (...) {
@@ -145,7 +145,7 @@ class SimpleExtensionType : public ExtensionType {
     }
 
     std::optional<Params> params_;
-    std::vector<util::string_view> members_;
+    std::vector<std::string_view> members_;
   };
   Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
@@ -179,7 +179,7 @@ class SimpleExtensionType : public ExtensionType {
     }
 
     std::string Finish() {
-      return kExtensionName.to_string() + "{" +
+      return std::string(kExtensionName) + "{" +
              ::arrow::internal::JoinStrings(members_, ",") + "}";
     }
 

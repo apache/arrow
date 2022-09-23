@@ -198,7 +198,7 @@ void CheckRoundTripResult(const std::shared_ptr<Schema> output_schema,
 }
 
 TEST(Substrait, SupportedTypes) {
-  auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
+  auto ExpectEq = [](std::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
 
     ExtensionSet empty;
@@ -396,12 +396,12 @@ TEST(Substrait, NoEquivalentSubstraitType) {
 }
 
 TEST(Substrait, SupportedLiterals) {
-  auto ExpectEq = [](util::string_view json, Datum expected_value) {
+  auto ExpectEq = [](std::string_view json, Datum expected_value) {
     ARROW_SCOPED_TRACE(json);
 
     ASSERT_OK_AND_ASSIGN(
         auto buf, internal::SubstraitFromJSON("Expression",
-                                              "{\"literal\":" + json.to_string() + "}"));
+                                              "{\"literal\":" + std::string(json) + "}"));
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 

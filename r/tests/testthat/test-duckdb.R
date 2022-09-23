@@ -202,9 +202,9 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
-  # ARROW-17643: A change in duckdb 0.5.0 caused this test to fail but will
-  # be fixed in the next release.
-  skip_if_not(packageVersion("duckdb") > "0.5.0")
+  # ARROW-17643, ARROW-17818: A change in duckdb 0.5.0 caused this test to fail
+  # TODO: ARROW-17809 Follow up with the latest duckdb release to solve the issue
+  skip("ARROW-17818: Latest DuckDB causes this test to fail")
 
   ds <- InMemoryDataset$create(example_data)
 

@@ -47,7 +47,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -1187,15 +1186,15 @@ void PropagateNullsSpans(const ExecSpan& batch, ArraySpan* out) {
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalar() {
-  return ::arrow::internal::make_unique<detail::ScalarExecutor>();
+  return std::make_unique<detail::ScalarExecutor>();
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeVector() {
-  return ::arrow::internal::make_unique<detail::VectorExecutor>();
+  return std::make_unique<detail::VectorExecutor>();
 }
 
 std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
-  return ::arrow::internal::make_unique<detail::ScalarAggExecutor>();
+  return std::make_unique<detail::ScalarAggExecutor>();
 }
 
 int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same) {

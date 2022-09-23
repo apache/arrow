@@ -143,7 +143,7 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 }
 
 const std::string& default_extension_types_uri() {
-  static std::string uri = engine::kArrowExtTypesUri.to_string();
+  static std::string uri(engine::kArrowExtTypesUri);
   return uri;
 }
 

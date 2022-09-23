@@ -17,6 +17,7 @@
 
 #include "arrow/json/reader.h"
 
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,13 +34,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
-using util::string_view;
+using std::string_view;
 
 using internal::checked_cast;
 using internal::GetCpuThreadPool;

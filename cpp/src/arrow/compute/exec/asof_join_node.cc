@@ -16,8 +16,10 @@
 // under the License.
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -36,8 +38,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace compute {
@@ -850,7 +850,7 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->exec_context(), output_schema()));
-      state_.push_back(::arrow::internal::make_unique<InputState>(
+      state_.push_back(std::make_unique<InputState>(
           must_hash_, may_rehash_, key_hashers_[i].get(), inputs[i]->output_schema(),
           indices_of_on_key_[i], indices_of_by_key_[i]));
     }
@@ -1015,15 +1015,15 @@ class AsofJoinNode : public ExecNode {
 
   static inline Result<col_index_t> FindColIndex(const Schema& schema,
                                                  const FieldRef& field_ref,
-                                                 util::string_view key_kind) {
+                                                 std::string_view key_kind) {
     auto match_res = field_ref.FindOne(schema);
     if (!match_res.ok()) {
       return Status::Invalid("Bad join key on table : ", match_res.status().message());
     }
     ARROW_ASSIGN_OR_RAISE(auto match, match_res);
     if (match.indices().size() != 1) {
-      return Status::Invalid("AsOfJoinNode does not support a nested ",
-                             to_string(key_kind), "-key ", field_ref.ToString());
+      return Status::Invalid("AsOfJoinNode does not support a nested ", key_kind, "-key ",
+                             field_ref.ToString());
     }
     return match.indices()[0];
   }
@@ -1059,8 +1059,7 @@ class AsofJoinNode : public ExecNode {
 
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
-      key_hashers.push_back(
-          ::arrow::internal::make_unique<KeyHasher>(indices_of_by_key[i]));
+      key_hashers.push_back(std::make_unique<KeyHasher>(indices_of_by_key[i]));
     }
     bool must_hash =
         n_by > 1 ||

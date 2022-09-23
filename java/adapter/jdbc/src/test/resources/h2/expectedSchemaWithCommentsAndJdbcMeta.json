@@ -9,11 +9,8 @@
     },
     "children" : [ ],
     "metadata" : [ {
-      "value" : "Record identifier",
-      "key" : "comment"
-    }, {
-      "value" : "TABLE1",
-      "key" : "SQL_TABLE_NAME"
+      "value" : "PUBLIC",
+      "key" : "SQL_SCHEMA_NAME"
     }, {
       "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
       "key" : "SQL_CATALOG_NAME"
@@ -23,6 +20,12 @@
     }, {
       "value" : "BIGINT",
       "key" : "SQL_TYPE"
+    }, {
+      "value" : "Record identifier",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
     } ]
   }, {
     "name" : "NAME",
@@ -32,11 +35,8 @@
     },
     "children" : [ ],
     "metadata" : [ {
-      "value" : "Name of record",
-      "key" : "comment"
-    }, {
-      "value" : "TABLE1",
-      "key" : "SQL_TABLE_NAME"
+      "value" : "PUBLIC",
+      "key" : "SQL_SCHEMA_NAME"
     }, {
       "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
       "key" : "SQL_CATALOG_NAME"
@@ -46,6 +46,12 @@
     }, {
       "value" : "VARCHAR",
       "key" : "SQL_TYPE"
+    }, {
+      "value" : "Name of record",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
     } ]
   }, {
     "name" : "COLUMN1",
@@ -55,6 +61,9 @@
     },
     "children" : [ ],
     "metadata" : [ {
+      "value" : "PUBLIC",
+      "key" : "SQL_SCHEMA_NAME"
+    }, {
       "value" : "TABLE1",
       "key" : "SQL_TABLE_NAME"
     }, {
@@ -77,11 +86,8 @@
     },
     "children" : [ ],
     "metadata" : [ {
-      "value" : "Informative description of columnN",
-      "key" : "comment"
-    }, {
-      "value" : "TABLE1",
-      "key" : "SQL_TABLE_NAME"
+      "value" : "PUBLIC",
+      "key" : "SQL_SCHEMA_NAME"
     }, {
       "value" : "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
       "key" : "SQL_CATALOG_NAME"
@@ -91,6 +97,12 @@
     }, {
       "value" : "INTEGER",
       "key" : "SQL_TYPE"
+    }, {
+      "value" : "Informative description of columnN",
+      "key" : "comment"
+    }, {
+      "value" : "TABLE1",
+      "key" : "SQL_TABLE_NAME"
     } ]
   } ],
   "metadata" : [ {

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <string_view>
 
 #include "arrow/array.h"
 #include "arrow/scalar.h"
@@ -40,14 +41,14 @@ namespace {
 // Same as Regex '([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$'.
 // GCC 4.9 doesn't support regex, so handcode until support for it
 // is dropped.
-bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
-                      util::string_view* hour, util::string_view* minute) {
+bool MatchFixedOffset(const std::string& tz, std::string_view* sign,
+                      std::string_view* hour, std::string_view* minute) {
   if (tz.size() < 5) {
     return false;
   }
   const char* iter = tz.data();
   if (*iter == '+' || *iter == '-') {
-    *sign = util::string_view(iter, 1);
+    *sign = std::string_view(iter, 1);
     iter++;
     if (tz.size() < 6) {
       return false;
@@ -55,7 +56,7 @@ bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
   }
   if ((((*iter == '0' || *iter == '1') && *(iter + 1) >= '0' && *(iter + 1) <= '9') ||
        (*iter == '2' && *(iter + 1) >= '0' && *(iter + 1) <= '3'))) {
-    *hour = util::string_view(iter, 2);
+    *hour = std::string_view(iter, 2);
     iter += 2;
   } else {
     return false;
@@ -66,7 +67,7 @@ bool MatchFixedOffset(const std::string& tz, util::string_view* sign,
   iter++;
 
   if (*iter >= '0' && *iter <= '5' && *(iter + 1) >= '0' && *(iter + 1) <= '9') {
-    *minute = util::string_view(iter, 2);
+    *minute = std::string_view(iter, 2);
     iter += 2;
   } else {
     return false;
@@ -389,7 +390,7 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
 Result<PyObject*> StringToTzinfo(const std::string& tz) {
-  util::string_view sign_str, hour_str, minute_str;
+  std::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
   OwnedRef zoneinfo;
   OwnedRef datetime;

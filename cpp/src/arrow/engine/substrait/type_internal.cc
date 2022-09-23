@@ -17,6 +17,7 @@
 
 #include "arrow/engine/substrait/type_internal.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,15 +26,10 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace engine {
-
-namespace internal {
-using ::arrow::internal::make_unique;
-}  // namespace internal
 
 namespace {
 
@@ -381,7 +377,7 @@ struct DataTypeToProtoImpl {
 
   template <typename Sub>
   Sub* SetWithThen(void (::substrait::Type::*set_allocated_sub)(Sub*)) {
-    auto sub = internal::make_unique<Sub>();
+    auto sub = std::make_unique<Sub>();
     sub->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
                                    : ::substrait::Type::NULLABILITY_REQUIRED);
 
@@ -398,7 +394,7 @@ struct DataTypeToProtoImpl {
   template <typename T>
   Status EncodeUserDefined(const T& t) {
     ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(t));
-    auto user_defined = internal::make_unique<::substrait::Type::UserDefined>();
+    auto user_defined = std::make_unique<::substrait::Type::UserDefined>();
     user_defined->set_type_reference(anchor);
     user_defined->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
                                             : ::substrait::Type::NULLABILITY_REQUIRED);
@@ -422,7 +418,7 @@ struct DataTypeToProtoImpl {
 Result<std::unique_ptr<::substrait::Type>> ToProto(
     const DataType& type, bool nullable, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto out = internal::make_unique<::substrait::Type>();
+  auto out = std::make_unique<::substrait::Type>();
   RETURN_NOT_OK(
       (DataTypeToProtoImpl{out.get(), nullable, ext_set, conversion_options})(type));
   return std::move(out);
@@ -479,13 +475,13 @@ Result<std::unique_ptr<::substrait::NamedStruct>> ToProto(
     return Status::Invalid("::substrait::NamedStruct does not support schema metadata");
   }
 
-  auto named_struct = internal::make_unique<::substrait::NamedStruct>();
+  auto named_struct = std::make_unique<::substrait::NamedStruct>();
 
   auto names = named_struct->mutable_names();
   names->Reserve(schema.num_fields());
   ToProtoGetDepthFirstNames(schema.fields(), names);
 
-  auto struct_ = internal::make_unique<::substrait::Type::Struct>();
+  auto struct_ = std::make_unique<::substrait::Type::Struct>();
   auto types = struct_->mutable_types();
   types->Reserve(schema.num_fields());
 

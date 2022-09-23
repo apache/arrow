@@ -20,10 +20,10 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -41,7 +41,7 @@ ARROW_EXPORT void InitializeUTF8();
 
 ARROW_EXPORT bool ValidateUTF8(const uint8_t* data, int64_t size);
 
-ARROW_EXPORT bool ValidateUTF8(const util::string_view& str);
+ARROW_EXPORT bool ValidateUTF8(const std::string_view& str);
 
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT

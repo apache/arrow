@@ -162,10 +162,10 @@ TEST(TestFixedSizeBufferWriter, InvalidWrites) {
 
 TEST(TestBufferReader, FromStrings) {
   // ARROW-3291: construct BufferReader from std::string or
-  // arrow::util::string_view
+  // std::string_view
 
   std::string data = "data123456";
-  auto view = util::string_view(data);
+  auto view = std::string_view(data);
 
   BufferReader reader1(data);
   BufferReader reader2(view);
@@ -208,7 +208,7 @@ TEST(TestBufferReader, Peek) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  util::string_view view;
+  std::string_view view;
 
   ASSERT_OK_AND_ASSIGN(view, reader.Peek(4));
 
@@ -378,7 +378,7 @@ template <typename SlowStreamType>
 void TestSlowInputStream() {
   using clock = std::chrono::high_resolution_clock;
 
-  auto stream = std::make_shared<BufferReader>(util::string_view("abcdefghijkl"));
+  auto stream = std::make_shared<BufferReader>(std::string_view("abcdefghijkl"));
   const double latency = 0.6;
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
@@ -395,8 +395,8 @@ void TestSlowInputStream() {
   ARROW_UNUSED(dt);
 #endif
 
-  ASSERT_OK_AND_ASSIGN(util::string_view view, slow->Peek(4));
-  ASSERT_EQ(view, util::string_view("ghij"));
+  ASSERT_OK_AND_ASSIGN(std::string_view view, slow->Peek(4));
+  ASSERT_EQ(view, std::string_view("ghij"));
 
   ASSERT_OK(slow->Close());
   ASSERT_TRUE(slow->closed());
@@ -493,7 +493,7 @@ class TestTransformInputStream : public ::testing::Test {
   TransformInputStream::TransformFunc transform() const { return T(); }
 
   void TestEmptyStream() {
-    auto wrapped = std::make_shared<BufferReader>(util::string_view());
+    auto wrapped = std::make_shared<BufferReader>(std::string_view());
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
     ASSERT_OK_AND_EQ(0, stream->Tell());

@@ -175,7 +175,7 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{dplyr}{
 \itemize{
-\item \code{\link[dplyr:across]{across()}}: supported inside \code{mutate()}, \code{summarize()}, \code{group_by()}, and \code{arrange()};
+\item \code{\link[dplyr:across]{across()}}: not yet supported inside \code{filter()};
 purrr-style lambda functions
 and use of \code{where()} selection helper not yet supported
 \item \code{\link[dplyr:between]{between()}}

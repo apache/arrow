@@ -237,6 +237,19 @@ func RecordToJSON(rec arrow.Record, w io.Writer) error {
 	return nil
 }
 
+func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt ...FromJSONOption) (arrow.Table, error) {
+	batches := make([]arrow.Record, len(recJSON))
+	for i, batchJSON := range recJSON {
+		batch, _, err := RecordFromJSON(mem, sc, strings.NewReader(batchJSON), opt...)
+		if err != nil {
+			return nil, err
+		}
+		defer batch.Release()
+		batches[i] = batch
+	}
+	return NewTableFromRecords(sc, batches), nil
+}
+
 func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
@@ -298,6 +311,27 @@ func DictArrayFromJSON(mem memory.Allocator, dt *arrow.DictionaryType, indicesJS
 	defer dict.Release()
 
 	return NewDictionaryArray(dt, indices, dict), nil
+}
+
+func ChunkedFromJSON(mem memory.Allocator, dt arrow.DataType, chunkStrs []string, opts ...FromJSONOption) (*arrow.Chunked, error) {
+	chunks := make([]arrow.Array, len(chunkStrs))
+	defer func() {
+		for _, c := range chunks {
+			if c != nil {
+				c.Release()
+			}
+		}
+	}()
+
+	var err error
+	for i, c := range chunkStrs {
+		chunks[i], _, err = FromJSON(mem, dt, strings.NewReader(c), opts...)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return arrow.NewChunked(dt, chunks), nil
 }
 
 func getMaxBufferLen(dt arrow.DataType, length int) int {

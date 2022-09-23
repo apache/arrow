@@ -723,7 +723,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
+    std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
     auto left_size = static_cast<OffsetType>(left_data.size());
 
     const auto* right_offsets = right.GetValues<OffsetType>(1);
@@ -754,7 +754,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const auto* left_offsets = left.GetValues<OffsetType>(1);
     const uint8_t* left_data = left.buffers[2].data;
 
-    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
+    std::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
     auto right_size = static_cast<OffsetType>(right_data.size());
 
     // allocate data buffer conservatively
@@ -779,10 +779,10 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
+    std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
     auto left_size = static_cast<OffsetType>(left_data.size());
 
-    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
+    std::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
     auto right_size = static_cast<OffsetType>(right_data.size());
 
     // allocate data buffer conservatively
@@ -2314,9 +2314,9 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
     }
     RETURN_NOT_OK(builder.ReserveData(static_cast<offset_type>(data_reserve)));
 
-    util::string_view fill_value(*scalar.value);
+    std::string_view fill_value(*scalar.value);
     VisitArraySpanInline<Type>(
-        left, [&](util::string_view s) { builder.UnsafeAppend(s); },
+        left, [&](std::string_view s) { builder.UnsafeAppend(s); },
         [&]() { builder.UnsafeAppend(fill_value); });
 
     ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());

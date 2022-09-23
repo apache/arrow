@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -26,9 +27,12 @@
 #include "arrow/compute/exec/forest_internal.h"
 #include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::StartsWith;
+
 namespace compute {
 
 using testing::ContainerEq;
@@ -94,18 +98,18 @@ struct TestPathTree {
 
 using PT = TestPathTree;
 
-util::string_view RemoveTrailingSlash(util::string_view key) {
+std::string_view RemoveTrailingSlash(std::string_view key) {
   while (!key.empty() && key.back() == '/') {
     key.remove_suffix(1);
   }
   return key;
 }
-bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
+bool IsAncestorOf(std::string_view ancestor, std::string_view descendant) {
   // See filesystem/path_util.h
   ancestor = RemoveTrailingSlash(ancestor);
   if (ancestor == "") return true;
   descendant = RemoveTrailingSlash(descendant);
-  if (!descendant.starts_with(ancestor)) return false;
+  if (!StartsWith(descendant, ancestor)) return false;
   descendant.remove_prefix(ancestor.size());
   if (descendant.empty()) return true;
   return descendant.front() == '/';

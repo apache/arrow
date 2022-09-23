@@ -19,7 +19,8 @@
 
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 
@@ -145,7 +146,7 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
     viewed.type = view_ty.get();
     VisitArraySpanInline<FixedSizeBinaryType>(
         viewed,
-        [&](util::string_view bytes) {
+        [&](std::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
           memcpy(encoded_ptr, bytes.data(), byte_width_);
@@ -160,7 +161,7 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   } else {
     const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const util::string_view data = scalar.view();
+      const std::string_view data = scalar.view();
       DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
       for (int64_t i = 0; i < batch_length; i++) {
         auto& encoded_ptr = *encoded_bytes++;

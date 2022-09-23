@@ -90,6 +90,16 @@ test_that("distinct() can contain expressions", {
   )
 })
 
+test_that("across() works in distinct()", {
+  compare_dplyr_binding(
+    .input %>%
+      distinct(across(starts_with("d"))) %>%
+      collect() %>%
+      arrange(dbl, dbl2),
+    tbl
+  )
+})
+
 test_that("distinct() can return all columns", {
   skip("ARROW-14045")
   compare_dplyr_binding(

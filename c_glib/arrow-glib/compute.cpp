@@ -5121,7 +5121,7 @@ GArrowFunctionOptions *
 garrow_function_options_new_raw(
   const arrow::compute::FunctionOptions *arrow_options)
 {
-  arrow::util::string_view arrow_type_name(arrow_options->type_name());
+  std::string_view arrow_type_name(arrow_options->type_name());
   if (arrow_type_name == "CastOptions") {
     auto arrow_cast_options =
       static_cast<const arrow::compute::CastOptions *>(arrow_options);
