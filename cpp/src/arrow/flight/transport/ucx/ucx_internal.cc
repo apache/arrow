@@ -910,8 +910,7 @@ class UcpCallDriver::Impl {
       // never use Then/AddCallback on a Future<> from ReadFrameAsync,
       // because we might run the callback synchronously (which might
       // free the buffer) when we call Push here.
-      frame->buffer =
-          std::make_unique<UcxDataBuffer>(worker_, data, data_length);
+      frame->buffer = std::make_unique<UcxDataBuffer>(worker_, data, data_length);
       Push(std::move(frame));
       return UCS_INPROGRESS;
     }

@@ -316,8 +316,8 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<DatasetWriterFileQueue*> OpenFileQueue(const std::string& filename) {
-    auto file_queue = std::make_unique<DatasetWriterFileQueue>(
-        schema_, write_options_, writer_state_);
+    auto file_queue =
+        std::make_unique<DatasetWriterFileQueue>(schema_, write_options_, writer_state_);
     DatasetWriterFileQueue* file_queue_view = file_queue.get();
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> throttle =
         util::AsyncTaskScheduler::MakeThrottle(1);
@@ -566,8 +566,8 @@ class DatasetWriter::DatasetWriterImpl {
 DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              util::AsyncTaskScheduler* scheduler,
                              uint64_t max_rows_queued)
-    : impl_(std::make_unique<DatasetWriterImpl>(
-          std::move(write_options), scheduler, max_rows_queued)) {}
+    : impl_(std::make_unique<DatasetWriterImpl>(std::move(write_options), scheduler,
+                                                max_rows_queued)) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,

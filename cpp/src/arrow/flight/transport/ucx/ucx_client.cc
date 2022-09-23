@@ -602,8 +602,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
     auto status = driver->StartCall(kMethodDoExchange);
     if (ARROW_PREDICT_TRUE(status.ok())) {
-      *out =
-          std::make_unique<ExchangeClientStream>(this, std::move(connection));
+      *out = std::make_unique<ExchangeClientStream>(this, std::move(connection));
       return Status::OK();
     }
     return MergeStatuses(std::move(status), ReturnConnection(std::move(connection)));
@@ -620,8 +619,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                       reinterpret_cast<const uint8_t*>(payload.data()),
                                       static_cast<int64_t>(payload.size())));
-      *stream =
-          std::make_unique<GetClientStream>(this, std::move(connection));
+      *stream = std::make_unique<GetClientStream>(this, std::move(connection));
       return Status::OK();
     };
 

@@ -209,8 +209,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
-  auto exec_ctx =
-      std::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   Declaration join{"asofjoin", join_options};

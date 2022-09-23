@@ -1723,8 +1723,7 @@ SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
                              ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy,
-                                      field_merge_options);
+  impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPolicy policy,
@@ -1735,7 +1734,7 @@ SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPoli
   }
 
   impl_ = std::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
-                                      field_merge_options);
+                                 field_merge_options);
 }
 
 SchemaBuilder::~SchemaBuilder() {}
