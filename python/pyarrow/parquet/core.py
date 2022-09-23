@@ -142,9 +142,25 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
 
 def filters_to_expression(filters):
     """
-    Check if filters are well-formed.
+    Check if filters are well-formed and convert to an ``Expression``.
 
-    See _DNF_filter_doc above for more details.
+    Parameters
+    ----------
+    filters : List[Tuple] or List[List[Tuple]]
+
+    Notes
+    -----
+    See internal ``pyarrow._DNF_filter_doc`` attribute for more details.
+
+    Examples
+    --------
+
+    >>> filters_to_expression([('foo', '==', 'bar')])
+    <pyarrow.compute.Expression (foo == "bar")>
+
+    Returns
+    -------
+    pyarrow.compute.Expression
     """
     import pyarrow.dataset as ds
 
