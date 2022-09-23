@@ -101,7 +101,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $GITHUB_WORKSPACE/arrow $GITHUB_WORKSPACE/arrow/cpp-build $GITHUB_WORKSPACE/arrow/java-dist"
+          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
       - name: Compress into single artifact to keep directory structure
         shell: bash
         run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
