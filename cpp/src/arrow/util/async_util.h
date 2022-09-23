@@ -187,8 +187,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
 
   template <typename Callable>
   bool AddSimpleTask(Callable callable) {
-    return AddTask(
-        std::make_unique<SimpleTask<Callable>>(std::move(callable)));
+    return AddTask(std::make_unique<SimpleTask<Callable>>(std::move(callable)));
   }
   /// Signal that tasks are done being added
   ///

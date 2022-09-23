@@ -100,8 +100,7 @@ struct KernelStateFromFunctionOptions : public KernelState {
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return std::make_unique<KernelStateFromFunctionOptions>(ctx,
-                                                                            *options);
+      return std::make_unique<KernelStateFromFunctionOptions>(ctx, *options);
     }
 
     return Status::Invalid(

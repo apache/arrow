@@ -120,8 +120,7 @@ struct CountImpl : public ScalarAggregator {
 
 Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
                                                const KernelInitArgs& args) {
-  return std::make_unique<CountImpl>(
-      static_cast<const CountOptions&>(*args.options));
+  return std::make_unique<CountImpl>(static_cast<const CountOptions&>(*args.options));
 }
 
 // ----------------------------------------------------------------------

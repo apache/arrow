@@ -172,8 +172,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
                                        Throttle* throttle,
                                        std::unique_ptr<Queue> queue) override {
     std::unique_ptr<AsyncTaskSchedulerImpl> owned_child =
-        std::make_unique<AsyncTaskSchedulerImpl>(
-            this, std::move(queue), throttle, std::move(finish_callback));
+        std::make_unique<AsyncTaskSchedulerImpl>(this, std::move(queue), throttle,
+                                                 std::move(finish_callback));
     AsyncTaskScheduler* child = owned_child.get();
     std::list<std::unique_ptr<AsyncTaskSchedulerImpl>>::iterator child_itr;
     {
@@ -351,8 +351,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 
 std::unique_ptr<AsyncTaskScheduler> AsyncTaskScheduler::Make(
     Throttle* throttle, std::unique_ptr<Queue> queue) {
-  return std::make_unique<AsyncTaskSchedulerImpl>(
-      nullptr, std::move(queue), throttle, FnOnce<Status()>());
+  return std::make_unique<AsyncTaskSchedulerImpl>(nullptr, std::move(queue), throttle,
+                                                  FnOnce<Status()>());
 }
 
 }  // namespace util

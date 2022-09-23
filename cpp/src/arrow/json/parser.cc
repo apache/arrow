@@ -1027,7 +1027,8 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   /// will probably trigger promotion of this field from null
   bool Key(const char* key, rj::SizeType len, ...) {
     bool duplicate_keys = false;
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
+    if (ARROW_PREDICT_TRUE(
+            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
       return true;
     }
     if (ARROW_PREDICT_FALSE(duplicate_keys)) {

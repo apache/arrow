@@ -1734,8 +1734,7 @@ TEST(HashJoin, DictNegative) {
                          ExecBatch::Make({i == 2 ? datumSecondB : datumSecondA,
                                           i == 3 ? datumSecondB : datumSecondA}));
 
-    auto exec_ctx =
-        std::make_unique<ExecContext>(default_memory_pool(), nullptr);
+    auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     ASSERT_OK_AND_ASSIGN(
         ExecNode * l_source,
@@ -1911,8 +1910,7 @@ TEST(HashJoin, ExtensionTypesHashJoin) {
 }
 
 TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
-  auto exec_ctx =
-      std::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   BatchesWithSchema input_left;

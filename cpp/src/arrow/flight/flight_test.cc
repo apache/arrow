@@ -607,8 +607,8 @@ class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     recorded_calls_.push_back(info.method);
-    *middleware = std::make_unique<PropagatingClientMiddleware>(
-        &received_headers_, &recorded_status_);
+    *middleware = std::make_unique<PropagatingClientMiddleware>(&received_headers_,
+                                                                &recorded_status_);
   }
 
   void Reset() {
