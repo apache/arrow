@@ -155,8 +155,8 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
   return ValueOrStop(arrow::csv::TableReader::Make(
-      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken()),
-      input, *read_options, *parse_options, *convert_options));
+      MainRThread::GetInstance().CancellableIOContext(), input, *read_options,
+      *parse_options, *convert_options));
 }
 
 // [[arrow::export]]

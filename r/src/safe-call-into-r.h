@@ -141,6 +141,34 @@ class MainRThread {
   MainRThread() : initialized_(false), executor_(nullptr), stop_source_(nullptr) {}
 };
 
+// This object is used to ensure that signal hanlders are registered when
+// RunWithCapturedR launches its background thread to call Arrow and is
+// cleaned up however this exits. Note that the lifecycle of the StopSource,
+// which is registered at package load, is not necessarily tied to the
+// lifecycle of the signal handlers. The general approach is to register
+// the signal handlers only when we are evaluating code outside the R thread
+// (when we are evaluating code *on* the R thread, R's signal handlers are
+// sufficient and will signal an interupt condition that will propagate
+// via a cpp11::unwind_excpetion).
+class RunWithCapturedRContext {
+ public:
+  arrow::Status Init() {
+    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
+      RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
+    }
+
+    return arrow::Status::OK();
+  }
+
+  ~RunWithCapturedRContext() {
+    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
+      arrow::UnregisterCancellingSignalHandler();
+    }
+  }
+};
+
+// This is an object whose scope ensures we do not register signal handlers when
+// evaluating R code when that evaluation happens via SafeCallIntoR.
 class SafeCallIntoRContext {
  public:
   SafeCallIntoRContext() {
@@ -157,23 +185,6 @@ class SafeCallIntoRContext {
       if (!result.ok()) {
         MainRThread::GetInstance().SetError(result);
       }
-    }
-  }
-};
-
-class RunWithCapturedRContext {
- public:
-  arrow::Status Init() {
-    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
-      RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
-    }
-
-    return arrow::Status::OK();
-  }
-
-  ~RunWithCapturedRContext() {
-    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
-      arrow::UnregisterCancellingSignalHandler();
     }
   }
 };
@@ -209,9 +220,13 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
         SafeCallIntoRContext context;
         return fun();
       } catch (cpp11::unwind_exception& e) {
-        // Return a status that will rethrow a cpp11::unwind_exception()
-        // when ValueOrStop() is called.
-        return arrow::StatusUnwindProtect(e.token, reason);
+        // Set the MainRThread error so that subsequent calls to SafeCallIntoR
+        // know not to execute R code
+        MainRThread::GetInstance().SetError(arrow::StatusUnwindProtect(e.token, reason));
+
+        // Return an error Status (which is unlikely to surface since RunWithCapturedR
+        // will preferentially return the MainRThread error).
+        return arrow::Status::Invalid("R code execution error (", reason, ")");
       }
     }));
   } else {
@@ -263,9 +278,8 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
 
   MainRThread::GetInstance().Executor() = nullptr;
 
-  // R execution error will already be embedded in `result`; however,
-  // if there was an error restoring the signal handlers it will be
-  // embedded here.
+  // A StatusUnwindProtect error, if it was thrown, lives in the MainRThread and
+  // should be returned if possible.
   if (MainRThread::GetInstance().HasError()) {
     return MainRThread::GetInstance().ReraiseErrorIfExists();
   } else {
