@@ -19,12 +19,12 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/c/bridge.h"
+#include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/ipc/api.h"
-#include "arrow/c/helpers.h"
-#include "arrow/c/bridge.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
 #include "org_apache_arrow_dataset_file_JniWrapper.h"
@@ -183,122 +183,63 @@ class DisposableScannerAdaptor {
   }
 };
 
-/// \brief Simple fragment implementation that is constructed directly
-/// from a record batch iterator.
-class SimpleIteratorFragment : public arrow::dataset::Fragment {
- public:
-  explicit SimpleIteratorFragment(arrow::RecordBatchIterator itr)
-      : arrow::dataset::Fragment() {
-    itr_ = std::move(itr);
-  }
-
-  static arrow::Result<std::shared_ptr<SimpleIteratorFragment>> Make(
-      arrow::RecordBatchIterator itr) {
-    return std::make_shared<SimpleIteratorFragment>(std::move(itr));
-  }
-
-  arrow::Result<arrow::RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<arrow::dataset::ScanOptions>& options) override {
-    struct State {
-      State(std::shared_ptr<SimpleIteratorFragment> fragment)
-          : fragment(std::move(fragment)) {}
-
-      std::shared_ptr<arrow::RecordBatch> Next() { return cur_rb; }
-
-      bool Finished() {
-        arrow::Result<std::shared_ptr<arrow::RecordBatch>> next = fragment->itr_.Next();
-        if (IsIterationEnd(next)) {
-          cur_rb = nullptr;
-
-          return true;
-        } else {
-          cur_rb = next.ValueOrDie();
-          return false;
-        }
-      }
-
-      std::shared_ptr<SimpleIteratorFragment> fragment;
-      std::shared_ptr<arrow::RecordBatch> cur_rb = nullptr;
-    };
-
-    struct Generator {
-      Generator(std::shared_ptr<SimpleIteratorFragment> fragment)
-          : state(std::make_shared<State>(std::move(fragment))) {}
-
-      arrow::Future<std::shared_ptr<arrow::RecordBatch>> operator()() {
-        while (!state->Finished()) {
-          auto next = state->Next();
-          if (next) {
-            return arrow::Future<std::shared_ptr<arrow::RecordBatch>>::MakeFinished(
-                std::move(next));
-          }
-        }
-        return arrow::AsyncGeneratorEnd<std::shared_ptr<arrow::RecordBatch>>();
-      }
-
-      std::shared_ptr<State> state;
-    };
-    return Generator(arrow::internal::checked_pointer_cast<SimpleIteratorFragment>(
-        shared_from_this()));
-  }
-
-  std::string type_name() const override { return "simple_iterator"; }
-
-  arrow::Result<std::shared_ptr<arrow::Schema>> ReadPhysicalSchemaImpl() override {
-    return arrow::Status::NotImplemented("No physical schema is readable");
-  }
-
- private:
-  arrow::RecordBatchIterator itr_;
-  bool used_ = false;
-};
-
 /// \brief Create scanner that scans over Java dataset API's components.
 ///
 /// Currently, we use a CRecordBatchIterator as the underlying
 /// Java object to do scanning. Which means, only one single task will
 /// be produced from C++ code.
 arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
-    JavaVM* vm, jobject java_record_batch_object_itr, std::shared_ptr<arrow::Schema> schema) {
+    JavaVM* vm, jobject java_record_batch_object_itr,
+    std::shared_ptr<arrow::Schema> schema) {
   arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
-      [vm, java_record_batch_object_itr, schema]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
+      [vm, java_record_batch_object_itr,
+       schema]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
         JNIEnv* env;
-        if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
+        int env_code = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+        if (env_code == JNI_EDETACHED) {
+          if ( vm->AttachCurrentThreadAsDaemon(reinterpret_cast<void**>(&env), NULL) != JNI_OK) {
+            return arrow::Status::Invalid("Failed to attach thread.");
+          }
+        } else if (env_code != JNI_OK) {
           return arrow::Status::Invalid("JNIEnv was not attached to current thread");
         }
-        if (!env->CallBooleanMethod(java_record_batch_object_itr, native_record_batch_iterator_hasNext)) {
+
+        if (!env->CallBooleanMethod(java_record_batch_object_itr,
+                                    native_record_batch_iterator_hasNext)) {
           return nullptr;  // stream ended
         }
         std::unique_ptr<ArrowSchema> c_schema = std::make_unique<ArrowSchema>();
         std::unique_ptr<ArrowArray> c_array = std::make_unique<ArrowArray>();
 
-         env->CallObjectMethod(
-        java_record_batch_object_itr,
-        native_record_batch_iterator_next,
-        reinterpret_cast<jlong>(c_array.get()),
-        reinterpret_cast<jlong>(c_schema.get()));
+        env->CallObjectMethod(java_record_batch_object_itr,
+                              native_record_batch_iterator_next,
+                              reinterpret_cast<jlong>(c_array.get()),
+                              reinterpret_cast<jlong>(c_schema.get()));
 
-        std::shared_ptr<arrow::RecordBatch> rb = JniGetOrThrow(
-            arrow::dataset::jni::ImportRecordBatch(env, schema, reinterpret_cast<jlong>(c_array.get())));
-    
+        std::shared_ptr<arrow::RecordBatch> rb =
+            JniGetOrThrow(arrow::dataset::jni::ImportRecordBatch(
+                env, schema, reinterpret_cast<jlong>(c_array.get())));
+
         // Release the ArrowArray and ArrowSchema
         ArrowArrayRelease(c_array.get());
         ArrowSchemaRelease(c_schema.get());
         return rb;
       });
-  ARROW_ASSIGN_OR_RAISE(auto fragment, SimpleIteratorFragment::Make(std::move(itr)))
 
-  arrow::dataset::ScannerBuilder scanner_builder(
-      std::move(schema), fragment, std::make_shared<arrow::dataset::ScanOptions>());
-
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<arrow::RecordBatchReader> reader,
+      arrow::RecordBatchReader::MakeFromIterator(std::move(itr), std::move(schema)))
+  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
+      arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
   // Use default memory pool is enough as native allocation is ideally
   // not being called during scanning Java-based fragments.
-  RETURN_NOT_OK(scanner_builder.Pool(arrow::default_memory_pool()));
-  return scanner_builder.Finish();
+  RETURN_NOT_OK(scanner_builder->Pool(arrow::default_memory_pool()));
+  return scanner_builder->Finish();
 }
 
 std::shared_ptr<arrow::Schema> SchemaFromColumnNames(
-    const std::shared_ptr<arrow::Schema>& input, const std::vector<std::string>& column_names) {
+    const std::shared_ptr<arrow::Schema>& input,
+    const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<arrow::Field>> columns;
   for (arrow::FieldRef ref : column_names) {
     auto maybe_field = ref.GetOne(*input);
@@ -367,11 +308,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
                                  "dataset/jni/CRecordBatchIterator;");
   native_record_batch_iterator_hasNext = JniGetOrThrow(
       GetMethodID(env, native_record_batch_iterator_class, "hasNext", "()Z"));
-  native_record_batch_iterator_next =
-      JniGetOrThrow(GetMethodID(env, native_record_batch_iterator_class, "next", "(JJ)V"));
+  native_record_batch_iterator_next = JniGetOrThrow(
+      GetMethodID(env, native_record_batch_iterator_class, "next", "(JJ)V"));
 
   default_memory_pool_id = reinterpret_cast<jlong>(arrow::default_memory_pool());
-
   return JNI_VERSION;
   JNI_METHOD_END(JNI_ERR)
 }
@@ -678,7 +618,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   }
 
   std::shared_ptr<arrow::Schema> schema = JniGetOrThrow(
-        arrow::ImportSchema(reinterpret_cast<struct ArrowSchema*>(c_schema_address)));
+      arrow::ImportSchema(reinterpret_cast<struct ArrowSchema*>(c_schema_address)));
 
   auto scanner = JniGetOrThrow(MakeJavaDatasetScanner(vm, itr, schema));
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
@@ -693,8 +633,8 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
   options.filesystem = filesystem;
   options.base_dir = output_path;
   options.basename_template = JStringToCString(env, base_name_template);
-   options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
-       SchemaFromColumnNames(schema, partition_column_vector));
+  options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
+      SchemaFromColumnNames(schema, partition_column_vector));
   options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
   JNI_METHOD_END()

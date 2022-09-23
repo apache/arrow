@@ -103,38 +103,6 @@ public class TestDatasetFileWriter extends TestDataset {
     }
   }
 
-  @Test(expected = java.lang.RuntimeException.class)
-  public void testScanErrorHandling() throws Exception {
-    DatasetFileWriter.write(rootAllocator(), new Scanner() {
-      @Override
-      public Iterable<? extends ScanTask> scan() {
-        return Collections.singletonList(new ScanTask() {
-          @Override
-          public ArrowReader execute() {
-            // this error is supposed to be firstly investigated in native code, then thrown back to Java.
-            throw new RuntimeException("ERROR");
-          }
-
-          @Override
-          public void close() throws Exception {
-            // do nothing
-          }
-        });
-      }
-
-      @Override
-      public Schema schema() {
-        return new Schema(Collections.emptyList());
-      }
-
-      @Override
-      public void close() throws Exception {
-        // do nothing
-      }
-
-    }, FileFormat.PARQUET, "file:/DUMMY/");
-  }
-
   private void assertParquetFileEquals(String expectedURI, String actualURI) throws Exception {
     final FileSystemDatasetFactory expectedFactory = new FileSystemDatasetFactory(
         rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
