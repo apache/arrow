@@ -159,15 +159,6 @@ configure_tzdb <- function() {
   DeinitializeMainRThread()
 }
 
-on_old_windows <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-
-  is_32bit && is_old_r && is_windows
-}
-
-
 # True when the OS is linux + and the R version is development
 # helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran
 on_linux_dev <- function() {
