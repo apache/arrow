@@ -2227,9 +2227,7 @@ static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_ty
 
       // Invalid fixed_size_list cast.
       const auto incorrect_dest_type = fixed_size_list(dest_value_type, 3);
-      ASSERT_RAISES(
-          TypeError,
-          Cast(src_array, CastOptions::Safe(incorrect_dest_type)))
+      ASSERT_RAISES(TypeError, Cast(src_array, CastOptions::Safe(incorrect_dest_type)))
           << "Size of FixedList is not the same.";
     }
   }
