@@ -37,6 +37,7 @@ ninja
 # Required by google-cloud-cpp, the Conda package is missing the dependency:
 #    https://github.com/conda-forge/google-cloud-cpp-feedstock/issues/28
 nlohmann_json
+orc
 pkg-config
 python
 rapidjson
