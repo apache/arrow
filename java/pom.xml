@@ -688,7 +688,6 @@
           <reportSet><!-- by default, id = "default" -->
             <reports><!-- select non-aggregate reports -->
               <report>javadoc</report>
-              <report>test-javadoc</report>
             </reports>
           </reportSet>
           <reportSet><!-- aggregate reportSet, to define in poms having modules -->
