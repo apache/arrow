@@ -30,9 +30,6 @@
 #' @keywords internal
 add_filename <- function(){
 
-  # this currently never works because if we look at the value of
-  # `caller_env(n = 2)$x` here it's an object of class FileSystemDataset (query)
-  # even with a Table, e.g. arrow_table(tibble::tibble(x = 1:3)) %>% mutate(file = add_filename())
   if (!caller_env(n = 2)$x$is_dataset) {
     abort("`add_filename()` must only be called on Dataset objects.")
   }
