@@ -727,12 +727,13 @@ class ORCFileWriter::Impl {
   }
 
   Status Write(const Table& table) {
-    ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
-    ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+    if (!writer_.get()) {
+      ARROW_ASSIGN_OR_RAISE(auto orc_schema_, GetOrcType(*(table.schema())));
+      ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+      ORC_CATCH_NOT_OK(
+          writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+    }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
-    ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), orc_options))
-
     int64_t num_rows = table.num_rows();
     const int num_cols = table.num_columns();
     std::vector<int64_t> arrow_index_offset(num_cols, 0);
@@ -766,6 +767,7 @@ class ORCFileWriter::Impl {
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
   WriteOptions write_options_;
+  ORC_UNIQUE_PTR<liborc::Type> orc_schema_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
