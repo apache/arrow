@@ -115,7 +115,7 @@ backwards-incompatible versions such as 2.0.0, but which still
 implement the API standard version 1.0.0.
 
 Similarly, this documentation describes the ADBC API standard version
-1.0.0.  If/when an ABI-compatible compatible revision is made
+1.0.0.  If/when an ABI-compatible revision is made
 (e.g. new standard options are defined), the next version would be
 1.1.0.  If incompatible changes are made (e.g. new API functions), the
 next version would be 2.0.0.
@@ -186,7 +186,7 @@ bypass this wrapper.
 
 .. figure:: ./ADBCQuadrants.svg
 
-   ADBC, JDBC, and ODBC are database-agnostic.  They define the the
+   ADBC, JDBC, and ODBC are database-agnostic.  They define the
    API that the application uses, but not how that API is implemented,
    instead deferring to drivers to fulfill requests using the protocol
    of their choice.  JDBC and (generally) ODBC offer results in a
@@ -218,7 +218,7 @@ Existing database client APIs
 
 `DBI for R <https://www.r-dbi.org/>`_
   An R package/ecosystem of packages for database access. Provides a
-  single interface with “backends” for specific databases.  While
+  single interface with "backends" for specific databases.  While
   row-oriented, `integration with Arrow is under consideration`_,
   including a sketch of effectively the same idea as ADBC.
 
