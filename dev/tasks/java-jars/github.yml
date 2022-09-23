@@ -96,7 +96,7 @@ jobs:
           distribution: 'temurin'
       - name: Download Timezone Database
         shell: bash
-        run: ci/scripts/download_tz_database.sh
+        run: arrow/ci/scripts/download_tz_database.sh
       - name: Build C++ libraries
         shell: cmd
         run: |
