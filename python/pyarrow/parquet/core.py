@@ -44,7 +44,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
 from pyarrow.fs import (LocalFileSystem, FileSystem,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
-from pyarrow.util import guid, _is_path_like, _stringify_path
+from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 _URI_STRIP_SCHEMES = ('hdfs',)
 
