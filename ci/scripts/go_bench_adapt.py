@@ -61,7 +61,7 @@ class GoAdapter(BenchmarkAdapter):
                     stats={
                         "data": [data],
                         "unit": "b/s",
-                        "time": [time],
+                        "times": [time],
                         "time_unit": "i/s",
                         "iterations": benchmark["Runs"],
                     },
