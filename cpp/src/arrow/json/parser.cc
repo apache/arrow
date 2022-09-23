@@ -329,7 +329,7 @@ class RawArrayBuilder<Kind::kObject> {
 
   Status AppendNull(int64_t count) { return null_bitmap_builder_.Append(count, false); }
 
-  int GetFieldIndex(string_view name) {
+  int GetFieldIndex(std::string_view name) {
     // Predict that the field is known and immediately follows the last one. Otherwise,
     // fall back to the hash table lookup from now on
     if (expect_index_ < num_fields() &&
@@ -360,7 +360,7 @@ class RawArrayBuilder<Kind::kObject> {
 
   int num_fields() const { return static_cast<int>(field_infos_.size()); }
 
-  string_view field_name(int index) const { return field_infos_[index].name; }
+  std::string_view field_name(int index) const { return field_infos_[index].name; }
 
   BuilderPtr field_builder(int index) const { return field_infos_[index].builder; }
 
@@ -395,13 +395,13 @@ class RawArrayBuilder<Kind::kObject> {
 
  private:
   struct FieldInfo {
-    string_view name;
+    std::string_view name;
     BuilderPtr builder;
   };
 
   std::forward_list<std::string> name_store_;
   std::vector<FieldInfo> field_infos_;
-  std::unordered_map<string_view, int> name_to_index_;
+  std::unordered_map<std::string_view, int> name_to_index_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
   int expect_index_ = 0;
 };
