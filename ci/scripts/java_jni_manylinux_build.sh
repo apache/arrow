@@ -34,12 +34,16 @@ devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
+export ARROW_DATASET
 : ${ARROW_GANDIVA:=ON}
+export ARROW_GANDIVA
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
 : ${ARROW_ORC:=ON}
+export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA:=ON}
+export ARROW_PLASMA
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=release}

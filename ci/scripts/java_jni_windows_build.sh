@@ -32,7 +32,9 @@ echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
+export ARROW_DATASET
 : ${ARROW_ORC:=ON}
+export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
@@ -106,18 +108,12 @@ fi
 
 echo "=== Checking shared dependencies for libraries ==="
 pushd ${dist_dir}
-archery linking check-dependencies \
-  --allow ld-linux-x86-64 \
-  --allow libc \
-  --allow libdl \
-  --allow libgcc_s \
-  --allow libm \
-  --allow libpthread \
-  --allow librt \
-  --allow libstdc++ \
-  --allow libz \
-  --allow linux-vdso \
-  libarrow_cdata_jni.dll \
-  libarrow_dataset_jni.dll \
-  libarrow_orc_jni.dll
+# TODO
+# archery linking check-dependencies \
+#   --allow libm \
+#   --allow librt \
+#   --allow libz \
+#   libarrow_cdata_jni.dll \
+#   libarrow_dataset_jni.dll \
+#   libarrow_orc_jni.dll
 popd
