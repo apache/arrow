@@ -17,6 +17,7 @@
 
 #include "arrow/json/parser.h"
 
+#include <forward_list>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -346,20 +347,20 @@ class RawArrayBuilder<Kind::kObject> {
   }
 
   int AddField(std::string name, BuilderPtr builder) {
-    FieldInfo info;
-    info.name = arrow::internal::make_unique<std::string>(std::move(name));
-    info.builder = builder;
-    auto result = name_to_index_.emplace(*info.name, num_fields());
+    name_store_.push_front(std::move(name));
+    auto result = name_to_index_.emplace(name_store_.front(), num_fields());
     // Only append the field if a new insertion happened
     if (ARROW_PREDICT_TRUE(result.second)) {
-      field_infos_.push_back(std::move(info));
+      field_infos_.push_back({name_store_.front(), builder});
+    } else {
+      name_store_.pop_front();
     }
     return result.first->second;
   }
 
   int num_fields() const { return static_cast<int>(field_infos_.size()); }
 
-  const std::string& field_name(int index) const { return *field_infos_[index].name; }
+  string_view field_name(int index) const { return field_infos_[index].name; }
 
   BuilderPtr field_builder(int index) const { return field_infos_[index].builder; }
 
@@ -381,8 +382,8 @@ class RawArrayBuilder<Kind::kObject> {
       std::shared_ptr<Array> field_values;
       RETURN_NOT_OK(finish_child(info.builder, &field_values));
       child_data[i] = field_values->data();
-      fields[i] = field(*info.name, field_values->type(), info.builder.nullable,
-                        Kind::Tag(info.builder.kind));
+      fields[i] = field(std::string(info.name), field_values->type(),
+                        info.builder.nullable, Kind::Tag(info.builder.kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -394,10 +395,11 @@ class RawArrayBuilder<Kind::kObject> {
 
  private:
   struct FieldInfo {
-    std::unique_ptr<std::string> name;
+    string_view name;
     BuilderPtr builder;
   };
 
+  std::forward_list<std::string> name_store_;
   std::vector<FieldInfo> field_infos_;
   std::unordered_map<string_view, int> name_to_index_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
@@ -709,7 +711,7 @@ class HandlerBase : public BlockParser,
         if (i + 1 < field_index_stack_.size()) {
           field_index = field_index_stack_[i + 1];
         }
-        path += "/" + struct_builder->field_name(field_index);
+        path += "/" + std::string(struct_builder->field_name(field_index));
       }
     }
     return path;
