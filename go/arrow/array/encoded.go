@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/encoded"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -66,6 +67,64 @@ func (r *RunEndEncoded) Release() {
 	r.array.Release()
 	r.values.Release()
 	r.ends.Release()
+}
+
+// LogicalValuesArray returns an array holding the values of each
+// run, only over the range of run values inside the logical offset/length
+// range of the parent array.
+//
+// The return from this needs to be Released
+func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+	data := NewSliceData(r.data.Children()[1], int64(physOffset), int64(physOffset+physLength))
+	defer data.Release()
+	return MakeFromData(data)
+}
+
+// LogicalRunEndsArray returns an array holding the logical indexes
+// of each run end, only over the range of run end values relative
+// to the logical offset/length range of the parent array.
+//
+// For arrays with an offset, this is not a slice of the existing
+// internal run ends array.
+//
+// The return from this needs to be Released
+func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
+	physOffset := r.GetPhysicalOffset()
+	physLength := r.GetPhysicalLength()
+
+	if r.data.offset == 0 {
+		data := NewSliceData(r.data.childData[0], 0, int64(physLength))
+		defer data.Release()
+		return MakeFromData(data)
+	}
+
+	bldr := NewBuilder(mem, r.ends.DataType())
+	defer bldr.Release()
+	bldr.Resize(physLength)
+	switch b := bldr.(type) {
+	case *Int16Builder:
+		for _, v := range r.ends.(*Int16).Int16Values()[physOffset:] {
+			v -= int16(r.data.offset)
+			v = int16(utils.MinInt(int(v), r.data.length))
+			b.Append(v)
+		}
+	case *Int32Builder:
+		for _, v := range r.ends.(*Int32).Int32Values()[physOffset:] {
+			v -= int32(r.data.offset)
+			v = int32(utils.MinInt(int(v), r.data.length))
+			b.Append(v)
+		}
+	case *Int64Builder:
+		for _, v := range r.ends.(*Int64).Int64Values()[physOffset:] {
+			v -= int64(r.data.offset)
+			v = int64(utils.MinInt(int(v), r.data.length))
+			b.Append(v)
+		}
+	}
+
+	return bldr.NewArray()
 }
 
 func (r *RunEndEncoded) setData(data *Data) {
