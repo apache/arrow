@@ -68,6 +68,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt install libcurl4-openssl-dev libssl-dev
+      - name: Prepare PKG_CONFIG_PATH for Homebrew
+        run: |
+          # zstd is installed by Homebrew on GitHub Actions.
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
+            >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
