@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.arrow.c.ArrowArray;
+import org.apache.arrow.c.ArrowArrayStream;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.Data;
 import org.apache.arrow.dataset.jni.CRecordBatchIterator;
@@ -34,73 +35,37 @@ public class CRecordBatchIteratorImpl implements CRecordBatchIterator {
   private final Scanner scanner;
   private final BufferAllocator allocator;
 
-  private Iterator<? extends ScanTask> taskIterator;
-
-  private ScanTask currentTask = null;
-  private ArrowReader reader = null;
+  private Iterator<? extends ScanTask> taskIterators;
+  private ArrowReader currentReader = null;
 
   public CRecordBatchIteratorImpl(Scanner scanner,
                                        BufferAllocator allocator) {
     this.scanner = scanner;
-    this.taskIterator = scanner.scan().iterator();
     this.allocator = allocator;
+    this.taskIterators = scanner.scan().iterator();
   }
 
   @Override
   public void close() throws Exception {
-    closeCurrent();
     scanner.close();
   }
 
-  private void closeCurrent() throws Exception {
-    if (currentTask == null) {
-      return;
-    }
-    currentTask.close();
-    reader.close();
-  }
-
-  private boolean advance() {
-    if (!taskIterator.hasNext()) {
+  @Override
+  public boolean hasNext() throws IOException {
+    if (taskIterators.hasNext()) {
+      return true;
+    } else {
       return false;
     }
-    try {
-      closeCurrent();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-    currentTask = taskIterator.next();
-    reader = currentTask.execute();
-    return true;
   }
 
-  @Override
-  public boolean hasNext() {
+  public void next(long cStreamPointer) throws IOException {
+    currentReader = taskIterators.next().execute();
+    try (final ArrowArrayStream stream = ArrowArrayStream.wrap(cStreamPointer)) {
 
-    if (currentTask == null) {
-      if (!advance()) {
-        return false;
-      }
-    }
-    try {
-      if (!reader.loadNextBatch()) {
-        if (!advance()) {
-          return false;
-        }
-      }
-      return true;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void next(long cArrayAddress, long cSchemaAddress)  {
-    final ArrowArray cArray = ArrowArray.wrap(cArrayAddress);
-    final ArrowSchema cSchema = ArrowSchema.wrap(cSchemaAddress);
-    try {
-      Data.exportVectorSchemaRoot(allocator, reader.getVectorSchemaRoot(), reader, cArray, cSchema);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      Data.exportArrayStream(allocator, currentReader, stream);
+    } finally {
+      currentReader.close();
     }
   }
 }

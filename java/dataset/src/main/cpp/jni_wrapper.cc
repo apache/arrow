@@ -191,9 +191,9 @@ class DisposableScannerAdaptor {
 arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
     JavaVM* vm, jobject java_record_batch_object_itr,
     std::shared_ptr<arrow::Schema> schema) {
-  arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
+  arrow::Iterator<arrow::RecordBatchIterator> itr = arrow::MakeFunctionIterator(
       [vm, java_record_batch_object_itr,
-       schema]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
+       schema]() -> arrow::Result<arrow::RecordBatchIterator> {
         JNIEnv* env;
         int env_code = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
         if (env_code == JNI_EDETACHED) {
@@ -206,29 +206,29 @@ arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
 
         if (!env->CallBooleanMethod(java_record_batch_object_itr,
                                     native_record_batch_iterator_hasNext)) {
-          return nullptr;  // stream ended
+          return arrow::IterationTraits<arrow::RecordBatchIterator>::End();
         }
-        std::unique_ptr<ArrowSchema> c_schema = std::make_unique<ArrowSchema>();
-        std::unique_ptr<ArrowArray> c_array = std::make_unique<ArrowArray>();
 
+        std::unique_ptr<ArrowArrayStream> c_stream = std::make_unique<ArrowArrayStream>();
+       
         env->CallObjectMethod(java_record_batch_object_itr,
                               native_record_batch_iterator_next,
-                              reinterpret_cast<jlong>(c_array.get()),
-                              reinterpret_cast<jlong>(c_schema.get()));
-
-        std::shared_ptr<arrow::RecordBatch> rb =
-            JniGetOrThrow(arrow::dataset::jni::ImportRecordBatch(
-                env, schema, reinterpret_cast<jlong>(c_array.get())));
-
-        // Release the ArrowArray and ArrowSchema
-        ArrowArrayRelease(c_array.get());
-        ArrowSchemaRelease(c_schema.get());
-        return rb;
+                              reinterpret_cast<jlong>(c_stream.get())
+                              );
+        
+        std::shared_ptr<arrow::RecordBatchReader> rb_reader =
+         JniGetOrThrow(arrow::ImportRecordBatchReader(
+          c_stream.get()));
+        
+        // Release the ArrowArrayStream
+        ArrowArrayStreamRelease(c_stream.get());
+        return arrow::MakeFunctionIterator(
+            [rb_reader] { return rb_reader->Next(); });
       });
 
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<arrow::RecordBatchReader> reader,
-      arrow::RecordBatchReader::MakeFromIterator(std::move(itr), std::move(schema)))
+      arrow::RecordBatchReader::MakeFromIterator(arrow::MakeFlattenIterator(std::move(itr)), std::move(schema)))
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
   // Use default memory pool is enough as native allocation is ideally
@@ -309,7 +309,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   native_record_batch_iterator_hasNext = JniGetOrThrow(
       GetMethodID(env, native_record_batch_iterator_class, "hasNext", "()Z"));
   native_record_batch_iterator_next = JniGetOrThrow(
-      GetMethodID(env, native_record_batch_iterator_class, "next", "(JJ)V"));
+      GetMethodID(env, native_record_batch_iterator_class, "next", "(J)V"));
 
   default_memory_pool_id = reinterpret_cast<jlong>(arrow::default_memory_pool());
   return JNI_VERSION;

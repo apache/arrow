@@ -17,6 +17,8 @@
 
 package org.apache.arrow.dataset.jni;
 
+import java.io.IOException;
+
 /**
  * Iterate on the memory address of ArrowArray
  * next() should be called from C++ scanner to read the memory address of ArrowArray.
@@ -27,6 +29,6 @@ public interface CRecordBatchIterator extends AutoCloseable {
    * Return next {@link org.apache.arrow.c.ArrowArray} memory address.
    */
 
-  void next(long cArrowArray, long cArrowSchema);
-  boolean hasNext();
+  void next(long cStreamPointer) throws IOException;
+  boolean hasNext() throws IOException;
 }
