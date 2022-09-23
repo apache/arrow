@@ -819,7 +819,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
 Result<std::unique_ptr<substrait::ProjectRel>> ProjectRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto project_rel = make_unique<substrait::ProjectRel>();
+  auto project_rel = std::make_unique<substrait::ProjectRel>();
   const auto& project_node_options =
       checked_cast<const compute::ProjectNodeOptions&>(*declaration.options);
 
