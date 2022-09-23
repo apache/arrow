@@ -27,7 +27,7 @@ specification, but with conveniences for Java (actual enum
 definitions, constants for common Arrow schemas, etc.) and makes use
 of the Arrow Java libraries directly instead of the C Data Interface.
 
-See apache/arrow-adbc commit 7866a566f5b7b635267bfb7a87ea49b01dfe89fa_
+See apache/arrow-adbc commit e88cb46419220786d54887f1b7a2fa086d6a0c30_
 for the definitions.
 
-.. _7866a566f5b7b635267bfb7a87ea49b01dfe89fa: https://github.com/apache/arrow-adbc/commit/7866a566f5b7b635267bfb7a87ea49b01dfe89fa
+.. _e88cb46419220786d54887f1b7a2fa086d6a0c30: https://github.com/apache/arrow-adbc/commit/e88cb46419220786d54887f1b7a2fa086d6a0c30

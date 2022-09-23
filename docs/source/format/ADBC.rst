@@ -90,7 +90,7 @@ implemented directly by a vendor-specific "driver" or a vendor-neutral
 
 Version 1.0.0 of the standard corresponds to tag adbc-1.0.0 of the
 repository ``apache/arrow-adbc``, which is commit
-7866a566f5b7b635267bfb7a87ea49b01dfe89fa_.  Note that is is separate
+e88cb46419220786d54887f1b7a2fa086d6a0c30_.  Note that is is separate
 from releases of the actual implementations.
 
 See the language-specific pages for details:
@@ -282,7 +282,7 @@ Endowment*, 1022–1033, 2017.
 
 .. External link definitions follow
 
-.. _7866a566f5b7b635267bfb7a87ea49b01dfe89fa: https://github.com/apache/arrow-adbc/commit/7866a566f5b7b635267bfb7a87ea49b01dfe89fa
+.. _e88cb46419220786d54887f1b7a2fa086d6a0c30: https://github.com/apache/arrow-adbc/commit/e88cb46419220786d54887f1b7a2fa086d6a0c30
 .. _arrow-adbc: https://github.com/apache/arrow-adbc
 .. _block cursors: https://docs.microsoft.com/en-us/sql/odbc/reference/develop-app/block-cursors?view=sql-server-ver15
 .. _DBI is contemplating: https://r-dbi.github.io/dbi3/articles/dbi3.html

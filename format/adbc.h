@@ -28,6 +28,13 @@
 /// provided, which implements this same API, but dynamically loads
 /// drivers internally and forwards calls appropriately.
 ///
+/// ADBC uses structs with free functions that operate on those
+/// structs to model objects.
+///
+/// In general, objects allow serialized access from multiple threads,
+/// but not concurrent access.  Specific implementations may permit
+/// multiple threads.
+///
 /// \version 1.0.0
 
 #pragma once
@@ -155,15 +162,6 @@ struct ArrowArrayStream {
 #define ADBC_EXPORT
 #endif  // defined(_WIN32)
 #endif  // !defined(ADBC_EXPORT)
-
-/// \page object-model Object Model
-///
-/// ADBC uses structs with free functions that operate on those
-/// structs to model objects.
-///
-/// In general, objects allow serialized access from multiple threads,
-/// but not concurrent access.  Specific implementations may permit
-/// multiple threads.
 
 // Forward declarations
 struct AdbcDriver;
@@ -465,50 +463,50 @@ AdbcStatusCode AdbcConnectionGetInfo(struct AdbcConnection* connection,
 ///
 /// The result is an Arrow dataset with the following schema:
 ///
-/// Field Name               | Field Type
-/// -------------------------|-----------------------
-/// catalog_name             | utf8
-/// catalog_db_schemas       | list<DB_SCHEMA_SCHEMA>
+/// | Field Name               | Field Type              |
+/// |--------------------------|-------------------------|
+/// | catalog_name             | utf8                    |
+/// | catalog_db_schemas       | list<DB_SCHEMA_SCHEMA>  |
 ///
 /// DB_SCHEMA_SCHEMA is a Struct with fields:
 ///
-/// Field Name               | Field Type
-/// -------------------------|-----------------------
-/// db_schema_name           | utf8
-/// db_schema_tables         | list<TABLE_SCHEMA>
+/// | Field Name               | Field Type              |
+/// |--------------------------|-------------------------|
+/// | db_schema_name           | utf8                    |
+/// | db_schema_tables         | list<TABLE_SCHEMA>      |
 ///
 /// TABLE_SCHEMA is a Struct with fields:
 ///
-/// Field Name               | Field Type
-/// -------------------------|-----------------------
-/// table_name               | utf8 not null
-/// table_type               | utf8 not null
-/// table_columns            | list<COLUMN_SCHEMA>
-/// table_constraints        | list<CONSTRAINT_SCHEMA>
+/// | Field Name               | Field Type              |
+/// |--------------------------|-------------------------|
+/// | table_name               | utf8 not null           |
+/// | table_type               | utf8 not null           |
+/// | table_columns            | list<COLUMN_SCHEMA>     |
+/// | table_constraints        | list<CONSTRAINT_SCHEMA> |
 ///
 /// COLUMN_SCHEMA is a Struct with fields:
 ///
-/// Field Name               | Field Type            | Comments
-/// -------------------------|-----------------------|---------
-/// column_name              | utf8 not null         |
-/// ordinal_position         | int32                 | (1)
-/// remarks                  | utf8                  | (2)
-/// xdbc_data_type           | int16                 | (3)
-/// xdbc_type_name           | utf8                  | (3)
-/// xdbc_column_size         | int32                 | (3)
-/// xdbc_decimal_digits      | int16                 | (3)
-/// xdbc_num_prec_radix      | int16                 | (3)
-/// xdbc_nullable            | int16                 | (3)
-/// xdbc_column_def          | utf8                  | (3)
-/// xdbc_sql_data_type       | int16                 | (3)
-/// xdbc_datetime_sub        | int16                 | (3)
-/// xdbc_char_octet_length   | int32                 | (3)
-/// xdbc_is_nullable         | utf8                  | (3)
-/// xdbc_scope_catalog       | utf8                  | (3)
-/// xdbc_scope_schema        | utf8                  | (3)
-/// xdbc_scope_table         | utf8                  | (3)
-/// xdbc_is_autoincrement    | bool                  | (3)
-/// xdbc_is_generatedcolumn  | bool                  | (3)
+/// | Field Name               | Field Type              | Comments |
+/// |--------------------------|-------------------------|----------|
+/// | column_name              | utf8 not null           |          |
+/// | ordinal_position         | int32                   | (1)      |
+/// | remarks                  | utf8                    | (2)      |
+/// | xdbc_data_type           | int16                   | (3)      |
+/// | xdbc_type_name           | utf8                    | (3)      |
+/// | xdbc_column_size         | int32                   | (3)      |
+/// | xdbc_decimal_digits      | int16                   | (3)      |
+/// | xdbc_num_prec_radix      | int16                   | (3)      |
+/// | xdbc_nullable            | int16                   | (3)      |
+/// | xdbc_column_def          | utf8                    | (3)      |
+/// | xdbc_sql_data_type       | int16                   | (3)      |
+/// | xdbc_datetime_sub        | int16                   | (3)      |
+/// | xdbc_char_octet_length   | int32                   | (3)      |
+/// | xdbc_is_nullable         | utf8                    | (3)      |
+/// | xdbc_scope_catalog       | utf8                    | (3)      |
+/// | xdbc_scope_schema        | utf8                    | (3)      |
+/// | xdbc_scope_table         | utf8                    | (3)      |
+/// | xdbc_is_autoincrement    | bool                    | (3)      |
+/// | xdbc_is_generatedcolumn  | bool                    | (3)      |
 ///
 /// 1. The column's ordinal position in the table (starting from 1).
 /// 2. Database-specific description of the column.
@@ -518,12 +516,12 @@ AdbcStatusCode AdbcConnectionGetInfo(struct AdbcConnection* connection,
 ///
 /// CONSTRAINT_SCHEMA is a Struct with fields:
 ///
-/// Field Name               | Field Type            | Comments
-/// -------------------------|-----------------------|---------
-/// constraint_name          | utf8                  |
-/// constraint_type          | utf8 not null         | (1)
-/// constraint_column_names  | list<utf8> not null   | (2)
-/// constraint_column_usage  | list<USAGE_SCHEMA>    | (3)
+/// | Field Name               | Field Type              | Comments |
+/// |--------------------------|-------------------------|----------|
+/// | constraint_name          | utf8                    |          |
+/// | constraint_type          | utf8 not null           | (1)      |
+/// | constraint_column_names  | list<utf8> not null     | (2)      |
+/// | constraint_column_usage  | list<USAGE_SCHEMA>      | (3)      |
 ///
 /// 1. One of 'CHECK', 'FOREIGN KEY', 'PRIMARY KEY', or 'UNIQUE'.
 /// 2. The columns on the current table that are constrained, in
@@ -532,12 +530,12 @@ AdbcStatusCode AdbcConnectionGetInfo(struct AdbcConnection* connection,
 ///
 /// USAGE_SCHEMA is a Struct with fields:
 ///
-/// Field Name               | Field Type            | Comments
-/// -------------------------|-----------------------|---------
-/// fk_catalog               | utf8                  |
-/// fk_db_schema             | utf8                  |
-/// fk_table                 | utf8 not null         |
-/// fk_column_name           | utf8 not null         |
+/// | Field Name               | Field Type              |
+/// |--------------------------|-------------------------|
+/// | fk_catalog               | utf8                    |
+/// | fk_db_schema             | utf8                    |
+/// | fk_table                 | utf8 not null           |
+/// | fk_column_name           | utf8 not null           |
 ///
 /// \param[in] connection The database connection.
 /// \param[in] depth The level of nesting to display. If 0, display
@@ -570,10 +568,15 @@ AdbcStatusCode AdbcConnectionGetObjects(struct AdbcConnection* connection, int d
                                         struct ArrowArrayStream* out,
                                         struct AdbcError* error);
 
+/// \brief Return metadata on catalogs, schemas, tables, and columns.
 #define ADBC_OBJECT_DEPTH_ALL 0
+/// \brief Return metadata on catalogs only.
 #define ADBC_OBJECT_DEPTH_CATALOGS 1
+/// \brief Return metadata on catalogs and schemas.
 #define ADBC_OBJECT_DEPTH_DB_SCHEMAS 2
+/// \brief Return metadata on catalogs, schemas, and tables.
 #define ADBC_OBJECT_DEPTH_TABLES 3
+/// \brief Return metadata on catalogs, schemas, tables, and columns.
 #define ADBC_OBJECT_DEPTH_COLUMNS ADBC_OBJECT_DEPTH_ALL
 
 /// \brief Get the Arrow schema of a table.
@@ -1124,185 +1127,3 @@ typedef AdbcStatusCode (*AdbcDriverInitFunc)(int version, void* driver,
 #ifdef __cplusplus
 }
 #endif
-
-/// \page decoder-ring Comparison with Other APIs
-///
-/// <table>
-///   <caption>Equivalent concepts between ADBC and other APIs</caption>
-///   <tr>
-///     <th>Concept/API              </th>
-///     <th>ADBC                     </th>
-///     <th>database/sql (Golang)    </th>
-///     <th>DBAPI 2.0 (PEP 249)      </th>
-///     <th>Flight SQL               </th>
-///     <th>JDBC                     </th>
-///     <th>ODBC                     </th>
-///   </tr>
-///   <tr>
-///     <td>Shared connection state  </td>
-///     <td>AdbcDatabase             </td>
-///     <td>DB                       </td>
-///     <td>-                        </td>
-///     <td>-                        </td>
-///     <td>-                        </td>
-///     <td>-                        </td>
-///   </tr>
-///   <tr>
-///     <td>Database connection      </td>
-///     <td>AdbcConnection           </td>
-///     <td>Conn                     </td>
-///     <td>Connection               </td>
-///     <td>FlightSqlClient          </td>
-///     <td>Connection               </td>
-///     <td>SQLHANDLE (connection)   </td>
-///   </tr>
-///   <tr>
-///     <td>Query state              </td>
-///     <td>AdbcStatement            </td>
-///     <td>-                        </td>
-///     <td>Cursor                   </td>
-///     <td>-                        </td>
-///     <td>Statement                </td>
-///     <td>SQLHANDLE (statement)    </td>
-///   </tr>
-///   <tr>
-///     <td>Prepared statement handle</td>
-///     <td>AdbcStatement            </td>
-///     <td>Stmt                     </td>
-///     <td>Cursor                   </td>
-///     <td>PreparedStatement        </td>
-///     <td>PreparedStatement        </td>
-///     <td>SQLHANDLE (statement)    </td>
-///   </tr>
-///   <tr>
-///     <td>Result set               </td>
-///     <td>ArrowArrayStream         </td>
-///     <td>*Rows                    </td>
-///     <td>Cursor                   </td>
-///     <td>FlightInfo               </td>
-///     <td>ResultSet                </td>
-///     <td>SQLHANDLE (statement)    </td>
-///   </tr>
-/// </table>
-
-/// \page compatibility Backwards and Forwards Compatibility
-///
-/// ## Compatibility
-///
-/// The goal is to be **ABI-compatible** across releases.  Hence, a
-/// few choices were made:
-///
-/// - Most structures do not contain embedded fields or functions, but
-///   instead use free functions, making it easy to add new functions.
-/// - Enumerations are defined via `typedef`/`#define`.
-///
-/// Of course, we can never add/remove/change struct members, and we
-/// can never change the signatures of existing functions.
-///
-/// The main point of concern is compatibility of AdbcDriver.
-///
-/// The driver entrypoint, AdbcDriverInitFunc(), is given a version
-/// and a pointer to a table of function pointers to initialize.  The
-/// type of the table will depend on the version; when a new version
-/// of ADBC is accepted, then a new table of function pointers will be
-/// added.  That way, the driver knows the type of the table.  If/when
-/// we add a new ADBC version, the following scenarios are possible:
-///
-/// - An updated client application uses an old driver library.  The
-///   client will pass a `version` field greater than what the driver
-///   recognizes, so the driver will return ADBC_STATUS_NOT_IMPLEMENTED
-///   and the client can decide whether to abort or retry with an older
-///   version.
-/// - An old client application uses an updated driver library.  The
-///   client will pass a `version` lower than what the driver
-///   recognizes, so the driver can either error, or if it can still
-///   implement the old API contract, initialize the older table.
-///
-/// This approach does not let us change the signatures of existing
-/// functions, but we can add new functions and remove existing ones.
-///
-/// ## Versioning
-///
-/// ADBC is versioned separately from the core Arrow project.  The API
-/// standard and components (driver manager, drivers) are also
-/// versioned separately, but both follow semantic versioning.
-///
-/// For example: components may make backwards-compatible releases as
-/// 1.0.0, 1.0.1, 1.1.0, 1.2.0, etc.  They may release
-/// backwards-incompatible versions such as 2.0.0, but which still
-/// implement the API standard version 1.0.0.
-///
-/// Similarly, this documentation describes the ADBC API standard
-/// version 1.0.0.  If/when a compatible revision is made (e.g. new
-/// standard options are defined), the next version would be 1.1.0.
-/// If incompatible changes are made (e.g. new API functions), the
-/// next version would be 2.0.0.
-
-/// \page concurrency Concurrency and Thread Safety
-///
-/// In general, objects allow serialized access from multiple threads:
-/// one thread may make a call, and once finished, another thread may
-/// make a call.  They do not allow concurrent access from multiple
-/// threads.
-///
-/// Somewhat related is the question of overlapping/concurrent
-/// execution of multi-step operations, from a single thread or
-/// multiple threads.  For example, two AdbcStatement objects can be
-/// created from the same AdbcConnection:
-///
-/// ```c
-/// struct AdbcStatement stmt1;
-/// struct AdbcStatement stmt2;
-///
-/// // Ignoring error handling for brevity
-/// AdbcStatementNew(&conn, &stmt1, NULL);
-/// AdbcStatementNew(&conn, &stmt2, NULL);
-/// AdbcStatementSetSqlQuery(&stmt1, "SELECT * FROM a", NULL);
-/// AdbcStatementSetSqlQuery(&stmt2, "SELECT * FROM b", NULL);
-///
-/// AdbcStatementExecute(&stmt1, NULL);
-/// AdbcStatementExecute(&stmt2, NULL);
-/// // What happens to the result set of stmt1?
-/// ```
-///
-/// What happens if the client application calls
-/// `AdbcStatementExecute` on `stmt1`, then on `stmt2`, without
-/// reading the result set of `stmt1`?  Some existing client
-/// libraries/protocols, like libpq, don't support concurrent
-/// execution of queries from a single connection.  So the driver
-/// would have to either 1) buffer all results into memory during the
-/// first `Execute` 2) issue an error on the second `Execute`, or 3)
-/// invalidate the first statement's result set on the second
-/// `Execute`.
-///
-/// In this case, ADBC allows drivers to choose 1) or 2).  If possible
-/// and reasonable, the driver should allow concurrent execution,
-/// whether because the underlying protocol is designed for it or by
-/// buffering result sets.  But the driver is allowed to error if it
-/// is not possible to support it.
-///
-/// Another use case is having a single statement, but executing it
-/// multiple times and reading the result sets concurrently.  A client
-/// might desire to do this with a prepared statement, for instance:
-///
-/// ```c
-/// // Ignoring error handling for brevity
-/// struct AdbcStatement stmt;
-/// AdbcStatementNew(&conn, &stmt, NULL);
-/// AdbcStatementSetSqlQuery(&stmt, "SELECT * FROM a WHERE foo > ?", NULL);
-/// AdbcStatementPrepare(&stmt, NULL);
-///
-/// AdbcStatementBind(&stmt, &array1, &schema, NULL);
-/// AdbcStatementExecute(&stmt, NULL);
-/// AdbcStatementGetStream(&stmt, &stream, NULL);
-/// // Spawn a thread to process `stream`
-///
-/// AdbcStatementBind(&stmt, &array2, &schema, NULL);
-/// AdbcStatementExecute(&stmt, NULL);
-/// // What happens to `stream` here?
-/// ```
-///
-/// ADBC chooses to disallow this (specifically: the second call to
-/// `Execute` must invalidate the result set of the first call),
-/// because generally, existing APIs do not support 'overlapping'
-/// usage of a single prepared statement in this way.

@@ -22,12 +22,12 @@ ADBC C API Specification
 In C, ADBC consists of a self-contained header.  The header is
 reproduced in full here, and is intended to be self-documenting.
 
-From apache/arrow-adbc commit 7866a566f5b7b635267bfb7a87ea49b01dfe89fa_:
+From apache/arrow-adbc commit e88cb46419220786d54887f1b7a2fa086d6a0c30_:
 
 .. literalinclude:: ../../../../format/adbc.h
    :language: c
    :linenos:
    :lineno-match:
-   :lines: 159-1120
+   :lines: 166-1123
 
-.. _7866a566f5b7b635267bfb7a87ea49b01dfe89fa: https://github.com/apache/arrow-adbc/commit/7866a566f5b7b635267bfb7a87ea49b01dfe89fa
+.. _e88cb46419220786d54887f1b7a2fa086d6a0c30: https://github.com/apache/arrow-adbc/commit/e88cb46419220786d54887f1b7a2fa086d6a0c30
