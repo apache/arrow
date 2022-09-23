@@ -254,9 +254,6 @@ Status TestPyBufferNumpyArray() {
   PyObject* arr = arr_ref.obj();
   ASSERT_NE(arr, nullptr);
   auto old_refcnt = Py_REFCNT(arr);
-
-  // ASSERT_OK_AND_ASSIGN(auto buf, PyBuffer::FromPyObject(arr));
-  // ASSERT_OK(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__).status())
   auto buf = std::move(PyBuffer::FromPyObject(arr)).ValueOrDie();
 
   ASSERT_TRUE(buf->is_cpu());
@@ -269,7 +266,6 @@ Status TestPyBufferNumpyArray() {
 
   // Read-only
   PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
-  // ASSERT_OK_AND_ASSIGN(buf, PyBuffer::FromPyObject(arr));
   buf = std::move(PyBuffer::FromPyObject(arr)).ValueOrDie();
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
@@ -311,6 +307,133 @@ Status TestNumPyBufferNumpyArray() {
   return Status::OK();
 }
 #endif
+
+Status TestPythonDecimalToString(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("-39402950693754869342983");
+  PyObject* python_object = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+  ASSERT_NE(python_object, nullptr);
+
+  std::string string_result;
+  ASSERT_OK(internal::PythonDecimalToString(python_object, &string_result));
+
+  return Status::OK();
+}
+
+Status TestInferPrecisionAndScale(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("-394029506937548693.42983");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal));
+
+  const auto expected_precision =
+      static_cast<int32_t>(decimal_string.size() - 2);  // 1 for -, 1 for .
+  const int32_t expected_scale = 5;
+
+  ASSERT_EQ(expected_precision, metadata.precision());
+  ASSERT_EQ(expected_scale, metadata.scale());
+
+  return Status::OK();
+}
+
+Status TestInferPrecisionAndNegativeScale(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("-3.94042983E+10");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal));
+
+  const auto expected_precision = 11;
+  const int32_t expected_scale = 0;
+
+  ASSERT_EQ(expected_precision, metadata.precision());
+  ASSERT_EQ(expected_scale, metadata.scale());
+
+  return Status::OK();
+}
+
+Status TestInferAllLeadingZeros(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("0.001");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal));
+  ASSERT_EQ(3, metadata.precision());
+  ASSERT_EQ(3, metadata.scale());
+
+  return Status::OK();
+}
+
+Status TestInferAllLeadingZerosExponentialNotationPositive(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("0.01E5");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal));
+  ASSERT_EQ(4, metadata.precision());
+  ASSERT_EQ(0, metadata.scale());
+
+  return Status::OK();
+}
+
+Status TestInferAllLeadingZerosExponentialNotationNegative(){
+  OwnedRef decimal_constructor_;
+  OwnedRef decimal_module;
+
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_module));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                           &decimal_constructor_));
+
+  std::string decimal_string("0.01E3");
+  PyObject* python_decimal = internal::DecimalFromString(decimal_constructor_.obj(),
+                                                        decimal_string);
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal));
+  ASSERT_EQ(2, metadata.precision());
+  ASSERT_EQ(0, metadata.scale());
+
+  return Status::OK();
+}
 
 }  // namespace py
 }  // namespace arrow

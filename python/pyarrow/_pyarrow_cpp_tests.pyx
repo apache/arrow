@@ -59,98 +59,24 @@ def test_TestNumPyBufferNumpyArray():
 # endif
 
 
-def test_PythonDecimalToString():
-    cdef:
-        c_string decimal_string = b'-39402950693754869342983'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        c_string string_result
+def test_TestPythonDecimalToString():
+    check_status(TestPythonDecimalToString())
 
-    # Should a check be added here that python_object != nullptr ?
-
-    check_status(PythonDecimalToString(
-        python_object,
-        &string_result)
-    )
-
-    assert string_result == decimal_string
+def test_TestInferPrecisionAndScale():
+    check_status(TestInferPrecisionAndScale())
 
 
-def test_InferPrecisionAndScale():
-    cdef:
-        c_string decimal_string = b'-394029506937548693.42983'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        DecimalMetadata metadata
-        # 1 for -, 1 for .
-        int32_t expected_precision = <int32_t>(decimal_string.size()) - 2
-        int32_t expected_scale = 5
-
-    check_status(metadata.Update(
-        python_object)
-    )
-
-    assert expected_precision == metadata.precision()
-    assert expected_scale == metadata.scale()
-
-
-def test_InferPrecisionAndNegativeScale():
-    cdef:
-        c_string decimal_string = b'-3.94042983E+10'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        DecimalMetadata metadata
-        int32_t expected_precision = 11
-        int32_t expected_scale = 0
-
-    check_status(metadata.Update(
-        python_object)
-    )
-
-    assert expected_precision == metadata.precision()
-    assert expected_scale == metadata.scale()
+def test_TestInferPrecisionAndNegativeScale():
+    check_status(TestInferPrecisionAndNegativeScale())
 
 
 def test_TestInferAllLeadingZeros():
-    cdef:
-        c_string decimal_string = b'0.001'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        DecimalMetadata metadata
-        int32_t expected_precision = 3
-        int32_t expected_scale = 3
-
-    check_status(metadata.Update(
-        python_object)
-    )
-
-    assert expected_precision == metadata.precision()
-    assert expected_scale == metadata.scale()
+    check_status(TestInferAllLeadingZeros())
 
 
 def test_TestInferAllLeadingZerosExponentialNotationPositive():
-    cdef:
-        c_string decimal_string = b'0.01E5'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        DecimalMetadata metadata
-        int32_t expected_precision = 4
-        int32_t expected_scale = 0
-
-    check_status(metadata.Update(
-        python_object)
-    )
-
-    assert expected_precision == metadata.precision()
-    assert expected_scale == metadata.scale()
+    check_status(TestInferAllLeadingZerosExponentialNotationPositive())
 
 
 def test_TestInferAllLeadingZerosExponentialNotationNegative():
-    cdef:
-        c_string decimal_string = b'0.01E3'
-        PyObject* python_object = DecimalFromString(<PyObject*>Decimal, decimal_string)
-        DecimalMetadata metadata
-        int32_t expected_precision = 2
-        int32_t expected_scale = 0
-
-    check_status(metadata.Update(
-        python_object)
-    )
-
-    assert expected_precision == metadata.precision()
-    assert expected_scale == metadata.scale()
+    check_status(TestInferAllLeadingZerosExponentialNotationNegative())

@@ -19,27 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (c_string, CStatus)
-
-cdef extern from "arrow/python/decimal.h" namespace "arrow::py::internal" nogil:
-
-    PyObject* DecimalFromString(
-        PyObject* decimal_constructor,
-        const c_string& decimal_string)
-
-    CStatus PythonDecimalToString(
-        PyObject* python_decimal,
-        c_string* out)
-
-    cdef cppclass DecimalMetadata:
-        DecimalMetadata()
-        DecimalMetadata(int32_t precision, int32_t scale)
-
-        CStatus Update(int32_t suggested_precision, int32_t suggested_scale)
-        CStatus Update(PyObject* object)
-
-        int32_t precision()
-        int32_t scale()
+from pyarrow.includes.libarrow cimport CStatus
 
 cdef extern from "arrow/python/python_test.h" namespace "arrow::py" nogil:
 
@@ -54,3 +34,10 @@ cdef extern from "arrow/python/python_test.h" namespace "arrow::py" nogil:
     CStatus TestPyBufferNumpyArray()
     CStatus TestNumPyBufferNumpyArray()
     # endif
+
+    CStatus TestPythonDecimalToString()
+    CStatus TestInferPrecisionAndScale()
+    CStatus TestInferPrecisionAndNegativeScale()
+    CStatus TestInferAllLeadingZeros()
+    CStatus TestInferAllLeadingZerosExponentialNotationPositive()
+    CStatus TestInferAllLeadingZerosExponentialNotationNegative()

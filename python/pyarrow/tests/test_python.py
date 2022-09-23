@@ -75,15 +75,15 @@ def test_numpy_buffer_numpy_array():
 
 
 def test_python_decimal_to_string():
-    t.test_PythonDecimalToString()
+    t.test_TestPythonDecimalToString()
 
 
 def test_infer_precision_and_scale():
-    t.test_InferPrecisionAndScale()
+    t.test_TestInferPrecisionAndScale()
 
 
 def test_infer_precision_and_negative_scale():
-    t.test_InferPrecisionAndNegativeScale()
+    t.test_TestInferPrecisionAndNegativeScale()
 
 
 def test_infer_all_leading_zeros():

@@ -49,5 +49,23 @@ ARROW_PYTHON_EXPORT
 Status TestNumPyBufferNumpyArray();
 #endif
 
+ARROW_PYTHON_EXPORT
+Status TestPythonDecimalToString();
+
+ARROW_PYTHON_EXPORT
+Status TestInferPrecisionAndScale();
+
+ARROW_PYTHON_EXPORT
+Status TestInferPrecisionAndNegativeScale();
+
+ARROW_PYTHON_EXPORT
+Status TestInferAllLeadingZeros();
+
+ARROW_PYTHON_EXPORT
+Status TestInferAllLeadingZerosExponentialNotationPositive();
+
+ARROW_PYTHON_EXPORT
+Status TestInferAllLeadingZerosExponentialNotationNegative();
+
 }  // namespace py
 }  // namespace arrow
