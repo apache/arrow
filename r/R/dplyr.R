@@ -82,7 +82,10 @@ arrow_dplyr_query <- function(.data) {
       arrange_vars = list(),
       # arrange_desc will be a logical vector indicating the sort order for each
       # expression in arrange_vars (FALSE for ascending, TRUE for descending)
-      arrange_desc = logical()
+      arrange_desc = logical(),
+      # is_dataset will be a boolean indicating whether the original data is a
+      # Dataset and is used by add_filename() to work out if usage is valid
+      is_dataset = inherits(.data, "Dataset")
     ),
     class = "arrow_dplyr_query"
   )

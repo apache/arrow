@@ -28,7 +28,16 @@
 #'   mutate(file = add_filename())
 #' }
 #' @keywords internal
-add_filename <- function() Expression$field_ref("__filename")
+add_filename <- function(){
+
+  # this currently never works because if we look at the value of
+  # `caller_env(n = 2)$x` here it's an object of class FileSystemDataset (query)
+  # even with a Table, e.g. arrow_table(tibble::tibble(x = 1:3)) %>% mutate(file = add_filename())
+  if (!caller_env(n = 2)$x$is_dataset) {
+    abort("`add_filename()` must only be called on Dataset objects.")
+  }
+  Expression$field_ref("__filename")
+}
 
 register_bindings_augmented <- function() {
   register_binding("arrow::add_filename", add_filename)
