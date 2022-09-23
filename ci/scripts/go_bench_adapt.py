@@ -60,9 +60,10 @@ class GoAdapter(BenchmarkAdapter):
                     batch_id=batch_id,
                     stats={
                         "data": [data],
-                        "units": "b/s",
-                        "times": [time],
-                        "times_unit": "i/s",
+                        "unit": "b/s",
+                        "time": [time],
+                        "time_unit": "i/s",
+                        "iterations": benchmark["Runs"],
                     },
                     context={
                         "benchmark_language": "Go",
