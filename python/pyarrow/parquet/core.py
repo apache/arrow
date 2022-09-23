@@ -2363,7 +2363,7 @@ class _ParquetDatasetV2:
 
         self._filter_expression = None
         if filters is not None:
-            self._filter_expression = _filters_to_expression(filters)
+            self._filter_expression = filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
