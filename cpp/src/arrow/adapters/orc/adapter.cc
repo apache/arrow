@@ -723,17 +723,15 @@ class ORCFileWriter::Impl {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
     write_options_ = write_options;
-    writer_already_inited = false;
     return Status::OK();
   }
 
   Status Write(const Table& table) {
-    if (!writer_already_inited) {
-      ARROW_ASSIGN_OR_RAISE(auto orc_schema_, GetOrcType(*(table.schema())));
+    if (!writer_.get()) {
+      ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(table.schema())));
       ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
       ORC_CATCH_NOT_OK(
           writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
-      writer_already_inited = true;
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
     int64_t num_rows = table.num_rows();
@@ -770,7 +768,6 @@ class ORCFileWriter::Impl {
   std::unique_ptr<liborc::OutputStream> out_stream_;
   WriteOptions write_options_;
   ORC_UNIQUE_PTR<liborc::Type> orc_schema_;
-  bool writer_already_inited;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
