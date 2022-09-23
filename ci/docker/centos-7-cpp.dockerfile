@@ -41,7 +41,7 @@ COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV PATH=/opt/cmake-${cmake}/bin:$PATH \
-    CC=/usr/bin/gcc \
-    CXX=/usr/bin/g++ \
+    CC=/opt/rh/devtoolset-8/root/usr/bin/cc \
+    CXX=/opt/rh/devtoolset-8/root/usr/bin/c++ \
     EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX" \
-    ARROW_R_DEV=TRUE \
+    ARROW_R_DEV=TRUE 

@@ -442,9 +442,7 @@ services:
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
     command: /bin/bash -c " 
-          scl enable devtoolset-8 bash && 
-          cd /arrow && 
-          r/inst/build_arrow_static.sh"
+          scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
