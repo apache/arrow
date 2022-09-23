@@ -192,7 +192,7 @@ def filters_to_expression(filters):
 
 _filters_to_expression = _deprecate_api(
     "_filters_to_expression", "filters_to_expression",
-    filters_to_expression, "10.0.0")
+    filters_to_expression, "10.0.0", DeprecationWarning)
 
 
 # ----------------------------------------------------------------------
