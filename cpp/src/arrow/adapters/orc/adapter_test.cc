@@ -46,18 +46,18 @@ constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
 constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
 constexpr int64_t kNanoMax = std::numeric_limits<int64_t>::max();
 constexpr int64_t kNanoMin = std::numeric_limits<int64_t>::lowest();
-const int64_t kMicroMax = std::floor(kNanoMax / 1000);
-const int64_t kMicroMin = std::ceil(kNanoMin / 1000);
-const int64_t kMilliMax = std::floor(kMicroMax / 1000);
-const int64_t kMilliMin = std::ceil(kMicroMin / 1000);
-const int64_t kSecondMax = std::floor(kMilliMax / 1000);
-const int64_t kSecondMin = std::ceil(kMilliMin / 1000);
+const int64_t kMicroMax = static_cast<int>std::floor(kNanoMax / 10(00));
+const int64_t kMicroMin = static_cast<int>(std::ceil(kNanoMin / 1000));
+const int64_t kMilliMax = static_cast<int>(std::floor(kMicroMax / 1000));
+const int64_t kMilliMin = static_cast<int>(std::ceil(kMicroMin / 1000));
+const int64_t kSecondMax = static_cast<int>(std::floor(kMilliMax / 1000));
+const int64_t kSecondMin = static_cast<int>(std::ceil(kMilliMin / 1000))s;
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 class MemoryOutputStream : public liborc::OutputStream {
  public:
-  explicit MemoryOutputStream(ssize_t capacity)
+  explicit MemoryOutputStream(size_t capacity)
       : data_(capacity), name_("MemoryOutputStream"), length_(0) {}
 
   uint64_t getLength() const override { return length_; }
@@ -86,12 +86,13 @@ class MemoryOutputStream : public liborc::OutputStream {
 std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
                                                       int64_t length) {
   BufferBuilder builder;
-  int32_t offsets[length];
+  std::vector<int32_t> offsets;
+  offsets.resize(length);
   ARROW_EXPECT_OK(builder.Resize(4 * length));
   for (int32_t i = 0; i < length; i++) {
     offsets[i] = fixed_length * i;
   }
-  ARROW_EXPECT_OK(builder.Append(offsets, 4 * length));
+  ARROW_EXPECT_OK(builder.Append(offsets.data(), 4 * length));
   std::shared_ptr<Buffer> buffer;
   ARROW_EXPECT_OK(builder.Finish(&buffer));
   return buffer;
