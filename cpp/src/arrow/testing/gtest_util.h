@@ -349,7 +349,7 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
 // This is useful to force the underlying "value" of null entries to otherwise
 // invalid data and check that errors don't get reported.
 ARROW_TESTING_EXPORT
-[[nodiscard]] std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
                                         int64_t index, bool validity);
 
 ARROW_TESTING_EXPORT
