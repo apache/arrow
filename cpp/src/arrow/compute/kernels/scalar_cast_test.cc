@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -2210,7 +2211,8 @@ TEST(Cast, ListToListOptionsPassthru) {
 }
 
 static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,
-                          const std::string& json_data) {
+                          const std::string& json_data,
+                          const std::string& tweaked_val_bit_string) {
   for (const auto& src_value_type : value_types) {
     for (const auto& dest_value_type : value_types) {
       const auto src_type = fixed_size_list(src_value_type, 2);
@@ -2219,6 +2221,9 @@ static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_ty
                          ", dest_type = ", dest_type->ToString());
       auto src_array = ArrayFromJSON(src_type, json_data);
       CheckCast(src_array, ArrayFromJSON(dest_type, json_data));
+
+      auto tweaked_array = TweakValidityBit(src_array, 1, false);
+      CheckCast(tweaked_array, ArrayFromJSON(dest_type, tweaked_val_bit_string));
 
       // Invalid fixed_size_list cast.
       const auto incorrect_dest_type = fixed_size_list(dest_value_type, 3);
@@ -2231,11 +2236,13 @@ static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_ty
 }
 
 TEST(Cast, FSLToFSL) {
-  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5], null]");
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [null, 5], null]",
+                /*tweaked_val_bit_string=*/"[[0, 1], null, [null, 5], null]");
 }
 
 TEST(Cast, FSLToFSLNoNulls) {
-  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [4, 5]]");
+  CheckFSLToFSL({int32(), float32(), int64()}, "[[0, 1], [2, 3], [4, 5]]",
+                /*tweaked_val_bit_string=*/"[[0, 1], null, [4, 5]]");
 }
 
 TEST(Cast, FSLToFSLOptionsPassThru) {
