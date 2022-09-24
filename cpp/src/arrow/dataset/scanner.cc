@@ -422,8 +422,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-  plan->SetUseLegacyBatching(use_legacy_batching);
+  compute::QueryOptions query_options;
+  query_options.use_legacy_batching = true;
+
+  ARROW_ASSIGN_OR_RAISE(auto plan,
+                        compute::ExecPlan::Make(query_options, exec_context.get()));
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;

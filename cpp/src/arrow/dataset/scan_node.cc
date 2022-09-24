@@ -163,8 +163,9 @@ class ScanNode : public cp::ExecNode {
                                     const cp::ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "ScanNode"));
     const auto& scan_options = checked_cast<const ScanV2Options&>(options);
-    ARROW_ASSIGN_OR_RAISE(ScanV2Options normalized_options,
-                          NormalizeAndValidate(scan_options, plan->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(
+        ScanV2Options normalized_options,
+        NormalizeAndValidate(scan_options, plan->query_context()->exec_context()));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
                           OutputSchemaFromOptions(normalized_options));
     return plan->EmplaceNode<ScanNode>(plan, std::move(normalized_options),
@@ -216,7 +217,7 @@ class ScanNode : public cp::ExecNode {
           compute::ExecBatch evolved_batch,
           scan_->fragment_evolution->EvolveBatch(batch, node_->options_.columns,
                                                  scan_->scan_request.columns));
-      return node_->plan_->ScheduleTask(
+      return node_->plan_->query_context()->ScheduleTask(
           [node = node_, evolved_batch = std::move(evolved_batch)] {
             node->outputs_[0]->InputReceived(node, std::move(evolved_batch));
             return Status::OK();
@@ -312,7 +313,7 @@ class ScanNode : public cp::ExecNode {
   void ScanFragments(const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
     std::shared_ptr<util::AsyncTaskScheduler> fragment_tasks =
         util::MakeThrottledAsyncTaskGroup(
-            plan_->async_scheduler(), options_.fragment_readahead + 1,
+            plan_->query_context()->async_scheduler(), options_.fragment_readahead + 1,
             /*queue=*/nullptr, [this]() {
               outputs_[0]->InputFinished(this, num_batches_.load());
               finished_.MarkFinished();

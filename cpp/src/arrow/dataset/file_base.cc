@@ -401,7 +401,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     ARROW_ASSIGN_OR_RAISE(
         dataset_writer_,
         internal::DatasetWriter::Make(
-            write_options_, plan->async_scheduler(),
+            write_options_, plan->query_context()->async_scheduler(),
             [backpressure_control] { backpressure_control->Pause(); },
             [backpressure_control] { backpressure_control->Resume(); }, [] {}));
     return Status::OK();
@@ -516,10 +516,11 @@ class TeeNode : public compute::MapNode {
         write_options_(std::move(write_options)) {}
 
   Status StartProducing() override {
-    ARROW_ASSIGN_OR_RAISE(dataset_writer_, internal::DatasetWriter::Make(
-                                               write_options_, plan_->async_scheduler(),
-                                               [this] { Pause(); }, [this] { Resume(); },
-                                               [this] { MapNode::Finish(); }));
+    ARROW_ASSIGN_OR_RAISE(
+        dataset_writer_,
+        internal::DatasetWriter::Make(
+            write_options_, plan_->query_context()->async_scheduler(),
+            [this] { Pause(); }, [this] { Resume(); }, [this] { MapNode::Finish(); }));
     return MapNode::StartProducing();
   }
 
