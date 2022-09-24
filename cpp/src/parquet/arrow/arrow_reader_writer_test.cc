@@ -2467,6 +2467,70 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   }
 }
 
+TEST(TestArrowReadWrite, ReadShouldNotRetainRam) {
+  const int num_rows = 1024;
+  const int row_group_size = 512;
+  const int num_columns = 2;
+  const MemoryPool* memory_pool = default_memory_pool();
+
+  std::shared_ptr<FileReader> arrow_reader;
+  {
+    std::shared_ptr<Table> table;
+    ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(
+        std::move(table), row_group_size, default_arrow_writer_properties(), &buffer));
+    auto parquet_reader =
+        ParquetFileReader::Open(std::make_shared<BufferReader>(std::move(buffer)));
+    ArrowReaderProperties properties = default_arrow_reader_properties();
+    properties.set_pre_buffer(true);
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(parquet_reader),
+                               std::move(properties), &reader));
+    arrow_reader = std::move(reader);
+  }
+
+  const std::vector<int> groups = {0, 1};
+  const std::vector<int> columns = {0, 1};
+  const int64_t prev_mem = memory_pool->bytes_allocated();
+  int64_t file_size = 0;
+  {
+    ASSERT_OK_AND_ASSIGN(auto batch_generator, arrow_reader->GetRecordBatchGenerator(
+                                                   arrow_reader, groups, columns));
+    auto future_batches = ::arrow::CollectAsyncGenerator(batch_generator).result();
+    ASSERT_OK_AND_ASSIGN(auto batches, std::move(future_batches));
+    file_size = memory_pool->bytes_allocated() - prev_mem;
+  }
+
+  const int64_t prev_total_mem = memory_pool->bytes_allocated();
+  int64_t total_mem = 0;
+  {
+    ASSERT_OK_AND_ASSIGN(auto batch_generator, arrow_reader->GetRecordBatchGenerator(
+                                                   arrow_reader, groups, columns));
+
+    int64_t prev_mem = memory_pool->bytes_allocated();
+    auto fut1 = batch_generator();
+    const int64_t mem_part1 = memory_pool->bytes_allocated() - prev_mem;
+    // We will get the full content loaded because the use of concatenation
+    ASSERT_EQ(mem_part1, file_size);
+
+    prev_mem = memory_pool->bytes_allocated();
+    auto fut2 = batch_generator();
+    const int64_t mem_part2 = memory_pool->bytes_allocated() - prev_mem;
+    // We don't need more RAM because we already have the full content loaded
+    ASSERT_EQ(mem_part2, 0);
+
+    prev_mem = memory_pool->bytes_allocated();
+    auto fut3 = batch_generator();
+    ASSERT_EQ(memory_pool->bytes_allocated() - prev_mem, 0);
+
+    total_mem = memory_pool->bytes_allocated() - prev_total_mem;
+  }
+  // We don't keep the RAM either after reading the entire file
+  ASSERT_EQ(prev_total_mem, memory_pool->bytes_allocated());
+  ASSERT_EQ(total_mem, file_size);
+}
+
 TEST(TestArrowReadWrite, ScanContents) {
   const int num_columns = 20;
   const int num_rows = 1000;

@@ -36,6 +36,7 @@
 #include "arrow/io/slow.h"
 #include "arrow/io/transform.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -765,6 +766,38 @@ TEST(RangeReadCache, Basics) {
     ASSERT_FINISHES_OK(cache.Wait());
     // 8 ranges should lead to less than 8 reads
     ASSERT_LT(file->read_count(), 8);
+  }
+}
+
+TEST(RangeReadCache, ShouldRetainRam) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  CacheOptions options = CacheOptions::Defaults();
+
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    options.lazy = lazy;
+    options.range_size_limit = 2;
+    options.hole_size_limit = 0;
+    std::shared_ptr<Buffer> data_buffer = std::make_shared<Buffer>(data);
+    auto file = std::make_shared<BufferReader>(data_buffer);
+    ProxyMemoryPool pool(default_memory_pool());
+    IOContext ctx(&pool);
+    internal::ReadRangeCache cache(file, ctx, options);
+
+    // The test reference and file's reference
+    ASSERT_EQ(2, data_buffer.use_count());
+
+    ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {5, 2}}));
+    ASSERT_FINISHES_OK(cache.Wait());
+    // Each cache entry should have a reference to the data buffer
+    ASSERT_EQ(5, data_buffer.use_count());
+
+    ASSERT_OK(cache.Read({1, 2}));
+    ASSERT_OK(cache.Read({3, 2}));
+    ASSERT_OK(cache.Read({5, 2}));
+    // Once the cache entries are read they should release their buffer reference
+    ASSERT_EQ(5, data_buffer.use_count());
   }
 }
 
