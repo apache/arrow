@@ -431,7 +431,7 @@ class MockFileSystem::Impl {
 MockFileSystem::~MockFileSystem() = default;
 
 MockFileSystem::MockFileSystem(TimePoint current_time, const io::IOContext& io_context) {
-  impl_ = std::unique_ptr<Impl>(new Impl(current_time, io_context.pool()));
+  impl_ = std::make_unique<Impl>(current_time, io_context.pool());
 }
 
 bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }

@@ -696,14 +696,12 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {
-  return std::shared_ptr<PartitioningFactory>(
-      new DirectoryPartitioningFactory(std::move(field_names), options));
+  return std::make_shared<DirectoryPartitioningFactory>(std::move(field_names), options);
 }
 
 std::shared_ptr<PartitioningFactory> FilenamePartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {
-  return std::shared_ptr<PartitioningFactory>(
-      new FilenamePartitioningFactory(std::move(field_names), options));
+  return std::make_shared<FilenamePartitioningFactory>(std::move(field_names), options);
 }
 
 bool FilenamePartitioning::Equals(const Partitioning& other) const {
@@ -851,7 +849,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
 
 std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
     HivePartitioningFactoryOptions options) {
-  return std::shared_ptr<PartitioningFactory>(new HivePartitioningFactory(options));
+  return std::make_shared<HivePartitioningFactory>(options);
 }
 
 std::string StripPrefix(const std::string& path, const std::string& prefix) {

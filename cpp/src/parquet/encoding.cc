@@ -2651,19 +2651,19 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int32Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int32Type>>(descr, pool);
       case Type::INT64:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int64Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int64Type>>(descr, pool);
       case Type::INT96:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<Int96Type>(descr, pool));
+        return std::make_unique<DictEncoderImpl<Int96Type>>(descr, pool);
       case Type::FLOAT:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<FloatType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<DoubleType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<DoubleType>>(descr, pool);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<ByteArrayType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<ByteArrayType>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new DictEncoderImpl<FLBAType>(descr, pool));
+        return std::make_unique<DictEncoderImpl<FLBAType>>(descr, pool);
       default:
         DCHECK(false) << "Encoder not implemented";
         break;
@@ -2671,21 +2671,21 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::PLAIN) {
     switch (type_num) {
       case Type::BOOLEAN:
-        return std::unique_ptr<Encoder>(new PlainEncoder<BooleanType>(descr, pool));
+        return std::make_unique<PlainEncoder<BooleanType>>(descr, pool);
       case Type::INT32:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int32Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int32Type>>(descr, pool);
       case Type::INT64:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int64Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int64Type>>(descr, pool);
       case Type::INT96:
-        return std::unique_ptr<Encoder>(new PlainEncoder<Int96Type>(descr, pool));
+        return std::make_unique<PlainEncoder<Int96Type>>(descr, pool);
       case Type::FLOAT:
-        return std::unique_ptr<Encoder>(new PlainEncoder<FloatType>(descr, pool));
+        return std::make_unique<PlainEncoder<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::unique_ptr<Encoder>(new PlainEncoder<DoubleType>(descr, pool));
+        return std::make_unique<PlainEncoder<DoubleType>>(descr, pool);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new PlainEncoder<ByteArrayType>(descr, pool));
+        return std::make_unique<PlainEncoder<ByteArrayType>>(descr, pool);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Encoder>(new PlainEncoder<FLBAType>(descr, pool));
+        return std::make_unique<PlainEncoder<FLBAType>>(descr, pool);
       default:
         DCHECK(false) << "Encoder not implemented";
         break;
@@ -2714,30 +2714,30 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   if (encoding == Encoding::PLAIN) {
     switch (type_num) {
       case Type::BOOLEAN:
-        return std::unique_ptr<Decoder>(new PlainBooleanDecoder(descr));
+        return std::make_unique<PlainBooleanDecoder>(descr);
       case Type::INT32:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int32Type>(descr));
+        return std::make_unique<PlainDecoder<Int32Type>>(descr);
       case Type::INT64:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int64Type>(descr));
+        return std::make_unique<PlainDecoder<Int64Type>>(descr);
       case Type::INT96:
-        return std::unique_ptr<Decoder>(new PlainDecoder<Int96Type>(descr));
+        return std::make_unique<PlainDecoder<Int96Type>>(descr);
       case Type::FLOAT:
-        return std::unique_ptr<Decoder>(new PlainDecoder<FloatType>(descr));
+        return std::make_unique<PlainDecoder<FloatType>>(descr);
       case Type::DOUBLE:
-        return std::unique_ptr<Decoder>(new PlainDecoder<DoubleType>(descr));
+        return std::make_unique<PlainDecoder<DoubleType>>(descr);
       case Type::BYTE_ARRAY:
-        return std::unique_ptr<Decoder>(new PlainByteArrayDecoder(descr));
+        return std::make_unique<PlainByteArrayDecoder>(descr);
       case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::unique_ptr<Decoder>(new PlainFLBADecoder(descr));
+        return std::make_unique<PlainFLBADecoder>(descr);
       default:
         break;
     }
   } else if (encoding == Encoding::BYTE_STREAM_SPLIT) {
     switch (type_num) {
       case Type::FLOAT:
-        return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<FloatType>(descr));
+        return std::make_unique<ByteStreamSplitDecoder<FloatType>>(descr);
       case Type::DOUBLE:
-        return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<DoubleType>(descr));
+        return std::make_unique<ByteStreamSplitDecoder<DoubleType>>(descr);
       default:
         throw ParquetException("BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE");
         break;
@@ -2745,21 +2745,21 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {
       case Type::INT32:
-        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int32Type>(descr));
+        return std::make_unique<DeltaBitPackDecoder<Int32Type>>(descr);
       case Type::INT64:
-        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int64Type>(descr));
+        return std::make_unique<DeltaBitPackDecoder<Int64Type>>(descr);
       default:
         throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
         break;
     }
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::unique_ptr<Decoder>(new DeltaByteArrayDecoder(descr));
+      return std::make_unique<DeltaByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::unique_ptr<Decoder>(new DeltaLengthByteArrayDecoder(descr));
+      return std::make_unique<DeltaLengthByteArrayDecoder>(descr);
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else {
@@ -2777,19 +2777,19 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::BOOLEAN:
       ParquetException::NYI("Dictionary encoding not implemented for boolean type");
     case Type::INT32:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int32Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int32Type>>(descr, pool);
     case Type::INT64:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int64Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int64Type>>(descr, pool);
     case Type::INT96:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<Int96Type>(descr, pool));
+      return std::make_unique<DictDecoderImpl<Int96Type>>(descr, pool);
     case Type::FLOAT:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<FloatType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<FloatType>>(descr, pool);
     case Type::DOUBLE:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<DoubleType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<DoubleType>>(descr, pool);
     case Type::BYTE_ARRAY:
-      return std::unique_ptr<Decoder>(new DictByteArrayDecoderImpl(descr, pool));
+      return std::make_unique<DictByteArrayDecoderImpl>(descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::unique_ptr<Decoder>(new DictDecoderImpl<FLBAType>(descr, pool));
+      return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
     default:
       break;
   }

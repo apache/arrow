@@ -136,7 +136,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSQLiteQuery(
   std::shared_ptr<SqliteStatementBatchReader> reader;
   ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement, schema));
 
-  return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+  return std::make_unique<RecordBatchStream>(reader);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
@@ -145,7 +145,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
 
-  return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+  return std::make_unique<FlightInfo>(result);
 }
 
 std::string PrepareQueryForGetImportedOrExportedKeys(const std::string& filter) {
@@ -320,7 +320,7 @@ class SQLiteFlightSqlServer::Impl {
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
 
-    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    return std::make_unique<FlightInfo>(result);
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetStatement(
@@ -336,7 +336,7 @@ class SQLiteFlightSqlServer::Impl {
     std::shared_ptr<SqliteStatementBatchReader> reader;
     ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement));
 
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoCatalogs(
@@ -358,7 +358,7 @@ class SQLiteFlightSqlServer::Impl {
 
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
 
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSchemas(
@@ -383,7 +383,7 @@ class SQLiteFlightSqlServer::Impl {
 
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
 
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTables(
@@ -399,7 +399,7 @@ class SQLiteFlightSqlServer::Impl {
                                         : *SqlSchema::GetTablesSchema(),
                          descriptor, endpoints, -1, -1))
 
-    return std::unique_ptr<FlightInfo>(new FlightInfo(result));
+    return std::make_unique<FlightInfo>(result);
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
@@ -416,10 +416,9 @@ class SQLiteFlightSqlServer::Impl {
     if (command.include_schema) {
       std::shared_ptr<SqliteTablesWithSchemaBatchReader> table_schema_reader =
           std::make_shared<SqliteTablesWithSchemaBatchReader>(reader, query, db_);
-      return std::unique_ptr<FlightDataStream>(
-          new RecordBatchStream(table_schema_reader));
+      return std::make_unique<RecordBatchStream>(table_schema_reader);
     } else {
-      return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+      return std::make_unique<RecordBatchStream>(reader);
     }
   }
 
@@ -516,7 +515,7 @@ class SQLiteFlightSqlServer::Impl {
     std::shared_ptr<SqliteStatementBatchReader> reader;
     ARROW_ASSIGN_OR_RAISE(reader, SqliteStatementBatchReader::Create(statement));
 
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   Status DoPutPreparedStatementQuery(const ServerCallContext& context,
@@ -571,7 +570,7 @@ class SQLiteFlightSqlServer::Impl {
                                       : DoGetTypeInfoResult();
 
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
-    return std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    return std::make_unique<RecordBatchStream>(reader);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoPrimaryKeys(

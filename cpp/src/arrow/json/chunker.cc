@@ -177,7 +177,7 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   } else {
     delimiter = MakeNewlineBoundaryFinder();
   }
-  return std::unique_ptr<Chunker>(new Chunker(std::move(delimiter)));
+  return std::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace json
