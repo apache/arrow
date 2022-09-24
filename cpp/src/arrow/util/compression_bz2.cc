@@ -279,7 +279,7 @@ class BZ2Codec : public Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
-  return std::unique_ptr<Codec>(new BZ2Codec(compression_level));
+  return std::make_unique<BZ2Codec>(compression_level);
 }
 
 }  // namespace internal

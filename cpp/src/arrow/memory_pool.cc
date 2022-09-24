@@ -878,7 +878,7 @@ class PoolBuffer final : public ResizableBuffer {
     } else {
       mm = CPUDevice::memory_manager(pool);
     }
-    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+    return std::make_unique<PoolBuffer>(std::move(mm), pool);
   }
 
  private:

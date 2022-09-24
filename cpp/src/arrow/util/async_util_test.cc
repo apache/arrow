@@ -437,7 +437,7 @@ TEST(AsyncTaskScheduler, Priority) {
   constexpr int kNumConcurrentTasks = 8;
   std::unique_ptr<AsyncTaskScheduler::Throttle> throttle =
       AsyncTaskScheduler::MakeThrottle(kNumConcurrentTasks);
-  std::unique_ptr<AsyncTaskScheduler> task_group =
+  auto task_group =
       AsyncTaskScheduler::Make(throttle.get(), std::make_unique<PriorityQueue>());
 
   std::shared_ptr<GatingTask> gate = GatingTask::Make();
