@@ -3821,19 +3821,18 @@ TEST(Substrait, SetRelationBasic) {
       [20, 2, 70],
       [30, 3, 30],
       [40, 4, 20],
-      [40, 5, 40],
-      [20, 6, 20],
-      [30, 7, 30]
+      [50, 6, 20],
+      [200, 7, 30]
   ])"});
 
   auto table2 = TableFromJSON(dummy_schema, {R"([
-      [11, 1, 82],
-      [21, 2, 72],
-      [31, 3, 32],
-      [41, 4, 22],
-      [41, 5, 42],
-      [21, 6, 22],
-      [31, 7, 32]
+      [70, 1, 82],
+      [80, 2, 72],
+      [90, 3, 32],
+      [100, 4, 22],
+      [110, 5, 42],
+      [111, 6, 22],
+      [112, 7, 32]
   ])"});
 
   NamedTableProvider table_provider = [table1,
@@ -3910,24 +3909,25 @@ TEST(Substrait, SetRelationBasic) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   auto expected_table = TableFromJSON(dummy_schema, {R"([
-      [11, 1, 82],
-      [21, 2, 72],
-      [31, 3, 32],
-      [41, 4, 22],
-      [41, 5, 42],
-      [21, 6, 22],
-      [31, 7, 32],
       [10, 1, 80],
       [20, 2, 70],
       [30, 3, 30],
       [40, 4, 20],
-      [40, 5, 40],
-      [20, 6, 20],
-      [30, 7, 30]
+      [50, 6, 20],
+      [70, 1, 82],
+      [80, 2, 72],
+      [90, 3, 32],
+      [100, 4, 22],
+      [110, 5, 42],
+      [111, 6, 22],
+      [112, 7, 32],
+      [200, 7, 30]
   ])"});
 
+  compute::SortOptions sort_options(
+      {compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(dummy_schema, std::move(expected_table), exec_context, buf, {},
-                       conversion_options);
+                       conversion_options, &sort_options);
 }
 
 }  // namespace engine

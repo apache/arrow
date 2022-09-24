@@ -47,6 +47,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -125,15 +126,6 @@ Result<SubstraitCall> DecodeScalarFunction(
     ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
   return std::move(call);
-}
-
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
-  const google::protobuf::EnumValueDescriptor* value_desc =
-      descriptor->FindValueByNumber(value);
-  if (value_desc == nullptr) {
-    return "unknown";
-  }
-  return value_desc->name();
 }
 
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
