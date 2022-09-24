@@ -507,7 +507,7 @@ class FlightTestServer : public FlightServerBase {
 };
 
 std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::make_unique<FlightServerBase>();
+  return std::make_unique<FlightTestServer>();
 }
 
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
