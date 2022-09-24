@@ -3132,7 +3132,6 @@ TEST(Substrait, ReadRelWithGlobFiles) {
                                                "serde_test_3.arrow"};
 
   const std::string path_prefix = "substrait-globfiles-";
-  std::string glob_like_path;
   int idx = 0;
 
   // creating a vector to avoid out-of-scoping Temporary directory
@@ -3142,12 +3141,17 @@ TEST(Substrait, ReadRelWithGlobFiles) {
     ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make(path_prefix));
     tempdirs.push_back(std::move(tempdir));
   }
+
+  std::string sample_tempdir_path = tempdirs[0]->path().ToString();
+  std::string base_tempdir_path =
+      sample_tempdir_path.substr(0, sample_tempdir_path.find(path_prefix));
+  std::string glob_like_path =
+      "file://" + base_tempdir_path + path_prefix + "*/serde_test_*.arrow";
+
   for (const auto& file_name : file_names) {
     ASSERT_OK_AND_ASSIGN(auto file_path, tempdirs[idx]->path().Join(file_name));
     std::string file_path_str = file_path.ToString();
     WriteIpcData(file_path_str, filesystem, input_tables[idx++]);
-    std::string base_path = file_path_str.substr(0, file_path_str.find(path_prefix));
-    glob_like_path = "file://" + base_path + path_prefix + "*/serde_test_*.arrow";
   }
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({

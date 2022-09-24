@@ -24,6 +24,8 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/optional.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
@@ -76,7 +78,7 @@ ARROW_EXPORT
 Status AssertNoTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
-Status AssertLeadingSlash(std::string_view s);
+bool HasLeadingSlash(std::string_view s);
 
 ARROW_EXPORT
 bool IsAncestorOf(std::string_view ancestor, std::string_view descendant);
