@@ -33,7 +33,8 @@ install_dir=${build_dir}/cpp-install
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
-: ${ARROW_ORC:=ON}
+# We can enable this after ARROW-17817 is resolved.
+: ${ARROW_ORC:=OFF}
 export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_S3:=ON}
@@ -115,5 +116,4 @@ pushd ${dist_dir}
 #   --allow libz \
 #   libarrow_cdata_jni.dll \
 #   libarrow_dataset_jni.dll \
-#   libarrow_orc_jni.dll
 popd
