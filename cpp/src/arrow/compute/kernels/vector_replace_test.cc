@@ -26,7 +26,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
@@ -157,7 +158,7 @@ class TestReplaceKernel : public ::testing::Test {
       const typename TypeTraits<T>::ArrayType& array, const BooleanArray& mask,
       const typename TypeTraits<T>::ArrayType& replacements) {
     auto length = array.length();
-    auto builder = arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
+    auto builder = std::make_unique<typename TypeTraits<T>::BuilderType>(
         default_type_instance<T>(), default_memory_pool());
     int64_t replacement_offset = 0;
     for (int64_t i = 0; i < length; ++i) {

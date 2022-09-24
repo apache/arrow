@@ -126,23 +126,19 @@ Future<> DiscardAllFromAsyncGenerator(AsyncGenerator<T> generator) {
 template <typename T>
 Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   auto vec = std::make_shared<std::vector<T>>();
-  struct LoopBody {
-    Future<ControlFlow<std::vector<T>>> operator()() {
-      auto next = generator_();
-      auto vec = vec_;
-      return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
-        if (IsIterationEnd(result)) {
-          return Break(*vec);
-        } else {
-          vec->push_back(result);
-          return Continue();
-        }
-      });
-    }
-    AsyncGenerator<T> generator_;
-    std::shared_ptr<std::vector<T>> vec_;
+  auto loop_body = [generator = std::move(generator),
+                    vec = std::move(vec)]() -> Future<ControlFlow<std::vector<T>>> {
+    auto next = generator();
+    return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
+      if (IsIterationEnd(result)) {
+        return Break(*vec);
+      } else {
+        vec->push_back(result);
+        return Continue();
+      }
+    });
   };
-  return Loop(LoopBody{std::move(generator), std::move(vec)});
+  return Loop(std::move(loop_body));
 }
 
 /// \see MakeMappedGenerator
@@ -273,13 +269,10 @@ template <typename T, typename MapFn,
           typename Mapped = detail::result_of_t<MapFn(const T&)>,
           typename V = typename EnsureFuture<Mapped>::type::ValueType>
 AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
-  struct MapCallback {
-    MapFn map_;
-
-    Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
+  auto map_callback = [map = std::move(map)](const T& val) mutable -> Future<V> {
+    return ToFuture(map(val));
   };
-
-  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
+  return MappingGenerator<T, V>(std::move(source_generator), std::move(map_callback));
 }
 
 /// \brief Create a generator that will apply the map function to

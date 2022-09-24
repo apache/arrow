@@ -26,9 +26,8 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
-env:
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+permissions:
+  contents: read
 
 jobs:
 
@@ -48,12 +47,18 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ubuntu-lint
 

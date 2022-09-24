@@ -46,7 +46,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_type_inline.h"
 
 #include "generated/feather_generated.h"
@@ -54,7 +53,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::make_unique;
 
 class ExtensionType;
 

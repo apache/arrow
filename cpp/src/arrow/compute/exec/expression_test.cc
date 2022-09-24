@@ -30,7 +30,6 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/make_unique.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -242,7 +241,7 @@ class WidgetifyOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const WidgetifyOptions&>(options);
-    return arrow::internal::make_unique<WidgetifyOptions>(opts.really);
+    return std::make_unique<WidgetifyOptions>(opts.really);
   }
 };
 WidgetifyOptions::WidgetifyOptions(bool really)

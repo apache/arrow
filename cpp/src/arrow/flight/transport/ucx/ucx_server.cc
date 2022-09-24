@@ -18,6 +18,7 @@
 #include "arrow/flight/transport/ucx/ucx_internal.h"
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -35,7 +36,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/uri.h"
 
@@ -609,7 +609,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
 
 std::unique_ptr<arrow::flight::internal::ServerTransport> MakeUcxServerImpl(
     FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
-  return arrow::internal::make_unique<UcxServerImpl>(base, memory_manager);
+  return std::make_unique<UcxServerImpl>(base, memory_manager);
 }
 
 #undef SERVER_RETURN_NOT_OK

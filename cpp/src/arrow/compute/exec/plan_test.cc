@@ -35,7 +35,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -1317,7 +1316,7 @@ TEST(ExecPlanExecution, SelfInnerHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -1374,7 +1373,7 @@ TEST(ExecPlanExecution, SelfOuterHashJoinSink) {
 
     auto input = MakeGroupableBatches();
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));

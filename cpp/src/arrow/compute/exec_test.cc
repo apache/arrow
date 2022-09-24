@@ -43,7 +43,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -883,7 +882,7 @@ class ExampleOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const ExampleOptions&>(options);
-    return arrow::internal::make_unique<ExampleOptions>(opts.value);
+    return std::make_unique<ExampleOptions>(opts.value);
   }
 };
 ExampleOptions::ExampleOptions(std::shared_ptr<Scalar> value)

@@ -33,6 +33,9 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
 
   ubuntu:
@@ -46,7 +49,7 @@ jobs:
         dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -74,7 +77,7 @@ jobs:
         dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -101,7 +104,7 @@ jobs:
         dotnet: ['6.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v2
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow

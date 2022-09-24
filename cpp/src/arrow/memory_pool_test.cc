@@ -180,6 +180,7 @@ TEST(Jemalloc, GetAllocationStats) {
       metadata0, resident0, mapped0, retained0;
   int64_t thread_allocated, thread_deallocated, thread_peak_read, thread_allocated0,
       thread_deallocated0, thread_peak_read0;
+
   MemoryPool* pool = nullptr;
   ABORT_NOT_OK(jemalloc_memory_pool(&pool));
   ASSERT_EQ("jemalloc", pool->backend_name());
@@ -211,14 +212,15 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_OK_AND_ASSIGN(thread_allocated, jemalloc_get_stat("thread.allocated"));
   ASSERT_OK_AND_ASSIGN(thread_deallocated, jemalloc_get_stat("thread.deallocated"));
   ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
+  pool->Free(data, 1023);
 
   // Check allocated stats pre-allocation
-  ASSERT_NEAR(allocated0, 120000, 100000);
-  ASSERT_NEAR(active0, 75000, 70000);
-  ASSERT_NEAR(metadata0, 3000000, 1000000);
-  ASSERT_NEAR(resident0, 3000000, 1000000);
-  ASSERT_NEAR(mapped0, 6500000, 1000000);
-  ASSERT_NEAR(retained0, 1500000, 2000000);
+  ASSERT_GT(allocated0, 0);
+  ASSERT_GT(active0, 0);
+  ASSERT_GT(metadata0, 0);
+  ASSERT_GT(resident0, 0);
+  ASSERT_GT(mapped0, 0);
+  ASSERT_GE(retained0, 0);
 
   // Check allocated stats change due to allocation
   ASSERT_NEAR(allocated - allocated0, 70000, 50000);
@@ -233,13 +235,16 @@ TEST(Jemalloc, GetAllocationStats) {
   ASSERT_EQ(thread_deallocated - thread_deallocated0, 1280);
 
   // Resetting thread peak read metric
-  ASSERT_OK(pool->Allocate(12560, &data));
+  ASSERT_OK(pool->Allocate(100000, &data));
   ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
-  ASSERT_NEAR(thread_peak_read, 15616, 1000);
+  ASSERT_NEAR(thread_peak_read, 100000, 50000);
+  pool->Free(data, 100000);
   ASSERT_OK(jemalloc_peak_reset());
+
   ASSERT_OK(pool->Allocate(1256, &data));
   ASSERT_OK_AND_ASSIGN(thread_peak_read, jemalloc_get_stat("thread.peak.read"));
-  ASSERT_NEAR(thread_peak_read, 1280, 100);
+  ASSERT_NEAR(thread_peak_read, 1256, 100);
+  pool->Free(data, 1256);
 
   // Print statistics to stderr
   ASSERT_OK(jemalloc_stats_print("J"));

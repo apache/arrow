@@ -151,8 +151,8 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     return ToRealConversion<T>::ToReal(*this, scale);
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
-                                               const Decimal128& decimal);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status
@@ -193,7 +193,8 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \endcond
 
   /// \brief constructor creates a Decimal256 from a BasicDecimal256.
-  constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
+  constexpr Decimal256(const BasicDecimal256& value) noexcept  // NOLINT(runtime/explicit)
+      : BasicDecimal256(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal256(const std::string& value);
@@ -266,8 +267,8 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     return ToRealConversion<T>::ToReal(*this, scale);
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
-                                               const Decimal256& decimal);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal256& decimal);
 
  private:
   /// Converts internal error code to Status

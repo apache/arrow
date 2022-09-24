@@ -49,7 +49,6 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -84,7 +83,7 @@ struct GroupedAggregator : KernelState {
 template <typename Impl>
 Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<Impl>();
+  auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
@@ -972,7 +971,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 template <typename T, VarOrStd result_type>
 Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<GroupedVarStdImpl<T>>();
+  auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);

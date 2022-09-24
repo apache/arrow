@@ -102,29 +102,21 @@ class ThreadedTaskGroup : public TaskGroup {
 
       auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
 
-      struct Callable {
-        void operator()() {
-          if (self_->ok_.load(std::memory_order_acquire)) {
-            Status st;
-            if (stop_token_.IsStopRequested()) {
-              st = stop_token_.Poll();
-            } else {
-              // XXX what about exceptions?
-              st = std::move(task_)();
-            }
-            self_->UpdateStatus(std::move(st));
+      auto callable = [self = std::move(self), task = std::move(task),
+                       stop_token = stop_token_]() mutable {
+        if (self->ok_.load(std::memory_order_acquire)) {
+          Status st;
+          if (stop_token.IsStopRequested()) {
+            st = stop_token.Poll();
+          } else {
+            // XXX what about exceptions?
+            st = std::move(task)();
           }
-          self_->OneTaskDone();
+          self->UpdateStatus(std::move(st));
         }
-
-        std::shared_ptr<ThreadedTaskGroup> self_;
-        FnOnce<Status()> task_;
-        StopToken stop_token_;
+        self->OneTaskDone();
       };
-
-      Status st =
-          executor_->Spawn(Callable{std::move(self), std::move(task), stop_token_});
-      UpdateStatus(std::move(st));
+      UpdateStatus(executor_->Spawn(std::move(callable)));
     }
   }
 
