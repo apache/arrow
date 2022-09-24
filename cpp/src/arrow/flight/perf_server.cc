@@ -228,7 +228,7 @@ class FlightPerfServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     if (action.type == "ping") {
       std::shared_ptr<Buffer> buf = Buffer::FromString("ok");
-      *result = std::make_unique<SimpleResultStream>({Result{buf}});
+      *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
       return Status::OK();
     }
     return Status::NotImplemented(action.type);
