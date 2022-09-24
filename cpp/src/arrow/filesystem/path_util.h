@@ -24,8 +24,6 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {

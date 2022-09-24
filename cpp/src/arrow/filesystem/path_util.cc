@@ -150,7 +150,7 @@ Status AssertNoTrailingSlash(std::string_view key) {
   return Status::OK();
 }
 
-bool HasLeadingSlash(util::string_view key) {
+bool HasLeadingSlash(std::string_view key) {
   if (key.front() != '/') {
     return false;
   }
