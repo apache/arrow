@@ -3078,7 +3078,7 @@ TEST(Substrait, AggregateRelEmit) {
                        buf, {}, conversion_options);
 }
 
-TEST(Substrait, IsthmustPlan) {
+TEST(Substrait, IsthmusPlan) {
   // This is a plan generated from Isthmus
   // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
   //
