@@ -381,7 +381,12 @@ User-Defined Functions
 PyArrow allows defining and registering custom compute functions.
 These functions can then be called from Python as well as C++ (and potentially
 any other implementation wrapping Arrow C++, such as the R ``arrow`` package)
-using their registered function name.
+using their registered function name. 
+
+UDF support is limited to scalar functions. A scalar function is a function which
+executes elementwise operations on arrays or scalars. In general, the output of a
+scalar function do not depend on the order of values in the arguments. Note that 
+such functions have a rough correspondence to the functions used in SQL expressions.
 
 To register a UDF, a function name, function docs, input types and
 output type need to be defined. Using :func:`pyarrow.compute.register_scalar_function`,
@@ -409,15 +414,15 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
    output_type = pa.int64()
 
    def to_np(val):
-      if isinstance(val, pa.Scalar):
-         return val.as_py()
-      else:
-         return np.array(val)
+       if isinstance(val, pa.Scalar):
+          return val.as_py()
+       else:
+          return np.array(val)
 
    def gcd_numpy(ctx, x, y):
-      np_x = to_np(x)
-      np_y = to_np(y)
-      return pa.array(np.gcd(np_x, np_y))
+       np_x = to_np(x)
+       np_y = to_np(y)
+       return pa.array(np.gcd(np_x, np_y))
 
    pc.register_scalar_function(gcd_numpy,
                               function_name,
@@ -432,10 +437,6 @@ parameter (named ``ctx`` in the example above) which is an instance of
 This context exposes several useful attributes, particularly a
 :attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
 allocations in the context of the user-defined function.
-
-PyArrow UDFs accept input types of both :class:`~pyarrow.Scalar` and :class:`~pyarrow.Array`,
-and there will always be at least one input of type :class:`~pyarrow.Array`.
-The output should always be a :class:`~pyarrow.Array`.
 
 You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
 
@@ -465,8 +466,7 @@ the GCD of one column with the scalar value 30.  We will be re-using the
 .. code-block:: python
 
    >>> import pyarrow.dataset as ds
-   >>> sample_data = {'category': ['A', 'B', 'C', 'D'], 'value': [90, 630, 1827, 2709]}
-   >>> data_table = pa.Table.from_pydict(sample_data)
+   >>> data_table = pa.table({'category': ['A', 'B', 'C', 'D'], 'value': [90, 630, 1827, 2709]})
    >>> dataset = ds.dataset(data_table)
    >>> func_args = [pc.scalar(30), ds.field("value")]
    >>> dataset.to_table(
