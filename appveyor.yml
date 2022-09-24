@@ -49,7 +49,8 @@ environment:
     ARCH: "64"
     ARROW_BUILD_FLIGHT: "ON"
     ARROW_BUILD_FLIGHT_SQL: "ON"
-    ARROW_BUILD_GANDIVA: "ON"
+    # ARROW-17830 Temporarily disable Gandiva on Appveyor due to a bug in Conda's packaging of LLVM.
+    ARROW_BUILD_GANDIVA: "OFF"
     ARROW_GCS: "ON"
     ARROW_S3: "ON"
     GENERATOR: Ninja
