@@ -1028,6 +1028,16 @@ TEST(Cast, DecimalToFloating) {
   // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
 }
 
+TEST(Cast, DecimalToString) {
+  // TODO: qhoang
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
+      CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
+                ArrayFromJSON(string_type, R"(["0.00", null, "123.45", "999.99"])"));
+    }
+  }
+}
+
 TEST(Cast, TimestampToTimestamp) {
   struct TimestampTypePair {
     std::shared_ptr<DataType> coarse, fine;
@@ -1888,6 +1898,32 @@ TEST(Cast, StringToInt) {
 TEST(Cast, StringToFloating) {
   for (auto string_type : {utf8(), large_utf8()}) {
     for (auto float_type : {float32(), float64()}) {
+      auto strings =
+          ArrayFromJSON(string_type, R"(["0.1", null, "127.3", "1e3", "200.4", "0.5"])");
+      auto floats = ArrayFromJSON(float_type, "[0.1, null, 127.3, 1000, 200.4, 0.5]");
+      CheckCast(strings, floats);
+
+      for (std::string not_float : {
+               "z",
+           }) {
+        auto options = CastOptions::Safe(float32());
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_float + "\"]"), options);
+      }
+
+#if !defined(_WIN32) || defined(NDEBUG)
+      // Test that casting is locale-independent
+      // French locale uses the comma as decimal point
+      LocaleGuard locale_guard("fr_FR.UTF-8");
+      CheckCast(strings, floats);
+#endif
+    }
+  }
+}
+
+TEST(Cast, StringToDecimal) {
+  // TODO: qhoang
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto float_type : {decimal128(5, 2), decimal256(5, 2)}) {
       auto strings =
           ArrayFromJSON(string_type, R"(["0.1", null, "127.3", "1e3", "200.4", "0.5"])");
       auto floats = ArrayFromJSON(float_type, "[0.1, null, 127.3, 1000, 200.4, 0.5]");
