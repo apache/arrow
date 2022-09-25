@@ -386,7 +386,7 @@ TEST(FunctionExecutor, Basics) {
     auto out_data = out->array_data();
     Int32Builder builder;
     for (int64_t i = 0; i < args.length; i++) {
-      builder.Append(vals[0][i] + vals[1][i]);
+      ARROW_RETURN_NOT_OK(builder.Append(vals[0][i] + vals[1][i]));
     }
     ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
     *out_data.get() = *array->data();
@@ -404,7 +404,7 @@ TEST(FunctionExecutor, Basics) {
   ASSERT_TRUE(init_called);
   auto build_array = [](int32_t i) -> Result<Datum> {
     Int32Builder builder;
-    builder.Append(i);
+    ARROW_RETURN_NOT_OK(builder.Append(i));
     ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
     return Datum(array->data());
   };
