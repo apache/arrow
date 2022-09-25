@@ -74,16 +74,7 @@ endif()
 
 if(LLVM_FOUND)
   # Find the libraries that correspond to the LLVM components
-  llvm_map_components_to_libnames(LLVM_LIBS
-                                  core
-                                  mcjit
-                                  native
-                                  ipo
-                                  bitreader
-                                  target
-                                  linker
-                                  analysis
-                                  debuginfodwarf)
+  llvm_map_components_to_libnames(LLVM_LIBS mcjit native ipo)
 
   find_program(LLVM_LINK_EXECUTABLE llvm-link HINTS ${LLVM_TOOLS_BINARY_DIR})
 
