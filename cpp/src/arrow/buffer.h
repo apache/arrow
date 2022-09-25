@@ -21,14 +21,15 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/device.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/bytes_view.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -77,7 +78,7 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The memory viewed by data must not be deallocated in the lifetime of the
   /// Buffer; temporary rvalue strings must be stored in an lvalue somewhere
-  explicit Buffer(util::string_view data)
+  explicit Buffer(std::string_view data)
       : Buffer(reinterpret_cast<const uint8_t*>(data.data()),
                static_cast<int64_t>(data.size())) {}
 
@@ -159,10 +160,10 @@ class ARROW_EXPORT Buffer {
   /// \note Can throw std::bad_alloc if buffer is large
   std::string ToString() const;
 
-  /// \brief View buffer contents as a util::string_view
-  /// \return util::string_view
-  explicit operator util::string_view() const {
-    return util::string_view(reinterpret_cast<const char*>(data_), size_);
+  /// \brief View buffer contents as a std::string_view
+  /// \return std::string_view
+  explicit operator std::string_view() const {
+    return std::string_view(reinterpret_cast<const char*>(data_), size_);
   }
 
   /// \brief View buffer contents as a util::bytes_view

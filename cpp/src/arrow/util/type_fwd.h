@@ -54,6 +54,7 @@ struct Compression {
 };
 
 namespace util {
+class AsyncTaskScheduler;
 class Compressor;
 class Decompressor;
 class Codec;

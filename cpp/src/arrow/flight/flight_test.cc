@@ -38,7 +38,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
@@ -279,8 +278,8 @@ class AuthTestServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result) override {
     auto buf = Buffer::FromString(context.peer_identity());
     auto peer = Buffer::FromString(context.peer());
-    *result = std::unique_ptr<ResultStream>(
-        new SimpleResultStream({Result{buf}, Result{peer}}));
+    *result = std::make_unique<SimpleResultStream>(
+        std::vector<Result>{Result{buf}, Result{peer}});
     return Status::OK();
   }
 };
@@ -289,7 +288,7 @@ class TlsTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
     auto buf = Buffer::FromString("Hello, world!");
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status::OK();
   }
 };
@@ -308,8 +307,8 @@ class TestAuthHandler : public ::testing::Test {
     ASSERT_OK(MakeServer<AuthTestServer>(
         &server_, &client_,
         [](FlightServerOptions* options) {
-          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
-              new TestServerAuthHandler("user", "p4ssw0rd"));
+          options->auth_handler =
+              std::make_unique<TestServerAuthHandler>("user", "p4ssw0rd");
           return Status::OK();
         },
         [](FlightClientOptions* options) { return Status::OK(); }));
@@ -331,8 +330,8 @@ class TestBasicAuthHandler : public ::testing::Test {
     ASSERT_OK(MakeServer<AuthTestServer>(
         &server_, &client_,
         [](FlightServerOptions* options) {
-          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
-              new TestServerBasicAuthHandler("user", "p4ssw0rd"));
+          options->auth_handler =
+              std::make_unique<TestServerBasicAuthHandler>("user", "p4ssw0rd");
           return Status::OK();
         },
         [](FlightClientOptions* options) { return Status::OK(); }));
@@ -463,7 +462,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
     }
     return Status::OK();
@@ -484,7 +483,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
   if (iter == incoming_headers.end()) {
     return "";
   }
-  const std::string val = iter->second.to_string();
+  const std::string val(iter->second);
   if (val.size() > prefix.length()) {
     if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
                    char_compare)) {
@@ -608,8 +607,8 @@ class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     recorded_calls_.push_back(info.method);
-    *middleware = arrow::internal::make_unique<PropagatingClientMiddleware>(
-        &received_headers_, &recorded_status_);
+    *middleware = std::make_unique<PropagatingClientMiddleware>(&received_headers_,
+                                                                &recorded_status_);
   }
 
   void Reset() {
@@ -633,7 +632,7 @@ class ReportContextTestServer : public FlightServerBase {
     } else {
       buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
     }
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status::OK();
   }
 };
@@ -646,7 +645,7 @@ class ErrorMiddlewareServer : public FlightServerBase {
 
     std::shared_ptr<FlightStatusDetail> flightStatusDetail(
         new FlightStatusDetail(FlightStatusCode::Failed, msg));
-    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    *result = std::make_unique<SimpleResultStream>(std::vector<Result>{Result{buf}});
     return Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
   }
 };
@@ -773,8 +772,8 @@ class TestPropagatingMiddleware : public ::testing::Test {
   void CheckHeader(const std::string& header, const std::string& value,
                    const CallHeaders::const_iterator& it) {
     // Construct a string_view before comparison to satisfy MSVC
-    util::string_view header_view(header.data(), header.length());
-    util::string_view value_view(value.data(), value.length());
+    std::string_view header_view(header.data(), header.length());
+    std::string_view value_view(value.data(), value.length());
     ASSERT_EQ(header_view, (*it).first);
     ASSERT_EQ(value_view, (*it).second);
   }
@@ -816,8 +815,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     ASSERT_OK(MakeServer<HeaderAuthTestServer>(
         &server_, &client_,
         [&](FlightServerOptions* options) {
-          options->auth_handler =
-              std::unique_ptr<ServerAuthHandler>(new NoOpAuthHandler());
+          options->auth_handler = std::make_unique<NoOpAuthHandler>();
           options->middleware.push_back({"header-auth-server", header_middleware_});
           options->middleware.push_back({"bearer-auth-server", bearer_middleware_});
           return Status::OK();
@@ -1031,8 +1029,7 @@ TEST_F(TestFlightClient, Close) {
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   ASSERT_OK(client_->Authenticate(
-      {},
-      std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
+      {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   Status status;
   status = client_->ListFlights().status();
@@ -1102,8 +1099,7 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
 
 TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(client_->Authenticate(
-      {},
-      std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
+      {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   Action action;
   action.type = "who-am-i";
@@ -1129,9 +1125,8 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {
-  ASSERT_OK(
-      client_->Authenticate({}, std::unique_ptr<ClientAuthHandler>(
-                                    new TestClientBasicAuthHandler("user", "p4ssw0rd"))));
+  ASSERT_OK(client_->Authenticate(
+      {}, std::make_unique<TestClientBasicAuthHandler>("user", "p4ssw0rd")));
 
   Status status;
   status = client_->ListFlights().status();
@@ -1197,9 +1192,8 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
 }
 
 TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
-  ASSERT_OK(
-      client_->Authenticate({}, std::unique_ptr<ClientAuthHandler>(
-                                    new TestClientBasicAuthHandler("user", "p4ssw0rd"))));
+  ASSERT_OK(client_->Authenticate(
+      {}, std::make_unique<TestClientBasicAuthHandler>("user", "p4ssw0rd")));
 
   Action action;
   action.type = "who-am-i";
@@ -1393,14 +1387,14 @@ TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth
 class ForeverFlightListing : public FlightListing {
   arrow::Result<std::unique_ptr<FlightInfo>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    return arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
+    return std::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
   }
 };
 
 class ForeverResultStream : public ResultStream {
   arrow::Result<std::unique_ptr<Result>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto result = arrow::internal::make_unique<Result>();
+    auto result = std::make_unique<Result>();
     result->body = Buffer::FromString("foo");
     return result;
   }
@@ -1435,12 +1429,12 @@ class CancelTestServer : public FlightServerBase {
  public:
   Status ListFlights(const ServerCallContext&, const Criteria*,
                      std::unique_ptr<FlightListing>* listings) override {
-    *listings = arrow::internal::make_unique<ForeverFlightListing>();
+    *listings = std::make_unique<ForeverFlightListing>();
     return Status::OK();
   }
   Status DoAction(const ServerCallContext&, const Action&,
                   std::unique_ptr<ResultStream>* result) override {
-    *result = arrow::internal::make_unique<ForeverResultStream>();
+    *result = std::make_unique<ForeverResultStream>();
     return Status::OK();
   }
   Status ListActions(const ServerCallContext&,
@@ -1450,7 +1444,7 @@ class CancelTestServer : public FlightServerBase {
   }
   Status DoGet(const ServerCallContext&, const Ticket&,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    *data_stream = arrow::internal::make_unique<ForeverDataStream>();
+    *data_stream = std::make_unique<ForeverDataStream>();
     return Status::OK();
   }
 };

@@ -17,7 +17,7 @@
 // Package parquet provides an implementation of Apache Parquet for Go.
 //
 // Apache Parquet is an open-source columnar data storage format using the record
-// shredding and assembly algorithm to accomodate complex data structures which
+// shredding and assembly algorithm to accommodate complex data structures which
 // can then be used to efficiently store the data.
 //
 // This implementation is a native go implementation for reading and writing the

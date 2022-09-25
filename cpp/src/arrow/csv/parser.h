@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -28,7 +29,6 @@
 #include "arrow/csv/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -169,23 +169,23 @@ class ARROW_EXPORT BlockParser {
   ///
   /// Parse a block of CSV data, ingesting up to max_num_rows rows.
   /// The number of bytes actually parsed is returned in out_size.
-  Status Parse(util::string_view data, uint32_t* out_size);
+  Status Parse(std::string_view data, uint32_t* out_size);
 
   /// \brief Parse sequential blocks of data
   ///
   /// Only the last block is allowed to be truncated.
-  Status Parse(const std::vector<util::string_view>& data, uint32_t* out_size);
+  Status Parse(const std::vector<std::string_view>& data, uint32_t* out_size);
 
   /// \brief Parse the final block of data
   ///
   /// Like Parse(), but called with the final block in a file.
   /// The last row may lack a trailing line separator.
-  Status ParseFinal(util::string_view data, uint32_t* out_size);
+  Status ParseFinal(std::string_view data, uint32_t* out_size);
 
   /// \brief Parse the final sequential blocks of data
   ///
   /// Only the last block is allowed to be truncated.
-  Status ParseFinal(const std::vector<util::string_view>& data, uint32_t* out_size);
+  Status ParseFinal(const std::vector<std::string_view>& data, uint32_t* out_size);
 
   /// \brief Return the number of parsed rows
   int32_t num_rows() const { return parsed_batch().num_rows(); }

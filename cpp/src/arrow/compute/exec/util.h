@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -33,7 +34,6 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -246,7 +246,7 @@ class ARROW_EXPORT AtomicCounter {
 
   int count() const { return count_.load(); }
 
-  util::optional<int> total() const {
+  std::optional<int> total() const {
     int total = total_.load();
     if (total == -1) return {};
     return total;

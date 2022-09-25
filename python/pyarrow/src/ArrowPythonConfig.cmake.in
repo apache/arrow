@@ -37,3 +37,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
 arrow_keep_backward_compatibility(ArrowPython arrow_python)
 
 check_required_components(ArrowPython)
+
+arrow_show_details(ArrowPython ARROW_PYTHON)

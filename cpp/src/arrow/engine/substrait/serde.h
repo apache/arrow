@@ -20,21 +20,36 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace engine {
+
+/// \brief Serialize an Acero Plan to a binary protobuf Substrait message
+///
+/// \param[in] declaration the Acero declaration to serialize.
+/// This declaration is the sink relation of the Acero plan.
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
+ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<Buffer>> SerializePlan(
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.
@@ -202,6 +217,17 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
     const compute::Expression& expr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
+/// \brief Serialize an Acero Declaration to a binary protobuf Substrait message
+///
+/// \param[in] declaration the Acero declaration to serialize
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
+
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait
@@ -227,7 +253,7 @@ namespace internal {
 /// \param[in] r_buf buffer containing the second protobuf serialization to compare
 /// \return success if equivalent, failure if not
 ARROW_ENGINE_EXPORT
-Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_buf,
+Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_buf,
                                const Buffer& r_buf);
 
 /// \brief Utility function to convert a JSON serialization of a Substrait message to
@@ -237,8 +263,8 @@ Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_b
 /// \param[in] json the JSON string to convert
 /// \return a buffer filled with the binary protobuf serialization of message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
-                                                  util::string_view json);
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
+                                                  std::string_view json);
 
 /// \brief Utility function to convert a binary protobuf serialization of a Substrait
 /// message to JSON
@@ -247,7 +273,7 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
 /// \param[in] buf the buffer containing the binary protobuf serialization of the message
 /// \return a JSON string representing the message
 ARROW_ENGINE_EXPORT
-Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf);
+Result<std::string> SubstraitToJSON(std::string_view type_name, const Buffer& buf);
 
 }  // namespace internal
 }  // namespace engine

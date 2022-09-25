@@ -136,7 +136,7 @@
                 <configuration>
                     <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
                     </protocArtifact>
-                    <protoSourceRoot>../../cpp/src/gandiva/proto</protoSourceRoot>
+                    <protoSourceRoot>proto</protoSourceRoot>
                 </configuration>
                 <executions>
                     <execution>

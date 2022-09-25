@@ -539,4 +539,15 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
   ASSERT_RAISES(Invalid, Concatenate({fake_long, fake_long}).status());
 }
 
+TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
+  // Regression test for ARROW-17733
+  auto dict_type = dictionary(uint16(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[]", "[]");
+  auto dict_two =
+      DictArrayFromJSON(dict_type, "[0, 1, null, null, null, null]", "[\"A0\", \"A1\"]");
+  ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+
+  AssertArraysEqual(*dict_two, *concat_actual);
+}
+
 }  // namespace arrow

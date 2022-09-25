@@ -60,14 +60,14 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
                                " function needs to be an integer literal to indicate "
                                "whether to suppress the error");
       }
-      suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
+      suppress_errors = std::get<int>(literal_suppress_errors->holder());
     }
 
     return Make(suppress_errors, holder);
   }
 
   static Status Make(int32_t suppress_errors, std::shared_ptr<INTERVAL_TYPE>* holder) {
-    auto lholder = std::shared_ptr<INTERVAL_TYPE>(new INTERVAL_TYPE(suppress_errors));
+    auto lholder = std::make_shared<INTERVAL_TYPE>(suppress_errors);
 
     *holder = lholder;
     return Status::OK();

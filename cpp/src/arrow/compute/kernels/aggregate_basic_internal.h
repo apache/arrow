@@ -360,7 +360,7 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
     return *this;
   }
 
-  void MergeOne(util::string_view value) {
+  void MergeOne(std::string_view value) {
     MergeOne(T(reinterpret_cast<const uint8_t*>(value.data())));
   }
 
@@ -398,14 +398,14 @@ struct MinMaxState<ArrowType, SimdLevel,
     return *this;
   }
 
-  void MergeOne(util::string_view value) {
+  void MergeOne(std::string_view value) {
     if (!seen) {
       this->min = std::string(value);
       this->max = std::string(value);
     } else {
-      if (value < util::string_view(this->min)) {
+      if (value < std::string_view(this->min)) {
         this->min = std::string(value);
-      } else if (value > util::string_view(this->max)) {
+      } else if (value > std::string_view(this->max)) {
         this->max = std::string(value);
       }
     }

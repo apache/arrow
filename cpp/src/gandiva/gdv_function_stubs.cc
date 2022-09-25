@@ -120,7 +120,7 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   }
   gandiva::InHolder<std::string>* holder =
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
-  return holder->HasValue(arrow::util::string_view(data, data_len));
+  return holder->HasValue(std::string_view(data, data_len));
 }
 
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
@@ -205,8 +205,7 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
     return "";
   }
   // use arrow method to encode base64 string
-  std::string encoded_str =
-      arrow::util::base64_encode(arrow::util::string_view(in, in_len));
+  std::string encoded_str = arrow::util::base64_encode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(encoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -233,8 +232,7 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str =
-      arrow::util::base64_decode(arrow::util::string_view(in, in_len));
+  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(

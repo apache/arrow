@@ -41,3 +41,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ParquetTargets.cmake")
 arrow_keep_backward_compatibility(Parquet parquet)
 
 check_required_components(Parquet)
+
+arrow_show_details(Parquet PARQUET)

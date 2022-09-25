@@ -76,7 +76,6 @@
   "lubridate::yday" = "day_of_year",
   "lubridate::year" = "year",
   "lubridate::leap_year" = "is_leap_year"
-
 )
 
 .binary_function_map <- list(
@@ -158,13 +157,9 @@ Expression <- R6Class("Expression",
       compute___expr__type_id(self, schema)
     },
     cast = function(to_type, safe = TRUE, ...) {
-      opts <- list(
-        to_type = to_type,
-        allow_int_overflow = !safe,
-        allow_time_truncate = !safe,
-        allow_float_truncate = !safe
-      )
-      Expression$create("cast", self, options = modifyList(opts, list(...)))
+      opts <- cast_options(safe, ...)
+      opts$to_type <- as_type(to_type)
+      Expression$create("cast", self, options = opts)
     }
   ),
   active = list(

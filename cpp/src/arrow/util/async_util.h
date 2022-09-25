@@ -21,8 +21,9 @@
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/mutex.h"
+
+#include <memory>
 
 namespace arrow {
 
@@ -140,7 +141,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
     /// acquired and the caller can proceed.  If a future is returned then the caller
     /// should wait for the future to complete first.  When the returned future completes
     /// the permits have NOT been acquired and the caller must call Acquire again
-    virtual util::optional<Future<>> TryAcquire(int amt) = 0;
+    virtual std::optional<Future<>> TryAcquire(int amt) = 0;
     /// Release amt permits
     ///
     /// This will possibly complete waiting futures and should probably not be
@@ -186,8 +187,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
 
   template <typename Callable>
   bool AddSimpleTask(Callable callable) {
-    return AddTask(
-        ::arrow::internal::make_unique<SimpleTask<Callable>>(std::move(callable)));
+    return AddTask(std::make_unique<SimpleTask<Callable>>(std::move(callable)));
   }
   /// Signal that tasks are done being added
   ///

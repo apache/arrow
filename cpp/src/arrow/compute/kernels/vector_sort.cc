@@ -20,6 +20,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <type_traits>
 #include <unordered_set>
@@ -36,7 +37,6 @@
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/optional.h"
 #include "arrow/visit_type_inline.h"
 #include "arrow/visitor.h"
 

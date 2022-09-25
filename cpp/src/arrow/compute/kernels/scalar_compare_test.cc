@@ -42,7 +42,7 @@ using internal::BitmapReader;
 
 namespace compute {
 
-using util::string_view;
+using std::string_view;
 
 template <typename ArrowType>
 static void ValidateCompare(CompareOptions options, const Datum& lhs, const Datum& rhs,
@@ -136,7 +136,7 @@ Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& 
                                            const Datum& rhs) {
   bool swap = lhs.is_array();
   auto array = std::static_pointer_cast<StringArray>((swap ? lhs : rhs).make_array());
-  auto value = util::string_view(
+  auto value = std::string_view(
       *std::static_pointer_cast<StringScalar>((swap ? rhs : lhs).scalar())->value);
 
   std::vector<bool> bitmap(array->length());

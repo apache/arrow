@@ -135,7 +135,7 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a varbinary type
   uint32_t* mutable_offsets() {
     DCHECK(!metadata_.is_fixed_length);
-    DCHECK(metadata_.fixed_length == sizeof(uint32_t));
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<uint32_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the offsets buffer
@@ -143,7 +143,7 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a varbinary type
   const uint32_t* offsets() const {
     DCHECK(!metadata_.is_fixed_length);
-    DCHECK(metadata_.fixed_length == sizeof(uint32_t));
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<const uint32_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return a mutable version of the large-offsets buffer
@@ -151,7 +151,7 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a large varbinary type
   uint64_t* mutable_large_offsets() {
     DCHECK(!metadata_.is_fixed_length);
-    DCHECK(metadata_.fixed_length == sizeof(uint64_t));
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
     return reinterpret_cast<uint64_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the large-offsets buffer
@@ -159,7 +159,7 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a large varbinary type
   const uint64_t* large_offsets() const {
     DCHECK(!metadata_.is_fixed_length);
-    DCHECK(metadata_.fixed_length == sizeof(uint64_t));
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
     return reinterpret_cast<const uint64_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return the type metadata
@@ -204,6 +204,17 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 /// \see ColumnMetadataFromDataType for details
 ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
+
+/// \brief Create KeyColumnArray from ArrayData and KeyColumnMetadata
+///
+/// If `type` is a dictionary type then this will return the KeyColumnArray for
+/// the indices array
+///
+/// The caller should ensure this is only called on "key" columns.
+/// \see ColumnMetadataFromDataType for details
+ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+    const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
+    int64_t start_row, int64_t num_rows);
 
 /// \brief Create KeyColumnMetadata instances from an ExecBatch
 ///

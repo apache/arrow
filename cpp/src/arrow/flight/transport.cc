@@ -17,6 +17,7 @@
 
 #include "arrow/flight/transport.h"
 
+#include <memory>
 #include <sstream>
 #include <unordered_map>
 
@@ -26,7 +27,6 @@
 #include "arrow/ipc/message.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace flight {
@@ -135,7 +135,7 @@ class TransportRegistry::Impl final {
   std::unordered_map<std::string, TransportRegistry::ServerFactory> server_factories_;
 };
 
-TransportRegistry::TransportRegistry() { impl_ = arrow::internal::make_unique<Impl>(); }
+TransportRegistry::TransportRegistry() { impl_ = std::make_unique<Impl>(); }
 TransportRegistry::~TransportRegistry() = default;
 arrow::Result<std::unique_ptr<ClientTransport>> TransportRegistry::MakeClient(
     const std::string& scheme) const {
@@ -299,9 +299,9 @@ Status TransportStatus::ToStatus() const {
 }
 
 Status ReconstructStatus(const std::string& code_str, const Status& current_status,
-                         util::optional<std::string> message,
-                         util::optional<std::string> detail_message,
-                         util::optional<std::string> detail_bin,
+                         std::optional<std::string> message,
+                         std::optional<std::string> detail_message,
+                         std::optional<std::string> detail_bin,
                          std::shared_ptr<FlightStatusDetail> detail) {
   // Bounce through std::string to get a proper null-terminated C string
   StatusCode status_code = current_status.code();

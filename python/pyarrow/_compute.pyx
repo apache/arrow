@@ -2613,7 +2613,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         raise TypeError(
             "in_types must be a dictionary of DataType")
 
-    c_arity = CArity(num_args, func_spec.varargs)
+    c_arity = CArity(<int> num_args, func_spec.varargs)
 
     if "summary" not in function_doc:
         raise ValueError("Function doc must contain a summary")

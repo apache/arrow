@@ -31,7 +31,6 @@
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -170,7 +169,7 @@ class CudaContext::Impl {
           "cuIpcGetMemHandle",
           cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
     }
-    return std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(size, &cu_handle));
+    return std::make_shared<CudaIpcMemHandle>(size, &cu_handle);
   }
 
   Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle, uint8_t** out) {
@@ -248,14 +247,14 @@ std::shared_ptr<MemoryManager> CudaDevice::default_memory_manager() {
 
 Result<std::shared_ptr<CudaContext>> CudaDevice::GetContext() {
   // XXX should we cache a default context in CudaDevice instance?
-  auto context = std::shared_ptr<CudaContext>(new CudaContext());
+  auto context = std::make_shared<CudaContext>();
   auto self = checked_pointer_cast<CudaDevice>(shared_from_this());
   RETURN_NOT_OK(context->impl_->Init(self));
   return context;
 }
 
 Result<std::shared_ptr<CudaContext>> CudaDevice::GetSharedContext(void* handle) {
-  auto context = std::shared_ptr<CudaContext>(new CudaContext());
+  auto context = std::make_shared<CudaContext>();
   auto self = checked_pointer_cast<CudaDevice>(shared_from_this());
   RETURN_NOT_OK(context->impl_->InitShared(self, reinterpret_cast<CUcontext>(handle)));
   return context;
@@ -287,7 +286,7 @@ Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& 
 
 std::shared_ptr<CudaMemoryManager> CudaMemoryManager::Make(
     const std::shared_ptr<Device>& device) {
-  return std::shared_ptr<CudaMemoryManager>(new CudaMemoryManager(device));
+  return std::make_shared<CudaMemoryManager>(device);
 }
 
 std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
@@ -477,7 +476,7 @@ class CudaDeviceManager::Impl {
   Result<std::shared_ptr<CudaDevice>> MakeDevice(int device_number) {
     DeviceProperties props;
     RETURN_NOT_OK(props.Init(device_number));
-    return std::shared_ptr<CudaDevice>(new CudaDevice({std::move(props)}));
+    return std::make_shared<CudaDevice>({std::move(props)});
   }
 
  private:
@@ -542,8 +541,7 @@ CudaContext::~CudaContext() {}
 Result<std::unique_ptr<CudaBuffer>> CudaContext::Allocate(int64_t nbytes) {
   uint8_t* data = nullptr;
   RETURN_NOT_OK(impl_->Allocate(nbytes, &data));
-  return arrow::internal::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(),
-                                                  true);
+  return std::make_unique<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
 }
 
 Result<std::shared_ptr<CudaBuffer>> CudaContext::View(uint8_t* data, int64_t nbytes) {

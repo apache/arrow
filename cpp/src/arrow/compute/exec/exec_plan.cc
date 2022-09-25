@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -25,6 +26,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
@@ -32,8 +34,8 @@
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -339,12 +341,12 @@ const ExecPlanImpl* ToDerived(const ExecPlan* ptr) {
   return checked_cast<const ExecPlanImpl*>(ptr);
 }
 
-util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
-                                 const ExecNode* node) {
+std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
+                                const ExecNode* node) {
   for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
     if (nodes[i] == node) return i;
   }
-  return util::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace
@@ -474,103 +476,9 @@ bool ExecNode::ErrorIfNotOk(Status status) {
   return true;
 }
 
-MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                 std::shared_ptr<Schema> output_schema, bool async_mode)
-    : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
-               std::move(output_schema),
-               /*num_outputs=*/1) {
-  if (async_mode) {
-    executor_ = plan_->exec_context()->executor();
-  } else {
-    executor_ = nullptr;
-  }
-}
-
-void MapNode::ErrorReceived(ExecNode* input, Status error) {
-  DCHECK_EQ(input, inputs_[0]);
-  EVENT(span_, "ErrorReceived", {{"error.message", error.message()}});
-  outputs_[0]->ErrorReceived(this, std::move(error));
-}
-
-void MapNode::InputFinished(ExecNode* input, int total_batches) {
-  DCHECK_EQ(input, inputs_[0]);
-  EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
-  outputs_[0]->InputFinished(this, total_batches);
-  if (input_counter_.SetTotal(total_batches)) {
-    this->Finish();
-  }
-}
-
-Status MapNode::StartProducing() {
-  START_COMPUTE_SPAN(
-      span_, std::string(kind_name()) + ":" + label(),
-      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
-  return Status::OK();
-}
-
-void MapNode::PauseProducing(ExecNode* output, int32_t counter) {
-  inputs_[0]->PauseProducing(this, counter);
-}
-
-void MapNode::ResumeProducing(ExecNode* output, int32_t counter) {
-  inputs_[0]->ResumeProducing(this, counter);
-}
-
-void MapNode::StopProducing(ExecNode* output) {
-  DCHECK_EQ(output, outputs_[0]);
-  StopProducing();
-}
-
-void MapNode::StopProducing() {
-  EVENT(span_, "StopProducing");
-  if (executor_) {
-    this->stop_source_.RequestStop();
-  }
-  if (input_counter_.Cancel()) {
-    this->Finish();
-  }
-  inputs_[0]->StopProducing(this);
-}
-
-void MapNode::SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn,
-                         ExecBatch batch) {
-  Status status;
-  // This will be true if the node is stopped early due to an error or manual
-  // cancellation
-  if (input_counter_.Completed()) {
-    return;
-  }
-  auto task = [this, map_fn, batch]() {
-    auto guarantee = batch.guarantee;
-    auto output_batch = map_fn(std::move(batch));
-    if (ErrorIfNotOk(output_batch.status())) {
-      return output_batch.status();
-    }
-    output_batch->guarantee = guarantee;
-    outputs_[0]->InputReceived(this, output_batch.MoveValueUnsafe());
-    return Status::OK();
-  };
-
-  status = task();
-  if (!status.ok()) {
-    if (input_counter_.Cancel()) {
-      this->Finish(status);
-    }
-    inputs_[0]->StopProducing(this);
-    return;
-  }
-  if (input_counter_.Increment()) {
-    this->Finish();
-  }
-}
-
-void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
-  this->finished_.MarkFinished(finish_st);
-}
-
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema> schema,
-    std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
+    std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,
+    MemoryPool* pool) {
   struct Impl : RecordBatchReader {
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -596,7 +504,7 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
 
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;
-    Iterator<util::optional<ExecBatch>> iterator_;
+    Iterator<std::optional<ExecBatch>> iterator_;
   };
 
   auto out = std::make_shared<Impl>();
@@ -612,12 +520,12 @@ Result<ExecNode*> Declaration::AddToPlan(ExecPlan* plan,
 
   size_t i = 0;
   for (const Input& input : this->inputs) {
-    if (auto node = util::get_if<ExecNode*>(&input)) {
+    if (auto node = std::get_if<ExecNode*>(&input)) {
       inputs[i++] = *node;
       continue;
     }
     ARROW_ASSIGN_OR_RAISE(inputs[i++],
-                          util::get<Declaration>(input).AddToPlan(plan, registry));
+                          std::get<Declaration>(input).AddToPlan(plan, registry));
   }
 
   ARROW_ASSIGN_OR_RAISE(
@@ -638,9 +546,13 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
     decls.pop_back();
 
     receiver->inputs.emplace_back(std::move(input));
-    receiver = &util::get<Declaration>(receiver->inputs.front());
+    receiver = &std::get<Declaration>(receiver->inputs.front());
   }
   return out;
+}
+
+bool Declaration::IsValid(ExecFactoryRegistry* registry) const {
+  return !this->factory_name.empty() && this->options != nullptr;
 }
 
 namespace internal {
@@ -699,12 +611,12 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
     int max_q, int q_restart) {
   auto batch_it = MakeMapIterator(
       [](std::shared_ptr<RecordBatch> batch) {
-        return util::make_optional(ExecBatch(*batch));
+        return std::make_optional(ExecBatch(*batch));
       },
       MakeIteratorFromReader(reader));
 
