@@ -31,7 +31,6 @@
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
