@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "benchmark/benchmark.h"
 #include "gandiva/decimal_type_util.h"
@@ -271,9 +272,8 @@ static void TimedTestOutputStringAllocs(benchmark::State& state) {
   FastUtf8DataGenerator data_generator(64);
   ProjectEvaluator evaluator(projector);
 
-  auto status = TimedEvaluate<arrow::StringType, std::string>(
-      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state);
-  ASSERT_TRUE(status.ok());
+  ASSERT_OK((TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool_, 1 * MILLION, 16 * THOUSAND, state)));
 }
 // following two tests are for benchmark optimization of
 // in expr. will be used in follow-up PRs to optimize in expr.
