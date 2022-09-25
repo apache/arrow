@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
@@ -33,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -307,7 +309,7 @@ TEST(ScalarAggregateFunction, Basics) {
 }
 
 Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitArgs&) {
-  return nullptr;
+  return NULLPTR;
 }
 
 Status NoopConsume(KernelContext*, const ExecSpan&) { return Status::OK(); }
@@ -349,6 +351,73 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   dispatch_args[0] = {float64()};
   ASSERT_OK_AND_ASSIGN(selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
+}
+
+TEST(FunctionExecutor, Basics) {
+  VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
+  bool init_called = false;
+  ExecContext exec_ctx;
+  struct TestFunctionOptions : public FunctionOptions {
+    TestFunctionOptions() : FunctionOptions(NULLPTR) {}
+  } options;
+  auto init =
+      [&init_called, &exec_ctx, &options](
+          KernelContext* kernel_ctx,
+          const KernelInitArgs& init_args) -> Result<std::unique_ptr<KernelState>> {
+    init_called = true;
+    if (&exec_ctx != kernel_ctx->exec_context()) {
+      return Status::Invalid("expected exec context not found in kernel context");
+    }
+    if (&options != init_args.options) {
+      return Status::Invalid("expected options not found in kernel init args");
+    }
+    return NULLPTR;
+  };
+  auto exec = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) {
+    DCHECK_EQ(2, args.values.size());
+    const int32_t* vals[2];
+    for (size_t i = 0; i < 2; i++) {
+      DCHECK(args.values[i].is_array());
+      const ArraySpan& array = args.values[i].array;
+      DCHECK_EQ(*int32(), *array.type);
+      vals[i] = array.GetValues<int32_t>(1);
+    }
+    DCHECK(out->is_array_data());
+    auto out_data = out->array_data();
+    Int32Builder builder;
+    for (int64_t i = 0; i < args.length; i++) {
+      builder.Append(vals[0][i] + vals[1][i]);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    *out_data.get() = *array->data();
+    return Status::OK();
+  };
+  std::vector<InputType> in_types = {int32(), int32()};
+  OutputType out_type = int32();
+  ASSERT_OK(func.AddKernel(in_types, out_type, exec, init));
+  ASSERT_OK_AND_ASSIGN(const Kernel* dispatched, func.DispatchExact({int32(), int32()}));
+  ASSERT_EQ(exec, static_cast<const ScalarKernel*>(dispatched)->exec);
+  std::vector<TypeHolder> inputs = {int32(), int32()};
+  ASSERT_OK_AND_ASSIGN(auto func_exec, func.GetBestExecutor(inputs));
+  ASSERT_FALSE(init_called);
+  ASSERT_OK(func_exec->Init(&options, &exec_ctx));
+  ASSERT_TRUE(init_called);
+  auto build_array = [](int32_t i) -> Result<Datum> {
+    Int32Builder builder;
+    builder.Append(i);
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    return Datum(array->data());
+  };
+  for (int32_t i = 1; i <= 3; i++) {
+    ASSERT_OK_AND_ASSIGN(auto value0, build_array(i));
+    ASSERT_OK_AND_ASSIGN(auto value1, build_array(i + 1));
+    std::vector<Datum> values = {value0, value1};
+    ASSERT_OK_AND_ASSIGN(auto result, func_exec->Execute(values, 1));
+    ASSERT_TRUE(result.is_array());
+    auto int32_data = dynamic_cast<const ArrayData*>(result.array().get());
+    ASSERT_NE(NULLPTR, int32_data);
+    EXPECT_EQ(2 * i + 1, int32_data->GetValues<int32_t>(1)[0]);
+  }
 }
 
 }  // namespace compute

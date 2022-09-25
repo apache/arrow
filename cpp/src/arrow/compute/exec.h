@@ -450,7 +450,16 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 
 /// \brief One-shot executor provider for all types of functions.
 ///
-/// Does kernel dispatch and argument checking, while iteration of ChunkedArray inputs
+/// Does kernel dispatch and type checking while iteration of ChunkedArray inputs
+/// and wrapping of outputs are deferred to the executor.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, std::vector<TypeHolder> in_types,
+    const FunctionOptions* options = NULLPTR, FunctionRegistry* func_registry = NULLPTR);
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// Does kernel dispatch and argument type-checking while iteration of ChunkedArray inputs
 /// and wrapping of outputs are deferred to the executor.
 ARROW_EXPORT
 Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(

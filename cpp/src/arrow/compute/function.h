@@ -241,7 +241,7 @@ class ARROW_EXPORT Function {
 
   /// \brief Get a function executor with a best-matching kernel
   virtual Result<std::shared_ptr<FunctionExecutor>> GetBestExecutor(
-      std::vector<TypeHolder>& inputs) const;
+      std::vector<TypeHolder> inputs) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken

@@ -1297,17 +1297,23 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 }
 
 Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
-    const std::string& func_name, const std::vector<Datum>& args,
+    const std::string& func_name, std::vector<TypeHolder> in_types,
     const FunctionOptions* options, FunctionRegistry* func_registry) {
   if (func_registry == NULLPTR) {
     func_registry = GetFunctionRegistry();
   }
-  ARROW_ASSIGN_OR_RAISE(auto inputs, internal::GetFunctionArgumentTypes(args));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         func_registry->GetFunction(func_name));
-  ARROW_ASSIGN_OR_RAISE(auto func_exec, func->GetBestExecutor(inputs));
+  ARROW_ASSIGN_OR_RAISE(auto func_exec, func->GetBestExecutor(std::move(in_types)));
   ARROW_RETURN_NOT_OK(func_exec->Init(options));
   return func_exec;
+}
+
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options, FunctionRegistry* func_registry) {
+  ARROW_ASSIGN_OR_RAISE(auto in_types, internal::GetFunctionArgumentTypes(args));
+  return GetFunctionExecutor(func_name, std::move(in_types), options, func_registry);
 }
 
 }  // namespace compute

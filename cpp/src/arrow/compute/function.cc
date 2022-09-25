@@ -186,34 +186,33 @@ struct FunctionExecutorImpl : public FunctionExecutor {
                        const Function& func)
       : in_types(std::move(in_types)),
         kernel(kernel),
-        kernel_ctx(),
+        kernel_ctx(default_exec_context(), kernel),
         executor(std::move(executor)),
         func(func),
         state(),
-        options(NULLPTR) {}
+        options(NULLPTR),
+        inited(false) {}
   virtual ~FunctionExecutorImpl() {}
 
   Status KernelInit(const FunctionOptions* options) {
-    if (!kernel_ctx) {
-      return Status::Invalid("function executor with null kernel context");
-    }
-    if (options == nullptr) {
-      RETURN_NOT_OK(CheckOptions(func, options));
+    RETURN_NOT_OK(CheckOptions(func, options));
+    if (options == NULLPTR) {
       options = func.default_options();
     }
     if (kernel->init) {
       ARROW_ASSIGN_OR_RAISE(state,
-                            kernel->init(kernel_ctx.get(), {kernel, in_types, options}));
-      kernel_ctx->SetState(state.get());
+                            kernel->init(&kernel_ctx, {kernel, in_types, options}));
+      kernel_ctx.SetState(state.get());
     }
 
-    RETURN_NOT_OK(executor->Init(kernel_ctx.get(), {kernel, in_types, options}));
+    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
     this->options = options;
+    inited = true;
     return Status::OK();
   }
 
   Status Init(const FunctionOptions* options, ExecContext* exec_ctx) override {
-    kernel_ctx.reset(new KernelContext{exec_ctx, kernel});
+    kernel_ctx = KernelContext{exec_ctx, kernel};
     return KernelInit(options);
   }
 
@@ -227,10 +226,10 @@ struct FunctionExecutorImpl : public FunctionExecutor {
                         {"function.options", options ? options->ToString() : "<NULLPTR>"},
                         {"function.kind", func_kind}});
 
-    if (!kernel_ctx) {
+    if (!inited) {
       ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
     }
-    ExecContext* ctx = kernel_ctx->exec_context();
+    ExecContext* ctx = kernel_ctx.exec_context();
     // Cast arguments if necessary
     std::vector<Datum> args_with_cast;
     for (size_t i = 0; i != args.size(); ++i) {
@@ -276,11 +275,12 @@ struct FunctionExecutorImpl : public FunctionExecutor {
 
   std::vector<TypeHolder> in_types;
   const Kernel* kernel;
-  std::unique_ptr<KernelContext> kernel_ctx;
+  KernelContext kernel_ctx;
   std::unique_ptr<detail::KernelExecutor> executor;
   const Function& func;
   std::unique_ptr<KernelState> state;
   const FunctionOptions* options;
+  bool inited;
 };
 
 }  // namespace detail
@@ -304,7 +304,7 @@ Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) co
 }
 
 Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(
-    std::vector<TypeHolder>& inputs) const {
+    std::vector<TypeHolder> inputs) const {
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
