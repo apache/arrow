@@ -296,7 +296,7 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
 }
 
 template <typename ElementType, typename OptionsType>
-void test_source_sink_error(
+void TestSourceSinkError(
     std::string source_factory_name,
     std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
         to_elements) {
@@ -318,7 +318,7 @@ void test_source_sink_error(
 }
 
 template <typename ElementType, typename OptionsType>
-void test_source_sink(
+void TestSourceSink(
     std::string source_factory_name,
     std::function<Result<std::vector<ElementType>>(const BatchesWithSchema&)>
         to_elements) {
@@ -345,32 +345,32 @@ void test_source_sink(
 }
 
 TEST(ExecPlanExecution, ArrayVectorSourceSink) {
-  test_source_sink<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+  TestSourceSink<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
       "array_vector_source", ToArrayVectors);
 }
 
 TEST(ExecPlanExecution, ArrayVectorSourceSinkError) {
-  test_source_sink_error<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
+  TestSourceSinkError<std::shared_ptr<ArrayVector>, ArrayVectorSourceNodeOptions>(
       "array_vector_source", ToArrayVectors);
 }
 
 TEST(ExecPlanExecution, ExecBatchSourceSink) {
-  test_source_sink<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+  TestSourceSink<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
       "exec_batch_source", ToExecBatches);
 }
 
 TEST(ExecPlanExecution, ExecBatchSourceSinkError) {
-  test_source_sink_error<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
+  TestSourceSinkError<std::shared_ptr<ExecBatch>, ExecBatchSourceNodeOptions>(
       "exec_batch_source", ToExecBatches);
 }
 
 TEST(ExecPlanExecution, RecordBatchSourceSink) {
-  test_source_sink<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+  TestSourceSink<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
       "record_batch_source", ToRecordBatches);
 }
 
 TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
-  test_source_sink_error<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
+  TestSourceSinkError<std::shared_ptr<RecordBatch>, RecordBatchSourceNodeOptions>(
       "record_batch_source", ToRecordBatches);
 }
 

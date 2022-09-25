@@ -306,8 +306,11 @@ struct SchemaSourceNode : public SourceNode {
     const auto& cast_options = checked_cast<const Options&>(options);
     auto& it_maker = cast_options.it_maker;
     auto& schema = cast_options.schema;
+    auto io_executor = cast_options.io_executor;
 
-    auto io_executor = plan->exec_context()->executor();
+    if (io_executor == NULLPTR) {
+      io_executor = plan->exec_context()->executor();
+    }
     auto it = it_maker();
 
     if (schema == NULLPTR) {
