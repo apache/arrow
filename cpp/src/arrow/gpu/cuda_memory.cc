@@ -73,7 +73,7 @@ CudaIpcMemHandle::~CudaIpcMemHandle() {}
 
 Result<std::shared_ptr<CudaIpcMemHandle>> CudaIpcMemHandle::FromBuffer(
     const void* opaque_handle) {
-  return std::make_shared<CudaIpcMemHandle>(opaque_handle);
+  return std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
 }
 
 Result<std::shared_ptr<Buffer>> CudaIpcMemHandle::Serialize(MemoryPool* pool) const {
