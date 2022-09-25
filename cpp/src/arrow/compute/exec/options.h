@@ -91,8 +91,8 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 template <typename ItMaker>
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
-  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
-                          arrow::internal::Executor* io_executor = NULLPTR)
+  inline SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                                 arrow::internal::Executor* io_executor = NULLPTR)
       : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
 
   /// \brief The schema of the record batches from the iterator
