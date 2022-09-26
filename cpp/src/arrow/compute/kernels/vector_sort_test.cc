@@ -53,6 +53,10 @@ std::vector<NullPlacement> AllNullPlacements() {
   return {NullPlacement::AtEnd, NullPlacement::AtStart};
 }
 
+std::vector<RankOptions::Tiebreaker> AllTiebreakers() {
+  return {RankOptions::Min, RankOptions::Max, RankOptions::First, RankOptions::Dense};
+}
+
 std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
   os << (null_placement == NullPlacement::AtEnd ? "AtEnd" : "AtStart");
   return os;
@@ -1954,6 +1958,229 @@ INSTANTIATE_TEST_SUITE_P(SomeNulls, TestTableSortIndicesRandom,
 INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
                                           testing::Values(1.0)));
+
+// ----------------------------------------------------------------------
+// Tests for Rank
+
+void AssertRank(const std::shared_ptr<Array>& input, SortOrder order,
+                NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
+                const std::shared_ptr<Array>& expected) {
+  const std::vector<SortKey> sort_keys{SortKey("foo", order)};
+  RankOptions options(sort_keys, null_placement, tiebreaker);
+  ARROW_SCOPED_TRACE("options = ", options.ToString());
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {input}, &options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+void AssertRankEmpty(std::shared_ptr<DataType> type, SortOrder order,
+                     NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker) {
+  AssertRank(ArrayFromJSON(type, "[]"), order, null_placement, tiebreaker,
+             ArrayFromJSON(uint64(), "[]"));
+  AssertRank(ArrayFromJSON(type, "[null]"), order, null_placement, tiebreaker,
+             ArrayFromJSON(uint64(), "[1]"));
+}
+
+void AssertRankSimple(const std::shared_ptr<Array>& input, NullPlacement null_placement,
+                      RankOptions::Tiebreaker tiebreaker) {
+  auto expected_asc = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
+  AssertRank(input, SortOrder::Ascending, null_placement, tiebreaker, expected_asc);
+
+  auto expected_desc = ArrayFromJSON(uint64(), "[3, 2, 4, 5, 1]");
+  AssertRank(input, SortOrder::Descending, null_placement, tiebreaker, expected_desc);
+}
+
+void AssertRankAllTiebreakers(const std::shared_ptr<Array>& input) {
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 1, 4, 6, 4, 6, 1]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[3, 2, 5, 7, 5, 7, 2]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 1, 3, 4, 3, 4, 1]"));
+
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[5, 3, 6, 1, 6, 1, 3]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 4, 7, 2, 7, 2, 4]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+  AssertRank(input, SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[3, 2, 4, 1, 4, 1, 2]"));
+
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 4, 1, 6, 1, 6, 4]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[3, 5, 2, 7, 2, 7, 5]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 4, 1, 6, 2, 7, 5]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 3, 1, 4, 1, 4, 3]"));
+
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[5, 6, 3, 1, 3, 1, 6]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 7, 4, 2, 4, 2, 7]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[5, 6, 3, 1, 4, 2, 7]"));
+  AssertRank(input, SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[3, 4, 2, 1, 2, 1, 4]"));
+}
+
+TEST(TestRankForReal, RankReal) {
+  for (auto real_type : ::arrow::FloatingPointTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(real_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"),
+                         null_placement, tiebreaker);
+      }
+    }
+
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
+  }
+}
+
+TEST(TestRankForIntegral, RankIntegral) {
+  for (auto integer_type : ::arrow::IntTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(integer_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(integer_type, "[2, 3, 1, 0, 5]"), null_placement,
+                         tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(ArrayFromJSON(integer_type, "[1, 0, 5, null, 5, null, 0]"));
+  }
+}
+
+TEST(TestRankForBool, RankBool) {
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(boolean(), order, null_placement, tiebreaker);
+      }
+
+      auto simple_bool = ArrayFromJSON(boolean(), "[false, true]");
+      AssertRank(simple_bool, SortOrder::Ascending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[1, 2]"));
+      AssertRank(simple_bool, SortOrder::Descending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[2, 1]"));
+
+      auto array =
+          ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]");
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[3, 1, 3, 6, 3, 6, 1]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[5, 2, 5, 7, 5, 7, 2]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[2, 1, 2, 3, 2, 3, 1]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[5, 3, 5, 1, 5, 1, 3]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[7, 4, 7, 2, 7, 2, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[3, 2, 3, 1, 3, 1, 2]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[1, 4, 1, 6, 1, 6, 4]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[3, 5, 3, 7, 3, 7, 5]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[1, 4, 2, 6, 3, 7, 5]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[1, 2, 1, 3, 1, 3, 2]"));
+
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+                 ArrayFromJSON(uint64(), "[3, 6, 3, 1, 3, 1, 6]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+                 ArrayFromJSON(uint64(), "[5, 7, 5, 2, 5, 2, 7]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+                 ArrayFromJSON(uint64(), "[3, 6, 4, 1, 5, 2, 7]"));
+      AssertRank(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"),
+                 SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+                 ArrayFromJSON(uint64(), "[2, 3, 2, 1, 2, 1, 3]"));
+    }
+  }
+}
+
+TEST(TestRankForTemporal, RankTemporal) {
+  for (auto temporal_type : ::arrow::TemporalTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(temporal_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(temporal_type, "[2, 3, 1, 0, 5]"), null_placement,
+                         tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(ArrayFromJSON(temporal_type, "[1, 0, 5, null, 5, null, 0]"));
+  }
+}
+
+TEST(TestRankForStrings, RankStrings) {
+  for (auto string_type : ::arrow::StringTypes()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(string_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(ArrayFromJSON(string_type, R"(["b", "c", "a", "", "d"])"),
+                         null_placement, tiebreaker);
+      }
+    }
+    AssertRankAllTiebreakers(
+        ArrayFromJSON(string_type, R"(["a", "", "e", null, "e", null, ""])"));
+  }
+}
+
+TEST(TestRankForFixedSizeBinary, RankFixedSizeBinary) {
+  auto binary_type = fixed_size_binary(3);
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(binary_type, order, null_placement, tiebreaker);
+      }
+
+      AssertRankSimple(
+          ArrayFromJSON(binary_type, R"(["bbb", "ccc", "aaa", "   ", "ddd"])"),
+          null_placement, tiebreaker);
+    }
+  }
+  AssertRankAllTiebreakers(
+      ArrayFromJSON(binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
+}
 
 }  // namespace compute
 }  // namespace arrow

@@ -58,7 +58,9 @@ like so:
 
 .. code-block::
 
-   $ python -m pytest arrow/python/pyarrow
+   $ pushd arrow/python
+   $ python -m pytest pyarrow
+   $ popd
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -89,8 +91,10 @@ particular group, prepend ``only-`` instead, for example ``--only-parquet``.
 
 The test groups currently include:
 
+* ``dataset``: Apache Arrow Dataset tests
+* ``flight``: Flight RPC tests
 * ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
-* ``hdfs``: tests that use libhdfs or libhdfs3 to access the Hadoop filesystem
+* ``hdfs``: tests that use libhdfs to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
   random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
   with pytest, so you have to pass ``--enable-hypothesis``
@@ -100,7 +104,56 @@ The test groups currently include:
 * ``plasma``: Plasma Object Store tests
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
-* ``flight``: Flight RPC tests
+
+Doctest
+-------
+
+We are using `doctest <https://docs.python.org/3/library/doctest.html>`_
+to check that docstring examples are up-to-date and correct. You can
+also do that locally by running:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ python -m pytest --doctest-modules
+   $ python -m pytest --doctest-modules path/to/module.py # checking single file
+   $ popd
+
+for ``.py`` files or
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ python -m pytest --doctest-cython
+   $ python -m pytest --doctest-cython path/to/module.pyx # checking single file
+   $ popd
+
+for ``.pyx`` and ``.pxi`` files. In this case you will also need to
+install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+
+Testing PyArrow C++
+-------------------
+
+Most of the tests for PyArrow are part of the ``pytest``-based test suite mentioned above,
+but a few low-level tests are written directly in C++ for historical reasons.
+Those tests can be run using ``ctest``, but you first will need to build Arrow C++
+with ``-DARROW_BUILD_TESTS=ON``.
+
+.. note::
+
+   Currently, building the PyArrow C++ unit tests does not work with the
+   googletest package from conda-forge. If you are in this situation, please
+   add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
+   when building Arrow C++.
+
+After Arrow C++ and PyArrow are built, you can navigate to the ``python/build/dist``
+folder and run ``ctest``:
+
+.. code-block::
+
+   $ pushd arrow/python/build/dist
+   $ ctest
+   $ popd
 
 Benchmarking
 ------------
@@ -264,6 +317,7 @@ created above (stored in ``$ARROW_HOME``):
    $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_INSTALL_LIBDIR=lib \
            -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_DATASET=ON \
            -DARROW_WITH_BZ2=ON \
            -DARROW_WITH_ZLIB=ON \
            -DARROW_WITH_ZSTD=ON \
@@ -279,10 +333,11 @@ created above (stored in ``$ARROW_HOME``):
    $ make install
    $ popd
 
-There are a number of optional components that can can be switched ON by
+There are a number of optional components that can be switched ON by
 adding flags with ``ON``:
 
 * ``ARROW_CUDA``: Support for CUDA-enabled GPUs
+* ``ARROW_DATASET``: Support for Apache Arrow Dataset
 * ``ARROW_FLIGHT``: Flight RPC framework
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
@@ -335,7 +390,7 @@ Python executable which you are using.
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
-advisable to delete the build folder with command ``rm -rf /arrow/cpp/build``.
+advisable to delete the build folder with command ``rm -rf arrow/cpp/build``.
 If the build has passed successfully and you need to rebuild due to latest pull
 from git master, then this step is not needed.
 
@@ -345,6 +400,8 @@ Now, build pyarrow:
 
    $ pushd arrow/python
    $ export PYARROW_WITH_PARQUET=1
+   $ export PYARROW_WITH_DATASET=1
+   $ export PYARROW_PARALLEL=4
    $ python setup.py build_ext --inplace
    $ popd
 
@@ -354,6 +411,16 @@ corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
 Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
 need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
 variable to 1.
+
+To set the number of threads used to compile PyArrow's C++/Cython components,
+set the ``PYARROW_PARALLEL`` environment variable.
+
+.. note::
+
+   If you used a different directory name for building Arrow C++ (by default it is
+   named "build"), then you should also set the environment variable
+   ``ARROW_BUILD_DIR='name_of_build_dir'``. This way
+   PyArrow can find the Arrow C++ built files.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
@@ -568,3 +635,30 @@ Caveats
 -------
 
 The Plasma component is not supported on Windows.
+
+Installing Nightly Packages
+===========================
+
+.. warning::
+    These packages are not official releases. Use them at your own risk.
+
+PyArrow has nightly wheels and Conda packages for testing purposes.
+
+These may be suitable for downstream libraries in their continuous integration
+setup to maintain compatibility with the upcoming PyArrow features,
+deprecations and/or feature removals.
+
+Install the development version of PyArrow from `arrow-nightlies
+<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
+
+.. code-block:: bash
+
+    conda install -c arrow-nightlies pyarrow
+
+Install the development version from an `alternative PyPI
+<https://gemfury.com/arrow-nightlies>`_ index:
+
+.. code-block:: bash
+
+    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
+        --prefer-binary --pre pyarrow

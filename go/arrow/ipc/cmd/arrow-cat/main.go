@@ -63,8 +63,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func main() {
@@ -91,7 +91,7 @@ func processStream(w io.Writer, rin io.Reader) error {
 		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return nil
+				break
 			}
 			return err
 		}

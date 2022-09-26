@@ -21,6 +21,7 @@
 #define ARROW_HAVE_SIGACTION 1
 #endif
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -124,14 +125,46 @@ Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_not_found 
 ARROW_EXPORT
 Result<bool> FileExists(const PlatformFilename& path);
 
+// TODO expose this more publicly to make it available from io/file.h?
+/// A RAII wrapper for a file descriptor.
+///
+/// The underlying file descriptor is automatically closed on destruction.
+/// Moving is supported with well-defined semantics.
+/// Furthermore, closing is idempotent.
+class ARROW_EXPORT FileDescriptor {
+ public:
+  FileDescriptor() = default;
+  explicit FileDescriptor(int fd) : fd_(fd) {}
+  FileDescriptor(FileDescriptor&&);
+  FileDescriptor& operator=(FileDescriptor&&);
+
+  ~FileDescriptor();
+
+  Status Close();
+
+  /// May return -1 if closed or default-initialized
+  int fd() const { return fd_.load(); }
+
+  /// Detach and return the underlying file descriptor
+  int Detach();
+
+  bool closed() const { return fd_.load() == -1; }
+
+ protected:
+  static void CloseFromDestructor(int fd);
+
+  std::atomic<int> fd_{-1};
+};
+
 /// Open a file for reading and return a file descriptor.
 ARROW_EXPORT
-Result<int> FileOpenReadable(const PlatformFilename& file_name);
+Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name);
 
 /// Open a file for writing and return a file descriptor.
 ARROW_EXPORT
-Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only = true,
-                             bool truncate = true, bool append = false);
+Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
+                                        bool write_only = true, bool truncate = true,
+                                        bool append = false);
 
 /// Read from current file position.  Return number of bytes read.
 ARROW_EXPORT
@@ -158,12 +191,37 @@ ARROW_EXPORT
 Status FileClose(int fd);
 
 struct Pipe {
-  int rfd;
-  int wfd;
+  FileDescriptor rfd;
+  FileDescriptor wfd;
+
+  Status Close() { return rfd.Close() & wfd.Close(); }
 };
 
 ARROW_EXPORT
 Result<Pipe> CreatePipe();
+
+ARROW_EXPORT
+Status SetPipeFileDescriptorNonBlocking(int fd);
+
+class ARROW_EXPORT SelfPipe {
+ public:
+  static Result<std::shared_ptr<SelfPipe>> Make(bool signal_safe);
+  virtual ~SelfPipe();
+
+  /// \brief Wait for a wakeup.
+  ///
+  /// Status::Invalid is returned if the pipe has been shutdown.
+  /// Otherwise the next sent payload is returned.
+  virtual Result<uint64_t> Wait() = 0;
+
+  /// \brief Wake up the pipe by sending a payload.
+  ///
+  /// This method is async-signal-safe if `signal_safe` was set to true.
+  virtual void Send(uint64_t payload) = 0;
+
+  /// \brief Wake up the pipe and shut it down.
+  virtual Status Shutdown() = 0;
+};
 
 ARROW_EXPORT
 int64_t GetPageSize();

@@ -24,6 +24,10 @@ on:
       - created
       - edited
 
+permissions:
+  contents: read
+  pull-requests: write
+  
 jobs:
   crossbow:
     name: Listen!
@@ -31,13 +35,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: arrow
           # fetch the tags for version number generation
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
@@ -56,7 +60,7 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: r-lib/actions/pr-fetch@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -66,8 +70,9 @@ jobs:
           DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
           git remote add upstream https://github.com/apache/arrow
           git fetch upstream
+
           changed() {
-            git diff --name-only HEAD..upstream/$DEFAULT_BRANCH | grep -e "$1" >/dev/null 2>&1
+            git diff --name-only upstream/$DEFAULT_BRANCH... | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
             echo "R_DOCS=true" >> $GITHUB_ENV
@@ -82,7 +87,7 @@ jobs:
           if changed '^r/src'; then
             echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
           fi
-      - name: Ensure clang-format has the appropriate versoin
+      - name: Ensure clang-format has the appropriate version
         if: env.CMAKE_FORMAT == 'true' ||
           env.CLANG_FORMAT_CPP == 'true' ||
           env.CLANG_FORMAT_R == 'true' ||
@@ -124,18 +129,16 @@ jobs:
         run: |
           source("ci/etc/rprofile")
           install.packages(c("remotes", "roxygen2"))
-          # We currently need dev roxygen2 (> 7.1.1) until they release
-          remotes::install_github("r-lib/roxygen2")
           remotes::install_deps("r")
           roxygen2::roxygenize("r")
       - name: Style R code
         if: env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
-          changed_files <- system("git diff --name-only HEAD..upstream/${{ github.event.repository.default_branch }} 2>&1", intern = TRUE)
+          changed_files <- system("git diff --name-only upstream/${{ github.event.repository.default_branch }}... 2>&1", intern = TRUE)
           # only grab the .R files under r/
           changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
-          # remove latin1 which is unstylable due to encoding and codegen.R which is unique
+          # remove codegen.R and other possible exclusions
           changed_files <- changed_files[!changed_files %in% file.path("r", source("r/.styler_excludes.R")$value)]
           source("ci/etc/rprofile")
           install.packages(c("remotes", "styler"))
@@ -155,7 +158,7 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions rebase')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: r-lib/actions/pr-fetch@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}

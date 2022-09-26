@@ -561,16 +561,16 @@ static ScalarVector GetScalars() {
           },
           struct_({field("min", int32()), field("max", int32())})),
       // Same values, different union type codes
-      std::make_shared<SparseUnionScalar>(std::make_shared<Int32Scalar>(100), 6,
-                                          sparse_union_ty),
-      std::make_shared<SparseUnionScalar>(std::make_shared<Int32Scalar>(100), 42,
-                                          sparse_union_ty),
-      std::make_shared<SparseUnionScalar>(42, sparse_union_ty),
+      SparseUnionScalar::FromValue(std::make_shared<Int32Scalar>(100), 1,
+                                   sparse_union_ty),
+      SparseUnionScalar::FromValue(std::make_shared<Int32Scalar>(100), 2,
+                                   sparse_union_ty),
+      SparseUnionScalar::FromValue(MakeNullScalar(int32()), 2, sparse_union_ty),
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 6,
                                          dense_union_ty),
       std::make_shared<DenseUnionScalar>(std::make_shared<Int32Scalar>(101), 42,
                                          dense_union_ty),
-      std::make_shared<DenseUnionScalar>(42, dense_union_ty),
+      std::make_shared<DenseUnionScalar>(MakeNullScalar(int32()), 42, dense_union_ty),
       DictionaryScalar::Make(ScalarFromJSON(int8(), "1"),
                              ArrayFromJSON(utf8(), R"(["foo", "bar"])")),
       DictionaryScalar::Make(ScalarFromJSON(uint8(), "1"),
@@ -696,6 +696,7 @@ TEST_F(TestArray, TestMakeEmptyArray) {
 
 TEST_F(TestArray, TestAppendArraySlice) {
   auto scalars = GetScalars();
+  ArraySpan span;
   for (const auto& scalar : scalars) {
     ARROW_SCOPED_TRACE(*scalar->type);
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 16));
@@ -704,31 +705,33 @@ TEST_F(TestArray, TestAppendArraySlice) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
 
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 4));
+    span.SetMembers(*array->data());
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(8, builder->length());
 
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 4));
+    span.SetMembers(*nulls->data());
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(16, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(8, builder->null_count());
@@ -746,13 +749,15 @@ TEST_F(TestArray, TestAppendArraySlice) {
   {
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(null(), 16));
     NullBuilder builder(pool_);
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 4));
+
+    span.SetMembers(*array->data());
+    ASSERT_OK(builder.AppendArraySlice(span, 0, 4));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_OK(builder.AppendArraySlice(span, 0, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_OK(builder.AppendArraySlice(span, 1, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_OK(builder.AppendArraySlice(span, 1, 4));
     ASSERT_EQ(8, builder.length());
     std::shared_ptr<Array> result;
     ASSERT_OK(builder.Finish(&result));
@@ -2249,31 +2254,31 @@ struct FWBinaryAppender {
     return Status::OK();
   }
 
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     data.push_back(v);
     return Status::OK();
   }
 
-  std::vector<util::string_view> data;
+  std::vector<std::string_view> data;
 };
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitor) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitor) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def"])");
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"abc", "(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitorSliced) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def", "ghi"])")->Slice(1, 2);
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
@@ -2285,7 +2290,7 @@ TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
   auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
 
   ASSERT_EQ("abc", (*fsba)[0].value());
-  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ(std::nullopt, (*fsba)[1]);
   ASSERT_EQ("def", (*fsba)[2].value());
 }
 
@@ -2826,8 +2831,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     auto type = std::make_shared<TYPE>(precision, 4);
     auto builder = std::make_shared<DecimalBuilder>(type);
 
-    size_t null_count = 0;
-
     const size_t size = draw.size();
 
     ARROW_EXPECT_OK(builder->Reserve(size));
@@ -2837,7 +2840,6 @@ class DecimalTest : public ::testing::TestWithParam<int> {
         ARROW_EXPECT_OK(builder->Append(draw[i]));
       } else {
         ARROW_EXPECT_OK(builder->AppendNull());
-        ++null_count;
       }
     }
 
@@ -3533,7 +3535,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
       ASSERT_EQ(this->values_[i], res.value());
     } else {
       ASSERT_FALSE(res.has_value());
-      ASSERT_EQ(res, util::nullopt);
+      ASSERT_EQ(res, std::nullopt);
     }
   }
 }

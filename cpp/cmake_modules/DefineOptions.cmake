@@ -83,6 +83,12 @@ endmacro()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  set(ARROW_DEFINE_OPTIONS_DEFAULT ON)
+else()
+  set(ARROW_DEFINE_OPTIONS_DEFAULT OFF)
+endif()
+option(ARROW_DEFINE_OPTIONS "Define Arrow options" ${ARROW_DEFINE_OPTIONS_DEFAULT})
+if(ARROW_DEFINE_OPTIONS)
   #----------------------------------------------------------------------
   set_option_category("Compile and link")
 
@@ -103,7 +109,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
+  define_option(ARROW_POSITION_INDEPENDENT_CODE
+                "Whether to create position-independent target" ON)
+
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
+
+  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
+takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
@@ -148,6 +160,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Build Arrow libraries with install_name set to @rpath" ON)
 
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
+
+  define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
@@ -225,8 +239,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
-
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
@@ -238,11 +250,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GCS
                 "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
-  mark_as_advanced(ARROW_GCS) # TODO(ARROW-1231) - remove once completed
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
-
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
@@ -258,8 +267,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
   endif()
 
-  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
-
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
@@ -270,13 +277,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
-  define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
-
   define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
   define_option(ARROW_SKYHOOK "Build the Skyhook libraries" OFF)
+
+  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
@@ -326,7 +333,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DEPENDENCY_USE_SHARED "Link to shared libraries" ON)
 
-  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant"
+  define_option(ARROW_BOOST_USE_SHARED "Rely on Boost shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
@@ -341,6 +348,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_JEMALLOC_USE_SHARED
+                "Rely on jemalloc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
@@ -352,6 +363,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Rely on Protocol Buffers shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   if(WIN32)
     # It seems that Thrift doesn't support DLL well yet.
     # MSYS2, conda-forge and vcpkg don't build shared library.
@@ -361,13 +375,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
                 ${ARROW_THRIFT_USE_SHARED_DEFAULT})
-
-  define_option(ARROW_UTF8PROC_USE_SHARED
-                "Rely on utf8proc shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
-
-  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_UTF8PROC_USE_SHARED
                 "Rely on utf8proc shared libraries where relevant"
@@ -458,8 +465,6 @@ Always OFF if building binaries" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
-
-  define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
 
   # ARROW-3860: Temporary workaround
   define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP

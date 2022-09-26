@@ -126,7 +126,7 @@ To upload data, a client would:
 
 .. figure:: ./Flight/DoPut.mmd.svg
 
-   Uploading data via ``DoGet``.
+   Uploading data via ``DoPut``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoPut(FlightData)`` and upload a stream of Arrow record

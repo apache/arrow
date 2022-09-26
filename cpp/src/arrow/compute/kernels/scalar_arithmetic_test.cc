@@ -452,7 +452,7 @@ template <typename... Elements>
 std::string MakeArray(Elements... elements) {
   std::vector<std::string> elements_as_strings = {std::to_string(elements)...};
 
-  std::vector<util::string_view> elements_as_views(sizeof...(Elements));
+  std::vector<std::string_view> elements_as_views(sizeof...(Elements));
   std::copy(elements_as_strings.begin(), elements_as_strings.end(),
             elements_as_views.begin());
 
@@ -3338,15 +3338,15 @@ TYPED_TEST(TestUnaryArithmeticIntegral, Sqrt) {
 TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
   using CType = typename TestFixture::CType;
   this->SetNansEqual(true);
-  auto min_val = std::numeric_limits<CType>::min();
-  auto max_val = std::numeric_limits<CType>::max();
   for (auto check_overflow : {false, true}) {
+    const auto min_val = std::numeric_limits<CType>::min();
     this->SetOverflowCheck(check_overflow);
     this->AssertUnaryOp(Sqrt, "[1, 2, null, NaN, Inf]",
                         "[1, 1.414213562, null, NaN, Inf]");
     this->AssertUnaryOp(Sqrt, min_val, static_cast<CType>(std::sqrt(min_val)));
 #ifndef __MINGW32__
     // this is problematic and produces a slight difference on MINGW
+    const auto max_val = std::numeric_limits<CType>::max();
     this->AssertUnaryOp(Sqrt, max_val, static_cast<CType>(std::sqrt(max_val)));
 #endif
   }

@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/align_util.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/decimal.h"
@@ -65,15 +66,14 @@ struct SumImpl : public ScalarAggregator {
   using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  SumImpl(const std::shared_ptr<DataType>& out_type,
-          const ScalarAggregateOptions& options_)
+  SumImpl(std::shared_ptr<DataType> out_type, const ScalarAggregateOptions& options_)
       : out_type(out_type), options(options_) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      const auto& data = batch[0].array();
-      this->count += data->length - data->GetNullCount();
-      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+      const ArraySpan& data = batch[0].array;
+      this->count += data.length - data.GetNullCount();
+      this->nulls_observed = this->nulls_observed || data.GetNullCount();
 
       if (!options.skip_nulls && this->nulls_observed) {
         // Short-circuit
@@ -81,12 +81,12 @@ struct SumImpl : public ScalarAggregator {
       }
 
       if (is_boolean_type<ArrowType>::value) {
-        this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
+        this->sum += GetTrueCount(data);
       } else {
-        this->sum += SumArray<CType, SumCType, SimdLevel>(*data);
+        this->sum += SumArray<CType, SumCType, SimdLevel>(data);
       }
     } else {
-      const auto& data = *batch[0].scalar();
+      const Scalar& data = *batch[0].scalar;
       this->count += data.is_valid * batch.length;
       this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
@@ -127,8 +127,8 @@ struct NullImpl : public ScalarAggregator {
 
   explicit NullImpl(const ScalarAggregateOptions& options_) : options(options_) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
-    if (batch[0].is_scalar() || batch[0].array()->GetNullCount() > 0) {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
+    if (batch[0].is_scalar() || batch[0].array.GetNullCount() > 0) {
       // If the batch is a scalar or an array with elements, set is_empty to false
       is_empty = false;
     }
@@ -216,10 +216,10 @@ template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -261,7 +261,7 @@ struct SumLikeInit {
 
 template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
-  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 
@@ -360,7 +360,7 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
     return *this;
   }
 
-  void MergeOne(util::string_view value) {
+  void MergeOne(std::string_view value) {
     MergeOne(T(reinterpret_cast<const uint8_t*>(value.data())));
   }
 
@@ -398,14 +398,14 @@ struct MinMaxState<ArrowType, SimdLevel,
     return *this;
   }
 
-  void MergeOne(util::string_view value) {
+  void MergeOne(std::string_view value) {
     if (!seen) {
       this->min = std::string(value);
       this->max = std::string(value);
     } else {
-      if (value < util::string_view(this->min)) {
+      if (value < std::string_view(this->min)) {
         this->min = std::string(value);
-      } else if (value > util::string_view(this->max)) {
+      } else if (value > std::string_view(this->max)) {
         this->max = std::string(value);
       }
     }
@@ -429,11 +429,11 @@ struct MinMaxImpl : public ScalarAggregator {
     this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
   }
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      return ConsumeArray(ArrayType(batch[0].array()));
+      return ConsumeArray(batch[0].array);
     }
-    return ConsumeScalar(*batch[0].scalar());
+    return ConsumeScalar(*batch[0].scalar);
   }
 
   Status ConsumeScalar(const Scalar& scalar) {
@@ -441,36 +441,32 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = !scalar.is_valid;
     this->count += scalar.is_valid;
 
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
     }
 
-    local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
-  Status ConsumeArray(const ArrayType& arr) {
+  Status ConsumeArray(const ArraySpan& arr_span) {
     StateType local;
+
+    ArrayType arr(arr_span.ToArrayData());
 
     const auto null_count = arr.null_count();
     local.has_nulls = null_count > 0;
     this->count += arr.length() - null_count;
 
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
-    }
-
-    if (local.has_nulls) {
-      local += ConsumeWithNulls(arr);
-    } else {  // All true values
+    if (!local.has_nulls) {
       for (int64_t i = 0; i < arr.length(); i++) {
         local.MergeOne(arr.GetView(i));
       }
+    } else if (local.has_nulls && options.skip_nulls) {
+      local += ConsumeWithNulls(arr);
     }
-    this->state = local;
+
+    this->state += local;
     return Status::OK();
   }
 
@@ -573,12 +569,12 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
   using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
   using MinMaxImpl<BooleanType, SimdLevel>::options;
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (ARROW_PREDICT_FALSE(batch[0].is_scalar())) {
-      return ConsumeScalar(checked_cast<const BooleanScalar&>(*batch[0].scalar()));
+      return ConsumeScalar(checked_cast<const BooleanScalar&>(*batch[0].scalar));
     }
     StateType local;
-    ArrayType arr(batch[0].array());
+    ArrayType arr(batch[0].array.ToArrayData());
 
     const auto arr_length = arr.length();
     const auto null_count = arr.null_count();
@@ -586,17 +582,14 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     this->count += valid_count;
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      const auto true_count = arr.true_count();
+      const auto false_count = valid_count - true_count;
+      local.max = true_count > 0;
+      local.min = false_count == 0;
     }
 
-    const auto true_count = arr.true_count();
-    const auto false_count = valid_count - true_count;
-    local.max = true_count > 0;
-    local.min = false_count == 0;
-
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -605,23 +598,20 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = !scalar.is_valid;
     this->count += scalar.is_valid;
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      const int true_count = scalar.is_valid && scalar.value;
+      const int false_count = scalar.is_valid && !scalar.value;
+      local.max = true_count > 0;
+      local.min = false_count == 0;
     }
 
-    const int true_count = scalar.is_valid && scalar.value;
-    const int false_count = scalar.is_valid && !scalar.value;
-    local.max = true_count > 0;
-    local.min = false_count == 0;
-
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 };
 
 struct NullMinMaxImpl : public ScalarAggregator {
-  Status Consume(KernelContext*, const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(KernelContext*, const ExecSpan& batch) override { return Status::OK(); }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override { return Status::OK(); }
 
@@ -639,7 +629,7 @@ struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
+  std::shared_ptr<DataType> out_type;
   const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,

@@ -135,12 +135,10 @@ will merge the pull request. This is done with a
   history to identify where changes were introduced, and helps us be able to
   cherry-pick individual patches onto a maintenance branch.
 
-  A side effect of this way of merging is that your pull request will appear
-  in the GitHub interface to have been "closed without merge".
-  Do not be alarmed: if you look at the bottom, you will see a message that
-  says ``@user closed this in $COMMIT``. In the commit message of that commit,
-  the merge tool adds the pull request description, a link back to the pull
-  request, and attribution to the contributor and any co-authors.
+  Your pull request will appear in the GitHub interface to have been "merged".
+  In the commit message of that commit, the merge tool adds the pull request
+  description, a link back to the pull request, and attribution to the contributor
+  and any co-authors.
 
 .. Section on Experimental repositories:
 

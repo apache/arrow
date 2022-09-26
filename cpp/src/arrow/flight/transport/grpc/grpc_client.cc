@@ -43,7 +43,7 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
@@ -58,6 +58,8 @@
 #include "arrow/flight/types.h"
 
 namespace arrow {
+
+using internal::EndsWith;
 
 namespace flight {
 namespace transport {
@@ -151,8 +153,8 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
     received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
-      headers.insert({util::string_view(entry.first.data(), entry.first.length()),
-                      util::string_view(entry.second.data(), entry.second.length())});
+      headers.insert({std::string_view(entry.first.data(), entry.first.length()),
+                      std::string_view(entry.second.data(), entry.second.length())});
     }
     for (const auto& middleware : middleware_) {
       middleware->ReceivedHeaders(headers);
@@ -180,24 +182,24 @@ class GrpcClientInterceptorAdapterFactory
     std::vector<std::unique_ptr<ClientMiddleware>> middleware;
 
     FlightMethod flight_method = FlightMethod::Invalid;
-    util::string_view method(info->method());
-    if (method.ends_with("/Handshake")) {
+    std::string_view method(info->method());
+    if (EndsWith(method, "/Handshake")) {
       flight_method = FlightMethod::Handshake;
-    } else if (method.ends_with("/ListFlights")) {
+    } else if (EndsWith(method, "/ListFlights")) {
       flight_method = FlightMethod::ListFlights;
-    } else if (method.ends_with("/GetFlightInfo")) {
+    } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
-    } else if (method.ends_with("/GetSchema")) {
+    } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
-    } else if (method.ends_with("/DoGet")) {
+    } else if (EndsWith(method, "/DoGet")) {
       flight_method = FlightMethod::DoGet;
-    } else if (method.ends_with("/DoPut")) {
+    } else if (EndsWith(method, "/DoPut")) {
       flight_method = FlightMethod::DoPut;
-    } else if (method.ends_with("/DoExchange")) {
+    } else if (EndsWith(method, "/DoExchange")) {
       flight_method = FlightMethod::DoExchange;
-    } else if (method.ends_with("/DoAction")) {
+    } else if (EndsWith(method, "/DoAction")) {
       flight_method = FlightMethod::DoAction;
-    } else if (method.ends_with("/ListActions")) {
+    } else if (EndsWith(method, "/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
       ARROW_LOG(WARNING) << "Unknown Flight method: " << info->method();
@@ -326,10 +328,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
  public:
   using Base = FinishableDataStream<Stream, ReadPayload>;
   WritableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream)
-      : Base(std::move(rpc), std::move(stream)),
-        read_mutex_(),
-        finish_mutex_(),
-        done_writing_(false) {}
+      : Base(std::move(rpc), std::move(stream)), read_mutex_(), done_writing_(false) {}
 
   Status WritesDone() override {
     // This is only used by the writer side of a stream, so it need
@@ -350,16 +349,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
   Status DoFinish() override {
     // This may be used concurrently by reader/writer side of a
     // stream, so it needs to be protected.
-    std::lock_guard<std::mutex> guard(finish_mutex_);
-
-    // Now that we're shared between a reader and writer, we need to
-    // protect ourselves from being called while there's an
-    // outstanding read.
-    std::unique_lock<std::mutex> read_guard(read_mutex_, std::try_to_lock);
-    if (!read_guard.owns_lock()) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Cannot close stream with pending read operation.");
-    }
+    std::lock_guard<std::mutex> guard(read_mutex_);
 
     // Try to flush pending writes. Don't use our WritesDone() to
     // avoid recursion.
@@ -377,7 +367,6 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
 
   using Base::stream_;
   std::mutex read_mutex_;
-  std::mutex finish_mutex_;
   bool done_writing_;
 };
 
@@ -402,6 +391,7 @@ class GrpcClientPutStream
 
   bool ReadPutMetadata(std::shared_ptr<Buffer>* out) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
+    if (finished_) return false;
     pb::PutResult message;
     if (stream_->Read(&message)) {
       *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
@@ -427,6 +417,7 @@ class GrpcClientExchangeStream
 
   bool ReadData(internal::FlightData* data) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
+    if (finished_) return false;
     return ReadPayload(stream_.get(), data);
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
@@ -642,10 +633,10 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     // Allow setting generic gRPC options.
     for (const auto& arg : options.generic_options) {
-      if (util::holds_alternative<int>(arg.second)) {
-        default_args[arg.first] = util::get<int>(arg.second);
-      } else if (util::holds_alternative<std::string>(arg.second)) {
-        args.SetString(arg.first, util::get<std::string>(arg.second));
+      if (std::holds_alternative<int>(arg.second)) {
+        default_args[arg.first] = std::get<int>(arg.second);
+      } else if (std::holds_alternative<std::string>(arg.second)) {
+        args.SetString(arg.first, std::get<std::string>(arg.second));
       }
       // Otherwise unimplemented
     }
@@ -817,7 +808,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return arrow::internal::make_unique<SchemaResult>(std::move(str));
+    return std::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,

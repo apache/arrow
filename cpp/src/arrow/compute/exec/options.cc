@@ -25,6 +25,8 @@
 namespace arrow {
 namespace compute {
 
+constexpr int64_t TableSourceNodeOptions::kDefaultMaxBatchSize;
+
 std::string ToString(JoinType t) {
   switch (t) {
     case JoinType::LEFT_SEMI:

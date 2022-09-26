@@ -24,7 +24,9 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  exprs <- ensure_named_exprs(quos(...))
+
+  expression_list <- expand_across(.data, quos(...))
+  exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -117,7 +119,7 @@ transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
   has_null <- map_lgl(dots, quo_is_null)
   .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
-  if (is_empty(dots) | any(has_null)) {
+  if (is_empty(dots) || any(has_null)) {
     return(.data)
   }
 

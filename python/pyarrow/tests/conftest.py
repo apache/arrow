@@ -18,13 +18,14 @@
 import os
 import pathlib
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 
 import pytest
 import hypothesis as h
+from ..conftest import groups, defaults
 
 from pyarrow.util import find_free_port
-from pyarrow import Codec
 
 
 # setup hypothesis profiles
@@ -42,144 +43,6 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 # Set this at the beginning before the AWS SDK was loaded to avoid reading in
 # user configuration values.
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
-
-
-groups = [
-    'brotli',
-    'bz2',
-    'cython',
-    'dataset',
-    'hypothesis',
-    'fastparquet',
-    'gandiva',
-    'gdb',
-    'gzip',
-    'hdfs',
-    'large_memory',
-    'lz4',
-    'memory_leak',
-    'nopandas',
-    'orc',
-    'pandas',
-    'parquet',
-    'parquet_encryption',
-    'plasma',
-    's3',
-    'snappy',
-    'tensorflow',
-    'flight',
-    'slow',
-    'requires_testing_data',
-    'zstd',
-]
-
-defaults = {
-    'brotli': Codec.is_available('brotli'),
-    'bz2': Codec.is_available('bz2'),
-    'cython': False,
-    'dataset': False,
-    'fastparquet': False,
-    'flight': False,
-    'gandiva': False,
-    'gdb': True,
-    'gzip': Codec.is_available('gzip'),
-    'hdfs': False,
-    'hypothesis': False,
-    'large_memory': False,
-    'lz4': Codec.is_available('lz4'),
-    'memory_leak': False,
-    'nopandas': False,
-    'orc': False,
-    'pandas': False,
-    'parquet': False,
-    'parquet_encryption': False,
-    'plasma': False,
-    'requires_testing_data': True,
-    's3': False,
-    'slow': False,
-    'snappy': Codec.is_available('snappy'),
-    'tensorflow': False,
-    'zstd': Codec.is_available('zstd'),
-}
-
-try:
-    import cython  # noqa
-    defaults['cython'] = True
-except ImportError:
-    pass
-
-try:
-    import fastparquet  # noqa
-    defaults['fastparquet'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.gandiva  # noqa
-    defaults['gandiva'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.dataset  # noqa
-    defaults['dataset'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.orc  # noqa
-    defaults['orc'] = True
-except ImportError:
-    pass
-
-try:
-    import pandas  # noqa
-    defaults['pandas'] = True
-except ImportError:
-    defaults['nopandas'] = True
-
-try:
-    import pyarrow.parquet  # noqa
-    defaults['parquet'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.parquet.encryption  # noqa
-    defaults['parquet_encryption'] = True
-except ImportError:
-    pass
-
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.flight  # noqa
-    defaults['flight'] = True
-except ImportError:
-    pass
-
-try:
-    from pyarrow.fs import S3FileSystem  # noqa
-    defaults['s3'] = True
-except ImportError:
-    pass
-
-try:
-    from pyarrow.fs import HadoopFileSystem  # noqa
-    defaults['hdfs'] = True
-except ImportError:
-    pass
 
 
 def pytest_addoption(parser):
@@ -311,3 +174,23 @@ def s3_server(s3_connection):
         finally:
             if proc is not None:
                 proc.kill()
+
+
+@pytest.fixture(scope='session')
+def gcs_server():
+    port = find_free_port()
+    env = os.environ.copy()
+    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+    except OSError as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            'connection': ('localhost', port),
+            'process': proc,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()

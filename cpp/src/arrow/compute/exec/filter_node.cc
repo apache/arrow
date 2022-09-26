@@ -19,6 +19,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -50,7 +51,8 @@ class FilterNode : public MapNode {
 
     auto filter_expression = filter_options.filter_expression;
     if (!filter_expression.IsBound()) {
-      ARROW_ASSIGN_OR_RAISE(filter_expression, filter_expression.Bind(*schema));
+      ARROW_ASSIGN_OR_RAISE(filter_expression,
+                            filter_expression.Bind(*schema, plan->exec_context()));
     }
 
     if (filter_expression.type()->id() != Type::BOOL) {

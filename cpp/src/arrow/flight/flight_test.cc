@@ -38,7 +38,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
@@ -73,45 +72,59 @@ const char kAuthHeader[] = "authorization";
 //------------------------------------------------------------
 // Common transport tests
 
-class GrpcConnectivityTest : public ConnectivityTest {
+class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 
-class GrpcDataTest : public DataTest {
+class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 
-class GrpcDoPutTest : public DoPutTest {
+class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 
-class GrpcAppMetadataTest : public AppMetadataTest {
+class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 
-class GrpcIpcOptionsTest : public IpcOptionsTest {
+class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 
-class GrpcCudaDataTest : public CudaDataTest {
+class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 
-class GrpcErrorHandlingTest : public ErrorHandlingTest {
+class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
 
@@ -449,7 +462,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
-      const util::string_view& value = (*iter_pair.first).second;
+      const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
     }
     return Status::OK();
@@ -470,7 +483,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
   if (iter == incoming_headers.end()) {
     return "";
   }
-  const std::string val = iter->second.to_string();
+  const std::string val(iter->second);
   if (val.size() > prefix.length()) {
     if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
                    char_compare)) {
@@ -594,8 +607,8 @@ class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     recorded_calls_.push_back(info.method);
-    *middleware = arrow::internal::make_unique<PropagatingClientMiddleware>(
-        &received_headers_, &recorded_status_);
+    *middleware = std::make_unique<PropagatingClientMiddleware>(&received_headers_,
+                                                                &recorded_status_);
   }
 
   void Reset() {
@@ -759,8 +772,8 @@ class TestPropagatingMiddleware : public ::testing::Test {
   void CheckHeader(const std::string& header, const std::string& value,
                    const CallHeaders::const_iterator& it) {
     // Construct a string_view before comparison to satisfy MSVC
-    util::string_view header_view(header.data(), header.length());
-    util::string_view value_view(value.data(), value.length());
+    std::string_view header_view(header.data(), header.length());
+    std::string_view value_view(value.data(), value.length());
     ASSERT_EQ(header_view, (*it).first);
     ASSERT_EQ(value_view, (*it).second);
   }
@@ -1379,14 +1392,14 @@ TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth
 class ForeverFlightListing : public FlightListing {
   arrow::Result<std::unique_ptr<FlightInfo>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    return arrow::internal::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
+    return std::make_unique<FlightInfo>(ExampleFlightInfo()[0]);
   }
 };
 
 class ForeverResultStream : public ResultStream {
   arrow::Result<std::unique_ptr<Result>> Next() override {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto result = arrow::internal::make_unique<Result>();
+    auto result = std::make_unique<Result>();
     result->body = Buffer::FromString("foo");
     return result;
   }
@@ -1421,12 +1434,12 @@ class CancelTestServer : public FlightServerBase {
  public:
   Status ListFlights(const ServerCallContext&, const Criteria*,
                      std::unique_ptr<FlightListing>* listings) override {
-    *listings = arrow::internal::make_unique<ForeverFlightListing>();
+    *listings = std::make_unique<ForeverFlightListing>();
     return Status::OK();
   }
   Status DoAction(const ServerCallContext&, const Action&,
                   std::unique_ptr<ResultStream>* result) override {
-    *result = arrow::internal::make_unique<ForeverResultStream>();
+    *result = std::make_unique<ForeverResultStream>();
     return Status::OK();
   }
   Status ListActions(const ServerCallContext&,
@@ -1436,7 +1449,7 @@ class CancelTestServer : public FlightServerBase {
   }
   Status DoGet(const ServerCallContext&, const Ticket&,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    *data_stream = arrow::internal::make_unique<ForeverDataStream>();
+    *data_stream = std::make_unique<ForeverDataStream>();
     return Status::OK();
   }
 };

@@ -24,7 +24,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 
 namespace arrow {
 namespace util {

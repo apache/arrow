@@ -1,0 +1,67 @@
+!Job
+target: !Target
+  head: f766a1d615dd1b7ee706d05102e579195951a61c
+  email: unkown
+  branch: refs/pull/4435/merge
+  remote: https://github.com/apache/arrow
+  version: 0.13.0.dev306
+  no_rc_version: 0.13.0.dev306
+tasks:
+  docker-cpp-cmake32: !Task
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    artifacts: []
+    params:
+      commands:
+      - docker-compose build cpp-cmake32
+      - docker-compose run cpp-cmake32
+    branch: ursabot-1-circle-docker-cpp-cmake32
+    commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: success
+      build_links: ["https://github.com/apache/crossbow/runs/1"]
+  wheel-osx-cp37m: !Task
+    ci: travis
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    artifacts:
+    - pyarrow-0.13.0.dev306-cp37-cp37m-macosx_10_6_intel.whl
+    params:
+      python_version: 3.7
+    branch: ursabot-1-travis-wheel-osx-cp37m
+    commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: success
+      build_links: ["https://github.com/apache/crossbow/runs/2"]
+  wheel-osx-cp36m: !Task
+    ci: travis
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    artifacts:
+    - pyarrow-0.13.0.dev306-cp36-cp36m-macosx_10_6_intel.whl
+    params:
+      python_version: 3.6
+    branch: ursabot-1-travis-wheel-osx-cp36m
+    commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: success
+      build_links: ["https://github.com/apache/crossbow/runs/3"]
+  wheel-win-cp36m: !Task
+    ci: appveyor
+    platform: win
+    template: python-wheels/appveyor.yml
+    artifacts:
+    - pyarrow-0.13.0.dev306-cp36-cp36m-win_amd64.whl
+    params:
+      python_version: 3.6
+    branch: ursabot-1-appveyor-wheel-win-cp36m
+    commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: success
+      build_links: ["https://github.com/apache/crossbow/runs/4"]
+branch: ursabot-1
+_queue: !Queue
+  path: the_path
+  github_token: xxxxxxxxx
+  _remote_url: https://github.com/apache/crossbow

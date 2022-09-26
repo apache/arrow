@@ -117,7 +117,6 @@ QuantizedType <- R6::R6Class(
       private$.scale <- vals[2]
     }
   ),
-
   private = list(
     .center = NULL,
     .scale = NULL
@@ -154,8 +153,9 @@ reregister_extension_type(quantized())
 (array <- quantized_array(
   vals,
   center = 20,
-  scale = 2 ^ 15 - 1,
-  storage_type = int16())
+  scale = 2^15 - 1,
+  storage_type = int16()
+)
 )
 
 array$type$center()

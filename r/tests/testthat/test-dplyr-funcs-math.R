@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
 
@@ -25,7 +23,10 @@ test_that("abs()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(abs = abs(x)) %>%
+      transmute(
+        abs = abs(x),
+        abs2 = base::abs(x)
+      ) %>%
       collect(),
     df
   )
@@ -36,7 +37,10 @@ test_that("sign()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(sign = sign(x)) %>%
+      transmute(
+        sign = sign(x),
+        sign2 = base::sign(x)
+      ) %>%
       collect(),
     df
   )
@@ -51,7 +55,11 @@ test_that("ceiling(), floor(), trunc(), round()", {
         c = ceiling(x),
         f = floor(x),
         t = trunc(x),
-        r = round(x)
+        r = round(x),
+        c2 = base::ceiling(x),
+        f2 = base::floor(x),
+        t2 = base::trunc(x),
+        r2 = base::round(x)
       ) %>%
       collect(),
     df
@@ -141,7 +149,10 @@ test_that("log functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log(x)) %>%
+      mutate(
+        y = log(x),
+        y2 = base::log(x)
+      ) %>%
       collect(),
     df
   )
@@ -248,6 +259,19 @@ test_that("log functions", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::logb(x),
+        b = base::log1p(x),
+        c = base::log2(x),
+        d = base::log10(x)
+      ) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("trig functions", {
@@ -287,6 +311,20 @@ test_that("trig functions", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::sin(x),
+        b = base::cos(x),
+        c = base::tan(x),
+        d = base::asin(x),
+        e = base::acos(x)
+      ) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("arith functions ", {
@@ -308,7 +346,7 @@ test_that("arith functions ", {
   )
 })
 
-test_that("floor division maintains type consistency with R",  {
+test_that("floor division maintains type consistency with R", {
   df <- tibble(
     integers = c(1:4, NA_integer_),
     doubles = c(as.numeric(1:4), NA_real_)
@@ -321,11 +359,38 @@ test_that("floor division maintains type consistency with R",  {
         int_div_int = integers %/% 2L,
         int_div_zero_int = integers %/% 0L,
         int_div_zero_dbl = integers %/% 0,
-
         dbl_div_dbl = doubles %/% 2,
         dbl_div_int = doubles %/% 2L,
         dbl_div_zero_int = doubles %/% 0L,
         dbl_div_zero_dbl = doubles %/% 0
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("exp()", {
+  df <- tibble(x = c(1:5, NA))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = exp(x),
+        y2 = base::exp(x)
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("sqrt()", {
+  df <- tibble(x = c(1:5, NA))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = sqrt(x),
+        y2 = base::sqrt(x)
       ) %>%
       collect(),
     df

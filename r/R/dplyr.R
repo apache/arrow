@@ -24,10 +24,25 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
+
+  supported <- c(
+    "Dataset", "RecordBatch", "RecordBatchReader",
+    "Table", "arrow_dplyr_query", "data.frame"
+  )
+  if (!inherits(.data, supported)) {
+    stop(
+      "You must supply a ",
+      oxford_paste(supported, "or", quote = FALSE),
+      ", not an object of type ",
+      deparse(class(.data)),
+      call. = FALSE
+    )
+  }
+
   gv <- tryCatch(
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
-    dplyr::group_vars(.data) %||% character(),
+    dplyr::group_vars(.data),
     error = function(e) character()
   )
 
@@ -38,7 +53,7 @@ arrow_dplyr_query <- function(.data) {
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
     abort(c(
-      "Duplicated field names",
+      "Field names must be unique.",
       x = paste0(
         "The following field names were found more than once in the data: ",
         oxford_paste(names(.data)[dupes])
@@ -95,6 +110,9 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
+  # If we are using this augmented field, it won't be in the schema
+  schm[["__filename"]] <- string()
+
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
@@ -170,6 +188,27 @@ dim.arrow_dplyr_query <- function(x) {
 }
 
 #' @export
+unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+  if (isTRUE(incomparables)) {
+    arrow_not_supported("`unique()` with `incomparables = TRUE`")
+  }
+
+  if (fromLast == TRUE) {
+    arrow_not_supported("`unique()` with `fromLast = TRUE`")
+  }
+
+  dplyr::distinct(x)
+}
+
+#' @export
+unique.Dataset <- unique.arrow_dplyr_query
+#' @export
+unique.ArrowTabular <- unique.arrow_dplyr_query
+#' @export
+unique.RecordBatchReader <- unique.arrow_dplyr_query
+
+
+#' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
   collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
 }
@@ -203,6 +242,56 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   }
   x
 }
+
+#' Show the details of an Arrow Execution Plan
+#'
+#' This is a function which gives more details about the logical query plan
+#' that will be executed when evaluating an `arrow_dplyr_query` object.
+#' It calls the C++ `ExecPlan` object's print method.
+#' Functionally, it is similar to `dplyr::explain()`. This function is used as
+#' the `dplyr::explain()` and `dplyr::show_query()` methods.
+#'
+#' @param x an `arrow_dplyr_query` to print the `ExecPlan` for.
+#'
+#' @return `x`, invisibly.
+#' @export
+#'
+#' @examplesIf arrow_with_dataset() && requireNamespace("dplyr", quietly = TRUE)
+#' library(dplyr)
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   filter(mpg > 20) %>%
+#'   mutate(x = gear / carb) %>%
+#'   show_exec_plan()
+show_exec_plan <- function(x) {
+  adq <- as_adq(x)
+
+  # do not show the plan if we have a nested query (as this will force the
+  # evaluation of the inner query/queries)
+  # TODO see if we can remove after ARROW-16628
+  if (is_collapsed(x) && has_head_tail(x$.data)) {
+    warn("The `ExecPlan` cannot be printed for a nested query.")
+    return(invisible(x))
+  }
+
+  result <- as_record_batch_reader(adq)
+  cat(result$Plan()$ToString())
+  result$Close()
+
+  invisible(x)
+}
+
+show_query.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+show_query.Dataset <- show_query.ArrowTabular <- show_query.RecordBatchReader <- show_query.arrow_dplyr_query
+
+explain.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+explain.Dataset <- explain.ArrowTabular <- explain.RecordBatchReader <- explain.arrow_dplyr_query
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
@@ -249,7 +338,9 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
-query_on_dataset <- function(x) inherits(source_data(x), c("Dataset", "RecordBatchReader"))
+query_on_dataset <- function(x) {
+  any(map_lgl(all_sources(x), ~ inherits(., c("Dataset", "RecordBatchReader"))))
+}
 
 source_data <- function(x) {
   if (!inherits(x, "arrow_dplyr_query")) {
@@ -261,12 +352,47 @@ source_data <- function(x) {
   }
 }
 
-is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
-
-has_aggregation <- function(x) {
-  # TODO: update with joins (check right side data too)
-  !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+all_sources <- function(x) {
+  if (is.null(x)) {
+    x
+  } else if (!inherits(x, "arrow_dplyr_query")) {
+    list(x)
+  } else {
+    c(
+      all_sources(x$.data),
+      all_sources(x$join$right_data),
+      all_sources(x$union_all$right_data)
+    )
+  }
 }
+
+query_can_stream <- function(x) {
+  # Queries that just select/filter/mutate can stream:
+  # you can take head() without evaluating over the whole dataset
+  if (inherits(x, "arrow_dplyr_query")) {
+    # Aggregations require all of the data
+    is.null(x$aggregations) &&
+      # Sorting does too
+      length(x$arrange_vars) == 0 &&
+      # Joins are ok as long as the right-side data is in memory
+      # (we have to hash the whole dataset to join it)
+      !query_on_dataset(x$join$right_data) &&
+      # But need to check that this non-dataset join can stream
+      query_can_stream(x$join$right_data) &&
+      # Also check that any unioned datasets also can stream
+      query_can_stream(x$union_all$right_data) &&
+      # Recursively check any queries that have been collapsed
+      query_can_stream(x$.data)
+  } else {
+    # Not a query, so it must be a Table/Dataset (or NULL)
+    # Note that if you have a RecordBatchReader, you *can* stream,
+    # but the reader is consumed. If that's a problem, you should check
+    # for RBRs outside of this function.
+    TRUE
+  }
+}
+
+is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
 has_head_tail <- function(x) {
   !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))

@@ -17,9 +17,11 @@
 package arrow
 
 import (
+	"fmt"
 	"hash/maphash"
+	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -161,10 +163,27 @@ const (
 
 // DataType is the representation of an Arrow type.
 type DataType interface {
+	fmt.Stringer
 	ID() Type
 	// Name is name of the data type.
 	Name() string
 	Fingerprint() string
+	Layout() DataTypeLayout
+}
+
+// TypesToString is a convenience function to create a list of types
+// which are comma delimited as a string
+func TypesToString(types []DataType) string {
+	var b strings.Builder
+	b.WriteByte('(')
+	for i, t := range types {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(t.String())
+	}
+	b.WriteByte(')')
+	return b.String()
 }
 
 // FixedWidthDataType is the representation of an Arrow type that
@@ -173,11 +192,19 @@ type FixedWidthDataType interface {
 	DataType
 	// BitWidth returns the number of bits required to store a single element of this data type in memory.
 	BitWidth() int
+	// Bytes returns the number of bytes required to store a single element of this data type in memory.
+	Bytes() int
 }
 
 type BinaryDataType interface {
 	DataType
+	IsUtf8() bool
 	binary()
+}
+
+type OffsetsDataType interface {
+	DataType
+	OffsetTypeTraits() OffsetTraits
 }
 
 func HashType(seed maphash.Seed, dt DataType) uint64 {
@@ -208,4 +235,142 @@ func timeUnitFingerprint(unit TimeUnit) rune {
 		debug.Assert(false, "unexpected time unit")
 		return rune(0)
 	}
+}
+
+// BufferKind describes the type of buffer expected when defining a layout specification
+type BufferKind int8
+
+// The expected types of buffers
+const (
+	KindFixedWidth BufferKind = iota
+	KindVarWidth
+	KindBitmap
+	KindAlwaysNull
+)
+
+// BufferSpec provides a specification for the buffers of a particular datatype
+type BufferSpec struct {
+	Kind      BufferKind
+	ByteWidth int // for KindFixedWidth
+}
+
+func (b BufferSpec) Equals(other BufferSpec) bool {
+	return b.Kind == other.Kind && (b.Kind != KindFixedWidth || b.ByteWidth == other.ByteWidth)
+}
+
+// DataTypeLayout represents the physical layout of a datatype's buffers including
+// the number of and types of those binary buffers. This will correspond
+// with the buffers in the ArrayData for an array of that type.
+type DataTypeLayout struct {
+	Buffers []BufferSpec
+	HasDict bool
+}
+
+func SpecFixedWidth(w int) BufferSpec { return BufferSpec{KindFixedWidth, w} }
+func SpecVariableWidth() BufferSpec   { return BufferSpec{KindVarWidth, -1} }
+func SpecBitmap() BufferSpec          { return BufferSpec{KindBitmap, -1} }
+func SpecAlwaysNull() BufferSpec      { return BufferSpec{KindAlwaysNull, -1} }
+
+// IsInteger is a helper to return true if the type ID provided is one of the
+// integral types of uint or int with the varying sizes.
+func IsInteger(t Type) bool {
+	switch t {
+	case UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64:
+		return true
+	}
+	return false
+}
+
+// IsUnsignedInteger is a helper that returns true if the type ID provided is
+// one of the uint integral types (uint8, uint16, uint32, uint64)
+func IsUnsignedInteger(t Type) bool {
+	switch t {
+	case UINT8, UINT16, UINT32, UINT64:
+		return true
+	}
+	return false
+}
+
+// IsPrimitive returns true if the provided type ID represents a fixed width
+// primitive type.
+func IsPrimitive(t Type) bool {
+	switch t {
+	case BOOL, UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64,
+		FLOAT16, FLOAT32, FLOAT64, DATE32, DATE64, TIME32, TIME64, TIMESTAMP,
+		DURATION, INTERVAL_MONTHS, INTERVAL_DAY_TIME, INTERVAL_MONTH_DAY_NANO:
+		return true
+	}
+	return false
+}
+
+// IsBaseBinary returns true for Binary/String and their LARGE variants
+func IsBaseBinary(t Type) bool {
+	switch t {
+	case BINARY, STRING, LARGE_BINARY, LARGE_STRING:
+		return true
+	}
+	return false
+}
+
+// IsBinaryLike returns true for only BINARY and STRING
+func IsBinaryLike(t Type) bool {
+	switch t {
+	case BINARY, STRING:
+		return true
+	}
+	return false
+}
+
+// IsLargeBinaryLike returns true for only LARGE_BINARY and LARGE_STRING
+func IsLargeBinaryLike(t Type) bool {
+	switch t {
+	case LARGE_BINARY, LARGE_STRING:
+		return true
+	}
+	return false
+}
+
+// IsFixedSizeBinary returns true for Decimal128/256 and FixedSizeBinary
+func IsFixedSizeBinary(t Type) bool {
+	switch t {
+	case DECIMAL128, DECIMAL256, FIXED_SIZE_BINARY:
+		return true
+	}
+	return false
+}
+
+// IsDecimal returns true for Decimal128 and Decimal256
+func IsDecimal(t Type) bool {
+	switch t {
+	case DECIMAL128, DECIMAL256:
+		return true
+	}
+	return false
+}
+
+// IsUnion returns true for Sparse and Dense Unions
+func IsUnion(t Type) bool {
+	switch t {
+	case DENSE_UNION, SPARSE_UNION:
+		return true
+	}
+	return false
+}
+
+// IsListLike returns true for List, LargeList, FixedSizeList, and Map
+func IsListLike(t Type) bool {
+	switch t {
+	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP:
+		return true
+	}
+	return false
+}
+
+// IsNested returns true for List, LargeList, FixedSizeList, Map, Struct, and Unions
+func IsNested(t Type) bool {
+	switch t {
+	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP, STRUCT, SPARSE_UNION, DENSE_UNION:
+		return true
+	}
+	return false
 }

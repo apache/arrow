@@ -92,7 +92,8 @@ breathe_default_project = "arrow_cpp"
 autodoc_mock_imports = []
 
 # copybutton configuration
-copybutton_prompt_text = "$"
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: "
+copybutton_prompt_is_regexp = True
 copybutton_line_continuation_character = "\\"
 
 # ipython directive options
@@ -171,7 +172,7 @@ if "+" in release:
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -238,7 +239,6 @@ html_theme = 'pydata_sphinx_theme'
 #
 html_theme_options = {
     "show_toc_level": 2,
-    "google_analytics_id": "UA-107500873-1",
     "use_edit_page_button": True,
 }
 
@@ -502,6 +502,27 @@ try:
 except ImportError:
     flight_enabled = False
     pyarrow.flight = sys.modules['pyarrow.flight'] = mock.Mock()
+
+try:
+    import pyarrow.orc
+    orc_enabled = True
+except ImportError:
+    orc_enabled = False
+    pyarrow.orc = sys.modules['pyarrow.orc'] = mock.Mock()
+
+try:
+    import pyarrow.parquet.encryption
+    parquet_encryption_enabled = True
+except ImportError:
+    parquet_encryption_enabled = False
+    pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
+
+try:
+    import pyarrow.plasma
+    plasma_enabled = True
+except ImportError:
+    plasma_enabled = False
+    pyarrow.plasma = sys.modules['pyarrow.plasma'] = mock.Mock()
 
 
 def setup(app):

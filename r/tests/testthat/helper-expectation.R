@@ -210,11 +210,11 @@ compare_dplyr_error <- function(expr,
 #' @param ignore_attr Ignore differences in specified attributes?
 #' @param ... additional arguments, passed to `expect_as_vector()`
 compare_expression <- function(expr,
-                           vec,
-                           skip_array = NULL,
-                           skip_chunked_array = NULL,
-                           ignore_attr = FALSE,
-                           ...) {
+                               vec,
+                               skip_array = NULL,
+                               skip_chunked_array = NULL,
+                               ignore_attr = FALSE,
+                               ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = vec)))
   skip_msg <- NULL
@@ -257,10 +257,10 @@ compare_expression <- function(expr,
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ... additional arguments, passed to `expect_error()`
 compare_expression_error <- function(expr,
-                                 vec,
-                                 skip_array = NULL,
-                                 skip_chunked_array = NULL,
-                                 ...) {
+                                     vec,
+                                     skip_array = NULL,
+                                     skip_chunked_array = NULL,
+                                     ...) {
   expr <- rlang::enquo(expr)
 
   msg <- tryCatch(
@@ -320,4 +320,8 @@ split_vector_as_list <- function(vec) {
   vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
   vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
   list(vec1, vec2)
+}
+
+expect_across_equal <- function(actual, expected, tbl) {
+  expect_identical(expand_across(tbl, actual), as.list(expected))
 }

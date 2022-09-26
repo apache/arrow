@@ -29,8 +29,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeMessage {
   /**
@@ -51,7 +51,7 @@ public class TestLargeMessage {
               int value = 0;
               final IntVector iv = (IntVector) root.getVector(field.getName());
               for (int i = 0; i < root.getRowCount(); i++) {
-                Assert.assertEquals(value, iv.get(i));
+                Assertions.assertEquals(value, iv.get(i));
                 value++;
               }
             }

@@ -836,8 +836,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"int8", ::arrow::int8(), LogicalType::Int(8, true), ParquetType::INT32, -1},
       {"uint16", ::arrow::uint16(), LogicalType::Int(16, false), ParquetType::INT32, -1},
       {"int16", ::arrow::int16(), LogicalType::Int(16, true), ParquetType::INT32, -1},
-      {"uint32", ::arrow::uint32(), LogicalType::None(), ParquetType::INT64,
-       -1},  // Parquet 1.0
+      {"uint32", ::arrow::uint32(), LogicalType::Int(32, false), ParquetType::INT32, -1},
       {"int32", ::arrow::int32(), LogicalType::None(), ParquetType::INT32, -1},
       {"uint64", ::arrow::uint64(), LogicalType::Int(64, false), ParquetType::INT64, -1},
       {"int64", ::arrow::int64(), LogicalType::None(), ParquetType::INT64, -1},

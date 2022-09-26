@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "arrow/compute/light_array.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
@@ -376,7 +377,7 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
 }
 
 void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                KeyEncoder::KeyEncoderContext* ctx, uint32_t* hashes) {
+                                LightContext* ctx, uint32_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
@@ -431,10 +432,13 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                     cols[icol].data(1) + first_row * col_width, hashes + first_row,
                     hash_temp);
         }
-      } else {
-        // TODO: add support for 64-bit offsets
+      } else if (cols[icol].metadata().fixed_length == sizeof(uint32_t)) {
         HashVarLen(ctx->hardware_flags, icol > 0, batch_size_next,
                    cols[icol].offsets() + first_row, cols[icol].data(2),
+                   hashes + first_row, hash_temp);
+      } else {
+        HashVarLen(ctx->hardware_flags, icol > 0, batch_size_next,
+                   cols[icol].large_offsets() + first_row, cols[icol].data(2),
                    hashes + first_row, hash_temp);
       }
 
@@ -454,6 +458,19 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
     first_row += batch_size_next;
   }
+}
+
+Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
+                            std::vector<KeyColumnArray>& column_arrays,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                            int64_t offset, int64_t length) {
+  RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
+
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+  HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
 }
 
 inline uint64_t Hashing64::Avalanche(uint64_t acc) {
@@ -800,7 +817,7 @@ void Hashing64::HashFixed(bool combine_hashes, uint32_t num_rows, uint64_t lengt
 }
 
 void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                KeyEncoder::KeyEncoderContext* ctx, uint64_t* hashes) {
+                                LightContext* ctx, uint64_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
@@ -851,9 +868,11 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
           HashFixed(icol > 0, batch_size_next, col_width,
                     cols[icol].data(1) + first_row * col_width, hashes + first_row);
         }
-      } else {
-        // TODO: add support for 64-bit offsets
+      } else if (cols[icol].metadata().fixed_length == sizeof(uint32_t)) {
         HashVarLen(icol > 0, batch_size_next, cols[icol].offsets() + first_row,
+                   cols[icol].data(2), hashes + first_row);
+      } else {
+        HashVarLen(icol > 0, batch_size_next, cols[icol].large_offsets() + first_row,
                    cols[icol].data(2), hashes + first_row);
       }
 
@@ -873,6 +892,19 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
     first_row += batch_size_next;
   }
+}
+
+Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
+                            std::vector<KeyColumnArray>& column_arrays,
+                            int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                            int64_t offset, int64_t length) {
+  RETURN_NOT_OK(ColumnArraysFromExecBatch(key_batch, offset, length, &column_arrays));
+
+  LightContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+  HashMultiColumn(column_arrays, &ctx, hashes);
+  return Status::OK();
 }
 
 }  // namespace compute

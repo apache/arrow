@@ -224,7 +224,10 @@ export class Table<T extends TypeMap = any> {
      * Iterator for rows in this Table.
      */
     public [Symbol.iterator]() {
-        return iteratorVisitor.visit(new Vector(this.data)) as IterableIterator<Struct<T>['TValue']>;
+        if (this.batches.length > 0) {
+            return iteratorVisitor.visit(new Vector(this.data)) as IterableIterator<Struct<T>['TValue']>;
+        }
+        return (new Array(0))[Symbol.iterator]();
     }
 
     /**

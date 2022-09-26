@@ -40,6 +40,7 @@ Pyarrow implements natively the following filesystem subclasses:
 
 * :ref:`filesystem-localfs` (:class:`LocalFileSystem`)
 * :ref:`filesystem-s3` (:class:`S3FileSystem`)
+* :ref:`filesystem-gcs` (:class:`GcsFileSystem`)
 * :ref:`filesystem-hdfs` (:class:`HadoopFileSystem`)
 
 It is also possible to use your own fsspec-compliant filesystem with pyarrow functionalities as described in the section :ref:`filesystem-fsspec`.
@@ -181,6 +182,40 @@ Example how you can read contents from a S3 bucket::
 
    See the `AWS docs <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html>`__
    for the different ways to configure the AWS credentials.
+
+
+.. _filesystem-gcs:
+
+Google Cloud Storage File System
+--------------------------------
+
+PyArrow implements natively a Google Cloud Storage (GCS) backed file system
+for GCS storage.
+
+If not running on Google Cloud Platform (GCP), this generally requires the
+environment variable ``GOOGLE_APPLICATION_CREDENTIALS`` to point to a
+JSON file containing credentials.
+
+Example showing how you can read contents from a GCS bucket::
+
+   >>> from datetime import timedelta
+   >>> from pyarrow import fs
+   >>> gcs = fs.GcsFileSystem(anonymous=True, retry_time_limit=timedelta(seconds=15))
+
+   # List all contents in a bucket, recursively
+   >>> uri = "gcp-public-data-landsat/LC08/01/001/003/"
+   >>> file_list = gcs.get_file_info(fs.FileSelector(uri, recursive=True))
+
+   # Open a file for reading and download its contents
+   >>> f = gcs.open_input_stream(file_list[0].path)
+   >>> f.read(64)
+   b'GROUP = FILE_HEADER\n  LANDSAT_SCENE_ID = "LC80010032013082LGN03"\n  S'
+
+.. seealso::
+
+   The :class:`GcsFileSystem` constructor by default uses the
+   process described in `GCS docs <https://google.aip.dev/auth/4110>`__
+   to resolve credentials.
 
 
 .. _filesystem-hdfs:

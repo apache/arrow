@@ -14,52 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(.data)
-  tab <- plan$Run(final_node)
-  # TODO (ARROW-14289): make the head/tail methods return RBR not Table
-  if (inherits(tab, "RecordBatchReader")) {
-    tab <- tab$read_table()
-  }
-
-  # If arrange() created $temp_columns, make sure to omit them from the result
-  # We can't currently handle this in the ExecPlan itself because sorting
-  # happens in the end (SinkNode) so nothing comes after it.
-  if (length(final_node$sort$temp_columns) > 0) {
-    tab <- tab[, setdiff(names(tab), final_node$sort$temp_columns), drop = FALSE]
-  }
-
-  if (ncol(tab)) {
-    # Apply any column metadata from the original schema, where appropriate
-    new_r_metadata <- get_r_metadata_from_old_schema(
-      tab$schema,
-      source_data(.data)$schema,
-      drop_attributes = has_aggregation(.data)
-    )
-    if (!is.null(new_r_metadata)) {
-      tab$r_metadata <- new_r_metadata
-    }
-  }
-  tab
-}
-
+# nolint start: cyclocomp_linter,
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
-      # Handle arrow_dplyr_query
-      if (inherits(dataset, "arrow_dplyr_query")) {
-        if (inherits(dataset$.data, "RecordBatchReader")) {
-          return(ExecNode_SourceNode(self, dataset$.data))
-        } else if (inherits(dataset$.data, "ArrowTabular")) {
-          if (inherits(dataset$.data, "RecordBatch")) {
-            dataset$.data <- Table$create(dataset$.data)
-          }
-          return(ExecNode_TableSourceNode(self, dataset$.data))
+      if (inherits(dataset, c("RecordBatchReader", "ArrowTabular"))) {
+        return(self$SourceNode(dataset))
+      } else if (inherits(dataset, "arrow_dplyr_query")) {
+        if (inherits(dataset$.data, c("RecordBatchReader", "ArrowTabular"))) {
+          # There's no predicate pushdown to do, so no need to deal with other
+          # arrow_dplyr_query attributes here. They'll be handled by other
+          # ExecNodes
+          return(self$SourceNode(dataset$.data))
         }
-
+        # Else, we're scanning a Dataset, and we need to pull out the filter
+        # and projection (column selection) to push down into the scanner
         filter <- dataset$filtered_rows
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)
@@ -72,17 +42,30 @@ ExecPlan <- R6Class("ExecPlan",
         dataset <- dataset$.data
         assert_is(dataset, "Dataset")
       } else {
-        if (inherits(dataset, "ArrowTabular")) {
-          dataset <- InMemoryDataset$create(dataset)
-        }
         assert_is(dataset, "Dataset")
-        # Set some defaults
+        # Just a dataset, not a query, so there's no predicates to push down
+        # so set some defaults
         filter <- Expression$scalar(TRUE)
         colnames <- names(dataset)
       }
-      # ScanNode needs the filter to do predicate pushdown and skip partitions,
-      # and it needs to know which fields to materialize (and which are unnecessary)
-      ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
+
+      out <- ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
+      # Hold onto the source data's schema so we can preserve schema metadata
+      # in the resulting Scan/Write
+      out$extras$source_schema <- dataset$schema
+      out
+    },
+    SourceNode = function(.data) {
+      if (inherits(.data, "RecordBatchReader")) {
+        out <- ExecNode_SourceNode(self, .data)
+      } else {
+        assert_is(.data, "ArrowTabular")
+        out <- ExecNode_TableSourceNode(self, as_arrow_table(.data))
+      }
+      # Hold onto the source data's schema so we can preserve schema metadata
+      # in the resulting Scan/Write
+      out$extras$source_schema <- .data$schema
+      out
     },
     Build = function(.data) {
       # This method takes an arrow_dplyr_query and chains together the
@@ -90,19 +73,27 @@ ExecPlan <- R6Class("ExecPlan",
       group_vars <- dplyr::group_vars(.data)
       grouped <- length(group_vars) > 0
 
-      # Collect the target names first because we have to add back the group vars
-      target_names <- names(.data)
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
-      if (inherits(.data$.data, "arrow_dplyr_query")) {
-        # We have a nested query. Recurse.
-        node <- self$Build(.data$.data)
+      if (is_collapsed(.data)) {
+        # We have a nested query.
+        if (has_head_tail(.data$.data)) {
+          # head and tail are not ExecNodes; at best we can handle them via
+          # SinkNode, so if there are any steps done after head/tail, we need to
+          # evaluate the query up to then and then do a new query for the rest.
+          # as_record_batch_reader() will build and run an ExecPlan
+          node <- self$SourceNode(as_record_batch_reader(.data$.data))
+        } else {
+          # Recurse
+          node <- self$Build(.data$.data)
+        }
       } else {
         node <- self$Scan(.data)
       }
 
-      # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
+      # ARROW-13498: Even though Scan takes the filter (if you have a Dataset),
+      # we have to do it again
       if (inherits(.data$filtered_rows, "Expression")) {
         node <- node$Filter(.data$filtered_rows)
       }
@@ -122,10 +113,15 @@ ExecPlan <- R6Class("ExecPlan",
           })
         }
 
+        .data$aggregations <- imap(.data$aggregations, function(x, name) {
+          # Embed the name inside the aggregation objects. `target` and `name`
+          # are the same because we just Project()ed the data that way above
+          x[["name"]] <- x[["target"]] <- name
+          x
+        })
+
         node <- node$Aggregate(
-          options = map(.data$aggregations, ~ .[c("fun", "options")]),
-          target_names = names(.data$aggregations),
-          out_field_names = names(.data$aggregations),
+          options = .data$aggregations,
           key_names = group_vars
         )
 
@@ -138,7 +134,7 @@ ExecPlan <- R6Class("ExecPlan",
           if (getOption("arrow.summarise.sort", FALSE)) {
             # Add sorting instructions for the rows too to match dplyr
             # (see below about why sorting isn't itself a Node)
-            node$sort <- list(
+            node$extras$sort <- list(
               names = group_vars,
               orders = rep(0L, length(group_vars))
             )
@@ -146,12 +142,14 @@ ExecPlan <- R6Class("ExecPlan",
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
-        # If there are aggregations, the projection was already handled above
+        # If there are aggregations, the projection was already handled above.
         # We have to project at least once to eliminate some junk columns
         # that the ExecPlan adds:
         # __fragment_index, __batch_index, __last_in_fragment
-        # Presumably extraneous repeated projection of the same thing
-        # (as when we've done collapse() and not projected after) is cheap/no-op
+        #
+        # $Project() will check whether we actually need to project, so that
+        # repeated projection of the same thing
+        # (as when we've done collapse() and not projected after) is avoided
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
         if (!is.null(.data$join)) {
@@ -168,6 +166,10 @@ ExecPlan <- R6Class("ExecPlan",
             right_suffix = .data$join$suffix[[2]]
           )
         }
+
+        if (!is.null(.data$union_all)) {
+          node <- node$Union(self$Build(.data$union_all$right_data))
+        }
       }
 
       # Apply sorting: this is currently not an ExecNode itself, it is a
@@ -176,20 +178,19 @@ ExecPlan <- R6Class("ExecPlan",
       # (1) arrange > summarize > arrange
       # (2) ARROW-13779: arrange then operation where order matters (e.g. cumsum)
       if (length(.data$arrange_vars)) {
-        node$sort <- list(
+        node$extras$sort <- list(
           names = names(.data$arrange_vars),
           orders = .data$arrange_desc,
           temp_columns = names(.data$temp_columns)
         )
       }
-
       # This is only safe because we are going to evaluate queries that end
       # with head/tail first, then evaluate any subsequent query as a new query
       if (!is.null(.data$head)) {
-        node$head <- .data$head
+        node$extras$head <- .data$head
       }
       if (!is.null(.data$tail)) {
-        node$tail <- .data$tail
+        node$extras$tail <- .data$tail
       }
       node
     },
@@ -197,49 +198,74 @@ ExecPlan <- R6Class("ExecPlan",
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
-      sorting <- node$sort %||% list()
-      select_k <- node$head %||% -1L
+      # created in ExecPlan_build
+      sorting <- node$extras$sort %||% list()
+      select_k <- node$extras$head %||% -1L
       has_sorting <- length(sorting) > 0
       if (has_sorting) {
-        if (!is.null(node$tail)) {
+        if (!is.null(node$extras$tail)) {
           # Reverse the sort order and take the top K, then after we'll reverse
           # the resulting rows so that it is ordered as expected
           sorting$orders <- !sorting$orders
-          select_k <- node$tail
+          select_k <- node$extras$tail
         }
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      out <- ExecPlan_run(self, node, sorting, select_k)
+      out <- ExecPlan_run(
+        self,
+        node,
+        sorting,
+        prepare_key_value_metadata(node$final_metadata()),
+        select_k
+      )
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
         # essentially taking a random slice from somewhere in the dataset.
         # And since the head() implementation is way more efficient than tail(),
         # just use it to take the random slice
-        slice_size <- node$head %||% node$tail
+        # TODO(ARROW-16628): handle limit in ExecNode
+        slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
-          # TODO (ARROW-14289): make the head methods return RBR not Table
           out <- head(out, slice_size)
         }
-        # Can we now tell `self$Stop()` to StopProducing? We already have
-        # everything we need for the head (but it seems to segfault: ARROW-14329)
-      } else if (!is.null(node$tail)) {
+      } else if (!is.null(node$extras$tail)) {
+        # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
-        # TODO: don't return Table, return RecordBatchReader
-        out <- out$read_table()
+        out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
+        out <- as_record_batch_reader(out)
       }
+
+      # If arrange() created $temp_columns, make sure to omit them from the result
+      # We can't currently handle this in ExecPlan_run itself because sorting
+      # happens in the end (SinkNode) so nothing comes after it.
+      # TODO(ARROW-16631): move into ExecPlan
+      if (length(node$extras$sort$temp_columns) > 0) {
+        tab <- as_arrow_table(out)
+        tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
+        out <- as_record_batch_reader(tab)
+      }
+
       out
     },
     Write = function(node, ...) {
       # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
-      ExecPlan_Write(self, node, ...)
+      ExecPlan_Write(
+        self,
+        node,
+        prepare_key_value_metadata(node$final_metadata()),
+        ...
+      )
     },
-    Stop = function() ExecPlan_StopProducing(self)
+    ToString = function() {
+      ExecPlan_ToString(self)
+    }
   )
 )
+# nolint end.
+
 ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }
@@ -247,38 +273,56 @@ ExecPlan$create <- function(use_threads = option_use_threads()) {
 ExecNode <- R6Class("ExecNode",
   inherit = ArrowObject,
   public = list(
-    # `sort` is a slight hack to be able to keep around arrange() params,
-    # which don't currently yield their own ExecNode but rather are consumed
-    # in the SinkNode (in ExecPlan$run())
-    sort = NULL,
-    # Similar hacks for head and tail
-    head = NULL,
-    tail = NULL,
-    preserve_sort = function(new_node) {
-      new_node$sort <- self$sort
-      new_node$head <- self$head
-      new_node$tail <- self$tail
+    extras = list(
+      # `sort` is a slight hack to be able to keep around arrange() params,
+      # which don't currently yield their own ExecNode but rather are consumed
+      # in the SinkNode (in ExecPlan$run())
+      sort = NULL,
+      # Similar hacks for head and tail
+      head = NULL,
+      tail = NULL,
+      # `source_schema` is put here in Scan() so that at Run/Write, we can
+      # extract the relevant metadata and keep it in the result
+      source_schema = NULL
+    ),
+    preserve_extras = function(new_node) {
+      new_node$extras <- self$extras
       new_node
+    },
+    final_metadata = function() {
+      # Copy metadata from source schema and trim R column metadata to match
+      # which columns are included in the result
+      old_schema <- self$extras$source_schema
+      old_meta <- old_schema$metadata
+      old_meta$r <- get_r_metadata_from_old_schema(self$schema, old_schema)
+      old_meta
     },
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")
-        self$preserve_sort(ExecNode_Project(self, cols, names(cols)))
+        if (needs_projection(cols, self$schema)) {
+          self$preserve_extras(ExecNode_Project(self, cols, names(cols)))
+        } else {
+          self
+        }
       } else {
-        self$preserve_sort(ExecNode_Project(self, character(0), character(0)))
+        self$preserve_extras(ExecNode_Project(self, character(0), character(0)))
       }
     },
     Filter = function(expr) {
       assert_is(expr, "Expression")
-      self$preserve_sort(ExecNode_Filter(self, expr))
+      self$preserve_extras(ExecNode_Filter(self, expr))
     },
-    Aggregate = function(options, target_names, out_field_names, key_names) {
-      self$preserve_sort(
-        ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
+    Aggregate = function(options, key_names) {
+      out <- self$preserve_extras(
+        ExecNode_Aggregate(self, options, key_names)
       )
+      # dplyr drops top-level attributes when you call summarize()
+      out$extras$source_schema$metadata[["r"]]$attributes <- NULL
+      out
     },
     Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix) {
-      self$preserve_sort(
+      self$preserve_extras(
         ExecNode_Join(
           self,
           type,
@@ -291,10 +335,30 @@ ExecNode <- R6Class("ExecNode",
           output_suffix_for_right = right_suffix
         )
       )
+    },
+    Union = function(right_node) {
+      self$preserve_extras(ExecNode_Union(self, right_node))
     }
   ),
   active = list(
     schema = function() ExecNode_output_schema(self)
+  )
+)
+
+ExecPlanReader <- R6Class("ExecPlanReader",
+  inherit = RecordBatchReader,
+  public = list(
+    batches = function() ExecPlanReader__batches(self),
+    read_table = function() Table__from_ExecPlanReader(self),
+    Plan = function() ExecPlanReader__Plan(self),
+    PlanStatus = function() ExecPlanReader__PlanStatus(self),
+    ToString = function() {
+      sprintf(
+        "<Status: %s>\n\n%s\n\nSee $Plan() for details.",
+        self$PlanStatus(),
+        super$ToString()
+      )
+    }
   )
 )
 
@@ -309,4 +373,14 @@ do_exec_plan_substrait <- function(substrait_plan) {
 
   plan <- ExecPlan$create()
   ExecPlan_run_substrait(plan, substrait_plan)
+}
+
+needs_projection <- function(projection, schema) {
+  # Check whether `projection` would do anything to data with the given `schema`
+  field_names <- set_names(map_chr(projection, ~ .$field_name), NULL)
+
+  # We need to apply `projection` if:
+  !all(nzchar(field_names)) || # Any of the Expressions are not FieldRefs
+    !identical(field_names, names(projection)) || # Any fields are renamed
+    !identical(field_names, names(schema)) # The fields are reordered
 }

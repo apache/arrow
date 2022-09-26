@@ -33,7 +33,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
@@ -270,6 +269,25 @@ class ClientMetadataReader : public FlightMetadataReader {
   std::shared_ptr<internal::ClientDataStream> stream_;
 };
 
+/// This status detail indicates the write failed in the transport
+/// (due to the server) and that we should finish the call at a higher
+/// level (to get the server error); otherwise the client should pass
+/// through the status (it may be recoverable) instead of finishing
+/// the call (which may inadvertently make the server think the client
+/// intended to end the call successfully) or canceling the call
+/// (which may generate an unexpected error message on the client
+/// side).
+const char* kTagDetailTypeId = "flight::ServerErrorTagStatusDetail";
+class ServerErrorTagStatusDetail : public arrow::StatusDetail {
+ public:
+  const char* type_id() const override { return kTagDetailTypeId; }
+  std::string ToString() const override { return type_id(); };
+
+  static bool UnwrapStatus(const arrow::Status& status) {
+    return status.detail() && status.detail()->type_id() == kTagDetailTypeId;
+  }
+};
+
 /// \brief An IpcPayloadWriter for any ClientDataStream.
 ///
 /// To support app_metadata and reuse the existing IPC infrastructure,
@@ -321,8 +339,8 @@ class ClientPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
     }
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(
-          FlightStatusCode::Internal,
+      return Status::FromDetailAndArgs(
+          StatusCode::IOError, std::make_shared<ServerErrorTagStatusDetail>(),
           "Could not write record batch to stream (server disconnect?)");
     }
     return Status::OK();
@@ -358,10 +376,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     if (closed_) return;
     // Implicitly Close() on destruction, though it's best if the
     // application closes explicitly
-    auto status = Close();
-    if (!status.ok()) {
-      ARROW_LOG(WARNING) << "Close() failed: " << status.ToString();
-    }
+    ARROW_WARN_NOT_OK(Close(), "Close() failed");
   }
 
   Status Begin(const std::shared_ptr<Schema>& schema,
@@ -397,9 +412,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     RETURN_NOT_OK(internal::ToPayload(descriptor_, &payload.descriptor));
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(
-          FlightStatusCode::Internal,
-          "Could not write record batch to stream (server disconnect?)");
+      return Close();
     }
     return Status::OK();
   }
@@ -414,8 +427,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     payload.app_metadata = app_metadata;
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not write metadata to stream (server disconnect?)");
+      return Close();
     }
     return Status::OK();
   }
@@ -424,7 +436,13 @@ class ClientStreamWriter : public FlightStreamWriter {
                            std::shared_ptr<Buffer> app_metadata) override {
     RETURN_NOT_OK(CheckStarted());
     app_metadata_ = app_metadata;
-    return batch_writer_->WriteRecordBatch(batch);
+    auto status = batch_writer_->WriteRecordBatch(batch);
+    if (!status.ok() &&
+        // Only want to Close() if server error, not for client error
+        ServerErrorTagStatusDetail::UnwrapStatus(status)) {
+      return Close();
+    }
+    return status;
   }
 
   Status DoneWriting() override {
@@ -491,11 +509,7 @@ class ClientStreamWriter : public FlightStreamWriter {
 FlightClient::FlightClient() : closed_(false), write_size_limit_bytes_(0) {}
 
 FlightClient::~FlightClient() {
-  auto st = Close();
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "FlightClient::~FlightClient(): Close() failed: "
-                       << st.ToString();
-  }
+  ARROW_WARN_NOT_OK(Close(), "FlightClient::~FlightClient(): Close() failed");
 }
 
 arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
@@ -619,9 +633,8 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
   std::unique_ptr<FlightStreamReader> stream_reader =
-      arrow::internal::make_unique<ClientStreamReader>(
-          std::move(remote_stream), options.read_options, options.stop_token,
-          options.memory_manager);
+      std::make_unique<ClientStreamReader>(std::move(remote_stream), options.read_options,
+                                           options.stop_token, options.memory_manager);
   // Eagerly read the schema
   RETURN_NOT_OK(
       static_cast<ClientStreamReader*>(stream_reader.get())->EnsureDataStarted());
@@ -641,8 +654,8 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
   RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoPutResult result;
-  result.reader = arrow::internal::make_unique<ClientMetadataReader>(shared_stream);
-  result.writer = arrow::internal::make_unique<ClientStreamWriter>(
+  result.reader = std::make_unique<ClientMetadataReader>(shared_stream);
+  result.writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
@@ -667,9 +680,9 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoExchangeResult result;
-  result.reader = arrow::internal::make_unique<ClientStreamReader>(
+  result.reader = std::make_unique<ClientStreamReader>(
       shared_stream, options.read_options, options.stop_token, options.memory_manager);
-  auto stream_writer = arrow::internal::make_unique<ClientStreamWriter>(
+  auto stream_writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(stream_writer->Begin());

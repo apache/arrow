@@ -38,7 +38,8 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Stopwatch;
@@ -49,7 +50,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 
-@org.junit.Ignore
+@Disabled
 public class TestPerf {
 
   public static final boolean VALIDATE = false;

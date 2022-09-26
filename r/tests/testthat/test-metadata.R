@@ -52,7 +52,11 @@ test_that("Table metadata", {
 
 test_that("Table R metadata", {
   tab <- Table$create(example_with_metadata)
-  expect_output(print(tab$metadata), "arrow_r_metadata")
+  expect_output(
+    print(tab$metadata),
+    "$r$columns$c$columns$c1$attributes$extra_attr",
+    fixed = TRUE
+  )
   expect_identical(as.data.frame(tab), example_with_metadata)
 })
 
@@ -96,6 +100,7 @@ test_that("Garbage R metadata doesn't break things", {
   )
   # serialize data like .serialize_arrow_r_metadata does, but don't call that
   # directly since it checks to ensure that the data is a list
+  tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),
@@ -159,7 +164,6 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-
   expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
 })
 
@@ -306,7 +310,11 @@ test_that("Dataset writing does handle other metadata", {
   skip_if_not_available("parquet")
 
   dst_dir <- make_temp_dir()
-  write_dataset(example_with_metadata, dst_dir, partitioning = "b")
+  tab <- Table$create(example_with_metadata)
+  # Tack on extra non-R metadata: sfarrow 0.4.1 relies on this
+  tab$metadata[["other_stuff"]] <- "hello"
+
+  write_dataset(tab, dst_dir, partitioning = "b")
 
   ds <- open_dataset(dst_dir)
   expect_equal(
@@ -316,6 +324,9 @@ test_that("Dataset writing does handle other metadata", {
       collect(),
     example_with_metadata
   )
+
+  # Check for that extra metadata in the schema:
+  expect_equal(ds$metadata$other_stuff, "hello")
 })
 
 test_that("dplyr with metadata", {
@@ -371,7 +382,7 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_s3_class(grouped, "grouped_df")
   grouped_tab <- Table$create(grouped)
   expect_r6_class(grouped_tab, "Table")
-  expect_equal(grouped_tab$r_metadata$attributes$.group_vars, "a")
+  expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
 })
 
 test_that("grouped_df non-arrow metadata is preserved", {

@@ -17,29 +17,34 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "arrow/compute/exec.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_util.h"
-#include "arrow/util/cancel.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 namespace compute {
 
+/// \addtogroup execnode-components
+/// @{
+
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
+  // This allows operators to rely on signed 16-bit indices
+  static const uint32_t kMaxBatchSize = 1 << 15;
   using NodeVector = std::vector<ExecNode*>;
 
   virtual ~ExecPlan() = default;
@@ -60,6 +65,62 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
     AddNode(std::move(node));
     return out;
   }
+
+  /// \brief Returns the index of the current thread.
+  size_t GetThreadIndex();
+  /// \brief Returns the maximum number of threads that the plan could use.
+  ///
+  /// GetThreadIndex will always return something less than this, so it is safe to
+  /// e.g. make an array of thread-locals off this.
+  size_t max_concurrency() const;
+
+  /// \brief Start an external task
+  ///
+  /// This should be avoided if possible.  It is kept in for now for legacy
+  /// purposes.  This should be called before the external task is started.  If
+  /// a valid future is returned then it should be marked complete when the
+  /// external task has finished.
+  ///
+  /// \return an invalid future if the plan has already ended, otherwise this
+  ///         returns a future that must be completed when the external task
+  ///         finishes.
+  Result<Future<>> BeginExternalTask();
+
+  /// \brief Add a single function as a task to the plan's task group.
+  ///
+  /// \param fn The task to run. Takes no arguments and returns a Status.
+  Status ScheduleTask(std::function<Status()> fn);
+
+  /// \brief Add a single function as a task to the plan's task group.
+  ///
+  /// \param fn The task to run. Takes the thread index and returns a Status.
+  Status ScheduleTask(std::function<Status(size_t)> fn);
+  // Register/Start TaskGroup is a way of performing a "Parallel For" pattern:
+  // - The task function takes the thread index and the index of the task
+  // - The on_finished function takes the thread index
+  // Returns an integer ID that will be used to reference the task group in
+  // StartTaskGroup. At runtime, call StartTaskGroup with the ID and the number of times
+  // you'd like the task to be executed. The need to register a task group before use will
+  // be removed after we rewrite the scheduler.
+  /// \brief Register a "parallel for" task group with the scheduler
+  ///
+  /// \param task The function implementing the task. Takes the thread_index and
+  ///             the task index.
+  /// \param on_finished The function that gets run once all tasks have been completed.
+  /// Takes the thread_index.
+  ///
+  /// Must be called inside of ExecNode::Init.
+  int RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
+                        std::function<Status(size_t)> on_finished);
+
+  /// \brief Start the task group with the specified ID. This can only
+  ///        be called once per task_group_id.
+  ///
+  /// \param task_group_id The ID  of the task group to run
+  /// \param num_tasks The number of times to run the task
+  Status StartTaskGroup(int task_group_id, int64_t num_tasks);
+
+  util::AsyncTaskScheduler* async_scheduler();
 
   /// The initial inputs
   const NodeVector& sources() const;
@@ -90,10 +151,24 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief Return the plan's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
+  /// \brief Should the plan use a legacy batching strategy
+  ///
+  /// This is currently in place only to support the Scanner::ToTable
+  /// method.  This method relies on batch indices from the scanner
+  /// remaining consistent.  This is impractical in the ExecPlan which
+  /// might slice batches as needed (e.g. for a join)
+  ///
+  /// However, it still works for simple plans and this is the only way
+  /// we have at the moment for maintaining implicit order.
+  bool UseLegacyBatching() const { return use_legacy_batching_; }
+  // For internal use only, see above comment
+  void SetUseLegacyBatching(bool value) { use_legacy_batching_ = value; }
+
   std::string ToString() const;
 
  protected:
   ExecContext* exec_context_;
+  bool use_legacy_batching_ = false;
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
@@ -156,6 +231,16 @@ class ARROW_EXPORT ExecNode {
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
   virtual void InputFinished(ExecNode* input, int total_batches) = 0;
+
+  /// \brief Perform any needed initialization
+  ///
+  /// This hook performs any actions in between creation of ExecPlan and the call to
+  /// StartProducing. An example could be Bloom filter pushdown. The order of ExecNodes
+  /// that executes this method is undefined, but the calls are made synchronously.
+  ///
+  /// At this point a node can rely on all inputs & outputs (and the input schemas)
+  /// being well defined.
+  virtual Status Init();
 
   /// Lifecycle API:
   /// - start / stop to initiate and terminate production
@@ -253,7 +338,7 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing() = 0;
 
   /// \brief A future which will be marked finished when this node has stopped producing.
-  virtual Future<> finished() = 0;
+  virtual Future<> finished() { return finished_; }
 
   std::string ToString(int indent = 0) const;
 
@@ -279,53 +364,9 @@ class ARROW_EXPORT ExecNode {
   NodeVector outputs_;
 
   // Future to sync finished
-  Future<> finished_ = Future<>::MakeFinished();
+  Future<> finished_ = Future<>::Make();
 
   util::tracing::Span span_;
-};
-
-/// \brief MapNode is an ExecNode type class which process a task like filter/project
-/// (See SubmitTask method) to each given ExecBatch object, which have one input, one
-/// output, and are pure functions on the input
-///
-/// A simple parallel runner is created with a "map_fn" which is just a function that
-/// takes a batch in and returns a batch.  This simple parallel runner also needs an
-/// executor (use simple synchronous runner if there is no executor)
-
-class MapNode : public ExecNode {
- public:
-  MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-          std::shared_ptr<Schema> output_schema, bool async_mode);
-
-  void ErrorReceived(ExecNode* input, Status error) override;
-
-  void InputFinished(ExecNode* input, int total_batches) override;
-
-  Status StartProducing() override;
-
-  void PauseProducing(ExecNode* output, int32_t counter) override;
-
-  void ResumeProducing(ExecNode* output, int32_t counter) override;
-
-  void StopProducing(ExecNode* output) override;
-
-  void StopProducing() override;
-
-  Future<> finished() override;
-
- protected:
-  void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
-
-  void Finish(Status finish_st = Status::OK());
-
- protected:
-  // Counter for the number of batches received
-  AtomicCounter input_counter_;
-
-  ::arrow::internal::Executor* executor_;
-
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
 };
 
 /// \brief An extensible registry for factories of ExecNodes
@@ -366,7 +407,9 @@ inline Result<ExecNode*> MakeExecNode(
 /// inputs may also be Declarations). The node can be constructed and added to a plan
 /// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
 struct ARROW_EXPORT Declaration {
-  using Input = util::Variant<ExecNode*, Declaration>;
+  using Input = std::variant<ExecNode*, Declaration>;
+
+  Declaration() {}
 
   Declaration(std::string factory_name, std::vector<Input> inputs,
               std::shared_ptr<ExecNodeOptions> options, std::string label)
@@ -431,6 +474,9 @@ struct ARROW_EXPORT Declaration {
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
 
+  // Validate a declaration
+  bool IsValid(ExecFactoryRegistry* registry = default_exec_factory_registry()) const;
+
   std::string factory_name;
   std::vector<Input> inputs;
   std::shared_ptr<ExecNodeOptions> options;
@@ -442,7 +488,7 @@ struct ARROW_EXPORT Declaration {
 /// The RecordBatchReader does not impose any ordering on emitted batches.
 ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
-    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    std::shared_ptr<Schema>, std::function<Future<std::optional<ExecBatch>>()>,
     MemoryPool*);
 
 constexpr int kDefaultBackgroundMaxQ = 32;
@@ -452,9 +498,11 @@ constexpr int kDefaultBackgroundQRestart = 16;
 ///
 /// Useful as a source node for an Exec plan
 ARROW_EXPORT
-Result<std::function<Future<util::optional<ExecBatch>>()>> MakeReaderGenerator(
+Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

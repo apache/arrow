@@ -155,10 +155,16 @@ std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionar
 }
 
 template <typename T>
+static void InitValues(int num_values, uint32_t seed, std::vector<T>& values,
+                       std::vector<uint8_t>& buffer) {
+  random_numbers(num_values, seed, std::numeric_limits<T>::min(),
+                 std::numeric_limits<T>::max(), values.data());
+}
+
+template <typename T>
 static void InitValues(int num_values, std::vector<T>& values,
                        std::vector<uint8_t>& buffer) {
-  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
-                 std::numeric_limits<T>::max(), values.data());
+  InitValues(num_values, 0, values, buffer);
 }
 
 template <typename T>
@@ -566,21 +572,24 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
 // Test data generation
 
 template <>
-void inline InitValues<bool>(int num_values, std::vector<bool>& values,
+void inline InitValues<bool>(int num_values, uint32_t seed, std::vector<bool>& values,
                              std::vector<uint8_t>& buffer) {
   values = {};
-  ::arrow::random_is_valid(num_values, 0.5, &values,
-                           static_cast<int>(::arrow::random_seed()));
+  if (seed == 0) {
+    seed = static_cast<uint32_t>(::arrow::random_seed());
+  }
+  ::arrow::random_is_valid(num_values, 0.5, &values, static_cast<int>(seed));
 }
 
 template <>
-inline void InitValues<ByteArray>(int num_values, std::vector<ByteArray>& values,
+inline void InitValues<ByteArray>(int num_values, uint32_t seed,
+                                  std::vector<ByteArray>& values,
                                   std::vector<uint8_t>& buffer) {
   int max_byte_array_len = 12;
   int num_bytes = static_cast<int>(max_byte_array_len + sizeof(uint32_t));
   size_t nbytes = num_values * num_bytes;
   buffer.resize(nbytes);
-  random_byte_array(num_values, 0, buffer.data(), values.data(), max_byte_array_len);
+  random_byte_array(num_values, seed, buffer.data(), values.data(), max_byte_array_len);
 }
 
 inline void InitWideByteArrayValues(int num_values, std::vector<ByteArray>& values,
@@ -593,17 +602,17 @@ inline void InitWideByteArrayValues(int num_values, std::vector<ByteArray>& valu
 }
 
 template <>
-inline void InitValues<FLBA>(int num_values, std::vector<FLBA>& values,
+inline void InitValues<FLBA>(int num_values, uint32_t seed, std::vector<FLBA>& values,
                              std::vector<uint8_t>& buffer) {
   size_t nbytes = num_values * FLBA_LENGTH;
   buffer.resize(nbytes);
-  random_fixed_byte_array(num_values, 0, buffer.data(), FLBA_LENGTH, values.data());
+  random_fixed_byte_array(num_values, seed, buffer.data(), FLBA_LENGTH, values.data());
 }
 
 template <>
-inline void InitValues<Int96>(int num_values, std::vector<Int96>& values,
+inline void InitValues<Int96>(int num_values, uint32_t seed, std::vector<Int96>& values,
                               std::vector<uint8_t>& buffer) {
-  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
+  random_Int96_numbers(num_values, seed, std::numeric_limits<int32_t>::min(),
                        std::numeric_limits<int32_t>::max(), values.data());
 }
 
@@ -631,7 +640,7 @@ class PrimitiveTypedTest : public ::testing::Test {
     schema_.Init(node_);
   }
 
-  void GenerateData(int64_t num_values);
+  void GenerateData(int64_t num_values, uint32_t seed = 0);
   void SetupValuesOut(int64_t num_values);
   void SyncValuesOut();
 
@@ -688,22 +697,24 @@ inline void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) 
 }
 
 template <typename TestType>
-inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
+inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values,
+                                                       uint32_t seed) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<c_type>(static_cast<int>(num_values), values_, buffer_);
+  InitValues<c_type>(static_cast<int>(num_values), seed, values_, buffer_);
   values_ptr_ = values_.data();
 
   std::fill(def_levels_.begin(), def_levels_.end(), 1);
 }
 
 template <>
-inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
+inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values,
+                                                          uint32_t seed) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<c_type>(static_cast<int>(num_values), values_, buffer_);
+  InitValues<c_type>(static_cast<int>(num_values), seed, values_, buffer_);
   bool_buffer_.resize(num_values);
   std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());

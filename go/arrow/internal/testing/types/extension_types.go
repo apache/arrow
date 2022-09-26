@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"golang.org/x/xerrors"
 )
 
@@ -235,13 +235,89 @@ func (ExtStructType) Deserialize(_ arrow.DataType, serialized string) (arrow.Ext
 	return NewExtStructType(), nil
 }
 
+type DictExtensionArray struct {
+	array.ExtensionArrayBase
+}
+
+type DictExtensionType struct {
+	arrow.ExtensionBase
+}
+
+func NewDictExtensionType() *DictExtensionType {
+	return &DictExtensionType{
+		ExtensionBase: arrow.ExtensionBase{
+			Storage: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String},
+		},
+	}
+}
+
+func (p *DictExtensionType) ExtensionEquals(other arrow.ExtensionType) bool {
+	return other.ExtensionName() == p.ExtensionName()
+}
+
+func (DictExtensionType) ExtensionName() string { return "dict-extension" }
+
+func (DictExtensionType) Serialize() string { return "dict-extension-serialized" }
+
+func (DictExtensionType) ArrayType() reflect.Type { return reflect.TypeOf(DictExtensionArray{}) }
+
+func (p *DictExtensionType) String() string { return "extension<" + p.ExtensionName() + ">" }
+
+func (p *DictExtensionType) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
+	if data != "dict-extension-serialized" {
+		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
+	}
+	if !arrow.TypeEqual(p.StorageType(), storage) {
+		return nil, fmt.Errorf("invalid storage type for DictExtensionType: %s", storage)
+	}
+	return NewDictExtensionType(), nil
+}
+
+// SmallintArray is an int16 array
+type SmallintArray struct {
+	array.ExtensionArrayBase
+}
+
+type SmallintType struct {
+	arrow.ExtensionBase
+}
+
+func NewSmallintType() *SmallintType {
+	return &SmallintType{ExtensionBase: arrow.ExtensionBase{
+		Storage: arrow.PrimitiveTypes.Int16}}
+}
+
+func (SmallintType) ArrayType() reflect.Type { return reflect.TypeOf(SmallintArray{}) }
+
+func (SmallintType) ExtensionName() string { return "smallint" }
+
+func (SmallintType) Serialize() string { return "smallint" }
+
+func (s *SmallintType) ExtensionEquals(other arrow.ExtensionType) bool {
+	return s.Name() == other.Name()
+}
+
+func (SmallintType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
+	if data != "smallint" {
+		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
+	}
+	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Int16) {
+		return nil, fmt.Errorf("invalid storage type for SmallintType: %s", storageType)
+	}
+	return NewSmallintType(), nil
+}
+
 var (
 	_ arrow.ExtensionType  = (*UUIDType)(nil)
 	_ arrow.ExtensionType  = (*Parametric1Type)(nil)
 	_ arrow.ExtensionType  = (*Parametric2Type)(nil)
 	_ arrow.ExtensionType  = (*ExtStructType)(nil)
+	_ arrow.ExtensionType  = (*DictExtensionType)(nil)
+	_ arrow.ExtensionType  = (*SmallintType)(nil)
 	_ array.ExtensionArray = (*UUIDArray)(nil)
 	_ array.ExtensionArray = (*Parametric1Array)(nil)
 	_ array.ExtensionArray = (*Parametric2Array)(nil)
 	_ array.ExtensionArray = (*ExtStructArray)(nil)
+	_ array.ExtensionArray = (*DictExtensionArray)(nil)
+	_ array.ExtensionArray = (*SmallintArray)(nil)
 )

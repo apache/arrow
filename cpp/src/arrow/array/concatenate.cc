@@ -39,7 +39,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/visit_type_inline.h"
 
@@ -311,8 +311,8 @@ class ConcatenateImpl {
                                                   /*dest_offset=*/position, run.length,
                                                   transpose_map));
           } else {
-            std::fill(out_data + position,
-                      out_data + position + (run.length * index_width), 0x00);
+            std::fill(out_data + (position * index_width),
+                      out_data + (position + run.length) * index_width, 0x00);
           }
 
           position += run.length;

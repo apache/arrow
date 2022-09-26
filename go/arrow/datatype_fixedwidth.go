@@ -31,9 +31,14 @@ func (t *BooleanType) ID() Type            { return BOOL }
 func (t *BooleanType) Name() string        { return "bool" }
 func (t *BooleanType) String() string      { return "bool" }
 func (t *BooleanType) Fingerprint() string { return typeFingerprint(t) }
+func (BooleanType) Bytes() int             { return 1 }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
+
+func (BooleanType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecBitmap()}}
+}
 
 type FixedSizeBinaryType struct {
 	ByteWidth int
@@ -42,9 +47,13 @@ type FixedSizeBinaryType struct {
 func (*FixedSizeBinaryType) ID() Type              { return FIXED_SIZE_BINARY }
 func (*FixedSizeBinaryType) Name() string          { return "fixed_size_binary" }
 func (t *FixedSizeBinaryType) BitWidth() int       { return 8 * t.ByteWidth }
+func (t *FixedSizeBinaryType) Bytes() int          { return t.ByteWidth }
 func (t *FixedSizeBinaryType) Fingerprint() string { return typeFingerprint(t) }
 func (t *FixedSizeBinaryType) String() string {
 	return "fixed_size_binary[" + strconv.Itoa(t.ByteWidth) + "]"
+}
+func (t *FixedSizeBinaryType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(t.ByteWidth)}}
 }
 
 type (
@@ -59,21 +68,116 @@ type (
 
 // Date32FromTime returns a Date32 value from a time object
 func Date32FromTime(t time.Time) Date32 {
-	return Date32(t.Unix() / int64((time.Hour * 24).Seconds()))
+	if _, offset := t.Zone(); offset != 0 {
+		// properly account for timezone adjustments before we calculate
+		// the number of days by adjusting the time and converting to UTC
+		t = t.Add(time.Duration(offset) * time.Second).UTC()
+	}
+	return Date32(t.Truncate(24*time.Hour).Unix() / int64((time.Hour * 24).Seconds()))
 }
 
 func (d Date32) ToTime() time.Time {
 	return time.Unix(0, 0).UTC().AddDate(0, 0, int(d))
 }
 
+func (d Date32) FormattedString() string {
+	return d.ToTime().Format("2006-01-02")
+}
+
 // Date64FromTime returns a Date64 value from a time object
 func Date64FromTime(t time.Time) Date64 {
+	if _, offset := t.Zone(); offset != 0 {
+		// properly account for timezone adjustments before we calculate
+		// the actual value by adjusting the time and converting to UTC
+		t = t.Add(time.Duration(offset) * time.Second).UTC()
+	}
+	// truncate to the start of the day to get the correct value
+	t = t.Truncate(24 * time.Hour)
 	return Date64(t.Unix()*1e3 + int64(t.Nanosecond())/1e6)
 }
 
 func (d Date64) ToTime() time.Time {
 	days := int(int64(d) / (time.Hour * 24).Milliseconds())
 	return time.Unix(0, 0).UTC().AddDate(0, 0, days)
+}
+
+func (d Date64) FormattedString() string {
+	return d.ToTime().Format("2006-01-02")
+}
+
+// TimestampFromStringInLocation is like TimestampFromString, but treats the time instant
+// as if it were in the passed timezone before converting to UTC for internal representation.
+func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, bool, error) {
+	if len(val) < 10 {
+		return 0, false, fmt.Errorf("%w: invalid timestamp string", ErrInvalid)
+	}
+
+	var (
+		format         = "2006-01-02"
+		zoneFmt        string
+		lenWithoutZone = len(val)
+	)
+
+	if lenWithoutZone > 10 {
+		switch {
+		case val[len(val)-1] == 'Z':
+			zoneFmt = "Z"
+			lenWithoutZone--
+		case val[len(val)-3] == '+' || val[len(val)-3] == '-':
+			zoneFmt = "-07"
+			lenWithoutZone -= 3
+		case val[len(val)-5] == '+' || val[len(val)-5] == '-':
+			zoneFmt = "-0700"
+			lenWithoutZone -= 5
+		case val[len(val)-6] == '+' || val[len(val)-6] == '-':
+			zoneFmt = "-07:00"
+			lenWithoutZone -= 6
+		}
+	}
+
+	switch {
+	case lenWithoutZone == 13:
+		format += string(val[10]) + "15"
+	case lenWithoutZone == 16:
+		format += string(val[10]) + "15:04"
+	case lenWithoutZone >= 19:
+		format += string(val[10]) + "15:04:05.999999999"
+	}
+
+	// error if we're truncating precision
+	// don't need a case for nano as time.Parse will already error if
+	// more than nanosecond precision is provided
+	switch {
+	case unit == Second && lenWithoutZone > 19:
+		return 0, zoneFmt != "", xerrors.New("provided more than second precision for timestamp[s]")
+	case unit == Millisecond && lenWithoutZone > 23:
+		return 0, zoneFmt != "", xerrors.New("provided more than millisecond precision for timestamp[ms]")
+	case unit == Microsecond && lenWithoutZone > 26:
+		return 0, zoneFmt != "", xerrors.New("provided more than microsecond precision for timestamp[us]")
+	}
+
+	format += zoneFmt
+	out, err := time.Parse(format, val)
+	if err != nil {
+		return 0, zoneFmt != "", fmt.Errorf("%w: %s", ErrInvalid, err)
+	}
+	if loc != time.UTC {
+		// convert to UTC by putting the same time instant in the desired location
+		// before converting to UTC
+		out = out.In(loc).UTC()
+	}
+
+	switch unit {
+	case Second:
+		return Timestamp(out.Unix()), zoneFmt != "", nil
+	case Millisecond:
+		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), zoneFmt != "", nil
+	case Microsecond:
+		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), zoneFmt != "", nil
+	case Nanosecond:
+		return Timestamp(out.UnixNano()), zoneFmt != "", nil
+	}
+	return 0, zoneFmt != "", fmt.Errorf("%w: unexpected timestamp unit: %s", ErrInvalid, unit)
 }
 
 // TimestampFromString parses a string and returns a timestamp for the given unit
@@ -87,49 +191,12 @@ func (d Date64) ToTime() time.Time {
 //	 YYYY-MM-DD[T]HH
 //   YYYY-MM-DD[T]HH:MM
 //   YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzz]
+//
+// You can also optionally have an ending Z to indicate UTC or indicate a specific
+// timezone using ±HH, ±HHMM or ±HH:MM at the end of the string.
 func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
-	format := "2006-01-02"
-	if val[len(val)-1] == 'Z' {
-		val = val[:len(val)-1]
-	}
-
-	switch {
-	case len(val) == 13:
-		format += string(val[10]) + "15"
-	case len(val) == 16:
-		format += string(val[10]) + "15:04"
-	case len(val) >= 19:
-		format += string(val[10]) + "15:04:05.999999999"
-	}
-
-	// error if we're truncating precision
-	// don't need a case for nano as time.Parse will already error if
-	// more than nanosecond precision is provided
-	switch {
-	case unit == Second && len(val) > 19:
-		return 0, xerrors.New("provided more than second precision for timestamp[s]")
-	case unit == Millisecond && len(val) > 23:
-		return 0, xerrors.New("provided more than millisecond precision for timestamp[ms]")
-	case unit == Microsecond && len(val) > 26:
-		return 0, xerrors.New("provided more than microsecond precision for timestamp[us]")
-	}
-
-	out, err := time.ParseInLocation(format, val, time.UTC)
-	if err != nil {
-		return 0, err
-	}
-
-	switch unit {
-	case Second:
-		return Timestamp(out.Unix()), nil
-	case Millisecond:
-		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), nil
-	case Microsecond:
-		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), nil
-	case Nanosecond:
-		return Timestamp(out.UnixNano()), nil
-	}
-	return 0, fmt.Errorf("unexpected timestamp unit: %s", unit)
+	tm, _, err := TimestampFromStringInLocation(val, unit, time.UTC)
+	return tm, err
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
@@ -162,9 +229,9 @@ func Time32FromString(val string, unit TimeUnit) (Time32, error) {
 	)
 	switch {
 	case len(val) == 5:
-		out, err = time.ParseInLocation("15:04", val, time.UTC)
+		out, err = time.Parse("15:04", val)
 	default:
-		out, err = time.ParseInLocation("15:04:05.999", val, time.UTC)
+		out, err = time.Parse("15:04:05.999", val)
 	}
 	if err != nil {
 		return 0, err
@@ -178,6 +245,18 @@ func Time32FromString(val string, unit TimeUnit) (Time32, error) {
 
 func (t Time32) ToTime(unit TimeUnit) time.Time {
 	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
+}
+
+func (t Time32) FormattedString(unit TimeUnit) string {
+	const baseFmt = "15:04:05"
+	tm := t.ToTime(unit)
+	switch unit {
+	case Second:
+		return tm.Format(baseFmt)
+	case Millisecond:
+		return tm.Format(baseFmt + ".000")
+	}
+	return ""
 }
 
 // Time64FromString parses a string to return a Time64 value in the given unit,
@@ -201,9 +280,9 @@ func Time64FromString(val string, unit TimeUnit) (Time64, error) {
 	)
 	switch {
 	case len(val) == 5:
-		out, err = time.ParseInLocation("15:04", val, time.UTC)
+		out, err = time.Parse("15:04", val)
 	default:
-		out, err = time.ParseInLocation("15:04:05.999999999", val, time.UTC)
+		out, err = time.Parse("15:04:05.999999999", val)
 	}
 	if err != nil {
 		return 0, err
@@ -219,6 +298,18 @@ func (t Time64) ToTime(unit TimeUnit) time.Time {
 	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
 }
 
+func (t Time64) FormattedString(unit TimeUnit) string {
+	const baseFmt = "15:04:05.000000"
+	tm := t.ToTime(unit)
+	switch unit {
+	case Microsecond:
+		return tm.Format(baseFmt)
+	case Nanosecond:
+		return tm.Format(baseFmt + "000")
+	}
+	return ""
+}
+
 const (
 	Second TimeUnit = iota
 	Millisecond
@@ -232,12 +323,19 @@ func (u TimeUnit) Multiplier() time.Duration {
 
 func (u TimeUnit) String() string { return [...]string{"s", "ms", "us", "ns"}[uint(u)&3] }
 
+type TemporalWithUnit interface {
+	FixedWidthDataType
+	TimeUnit() TimeUnit
+}
+
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
 // The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
 // considered UTC without having "UTC" as a time zone.
 type TimestampType struct {
 	Unit     TimeUnit
 	TimeZone string
+
+	loc *time.Location
 }
 
 func (*TimestampType) ID() Type     { return TIMESTAMP }
@@ -258,6 +356,91 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
+func (TimestampType) Bytes() int { return Int64SizeBytes }
+
+func (TimestampType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
+}
+
+func (t *TimestampType) TimeUnit() TimeUnit { return t.Unit }
+
+// ClearCachedLocation clears the cached time.Location object in the type.
+// This should be called if you change the value of the TimeZone after having
+// potentially called GetZone.
+func (t *TimestampType) ClearCachedLocation() {
+	t.loc = nil
+}
+
+// GetZone returns a *time.Location that represents the current TimeZone member
+// of the TimestampType. If it is "", "UTC", or "utc", you'll get time.UTC.
+// Otherwise it must either be a valid tzdata string such as "America/New_York"
+// or of the format +HH:MM or -HH:MM indicating an absolute offset.
+//
+// The location object will be cached in the TimestampType for subsequent calls
+// so if you change the value of TimeZone after calling this, make sure to call
+// ClearCachedLocation.
+func (t *TimestampType) GetZone() (*time.Location, error) {
+	if t.loc != nil {
+		return t.loc, nil
+	}
+
+	// the TimeZone string is allowed to be either a valid tzdata string
+	// such as "America/New_York" or an absolute offset of the form -XX:XX
+	// or +XX:XX
+	//
+	// As such we have two methods we can try, first we'll try LoadLocation
+	// and if that fails, we'll test for an absolute offset.
+	if t.TimeZone == "" || t.TimeZone == "UTC" || t.TimeZone == "utc" {
+		t.loc = time.UTC
+		return time.UTC, nil
+	}
+
+	if loc, err := time.LoadLocation(t.TimeZone); err == nil {
+		t.loc = loc
+		return t.loc, err
+	}
+
+	// at this point we know that the timezone isn't empty, and didn't match
+	// anything in the tzdata names. So either it's an absolute offset
+	// or it's invalid.
+	timetz, err := time.Parse("-07:00", t.TimeZone)
+	if err != nil {
+		return time.UTC, fmt.Errorf("could not find timezone location for '%s'", t.TimeZone)
+	}
+
+	_, offset := timetz.Zone()
+	t.loc = time.FixedZone(t.TimeZone, offset)
+	return t.loc, nil
+}
+
+// GetToTimeFunc returns a function for converting an arrow.Timestamp value into a
+// time.Time object with proper TimeZone and precision. If the TimeZone is invalid
+// this will return an error. It calls GetZone to get the timezone for consistency.
+func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
+	tz, err := t.GetZone()
+	if err != nil {
+		return nil, err
+	}
+
+	switch t.Unit {
+	case Second:
+		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
+	case Millisecond:
+		factor := int64(time.Second / time.Millisecond)
+		return func(v Timestamp) time.Time {
+			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
+		}, nil
+	case Microsecond:
+		factor := int64(time.Second / time.Microsecond)
+		return func(v Timestamp) time.Time {
+			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
+		}, nil
+	case Nanosecond:
+		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
+	}
+	return nil, fmt.Errorf("invalid timestamp unit: %s", t.Unit)
+}
+
 // Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.
 type Time32Type struct {
 	Unit TimeUnit
@@ -266,10 +449,17 @@ type Time32Type struct {
 func (*Time32Type) ID() Type         { return TIME32 }
 func (*Time32Type) Name() string     { return "time32" }
 func (*Time32Type) BitWidth() int    { return 32 }
+func (*Time32Type) Bytes() int       { return Int32SizeBytes }
 func (t *Time32Type) String() string { return "time32[" + t.Unit.String() + "]" }
 func (t *Time32Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
 }
+
+func (Time32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Time32SizeBytes)}}
+}
+
+func (t *Time32Type) TimeUnit() TimeUnit { return t.Unit }
 
 // Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
 type Time64Type struct {
@@ -279,10 +469,17 @@ type Time64Type struct {
 func (*Time64Type) ID() Type         { return TIME64 }
 func (*Time64Type) Name() string     { return "time64" }
 func (*Time64Type) BitWidth() int    { return 64 }
+func (*Time64Type) Bytes() int       { return Int64SizeBytes }
 func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
 func (t *Time64Type) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
 }
+
+func (Time64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Time64SizeBytes)}}
+}
+
+func (t *Time64Type) TimeUnit() TimeUnit { return t.Unit }
 
 // DurationType is encoded as a 64-bit signed integer, representing an amount
 // of elapsed time without any relation to a calendar artifact.
@@ -293,10 +490,17 @@ type DurationType struct {
 func (*DurationType) ID() Type         { return DURATION }
 func (*DurationType) Name() string     { return "duration" }
 func (*DurationType) BitWidth() int    { return 64 }
+func (*DurationType) Bytes() int       { return Int64SizeBytes }
 func (t *DurationType) String() string { return "duration[" + t.Unit.String() + "]" }
 func (t *DurationType) Fingerprint() string {
 	return typeFingerprint(t) + string(timeUnitFingerprint(t.Unit))
 }
+
+func (DurationType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(DurationSizeBytes)}}
+}
+
+func (t *DurationType) TimeUnit() TimeUnit { return t.Unit }
 
 // Float16Type represents a floating point value encoded with a 16-bit precision.
 type Float16Type struct{}
@@ -309,6 +513,12 @@ func (t *Float16Type) Fingerprint() string { return typeFingerprint(t) }
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
 
+func (Float16Type) Bytes() int { return Float16SizeBytes }
+
+func (Float16Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Float16SizeBytes)}}
+}
+
 // Decimal128Type represents a fixed-size 128-bit decimal type.
 type Decimal128Type struct {
 	Precision int32
@@ -318,11 +528,37 @@ type Decimal128Type struct {
 func (*Decimal128Type) ID() Type      { return DECIMAL128 }
 func (*Decimal128Type) Name() string  { return "decimal" }
 func (*Decimal128Type) BitWidth() int { return 128 }
+func (*Decimal128Type) Bytes() int    { return Decimal128SizeBytes }
 func (t *Decimal128Type) String() string {
 	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
 }
 func (t *Decimal128Type) Fingerprint() string {
 	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+
+func (Decimal128Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
+}
+
+// Decimal256Type represents a fixed-size 256-bit decimal type.
+type Decimal256Type struct {
+	Precision int32
+	Scale     int32
+}
+
+func (*Decimal256Type) ID() Type      { return DECIMAL256 }
+func (*Decimal256Type) Name() string  { return "decimal256" }
+func (*Decimal256Type) BitWidth() int { return 256 }
+func (*Decimal256Type) Bytes() int    { return Decimal256SizeBytes }
+func (t *Decimal256Type) String() string {
+	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
+}
+func (t *Decimal256Type) Fingerprint() string {
+	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+
+func (Decimal256Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal256SizeBytes)}}
 }
 
 // MonthInterval represents a number of months.
@@ -358,6 +594,11 @@ func (*MonthIntervalType) Fingerprint() string { return typeIDFingerprint(INTERV
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *MonthIntervalType) BitWidth() int { return 32 }
 
+func (MonthIntervalType) Bytes() int { return Int32SizeBytes }
+func (MonthIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthIntervalSizeBytes)}}
+}
+
 // DayTimeInterval represents a number of days and milliseconds (fraction of day).
 type DayTimeInterval struct {
 	Days         int32 `json:"days"`
@@ -375,6 +616,11 @@ func (*DayTimeIntervalType) Fingerprint() string { return typeIDFingerprint(INTE
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }
+
+func (DayTimeIntervalType) Bytes() int { return DayTimeIntervalSizeBytes }
+func (DayTimeIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(DayTimeIntervalSizeBytes)}}
+}
 
 // MonthDayNanoInterval represents a number of months, days and nanoseconds (fraction of day).
 type MonthDayNanoInterval struct {
@@ -397,50 +643,59 @@ func (*MonthDayNanoIntervalType) Fingerprint() string {
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*MonthDayNanoIntervalType) BitWidth() int { return 128 }
+func (*MonthDayNanoIntervalType) Bytes() int    { return MonthDayNanoIntervalSizeBytes }
+func (MonthDayNanoIntervalType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(MonthDayNanoIntervalSizeBytes)}}
+}
 
-type op int8
+type TimestampConvertOp int8
 
 const (
-	convDIVIDE = iota
-	convMULTIPLY
+	ConvDIVIDE = iota
+	ConvMULTIPLY
 )
 
 var timestampConversion = [...][4]struct {
-	op     op
+	op     TimestampConvertOp
 	factor int64
 }{
 	Nanosecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Nanosecond)},
-		Microsecond: {convDIVIDE, int64(time.Microsecond)},
-		Millisecond: {convDIVIDE, int64(time.Millisecond)},
-		Second:      {convDIVIDE, int64(time.Second)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Nanosecond)},
+		Microsecond: {ConvDIVIDE, int64(time.Microsecond)},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond)},
+		Second:      {ConvDIVIDE, int64(time.Second)},
 	},
 	Microsecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Microsecond)},
-		Microsecond: {convMULTIPLY, 1},
-		Millisecond: {convDIVIDE, int64(time.Millisecond / time.Microsecond)},
-		Second:      {convDIVIDE, int64(time.Second / time.Microsecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Microsecond)},
+		Microsecond: {ConvMULTIPLY, 1},
+		Millisecond: {ConvDIVIDE, int64(time.Millisecond / time.Microsecond)},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Microsecond)},
 	},
 	Millisecond: {
-		Nanosecond:  {convMULTIPLY, int64(time.Millisecond)},
-		Microsecond: {convMULTIPLY, int64(time.Millisecond / time.Microsecond)},
-		Millisecond: {convMULTIPLY, 1},
-		Second:      {convDIVIDE, int64(time.Second / time.Millisecond)},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Millisecond)},
+		Microsecond: {ConvMULTIPLY, int64(time.Millisecond / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, 1},
+		Second:      {ConvDIVIDE, int64(time.Second / time.Millisecond)},
 	},
 	Second: {
-		Nanosecond:  {convMULTIPLY, int64(time.Second)},
-		Microsecond: {convMULTIPLY, int64(time.Second / time.Microsecond)},
-		Millisecond: {convMULTIPLY, int64(time.Second / time.Millisecond)},
-		Second:      {convMULTIPLY, 1},
+		Nanosecond:  {ConvMULTIPLY, int64(time.Second)},
+		Microsecond: {ConvMULTIPLY, int64(time.Second / time.Microsecond)},
+		Millisecond: {ConvMULTIPLY, int64(time.Second / time.Millisecond)},
+		Second:      {ConvMULTIPLY, 1},
 	},
+}
+
+func GetTimestampConvert(in, out TimeUnit) (op TimestampConvertOp, factor int64) {
+	conv := timestampConversion[int(in)][int(out)]
+	return conv.op, conv.factor
 }
 
 func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
 	conv := timestampConversion[int(in)][int(out)]
 	switch conv.op {
-	case convMULTIPLY:
+	case ConvMULTIPLY:
 		return value * conv.factor
-	case convDIVIDE:
+	case ConvDIVIDE:
 		return value / conv.factor
 	}
 
@@ -459,6 +714,7 @@ type DictionaryType struct {
 func (*DictionaryType) ID() Type        { return DICTIONARY }
 func (*DictionaryType) Name() string    { return "dictionary" }
 func (d *DictionaryType) BitWidth() int { return d.IndexType.(FixedWidthDataType).BitWidth() }
+func (d *DictionaryType) Bytes() int    { return d.IndexType.(FixedWidthDataType).Bytes() }
 func (d *DictionaryType) String() string {
 	return fmt.Sprintf("%s<values=%s, indices=%s, ordered=%t>",
 		d.Name(), d.ValueType, d.IndexType, d.Ordered)
@@ -475,6 +731,12 @@ func (d *DictionaryType) Fingerprint() string {
 		return typeFingerprint(d) + indexFingerprint + valueFingerprint + ordered
 	}
 	return ordered
+}
+
+func (d *DictionaryType) Layout() DataTypeLayout {
+	layout := d.IndexType.Layout()
+	layout.HasDict = true
+	return layout
 }
 
 var (

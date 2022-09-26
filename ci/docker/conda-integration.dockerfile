@@ -27,7 +27,8 @@ ARG go=1.15
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
-RUN mamba install -q \
+
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         "python>=3.7" \
         numpy \

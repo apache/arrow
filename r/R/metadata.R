@@ -35,7 +35,7 @@
   rawToChar(out)
 }
 
-.unserialize_arrow_r_metadata <- function(x) {
+.deserialize_arrow_r_metadata <- function(x) {
   tryCatch(
     expr = {
       out <- unserialize(charToRaw(x))
@@ -55,6 +55,9 @@
 
 #' @importFrom rlang trace_back
 apply_arrow_r_metadata <- function(x, r_metadata) {
+  if (is.null(r_metadata)) {
+    return(x)
+  }
   tryCatch(
     expr = {
       columns_metadata <- r_metadata$columns
@@ -196,12 +199,10 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   }
 }
 
-get_r_metadata_from_old_schema <- function(new_schema,
-                                           old_schema,
-                                           drop_attributes = FALSE) {
+get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
   # TODO: do we care about other (non-R) metadata preservation?
   # How would we know if it were meaningful?
-  r_meta <- old_schema$r_metadata
+  r_meta <- old_schema$metadata$r
   if (!is.null(r_meta)) {
     # Filter r_metadata$columns on columns with name _and_ type match
     common_names <- intersect(names(r_meta$columns), names(new_schema))
@@ -209,10 +210,6 @@ get_r_metadata_from_old_schema <- function(new_schema,
       map_lgl(common_names, ~ old_schema[[.]] == new_schema[[.]])
     ]
     r_meta$columns <- r_meta$columns[keep]
-    if (drop_attributes) {
-      # dplyr drops top-level attributes if you do summarize
-      r_meta$attributes <- NULL
-    }
   }
   r_meta
 }

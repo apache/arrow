@@ -34,6 +34,7 @@ module Arrow
     end
 
     def require_libraries
+      require "arrow/array-computable"
       require "arrow/column-containable"
       require "arrow/field-containable"
       require "arrow/generic-filterable"
@@ -106,6 +107,7 @@ module Arrow
       require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
+      require "arrow/string-array-builder"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
@@ -118,6 +120,7 @@ module Arrow
       require "arrow/table-saver"
       require "arrow/tensor"
       require "arrow/time"
+      require "arrow/time-unit"
       require "arrow/time32-array"
       require "arrow/time32-array-builder"
       require "arrow/time32-data-type"

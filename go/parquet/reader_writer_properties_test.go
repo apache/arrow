@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/compress"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +48,9 @@ func TestWriterPropAdvanced(t *testing.T) {
 		parquet.WithCompression(compress.Codecs.Snappy),
 		parquet.WithEncoding(parquet.Encodings.DeltaBinaryPacked),
 		parquet.WithEncodingFor("delta-length", parquet.Encodings.DeltaLengthByteArray),
-		parquet.WithDataPageVersion(parquet.DataPageV2))
+		parquet.WithDataPageVersion(parquet.DataPageV2),
+		parquet.WithRootName("test2"),
+		parquet.WithRootRepetition(parquet.Repetitions.Required))
 
 	assert.Equal(t, compress.Codecs.Gzip, props.CompressionPath(parquet.ColumnPathFromString("gzip")))
 	assert.Equal(t, compress.Codecs.Zstd, props.CompressionFor("zstd"))
@@ -56,6 +58,8 @@ func TestWriterPropAdvanced(t *testing.T) {
 	assert.Equal(t, parquet.Encodings.DeltaBinaryPacked, props.EncodingFor("gzip"))
 	assert.Equal(t, parquet.Encodings.DeltaLengthByteArray, props.EncodingPath(parquet.ColumnPathFromString("delta-length")))
 	assert.Equal(t, parquet.DataPageV2, props.DataPageVersion())
+	assert.Equal(t, "test2", props.RootName())
+	assert.Equal(t, parquet.Repetitions.Required, props.RootRepetition())
 }
 
 func TestReaderPropsGetStreamInsufficient(t *testing.T) {

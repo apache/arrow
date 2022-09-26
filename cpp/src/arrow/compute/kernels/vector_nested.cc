@@ -28,10 +28,10 @@ namespace internal {
 namespace {
 
 template <typename Type>
-Status ListFlatten(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  typename TypeTraits<Type>::ArrayType list_array(batch[0].array());
+Status ListFlatten(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  typename TypeTraits<Type>::ArrayType list_array(batch[0].array.ToArrayData());
   ARROW_ASSIGN_OR_RAISE(auto result, list_array.Flatten(ctx->memory_pool()));
-  out->value = result->data();
+  out->value = std::move(result->data());
   return Status::OK();
 }
 
@@ -122,7 +122,7 @@ const FunctionDoc list_parent_indices_doc(
 class ListParentIndicesFunction : public MetaFunction {
  public:
   ListParentIndicesFunction()
-      : MetaFunction("list_parent_indices", Arity::Unary(), &list_parent_indices_doc) {}
+      : MetaFunction("list_parent_indices", Arity::Unary(), list_parent_indices_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -157,14 +157,13 @@ class ListParentIndicesFunction : public MetaFunction {
 
 void RegisterVectorNested(FunctionRegistry* registry) {
   auto flatten =
-      std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), &list_flatten_doc);
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ListValuesType),
+      std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), list_flatten_doc);
+  DCHECK_OK(flatten->AddKernel({Type::LIST}, OutputType(ListValuesType),
                                ListFlatten<ListType>));
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::FIXED_SIZE_LIST)},
-                               OutputType(ListValuesType),
+  DCHECK_OK(flatten->AddKernel({Type::FIXED_SIZE_LIST}, OutputType(ListValuesType),
                                ListFlatten<FixedSizeListType>));
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LARGE_LIST)},
-                               OutputType(ListValuesType), ListFlatten<LargeListType>));
+  DCHECK_OK(flatten->AddKernel({Type::LARGE_LIST}, OutputType(ListValuesType),
+                               ListFlatten<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
 
   DCHECK_OK(registry->AddFunction(std::make_shared<ListParentIndicesFunction>()));

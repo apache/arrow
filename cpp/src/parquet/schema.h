@@ -285,7 +285,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   bool Equals(const Node* other) const override;
 
-  NodePtr field(int i) const { return fields_[i]; }
+  const NodePtr& field(int i) const { return fields_[i]; }
   // Get the index of a field by its name, or negative value if not found.
   // If several fields share the same name, it is unspecified which one
   // is returned.

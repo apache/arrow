@@ -110,7 +110,7 @@ module Arrow
               description[key] = value
             end
           end
-          if type.nil?
+          if type.nil? and self == DataType
             message =
               "data type description must have :type value: #{data_type.inspect}"
             raise ArgumentError, message
@@ -152,6 +152,7 @@ module Arrow
 
       private
       def resolve_class(data_type)
+        return self if data_type.nil?
         components = data_type.to_s.split("_").collect(&:capitalize)
         data_type_name = components.join.gsub(/\AUint/, "UInt")
         data_type_class_name = "#{data_type_name}DataType"

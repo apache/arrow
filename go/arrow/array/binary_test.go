@@ -22,8 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func TestBinary(t *testing.T) {
@@ -54,6 +55,48 @@ func TestBinary(t *testing.T) {
 	// Test builder reset and NewArray API.
 	b.AppendValues(values, valid)
 	a = b.NewArray().(*Binary)
+	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 1, a.NullN())
+	assert.Equal(t, []byte("AAA"), a.Value(0))
+	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	a.Release()
+
+	b.Release()
+}
+
+func TestLargeBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+
+	values := [][]byte{
+		[]byte("AAA"),
+		nil,
+		[]byte("BBBB"),
+	}
+	valid := []bool{true, false, true}
+	b.AppendValues(values, valid)
+
+	b.Retain()
+	b.Release()
+
+	assert.Panics(t, func() {
+		b.NewBinaryArray()
+	})
+
+	a := b.NewLargeBinaryArray()
+	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 1, a.NullN())
+	assert.Equal(t, []byte("AAA"), a.Value(0))
+	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	a.Release()
+
+	// Test builder reset and NewArray API.
+	b.AppendValues(values, valid)
+	a = b.NewArray().(*LargeBinary)
 	assert.Equal(t, 3, a.Len())
 	assert.Equal(t, 1, a.NullN())
 	assert.Equal(t, []byte("AAA"), a.Value(0))
@@ -335,6 +378,33 @@ func TestBinaryValueOffset(t *testing.T) {
 	}
 }
 
+func TestLargeBinaryValueOffset(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
+	defer slice.Release()
+
+	offset := 3
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.EqualValues(t, offset, slice.ValueOffset(i))
+		offset += len(v)
+	}
+}
+
 func TestBinaryValueLen(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -351,6 +421,31 @@ func TestBinaryValueLen(t *testing.T) {
 	defer arr.Release()
 
 	slice := NewSlice(arr, 2, 9).(*Binary)
+	defer slice.Release()
+
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.Equal(t, len(v), slice.ValueLen(i))
+	}
+}
+
+func TestLargeBinaryValueLen(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
 	defer slice.Release()
 
 	vs := values[2:9]
@@ -383,6 +478,29 @@ func TestBinaryValueOffsets(t *testing.T) {
 	assert.Equal(t, []int32{3, 3, 3, 7, 9, 9, 12, 12}, slice.ValueOffsets())
 }
 
+func TestLargeBinaryValueOffsets(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	assert.Equal(t, []int64{0, 1, 3, 3, 3, 7, 9, 9, 12, 12, 14}, arr.ValueOffsets())
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
+	defer slice.Release()
+
+	assert.Equal(t, []int64{3, 3, 3, 7, 9, 9, 12, 12}, slice.ValueOffsets())
+}
+
 func TestBinaryValueBytes(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -401,6 +519,29 @@ func TestBinaryValueBytes(t *testing.T) {
 	assert.Equal(t, []byte{'a', 'b', 'c', 'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q', 't', 'u'}, arr.ValueBytes())
 
 	slice := NewSlice(arr, 2, 9).(*Binary)
+	defer slice.Release()
+
+	assert.Equal(t, []byte{'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q'}, slice.ValueBytes())
+}
+
+func TestLargeBinaryValueBytes(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	assert.Equal(t, []byte{'a', 'b', 'c', 'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q', 't', 'u'}, arr.ValueBytes())
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
 	defer slice.Release()
 
 	assert.Equal(t, []byte{'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q'}, slice.ValueBytes())
@@ -427,4 +568,97 @@ func TestBinaryStringer(t *testing.T) {
 	if got != want {
 		t.Fatalf("invalid stringer:\ngot= %s\nwant=%s\n", got, want)
 	}
+}
+
+func TestLargeBinaryStringer(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "é", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, true, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	got := arr.String()
+	want := `["a" "bc" (null) "é" (null) "hijk" "lm" "" "opq" (null) "tu"]`
+
+	if got != want {
+		t.Fatalf("invalid stringer:\ngot= %s\nwant=%s\n", got, want)
+	}
+}
+
+func TestBinaryInvalidOffsets(t *testing.T) {
+	const expectedPanic = "arrow/array: binary offsets out of bounds of data buffer"
+
+	makeBuffers := func(valids []bool, offsets []int32, data string) []*memory.Buffer {
+		offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(offsets))
+		var nullBufBytes []byte
+		var nullBuf *memory.Buffer
+		if valids != nil {
+			nullBufBytes = make([]byte, bitutil.BytesForBits(int64(len(valids))))
+			for i, v := range valids {
+				bitutil.SetBitTo(nullBufBytes, i, v)
+			}
+			nullBuf = memory.NewBufferBytes(nullBufBytes)
+		}
+		return []*memory.Buffer{nullBuf, offsetBuf, memory.NewBufferBytes([]byte(data))}
+	}
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{}, "")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 0, buffers, nil, 0, 0))
+	}, "empty array with no offsets")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 5}, "")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 0, buffers, nil, 0, 0))
+	}, "empty array, offsets ignored")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 4, 9}, "oooabcdef")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offsets are valid")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 6, 9, 9}, "012345678")
+		arr := NewBinaryData(NewData(arrow.BinaryTypes.Binary, 4, buffers, nil, 0, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Zero(t, arr.NullN()) {
+			assert.EqualValues(t, "012", arr.Value(0))
+			assert.EqualValues(t, "345", arr.Value(1))
+			assert.EqualValues(t, "678", arr.Value(2))
+			assert.EqualValues(t, "", arr.Value(3), "trailing empty binary value will have offset past end")
+		}
+	}, "simple valid case")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers([]bool{true, false, true, false}, []int32{0, 3, 4, 9, 9}, "oooabcdef")
+		arr := NewBinaryData(NewData(arrow.BinaryTypes.Binary, 4, buffers, nil, 2, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Equal(t, 2, arr.NullN()) {
+			assert.EqualValues(t, "ooo", arr.Value(0))
+			assert.True(t, arr.IsNull(1))
+			assert.EqualValues(t, "bcdef", arr.Value(2))
+			assert.True(t, arr.IsNull(3))
+		}
+	}, "simple valid case with nulls")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers(nil, []int32{0, 5}, "abc")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 0))
+	}, "last offset is overflowing")
+
+	assert.PanicsWithError(t, "arrow/array: binary offset buffer must have at least 2 values", func() {
+		buffers := makeBuffers(nil, []int32{0}, "abc")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 0))
+	}, "last offset is missing")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 10, 15}, "oooabcdef")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offset is overflowing")
 }

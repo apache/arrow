@@ -15,39 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
-  tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
-  )
-  tab <- Table$create(!!!tbl)
-
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  expect_deprecated(
-    write_arrow(tab, tf),
-    "write_feather"
-  )
-
-  tab1 <- read_feather(tf, as_data_frame = FALSE)
-  tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
-
-  readable_file <- ReadableFile$create(tf)
-  expect_deprecated(
-    tab3 <- read_arrow(readable_file, as_data_frame = FALSE),
-    "read_feather"
-  )
-  readable_file$close()
-
-  mmap_file <- mmap_open(tf)
-  mmap_file$close()
-
-  expect_equal(tab, tab1)
-  expect_equal(tab, tab2)
-  expect_equal(tab, tab3)
-})
-
 test_that("Table cast (ARROW-3741)", {
   tab <- Table$create(x = 1:10, y = 1:10)
 
@@ -88,16 +55,17 @@ test_that("Table $column and $field", {
   expect_error(tab$field("one"))
 })
 
-test_that("[, [[, $ for Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
+# Common fixtures used in some of the following tests
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+tab <- Table$create(tbl)
 
+test_that("[, [[, $ for Table", {
   expect_identical(names(tab), names(tbl))
 
   expect_data_frame(tab[6:7, ], tbl[6:7, ])
@@ -148,15 +116,6 @@ test_that("[, [[, $ for Table", {
 })
 
 test_that("[[<- assignment", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   # can remove a column
   tab[["chr"]] <- NULL
   expect_data_frame(tab, tbl[-4])
@@ -217,14 +176,6 @@ test_that("[[<- assignment", {
 })
 
 test_that("Table$Slice", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
   tab2 <- tab$Slice(5)
   expect_data_frame(tab2, tbl[6:10, ])
 
@@ -248,15 +199,6 @@ test_that("Table$Slice", {
 })
 
 test_that("head and tail on Table", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_data_frame(head(tab), head(tbl))
   expect_data_frame(head(tab, 4), head(tbl, 4))
   expect_data_frame(head(tab, 40), head(tbl, 40))
@@ -287,15 +229,6 @@ test_that("Table print method", {
 })
 
 test_that("table active bindings", {
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
-  tab <- Table$create(tbl)
-
   expect_identical(dim(tbl), dim(tab))
   expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
@@ -659,7 +592,7 @@ test_that("cbind.Table handles record batches and tables", {
   )
 })
 
-test_that("ARROW-11769 - grouping preserved in table creation", {
+test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   skip_if_not_available("dataset")
 
   tbl <- tibble::tibble(
@@ -668,6 +601,12 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
 
+  expect_identical(
+    tbl %>%
+      Table$create() %>%
+      dplyr::group_vars(),
+    dplyr::group_vars(tbl)
+  )
   expect_identical(
     tbl %>%
       dplyr::group_by(fct, fct2) %>%
@@ -729,4 +668,28 @@ test_that("as_arrow_table() errors for invalid input", {
     as_arrow_table("no as_arrow_table() method"),
     class = "arrow_no_method_as_arrow_table"
   )
+})
+
+test_that("num_rows method not susceptible to integer overflow", {
+  skip_if_not_running_large_memory_tests()
+
+  small_array <- Array$create(raw(1))
+  big_array <- Array$create(raw(.Machine$integer.max))
+  big_chunked_array <- chunked_array(big_array, small_array)
+  # LargeString array with data buffer > MAX_INT32
+  big_string_array <- Array$create(make_big_string())
+
+  small_table <- Table$create(col = small_array)
+  big_table <- Table$create(col = big_chunked_array)
+
+  expect_type(big_array$nbytes(), "integer")
+  expect_type(big_chunked_array$nbytes(), "double")
+
+  expect_type(length(big_array), "integer")
+  expect_type(length(big_chunked_array), "double")
+
+  expect_type(small_table$num_rows, "integer")
+  expect_type(big_table$num_rows, "double")
+
+  expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
 })

@@ -38,19 +38,43 @@ RecordBatchBuilder::RecordBatchBuilder(const std::shared_ptr<Schema>& schema,
 
 Status RecordBatchBuilder::Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                                 std::unique_ptr<RecordBatchBuilder>* builder) {
-  return Make(schema, pool, kMinBuilderCapacity, builder);
+  ARROW_ASSIGN_OR_RAISE(*builder, Make(schema, pool, kMinBuilderCapacity))
+  return Status::OK();
 }
 
 Status RecordBatchBuilder::Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                                 int64_t initial_capacity,
                                 std::unique_ptr<RecordBatchBuilder>* builder) {
-  builder->reset(new RecordBatchBuilder(schema, pool, initial_capacity));
-  RETURN_NOT_OK((*builder)->CreateBuilders());
-  return (*builder)->InitBuilders();
+  ARROW_ASSIGN_OR_RAISE(*builder, Make(schema, pool, initial_capacity))
+  return Status::OK();
+}
+
+Result<std::unique_ptr<RecordBatchBuilder>> RecordBatchBuilder::Make(
+    const std::shared_ptr<Schema>& schema, MemoryPool* pool) {
+  return Make(schema, pool, kMinBuilderCapacity);
+}
+
+Result<std::unique_ptr<RecordBatchBuilder>> RecordBatchBuilder::Make(
+    const std::shared_ptr<Schema>& schema, MemoryPool* pool, int64_t initial_capacity) {
+  auto builder = std::unique_ptr<RecordBatchBuilder>(
+      new RecordBatchBuilder(schema, pool, initial_capacity));
+  RETURN_NOT_OK(builder->CreateBuilders());
+  RETURN_NOT_OK(builder->InitBuilders());
+  return std::move(builder);
 }
 
 Status RecordBatchBuilder::Flush(bool reset_builders,
                                  std::shared_ptr<RecordBatch>* batch) {
+  ARROW_ASSIGN_OR_RAISE(*batch, Flush(reset_builders));
+  return Status::OK();
+}
+
+Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
+  ARROW_ASSIGN_OR_RAISE(*batch, Flush(true));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatchBuilder::Flush(bool reset_builders) {
   std::vector<std::shared_ptr<Array>> fields;
   fields.resize(this->num_fields());
 
@@ -76,17 +100,17 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
   std::shared_ptr<Schema> schema =
       std::make_shared<Schema>(std::move(schema_fields), schema_->metadata());
 
-  *batch = RecordBatch::Make(std::move(schema), length, std::move(fields));
+  std::shared_ptr<RecordBatch> batch =
+      RecordBatch::Make(std::move(schema), length, std::move(fields));
+
   if (reset_builders) {
-    return InitBuilders();
-  } else {
-    return Status::OK();
+    ARROW_RETURN_NOT_OK(InitBuilders());
   }
+
+  return batch;
 }
 
-Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
-  return Flush(true, batch);
-}
+Result<std::shared_ptr<RecordBatch>> RecordBatchBuilder::Flush() { return Flush(true); }
 
 void RecordBatchBuilder::SetInitialCapacity(int64_t capacity) {
   ARROW_CHECK_GT(capacity, 0) << "Initial capacity must be positive";

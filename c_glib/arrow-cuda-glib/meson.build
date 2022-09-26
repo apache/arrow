@@ -51,11 +51,12 @@ arrow_cuda_glib = declare_dependency(link_with: libarrow_cuda_glib,
                                      dependencies: dependencies)
 
 pkgconfig.generate(libarrow_cuda_glib,
+                   description: 'C API for Apache Arrow CUDA based on GLib',
                    filebase: 'arrow-cuda-glib',
                    name: 'Apache Arrow CUDA GLib',
-                   description: 'C API for Apache Arrow CUDA based on GLib',
-                   version: version,
-                   requires: ['arrow-glib', 'arrow-cuda'])
+                   requires: ['arrow-glib', 'arrow-cuda'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
   gir_dependencies = [
@@ -65,17 +66,31 @@ if have_gi
     '--warn-all',
     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
   ]
-  arrow_cuda_glib_gir = gnome.generate_gir(libarrow_cuda_glib,
-                                           dependencies: gir_dependencies,
-                                           sources: sources + c_headers,
-                                           namespace: 'ArrowCUDA',
-                                           nsversion: api_version,
-                                           identifier_prefix: 'GArrowCUDA',
-                                           symbol_prefix: 'garrow_cuda',
-                                           export_packages: 'arrow-cuda-glib',
-                                           includes: [
-                                             'Arrow-1.0',
-                                           ],
-                                           install: true,
-                                           extra_args: gir_extra_args)
+  arrow_cuda_glib_gir = \
+    gnome.generate_gir(libarrow_cuda_glib,
+                       dependencies: gir_dependencies,
+                       export_packages: 'arrow-cuda-glib',
+                       extra_args: gir_extra_args,
+                       fatal_warnings: gi_fatal_warnings,
+                       header: 'arrow-cuda-glib/arrow-cuda-glib.h',
+                       identifier_prefix: 'GArrowCUDA',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       namespace: 'ArrowCUDA',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'garrow_cuda')
+
+  if generate_vapi
+    arrow_cuda_glib_vapi = \
+      gnome.generate_vapi('arrow-cuda-glib',
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: [arrow_cuda_glib_gir[0]])
+  endif
 endif

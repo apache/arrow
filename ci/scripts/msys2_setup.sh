@@ -27,25 +27,34 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp)
     packages+=(${MINGW_PACKAGE_PREFIX}-boost)
     packages+=(${MINGW_PACKAGE_PREFIX}-brotli)
+    packages+=(${MINGW_PACKAGE_PREFIX}-bzip2)
+    packages+=(${MINGW_PACKAGE_PREFIX}-c-ares)
+    packages+=(${MINGW_PACKAGE_PREFIX}-cc)
     packages+=(${MINGW_PACKAGE_PREFIX}-ccache)
     packages+=(${MINGW_PACKAGE_PREFIX}-clang)
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
-    packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
+    packages+=(${MINGW_PACKAGE_PREFIX}-double-conversion)
+    packages+=(${MINGW_PACKAGE_PREFIX}-flatbuffers)
     packages+=(${MINGW_PACKAGE_PREFIX}-gflags)
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
     packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
     packages+=(${MINGW_PACKAGE_PREFIX}-libxml2)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
-    packages+=(${MINGW_PACKAGE_PREFIX}-make)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-nlohmann-json)
+    packages+=(${MINGW_PACKAGE_PREFIX}-openssl)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
-    packages+=(${MINGW_PACKAGE_PREFIX}-python3-numpy)
+    packages+=(${MINGW_PACKAGE_PREFIX}-python-cffi)
+    packages+=(${MINGW_PACKAGE_PREFIX}-python-numpy)
+    packages+=(${MINGW_PACKAGE_PREFIX}-python-pip)
+    packages+=(${MINGW_PACKAGE_PREFIX}-python-wheel)
     packages+=(${MINGW_PACKAGE_PREFIX}-rapidjson)
     packages+=(${MINGW_PACKAGE_PREFIX}-re2)
     packages+=(${MINGW_PACKAGE_PREFIX}-snappy)
     packages+=(${MINGW_PACKAGE_PREFIX}-thrift)
+    packages+=(${MINGW_PACKAGE_PREFIX}-xsimd)
+    packages+=(${MINGW_PACKAGE_PREFIX}-uriparser)
     packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
     packages+=(${MINGW_PACKAGE_PREFIX}-zstd)
   ;;
@@ -56,6 +65,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gobject-introspection)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtk-doc)
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
+    packages+=(${MINGW_PACKAGE_PREFIX}-vala)
     ;;
 esac
 
@@ -77,3 +87,4 @@ pacman \
 
 "$(dirname $0)/ccache_setup.sh"
 echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+echo "PIP_CACHE_DIR=$(pip cache dir)" >> $GITHUB_ENV

@@ -17,10 +17,9 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
+#include <optional>
 
 #include <arrow/config.h>
-#include <arrow/util/optional.h>
 
 // [[arrow::export]]
 std::vector<std::string> build_info() {
@@ -43,8 +42,6 @@ void set_timezone_database(cpp11::strings path) {
   }
 
   arrow::GlobalOptions options;
-  options.timezone_db_path = arrow::util::make_optional(paths[0]);
+  options.timezone_db_path = std::make_optional(paths[0]);
   arrow::StopIfNotOk(arrow::Initialize(options));
 }
-
-#endif

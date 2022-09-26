@@ -25,13 +25,16 @@ import (
 	"io"
 	"math"
 	"sync"
+	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 type swriter struct {
@@ -141,7 +144,13 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) Write(rec arrow.Record) error {
+func (w *Writer) Write(rec arrow.Record) (err error) {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/ipc: unknown error while writing: %v", pErr)
+		}
+	}()
+
 	if !w.started {
 		err := w.start()
 		if err != nil {
@@ -161,7 +170,7 @@ func (w *Writer) Write(rec arrow.Record) error {
 	)
 	defer data.Release()
 
-	err := writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
+	err = writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
 	if err != nil {
 		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}
@@ -471,23 +480,25 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		return nil
 	}
 
-	switch arr.NullN() {
-	case 0:
-		// there are no null values, drop the null bitmap
-		p.body = append(p.body, nil)
-	default:
-		data := arr.Data()
-		var bitmap *memory.Buffer
-		if data.NullN() == data.Len() {
-			// every value is null, just use a new unset bitmap to avoid the expense of copying
-			bitmap = memory.NewResizableBuffer(w.mem)
-			minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
-			bitmap.Resize(int(minLength))
-		} else {
-			// otherwise truncate and copy the bits
-			bitmap = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+	if internal.HasValidityBitmap(arr.DataType().ID(), flatbuf.MetadataVersion(currentMetadataVersion)) {
+		switch arr.NullN() {
+		case 0:
+			// there are no null values, drop the null bitmap
+			p.body = append(p.body, nil)
+		default:
+			data := arr.Data()
+			var bitmap *memory.Buffer
+			if data.NullN() == data.Len() {
+				// every value is null, just use a new zero-initialized bitmap to avoid the expense of copying
+				bitmap = memory.NewResizableBuffer(w.mem)
+				minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
+				bitmap.Resize(int(minLength))
+			} else {
+				// otherwise truncate and copy the bits
+				bitmap = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+			}
+			p.body = append(p.body, bitmap)
 		}
-		p.body = append(p.body, bitmap)
 	}
 
 	switch dtype := arr.DataType().(type) {
@@ -526,8 +537,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		p.body = append(p.body, values)
 
-	case *arrow.BinaryType:
-		arr := arr.(*array.Binary)
+	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.StringType, *arrow.LargeStringType:
+		arr := arr.(array.BinaryLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
@@ -544,37 +555,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			// slice data buffer to include the range we need now.
 			var (
-				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
-			)
-			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
-		default:
-			if values != nil {
-				values.Retain()
-			}
-		}
-		p.body = append(p.body, voffsets)
-		p.body = append(p.body, values)
-
-	case *arrow.StringType:
-		arr := arr.(*array.String)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
-		data := arr.Data()
-		values := data.Buffers()[2]
-
-		var totalDataBytes int64
-		if voffsets != nil {
-			totalDataBytes = int64(len(arr.ValueBytes()))
-		}
-
-		switch {
-		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			// slice data buffer to include the range we need now.
-			var (
-				beg = int64(arr.ValueOffset(0))
+				beg = arr.ValueOffset64(0)
 				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
 			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
@@ -597,6 +578,75 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		w.depth++
 
+	case *arrow.SparseUnionType:
+		offset, length := arr.Data().Offset(), arr.Len()
+		arr := arr.(*array.SparseUnion)
+		typeCodes := getTruncatedBuffer(int64(offset), int64(length), int32(unsafe.Sizeof(arrow.UnionTypeCode(0))), arr.TypeCodes())
+		p.body = append(p.body, typeCodes)
+
+		w.depth--
+		for i := 0; i < arr.NumFields(); i++ {
+			err := w.visit(p, arr.Field(i))
+			if err != nil {
+				return fmt.Errorf("could not visit field %d of sparse union array: %w", i, err)
+			}
+		}
+		w.depth++
+	case *arrow.DenseUnionType:
+		offset, length := arr.Data().Offset(), arr.Len()
+		arr := arr.(*array.DenseUnion)
+		typeCodes := getTruncatedBuffer(int64(offset), int64(length), int32(unsafe.Sizeof(arrow.UnionTypeCode(0))), arr.TypeCodes())
+		p.body = append(p.body, typeCodes)
+
+		w.depth--
+		dt := arr.UnionType()
+
+		// union type codes are not necessarily 0-indexed
+		maxCode := dt.MaxTypeCode()
+
+		// allocate an array of child offsets. Set all to -1 to indicate we
+		// haven't observed a first occurrence of a particular child yet
+		offsets := make([]int32, maxCode+1)
+		lengths := make([]int32, maxCode+1)
+		offsets[0], lengths[0] = -1, 0
+		for i := 1; i < len(offsets); i *= 2 {
+			copy(offsets[i:], offsets[:i])
+			copy(lengths[i:], lengths[:i])
+		}
+
+		var valueOffsets *memory.Buffer
+		if offset != 0 {
+			valueOffsets = w.rebaseDenseUnionValueOffsets(arr, offsets, lengths)
+		} else {
+			valueOffsets = getTruncatedBuffer(int64(offset), int64(length), int32(arrow.Int32SizeBytes), arr.ValueOffsets())
+		}
+		p.body = append(p.body, valueOffsets)
+
+		// visit children and slice accordingly
+		for i := range dt.Fields() {
+			child := arr.Field(i)
+			// for sliced unions it's tricky to know how much to truncate
+			// the children. For now we'll truncate the children to be
+			// no longer than the parent union.
+
+			if offset != 0 {
+				code := dt.TypeCodes()[i]
+				childOffset := offsets[code]
+				childLen := lengths[code]
+
+				if childOffset > 0 {
+					child = array.NewSlice(child, int64(childOffset), int64(childOffset+childLen))
+					defer child.Release()
+				} else if childLen < int32(child.Len()) {
+					child = array.NewSlice(child, 0, int64(childLen))
+					defer child.Release()
+				}
+			}
+			if err := w.visit(p, child); err != nil {
+				return fmt.Errorf("could not visit field %d of dense union array: %w", i, err)
+			}
+		}
+		w.depth++
 	case *arrow.MapType:
 		arr := arr.(*array.Map)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
@@ -634,8 +684,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
-	case *arrow.ListType:
-		arr := arr.(*array.List)
+	case *arrow.ListType, *arrow.LargeListType:
+		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
@@ -655,12 +705,13 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}()
 
-		if voffsets != nil {
-			values_offset = int64(arr.Offsets()[0])
-			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		if arr.Len() > 0 && voffsets != nil {
+			values_offset, _ = arr.ValueOffsets(0)
+			_, values_length = arr.ValueOffsets(arr.Len() - 1)
+			values_length -= values_offset
 		}
 
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_length < int64(values.Len()) {
 			// must also slice the values
 			values = array.NewSlice(values, values_offset, values_length)
 			mustRelease = true
@@ -701,7 +752,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
-	offsetBytesNeeded := arrow.Int32Traits.BytesRequired(data.Len() + 1)
+	offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
+	offsetBytesNeeded := offsetTraits.BytesRequired(data.Len() + 1)
 
 	if data.Offset() != 0 || offsetBytesNeeded < voffsets.Len() {
 		// if we have a non-zero offset, then the value offsets do not start at
@@ -713,13 +765,27 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
-		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
+		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		case 8:
+			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
+			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 
-		startOffset := offsets[0]
-		for i, o := range offsets {
-			dest[i] = o - startOffset
+			startOffset := offsets[0]
+			for i, o := range offsets {
+				dest[i] = o - startOffset
+			}
+
+		default:
+			debug.Assert(arr.DataType().Layout().Buffers[1].ByteWidth == 4, "invalid offset bytewidth")
+			dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
+			offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
+
+			startOffset := offsets[0]
+			for i, o := range offsets {
+				dest[i] = o - startOffset
+			}
 		}
+
 		voffsets = shiftedOffsets
 	} else {
 		voffsets.Retain()
@@ -729,6 +795,33 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 	}
 
 	return voffsets, nil
+}
+
+func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
+	// this case sucks. Because the offsets are different for each
+	// child array, when we have a sliced array, we need to re-base
+	// the value offsets for each array! ew.
+	unshiftedOffsets := arr.RawValueOffsets()
+	codes := arr.RawTypeCodes()
+
+	shiftedOffsetsBuf := memory.NewResizableBuffer(w.mem)
+	shiftedOffsetsBuf.Resize(arrow.Int32Traits.BytesRequired(arr.Len()))
+	shiftedOffsets := arrow.Int32Traits.CastFromBytes(shiftedOffsetsBuf.Bytes())
+
+	// compute shifted offsets by subtracting child offset
+	for i, c := range codes {
+		if offsets[c] == -1 {
+			// offsets are guaranteed to be increasing according to the spec
+			// so the first offset we find for a child is the initial offset
+			// and will become the "0" for this child.
+			offsets[c] = unshiftedOffsets[i]
+			shiftedOffsets[i] = 0
+		} else {
+			shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
+		}
+		lengths[c] = maxI32(lengths[c], shiftedOffsets[i]+1)
+	}
+	return shiftedOffsetsBuf
 }
 
 func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
@@ -762,6 +855,19 @@ func newTruncatedBitmap(mem memory.Allocator, offset, length int64, input *memor
 	}
 }
 
+func getTruncatedBuffer(offset, length int64, byteWidth int32, buf *memory.Buffer) *memory.Buffer {
+	if buf == nil {
+		return buf
+	}
+
+	paddedLen := paddedLength(length*int64(byteWidth), kArrowAlignment)
+	if offset != 0 || paddedLen < int64(buf.Len()) {
+		return memory.SliceBuffer(buf, int(offset*int64(byteWidth)), int(minI64(paddedLen, int64(buf.Len()))))
+	}
+	buf.Retain()
+	return buf
+}
+
 func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 	if buf == nil {
 		return false
@@ -771,6 +877,13 @@ func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 
 func minI64(a, b int64) int64 {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxI32(a, b int32) int32 {
+	if a > b {
 		return a
 	}
 	return b

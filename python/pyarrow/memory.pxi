@@ -76,12 +76,24 @@ cdef class MemoryPool(_Weakrefable):
         """
         return frombytes(self.pool.backend_name())
 
+    def __repr__(self):
+        name = f"pyarrow.{self.__class__.__name__}"
+        return (f"<{name} "
+                f"backend_name={self.backend_name} "
+                f"bytes_allocated={self.bytes_allocated()} "
+                f"max_memory={self.max_memory()}>")
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
         return c_get_memory_pool()
     else:
         return memory_pool.pool
+
+
+cdef api object box_memory_pool(CMemoryPool *c_pool):
+    cdef MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_pool)
+    return pool
 
 
 cdef class LoggingMemoryPool(MemoryPool):
@@ -112,6 +124,11 @@ cdef class ProxyMemoryPool(MemoryPool):
 def default_memory_pool():
     """
     Return the process-global memory pool.
+
+    Examples
+    --------
+    >>> default_memory_pool()
+    <pyarrow.MemoryPool backend_name=... bytes_allocated=0 max_memory=...>
     """
     cdef:
         MemoryPool pool = MemoryPool.__new__(MemoryPool)

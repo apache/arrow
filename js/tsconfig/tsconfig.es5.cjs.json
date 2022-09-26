@@ -2,7 +2,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs"
+    "target": "ES5",
+    "module": "CommonJS"
   }
 }

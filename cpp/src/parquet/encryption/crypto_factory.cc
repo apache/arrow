@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string_view>
+
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_view.h"
 
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -94,7 +95,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
     int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
 
-  std::vector<::arrow::util::string_view> key_to_columns =
+  std::vector<::std::string_view> key_to_columns =
       ::arrow::internal::SplitString(column_keys, ';');
   for (size_t i = 0; i < key_to_columns.size(); ++i) {
     std::string cur_key_to_columns =
@@ -103,7 +104,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
       continue;
     }
 
-    std::vector<::arrow::util::string_view> parts =
+    std::vector<::std::string_view> parts =
         ::arrow::internal::SplitString(cur_key_to_columns, ':');
     if (parts.size() != 2) {
       std::ostringstream message;
@@ -118,7 +119,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
     }
 
     std::string column_names_str = ::arrow::internal::TrimString(std::string(parts[1]));
-    std::vector<::arrow::util::string_view> column_names =
+    std::vector<::std::string_view> column_names =
         ::arrow::internal::SplitString(column_names_str, ',');
     if (0 == column_names.size()) {
       throw ParquetException("No columns to encrypt defined for key: " + column_key_id);

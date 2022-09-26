@@ -259,13 +259,14 @@ def submit(obj, tasks, groups, params, arrow_version):
 
         # parse additional job parameters
         params = dict([p.split("=") for p in params])
+        params['pr_number'] = pull_request.number
 
         # instantiate the job object
         job = Job.from_config(config=config, target=target, tasks=tasks,
                               groups=groups, params=params)
 
         # add the job to the crossbow queue and push to the remote repository
-        queue.put(job, prefix="actions")
+        queue.put(job, prefix="actions", increment_job_id=False)
         queue.push()
 
         # render the response comment's content

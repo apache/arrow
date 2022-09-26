@@ -20,14 +20,16 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"runtime"
+	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -40,6 +42,10 @@ func initValues(values reflect.Value) {
 	r := rand.New(rand.NewSource(0))
 	typ := values.Type().Elem()
 	switch {
+	case typ.Kind() == reflect.Bool:
+		for i := 0; i < values.Len(); i++ {
+			values.Index(i).Set(reflect.ValueOf(r.Int31n(2) == 1))
+		}
 	case typ.Bits() <= 32:
 		max := int64(math.MaxInt32)
 		min := int64(math.MinInt32)
@@ -169,10 +175,25 @@ type PrimitiveReaderSuite struct {
 	nvalues         int
 	maxDefLvl       int16
 	maxRepLvl       int16
+
+	bufferPool sync.Pool
+}
+
+func (p *PrimitiveReaderSuite) SetupTest() {
+	p.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := memory.NewResizableBuffer(mem)
+			runtime.SetFinalizer(buf, func(obj *memory.Buffer) {
+				obj.Release()
+			})
+			return buf
+		},
+	}
 }
 
 func (p *PrimitiveReaderSuite) TearDownTest() {
 	p.clear()
+	p.bufferPool = sync.Pool{}
 }
 
 func (p *PrimitiveReaderSuite) initReader(d *schema.Column) {
@@ -181,11 +202,11 @@ func (p *PrimitiveReaderSuite) initReader(d *schema.Column) {
 	m.TestData().Set("pages", p.pages)
 	m.On("Err").Return((error)(nil))
 	p.pager = m
-	p.reader = file.NewColumnReader(d, m, mem)
+	p.reader = file.NewColumnReader(d, m, mem, &p.bufferPool)
 }
 
-func (p *PrimitiveReaderSuite) checkResults() {
-	vresult := make([]int32, p.nvalues)
+func (p *PrimitiveReaderSuite) checkResults(typ reflect.Type) {
+	vresult := reflect.MakeSlice(reflect.SliceOf(typ), p.nvalues, p.nvalues)
 	dresult := make([]int16, p.nlevels)
 	rresult := make([]int16, p.nlevels)
 
@@ -197,14 +218,30 @@ func (p *PrimitiveReaderSuite) checkResults() {
 		batch       int   = 0
 	)
 
-	rdr := p.reader.(*file.Int32ColumnChunkReader)
-	p.Require().NotNil(rdr)
+	p.Require().NotNil(p.reader)
 
 	// this will cover both cases:
 	// 1) batch size < page size (multiple ReadBatch from a single page)
 	// 2) batch size > page size (BatchRead limits to single page)
 	for {
-		read, batch, _ = rdr.ReadBatch(int64(batchSize), vresult[totalRead:], dresult[batchActual:], rresult[batchActual:])
+		switch rdr := p.reader.(type) {
+		case *file.Int32ColumnChunkReader:
+			intVals := make([]int32, batchSize)
+			read, batch, _ = rdr.ReadBatch(int64(batchSize), intVals, dresult[batchActual:], rresult[batchActual:])
+			for i := 0; i < batch; i++ {
+				vresult.Index(totalRead + i).Set(reflect.ValueOf(intVals[i]))
+			}
+
+		case *file.BooleanColumnChunkReader:
+			boolVals := make([]bool, batchSize)
+			read, batch, _ = rdr.ReadBatch(int64(batchSize), boolVals, dresult[batchActual:], rresult[batchActual:])
+			for i := 0; i < batch; i++ {
+				vresult.Index(totalRead + i).Set(reflect.ValueOf(boolVals[i]))
+			}
+		default:
+			p.Fail("column reader not implemented")
+		}
+
 		totalRead += batch
 		batchActual += int(read)
 		batchSize = int32(utils.MinInt(1<<24, utils.MaxInt(int(batchSize*2), 4096)))
@@ -215,7 +252,7 @@ func (p *PrimitiveReaderSuite) checkResults() {
 
 	p.Equal(p.nlevels, batchActual)
 	p.Equal(p.nvalues, totalRead)
-	p.Equal(p.values.Interface(), vresult)
+	p.Equal(p.values.Interface(), vresult.Interface())
 	if p.maxDefLvl > 0 {
 		p.Equal(p.defLevels, dresult)
 	}
@@ -224,7 +261,17 @@ func (p *PrimitiveReaderSuite) checkResults() {
 	}
 
 	// catch improper writes at EOS
-	read, batchActual, _ = rdr.ReadBatch(5, vresult, nil, nil)
+	switch rdr := p.reader.(type) {
+	case *file.Int32ColumnChunkReader:
+		intVals := make([]int32, batchSize)
+		read, batchActual, _ = rdr.ReadBatch(5, intVals, nil, nil)
+	case *file.BooleanColumnChunkReader:
+		boolVals := make([]bool, batchSize)
+		read, batchActual, _ = rdr.ReadBatch(5, boolVals, nil, nil)
+	default:
+		p.Fail("column reader not implemented")
+	}
+
 	p.Zero(batchActual)
 	p.Zero(read)
 }
@@ -238,20 +285,133 @@ func (p *PrimitiveReaderSuite) clear() {
 	p.reader = nil
 }
 
-func (p *PrimitiveReaderSuite) testPlain(npages, levels int, d *schema.Column) {
-	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, reflect.TypeOf(int32(0)), parquet.Encodings.Plain)
+func (p *PrimitiveReaderSuite) testPlain(npages, levels int, d *schema.Column, typ reflect.Type) {
+	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, typ, parquet.Encodings.Plain)
 	p.nlevels = npages * levels
 	p.initReader(d)
-	p.checkResults()
+	p.checkResults(typ)
 	p.clear()
 }
 
-func (p *PrimitiveReaderSuite) testDict(npages, levels int, d *schema.Column) {
-	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, reflect.TypeOf(int32(0)), parquet.Encodings.RLEDict)
+func (p *PrimitiveReaderSuite) testDict(npages, levels int, d *schema.Column, typ reflect.Type) {
+	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levels, typ, parquet.Encodings.RLEDict)
 	p.nlevels = npages * levels
 	p.initReader(d)
-	p.checkResults()
+	p.checkResults(typ)
 	p.clear()
+}
+
+func (p *PrimitiveReaderSuite) TestBoolFlatRequired() {
+	const (
+		levelsPerPage int = 100
+		npages        int = 50
+	)
+
+	p.maxDefLvl = 0
+	p.maxRepLvl = 0
+	typ := schema.NewBooleanNode("a", parquet.Repetitions.Required, -1)
+	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
+	p.testPlain(npages, levelsPerPage, d, reflect.TypeOf(true))
+}
+
+func (p *PrimitiveReaderSuite) TestBoolFlatOptional() {
+	const (
+		levelsPerPage int = 100
+		npages        int = 50
+	)
+
+	p.maxDefLvl = 4
+	p.maxRepLvl = 0
+	typ := schema.NewBooleanNode("b", parquet.Repetitions.Optional, -1)
+	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
+	p.testPlain(npages, levelsPerPage, d, reflect.TypeOf(true))
+}
+
+func (p *PrimitiveReaderSuite) TestBoolFlatOptionalSkip() {
+	const (
+		levelsPerPage int = 1000
+		npages        int = 5
+	)
+
+	p.maxDefLvl = 4
+	p.maxRepLvl = 0
+	typ := schema.NewBooleanNode("a", parquet.Repetitions.Optional, -1)
+	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
+	p.pages, p.nvalues, p.values, p.defLevels, p.repLevels = makePages(p.dataPageVersion, d, npages, levelsPerPage, reflect.TypeOf(true), parquet.Encodings.Plain)
+	p.initReader(d)
+
+	vresult := make([]bool, levelsPerPage/2)
+	dresult := make([]int16, levelsPerPage/2)
+	rresult := make([]int16, levelsPerPage/2)
+
+	rdr := p.reader.(*file.BooleanColumnChunkReader)
+
+	values := p.values.Interface().([]bool)
+	rIdx := int64(0)
+
+	p.Run("skip_size > page_size", func() {
+		// skip first 2 pages
+		skipped, _ := rdr.Skip(int64(2 * levelsPerPage))
+		// move test values forward
+		for i := int64(0); i < skipped; i++ {
+			if p.defLevels[rIdx] == p.maxDefLvl {
+				values = values[1:]
+			}
+			rIdx++
+		}
+		p.Equal(int64(2*levelsPerPage), skipped)
+
+		// Read half a page
+		rowsRead, valsRead, _ := rdr.ReadBatch(int64(levelsPerPage/2), vresult, dresult, rresult)
+		subVals := values[0:valsRead]
+		p.Equal(subVals, vresult[:valsRead])
+		// move test values forward
+		rIdx += rowsRead
+		values = values[valsRead:]
+	})
+
+	p.Run("skip_size == page_size", func() {
+		// skip one page worth of values across page 2 and 3
+		skipped, _ := rdr.Skip(int64(levelsPerPage))
+		// move test values forward
+		for i := int64(0); i < skipped; i++ {
+			if p.defLevels[rIdx] == p.maxDefLvl {
+				values = values[1:]
+			}
+			rIdx++
+		}
+		p.Equal(int64(levelsPerPage), skipped)
+
+		// read half a page
+		rowsRead, valsRead, _ := rdr.ReadBatch(int64(levelsPerPage/2), vresult, dresult, rresult)
+		subVals := values[0:valsRead]
+		p.Equal(subVals, vresult[:valsRead])
+		// move test values forward
+		rIdx += rowsRead
+		values = values[valsRead:]
+	})
+
+	p.Run("skip_size < page_size", func() {
+		// skip limited to a single page
+		// skip half a page
+		skipped, _ := rdr.Skip(int64(levelsPerPage / 2))
+		// move test values forward
+		for i := int64(0); i < skipped; i++ {
+			if p.defLevels[rIdx] == p.maxDefLvl {
+				values = values[1:] // move test values forward
+			}
+			rIdx++
+		}
+		p.Equal(int64(0.5*float32(levelsPerPage)), skipped)
+
+		// Read half a page
+		rowsRead, valsRead, _ := rdr.ReadBatch(int64(levelsPerPage/2), vresult, dresult, rresult)
+		subVals := values[0:valsRead]
+		p.Equal(subVals, vresult[:valsRead])
+		// move test values forward
+		rIdx += rowsRead
+		values = values[valsRead:]
+	})
 }
 
 func (p *PrimitiveReaderSuite) TestInt32FlatRequired() {
@@ -262,11 +422,10 @@ func (p *PrimitiveReaderSuite) TestInt32FlatRequired() {
 
 	p.maxDefLvl = 0
 	p.maxRepLvl = 0
-
 	typ := schema.NewInt32Node("a", parquet.Repetitions.Required, -1)
 	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
-	p.testPlain(npages, levelsPerPage, d)
-	p.testDict(npages, levelsPerPage, d)
+	p.testPlain(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
+	p.testDict(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
 }
 
 func (p *PrimitiveReaderSuite) TestInt32FlatOptional() {
@@ -279,8 +438,8 @@ func (p *PrimitiveReaderSuite) TestInt32FlatOptional() {
 	p.maxRepLvl = 0
 	typ := schema.NewInt32Node("b", parquet.Repetitions.Optional, -1)
 	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
-	p.testPlain(npages, levelsPerPage, d)
-	p.testDict(npages, levelsPerPage, d)
+	p.testPlain(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
+	p.testDict(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
 }
 
 func (p *PrimitiveReaderSuite) TestInt32FlatRepeated() {
@@ -293,8 +452,8 @@ func (p *PrimitiveReaderSuite) TestInt32FlatRepeated() {
 	p.maxRepLvl = 2
 	typ := schema.NewInt32Node("c", parquet.Repetitions.Repeated, -1)
 	d := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
-	p.testPlain(npages, levelsPerPage, d)
-	p.testDict(npages, levelsPerPage, d)
+	p.testPlain(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
+	p.testDict(npages, levelsPerPage, d, reflect.TypeOf(int32(0)))
 }
 
 func (p *PrimitiveReaderSuite) TestReadBatchMultiPage() {
@@ -370,6 +529,40 @@ func (p *PrimitiveReaderSuite) TestInt32FlatRequiredSkip() {
 		subVals := p.values.Slice(int(4.5*float64(levelsPerPage)), p.values.Len()).Interface().([]int32)
 		p.Equal(subVals, vresult)
 	})
+}
+
+func (p *PrimitiveReaderSuite) TestRepetitionLvlBytesWithMaxRepZero() {
+	const batchSize = 4
+	p.maxDefLvl = 1
+	p.maxRepLvl = 0
+	typ := schema.NewInt32Node("a", parquet.Repetitions.Optional, -1)
+	descr := schema.NewColumn(typ, p.maxDefLvl, p.maxRepLvl)
+	// Bytes here came from the example parquet file in ARROW-17453's int32
+	// column which was delta bit-packed. The key part is the first three
+	// bytes: the page header reports 1 byte for repetition levels even
+	// though the max rep level is 0. If that byte isn't skipped then
+	// we get def levels of [1, 1, 0, 0] instead of the correct [1, 1, 1, 0].
+	pageData := [...]byte{0x3, 0x3, 0x7, 0x80, 0x1, 0x4, 0x3,
+		0x18, 0x1, 0x2, 0x0, 0x0, 0x0, 0xc,
+		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+
+	p.pages = append(p.pages, file.NewDataPageV2(memory.NewBufferBytes(pageData[:]), batchSize, 1, batchSize,
+		parquet.Encodings.DeltaBinaryPacked, 2, 1, int32(len(pageData)), false))
+
+	p.initReader(descr)
+	p.NotPanics(func() { p.reader.HasNext() })
+
+	var (
+		values  [4]int32
+		defLvls [4]int16
+	)
+	i32Rdr := p.reader.(*file.Int32ColumnChunkReader)
+	total, read, err := i32Rdr.ReadBatch(batchSize, values[:], defLvls[:], nil)
+	p.NoError(err)
+	p.EqualValues(batchSize, total)
+	p.EqualValues(3, read)
+	p.Equal([]int16{1, 1, 1, 0}, defLvls[:])
+	p.Equal([]int32{12, 11, 13, 0}, values[:])
 }
 
 func (p *PrimitiveReaderSuite) TestDictionaryEncodedPages() {

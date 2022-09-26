@@ -97,10 +97,7 @@ def test_chunked_array_construction():
     assert len(arr) == 3
     assert len(arr.chunks) == 2
 
-    msg = (
-        "When passing an empty collection of arrays you must also pass the "
-        "data type"
-    )
+    msg = "cannot construct ChunkedArray from empty vector and omitted type"
     with pytest.raises(ValueError, match=msg):
         assert pa.chunked_array([])
 
@@ -118,6 +115,16 @@ def test_combine_chunks():
     assert res.equals(expected)
 
 
+def test_chunked_array_can_combine_chunks_with_no_chunks():
+    # https://issues.apache.org/jira/browse/ARROW-17256
+    assert pa.chunked_array([], type=pa.bool_()).combine_chunks() == pa.array(
+        [], type=pa.bool_()
+    )
+    assert pa.chunked_array(
+        [pa.array([], type=pa.bool_())], type=pa.bool_()
+    ).combine_chunks() == pa.array([], type=pa.bool_())
+
+
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],
@@ -133,14 +140,15 @@ def test_chunked_array_to_numpy():
 
 
 def test_chunked_array_mismatch_types():
-    with pytest.raises(TypeError):
+    msg = "chunks must all be same type"
+    with pytest.raises(TypeError, match=msg):
         # Given array types are different
         pa.chunked_array([
             pa.array([1, 2, 3]),
             pa.array([1., 2., 3.])
         ])
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=msg):
         # Given array type is different from explicit type argument
         pa.chunked_array([pa.array([1, 2, 3])], type=pa.float64())
 
@@ -2121,3 +2129,78 @@ def test_table_join_collisions():
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
+
+
+@pytest.mark.dataset
+def test_table_filter_expression():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"]
+    })
+
+    t3 = pa.concat_tables([t1, t2])
+
+    result = t3.filter(pc.field("colA") < 10)
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6, 2, 1],
+        "colB": [10, 20, 60, 20, 10],
+        "colVals": ["a", "b", "f", "B", "A"]
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_many_columns():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 2, 1],
+        "col3": ["Z", "B", "A"],
+        "col4": ["Z", "B", "A"],
+        "col5": ["Z", "B", "A"],
+        "col6": ["Z", "B", "A"],
+        "col7": ["Z", "B", "A"]
+    })
+
+    result = t1.join(t2, "colA", "colB")
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None],
+        "col4": ["A", "B", None],
+        "col5": ["A", "B", None],
+        "col6": ["A", "B", None],
+        "col7": ["A", "B", None]
+    })
+
+    result = t1.join(t2, "colA", "colB", join_type="full outer")
+    assert result.combine_chunks().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"],
+        "col4": ["A", "B", None, "Z"],
+        "col5": ["A", "B", None, "Z"],
+        "col6": ["A", "B", None, "Z"],
+        "col7": ["A", "B", None, "Z"],
+    })
+
+
+def test_table_cast_invalid():
+    # Casting a nullable field to non-nullable should be invalid!
+    table = pa.table({'a': [None, 1], 'b': [None, True]})
+    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
+                            pa.field("b", "bool", nullable=False)])
+    with pytest.raises(ValueError):
+        table.cast(new_schema)
+
+    table = pa.table({'a': [None, 1], 'b': [False, True]})
+    assert table.cast(new_schema).schema == new_schema

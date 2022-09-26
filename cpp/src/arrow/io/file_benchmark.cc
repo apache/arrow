@@ -45,6 +45,9 @@
 
 namespace arrow {
 
+using internal::FileDescriptor;
+using internal::Pipe;
+
 std::string GetNullFile() {
 #ifdef _WIN32
   return "NUL";
@@ -128,31 +131,24 @@ class BackgroundReader {
   }
   void Stop() {
     const uint8_t data[] = "x";
-    ABORT_NOT_OK(internal::FileWrite(wakeup_w_, data, 1));
+    ABORT_NOT_OK(internal::FileWrite(wakeup_pipe_.wfd.fd(), data, 1));
   }
   void Join() { worker_->join(); }
 
-  ~BackgroundReader() {
-    for (int fd : {fd_, wakeup_r_, wakeup_w_}) {
-      ABORT_NOT_OK(internal::FileClose(fd));
-    }
-  }
-
  protected:
-  explicit BackgroundReader(int fd) : fd_(fd), total_bytes_(0) {
-    // Prepare self-pipe trick
-    auto pipe = *internal::CreatePipe();
-    wakeup_r_ = pipe.rfd;
-    wakeup_w_ = pipe.wfd;
+  explicit BackgroundReader(int fd)
+      : fd_(fd), wakeup_pipe_(*internal::CreatePipe()), total_bytes_(0) {
     // Put fd in non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
+    // Note the wakeup pipe itself does not need to be non-blocking,
+    // since we're not actually reading from it.
   }
 
   void LoopReading() {
     struct pollfd pollfds[2];
-    pollfds[0].fd = fd_;
+    pollfds[0].fd = fd_.fd();
     pollfds[0].events = POLLIN;
-    pollfds[1].fd = wakeup_r_;
+    pollfds[1].fd = wakeup_pipe_.rfd.fd();
     pollfds[1].events = POLLIN;
     while (true) {
       int ret = poll(pollfds, 2, -1 /* timeout */);
@@ -167,7 +163,7 @@ class BackgroundReader {
       if (!(pollfds[0].revents & POLLIN)) {
         continue;
       }
-      auto result = internal::FileRead(fd_, buffer_, buffer_size_);
+      auto result = internal::FileRead(fd_.fd(), buffer_, buffer_size_);
       // There could be a spurious wakeup followed by EAGAIN
       if (result.ok()) {
         total_bytes_ += *result;
@@ -175,7 +171,8 @@ class BackgroundReader {
     }
   }
 
-  int fd_, wakeup_r_, wakeup_w_;
+  FileDescriptor fd_;
+  Pipe wakeup_pipe_;
   int64_t total_bytes_;
 
   static const int64_t buffer_size_ = 16384;
@@ -191,8 +188,8 @@ class BackgroundReader {
 static void SetupPipeWriter(std::shared_ptr<io::OutputStream>* stream,
                             std::shared_ptr<BackgroundReader>* reader) {
   auto pipe = *internal::CreatePipe();
-  *stream = *io::FileOutputStream::Open(pipe.wfd);
-  *reader = BackgroundReader::StartReader(pipe.rfd);
+  *stream = *io::FileOutputStream::Open(pipe.wfd.Detach());
+  *reader = BackgroundReader::StartReader(pipe.rfd.Detach());
 }
 
 static void BenchmarkStreamingWrites(benchmark::State& state,

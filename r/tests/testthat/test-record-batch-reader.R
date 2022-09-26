@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+tbl <- tibble::tibble(
+  x = 1:10,
+  y = letters[1:10]
+)
+batch <- record_batch(tbl)
+tab <- Table$create(tbl)
 
 test_that("RecordBatchStreamReader / Writer", {
-  tbl <- tibble::tibble(
-    x = 1:10,
-    y = letters[1:10]
-  )
-  batch <- record_batch(tbl)
-  tab <- Table$create(tbl)
-
   sink <- BufferOutputStream$create()
   expect_equal(sink$tell(), 0)
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)
@@ -154,8 +153,14 @@ test_that("reader head method edge cases", {
 
   reader <- RecordBatchStreamReader$create(buf)
   expect_error(head(reader, -1)) # Not (yet) supported
-  expect_equal(head(reader, 0), Table$create(x = integer(0), y = character(0)))
-  expect_equal(head(reader, 100), Table$create(batch, batch))
+  expect_equal(
+    Table$create(head(reader, 0)),
+    Table$create(x = integer(0), y = character(0))
+  )
+  expect_equal(
+    Table$create(head(reader, 100)),
+    Table$create(batch, batch)
+  )
 })
 
 test_that("RBR methods", {
@@ -230,4 +235,37 @@ test_that("as_record_batch_reader() works for data.frame", {
   df <- tibble::tibble(a = 1, b = "two")
   reader <- as_record_batch_reader(df)
   expect_equal(reader$read_next_batch(), record_batch(a = 1, b = "two"))
+})
+
+test_that("as_record_batch_reader() works for function", {
+  batches <- list(
+    record_batch(a = 1, b = "two"),
+    record_batch(a = 2, b = "three")
+  )
+
+  i <- 0
+  fun <- function() {
+    i <<- i + 1
+    if (i > length(batches)) NULL else batches[[i]]
+  }
+
+  reader <- as_record_batch_reader(fun, schema = batches[[1]]$schema)
+  expect_equal(reader$read_next_batch(), batches[[1]])
+  expect_equal(reader$read_next_batch(), batches[[2]])
+  expect_null(reader$read_next_batch())
+
+  # check invalid returns
+  fun_bad_type <- function() "not a record batch"
+  reader <- as_record_batch_reader(fun_bad_type, schema = schema())
+  expect_error(
+    reader$read_next_batch(),
+    "Expected fun\\(\\) to return an arrow::RecordBatch"
+  )
+
+  fun_bad_schema <- function() record_batch(a = 1)
+  reader <- as_record_batch_reader(fun_bad_schema, schema = schema(a = string()))
+  expect_error(
+    reader$read_next_batch(),
+    "Expected fun\\(\\) to return batch with schema 'a: string'"
+  )
 })

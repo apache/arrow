@@ -21,6 +21,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -34,7 +35,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_type_inline.h"
 
 #include "rapidjson/document.h"
@@ -51,7 +51,7 @@ namespace json {
 namespace rj = arrow::rapidjson;
 
 using rj::StringBuffer;
-using util::string_view;
+using std::string_view;
 using Writer = rj::Writer<StringBuffer>;
 
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
@@ -216,7 +216,7 @@ static inline std::string PrettyPrint(string_view one_line) {
 }
 
 template <typename T>
-std::string RowsOfOneColumn(util::string_view name, std::initializer_list<T> values,
+std::string RowsOfOneColumn(std::string_view name, std::initializer_list<T> values,
                             decltype(std::to_string(*values.begin()))* = nullptr) {
   std::stringstream ss;
   for (auto value : values) {
@@ -225,7 +225,7 @@ std::string RowsOfOneColumn(util::string_view name, std::initializer_list<T> val
   return ss.str();
 }
 
-inline std::string RowsOfOneColumn(util::string_view name,
+inline std::string RowsOfOneColumn(std::string_view name,
                                    std::initializer_list<std::string> values) {
   std::stringstream ss;
   for (auto value : values) {

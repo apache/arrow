@@ -152,6 +152,7 @@ class PARQUET_EXPORT FileReader {
   // 2 foo3
   //
   // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use ReadColumn instead.")
   virtual ::arrow::Status ReadSchemaField(
       int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 

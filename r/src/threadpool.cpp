@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/io/type_fwd.h>
 #include <arrow/util/parallel.h>
 
@@ -56,5 +54,3 @@ int GetIOThreadPoolCapacity() { return arrow::io::GetIOThreadPoolCapacity(); }
 void SetIOThreadPoolCapacity(int threads) {
   StopIfNotOk(arrow::io::SetIOThreadPoolCapacity(threads));
 }
-
-#endif

@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(re2Alt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(re2Alt_FIND_VERSION)
   list(APPEND find_package_args ${re2Alt_FIND_VERSION})
@@ -28,13 +32,13 @@ if(re2_FOUND)
   return()
 endif()
 
-if(RE2_ROOT)
+if(re2_ROOT)
   find_library(RE2_LIB
                NAMES re2_static
                      re2
                      "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
                      "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
-               PATHS ${RE2_ROOT}
+               PATHS ${re2_ROOT}
                PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(RE2_INCLUDE_DIR

@@ -649,4 +649,183 @@ TEST_F(TestProjector, TestLastDay) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestToTimestampFromInt) {
+  auto f0 = field("f0", arrow::int32());
+  auto f1 = field("f1", arrow::int64());
+  auto f2 = field("f2", arrow::float32());
+  auto f3 = field("f3", arrow::float64());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  // output fields
+  auto output = field("out", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto output1 = field("out1", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto output2 = field("out1", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto output3 = field("out1", arrow::timestamp(arrow::TimeUnit::MILLI));
+
+  auto totimestamp_expr = TreeExprBuilder::MakeExpression("to_timestamp", {f0}, output);
+  auto totimestamp_expr1 = TreeExprBuilder::MakeExpression("to_timestamp", {f1}, output1);
+  auto totimestamp_expr2 = TreeExprBuilder::MakeExpression("to_timestamp", {f2}, output2);
+  auto totimestamp_expr3 = TreeExprBuilder::MakeExpression("to_timestamp", {f3}, output3);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(
+      schema, {totimestamp_expr, totimestamp_expr1, totimestamp_expr2, totimestamp_expr3},
+      TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  int num_records = 3;
+  auto validity = {true, true, false};
+  std::vector<int32_t> f0_data = {0, 1626255099, 0};
+  std::vector<int64_t> f1_data = {0, 1626255099, 0};
+  std::vector<float> f2_data = {0, 3601.411f, 0};
+  std::vector<double> f3_data = {0, 3601.411, 0};
+
+  auto array0 = MakeArrowArrayInt32(f0_data, validity);
+  auto array1 = MakeArrowArrayInt64(f1_data, validity);
+  auto array2 = MakeArrowArrayFloat32(f2_data, validity);
+  auto array3 = MakeArrowArrayFloat64(f3_data, validity);
+
+  std::vector<int64_t> f0_1_output_data = {MillisSince(epoch, 1970, 1, 1, 0, 0, 0, 0),
+                                           MillisSince(epoch, 2021, 7, 14, 9, 31, 39, 0),
+                                           0};
+
+  std::vector<int64_t> f2_3_output_data = {MillisSince(epoch, 1970, 1, 1, 0, 0, 0, 0),
+                                           MillisSince(epoch, 1970, 1, 1, 1, 0, 1, 411),
+                                           0};
+
+  // expected output
+  auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      timestamp(arrow::TimeUnit::MILLI), f0_1_output_data, validity);
+
+  // expected output
+  auto exp_output1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      timestamp(arrow::TimeUnit::MILLI), f2_3_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output1, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output1, outputs.at(3));
+}
+
+TEST_F(TestProjector, TestToUtcTimestamp) {
+  auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
+  auto f1 = field("f1", arrow::utf8());
+
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto utc_timestamp = field("utc_time", timestamp(arrow::TimeUnit::MILLI));
+
+  auto utc_time_expr =
+      TreeExprBuilder::MakeExpression("to_utc_timestamp", {f0, f1}, utc_timestamp);
+  std::shared_ptr<Projector> projector;
+  Status status =
+      Projector::Make(schema, {utc_time_expr}, TestConfiguration(), &projector);
+
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 1970, 1, 1, 6, 0, 0, 0),
+                                  MillisSince(epoch, 2001, 1, 5, 3, 0, 0, 0),
+                                  MillisSince(epoch, 2018, 3, 12, 1, 0, 0, 0),
+                                  MillisSince(epoch, 2018, 3, 11, 1, 0, 0, 0)};
+  int64_t num_records = f0_data.size();
+  std::vector<bool> validity(num_records, true);
+  auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
+
+  auto array1 = MakeArrowArrayUtf8(
+      {"Asia/Kolkata", "Asia/Kolkata", "America/Los_Angeles", "America/Los_Angeles"},
+      {true, true, true, true});
+
+  // expected output
+  std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 0, 30, 0, 0),
+                                          MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
+                                          MillisSince(epoch, 2018, 3, 12, 8, 0, 0, 0),
+                                          MillisSince(epoch, 2018, 3, 11, 9, 0, 0, 0)};
+  auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), exp_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestFromUtcTimestamp) {
+  auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
+  auto f1 = field("f1", arrow::utf8());
+
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto local_timestamp = field("local_time", timestamp(arrow::TimeUnit::MILLI));
+
+  auto local_time_expr =
+      TreeExprBuilder::MakeExpression("from_utc_timestamp", {f0, f1}, local_timestamp);
+  std::shared_ptr<Projector> projector;
+  Status status =
+      Projector::Make(schema, {local_time_expr}, TestConfiguration(), &projector);
+
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 1970, 1, 1, 0, 30, 0, 0),
+                                  MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
+                                  MillisSince(epoch, 2018, 3, 12, 8, 0, 0, 0),
+                                  MillisSince(epoch, 2018, 3, 11, 9, 0, 0, 0)};
+
+  int64_t num_records = f0_data.size();
+  std::vector<bool> validity(num_records, true);
+  auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
+
+  auto array1 = MakeArrowArrayUtf8(
+      {"Asia/Kolkata", "Asia/Kolkata", "America/Los_Angeles", "America/Los_Angeles"},
+      {true, true, true, true});
+
+  // expected output
+  std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 6, 0, 0, 0),
+                                          MillisSince(epoch, 2001, 1, 5, 3, 0, 0, 0),
+                                          MillisSince(epoch, 2018, 3, 12, 1, 0, 0, 0),
+                                          MillisSince(epoch, 2018, 3, 11, 1, 0, 0, 0)};
+  auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), exp_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
 }  // namespace gandiva

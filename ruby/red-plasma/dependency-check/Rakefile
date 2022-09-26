@@ -38,8 +38,8 @@ namespace :dependency do
                                     Plasma::Version::MAJOR,
                                     Plasma::Version::MINOR,
                                     Plasma::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libplasma-glib-dev",
-                                            :redhat => "plasma-glib-devel")
+      unless NativePackageInstaller.install(debian: "libplasma-glib-dev",
+                                            redhat: "plasma-glib-devel")
         exit(false)
       end
     end

@@ -72,7 +72,10 @@ case $# in
      ;;
 esac
 
+# Note that these point to the current verify-release-candidate.sh directories
+# which is different from the ARROW_SOURCE_DIR set in ensure_source_directory()
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
 show_header() {
   echo ""
@@ -182,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:buster" \
-                "arm64v8/debian:buster" \
-                "debian:bullseye" \
+  for target in "debian:bullseye" \
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
@@ -192,8 +193,6 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:impish" \
-                "arm64v8/ubuntu:impish" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy"; do \
     case "${target}" in
@@ -213,7 +212,7 @@ test_apt() {
         fi
         ;;
     esac
-    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -227,9 +226,12 @@ test_apt() {
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:8" \
+  for target in "almalinux:9" \
+                "arm64v8/almalinux:9" \
+                "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
+                "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do
     case "${target}" in
@@ -240,10 +242,18 @@ test_yum() {
           continue
         fi
         ;;
+      centos:7)
+        if [ "$(arch)" = "x86_64" ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
     esac
     if ! docker run \
            --rm \
-           --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+           --security-opt="seccomp=unconfined" \
+           --volume "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
@@ -254,11 +264,13 @@ test_yum() {
   done
 
   if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream8"; do
+    for target in "quay.io/centos/centos:stream9" \
+                  "quay.io/centos/centos:stream8"; do
       if ! docker run \
              --platform linux/arm64 \
              --rm \
-             --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \
              "${VERSION}" \
@@ -382,7 +394,12 @@ install_go() {
     return 0
   fi
 
-  local version=1.16.12
+  if command -v go > /dev/null; then
+    show_info "Found $(go version) at $(command -v go)"
+    return 0
+  fi
+
+  local version=1.17.13
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -508,8 +525,8 @@ maybe_setup_virtualenv() {
       $python -m venv ${virtualenv}
       # Activate the environment
       source "${virtualenv}/bin/activate"
-      # Upgrade pip
-      pip install -U pip
+      # Upgrade pip and setuptools
+      pip install -U pip setuptools
     else
       show_info "Using already created virtualenv at ${virtualenv}"
       # Activate the environment
@@ -565,6 +582,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -625,9 +643,10 @@ test_and_install_cpp() {
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
-    -j$NPROC \
+    --label-regex unittest \
     --output-on-failure \
-    -L unittest
+    --parallel $NPROC \
+    --timeout 300
 
   popd
 }
@@ -638,6 +657,10 @@ test_python() {
   # Build and test Python
   maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+  fi
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -653,6 +676,9 @@ test_python() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
+  fi
+  if [ "${ARROW_GCS}" = "ON" ]; then
+    export PYARROW_WITH_GCS=1
   fi
   if [ "${ARROW_PLASMA}" = "ON" ]; then
     export PYARROW_WITH_PLASMA=1
@@ -686,12 +712,16 @@ import pyarrow.parquet
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
   fi
+  if [ "${ARROW_GCS}" == "ON" ]; then
+    python -c "import pyarrow._gcsfs"
+  fi
   if [ "${ARROW_PLASMA}" == "ON" ]; then
     python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
   fi
+
 
   # Install test dependencies
   pip install -r requirements-test.txt
@@ -755,6 +785,9 @@ test_ruby() {
   fi
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     modules="${modules} red-arrow-flight"
+  fi
+  if [ "${ARROW_FLIGHT_SQL}" = "ON" ]; then
+    modules="${modules} red-arrow-flight-sql"
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
@@ -868,7 +901,7 @@ ensure_source_directory() {
   if [ "${SOURCE_KIND}" = "local" ]; then
     # Local arrow repository, testing repositories should be already present
     if [ -z "$ARROW_SOURCE_DIR" ]; then
-      export ARROW_SOURCE_DIR="$(cd ${SOURCE_DIR}/../.. && pwd)"
+      export ARROW_SOURCE_DIR="${ARROW_DIR}"
     fi
     echo "Verifying local Arrow checkout at ${ARROW_SOURCE_DIR}"
   elif [ "${SOURCE_KIND}" = "git" ]; then
@@ -907,14 +940,16 @@ ensure_source_directory() {
 
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
+  export CMAKE_PREFIX_PATH=$ARROW_HOME${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
   else
     NPROC=$(nproc)
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   fi
 
   pushd $ARROW_SOURCE_DIR
@@ -969,6 +1004,8 @@ test_binary_distribution() {
 }
 
 test_linux_wheels() {
+  local check_gcs=OFF
+
   if [ "$(uname -m)" = "aarch64" ]; then
     local arch="aarch64"
   else
@@ -976,21 +1013,22 @@ test_linux_wheels() {
   fi
 
   local python_versions="3.7m 3.8 3.9 3.10"
-  local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
+  local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
+  local check_gcs=OFF
   local check_s3=ON
   local check_flight=ON
 
@@ -1001,7 +1039,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.7m 3.8 3.9 3.10"
-    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
+    local platform_tags="macosx_10_14_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1010,15 +1048,16 @@ test_macos_wheels() {
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       if [[ "$platform" == *"10_9"* ]]; then
+        check_gcs=OFF
         check_s3=OFF
       fi
 
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-        ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 
@@ -1036,7 +1075,7 @@ test_macos_wheels() {
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
   fi
@@ -1144,11 +1183,12 @@ if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT_SQL:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
+: ${ARROW_GCS:=OFF}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
-: ${ARROW_GCS:=OFF}
 
 TEST_SUCCESS=no
 

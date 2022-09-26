@@ -167,6 +167,8 @@ The :class:`FileFormat` objects can be customized using keywords. For example::
 
 Will configure column ``"a"`` to be dictionary encoded on scan.
 
+.. _py-filter-dataset:
+
 Filtering data
 --------------
 
@@ -353,7 +355,7 @@ specifying a S3 path:
 
 .. code-block:: python
 
-    dataset = ds.dataset("s3://ursa-labs-taxi-data/", partitioning=["year", "month"])
+    dataset = ds.dataset("s3://voltrondata-labs-datasets/nyc-taxi/")
 
 Typically, you will want to customize the connection parameters, and then
 a file system object can be created and passed to the ``filesystem`` keyword:
@@ -363,8 +365,7 @@ a file system object can be created and passed to the ``filesystem`` keyword:
     from pyarrow import fs
 
     s3  = fs.S3FileSystem(region="us-east-2")
-    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=s3,
-                         partitioning=["year", "month"])
+    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=s3)
 
 The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 :class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
@@ -384,9 +385,8 @@ useful for testing or benchmarking.
     from pyarrow import fs
 
     # By default, MinIO will listen for unencrypted HTTP traffic.
-    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
-    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
-                         partitioning=["year", "month"])
+    minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
+    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=minio)
 
 
 Working with Parquet Datasets
@@ -731,6 +731,7 @@ to supply a visitor that will be called as each file is created:
 
     def file_visitor(written_file):
         print(f"path={written_file.path}")
+        print(f"size={written_file.size} bytes")
         print(f"metadata={written_file.metadata}")
 
 .. ipython:: python
@@ -741,7 +742,7 @@ to supply a visitor that will be called as each file is created:
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
 which can be useful when you want to avoid scanning directories the next time you need to read
 the data.  It can also be used to generate the _metadata index file used by other tools such as
-dask or spark to create an index of the dataset.
+Dask or Spark to create an index of the dataset.
 
 Configuring format-specific parameters during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

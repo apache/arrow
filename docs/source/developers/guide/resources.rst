@@ -31,9 +31,10 @@ Additional information and resources
 On this page we have listed resources that may be relevant or useful for
 contributors who want to learn more about different parts of Apache Arrow.
 
-.. Annotation Glossary
-.. -------------------
-.. ARROW-15130
+Glossary
+--------
+List of common terms in Apache Arrow project with a short description can
+be found in :doc:`the glossary <../../format/Glossary>`.
 
 Additional information
 ----------------------
@@ -55,7 +56,7 @@ Additional information
 
   It is possible to install the Arrow R package from the nightly builds which are daily development
   builds of the R package and are not the official releases. See more on the
-  `Install R package article <https://ursalabs.org/arrow-r-nightly/articles/install.html#install-the-nightly-build>`_.
+  `Install R package article <https://arrow.apache.org/docs/dev/r/articles/install.html#install-the-nightly-build>`_.
 
 - `Apache Arrow releases <https://arrow.apache.org/release/>`_
 

@@ -421,6 +421,34 @@ cdef class FixedSizeListType(DataType):
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
+
+    ``StructType`` supports direct indexing using ``[...]`` (implemented via
+    ``__getitem__``) to access its fields.
+    It will return the struct field with the given index or name.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+
+    Accessing fields using direct indexing:
+
+    >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+    >>> struct_type[0]
+    pyarrow.Field<x: int32>
+    >>> struct_type['y']
+    pyarrow.Field<y: string>
+
+    Accessing fields using ``field()``:
+
+    >>> struct_type.field(1)
+    pyarrow.Field<y: string>
+    >>> struct_type.field('x')
+    pyarrow.Field<x: int32>
+
+    # Creating a schema from the struct type's fields:
+    >>> pa.schema(list(struct_type))
+    x: int32
+    y: string
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -477,6 +505,41 @@ cdef class StructType(DataType):
         """
         return self.struct_type.GetFieldIndex(tobytes(name))
 
+    def field(self, i):
+        """
+        Select a field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or str
+
+        Returns
+        -------
+        pyarrow.Field
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+
+        Select the second field:
+
+        >>> struct_type.field(1)
+        pyarrow.Field<y: string>
+
+        Select the field named 'x':
+
+        >>> struct_type.field('x')
+        pyarrow.Field<x: int32>
+        """
+        if isinstance(i, (bytes, str)):
+            return self.field_by_name(i)
+        elif isinstance(i, int):
+            return DataType.field(self, i)
+        else:
+            raise TypeError('Expected integer or string index')
+
     def get_all_field_indices(self, name):
         """
         Return sorted list of indices for the fields with the given name.
@@ -508,13 +571,10 @@ cdef class StructType(DataType):
     def __getitem__(self, i):
         """
         Return the struct field with the given index or name.
+
+        Alias of ``field``.
         """
-        if isinstance(i, (bytes, str)):
-            return self.field_by_name(i)
-        elif isinstance(i, int):
-            return self.field(i)
-        else:
-            raise TypeError('Expected integer or string index')
+        return self.field(i)
 
     def __reduce__(self):
         return struct, (list(self),)
@@ -562,9 +622,28 @@ cdef class UnionType(DataType):
         for i in range(len(self)):
             yield self[i]
 
+    def field(self, i):
+        """
+        Return a child field by its numeric index.
+
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
+        if isinstance(i, int):
+            return DataType.field(self, i)
+        else:
+            raise TypeError('Expected integer')
+
     def __getitem__(self, i):
         """
         Return a child field by its index.
+
+        Alias of ``field``.
         """
         return self.field(i)
 
@@ -902,6 +981,16 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionArray
 
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
+
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
+        """
+        return ExtensionScalar
+
 
 cdef class PyExtensionType(ExtensionType):
     """
@@ -1145,7 +1234,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return result
 
 
-cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
+cpdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
     if allow_none and meta is None:
         return None
     elif isinstance(meta, KeyValueMetadata):
@@ -2038,7 +2127,7 @@ cdef class Schema(_Weakrefable):
         Write schema to Buffer:
 
         >>> schema.serialize()
-        <pyarrow.lib.Buffer object at ...>
+        <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
         """
         cdef:
             shared_ptr[CBuffer] buffer

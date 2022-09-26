@@ -17,6 +17,7 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <memory>
 #include <numeric>
 #include <random>
 #include <unordered_set>
@@ -27,11 +28,11 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
@@ -41,16 +42,16 @@ namespace compute {
 
 BatchesWithSchema GenerateBatchesFromString(
     const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
+    const std::vector<std::string_view>& json_strings, int multiplicity = 1) {
   BatchesWithSchema out_batches{{}, schema};
 
-  std::vector<ValueDescr> descrs;
+  std::vector<TypeHolder> types;
   for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
+    types.emplace_back(field->type());
   }
 
   for (auto&& s : json_strings) {
-    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+    out_batches.batches.push_back(ExecBatchFromJSON(types, s));
   }
 
   size_t batch_count = out_batches.batches.size();
@@ -68,7 +69,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const std::vector<FieldRef>& left_keys,
                     const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -84,7 +85,7 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
                                                                   /*slow=*/false)}});
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
@@ -473,7 +474,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
   }
 }
 
-// Generate random arrays given list of data type descriptions and null probabilities.
+// Generate random arrays given list of data types and null probabilities.
 // Make sure that all generated records are unique.
 // The actual number of generated records may be lower than desired because duplicates
 // will be removed without replacement.
@@ -485,18 +486,18 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
       GenRandomRecords(rng, data_types.data_types, num_desired);
 
   ExecContext* ctx = default_exec_context();
-  std::vector<ValueDescr> val_descrs;
+  std::vector<TypeHolder> val_types;
   for (size_t i = 0; i < result.size(); ++i) {
-    val_descrs.push_back(ValueDescr(result[i]->type(), ValueDescr::ARRAY));
+    val_types.push_back(result[i]->type());
   }
   internal::RowEncoder encoder;
-  encoder.Init(val_descrs, ctx);
+  encoder.Init(val_types, ctx);
   ExecBatch batch({}, num_desired);
   batch.values.resize(result.size());
   for (size_t i = 0; i < result.size(); ++i) {
     batch.values[i] = result[i];
   }
-  Status status = encoder.EncodeAndAppend(batch);
+  Status status = encoder.EncodeAndAppend(ExecSpan(batch));
   ARROW_DCHECK(status.ok());
 
   std::unordered_map<std::string, int> uniques;
@@ -889,7 +890,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
     const std::shared_ptr<Schema>& output_schema,
     const std::vector<std::shared_ptr<Array>>& l,
     const std::vector<std::shared_ptr<Array>>& r, int num_batches_l, int num_batches_r) {
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(exec_ctx.get()));
@@ -914,7 +915,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
       ExecNode * join,
       MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
 
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ARROW_ASSIGN_OR_RAISE(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
 
@@ -963,7 +964,7 @@ TEST(HashJoin, Suffix) {
   ExecContext exec_ctx;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
   ExecNode* left_source;
   ExecNode* right_source;
@@ -977,7 +978,7 @@ TEST(HashJoin, Suffix) {
                        MakeExecNode("source", plan.get(), {},
                                     SourceNodeOptions{input_right.schema,
                                                       input_right.gen(/*parallel=*/false,
-                                                                      /*slow=*/false)}))
+                                                                      /*slow=*/false)}));
 
   HashJoinNodeOptions join_opts{JoinType::INNER,
                                 /*left_keys=*/{"lkey"},
@@ -1000,12 +1001,15 @@ TEST(HashJoin, Random) {
   Random64Bit rng(42);
 #if defined(THREAD_SANITIZER) || defined(ARROW_VALGRIND)
   const int num_tests = 15;
+#elif defined(ADDRESS_SANITIZER)
+  const int num_tests = 25;
 #else
   const int num_tests = 100;
 #endif
   for (int test_id = 0; test_id < num_tests; ++test_id) {
     bool parallel = (rng.from_range(0, 1) == 1);
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    bool disable_bloom_filter = (rng.from_range(0, 1) == 1);
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     // Constraints
@@ -1110,7 +1114,8 @@ TEST(HashJoin, Random) {
     }
 
     ARROW_SCOPED_TRACE(join_type_name, " ", key_cmp_str,
-                       " parallel = ", (parallel ? "true" : "false"));
+                       " parallel = ", (parallel ? "true" : "false"),
+                       " bloom_filter = ", (disable_bloom_filter ? "false" : "true"));
 
     // Run reference join implementation
     std::vector<bool> null_in_key_vectors[2];
@@ -1130,7 +1135,7 @@ TEST(HashJoin, Random) {
 
     // Turn the last key comparison into a residual filter expression
     Expression filter = literal(true);
-    if (key_cmp.size() > 1 && rng.from_range(0, 1) == 0) {
+    if (key_cmp.size() > 1 && rng.from_range(0, 4) == 0) {
       for (size_t i = 0; i < key_cmp.size(); i++) {
         FieldRef left = key_fields[0][i];
         FieldRef right = key_fields[1][i];
@@ -1158,6 +1163,7 @@ TEST(HashJoin, Random) {
     HashJoinNodeOptions join_options{
         join_type,        key_fields[0], key_fields[1], output_fields[0],
         output_fields[1], key_cmp,       filter};
+    join_options.disable_bloom_filter = disable_bloom_filter;
     std::vector<std::shared_ptr<Field>> output_schema_fields;
     for (int i = 0; i < 2; ++i) {
       for (size_t col = 0; col < output_fields[i].size(); ++col) {
@@ -1168,6 +1174,7 @@ TEST(HashJoin, Random) {
     }
     std::shared_ptr<Schema> output_schema =
         std::make_shared<Schema>(std::move(output_schema_fields));
+
     ASSERT_OK_AND_ASSIGN(
         auto batches, HashJoinWithExecPlan(
                           rng, parallel, join_options, output_schema,
@@ -1234,7 +1241,9 @@ void TestHashJoinDictionaryHelper(
     // side.
     int expected_num_r_no_match,
     // Whether to swap two inputs to the hash join
-    bool swap_sides) {
+    bool swap_sides,
+    // If true, send length=0 batches, if false, skip these batches
+    bool send_empty_batches = true) {
   int64_t l_length = l_key.is_array()       ? l_key.array()->length
                      : l_payload.is_array() ? l_payload.array()->length
                                             : -1;
@@ -1292,7 +1301,16 @@ void TestHashJoinDictionaryHelper(
     }
   }
 
-  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+  // When the input is empty we can either send length=0 batches
+  // or bypass the batches entirely
+  if (l_length == 0 && !send_empty_batches) {
+    l_batches.batches.resize(0);
+  }
+  if (r_length == 0 && !send_empty_batches) {
+    r_batches.batches.resize(0);
+  }
+
+  auto exec_ctx = std::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
   ASSERT_OK_AND_ASSIGN(
@@ -1317,7 +1335,7 @@ void TestHashJoinDictionaryHelper(
                                                      {(swap_sides ? r_source : l_source),
                                                       (swap_sides ? l_source : r_source)},
                                                      join_options));
-  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ASSERT_OK_AND_ASSIGN(
       std::ignore, MakeExecNode("sink", plan.get(), {join}, SinkNodeOptions{&sink_gen}));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
@@ -1494,23 +1512,25 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
-                                R"(["p", "r", "s"])"),
-              0, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
+                                  R"(["p", "r", "s"])"),
+                0, swap_sides, send_empty_batches);
+          }
         }
       }
     }
@@ -1526,25 +1546,27 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
-                                R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
-                                R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              4, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
+                                  R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
+                                  R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                4, swap_sides, send_empty_batches);
+          }
         }
       }
     }
@@ -1661,6 +1683,24 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"(["p", "q", "p", "q", "r"])"), 1, swap_sides);
     }
   }
+
+  // Scalars in key columns, Inner join to exercise Bloom filter
+  for (auto use_scalar_dict : {false, true}) {
+    for (auto swap_sides : {false, true}) {
+      TestHashJoinDictionaryHelper(
+          JoinType::INNER, JoinKeyCmp::EQ, false /*parallel*/,
+          // Input
+          use_scalar_dict ? DictScalarFromJSON(int8_utf8, "1", R"(["b", "a", "c"])")
+                          : ScalarFromJSON(utf8(), "\"a\""),
+          ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", null, "b"])"),
+          ArrayFromJSON(utf8(), R"(["p", "q", "r"])"),
+          // Expected output
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["p", "p"])"),
+          2, swap_sides);
+    }
+  }
 }
 
 TEST(HashJoin, DictNegative) {
@@ -1694,8 +1734,7 @@ TEST(HashJoin, DictNegative) {
                          ExecBatch::Make({i == 2 ? datumSecondB : datumSecondA,
                                           i == 3 ? datumSecondB : datumSecondA}));
 
-    auto exec_ctx =
-        arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+    auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
     ASSERT_OK_AND_ASSIGN(
         ExecNode * l_source,
@@ -1716,13 +1755,16 @@ TEST(HashJoin, DictNegative) {
     ASSERT_OK_AND_ASSIGN(
         ExecNode * join,
         MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, join_options));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
     ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {join},
                                                    SinkNodeOptions{&sink_gen}));
 
     EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Unifying differing dictionaries"),
         StartAndCollect(plan.get(), sink_gen));
+    // Since we returned an error, the StartAndCollect future may return before
+    // the plan is done finishing.
+    plan->finished().Wait();
   }
 }
 
@@ -1759,6 +1801,178 @@ TEST(HashJoin, UnsupportedTypes) {
   }
 }
 
+void TestSimpleJoinHelper(BatchesWithSchema input_left, BatchesWithSchema input_right,
+                          BatchesWithSchema expected) {
+  ExecContext exec_ctx;
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  ExecNode* left_source;
+  ExecNode* right_source;
+  ASSERT_OK_AND_ASSIGN(
+      left_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}));
+
+  ASSERT_OK_AND_ASSIGN(right_source,
+                       MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions{input_right.schema,
+                                                      input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}));
+
+  HashJoinNodeOptions join_opts{JoinType::INNER,
+                                /*left_keys=*/{"lkey"},
+                                /*right_keys=*/{"rkey"}, literal(true), "_l", "_r"};
+
+  ASSERT_OK_AND_ASSIGN(
+      auto hashjoin,
+      MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
+
+  ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
+                                                 SinkNodeOptions{&sink_gen}));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto output_rows_test,
+      TableFromExecBatches(std::move(hashjoin->output_schema()), result));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_rows_test,
+      TableFromExecBatches(std::move(expected.schema), expected.batches));
+
+  AssertTablesEqual(*output_rows_test, *expected_rows_test, /*same_chunk_layout=*/false,
+                    /*flatten=*/true);
+  AssertSchemaEqual(expected.schema, hashjoin->output_schema());
+}
+
+TEST(HashJoin, ExtensionTypesSwissJoin) {
+  // For simpler types swiss join will be used.
+  auto ext_arr = ExampleUuid();
+  auto l_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto l_int_arr2 = ArrayFromJSON(int32(), "[4, 5, 6, 7]");
+  auto r_int_arr = ArrayFromJSON(int32(), "[4, 3, 2, null, 1]");
+
+  BatchesWithSchema input_left;
+  ASSERT_OK_AND_ASSIGN(ExecBatch left_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr}));
+  input_left.batches = {left_batches};
+  input_left.schema = schema(
+      {field("lkey", int32()), field("shared", int32()), field("ldistinct", uuid())});
+
+  BatchesWithSchema input_right;
+  ASSERT_OK_AND_ASSIGN(ExecBatch right_batches, ExecBatch::Make({r_int_arr}));
+  input_right.batches = {right_batches};
+  input_right.schema = schema({field("rkey", int32())});
+
+  BatchesWithSchema expected;
+  ASSERT_OK_AND_ASSIGN(ExecBatch expected_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_int_arr}));
+  expected.batches = {expected_batches};
+  expected.schema = schema({field("lkey", int32()), field("shared", int32()),
+                            field("ldistinct", uuid()), field("rkey", int32())});
+
+  TestSimpleJoinHelper(input_left, input_right, expected);
+}
+
+TEST(HashJoin, ExtensionTypesHashJoin) {
+  // Swiss join doesn't support dictionaries so HashJoin will be used.
+  auto dict_type = dictionary(int64(), int8());
+  auto ext_arr = ExampleUuid();
+  auto l_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto l_int_arr2 = ArrayFromJSON(int32(), "[4, 5, 6, 7]");
+  auto r_int_arr = ArrayFromJSON(int32(), "[4, 3, 2, null, 1]");
+  auto l_dict_array =
+      DictArrayFromJSON(dict_type, R"([2, 0, 1, null])", R"([null, 0, 1])");
+
+  BatchesWithSchema input_left;
+  ASSERT_OK_AND_ASSIGN(ExecBatch left_batches,
+                       ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_dict_array}));
+  input_left.batches = {left_batches};
+  input_left.schema = schema({field("lkey", int32()), field("shared", int32()),
+                              field("ldistinct", uuid()), field("dict_type", dict_type)});
+
+  BatchesWithSchema input_right;
+  ASSERT_OK_AND_ASSIGN(ExecBatch right_batches, ExecBatch::Make({r_int_arr}));
+  input_right.batches = {right_batches};
+  input_right.schema = schema({field("rkey", int32())});
+
+  BatchesWithSchema expected;
+  ASSERT_OK_AND_ASSIGN(
+      ExecBatch expected_batches,
+      ExecBatch::Make({l_int_arr, l_int_arr2, ext_arr, l_dict_array, l_int_arr}));
+  expected.batches = {expected_batches};
+  expected.schema = schema({field("lkey", int32()), field("shared", int32()),
+                            field("ldistinct", uuid()), field("dict_type", dict_type),
+                            field("rkey", int32())});
+
+  TestSimpleJoinHelper(input_left, input_right, expected);
+}
+
+TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  BatchesWithSchema input_left;
+  input_left.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 4, 7],
+                   [2, 5, 8],
+                   [3, 6, 9]
+                 ])")};
+  input_left.schema = schema(
+      {field("lkey", int32()), field("shared", int32()), field("ldistinct", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 10, 13],
+                   [2, 11, 14],
+                   [3, 12, 15]
+                 ])")};
+  input_right.schema = schema(
+      {field("rkey", int32()), field("shared", int32()), field("rdistinct", int32())});
+
+  ExecNode* l_source;
+  ExecNode* r_source;
+  ASSERT_OK_AND_ASSIGN(
+      l_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}));
+
+  ASSERT_OK_AND_ASSIGN(r_source,
+                       MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions{input_right.schema,
+                                                      input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}))
+
+  std::vector<std::vector<FieldRef>> l_keys = {
+      {},
+      {FieldRef("lkey")},
+      {FieldRef("lkey"), FieldRef("shared"), FieldRef("ldistinct")}};
+  std::vector<std::vector<FieldRef>> r_keys = {
+      {},
+      {FieldRef("rkey")},
+      {FieldRef("rkey"), FieldRef("shared"), FieldRef("rdistinct")}};
+  std::vector<std::vector<JoinKeyCmp>> key_cmps = {
+      {}, {JoinKeyCmp::EQ}, {JoinKeyCmp::EQ, JoinKeyCmp::EQ, JoinKeyCmp::EQ}};
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      for (int k = 0; k < 3; ++k) {
+        if (i == j && j == k && i != 0) {
+          continue;
+        }
+
+        HashJoinNodeOptions options{JoinType::INNER, l_keys[j], r_keys[k], {}, {},
+                                    key_cmps[i]};
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid, ::testing::HasSubstr("key_cmp and keys"),
+            MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, options));
+      }
+    }
+  }
+}
+
 TEST(HashJoin, ResidualFilter) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
@@ -1781,11 +1995,11 @@ TEST(HashJoin, ResidualFilter) {
     input_right.schema =
         schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
 
-    auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+    auto exec_ctx = std::make_unique<ExecContext>(
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
     ExecNode* left_source;
     ExecNode* right_source;
@@ -1858,12 +2072,12 @@ TEST(HashJoin, TrivialResidualFilter) {
                  ])")};
       input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
 
-      auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+      auto exec_ctx = std::make_unique<ExecContext>(
           default_memory_pool(),
           parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
-      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+      AsyncGenerator<std::optional<ExecBatch>> sink_gen;
 
       ExecNode* left_source;
       ExecNode* right_source;
@@ -1898,6 +2112,151 @@ TEST(HashJoin, TrivialResidualFilter) {
 
       AssertExecBatchesEqual(hashjoin->output_schema(), result, expected);
     }
+  }
+}
+
+HashJoinNodeOptions GenerateHashJoinNodeOptions(Random64Bit& rng, int num_left_cols,
+                                                int num_right_cols) {
+  HashJoinNodeOptions opts;
+  opts.join_type = static_cast<JoinType>(rng.from_range(0, 7));
+  bool is_left_join = opts.join_type == JoinType::LEFT_SEMI ||
+                      opts.join_type == JoinType::LEFT_ANTI ||
+                      opts.join_type == JoinType::LEFT_OUTER;
+  bool is_right_join = opts.join_type == JoinType::RIGHT_SEMI ||
+                       opts.join_type == JoinType::RIGHT_ANTI ||
+                       opts.join_type == JoinType::RIGHT_OUTER;
+
+  int num_keys = rng.from_range(1, std::min(num_left_cols, num_right_cols));
+  for (int i = 0; i < num_left_cols; i++) {
+    bool is_out = rng.from_range(0, 2) != 2;
+    if (is_out && !is_right_join) opts.left_output.push_back(FieldRef(i));
+  }
+  for (int i = 0; i < num_right_cols; i++) {
+    bool is_out = rng.from_range(0, 2) == 2;
+    if (is_out && !is_left_join) opts.right_output.push_back(FieldRef(i));
+  }
+  // We need at least one output
+  if (opts.right_output.empty() && opts.left_output.empty()) {
+    if (is_left_join) {
+      int col = rng.from_range(0, num_left_cols - 1);
+      opts.left_output.push_back(FieldRef(col));
+    } else if (is_right_join) {
+      int col = rng.from_range(0, num_right_cols - 1);
+      opts.right_output.push_back(FieldRef(col));
+    } else {
+      if (rng.from_range(0, 1) == 0) {
+        int col = rng.from_range(0, num_left_cols - 1);
+        opts.left_output.push_back(FieldRef(col));
+      } else {
+        int col = rng.from_range(0, num_right_cols - 1);
+        opts.right_output.push_back(FieldRef(col));
+      }
+    }
+  }
+
+  for (int i = 0; i < num_keys; i++) {
+    int left = rng.from_range(0, num_left_cols - 1);
+    int right = rng.from_range(0, num_right_cols - 1);
+    bool is_or_eq = rng.from_range(0, 1) == 0;
+    opts.left_keys.push_back(FieldRef(left));
+    opts.right_keys.push_back(FieldRef(right));
+    opts.key_cmp.push_back(is_or_eq ? JoinKeyCmp::IS : JoinKeyCmp::EQ);
+  }
+  return opts;
+}
+
+void TestSingleChainOfHashJoins(Random64Bit& rng) {
+  int num_joins = rng.from_range(2, 5);
+  std::vector<HashJoinNodeOptions> opts;
+  int num_left_cols = rng.from_range(1, 8);
+  int num_right_cols = rng.from_range(1, 8);
+  HashJoinNodeOptions first_opt =
+      GenerateHashJoinNodeOptions(rng, num_left_cols, num_right_cols);
+  opts.push_back(std::move(first_opt));
+
+  std::unordered_map<std::string, std::string> metadata_map;
+  metadata_map["min"] = "0";
+  metadata_map["max"] = "10";
+  auto metadata = key_value_metadata(metadata_map);
+  std::vector<std::shared_ptr<Field>> left_fields;
+  for (int i = 0; i < num_left_cols; i++)
+    left_fields.push_back(field(std::string("l") + std::to_string(i), int32(), metadata));
+  std::vector<std::shared_ptr<Field>> first_right_fields;
+  for (int i = 0; i < num_right_cols; i++)
+    first_right_fields.push_back(
+        field(std::string("r_0_") + std::to_string(i), int32(), metadata));
+
+  BatchesWithSchema input_left = MakeRandomBatches(schema(std::move(left_fields)));
+  std::vector<BatchesWithSchema> input_right;
+  input_right.push_back(MakeRandomBatches(schema(std::move(first_right_fields))));
+
+  for (int i = 1; i < num_joins; i++) {
+    int num_right_cols = rng.from_range(1, 8);
+    HashJoinNodeOptions opt =
+        GenerateHashJoinNodeOptions(rng,
+                                    static_cast<int>(opts[i - 1].left_output.size() +
+                                                     opts[i - 1].right_output.size()),
+                                    num_right_cols);
+    opts.push_back(std::move(opt));
+
+    std::vector<std::shared_ptr<Field>> right_fields;
+    for (int j = 0; j < num_right_cols; j++)
+      right_fields.push_back(
+          field(std::string("r_") + std::to_string(i) + "_" + std::to_string(j), int32(),
+                metadata));
+    BatchesWithSchema input = MakeRandomBatches(schema(std::move(right_fields)));
+    input_right.push_back(std::move(input));
+  }
+
+  std::vector<ExecBatch> reference;
+  for (bool bloom_filters : {false, true}) {
+    bool kParallel = true;
+    ARROW_SCOPED_TRACE(bloom_filters ? "bloom filtered" : "unfiltered");
+    auto exec_ctx = std::make_unique<ExecContext>(
+        default_memory_pool(), kParallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+    ExecNode* left_source;
+    ASSERT_OK_AND_ASSIGN(
+        left_source,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions{input_left.schema,
+                                       input_left.gen(kParallel, /*slow=*/false)}));
+    std::vector<ExecNode*> joins(num_joins);
+    for (int i = 0; i < num_joins; i++) {
+      opts[i].disable_bloom_filter = !bloom_filters;
+      ExecNode* right_source;
+      ASSERT_OK_AND_ASSIGN(
+          right_source,
+          MakeExecNode("source", plan.get(), {},
+                       SourceNodeOptions{input_right[i].schema,
+                                         input_right[i].gen(kParallel, /*slow=*/false)}));
+
+      std::vector<ExecNode*> inputs;
+      if (i == 0)
+        inputs = {left_source, right_source};
+      else
+        inputs = {joins[i - 1], right_source};
+      ASSERT_OK_AND_ASSIGN(joins[i],
+                           MakeExecNode("hashjoin", plan.get(), inputs, opts[i]));
+    }
+    AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+    ASSERT_OK(
+        MakeExecNode("sink", plan.get(), {joins.back()}, SinkNodeOptions{&sink_gen}));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+    if (!bloom_filters)
+      reference = std::move(result);
+    else
+      AssertExecBatchesEqual(joins.back()->output_schema(), reference, result);
+  }
+}
+
+TEST(HashJoin, ChainedIntegerHashJoins) {
+  Random64Bit rng(42);
+  int num_tests = 30;
+  for (int i = 0; i < num_tests; i++) {
+    ARROW_SCOPED_TRACE("Test ", std::to_string(i));
+    TestSingleChainOfHashJoins(rng);
   }
 }
 

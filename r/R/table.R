@@ -93,7 +93,7 @@ Table <- R6Class("Table",
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     ReplaceSchemaMetadata = function(new) {
-      Table__ReplaceSchemaMetadata(self, new)
+      Table__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -139,6 +139,13 @@ Table$create <- function(..., schema = NULL) {
   if (all_record_batches(dots)) {
     return(Table__from_record_batches(dots, schema))
   }
+  if (length(dots) == 1 && inherits(dots[[1]], c("RecordBatchReader", "RecordBatchFileReader"))) {
+    tab <- dots[[1]]$read_table()
+    if (!is.null(schema)) {
+      tab <- tab$cast(schema)
+    }
+    return(tab)
+  }
 
   # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)
@@ -160,7 +167,7 @@ names.Table <- function(x) x$ColumnNames()
 #' with fields of the same name being merged, then each table will be promoted
 #' to the unified schema before being concatenated. Otherwise, all tables should
 #' have the same schema.
-#' @examplesIf arrow_available()
+#' @examples
 #' tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
 #' combined <- concat_tables(tbl, prius)
@@ -310,4 +317,16 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 #' @export
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
   Table$create(x, schema = schema)
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatchReader <- function(x, ...) {
+  x$read_table()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.arrow_dplyr_query <- function(x, ...) {
+  as_arrow_table(as_record_batch_reader(x))
 }

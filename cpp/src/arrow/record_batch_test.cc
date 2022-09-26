@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {

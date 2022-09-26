@@ -58,16 +58,13 @@
 
 namespace arrow {
 
+using internal::FileDescriptor;
 using internal::IOErrorFromErrno;
 
 namespace io {
 
 class OSFile {
  public:
-  OSFile() : fd_(-1), is_open_(false), size_(-1), need_seeking_(false) {}
-
-  ~OSFile() {}
-
   // Note: only one of the Open* methods below may be called on a given instance
 
   Status OpenWritable(const std::string& path, bool truncate, bool append,
@@ -76,11 +73,10 @@ class OSFile {
 
     ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenWritable(file_name_, write_only,
                                                                    truncate, append));
-    is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (!truncate) {
-      ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_));
+      ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_.fd()));
     } else {
       size_ = 0;
     }
@@ -98,9 +94,8 @@ class OSFile {
       size_ = -1;
     }
     RETURN_NOT_OK(SetFileName(fd));
-    is_open_ = true;
     mode_ = FileMode::WRITE;
-    fd_ = fd;
+    fd_ = FileDescriptor(fd);
     return Status::OK();
   }
 
@@ -108,9 +103,8 @@ class OSFile {
     RETURN_NOT_OK(SetFileName(path));
 
     ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenReadable(file_name_));
-    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_));
+    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_.fd()));
 
-    is_open_ = true;
     mode_ = FileMode::READ;
     return Status::OK();
   }
@@ -118,35 +112,24 @@ class OSFile {
   Status OpenReadable(int fd) {
     ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd));
     RETURN_NOT_OK(SetFileName(fd));
-    is_open_ = true;
     mode_ = FileMode::READ;
-    fd_ = fd;
+    fd_ = FileDescriptor(fd);
     return Status::OK();
   }
 
   Status CheckClosed() const {
-    if (!is_open_) {
+    if (fd_.closed()) {
       return Status::Invalid("Invalid operation on closed file");
     }
     return Status::OK();
   }
 
-  Status Close() {
-    if (is_open_) {
-      // Even if closing fails, the fd will likely be closed (perhaps it's
-      // already closed).
-      is_open_ = false;
-      int fd = fd_;
-      fd_ = -1;
-      RETURN_NOT_OK(::arrow::internal::FileClose(fd));
-    }
-    return Status::OK();
-  }
+  Status Close() { return fd_.Close(); }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
-    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes);
+    return ::arrow::internal::FileRead(fd_.fd(), reinterpret_cast<uint8_t*>(out), nbytes);
   }
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
@@ -155,8 +138,8 @@ class OSFile {
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
-    return ::arrow::internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position,
-                                         nbytes);
+    return ::arrow::internal::FileReadAt(fd_.fd(), reinterpret_cast<uint8_t*>(out),
+                                         position, nbytes);
   }
 
   Status Seek(int64_t pos) {
@@ -164,7 +147,7 @@ class OSFile {
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
-    Status st = ::arrow::internal::FileSeek(fd_, pos);
+    Status st = ::arrow::internal::FileSeek(fd_.fd(), pos);
     if (st.ok()) {
       need_seeking_.store(false);
     }
@@ -173,7 +156,7 @@ class OSFile {
 
   Result<int64_t> Tell() const {
     RETURN_NOT_OK(CheckClosed());
-    return ::arrow::internal::FileTell(fd_);
+    return ::arrow::internal::FileTell(fd_.fd());
   }
 
   Status Write(const void* data, int64_t length) {
@@ -184,13 +167,13 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return ::arrow::internal::FileWrite(fd_, reinterpret_cast<const uint8_t*>(data),
+    return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
                                         length);
   }
 
-  int fd() const { return fd_; }
+  int fd() const { return fd_.fd(); }
 
-  bool is_open() const { return is_open_; }
+  bool is_open() const { return !fd_.closed(); }
 
   int64_t size() const { return size_; }
 
@@ -221,16 +204,11 @@ class OSFile {
   ::arrow::internal::PlatformFilename file_name_;
 
   std::mutex lock_;
-
-  // File descriptor
-  int fd_;
-
+  FileDescriptor fd_;
   FileMode::type mode_;
-
-  bool is_open_;
-  int64_t size_;
+  int64_t size_{-1};
   // Whether ReadAt made the file position non-deterministic.
-  std::atomic<bool> need_seeking_;
+  std::atomic<bool> need_seeking_{false};
 };
 
 // ----------------------------------------------------------------------
@@ -287,7 +265,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     for (const auto& range : ranges) {
       RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
 #if defined(POSIX_FADV_WILLNEED)
-      int ret = posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED);
+      int ret = posix_fadvise(fd_.fd(), range.offset, range.length, POSIX_FADV_WILLNEED);
       if (ret) {
         RETURN_NOT_OK(report_error(ret, "posix_fadvise failed"));
       }
@@ -296,7 +274,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
         off_t ra_offset;
         int ra_count;
       } radvisory{range.offset, static_cast<int>(range.length)};
-      if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
+      if (radvisory.ra_count > 0 && fcntl(fd_.fd(), F_RDADVISE, &radvisory) == -1) {
         RETURN_NOT_OK(report_error(errno, "fcntl(fd, F_RDADVISE, ...) failed"));
       }
 #else

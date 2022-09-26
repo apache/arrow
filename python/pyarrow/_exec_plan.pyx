@@ -92,7 +92,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
             node_factory = "table_source"
             c_in_table = pyarrow_unwrap_table(ipt)
             c_tablesourceopts = make_shared[CTableSourceNodeOptions](
-                c_in_table, 1 << 20)
+                c_in_table)
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
                 c_tablesourceopts)
         elif isinstance(ipt, Dataset):
@@ -202,7 +202,7 @@ def _perform_join(join_type, left_operand not None, left_keys,
 
     Returns
     -------
-    result_table : Table
+    result_table : Table or InMemoryDataset
     """
     cdef:
         vector[CFieldRef] c_left_keys
@@ -259,13 +259,19 @@ def _perform_join(join_type, left_operand not None, left_keys,
         left_columns = []
     elif join_type == "inner":
         c_join_type = CJoinType_INNER
-        right_columns = set(right_columns) - set(right_keys)
+        right_columns = [
+            col for col in right_columns if col not in right_keys_order
+        ]
     elif join_type == "left outer":
         c_join_type = CJoinType_LEFT_OUTER
-        right_columns = set(right_columns) - set(right_keys)
+        right_columns = [
+            col for col in right_columns if col not in right_keys_order
+        ]
     elif join_type == "right outer":
         c_join_type = CJoinType_RIGHT_OUTER
-        left_columns = set(left_columns) - set(left_keys)
+        left_columns = [
+            col for col in left_columns if col not in left_keys_order
+        ]
     elif join_type == "full outer":
         c_join_type = CJoinType_FULL_OUTER
     else:
@@ -351,3 +357,45 @@ def _perform_join(join_type, left_operand not None, left_keys,
                             use_threads=use_threads)
 
     return result_table
+
+
+def _filter_table(table, expression, output_type=Table):
+    """Filter rows of a table or dataset based on the provided expression.
+
+    The result will be an output table with only the rows matching
+    the provided expression.
+
+    Parameters
+    ----------
+    table : Table or Dataset
+        Table or Dataset that should be filtered.
+    expression : Expression
+        The expression on which rows should be filtered.
+    output_type: Table or InMemoryDataset
+        The output type for the filtered result.
+
+    Returns
+    -------
+    result_table : Table or InMemoryDataset
+    """
+    cdef:
+        vector[CDeclaration] c_decl_plan
+        Expression expr = expression
+
+    c_decl_plan.push_back(
+        CDeclaration(tobytes("filter"), CFilterNodeOptions(
+            <CExpression>expr.unwrap(), True
+        ))
+    )
+
+    r = execplan([table], plan=c_decl_plan,
+                 output_type=Table, use_threads=False)
+
+    if output_type == Table:
+        return r
+    elif output_type == InMemoryDataset:
+        # Get rid of special dataset columns
+        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+        return InMemoryDataset(r.select(table.schema.names))
+    else:
+        raise TypeError("Unsupported output type")

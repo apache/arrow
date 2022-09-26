@@ -27,7 +27,17 @@
 namespace arrow {
 namespace compute {
 
+// SwissTable is a variant of a hash table implementation.
+// This implementation is vectorized, that is: main interface methods take arrays of input
+// values and output arrays of result values.
+//
+// A detailed explanation of this data structure (including concepts such as blocks,
+// slots, stamps) and operations provided by this class is given in the document:
+// arrow/compute/exec/doc/key_map.md.
+//
 class SwissTable {
+  friend class SwissTableMerge;
+
  public:
   SwissTable() = default;
   ~SwissTable() { cleanup(); }
@@ -35,11 +45,12 @@ class SwissTable {
   using EqualImpl =
       std::function<void(int num_keys, const uint16_t* selection /* may be null */,
                          const uint32_t* group_ids, uint32_t* out_num_keys_mismatch,
-                         uint16_t* out_selection_mismatch)>;
-  using AppendImpl = std::function<Status(int num_keys, const uint16_t* selection)>;
+                         uint16_t* out_selection_mismatch, void* callback_ctx)>;
+  using AppendImpl =
+      std::function<Status(int num_keys, const uint16_t* selection, void* callback_ctx)>;
 
-  Status init(int64_t hardware_flags, MemoryPool* pool, util::TempVectorStack* temp_stack,
-              int log_minibatch, EqualImpl equal_impl, AppendImpl append_impl);
+  Status init(int64_t hardware_flags, MemoryPool* pool, int log_blocks = 0,
+              bool no_hash_array = false);
 
   void cleanup();
 
@@ -47,10 +58,22 @@ class SwissTable {
                     uint8_t* out_match_bitvector, uint8_t* out_local_slots) const;
 
   void find(const int num_keys, const uint32_t* hashes, uint8_t* inout_match_bitvector,
-            const uint8_t* local_slots, uint32_t* out_group_ids) const;
+            const uint8_t* local_slots, uint32_t* out_group_ids,
+            util::TempVectorStack* temp_stack, const EqualImpl& equal_impl,
+            void* callback_ctx) const;
 
   Status map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t* hashes,
-                      uint32_t* group_ids);
+                      uint32_t* group_ids, util::TempVectorStack* temp_stack,
+                      const EqualImpl& equal_impl, const AppendImpl& append_impl,
+                      void* callback_ctx);
+
+  int minibatch_size() const { return 1 << log_minibatch_; }
+
+  int64_t num_inserted() const { return num_inserted_; }
+
+  int64_t hardware_flags() const { return hardware_flags_; }
+
+  MemoryPool* pool() const { return pool_; }
 
  private:
   // Lookup helpers
@@ -116,21 +139,22 @@ class SwissTable {
   void early_filter_imp(const int num_keys, const uint32_t* hashes,
                         uint8_t* out_match_bitvector, uint8_t* out_local_slots) const;
 #if defined(ARROW_HAVE_AVX2)
-  void early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
+  int early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
+                               uint8_t* out_match_bitvector,
+                               uint8_t* out_local_slots) const;
+  int early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* hashes,
                                 uint8_t* out_match_bitvector,
                                 uint8_t* out_local_slots) const;
-  void early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* hashes,
-                                 uint8_t* out_match_bitvector,
-                                 uint8_t* out_local_slots) const;
-  void extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
-                              const uint8_t* local_slots, uint32_t* out_group_ids,
-                              int byte_offset, int byte_multiplier, int byte_size) const;
+  int extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
+                             const uint8_t* local_slots, uint32_t* out_group_ids,
+                             int byte_offset, int byte_multiplier, int byte_size) const;
 #endif
 
   void run_comparisons(const int num_keys, const uint16_t* optional_selection_ids,
                        const uint8_t* optional_selection_bitvector,
                        const uint32_t* groupids, int* out_num_not_equal,
-                       uint16_t* out_not_equal_selection) const;
+                       uint16_t* out_not_equal_selection, const EqualImpl& equal_impl,
+                       void* callback_ctx) const;
 
   inline bool find_next_stamp_match(const uint32_t hash, const uint32_t in_slot_id,
                                     uint32_t* out_slot_id, uint32_t* out_group_id) const;
@@ -145,7 +169,10 @@ class SwissTable {
   //
   Status map_new_keys_helper(const uint32_t* hashes, uint32_t* inout_num_selected,
                              uint16_t* inout_selection, bool* out_need_resize,
-                             uint32_t* out_group_ids, uint32_t* out_next_slot_ids);
+                             uint32_t* out_group_ids, uint32_t* out_next_slot_ids,
+                             util::TempVectorStack* temp_stack,
+                             const EqualImpl& equal_impl, const AppendImpl& append_impl,
+                             void* callback_ctx);
 
   // Resize small hash tables when 50% full (up to 8KB).
   // Resize large hash tables when 75% full.
@@ -198,11 +225,51 @@ class SwissTable {
 
   int64_t hardware_flags_;
   MemoryPool* pool_;
-  util::TempVectorStack* temp_stack_;
-
-  EqualImpl equal_impl_;
-  AppendImpl append_impl_;
 };
+
+uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
+                                      uint64_t group_id_mask) const {
+  // Group id values for all 8 slots in the block are bit-packed and follow the status
+  // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
+  // that case we can extract group id using aligned 64-bit word access.
+  int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
+  ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
+               num_group_id_bits == 32 || num_group_id_bits == 64);
+
+  int bit_offset = slot * num_group_id_bits;
+  const uint64_t* group_id_bytes =
+      reinterpret_cast<const uint64_t*>(block_ptr) + 1 + (bit_offset >> 6);
+  uint64_t group_id = (*group_id_bytes >> (bit_offset & 63)) & group_id_mask;
+
+  return group_id;
+}
+
+void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
+                                        uint32_t group_id) {
+  const uint64_t num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+
+  // We assume here that the number of bits is rounded up to 8, 16, 32 or 64.
+  // In that case we can insert group id value using aligned 64-bit word access.
+  ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
+               num_groupid_bits == 32 || num_groupid_bits == 64);
+
+  const uint64_t num_block_bytes = (8 + num_groupid_bits);
+  constexpr uint64_t stamp_mask = 0x7f;
+
+  int start_slot = (slot_id & 7);
+  int stamp =
+      static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
+  uint64_t block_id = slot_id >> 3;
+  uint8_t* blockbase = blocks_ + num_block_bytes * block_id;
+
+  blockbase[7 - start_slot] = static_cast<uint8_t>(stamp);
+  int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);
+
+  // Block status bytes should start at an address aligned to 8 bytes
+  ARROW_DCHECK((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
+  uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase) + 1 + (groupid_bit_offset >> 6);
+  *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
+}
 
 }  // namespace compute
 }  // namespace arrow

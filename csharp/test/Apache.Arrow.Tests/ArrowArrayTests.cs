@@ -107,6 +107,8 @@ namespace Apache.Arrow.Tests
             TestSlice<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
         }
 
@@ -125,6 +127,8 @@ namespace Apache.Arrow.Tests
             TestSlice<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).AppendNull().Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).AppendNull().Append(30));
         }
 
         [Fact]
@@ -177,6 +181,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<UInt64Array>,
             IArrowArrayVisitor<Date32Array>,
             IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<Time32Array>,
+            IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -215,6 +221,8 @@ namespace Apache.Arrow.Tests
 
                 Assert.Equal(baseArray.GetDateTimeOffset(array.Offset), array.GetDateTimeOffset(0));
             }
+            public void Visit(Time32Array array) => ValidateArrays(array);
+            public void Visit(Time64Array array) => ValidateArrays(array);
 
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);

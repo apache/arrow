@@ -75,7 +75,10 @@ void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   auto actual = actual_datum.chunked_array();
   ValidateOutput(actual_datum);
-  AssertChunkedEqual(*expected, *actual);
+
+  // Output contiguous in a single chunk
+  ASSERT_EQ(1, actual->num_chunks());
+  ASSERT_TRUE(actual->Equals(*expected));
 }
 
 void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
@@ -497,7 +500,12 @@ class TestIndexInKernel : public ::testing::Test {
                          IndexIn(input, SetLookupOptions(value_set, skip_nulls)));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, actual.kind());
     ValidateOutput(actual);
-    AssertChunkedEqual(*expected, *actual.chunked_array());
+
+    auto actual_chunked = actual.chunked_array();
+
+    // Output contiguous in a single chunk
+    ASSERT_EQ(1, actual_chunked->num_chunks());
+    ASSERT_TRUE(actual_chunked->Equals(*expected));
   }
 
   void CheckIndexInDictionary(const std::shared_ptr<DataType>& type,
@@ -810,7 +818,7 @@ TEST_F(TestIndexInKernel, BinaryResizeTable) {
     char buf[kBufSize] = "test";
     ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
 
-    input_builder.UnsafeAppend(util::string_view(buf));
+    input_builder.UnsafeAppend(std::string_view(buf));
     expected_builder.UnsafeAppend(index);
   }
 

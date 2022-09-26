@@ -44,6 +44,11 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
+
+
 # General roundtrip of data types
 # -----------------------------------------------------------------------------
 

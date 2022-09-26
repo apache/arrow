@@ -43,8 +43,7 @@ ARG ccache=4.1
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
-# Install vcpkg and in case of manylinux2010 install a more recent glibc>2.15
-# for the prebuilt vcpkg binary
+# Install vcpkg
 ARG vcpkg
 ARG glibc=2.18
 COPY ci/vcpkg/*.patch \
@@ -54,12 +53,7 @@ COPY ci/scripts/install_vcpkg.sh \
      ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
-    if [ "${manylinux}" == "2010" ]; then \
-        arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc} && \
-        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 ${VCPKG_ROOT}/vcpkg && \
-        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 ${VCPKG_ROOT}/vcpkg; \
-    fi
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
 ENV PATH="${PATH}:${VCPKG_ROOT}"
 
 ARG build_type=release

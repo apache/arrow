@@ -29,8 +29,6 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec/key_compare.h"
-#include "arrow/compute/exec/key_encode.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/key_map.h"
 #include "arrow/compute/exec/util.h"
@@ -41,6 +39,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/row/grouper.h"
 #include "arrow/record_batch.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/bit_run_reader.h"
@@ -49,8 +48,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/int_util_internal.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -65,495 +63,15 @@ namespace compute {
 namespace internal {
 namespace {
 
-struct GrouperImpl : Grouper {
-  static Result<std::unique_ptr<GrouperImpl>> Make(const std::vector<ValueDescr>& keys,
-                                                   ExecContext* ctx) {
-    auto impl = ::arrow::internal::make_unique<GrouperImpl>();
-
-    impl->encoders_.resize(keys.size());
-    impl->ctx_ = ctx;
-
-    for (size_t i = 0; i < keys.size(); ++i) {
-      const auto& key = keys[i].type;
-
-      if (key->id() == Type::BOOL) {
-        impl->encoders_[i] = ::arrow::internal::make_unique<BooleanKeyEncoder>();
-        continue;
-      }
-
-      if (key->id() == Type::DICTIONARY) {
-        impl->encoders_[i] =
-            ::arrow::internal::make_unique<DictionaryKeyEncoder>(key, ctx->memory_pool());
-        continue;
-      }
-
-      if (is_fixed_width(key->id())) {
-        impl->encoders_[i] = ::arrow::internal::make_unique<FixedWidthKeyEncoder>(key);
-        continue;
-      }
-
-      if (is_binary_like(key->id())) {
-        impl->encoders_[i] =
-            ::arrow::internal::make_unique<VarLengthKeyEncoder<BinaryType>>(key);
-        continue;
-      }
-
-      if (is_large_binary_like(key->id())) {
-        impl->encoders_[i] =
-            ::arrow::internal::make_unique<VarLengthKeyEncoder<LargeBinaryType>>(key);
-        continue;
-      }
-
-      if (key->id() == Type::NA) {
-        impl->encoders_[i] = ::arrow::internal::make_unique<NullKeyEncoder>();
-        continue;
-      }
-
-      return Status::NotImplemented("Keys of type ", *key);
-    }
-
-    return std::move(impl);
-  }
-
-  Result<Datum> Consume(const ExecBatch& batch) override {
-    std::vector<int32_t> offsets_batch(batch.length + 1);
-    for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
-    }
-
-    int32_t total_length = 0;
-    for (int64_t i = 0; i < batch.length; ++i) {
-      auto total_length_before = total_length;
-      total_length += offsets_batch[i];
-      offsets_batch[i] = total_length_before;
-    }
-    offsets_batch[batch.length] = total_length;
-
-    std::vector<uint8_t> key_bytes_batch(total_length);
-    std::vector<uint8_t*> key_buf_ptrs(batch.length);
-    for (int64_t i = 0; i < batch.length; ++i) {
-      key_buf_ptrs[i] = key_bytes_batch.data() + offsets_batch[i];
-    }
-
-    for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
-    }
-
-    TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
-    RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
-
-    for (int64_t i = 0; i < batch.length; ++i) {
-      int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
-      std::string key(
-          reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
-          key_length);
-
-      auto it_success = map_.emplace(key, num_groups_);
-      auto group_id = it_success.first->second;
-
-      if (it_success.second) {
-        // new key; update offsets and key_bytes
-        ++num_groups_;
-        // Skip if there are no keys
-        if (key_length > 0) {
-          auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-          key_bytes_.resize(next_key_offset + key_length);
-          offsets_.push_back(next_key_offset + key_length);
-          memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
-        }
-      }
-
-      group_ids_batch.UnsafeAppend(group_id);
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
-    return Datum(UInt32Array(batch.length, std::move(group_ids)));
-  }
-
-  uint32_t num_groups() const override { return num_groups_; }
-
-  Result<ExecBatch> GetUniques() override {
-    ExecBatch out({}, num_groups_);
-
-    std::vector<uint8_t*> key_buf_ptrs(num_groups_);
-    for (int64_t i = 0; i < num_groups_; ++i) {
-      key_buf_ptrs[i] = key_bytes_.data() + offsets_[i];
-    }
-
-    out.values.resize(encoders_.size());
-    for (size_t i = 0; i < encoders_.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(
-          out.values[i],
-          encoders_[i]->Decode(key_buf_ptrs.data(), static_cast<int32_t>(num_groups_),
-                               ctx_->memory_pool()));
-    }
-
-    return out;
-  }
-
-  ExecContext* ctx_;
-  std::unordered_map<std::string, uint32_t> map_;
-  std::vector<int32_t> offsets_ = {0};
-  std::vector<uint8_t> key_bytes_;
-  uint32_t num_groups_ = 0;
-  std::vector<std::unique_ptr<KeyEncoder>> encoders_;
-};
-
-struct GrouperFastImpl : Grouper {
-  static constexpr int kBitmapPaddingForSIMD = 64;  // bits
-  static constexpr int kPaddingForSIMD = 32;        // bytes
-
-  static bool CanUse(const std::vector<ValueDescr>& keys) {
-#if ARROW_LITTLE_ENDIAN
-    for (size_t i = 0; i < keys.size(); ++i) {
-      const auto& key = keys[i].type;
-      if (is_large_binary_like(key->id())) {
-        return false;
-      }
-    }
-    return true;
-#else
-    return false;
-#endif
-  }
-
-  static Result<std::unique_ptr<GrouperFastImpl>> Make(
-      const std::vector<ValueDescr>& keys, ExecContext* ctx) {
-    auto impl = ::arrow::internal::make_unique<GrouperFastImpl>();
-    impl->ctx_ = ctx;
-
-    RETURN_NOT_OK(impl->temp_stack_.Init(ctx->memory_pool(), 64 * minibatch_size_max_));
-    impl->encode_ctx_.hardware_flags =
-        arrow::internal::CpuInfo::GetInstance()->hardware_flags();
-    impl->encode_ctx_.stack = &impl->temp_stack_;
-
-    auto num_columns = keys.size();
-    impl->col_metadata_.resize(num_columns);
-    impl->key_types_.resize(num_columns);
-    impl->dictionaries_.resize(num_columns);
-    for (size_t icol = 0; icol < num_columns; ++icol) {
-      const auto& key = keys[icol].type;
-      if (key->id() == Type::DICTIONARY) {
-        auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
-        ARROW_DCHECK(bit_width % 8 == 0);
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyColumnMetadata(true, bit_width / 8);
-      } else if (key->id() == Type::BOOL) {
-        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(true, 0);
-      } else if (is_fixed_width(key->id())) {
-        impl->col_metadata_[icol] = arrow::compute::KeyColumnMetadata(
-            true, checked_cast<const FixedWidthType&>(*key).bit_width() / 8);
-      } else if (is_binary_like(key->id())) {
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyColumnMetadata(false, sizeof(uint32_t));
-      } else if (key->id() == Type::NA) {
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyColumnMetadata(true, 0, /*is_null_type_in=*/true);
-      } else {
-        return Status::NotImplemented("Keys of type ", *key);
-      }
-      impl->key_types_[icol] = key;
-    }
-
-    impl->encoder_.Init(impl->col_metadata_, &impl->encode_ctx_,
-                        /* row_alignment = */ sizeof(uint64_t),
-                        /* string_alignment = */ sizeof(uint64_t));
-    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
-    RETURN_NOT_OK(
-        impl->rows_minibatch_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
-    impl->minibatch_size_ = impl->minibatch_size_min_;
-    GrouperFastImpl* impl_ptr = impl.get();
-    auto equal_func = [impl_ptr](
-                          int num_keys_to_compare, const uint16_t* selection_may_be_null,
-                          const uint32_t* group_ids, uint32_t* out_num_keys_mismatch,
-                          uint16_t* out_selection_mismatch) {
-      arrow::compute::KeyCompare::CompareColumnsToRows(
-          num_keys_to_compare, selection_may_be_null, group_ids, &impl_ptr->encode_ctx_,
-          out_num_keys_mismatch, out_selection_mismatch,
-          impl_ptr->encoder_.GetBatchColumns(), impl_ptr->rows_);
-    };
-    auto append_func = [impl_ptr](int num_keys, const uint16_t* selection) {
-      RETURN_NOT_OK(impl_ptr->encoder_.EncodeSelected(&impl_ptr->rows_minibatch_,
-                                                      num_keys, selection));
-      return impl_ptr->rows_.AppendSelectionFrom(impl_ptr->rows_minibatch_, num_keys,
-                                                 nullptr);
-    };
-    RETURN_NOT_OK(impl->map_.init(impl->encode_ctx_.hardware_flags, ctx->memory_pool(),
-                                  impl->encode_ctx_.stack, impl->log_minibatch_max_,
-                                  equal_func, append_func));
-    impl->cols_.resize(num_columns);
-    impl->minibatch_hashes_.resize(impl->minibatch_size_max_ +
-                                   kPaddingForSIMD / sizeof(uint32_t));
-
-    return std::move(impl);
-  }
-
-  ~GrouperFastImpl() { map_.cleanup(); }
-
-  Result<Datum> Consume(const ExecBatch& batch) override {
-    // ARROW-14027: broadcast scalar arguments for now
-    for (int i = 0; i < batch.num_values(); i++) {
-      if (batch.values[i].is_scalar()) {
-        ExecBatch expanded = batch;
-        for (int j = i; j < expanded.num_values(); j++) {
-          if (expanded.values[j].is_scalar()) {
-            ARROW_ASSIGN_OR_RAISE(
-                expanded.values[j],
-                MakeArrayFromScalar(*expanded.values[j].scalar(), expanded.length,
-                                    ctx_->memory_pool()));
-          }
-        }
-        return ConsumeImpl(expanded);
-      }
-    }
-    return ConsumeImpl(batch);
-  }
-
-  Result<Datum> ConsumeImpl(const ExecBatch& batch) {
-    int64_t num_rows = batch.length;
-    int num_columns = batch.num_values();
-    // Process dictionaries
-    for (int icol = 0; icol < num_columns; ++icol) {
-      if (key_types_[icol]->id() == Type::DICTIONARY) {
-        auto data = batch[icol].array();
-        auto dict = MakeArray(data->dictionary);
-        if (dictionaries_[icol]) {
-          if (!dictionaries_[icol]->Equals(dict)) {
-            // TODO(bkietz) unify if necessary. For now, just error if any batch's
-            // dictionary differs from the first we saw for this key
-            return Status::NotImplemented("Unifying differing dictionaries");
-          }
-        } else {
-          dictionaries_[icol] = std::move(dict);
-        }
-      }
-    }
-
-    std::shared_ptr<arrow::Buffer> group_ids;
-    ARROW_ASSIGN_OR_RAISE(
-        group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
-
-    for (int icol = 0; icol < num_columns; ++icol) {
-      const uint8_t* non_nulls = NULLPTR;
-      const uint8_t* fixedlen = NULLPTR;
-      const uint8_t* varlen = NULLPTR;
-
-      // Skip if the key's type is NULL
-      if (key_types_[icol]->id() != Type::NA) {
-        if (batch[icol].array()->buffers[0] != NULLPTR) {
-          non_nulls = batch[icol].array()->buffers[0]->data();
-        }
-        fixedlen = batch[icol].array()->buffers[1]->data();
-        if (!col_metadata_[icol].is_fixed_length) {
-          varlen = batch[icol].array()->buffers[2]->data();
-        }
-      }
-
-      int64_t offset = batch[icol].array()->offset;
-
-      auto col_base = arrow::compute::KeyColumnArray(
-          col_metadata_[icol], offset + num_rows, non_nulls, fixedlen, varlen);
-
-      cols_[icol] = col_base.Slice(offset, num_rows);
-    }
-
-    // Split into smaller mini-batches
-    //
-    for (uint32_t start_row = 0; start_row < num_rows;) {
-      uint32_t batch_size_next = std::min(static_cast<uint32_t>(minibatch_size_),
-                                          static_cast<uint32_t>(num_rows) - start_row);
-
-      // Encode
-      rows_minibatch_.Clean();
-      encoder_.PrepareEncodeSelected(start_row, batch_size_next, cols_);
-
-      // Compute hash
-      Hashing32::HashMultiColumn(encoder_.GetBatchColumns(), &encode_ctx_,
-                                 minibatch_hashes_.data());
-
-      // Map
-      auto match_bitvector =
-          util::TempVectorHolder<uint8_t>(&temp_stack_, (batch_size_next + 7) / 8);
-      {
-        auto local_slots = util::TempVectorHolder<uint8_t>(&temp_stack_, batch_size_next);
-        map_.early_filter(batch_size_next, minibatch_hashes_.data(),
-                          match_bitvector.mutable_data(), local_slots.mutable_data());
-        map_.find(batch_size_next, minibatch_hashes_.data(),
-                  match_bitvector.mutable_data(), local_slots.mutable_data(),
-                  reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row);
-      }
-      auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
-      int num_ids;
-      util::bit_util::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
-                                      match_bitvector.mutable_data(), &num_ids,
-                                      ids.mutable_data());
-
-      RETURN_NOT_OK(map_.map_new_keys(
-          num_ids, ids.mutable_data(), minibatch_hashes_.data(),
-          reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
-
-      start_row += batch_size_next;
-
-      if (minibatch_size_ * 2 <= minibatch_size_max_) {
-        minibatch_size_ *= 2;
-      }
-    }
-
-    return Datum(UInt32Array(batch.length, std::move(group_ids)));
-  }
-
-  uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
-
-  // Make sure padded buffers end up with the right logical size
-
-  Result<std::shared_ptr<Buffer>> AllocatePaddedBitmap(int64_t length) {
-    ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<Buffer> buf,
-        AllocateBitmap(length + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, bit_util::BytesForBits(length));
-  }
-
-  Result<std::shared_ptr<Buffer>> AllocatePaddedBuffer(int64_t size) {
-    ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<Buffer> buf,
-        AllocateBuffer(size + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, size);
-  }
-
-  Result<ExecBatch> GetUniques() override {
-    auto num_columns = static_cast<uint32_t>(col_metadata_.size());
-    int64_t num_groups = rows_.length();
-
-    std::vector<std::shared_ptr<Buffer>> non_null_bufs(num_columns);
-    std::vector<std::shared_ptr<Buffer>> fixedlen_bufs(num_columns);
-    std::vector<std::shared_ptr<Buffer>> varlen_bufs(num_columns);
-
-    for (size_t i = 0; i < num_columns; ++i) {
-      if (col_metadata_[i].is_null_type) {
-        uint8_t* non_nulls = NULLPTR;
-        uint8_t* fixedlen = NULLPTR;
-        cols_[i] = arrow::compute::KeyColumnArray(col_metadata_[i], num_groups, non_nulls,
-                                                  fixedlen, NULLPTR);
-        continue;
-      }
-      ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
-      if (col_metadata_[i].is_fixed_length && !col_metadata_[i].is_null_type) {
-        if (col_metadata_[i].fixed_length == 0) {
-          ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i], AllocatePaddedBitmap(num_groups));
-        } else {
-          ARROW_ASSIGN_OR_RAISE(
-              fixedlen_bufs[i],
-              AllocatePaddedBuffer(num_groups * col_metadata_[i].fixed_length));
-        }
-      } else {
-        ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i],
-                              AllocatePaddedBuffer((num_groups + 1) * sizeof(uint32_t)));
-      }
-      cols_[i] = arrow::compute::KeyColumnArray(
-          col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
-          fixedlen_bufs[i]->mutable_data(), nullptr);
-    }
-
-    for (int64_t start_row = 0; start_row < num_groups;) {
-      int64_t batch_size_next =
-          std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
-      encoder_.DecodeFixedLengthBuffers(start_row, start_row, batch_size_next, rows_,
-                                        &cols_);
-      start_row += batch_size_next;
-    }
-
-    if (!rows_.metadata().is_fixed_length) {
-      for (size_t i = 0; i < num_columns; ++i) {
-        if (!col_metadata_[i].is_fixed_length) {
-          auto varlen_size =
-              reinterpret_cast<const uint32_t*>(fixedlen_bufs[i]->data())[num_groups];
-          ARROW_ASSIGN_OR_RAISE(varlen_bufs[i], AllocatePaddedBuffer(varlen_size));
-          cols_[i] = arrow::compute::KeyColumnArray(
-              col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
-              fixedlen_bufs[i]->mutable_data(), varlen_bufs[i]->mutable_data());
-        }
-      }
-
-      for (int64_t start_row = 0; start_row < num_groups;) {
-        int64_t batch_size_next =
-            std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
-        encoder_.DecodeVaryingLengthBuffers(start_row, start_row, batch_size_next, rows_,
-                                            &cols_);
-        start_row += batch_size_next;
-      }
-    }
-
-    ExecBatch out({}, num_groups);
-    out.values.resize(num_columns);
-    for (size_t i = 0; i < num_columns; ++i) {
-      if (col_metadata_[i].is_null_type) {
-        out.values[i] = ArrayData::Make(null(), num_groups, {nullptr}, num_groups);
-        continue;
-      }
-      auto valid_count = arrow::internal::CountSetBits(
-          non_null_bufs[i]->data(), /*offset=*/0, static_cast<int64_t>(num_groups));
-      int null_count = static_cast<int>(num_groups) - static_cast<int>(valid_count);
-
-      if (col_metadata_[i].is_fixed_length) {
-        out.values[i] = ArrayData::Make(
-            key_types_[i], num_groups,
-            {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i])}, null_count);
-      } else {
-        out.values[i] =
-            ArrayData::Make(key_types_[i], num_groups,
-                            {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i]),
-                             std::move(varlen_bufs[i])},
-                            null_count);
-      }
-    }
-
-    // Process dictionaries
-    for (size_t icol = 0; icol < num_columns; ++icol) {
-      if (key_types_[icol]->id() == Type::DICTIONARY) {
-        if (dictionaries_[icol]) {
-          out.values[icol].array()->dictionary = dictionaries_[icol]->data();
-        } else {
-          ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(key_types_[icol], 0));
-          out.values[icol].array()->dictionary = dict->data();
-        }
-      }
-    }
-
-    return out;
-  }
-
-  static constexpr int log_minibatch_max_ = 10;
-  static constexpr int minibatch_size_max_ = 1 << log_minibatch_max_;
-  static constexpr int minibatch_size_min_ = 128;
-  int minibatch_size_;
-
-  ExecContext* ctx_;
-  arrow::util::TempVectorStack temp_stack_;
-  arrow::compute::KeyEncoder::KeyEncoderContext encode_ctx_;
-
-  std::vector<std::shared_ptr<arrow::DataType>> key_types_;
-  std::vector<arrow::compute::KeyColumnMetadata> col_metadata_;
-  std::vector<arrow::compute::KeyColumnArray> cols_;
-  std::vector<uint32_t> minibatch_hashes_;
-
-  std::vector<std::shared_ptr<Array>> dictionaries_;
-
-  arrow::compute::KeyEncoder::KeyRowArray rows_;
-  arrow::compute::KeyEncoder::KeyRowArray rows_minibatch_;
-  arrow::compute::KeyEncoder encoder_;
-  arrow::compute::SwissTable map_;
-};
-
 /// C++ abstract base class for the HashAggregateKernel interface.
 /// Implementations should be default constructible and perform initialization in
 /// Init().
 struct GroupedAggregator : KernelState {
-  virtual Status Init(ExecContext*, const std::vector<ValueDescr>& inputs,
-                      const FunctionOptions*) = 0;
+  virtual Status Init(ExecContext*, const KernelInitArgs& args) = 0;
 
   virtual Status Resize(int64_t new_num_groups) = 0;
 
-  virtual Status Consume(const ExecBatch& batch) = 0;
+  virtual Status Consume(const ExecSpan& batch) = 0;
 
   virtual Status Merge(GroupedAggregator&& other, const ArrayData& group_id_mapping) = 0;
 
@@ -565,15 +83,15 @@ struct GroupedAggregator : KernelState {
 template <typename Impl>
 Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<Impl>();
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.inputs, args.options));
+  auto impl = std::make_unique<Impl>();
+  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
 
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Resize(num_groups);
 }
-Status HashAggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
+Status HashAggregateConsume(KernelContext* ctx, const ExecSpan& batch) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch);
 }
 Status HashAggregateMerge(KernelContext* ctx, KernelState&& other,
@@ -585,15 +103,17 @@ Status HashAggregateFinalize(KernelContext* ctx, Datum* out) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Finalize().Value(out);
 }
 
+Result<TypeHolder> ResolveGroupOutputType(KernelContext* ctx,
+                                          const std::vector<TypeHolder>&) {
+  return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
+}
+
 HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
   HashAggregateKernel kernel;
   kernel.init = std::move(init);
-  kernel.signature = KernelSignature::Make(
-      {std::move(argument_type), InputType::Array(Type::UINT32)},
-      OutputType(
-          [](KernelContext* ctx, const std::vector<ValueDescr>&) -> Result<ValueDescr> {
-            return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
-          }));
+  kernel.signature =
+      KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
+                            OutputType(ResolveGroupOutputType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -646,17 +166,17 @@ struct GroupedValueTraits<BooleanType> {
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, void>::type
-VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        batch[0].array,
         [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
   }
-  const auto& input = *batch[0].scalar();
+  const Scalar& input = *batch[0].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -671,16 +191,16 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, Status>::type
-VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     return VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        batch[0].array,
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
         [&]() { return null_func(*g++); });
   }
-  const auto& input = *batch[0].scalar();
+  const Scalar& input = *batch[0].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -695,7 +215,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
 }
 
 template <typename Type, typename ConsumeValue>
-void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func) {
+void VisitGroupedValuesNonNull(const ExecSpan& batch, ConsumeValue&& valid_func) {
   VisitGroupedValues<Type>(batch, std::forward<ConsumeValue>(valid_func),
                            [](uint32_t) {});
 }
@@ -704,9 +224,8 @@ void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func
 // Count implementation
 
 struct GroupedCountImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = checked_cast<const CountOptions&>(*options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = checked_cast<const CountOptions&>(*args.options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
   }
@@ -731,20 +250,20 @@ struct GroupedCountImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    auto g_begin = batch[1].array.GetValues<uint32_t>(1);
 
     if (options_.mode == CountOptions::ALL) {
       for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
         counts[*g_begin] += 1;
       }
     } else if (batch[0].is_array()) {
-      const auto& input = batch[0].array();
+      const ArraySpan& input = batch[0].array;
       if (options_.mode == CountOptions::ONLY_VALID) {
-        if (input->type->id() != arrow::Type::NA) {
+        if (input.type->id() != arrow::Type::NA) {
           arrow::internal::VisitSetBitRunsVoid(
-              input->buffers[0], input->offset, input->length,
+              input.buffers[0].data, input.offset, input.length,
               [&](int64_t offset, int64_t length) {
                 auto g = g_begin + offset;
                 for (int64_t i = 0; i < length; ++i, ++g) {
@@ -753,19 +272,19 @@ struct GroupedCountImpl : public GroupedAggregator {
               });
         }
       } else {  // ONLY_NULL
-        if (input->type->id() == arrow::Type::NA) {
+        if (input.type->id() == arrow::Type::NA) {
           for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
             counts[*g_begin] += 1;
           }
-        } else if (input->MayHaveNulls()) {
-          auto end = input->offset + input->length;
-          for (int64_t i = input->offset; i < end; ++i, ++g_begin) {
-            counts[*g_begin] += !bit_util::GetBit(input->buffers[0]->data(), i);
+        } else if (input.MayHaveNulls()) {
+          auto end = input.offset + input.length;
+          for (int64_t i = input.offset; i < end; ++i, ++g_begin) {
+            counts[*g_begin] += !bit_util::GetBit(input.buffers[0].data, i);
           }
         }
       }
     } else {
-      const auto& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       if (options_.mode == CountOptions::ONLY_VALID) {
         for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
           counts[*g_begin] += input.is_valid;
@@ -800,14 +319,13 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   using CType = typename TypeTraits<AccType>::CType;
   using InputCType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(inputs[0].type);
+    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
     return Status::OK();
   }
 
@@ -820,7 +338,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
@@ -927,10 +445,9 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 };
 
 struct GroupedNullImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     return Status::OK();
   }
 
@@ -939,7 +456,7 @@ struct GroupedNullImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -999,7 +516,7 @@ struct GroupedReducingFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedReducingFactory<Impl, kFriendlyName, NullImpl> factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1185,14 +702,14 @@ template <typename Type>
 struct GroupedVarStdImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const VarianceOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const VarianceOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
-      const int32_t scale = checked_cast<const DecimalType&>(*inputs[0].type).scale();
-      return InitInternal(ctx, scale, options);
+      const int32_t scale =
+          checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
+      return InitInternal(ctx, scale, args.options);
     }
-    return InitInternal(ctx, 0, options);
+    return InitInternal(ctx, 0, args.options);
   }
 
   Status InitInternal(ExecContext* ctx, int32_t decimal_scale,
@@ -1229,13 +746,13 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     return value.ToDouble(decimal_scale_);
   }
 
-  Status Consume(const ExecBatch& batch) override { return ConsumeImpl(batch); }
+  Status Consume(const ExecSpan& batch) override { return ConsumeImpl(batch); }
 
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4), Status> ConsumeImpl(
-      const ExecBatch& batch) {
+      const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
 
     GroupedVarStdImpl<Type> state;
@@ -1281,14 +798,14 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // aggregate_var_std.cc)
   template <typename T = Type>
   enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4), Status> ConsumeImpl(
-      const ExecBatch& batch) {
+      const ExecSpan& batch) {
     // max number of elements that sum will not overflow int64 (2Gi int32 elements)
     // for uint32:    0 <= sum < 2^63 (int64 >= 0)
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    const auto g = batch[1].array()->GetValues<uint32_t>(1);
-    if (batch[0].is_scalar() && !batch[0].scalar()->is_valid) {
+    const auto g = batch[1].array.GetValues<uint32_t>(1);
+    if (batch[0].is_scalar() && !batch[0].scalar->is_valid) {
       uint8_t* no_nulls = no_nulls_.mutable_data();
       for (int64_t i = 0; i < batch.length; i++) {
         bit_util::ClearBit(no_nulls, g[i]);
@@ -1321,7 +838,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       uint8_t* other_no_nulls = state.no_nulls_.mutable_data();
 
       if (batch[0].is_array()) {
-        const auto& array = *batch[0].array();
+        const ArraySpan& array = batch[0].array;
         const CType* values = array.GetValues<CType>(1);
         auto visit_values = [&](int64_t pos, int64_t len) {
           for (int64_t i = 0; i < len; ++i) {
@@ -1333,7 +850,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
         if (array.MayHaveNulls()) {
           arrow::internal::BitRunReader reader(
-              array.buffers[0]->data(), array.offset + start_index,
+              array.buffers[0].data, array.offset + start_index,
               std::min(max_length, batch.length - start_index));
           int64_t position = 0;
           while (true) {
@@ -1352,7 +869,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
           visit_values(0, array.length);
         }
       } else {
-        const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar());
+        const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
         for (int64_t i = 0; i < std::min(max_length, batch.length - start_index); ++i) {
           const int64_t index = start_index + i;
           var_std[g[index]].ConsumeOne(value);
@@ -1454,9 +971,9 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 template <typename T, VarOrStd result_type>
 Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<GroupedVarStdImpl<T>>();
+  auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.inputs, args.options));
+  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
 
@@ -1480,7 +997,7 @@ struct GroupedVarStdFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedVarStdFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1498,11 +1015,10 @@ template <typename Type>
 struct GroupedTDigestImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const TDigestOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const TDigestOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
-      decimal_scale_ = checked_cast<const DecimalType&>(*inputs[0].type).scale();
+      decimal_scale_ = checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
     } else {
       decimal_scale_ = 0;
     }
@@ -1535,7 +1051,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     return value.ToDouble(decimal_scale_);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     VisitGroupedValues<Type>(
@@ -1643,7 +1159,7 @@ struct GroupedTDigestFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedTDigestFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1667,9 +1183,7 @@ HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_f
     KernelInitArgs new_args{kernel, args.inputs, &options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature =
-      KernelSignature::Make({InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
-                            ValueDescr::Array(float64()));
+  kernel.signature = KernelSignature::Make({InputType::Any(), Type::UINT32}, float64());
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -1728,9 +1242,8 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
   using ArrType =
       typename std::conditional<is_boolean_type<Type>::value, uint8_t, CType>::type;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by MinMaxInit
     mins_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     maxes_ = TypedBufferBuilder<CType>(ctx->memory_pool());
@@ -1749,7 +1262,7 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto raw_mins = mins_.mutable_data();
     auto raw_maxes = maxes_.mutable_data();
 
@@ -1835,11 +1348,10 @@ struct GroupedMinMaxImpl<Type,
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx->memory_pool());
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by MinMaxInit
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -1857,10 +1369,10 @@ struct GroupedMinMaxImpl<Type,
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) {
+        [&](uint32_t g, std::string_view val) {
           if (!mins_[g] || val < *mins_[g]) {
             mins_[g].emplace(val.data(), val.size(), allocator_);
           }
@@ -1922,7 +1434,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -1934,7 +1446,7 @@ struct GroupedMinMaxImpl<Type,
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -1950,7 +1462,7 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -1963,7 +1475,7 @@ struct GroupedMinMaxImpl<Type,
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -1972,7 +1484,7 @@ struct GroupedMinMaxImpl<Type,
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -1991,24 +1503,21 @@ struct GroupedMinMaxImpl<Type,
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_;
-  std::vector<util::optional<StringType>> mins_, maxes_;
+  std::vector<std::optional<StringType>> mins_, maxes_;
   TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
 };
 
 struct GroupedNullMinMaxImpl final : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions*) override {
-    return Status::OK();
-  }
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
 
   Status Resize(int64_t new_num_groups) override {
     num_groups_ = new_num_groups;
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -2035,7 +1544,7 @@ template <typename T>
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
-  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].type;
+  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2045,17 +1554,13 @@ HashAggregateKernel MakeMinOrMaxKernel(HashAggregateFunction* min_max_func) {
   kernel.init = [min_max_func](
                     KernelContext* ctx,
                     const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
-    std::vector<ValueDescr> inputs = args.inputs;
+    std::vector<TypeHolder> inputs = args.inputs;
     ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchExact(args.inputs));
     KernelInitArgs new_args{kernel, inputs, args.options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature = KernelSignature::Make(
-      {InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
-      OutputType([](KernelContext* ctx,
-                    const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
-        return ValueDescr::Array(descrs[0].type);
-      }));
+  kernel.signature =
+      KernelSignature::Make({InputType::Any(), Type::UINT32}, OutputType(FirstType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -2126,7 +1631,7 @@ struct GroupedMinMaxFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedMinMaxFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -2140,9 +1645,8 @@ struct GroupedMinMaxFactory {
 
 template <typename Impl>
 struct GroupedBooleanAggregator : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     pool_ = ctx->memory_pool();
     reduced_ = TypedBufferBuilder<bool>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
@@ -2158,18 +1662,18 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
     return counts_.Append(added_groups, 0);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     uint8_t* reduced = reduced_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     int64_t* counts = counts_.mutable_data();
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
+    auto g = batch[1].array.GetValues<uint32_t>(1);
 
     if (batch[0].is_array()) {
-      const auto& input = *batch[0].array();
+      const ArraySpan& input = batch[0].array;
+      const uint8_t* bitmap = input.buffers[1].data;
       if (input.MayHaveNulls()) {
-        const uint8_t* bitmap = input.buffers[1]->data();
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[0], input.offset, input.length,
+            input.buffers[0].data, input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
               Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
@@ -2178,7 +1682,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             [&] { bit_util::SetBitTo(no_nulls, *g++, false); });
       } else {
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[1], input.offset, input.length,
+            bitmap, input.offset, input.length,
             [&](int64_t) {
               Impl::UpdateGroupWith(reduced, *g, true);
               counts[*g++]++;
@@ -2189,7 +1693,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             });
       }
     } else {
-      const auto& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       if (input.is_valid) {
         const bool value = UnboxScalar<BooleanType>::Unbox(input);
         for (int64_t i = 0; i < batch.length; i++) {
@@ -2311,11 +1815,10 @@ struct GroupedAllImpl : public GroupedBooleanAggregator<GroupedAllImpl> {
 // CountDistinct/Distinct implementation
 
 struct GroupedCountDistinctImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     ctx_ = ctx;
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const CountOptions&>(*options);
+    options_ = checked_cast<const CountOptions&>(*args.options);
     return Status::OK();
   }
 
@@ -2324,7 +1827,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     ARROW_ASSIGN_OR_RAISE(std::ignore, grouper_->Consume(batch));
     return Status::OK();
   }
@@ -2335,8 +1838,8 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
     // Get (value, group_id) pairs, then translate the group IDs and consume them
     // ourselves
-    ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(auto remapped_g,
+    ARROW_ASSIGN_OR_RAISE(ExecBatch uniques, other->grouper_->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> remapped_g,
                           AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
 
     const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
@@ -2346,10 +1849,10 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     for (int64_t i = 0; i < uniques.length; i++) {
       g[i] = g_mapping[other_g[i]];
     }
-    uniques.values[1] =
-        ArrayData::Make(uint32(), uniques.length, {nullptr, std::move(remapped_g)});
 
-    return Consume(std::move(uniques));
+    ExecSpan uniques_span(uniques);
+    uniques_span.values[1].array.SetBuffer(1, remapped_g);
+    return Consume(uniques_span);
   }
 
   Result<Datum> Finalize() override {
@@ -2457,7 +1960,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
                                                          const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl>(ctx, args));
   auto instance = static_cast<Impl*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   ARROW_ASSIGN_OR_RAISE(instance->grouper_,
                         Grouper::Make(args.inputs, ctx->exec_context()));
   return std::move(impl);
@@ -2471,8 +1974,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     // out_type_ initialized by GroupedOneInit
     ones_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -2487,7 +1989,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto raw_ones_ = ones_.mutable_data();
 
     return VisitGroupedValues<Type>(
@@ -2539,17 +2041,14 @@ struct GroupedOneImpl final : public GroupedAggregator {
 };
 
 struct GroupedNullOneImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    return Status::OK();
-  }
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
 
   Status Resize(int64_t new_num_groups) override {
     num_groups_ = new_num_groups;
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -2572,8 +2071,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx->memory_pool());
     // out_type_ initialized by GroupedOneInit
@@ -2590,10 +2088,10 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t g, util::string_view val) -> Status {
+        [&](uint32_t g, std::string_view val) -> Status {
           if (!bit_util::GetBit(has_one_.data(), g)) {
             ones_[g].emplace(val.data(), val.size(), allocator_);
             bit_util::SetBit(has_one_.mutable_data(), g);
@@ -2629,7 +2127,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -2641,7 +2139,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -2657,7 +2155,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -2670,7 +2168,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -2679,7 +2177,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -2696,7 +2194,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_;
-  std::vector<util::optional<StringType>> ones_;
+  std::vector<std::optional<StringType>> ones_;
   TypedBufferBuilder<bool> has_one_;
   std::shared_ptr<DataType> out_type_;
 };
@@ -2706,7 +2204,7 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2761,7 +2259,7 @@ struct GroupedOneFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedOneFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -2778,8 +2276,7 @@ struct GroupedListImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     has_nulls_ = false;
     // out_type_ initialized by GroupedListInit
@@ -2794,17 +2291,17 @@ struct GroupedListImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
-    const auto& values_array_data = batch[0].array();
-    int64_t num_values = values_array_data->length;
+  Status Consume(const ExecSpan& batch) override {
+    const ArraySpan& values_array_data = batch[0].array;
+    const ArraySpan& groups_array_data = batch[1].array;
 
-    const auto& groups_array_data = batch[1].array();
-    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
-    DCHECK_EQ(groups_array_data->offset, 0);
+    int64_t num_values = values_array_data.length;
+    const auto* groups = groups_array_data.GetValues<uint32_t>(1, 0);
+    DCHECK_EQ(groups_array_data.offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
-    int64_t offset = values_array_data->offset;
-    const uint8_t* values = values_array_data->buffers[1]->data();
+    int64_t offset = values_array_data.offset;
+    const uint8_t* values = values_array_data.buffers[1].data;
     RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, offset, num_values));
 
     if (batch[0].null_count() > 0) {
@@ -2812,7 +2309,7 @@ struct GroupedListImpl final : public GroupedAggregator {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
       }
-      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data.buffers[0].data;
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     } else if (has_nulls_) {
@@ -2887,8 +2384,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx_->memory_pool());
     // out_type_ initialized by GroupedListInit
@@ -2902,27 +2398,27 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
-    const auto& values_array_data = batch[0].array();
-    int64_t num_values = values_array_data->length;
-    int64_t offset = values_array_data->offset;
+  Status Consume(const ExecSpan& batch) override {
+    const ArraySpan& values_array_data = batch[0].array;
+    int64_t num_values = values_array_data.length;
+    int64_t offset = values_array_data.offset;
 
-    const auto& groups_array_data = batch[1].array();
-    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
-    DCHECK_EQ(groups_array_data->offset, 0);
+    const ArraySpan& groups_array_data = batch[1].array;
+    const uint32_t* groups = groups_array_data.GetValues<uint32_t>(1, 0);
+    DCHECK_EQ(groups_array_data.offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
     if (batch[0].null_count() == 0) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     } else {
-      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data.buffers[0].data;
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     }
     num_args_ += num_values;
     return VisitGroupedValues<Type>(
         batch,
-        [&](uint32_t group, util::string_view val) -> Status {
+        [&](uint32_t group, std::string_view val) -> Status {
           values_.emplace_back(StringType(val.data(), val.size(), allocator_));
           return Status::OK();
         },
@@ -2970,7 +2466,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -2982,7 +2478,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     offset_type total_length = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         if (value->size() >
                 static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
@@ -2998,7 +2494,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), value->size());
         offset += value->size();
@@ -3011,7 +2507,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
   template <typename T = Type>
   enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -3020,7 +2516,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     int64_t offset = 0;
     for (size_t i = 0; i < values.size(); i++) {
       if (bit_util::GetBit(null_bitmap, i)) {
-        const util::optional<StringType>& value = values[i];
+        const std::optional<StringType>& value = values[i];
         DCHECK(value.has_value());
         std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
       } else {
@@ -3037,15 +2533,14 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   ExecContext* ctx_;
   Allocator allocator_;
   int64_t num_groups_, num_args_ = 0;
-  std::vector<util::optional<StringType>> values_;
+  std::vector<std::optional<StringType>> values_;
   TypedBufferBuilder<uint32_t> groups_;
   TypedBufferBuilder<bool> values_bitmap_;
   std::shared_ptr<DataType> out_type_;
 };
 
 struct GroupedNullListImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     counts_ = TypedBufferBuilder<int64_t>(ctx_->memory_pool());
     return Status::OK();
@@ -3057,9 +2552,9 @@ struct GroupedNullListImpl : public GroupedAggregator {
     return counts_.Append(added_groups, 0);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     int64_t* counts = counts_.mutable_data();
-    const auto* g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    const auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
     for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
       counts[*g_begin] += 1;
     }
@@ -3107,7 +2602,7 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
                                                      const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -3162,7 +2657,7 @@ struct GroupedListFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedListFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -3171,271 +2666,6 @@ struct GroupedListFactory {
   InputType argument_type;
 };
 }  // namespace
-
-Result<std::vector<const HashAggregateKernel*>> GetKernels(
-    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
-  if (aggregates.size() != in_descrs.size()) {
-    return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           in_descrs.size(), " arguments were provided.");
-  }
-
-  std::vector<const HashAggregateKernel*> kernels(in_descrs.size());
-
-  for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto function,
-                          ctx->func_registry()->GetFunction(aggregates[i].function));
-    ARROW_ASSIGN_OR_RAISE(
-        const Kernel* kernel,
-        function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
-    kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
-  }
-  return kernels;
-}
-
-Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
-    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
-  std::vector<std::unique_ptr<KernelState>> states(kernels.size());
-
-  for (size_t i = 0; i < aggregates.size(); ++i) {
-    auto options = aggregates[i].options;
-
-    if (options == nullptr) {
-      // use known default options for the named function if possible
-      auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
-      if (maybe_function.ok()) {
-        options = maybe_function.ValueOrDie()->default_options();
-      }
-    }
-
-    KernelContext kernel_ctx{ctx};
-    ARROW_ASSIGN_OR_RAISE(
-        states[i],
-        kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                     {
-                                                         in_descrs[i],
-                                                         ValueDescr::Array(uint32()),
-                                                     },
-                                                     options}));
-  }
-
-  return std::move(states);
-}
-
-Result<FieldVector> ResolveKernels(
-    const std::vector<Aggregate>& aggregates,
-    const std::vector<const HashAggregateKernel*>& kernels,
-    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<ValueDescr>& descrs) {
-  FieldVector fields(descrs.size());
-
-  for (size_t i = 0; i < kernels.size(); ++i) {
-    KernelContext kernel_ctx{ctx};
-    kernel_ctx.SetState(states[i].get());
-
-    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i]->signature->out_type().Resolve(
-                                          &kernel_ctx, {
-                                                           descrs[i],
-                                                           ValueDescr::Array(uint32()),
-                                                       }));
-    fields[i] = field(aggregates[i].function, std::move(descr.type));
-  }
-  return fields;
-}
-
-Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
-                                               ExecContext* ctx) {
-  if (GrouperFastImpl::CanUse(descrs)) {
-    return GrouperFastImpl::Make(descrs, ctx);
-  }
-  return GrouperImpl::Make(descrs, ctx);
-}
-
-Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates, bool use_threads,
-                      ExecContext* ctx) {
-  auto task_group =
-      use_threads
-          ? arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool())
-          : arrow::internal::TaskGroup::MakeSerial();
-
-  std::vector<const HashAggregateKernel*> kernels;
-  std::vector<std::vector<std::unique_ptr<KernelState>>> states;
-  FieldVector out_fields;
-
-  using arrow::compute::detail::ExecBatchIterator;
-  std::unique_ptr<ExecBatchIterator> argument_batch_iterator;
-
-  if (!arguments.empty()) {
-    // Construct and initialize HashAggregateKernels
-    ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
-                          ExecBatch::Make(arguments).Map(
-                              [](ExecBatch batch) { return batch.GetDescriptors(); }));
-
-    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_descrs));
-
-    states.resize(task_group->parallelism());
-    for (auto& state : states) {
-      ARROW_ASSIGN_OR_RAISE(state,
-                            InitKernels(kernels, ctx, aggregates, argument_descrs));
-    }
-
-    ARROW_ASSIGN_OR_RAISE(
-        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
-
-    ARROW_ASSIGN_OR_RAISE(argument_batch_iterator,
-                          ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
-  }
-
-  // Construct Groupers
-  ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
-    return batch.GetDescriptors();
-  }));
-
-  std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
-  for (auto& grouper : groupers) {
-    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_descrs, ctx));
-  }
-
-  std::mutex mutex;
-  std::unordered_map<std::thread::id, size_t> thread_ids;
-
-  int i = 0;
-  for (ValueDescr& key_descr : key_descrs) {
-    out_fields.push_back(field("key_" + std::to_string(i++), std::move(key_descr.type)));
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto key_batch_iterator,
-                        ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
-
-  // start "streaming" execution
-  ExecBatch key_batch, argument_batch;
-  while ((argument_batch_iterator == NULLPTR ||
-          argument_batch_iterator->Next(&argument_batch)) &&
-         key_batch_iterator->Next(&key_batch)) {
-    if (key_batch.length == 0) continue;
-
-    task_group->Append([&, key_batch, argument_batch] {
-      size_t thread_index;
-      {
-        std::unique_lock<std::mutex> lock(mutex);
-        auto it = thread_ids.emplace(std::this_thread::get_id(), thread_ids.size()).first;
-        thread_index = it->second;
-        DCHECK_LT(static_cast<int>(thread_index), task_group->parallelism());
-      }
-
-      auto grouper = groupers[thread_index].get();
-
-      // compute a batch of group ids
-      ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
-
-      // consume group ids with HashAggregateKernels
-      for (size_t i = 0; i < kernels.size(); ++i) {
-        KernelContext batch_ctx{ctx};
-        batch_ctx.SetState(states[thread_index][i].get());
-        ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch}));
-        RETURN_NOT_OK(kernels[i]->resize(&batch_ctx, grouper->num_groups()));
-        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
-      }
-
-      return Status::OK();
-    });
-  }
-
-  RETURN_NOT_OK(task_group->Finish());
-
-  // Merge if necessary
-  for (size_t thread_index = 1; thread_index < thread_ids.size(); ++thread_index) {
-    ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(Datum transposition, groupers[0]->Consume(other_keys));
-    groupers[thread_index].reset();
-
-    for (size_t idx = 0; idx < kernels.size(); ++idx) {
-      KernelContext batch_ctx{ctx};
-      batch_ctx.SetState(states[0][idx].get());
-
-      RETURN_NOT_OK(kernels[idx]->resize(&batch_ctx, groupers[0]->num_groups()));
-      RETURN_NOT_OK(kernels[idx]->merge(&batch_ctx, std::move(*states[thread_index][idx]),
-                                        *transposition.array()));
-      states[thread_index][idx].reset();
-    }
-  }
-
-  // Finalize output
-  ArrayDataVector out_data(arguments.size() + keys.size());
-  auto it = out_data.begin();
-
-  for (size_t idx = 0; idx < kernels.size(); ++idx) {
-    KernelContext batch_ctx{ctx};
-    batch_ctx.SetState(states[0][idx].get());
-    Datum out;
-    RETURN_NOT_OK(kernels[idx]->finalize(&batch_ctx, &out));
-    *it++ = out.array();
-  }
-
-  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, groupers[0]->GetUniques());
-  for (const auto& key : out_keys.values) {
-    *it++ = key.array();
-  }
-
-  int64_t length = out_data[0]->length;
-  return ArrayData::Make(struct_(std::move(out_fields)), length,
-                         {/*null_bitmap=*/nullptr}, std::move(out_data),
-                         /*null_count=*/0);
-}
-
-Result<std::shared_ptr<ListArray>> Grouper::ApplyGroupings(const ListArray& groupings,
-                                                           const Array& array,
-                                                           ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(array, groupings.data()->child_data[0],
-                                      TakeOptions::NoBoundsCheck(), ctx));
-
-  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
-                                     groupings.value_offsets(), sorted.make_array());
-}
-
-Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids,
-                                                          uint32_t num_groups,
-                                                          ExecContext* ctx) {
-  if (ids.null_count() != 0) {
-    return Status::Invalid("MakeGroupings with null ids");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto offsets, AllocateBuffer(sizeof(int32_t) * (num_groups + 1),
-                                                     ctx->memory_pool()));
-  auto raw_offsets = reinterpret_cast<int32_t*>(offsets->mutable_data());
-
-  std::memset(raw_offsets, 0, offsets->size());
-  for (int i = 0; i < ids.length(); ++i) {
-    DCHECK_LT(ids.Value(i), num_groups);
-    raw_offsets[ids.Value(i)] += 1;
-  }
-  int32_t length = 0;
-  for (uint32_t id = 0; id < num_groups; ++id) {
-    auto offset = raw_offsets[id];
-    raw_offsets[id] = length;
-    length += offset;
-  }
-  raw_offsets[num_groups] = length;
-  DCHECK_EQ(ids.length(), length);
-
-  ARROW_ASSIGN_OR_RAISE(auto offsets_copy,
-                        offsets->CopySlice(0, offsets->size(), ctx->memory_pool()));
-  raw_offsets = reinterpret_cast<int32_t*>(offsets_copy->mutable_data());
-
-  ARROW_ASSIGN_OR_RAISE(auto sort_indices, AllocateBuffer(sizeof(int32_t) * ids.length(),
-                                                          ctx->memory_pool()));
-  auto raw_sort_indices = reinterpret_cast<int32_t*>(sort_indices->mutable_data());
-  for (int i = 0; i < ids.length(); ++i) {
-    raw_sort_indices[raw_offsets[ids.Value(i)]++] = i;
-  }
-
-  return std::make_shared<ListArray>(
-      list(int32()), num_groups, std::move(offsets),
-      std::make_shared<Int32Array>(ids.length(), std::move(sort_indices)));
-}
 
 namespace {
 const FunctionDoc hash_count_doc{
@@ -3554,16 +2784,16 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Binary(), &hash_count_doc, &default_count_options);
+        "hash_count", Arity::Binary(), hash_count_doc, &default_count_options);
 
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountImpl>)));
+        MakeKernel(InputType::Any(), HashAggregateInit<GroupedCountImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_sum", Arity::Binary(), &hash_sum_doc, &default_scalar_aggregate_options);
+        "hash_sum", Arity::Binary(), hash_sum_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
@@ -3578,7 +2808,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_product", Arity::Binary(), &hash_product_doc,
+        "hash_product", Arity::Binary(), hash_product_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedProductFactory::Make, func.get()));
     DCHECK_OK(
@@ -3596,7 +2826,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_mean", Arity::Binary(), &hash_mean_doc, &default_scalar_aggregate_options);
+        "hash_mean", Arity::Binary(), hash_mean_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(
@@ -3612,7 +2842,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_stddev", Arity::Binary(), &hash_stddev_doc, &default_variance_options);
+        "hash_stddev", Arity::Binary(), hash_stddev_doc, &default_variance_options);
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
                                 GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
@@ -3626,7 +2856,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_variance", Arity::Binary(), &hash_variance_doc, &default_variance_options);
+        "hash_variance", Arity::Binary(), hash_variance_doc, &default_variance_options);
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
                                 GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
@@ -3641,7 +2871,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   HashAggregateFunction* tdigest_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
+        "hash_tdigest", Arity::Binary(), hash_tdigest_doc, &default_tdigest_options);
     DCHECK_OK(
         AddHashAggKernels(SignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
     DCHECK_OK(
@@ -3657,7 +2887,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_approximate_median", Arity::Binary(), &hash_approximate_median_doc,
+        "hash_approximate_median", Arity::Binary(), hash_approximate_median_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeApproximateMedianKernel(tdigest_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3666,7 +2896,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   HashAggregateFunction* min_max_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min_max", Arity::Binary(), &hash_min_max_doc,
+        "hash_min_max", Arity::Binary(), hash_min_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
@@ -3682,7 +2912,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min", Arity::Binary(), &hash_min_or_max_doc,
+        "hash_min", Arity::Binary(), hash_min_or_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeMinOrMaxKernel<MinOrMax::Min>(min_max_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3690,7 +2920,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_max", Arity::Binary(), &hash_min_or_max_doc,
+        "hash_max", Arity::Binary(), hash_min_or_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeMinOrMaxKernel<MinOrMax::Max>(min_max_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3698,38 +2928,38 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_any", Arity::Binary(), &hash_any_doc, &default_scalar_aggregate_options);
+        "hash_any", Arity::Binary(), hash_any_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAnyImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_all", Arity::Binary(), &hash_all_doc, &default_scalar_aggregate_options);
+        "hash_all", Arity::Binary(), hash_all_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAllImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc,
+        "hash_count_distinct", Arity::Binary(), hash_count_distinct_doc,
         &default_count_options);
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedCountDistinctImpl>)));
+        MakeKernel(InputType::Any(), GroupedDistinctInit<GroupedCountDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_distinct", Arity::Binary(), &hash_distinct_doc, &default_count_options);
+        "hash_distinct", Arity::Binary(), hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
+        MakeKernel(InputType::Any(), GroupedDistinctInit<GroupedDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
-                                                        &hash_one_doc);
+                                                        hash_one_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
@@ -3741,7 +2971,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
-                                                        &hash_list_doc);
+                                                        hash_list_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));

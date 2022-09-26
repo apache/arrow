@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -94,6 +94,8 @@ func NewNullBuilder(mem memory.Allocator) *NullBuilder {
 	return &NullBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *NullBuilder) Type() arrow.DataType { return arrow.Null }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *NullBuilder) Release() {
@@ -111,6 +113,8 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.length++
 	b.builder.nulls++
 }
+
+func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
 
 func (*NullBuilder) Reserve(size int) {}
 func (*NullBuilder) Resize(size int)  {}

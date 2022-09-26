@@ -36,7 +36,12 @@ an Arrow \link{Table}?}
 A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
-Using \link{JsonTableReader}
+Wrapper around \link{JsonTableReader} to read a newline-delimited JSON (ndjson) file into a
+data frame or Arrow Table.
+}
+\details{
+If passed a path, will detect and handle compression from the file extension
+(e.g. \code{.json.gz}). Accepts explicit or implicit nulls.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

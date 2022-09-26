@@ -79,7 +79,7 @@ public class StructVectorLoader {
    * @param recordBatch the batch to load
    */
   public StructVector load(BufferAllocator allocator, ArrowRecordBatch recordBatch) {
-    StructVector result = StructVector.empty("", allocator);
+    StructVector result = StructVector.emptyWithDuplicates("", allocator);
     result.initializeChildrenFromFields(this.schema.getFields());
 
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();

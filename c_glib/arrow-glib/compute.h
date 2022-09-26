@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
 #include <arrow-glib/reader.h>
 
@@ -38,17 +39,6 @@ struct _GArrowExecuteContextClass
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *garrow_execute_context_new(void);
 
-
-#define GARROW_TYPE_FUNCTION_OPTIONS (garrow_function_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFunctionOptions,
-                         garrow_function_options,
-                         GARROW,
-                         FUNCTION_OPTIONS,
-                         GObject)
-struct _GArrowFunctionOptionsClass
-{
-  GObjectClass parent_class;
-};
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -365,17 +355,6 @@ GARROW_AVAILABLE_IN_6_0
 void
 garrow_execute_plan_wait(GArrowExecutePlan *plan);
 
-
-#define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
-                         garrow_cast_options,
-                         GARROW,
-                         CAST_OPTIONS,
-                         GArrowFunctionOptions)
-struct _GArrowCastOptionsClass
-{
-  GArrowFunctionOptionsClass parent_class;
-};
 
 GArrowCastOptions *garrow_cast_options_new(void);
 
@@ -710,6 +689,57 @@ struct _GArrowUTF8NormalizeOptionsClass
 GARROW_AVAILABLE_IN_8_0
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new(void);
+
+
+/**
+ * GArrowQuantileInterpolation:
+ * @GARROW_QUANTILE_INTERPOLATION_LINEAR: Linear.
+ * @GARROW_QUANTILE_INTERPOLATION_LOWER: Lower.
+ * @GARROW_QUANTILE_INTERPOLATION_HIGHER: Higher.
+ * @GARROW_QUANTILE_INTERPOLATION_NEAREST: Nearest.
+ * @GARROW_QUANTILE_INTERPOLATION_MIDPOINT: Midpoint.
+ *
+ * They correspond to the values of
+ * `arrow::compute::QuantileOptions::Interpolation`.
+ *
+ * Since: 9.0.0
+ */
+typedef enum {
+  GARROW_QUANTILE_INTERPOLATION_LINEAR,
+  GARROW_QUANTILE_INTERPOLATION_LOWER,
+  GARROW_QUANTILE_INTERPOLATION_HIGHER,
+  GARROW_QUANTILE_INTERPOLATION_NEAREST,
+  GARROW_QUANTILE_INTERPOLATION_MIDPOINT,
+} GArrowQuantileInterpolation;
+
+#define GARROW_TYPE_QUANTILE_OPTIONS            \
+  (garrow_quantile_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowQuantileOptions,
+                         garrow_quantile_options,
+                         GARROW,
+                         QUANTILE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowQuantileOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_9_0
+GArrowQuantileOptions *
+garrow_quantile_options_new(void);
+GARROW_AVAILABLE_IN_9_0
+const gdouble *
+garrow_quantile_options_get_qs(GArrowQuantileOptions *options,
+                               gsize *n);
+GARROW_AVAILABLE_IN_9_0
+void
+garrow_quantile_options_set_q(GArrowQuantileOptions *options,
+                              gdouble q);
+GARROW_AVAILABLE_IN_9_0
+void
+garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
+                               const gdouble *qs,
+                               gsize n);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,

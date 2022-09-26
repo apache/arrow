@@ -21,8 +21,6 @@
 
 #include "./arrow_cpp11.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/buffer.h>  // for RBuffer definition below
 #include <arrow/result.h>
 #include <arrow/status.h>
@@ -59,6 +57,8 @@ class ExecNode;
 
 }  // namespace compute
 }  // namespace arrow
+
+class ExecPlanReader;
 
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
@@ -321,5 +321,3 @@ struct r6_class_name<ds::FileFormat> {
 #endif
 
 }  // namespace cpp11
-
-#endif

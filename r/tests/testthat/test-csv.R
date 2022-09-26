@@ -293,9 +293,7 @@ test_that("more informative error when reading a CSV with headers and schema", {
 })
 
 test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
-  # connections with csv need RunWithCapturedR, which is not available
-  # in R <= 3.4.4
-  skip_if_r_version("3.4.4")
+  skip_if_not(CanRunWithCapturedR())
 
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -562,6 +560,44 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   tbl_in <- read_csv_arrow(csv_file)
   expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
   expect_equal(nrow(tbl_in), 3)
+})
+
+test_that("read/write compressed file successfully", {
+  skip_if_not_available("gzip")
+  tfgz <- tempfile(fileext = ".csv.gz")
+  tf <- tempfile(fileext = ".csv")
+
+  write_csv_arrow(tbl, tf)
+  write_csv_arrow(tbl, tfgz)
+  expect_lt(file.size(tfgz), file.size(tf))
+
+  expect_identical(
+    read_csv_arrow(tfgz),
+    tbl
+  )
+  skip_if_not_available("lz4")
+  tflz4 <- tempfile(fileext = ".csv.lz4")
+  write_csv_arrow(tbl, tflz4)
+  expect_false(file.size(tfgz) == file.size(tflz4))
+  expect_identical(
+    read_csv_arrow(tflz4),
+    tbl
+  )
+})
+
+test_that("read/write compressed filesystem path", {
+  skip_if_not_available("zstd")
+  tfzst <- tempfile(fileext = ".csv.zst")
+  fs <- LocalFileSystem$create()$path(tfzst)
+  write_csv_arrow(tbl, fs)
+
+  tf <- tempfile(fileext = ".csv")
+  write_csv_arrow(tbl, tf)
+  expect_lt(file.size(tfzst), file.size(tf))
+  expect_identical(
+    read_csv_arrow(fs),
+    tbl
+  )
 })
 
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {

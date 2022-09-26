@@ -24,14 +24,14 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/arrow/decimal128"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/file"
 	"golang.org/x/xerrors"
 )
 
@@ -280,6 +280,9 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					data[idx] = int32(val) * 1000
 				}
 			}
+		case arrow.NULL:
+			wr.WriteBatchSpaced(nil, defLevels, repLevels, leafArr.NullBitmapBytes(), 0)
+			return
 
 		default:
 			// simple integral cases, parquet physical storage is int32 or int64

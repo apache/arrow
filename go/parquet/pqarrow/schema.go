@@ -23,13 +23,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/flight"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -420,7 +420,11 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		nodes = append(nodes, n)
 	}
 
-	root, err := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, nodes, -1)
+	root, err := schema.NewGroupNode(props.RootName(), props.RootRepetition(), nodes, -1)
+	if err != nil {
+		return nil, err
+	}
+
 	return schema.NewSchema(root), err
 }
 

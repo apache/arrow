@@ -19,7 +19,6 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_S3: {{ arrow_s3 }}
   CC: "clang"
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
@@ -34,8 +33,10 @@ env:
 
 jobs:
   build:
-    name: Build wheel for OS X
-    runs-on: macos-10.15
+    name: Build wheel for macOS
+    runs-on: macos-latest
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
@@ -51,14 +52,7 @@ jobs:
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
-      - uses: actions/cache@v2
-        id: vcpkg-cache
-        with:
-          path: vcpkg
-          key: vcpkg-{{ macos_deployment_target }}-{{ "${{ env.VCPKG_VERSION }}" }}-{{ "${{ hashFiles('arrow/ci/vcpkg/vcpkg.json', 'arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}-0
-
       - name: Install Vcpkg
-        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
@@ -68,9 +62,22 @@ jobs:
         shell: bash
         run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
 
-      # workaround for https://github.com/apache/arrow/pull/11569#issuecomment-979592053
-      - name: Install OpenSSL
-        run: vcpkg install openssl
+      - name: Setup NuGet Credentials
+        shell: bash
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          mono `vcpkg fetch nuget | tail -n 1` \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "$GITHUB_TOKEN" \
+
+          mono `vcpkg fetch nuget | tail -n 1` \
+            setapikey "$GITHUB_TOKEN" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
 
       - name: Install Packages
         run: |
@@ -81,7 +88,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Install Python {{ python_version }}
         shell: bash
@@ -93,7 +101,7 @@ jobs:
           $PYTHON -m venv build-env
           source build-env/bin/activate
           pip install --upgrade pip wheel
-          arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
+          PYTHON=python arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
 
       - name: Test Wheel
         shell: bash
@@ -101,6 +109,8 @@ jobs:
           $PYTHON -m venv test-env
           source test-env/bin/activate
           pip install --upgrade pip wheel
+          pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arrow/ci/scripts/install_gcs_testbench.sh default
           arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}

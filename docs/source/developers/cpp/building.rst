@@ -39,8 +39,8 @@ out-of-source. If you are not familiar with this terminology:
 
 Building requires:
 
-* A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
-  sufficient. For Windows, at least Visual Studio 2017 is required.
+* A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
+  sufficient. For Windows, at least Visual Studio VS2017 is required.
 * CMake 3.5 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 * At least 1GB of RAM for a minimal build, 4GB for a minimal  
@@ -323,13 +323,13 @@ boolean flags to ``cmake``.
   filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
+* ``-DARROW_FLIGHT_SQL=ON``: Arrow Flight SQL
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
 * ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
-* ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
 * ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator

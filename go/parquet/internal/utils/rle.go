@@ -25,10 +25,10 @@ import (
 	"io"
 	"math"
 
-	"github.com/apache/arrow/go/v8/arrow/bitutil"
-	"github.com/apache/arrow/go/v8/internal/bitutils"
-	"github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -221,12 +221,12 @@ func (r *RleDecoder) GetBatchSpaced(vals []uint64, nullcount int, validBits []by
 	}
 
 	converter := plainConverter{}
-	blockCounter := NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+	blockCounter := bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 
 	var (
 		totalProcessed int
 		processed      int
-		block          BitBlockCount
+		block          bitutils.BitBlockCount
 		err            error
 	)
 

@@ -28,6 +28,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <valarray>
 #include <vector>
@@ -44,7 +45,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
@@ -293,6 +293,14 @@ TEST_F(TestBufferedOutputStream, Tell) {
 
   ASSERT_OK(buffered_->Close());
 
+  // write long bytes after raw_pos is cached
+  OpenBuffered(/*buffer_size=*/3);
+  AssertTell(0);
+  ASSERT_OK(buffered_->Write("1234568790", 5));
+  AssertTell(5);
+
+  ASSERT_OK(buffered_->Close());
+
   OpenBuffered();
   AssertTell(0);
 }
@@ -495,7 +503,7 @@ class TestBufferedInputStreamBound : public ::testing::Test {
 
 TEST_F(TestBufferedInputStreamBound, Basics) {
   std::shared_ptr<Buffer> buffer;
-  util::string_view view;
+  std::string_view view;
 
   // source is at offset 10
   ASSERT_OK_AND_ASSIGN(view, stream_->Peek(10));
@@ -551,7 +559,7 @@ TEST_F(TestBufferedInputStreamBound, Basics) {
 TEST_F(TestBufferedInputStreamBound, LargeFirstPeek) {
   // Test a first peek larger than chunk size
   std::shared_ptr<Buffer> buffer;
-  util::string_view view;
+  std::string_view view;
   int64_t n = 70;
   ASSERT_GT(n, chunk_size_);
 
@@ -584,7 +592,7 @@ TEST_F(TestBufferedInputStreamBound, LargeFirstPeek) {
 TEST_F(TestBufferedInputStreamBound, UnboundedPeek) {
   CreateExample(/*bounded=*/false);
 
-  util::string_view view;
+  std::string_view view;
   ASSERT_OK_AND_ASSIGN(view, stream_->Peek(10));
   ASSERT_EQ(10, view.size());
   ASSERT_EQ(50, stream_->bytes_buffered());

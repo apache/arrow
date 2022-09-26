@@ -4,6 +4,7 @@
 \alias{as_record_batch}
 \alias{as_record_batch.RecordBatch}
 \alias{as_record_batch.Table}
+\alias{as_record_batch.arrow_dplyr_query}
 \alias{as_record_batch.data.frame}
 \title{Convert an object to an Arrow RecordBatch}
 \usage{
@@ -12,6 +13,8 @@ as_record_batch(x, ..., schema = NULL)
 \method{as_record_batch}{RecordBatch}(x, ..., schema = NULL)
 
 \method{as_record_batch}{Table}(x, ..., schema = NULL)
+
+\method{as_record_batch}{arrow_dplyr_query}(x, ...)
 
 \method{as_record_batch}{data.frame}(x, ..., schema = NULL)
 }

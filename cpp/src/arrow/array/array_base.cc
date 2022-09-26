@@ -104,16 +104,15 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const SparseUnionArray& a) {
-    const auto type_code = a.type_code(index_);
-    // child array which stores the actual value
-    const auto arr = a.field(a.child_id(index_));
-    // no need to adjust the index
-    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
-    if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, type_code, a.type()));
-    } else {
-      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(type_code, a.type()));
+    int8_t type_code = a.type_code(index_);
+
+    ScalarVector children;
+    for (int i = 0; i < a.type()->num_fields(); ++i) {
+      children.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(children.back(), a.field(i)->GetScalar(index_));
     }
+
+    out_ = std::make_shared<SparseUnionScalar>(std::move(children), type_code, a.type());
     return Status::OK();
   }
 
@@ -124,11 +123,7 @@ struct ScalarFromArraySlotImpl {
     // need to look up the value based on offsets
     auto offset = a.value_offset(index_);
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
-    if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, type_code, a.type()));
-    } else {
-      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(type_code, a.type()));
-    }
+    out_ = std::make_shared<DenseUnionScalar>(value, type_code, a.type());
     return Status::OK();
   }
 

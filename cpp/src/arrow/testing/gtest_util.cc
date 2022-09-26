@@ -19,7 +19,11 @@
 
 #include "arrow/testing/extension_type.h"
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <crtdbg.h>
+#include <io.h>
+#else
+#include <fcntl.h>     // IWYU pragma: keep
 #include <sys/stat.h>  // IWYU pragma: keep
 #include <sys/wait.h>  // IWYU pragma: keep
 #include <unistd.h>    // IWYU pragma: keep
@@ -406,14 +410,14 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     util::string_view json) {
+                                     std::string_view json) {
   EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                         util::string_view indices_json,
-                                         util::string_view dictionary_json) {
+                                         std::string_view indices_json,
+                                         std::string_view dictionary_json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
@@ -428,7 +432,7 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 }
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
-                                                 util::string_view json) {
+                                                 std::string_view json) {
   // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
@@ -438,15 +442,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 }
 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                       util::string_view json) {
+                                       std::string_view json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
   return out;
 }
 
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                           util::string_view index_json,
-                                           util::string_view dictionary_json) {
+                                           std::string_view index_json,
+                                           std::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
@@ -462,10 +466,10 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
-                                                   const ChunkedArray& actual) {
+Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   std::stringstream ss;
@@ -572,6 +576,40 @@ std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
   data->null_count = kUnknownNullCount;
   // Need to return a new array, because Array caches the null bitmap pointer
   return MakeArray(data);
+}
+
+// XXX create a testing/io.{h,cc}?
+
+#if defined(_WIN32)
+static void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
+                                const wchar_t* source_file, unsigned int source_line,
+                                uintptr_t reserved) {
+  wprintf(L"Invalid parameter in function '%s'. Source: '%s' line %d expression '%s'\n",
+          func, source_file, source_line, expr);
+}
+#endif
+
+bool FileIsClosed(int fd) {
+#if defined(_WIN32)
+  // Disables default behavior on wrong params which causes the application to crash
+  // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
+  _set_invalid_parameter_handler(InvalidParamHandler);
+
+  // Disables possible assertion alert box on invalid input arguments
+  _CrtSetReportMode(_CRT_ASSERT, 0);
+
+  int new_fd = _dup(fd);
+  if (new_fd == -1) {
+    return errno == EBADF;
+  }
+  _close(new_fd);
+  return false;
+#else
+  if (-1 != fcntl(fd, F_GETFD)) {
+    return false;
+  }
+  return errno == EBADF;
+#endif
 }
 
 bool LocaleExists(const char* locale) {
@@ -993,9 +1031,11 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status Unlock() {
-    std::lock_guard<std::mutex> lk(mx_);
-    unlocked_ = true;
-    unlocked_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+      unlocked_cv_.notify_all();
+    }
     unlocked_future_.MarkFinished();
     return status_;
   }

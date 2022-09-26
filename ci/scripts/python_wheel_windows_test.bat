@@ -25,6 +25,7 @@ set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=OFF
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PLASMA=OFF
+set PYARROW_TEST_SUBSTRAIT=ON
 set PYARROW_TEST_S3=OFF
 set PYARROW_TEST_TENSORFLOW=ON
 
@@ -50,6 +51,7 @@ python -c "import pyarrow.flight" || exit /B 1
 python -c "import pyarrow.fs" || exit /B 1
 python -c "import pyarrow.json" || exit /B 1
 python -c "import pyarrow.parquet" || exit /B 1
+python -c "import pyarrow.substrait" || exit /B 1
 
 @REM Execute unittest
 pytest -r s --pyargs pyarrow || exit /B 1

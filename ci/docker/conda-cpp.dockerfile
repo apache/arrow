@@ -26,7 +26,7 @@ RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-RUN mamba install \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
@@ -37,6 +37,9 @@ RUN mamba install \
 # We want to install the GCS testbench using the same Python binary that the Conda code will use.
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \

@@ -30,8 +30,8 @@ jobs:
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-
-      - uses: r-lib/actions/setup-r@v2
+      # TODO (ARROW-16376): Switch to v2 once we use UCRT
+      - uses: r-lib/actions/setup-r@v1
         with:
           # temp workaround the fact that R 4.2 requires UCRT which isn't
           # currently part of this build.

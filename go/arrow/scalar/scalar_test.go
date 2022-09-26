@@ -18,16 +18,18 @@ package scalar_test
 
 import (
 	"bytes"
+	"fmt"
 	"hash/maphash"
 	"math/bits"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/decimal128"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/arrow/scalar"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -977,4 +979,440 @@ func TestToScalar(t *testing.T) {
 		`valuint:list<item: uint64, nullable> = [14 15 16]}`
 
 	assert.Equal(t, expected, sc.String())
+}
+
+var dictIndexTypes = []arrow.DataType{
+	arrow.PrimitiveTypes.Int8,
+	arrow.PrimitiveTypes.Uint8,
+	arrow.PrimitiveTypes.Int16,
+	arrow.PrimitiveTypes.Uint16,
+	arrow.PrimitiveTypes.Int32,
+	arrow.PrimitiveTypes.Uint32,
+	arrow.PrimitiveTypes.Int64,
+	arrow.PrimitiveTypes.Uint64,
+}
+
+func TestDictionaryScalarBasics(t *testing.T) {
+	for _, indexType := range dictIndexTypes {
+		t.Run(fmt.Sprint(indexType), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			ty := &arrow.DictionaryType{IndexType: indexType, ValueType: arrow.BinaryTypes.String}
+			dict, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["alpha", null, "gamma"]`))
+			defer dict.Release()
+
+			idxScalar, _ := scalar.MakeScalarParam(0, indexType)
+			alpha := scalar.NewDictScalar(idxScalar, dict)
+			defer alpha.Release()
+
+			idxScalar, _ = scalar.MakeScalarParam(2, indexType)
+			gamma := scalar.NewDictScalar(idxScalar, dict)
+			defer gamma.Release()
+
+			idxScalar, _ = scalar.MakeScalarParam(1, indexType)
+			nullVal := scalar.NewDictScalar(idxScalar, dict)
+			defer nullVal.Release()
+
+			scalarNull := scalar.MakeNullScalar(ty)
+			scalarNull.(*scalar.Dictionary).Value.Dict = dict
+			dict.Retain()
+			defer scalarNull.(*scalar.Dictionary).Release()
+
+			assert.NoError(t, scalarNull.ValidateFull())
+			assert.NoError(t, alpha.ValidateFull())
+			assert.NoError(t, gamma.ValidateFull())
+
+			// index is valid, corresponding value is null
+			assert.NoError(t, nullVal.ValidateFull())
+
+			encodedNull, err := scalarNull.(*scalar.Dictionary).GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedNull.ValidateFull())
+			assert.True(t, scalar.Equals(encodedNull, scalar.MakeNullScalar(arrow.BinaryTypes.String)))
+
+			encodedNullVal, err := nullVal.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedNullVal.ValidateFull())
+			assert.True(t, scalar.Equals(encodedNullVal, scalar.MakeNullScalar(arrow.BinaryTypes.String)))
+
+			encodedAlpha, err := alpha.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedAlpha.ValidateFull())
+			assert.True(t, scalar.Equals(encodedAlpha, scalar.MakeScalar("alpha")))
+
+			encodedGamma, err := gamma.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedGamma.ValidateFull())
+			assert.True(t, scalar.Equals(encodedGamma, scalar.MakeScalar("gamma")))
+
+			idxArr, _, _ := array.FromJSON(mem, indexType, strings.NewReader(`[2, 0, 1, null]`))
+			defer idxArr.Release()
+			arr := array.NewDictionaryArray(ty, idxArr, dict)
+			defer arr.Release()
+
+			first, err := scalar.GetScalar(arr, 0)
+			assert.NoError(t, err)
+			second, err := scalar.GetScalar(arr, 1)
+			assert.NoError(t, err)
+			third, err := scalar.GetScalar(arr, 2)
+			assert.NoError(t, err)
+			last, err := scalar.GetScalar(arr, 3)
+			assert.NoError(t, err)
+
+			defer func() {
+				first.(*scalar.Dictionary).Release()
+				second.(*scalar.Dictionary).Release()
+				third.(*scalar.Dictionary).Release()
+				last.(*scalar.Dictionary).Release()
+			}()
+
+			assert.NoError(t, first.ValidateFull())
+			assert.NoError(t, second.ValidateFull())
+			assert.NoError(t, third.ValidateFull())
+			assert.NoError(t, last.ValidateFull())
+
+			assert.True(t, first.IsValid())
+			assert.True(t, second.IsValid())
+			assert.True(t, third.IsValid()) // valid because of valid index despite null value
+			assert.False(t, last.IsValid())
+
+			assert.True(t, scalar.Equals(first, gamma))
+			assert.True(t, scalar.Equals(second, alpha))
+			assert.True(t, scalar.Equals(third, nullVal))
+			assert.True(t, scalar.Equals(last, scalarNull))
+
+			assert.Same(t, first.(*scalar.Dictionary).Value.Dict, arr.Dictionary())
+			assert.Same(t, second.(*scalar.Dictionary).Value.Dict, arr.Dictionary())
+		})
+	}
+}
+
+func TestDictionaryScalarValidateErrors(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	var (
+		indexTy = arrow.PrimitiveTypes.Int16
+		valueTy = arrow.BinaryTypes.String
+		dictTy  = &arrow.DictionaryType{IndexType: indexTy, ValueType: valueTy}
+	)
+
+	dict, _, _ := array.FromJSON(mem, valueTy, strings.NewReader(`["alpha", null, "gamma"]`))
+	defer dict.Release()
+
+	alpha := scalar.NewDictScalar(scalar.MakeScalar(int16(0)), dict)
+	defer alpha.Release()
+
+	// Valid index, null underlying value
+	nullVal := scalar.NewDictScalar(scalar.MakeScalar(int16(1)), dict)
+	defer nullVal.Release()
+
+	// inconsistent index type
+	dictSc := scalar.NewDictScalar(alpha.Value.Index, dict)
+	defer dictSc.Release()
+	dictSc.Type = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: valueTy}
+	assert.Error(t, dictSc.Validate())
+
+	// inconsistent value type between dict and type
+	dictSc.Type = &arrow.DictionaryType{IndexType: indexTy, ValueType: arrow.BinaryTypes.Binary}
+	assert.Error(t, dictSc.Validate())
+
+	// inconsistent Valid/Value
+	dictSc.Type = dictTy
+	assert.NoError(t, dictSc.ValidateFull())
+	dictSc.Valid = false
+	assert.Error(t, dictSc.ValidateFull())
+
+	assert.NoError(t, nullVal.ValidateFull())
+	nullVal.Valid = false
+	assert.Error(t, nullVal.ValidateFull())
+
+	dictSc = scalar.NewNullDictScalar(dictTy)
+	dictSc.Valid = true
+	assert.Error(t, dictSc.ValidateFull())
+	dictSc.Valid = false
+	assert.NoError(t, dictSc.ValidateFull())
+
+	// index value out of bounds
+	for _, idx := range []int16{-1, 3} {
+		invalid := scalar.NewDictScalar(scalar.MakeScalar(idx), dict)
+		defer invalid.Release()
+
+		assert.NoError(t, invalid.Validate())
+		assert.Error(t, invalid.ValidateFull())
+	}
+}
+
+func checkGetValidUnionScalar(t *testing.T, arr arrow.Array, idx int, expected, expectedValue scalar.Scalar) {
+	s, err := scalar.GetScalar(arr, idx)
+	assert.NoError(t, err)
+	assert.NoError(t, s.ValidateFull())
+	assert.True(t, scalar.Equals(expected, s))
+
+	assert.True(t, s.IsValid())
+	assert.True(t, scalar.Equals(s.(scalar.Union).ChildValue(), expectedValue), s, expectedValue)
+}
+
+func checkGetNullUnionScalar(t *testing.T, arr arrow.Array, idx int) {
+	s, err := scalar.GetScalar(arr, idx)
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(scalar.MakeNullScalar(arr.DataType()), s))
+	assert.False(t, s.IsValid())
+	assert.False(t, s.(scalar.Union).ChildValue().IsValid())
+}
+
+func makeSparseUnionScalar(ty *arrow.SparseUnionType, val scalar.Scalar, idx int) scalar.Scalar {
+	return scalar.NewSparseUnionScalarFromValue(val, idx, ty)
+}
+
+func makeDenseUnionScalar(ty *arrow.DenseUnionType, val scalar.Scalar, idx int) scalar.Scalar {
+	return scalar.NewDenseUnionScalar(val, ty.TypeCodes()[idx], ty)
+}
+
+func makeSpecificNullScalar(dt arrow.UnionType, idx int) scalar.Scalar {
+	switch dt.Mode() {
+	case arrow.SparseMode:
+		values := make([]scalar.Scalar, len(dt.Fields()))
+		for i, f := range dt.Fields() {
+			values[i] = scalar.MakeNullScalar(f.Type)
+		}
+		return scalar.NewSparseUnionScalar(values, dt.TypeCodes()[idx], dt.(*arrow.SparseUnionType))
+	case arrow.DenseMode:
+		code := dt.TypeCodes()[idx]
+		value := scalar.MakeNullScalar(dt.Fields()[idx].Type)
+		return scalar.NewDenseUnionScalar(value, code, dt.(*arrow.DenseUnionType))
+	}
+	return nil
+}
+
+type UnionScalarSuite struct {
+	suite.Suite
+
+	mode                                            arrow.UnionMode
+	dt                                              arrow.DataType
+	unionType                                       arrow.UnionType
+	alpha, beta, two, three                         scalar.Scalar
+	unionAlpha, unionBeta, unionTwo, unionThree     scalar.Scalar
+	unionOtherTwo, unionStringNull, unionNumberNull scalar.Scalar
+}
+
+func (s *UnionScalarSuite) scalarFromValue(idx int, val scalar.Scalar) scalar.Scalar {
+	switch s.mode {
+	case arrow.SparseMode:
+		return makeSparseUnionScalar(s.dt.(*arrow.SparseUnionType), val, idx)
+	case arrow.DenseMode:
+		return makeDenseUnionScalar(s.dt.(*arrow.DenseUnionType), val, idx)
+	}
+	return nil
+}
+
+func (s *UnionScalarSuite) specificNull(idx int) scalar.Scalar {
+	return makeSpecificNullScalar(s.unionType, idx)
+}
+
+func (s *UnionScalarSuite) SetupTest() {
+	s.dt = arrow.UnionOf(s.mode, []arrow.Field{
+		{Name: "string", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+		{Name: "other_number", Type: arrow.PrimitiveTypes.Uint64, Nullable: true},
+	}, []arrow.UnionTypeCode{3, 42, 43})
+
+	s.unionType = s.dt.(arrow.UnionType)
+
+	s.alpha = scalar.MakeScalar("alpha")
+	s.beta = scalar.MakeScalar("beta")
+	s.two = scalar.MakeScalar(uint64(2))
+	s.three = scalar.MakeScalar(uint64(3))
+
+	s.unionAlpha = s.scalarFromValue(0, s.alpha)
+	s.unionBeta = s.scalarFromValue(0, s.beta)
+	s.unionTwo = s.scalarFromValue(1, s.two)
+	s.unionOtherTwo = s.scalarFromValue(2, s.two)
+	s.unionThree = s.scalarFromValue(1, s.three)
+	s.unionStringNull = s.specificNull(0)
+	s.unionNumberNull = s.specificNull(1)
+}
+
+func (s *UnionScalarSuite) TestValidate() {
+	s.NoError(s.unionAlpha.ValidateFull())
+	s.NoError(s.unionAlpha.Validate())
+	s.NoError(s.unionBeta.ValidateFull())
+	s.NoError(s.unionBeta.Validate())
+	s.NoError(s.unionTwo.ValidateFull())
+	s.NoError(s.unionTwo.Validate())
+	s.NoError(s.unionOtherTwo.ValidateFull())
+	s.NoError(s.unionOtherTwo.Validate())
+	s.NoError(s.unionThree.ValidateFull())
+	s.NoError(s.unionThree.Validate())
+	s.NoError(s.unionStringNull.ValidateFull())
+	s.NoError(s.unionStringNull.Validate())
+	s.NoError(s.unionNumberNull.ValidateFull())
+	s.NoError(s.unionNumberNull.Validate())
+}
+
+func (s *UnionScalarSuite) setTypeCode(sc scalar.Scalar, c arrow.UnionTypeCode) {
+	switch sc := sc.(type) {
+	case *scalar.SparseUnion:
+		sc.TypeCode = c
+	case *scalar.DenseUnion:
+		sc.TypeCode = c
+	}
+}
+
+func (s *UnionScalarSuite) setIsValid(sc scalar.Scalar, v bool) {
+	switch sc := sc.(type) {
+	case *scalar.SparseUnion:
+		sc.Valid = v
+	case *scalar.DenseUnion:
+		sc.Valid = v
+	}
+}
+
+func (s *UnionScalarSuite) TestValidateErrors() {
+	// type code doesn't exist
+	sc := s.scalarFromValue(0, s.alpha)
+
+	// invalid type code
+	s.setTypeCode(sc, 0)
+	s.Error(sc.Validate())
+	s.Error(sc.ValidateFull())
+
+	s.setIsValid(sc, false)
+	s.Error(sc.Validate())
+	s.Error(sc.ValidateFull())
+
+	s.setTypeCode(sc, -42)
+	s.setIsValid(sc, true)
+	s.Error(sc.Validate())
+	s.Error(sc.ValidateFull())
+
+	s.setIsValid(sc, false)
+	s.Error(sc.Validate())
+	s.Error(sc.ValidateFull())
+
+	// type code doesn't correspond to child type
+	if sc, ok := sc.(*scalar.DenseUnion); ok {
+		sc.TypeCode = 42
+		sc.Valid = true
+		s.Error(sc.Validate())
+		s.Error(sc.ValidateFull())
+
+		sc = s.scalarFromValue(2, s.two).(*scalar.DenseUnion)
+		sc.TypeCode = 3
+		s.Error(sc.Validate())
+		s.Error(sc.ValidateFull())
+	}
+
+	// underlying value has invalid utf8
+	sc = s.scalarFromValue(0, scalar.NewStringScalar("\xff"))
+	s.NoError(sc.Validate())
+	s.Error(sc.ValidateFull())
+}
+
+func (s *UnionScalarSuite) TestEquals() {
+	// differing values
+	s.False(scalar.Equals(s.unionAlpha, s.unionBeta))
+	s.False(scalar.Equals(s.unionTwo, s.unionThree))
+	// differing validities
+	s.False(scalar.Equals(s.unionAlpha, s.unionStringNull))
+	// differing types
+	s.False(scalar.Equals(s.unionAlpha, s.unionTwo))
+	s.False(scalar.Equals(s.unionAlpha, s.unionOtherTwo))
+	// type codes don't count when comparing union scalars: the underlying
+	// values are identical even though their provenance is different
+	s.True(scalar.Equals(s.unionTwo, s.unionOtherTwo))
+	s.True(scalar.Equals(s.unionStringNull, s.unionNumberNull))
+}
+
+func (s *UnionScalarSuite) TestMakeNullScalar() {
+	sc := scalar.MakeNullScalar(s.dt)
+	s.True(arrow.TypeEqual(s.dt, sc.DataType()))
+	s.False(sc.IsValid())
+
+	// the first child field is chosen arbitrarily for the purposes of
+	// making a null scalar
+	switch s.mode {
+	case arrow.DenseMode:
+		asDense := sc.(*scalar.DenseUnion)
+		s.EqualValues(3, asDense.TypeCode)
+		s.False(asDense.Value.IsValid())
+	case arrow.SparseMode:
+		asSparse := sc.(*scalar.SparseUnion)
+		s.EqualValues(3, asSparse.TypeCode)
+		s.False(asSparse.Value[asSparse.ChildID].IsValid())
+	}
+}
+
+type SparseUnionSuite struct {
+	UnionScalarSuite
+}
+
+func (s *SparseUnionSuite) SetupSuite() {
+	s.mode = arrow.SparseMode
+}
+
+func (s *SparseUnionSuite) TestGetScalar() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(s.T(), 0)
+
+	children := make([]arrow.Array, 3)
+	children[0], _, _ = array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["alpha", "", "beta", null, "gamma"]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Uint64, strings.NewReader(`[1, 2, 11, 22, null]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Uint64, strings.NewReader(`[100, 101, 102, 103, 104]`))
+	defer children[2].Release()
+
+	typeIDs, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[3, 42, 3, 3, 42]`))
+	defer typeIDs.Release()
+
+	arr := array.NewSparseUnion(s.dt.(*arrow.SparseUnionType), 5, children, typeIDs.Data().Buffers()[1], 0)
+	defer arr.Release()
+
+	checkGetValidUnionScalar(s.T(), arr, 0, s.unionAlpha, s.alpha)
+	checkGetValidUnionScalar(s.T(), arr, 1, s.unionTwo, s.two)
+	checkGetValidUnionScalar(s.T(), arr, 2, s.unionBeta, s.beta)
+	checkGetNullUnionScalar(s.T(), arr, 3)
+	checkGetNullUnionScalar(s.T(), arr, 4)
+}
+
+type DenseUnionSuite struct {
+	UnionScalarSuite
+}
+
+func (s *DenseUnionSuite) SetupSuite() {
+	s.mode = arrow.DenseMode
+}
+
+func (s *DenseUnionSuite) TestGetScalar() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(s.T(), 0)
+
+	children := make([]arrow.Array, 3)
+	children[0], _, _ = array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["alpha", "beta", null]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Uint64, strings.NewReader(`[2, 3]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Uint64, strings.NewReader(`[]`))
+	defer children[2].Release()
+
+	typeIDs, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[3, 42, 3, 3, 42]`))
+	defer typeIDs.Release()
+	offsets, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[0, 0, 1, 2, 1]`))
+	defer offsets.Release()
+
+	arr := array.NewDenseUnion(s.dt.(*arrow.DenseUnionType), 5, children, typeIDs.Data().Buffers()[1], offsets.Data().Buffers()[1], 0)
+	defer arr.Release()
+
+	checkGetValidUnionScalar(s.T(), arr, 0, s.unionAlpha, s.alpha)
+	checkGetValidUnionScalar(s.T(), arr, 1, s.unionTwo, s.two)
+	checkGetValidUnionScalar(s.T(), arr, 2, s.unionBeta, s.beta)
+	checkGetNullUnionScalar(s.T(), arr, 3)
+	checkGetValidUnionScalar(s.T(), arr, 4, s.unionThree, s.three)
+}
+
+func TestUnionScalars(t *testing.T) {
+	suite.Run(t, new(SparseUnionSuite))
+	suite.Run(t, new(DenseUnionSuite))
 }

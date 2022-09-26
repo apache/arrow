@@ -40,6 +40,7 @@ Filesystem Implementations
 
    LocalFileSystem
    S3FileSystem
+   GcsFileSystem
    HadoopFileSystem
    SubTreeFileSystem
 

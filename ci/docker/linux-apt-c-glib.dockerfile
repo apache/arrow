@@ -20,19 +20,17 @@ FROM ${base}
 
 RUN apt-get update -y -q && \
     apt-get install -y -q \
-        python3 \
-        python3-pip \
         gtk-doc-tools \
         libgirepository1.0-dev \
         libglib2.0-doc \
         lsb-release \
         luarocks \
+        ninja-build \
         pkg-config \
-        ruby-dev && \
-    if [ "$(lsb_release --codename --short)" = "xenial" ]; then \
-      apt-get install -y -q --no-install-recommends -t xenial-backports \
-        ninja-build; \
-    fi && \
+        python3 \
+        python3-pip \
+        ruby-dev \
+        valac && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

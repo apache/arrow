@@ -46,18 +46,35 @@ class ApacheArrowReleasePackageTask < PackageTask
       keys = File.read(keys_path)
       File.open(keys_path, "w") do |keys_file|
         is_ed25519_key = false
+        deny_lists = [
+          # "rpmkeys --import" reports error for this key.
+          # It seems that a subkey of this key may be related. (Is SHA1 bad?)
+          "8CAAD602",
+        ]
+        is_denyed_key = false
         keys.each_line do |line|
           case line.chomp
           when /\Apub\s+ed25519\s/
             is_ed25519_key = true
             next
+          when /\Apub\s+[^\/]+\/([\h]+)\s/
+            short_finger_print = $1
+            if deny_lists.include?(short_finger_print)
+              is_denyed_key = true
+              next
+            end
           when "-----END PGP PUBLIC KEY BLOCK-----"
             if is_ed25519_key
               is_ed25519_key = false
               next
             end
+            if is_denyed_key
+              is_denyed_key = false
+              next
+            end
           else
             next if is_ed25519_key
+            next if is_denyed_key
           end
           keys_file.print(line)
         end

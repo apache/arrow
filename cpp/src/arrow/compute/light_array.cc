@@ -109,38 +109,50 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
 
 Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type) {
-  if (type->id() == Type::DICTIONARY) {
+  const bool is_extension = type->id() == Type::EXTENSION;
+  const std::shared_ptr<DataType>& typ =
+      is_extension
+          ? arrow::internal::checked_pointer_cast<ExtensionType>(type->GetSharedPtr())
+                ->storage_type()
+          : type;
+
+  if (typ->id() == Type::DICTIONARY) {
     auto bit_width =
-        arrow::internal::checked_cast<const FixedWidthType&>(*type).bit_width();
+        arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width();
     ARROW_DCHECK(bit_width % 8 == 0);
     return KeyColumnMetadata(true, bit_width / 8);
   }
-  if (type->id() == Type::BOOL) {
+  if (typ->id() == Type::BOOL) {
     return KeyColumnMetadata(true, 0);
   }
-  if (is_fixed_width(type->id())) {
+  if (is_fixed_width(typ->id())) {
     return KeyColumnMetadata(
-        true,
-        arrow::internal::checked_cast<const FixedWidthType&>(*type).bit_width() / 8);
+        true, arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width() / 8);
   }
-  if (is_binary_like(type->id())) {
+  if (is_binary_like(typ->id())) {
     return KeyColumnMetadata(false, sizeof(uint32_t));
   }
-  if (is_large_binary_like(type->id())) {
+  if (is_large_binary_like(typ->id())) {
     return KeyColumnMetadata(false, sizeof(uint64_t));
   }
-  if (type->id() == Type::NA) {
+  if (typ->id() == Type::NA) {
     return KeyColumnMetadata(true, 0, true);
   }
   // Caller attempted to create a KeyColumnArray from an invalid type
-  return Status::TypeError("Unsupported column data type ", type->name(),
+  return Status::TypeError("Unsupported column data type ", typ->name(),
                            " used with KeyColumnMetadata");
 }
 
 Result<KeyColumnArray> ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows) {
+    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows) {
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
                         ColumnMetadataFromDataType(array_data->type));
+  return ColumnArrayFromArrayDataAndMetadata(array_data, metadata, start_row, num_rows);
+}
+
+KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+    const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
+    int64_t start_row, int64_t num_rows) {
   KeyColumnArray column_array = KeyColumnArray(
       metadata, array_data->offset + start_row + num_rows,
       array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,
@@ -165,7 +177,8 @@ Status ColumnMetadatasFromExecBatch(const ExecBatch& batch,
   return Status::OK();
 }
 
-Status ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row, int num_rows,
+Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
+                                 int64_t num_rows,
                                  std::vector<KeyColumnArray>* column_arrays) {
   int num_columns = static_cast<int>(batch.values.size());
   column_arrays->resize(num_columns);
@@ -236,6 +249,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
         buffers_[kValidityBuffer],
         AllocateResizableBuffer(
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, pool_));
+    memset(mutable_data(kValidityBuffer), 0,
+           bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
     if (column_metadata.is_fixed_length) {
       if (column_metadata.fixed_length == 0) {
         ARROW_ASSIGN_OR_RAISE(
@@ -243,6 +258,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             AllocateResizableBuffer(
                 bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes,
                 pool_));
+        memset(mutable_data(kFixedLengthBuffer), 0,
+               bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
       } else {
         ARROW_ASSIGN_OR_RAISE(
             buffers_[kFixedLengthBuffer],
@@ -266,13 +283,22 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     ARROW_DCHECK(buffers_[kValidityBuffer] != NULLPTR &&
                  buffers_[kVariableLengthBuffer] != NULLPTR);
 
+    int64_t bytes_for_bits_before =
+        bit_util::BytesForBits(num_rows_allocated_) + kNumPaddingBytes;
+    int64_t bytes_for_bits_after =
+        bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes;
+
     RETURN_NOT_OK(buffers_[kValidityBuffer]->Resize(
         bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes));
+    memset(mutable_data(kValidityBuffer) + bytes_for_bits_before, 0,
+           bytes_for_bits_after - bytes_for_bits_before);
 
     if (column_metadata.is_fixed_length) {
       if (column_metadata.fixed_length == 0) {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes));
+        memset(mutable_data(kFixedLengthBuffer) + bytes_for_bits_before, 0,
+               bytes_for_bits_after - bytes_for_bits_before);
       } else {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
             num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes));

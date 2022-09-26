@@ -258,7 +258,7 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
 
 namespace {
 
-Status ValidateSubPath(util::string_view s) {
+Status ValidateSubPath(std::string_view s) {
   if (internal::IsLikelyUri(s)) {
     return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
   }
@@ -639,7 +639,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
     }
 
     auto destination_path =
-        internal::ConcatAbstractPath(destination_base_dir, relative->to_string());
+        internal::ConcatAbstractPath(destination_base_dir, std::string(*relative));
 
     if (source_info.IsDirectory()) {
       dirs.push_back(destination_path);
@@ -695,8 +695,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
   if (scheme == "gs" || scheme == "gcs") {
 #ifdef ARROW_GCS
     ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto gcsfs, GcsFileSystem::Make(options, io_context));
-    return gcsfs;
+    return GcsFileSystem::Make(options, io_context);
 #else
     return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
 #endif

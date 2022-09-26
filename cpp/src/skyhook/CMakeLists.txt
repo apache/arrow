@@ -19,7 +19,7 @@
 add_subdirectory(client)
 
 # define the targets to build
-add_custom_target(arrow_skyhook_client)
+add_custom_target(arrow_skyhook)
 add_custom_target(cls_skyhook)
 
 # define the dependencies
@@ -34,7 +34,7 @@ set(ARROW_SKYHOOK_CLS_SOURCES cls/cls_skyhook.cc protocol/rados_protocol.cc
                               protocol/skyhook_protocol.cc)
 
 # define the client library
-add_arrow_lib(arrow_skyhook_client
+add_arrow_lib(arrow_skyhook
               PKG_CONFIG_NAME
               skyhook
               SOURCES
@@ -58,15 +58,15 @@ add_arrow_lib(cls_skyhook
               ${ARROW_SKYHOOK_LINK_STATIC})
 
 # finish building the project
-add_dependencies(arrow_skyhook_client ${ARROW_SKYHOOK_CLIENT_LIBRARIES})
+add_dependencies(arrow_skyhook ${ARROW_SKYHOOK_CLIENT_LIBRARIES})
 add_dependencies(cls_skyhook ${ARROW_SKYHOOK_CLS_LIBRARIES})
 
 # define the test builds
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_client_static arrow_dataset_static
+  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_static arrow_dataset_static
                                    ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_client_shared arrow_dataset_shared
+  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_shared arrow_dataset_shared
                                    ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 

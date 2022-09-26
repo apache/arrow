@@ -401,7 +401,8 @@ cdef class MessageReader(_Weakrefable):
     @staticmethod
     def open_stream(source):
         """
-        Open stream from source.
+        Open stream from source, if you want to use memory map use
+        MemoryMappedFile as source.
 
         Parameters
         ----------
@@ -597,7 +598,7 @@ class _ReadPandasMixin:
 cdef class RecordBatchReader(_Weakrefable):
     """Base class for reading stream of record batches.
 
-    Record batch readers function as iterators of record batches that also 
+    Record batch readers function as iterators of record batches that also
     provide the schema (without the need to get any batches).
 
     Warnings
@@ -607,19 +608,19 @@ cdef class RecordBatchReader(_Weakrefable):
 
     Notes
     -----
-    To import and export using the Arrow C stream interface, use the 
+    To import and export using the Arrow C stream interface, use the
     ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
-    interface is experimental and intended for expert users.
+    interface is intended for expert users.
 
     Examples
     --------
+    >>> import pyarrow as pa
     >>> schema = pa.schema([('x', pa.int64())])
     >>> def iter_record_batches():
     ...     for i in range(2):
-    ...     yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
+    ...         yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
     >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
     >>> print(reader.schema)
-    pyarrow.Schema
     x: int64
     >>> for batch in reader:
     ...     print(batch)
@@ -701,11 +702,18 @@ cdef class RecordBatchReader(_Weakrefable):
 
     read_pandas = _ReadPandasMixin.read_pandas
 
+    def close(self):
+        """
+        Release any resources associated with the reader.
+        """
+        with nogil:
+            check_status(self.reader.get().Close())
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
 
     def _export_to_c(self, out_ptr):
         """
@@ -847,7 +855,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         except TypeError:
             pass
 
-        get_reader(source, True, &self.file)
+        get_reader(source, False, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1089,7 +1097,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, True, &cpp_file)
+    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo

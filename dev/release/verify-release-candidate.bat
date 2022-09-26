@@ -69,10 +69,6 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
-@rem With MSVC we always bundle a more recent GTest which causes a link conflict
-@rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
-call conda remove -y gtest gmock || exit /B 1
-
 set GENERATOR=Visual Studio 16 2019
 set ARCHITECTURE=x64
 set CONFIGURATION=release
@@ -121,7 +117,7 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-ctest -VV  || exit /B 1
+ctest -j%NUMBER_OF_PROCESSORS% --output-on-failure  || exit /B 1
 set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 

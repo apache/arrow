@@ -22,9 +22,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -153,6 +153,10 @@ func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRec
 }
 
 func (rec *simpleRecord) validate() error {
+	if rec.rows == 0 && len(rec.arrs) == 0 {
+		return nil
+	}
+
 	if len(rec.arrs) != len(rec.schema.Fields()) {
 		return fmt.Errorf("arrow/array: number of columns/fields mismatch")
 	}
@@ -353,6 +357,10 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 
 		indices := b.schema.FieldIndices(key)
 		if len(indices) == 0 {
+			_, err = dec.Token()
+			if err != nil {
+				return err
+			}
 			continue
 		}
 

@@ -149,6 +149,7 @@ def cmake_linter(src, fix=False):
         include_patterns=[
             'ci/**/*.cmake',
             'cpp/CMakeLists.txt',
+            'cpp/src/**/*.cmake.in',
             'cpp/src/**/CMakeLists.txt',
             'cpp/examples/**/CMakeLists.txt',
             'cpp/cmake_modules/*.cmake',
@@ -230,9 +231,6 @@ def python_linter(src, fix=False):
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
                setup_py, src.pyarrow, os.path.join(src.python, "examples"),
                src.dev, check=False))
-    config = os.path.join(src.python, ".flake8.cython")
-    yield LintResult.from_cmd(
-        flake8("--config=" + config, src.pyarrow, check=False))
 
 
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):

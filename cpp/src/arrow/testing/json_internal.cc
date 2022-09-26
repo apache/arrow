@@ -472,7 +472,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(util::string_view v) {
+  void WriteRawNumber(std::string_view v) {
     // Avoid RawNumber() as it misleadingly adds quotes
     // (see https://github.com/Tencent/rapidjson/pull/1155)
     writer_->RawValue(v.data(), v.size(), rj::kNumberType);
@@ -503,7 +503,7 @@ class ArrayWriter {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i), [&](util::string_view repr) {
+        fmt(arr.Value(i), [&](std::string_view repr) {
           writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
         });
       } else {
@@ -630,7 +630,7 @@ class ArrayWriter {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
-      auto append = [this](util::string_view v) {
+      auto append = [this](std::string_view v) {
         writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
         return Status::OK();
       };
@@ -1148,7 +1148,7 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
     // Parse dictionary id in JSON and add dictionary field to the
     // memo, and parse the dictionaries later
     RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
-    bool is_ordered;
+    bool is_ordered{};
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
                                   &is_ordered, &index_type));

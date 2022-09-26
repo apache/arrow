@@ -22,12 +22,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/arrio"
-	"github.com/apache/arrow/go/v8/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/arrio"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
 )
 
 func main() {
@@ -199,7 +199,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 
 	if !arr.Schema().Equal(jrr.Schema()) {
 		if verbose {
-			log.Printf("JSON schema:\n%v\nArrow schema:\n%v", arr.Schema(), jrr.Schema())
+			log.Printf("JSON schema:\n%v\nArrow schema:\n%v", jrr.Schema(), arr.Schema())
 		}
 		return fmt.Errorf("schemas did not match")
 	}

@@ -425,13 +425,8 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 // Functional-style bit block visitors.
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                             int64_t length, VisitNotNull&& visit_not_null,
-                             VisitNull&& visit_null) {
-  const uint8_t* bitmap = NULLPTR;
-  if (bitmap_buf != NULLPTR) {
-    bitmap = bitmap_buf->data();
-  }
+static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
+                             VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -458,13 +453,8 @@ static Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t 
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                               int64_t length, VisitNotNull&& visit_not_null,
-                               VisitNull&& visit_null) {
-  const uint8_t* bitmap = NULLPTR;
-  if (bitmap_buf != NULLPTR) {
-    bitmap = bitmap_buf->data();
-  }
+static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
+                               VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -490,26 +480,22 @@ static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
-                                int64_t left_offset,
-                                const std::shared_ptr<Buffer>& right_bitmap_buf,
-                                int64_t right_offset, int64_t length,
-                                VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  if (left_bitmap_buf == NULLPTR || right_bitmap_buf == NULLPTR) {
+static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
+                                const uint8_t* right_bitmap, int64_t right_offset,
+                                int64_t length, VisitNotNull&& visit_not_null,
+                                VisitNull&& visit_null) {
+  if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
-    if (left_bitmap_buf == NULLPTR) {
-      return VisitBitBlocks(right_bitmap_buf, right_offset, length,
+    if (left_bitmap == NULLPTR) {
+      return VisitBitBlocks(right_bitmap, right_offset, length,
                             std::forward<VisitNotNull>(visit_not_null),
                             std::forward<VisitNull>(visit_null));
     } else {
-      return VisitBitBlocks(left_bitmap_buf, left_offset, length,
+      return VisitBitBlocks(left_bitmap, left_offset, length,
                             std::forward<VisitNotNull>(visit_not_null),
                             std::forward<VisitNull>(visit_null));
     }
   }
-  // Both bitmaps are present
-  const uint8_t* left_bitmap = left_bitmap_buf->data();
-  const uint8_t* right_bitmap = right_bitmap_buf->data();
   BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
                                     length);
   int64_t position = 0;
@@ -538,26 +524,22 @@ static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
-                                  int64_t left_offset,
-                                  const std::shared_ptr<Buffer>& right_bitmap_buf,
-                                  int64_t right_offset, int64_t length,
-                                  VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  if (left_bitmap_buf == NULLPTR || right_bitmap_buf == NULLPTR) {
+static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offset,
+                                  const uint8_t* right_bitmap, int64_t right_offset,
+                                  int64_t length, VisitNotNull&& visit_not_null,
+                                  VisitNull&& visit_null) {
+  if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
-    if (left_bitmap_buf == NULLPTR) {
-      return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
+    if (left_bitmap == NULLPTR) {
+      return VisitBitBlocksVoid(right_bitmap, right_offset, length,
                                 std::forward<VisitNotNull>(visit_not_null),
                                 std::forward<VisitNull>(visit_null));
     } else {
-      return VisitBitBlocksVoid(left_bitmap_buf, left_offset, length,
+      return VisitBitBlocksVoid(left_bitmap, left_offset, length,
                                 std::forward<VisitNotNull>(visit_not_null),
                                 std::forward<VisitNull>(visit_null));
     }
   }
-  // Both bitmaps are present
-  const uint8_t* left_bitmap = left_bitmap_buf->data();
-  const uint8_t* right_bitmap = right_bitmap_buf->data();
   BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
                                     length);
   int64_t position = 0;

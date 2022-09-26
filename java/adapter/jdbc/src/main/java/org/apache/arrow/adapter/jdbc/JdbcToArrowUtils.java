@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
@@ -30,6 +31,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +50,7 @@ import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.MapConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.NullConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.SmallIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimeConsumer;
@@ -75,6 +78,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -243,22 +247,32 @@ public class JdbcToArrowUtils {
     for (int i = 1; i <= columnCount; i++) {
       final String columnName = rsmd.getColumnLabel(i);
 
+      final Map<String, String> columnMetadata = config.getColumnMetadataByColumnIndex() != null ?
+              config.getColumnMetadataByColumnIndex().get(i) : null;
       final Map<String, String> metadata;
       if (config.shouldIncludeMetadata()) {
         metadata = new HashMap<>();
         metadata.put(Constants.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
+        metadata.put(Constants.SQL_SCHEMA_NAME_KEY, rsmd.getSchemaName(i));
         metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
         metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
         metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
-
+        if (columnMetadata != null && !columnMetadata.isEmpty()) {
+          metadata.putAll(columnMetadata);
+        }
       } else {
-        metadata = null;
+        if (columnMetadata != null && !columnMetadata.isEmpty()) {
+          metadata = columnMetadata;
+        } else {
+          metadata = null;
+        }
       }
 
-      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(rsmd, i));
+      final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
+      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       if (arrowType != null) {
         final FieldType fieldType = new FieldType(
-                isColumnNullable(rsmd, i), arrowType, /* dictionary encoding */ null, metadata);
+                isColumnNullable(rsmd, i, columnFieldInfo), arrowType, /* dictionary encoding */ null, metadata);
 
         List<Field> children = null;
         if (arrowType.getTypeID() == ArrowType.List.TYPE_TYPE) {
@@ -269,13 +283,44 @@ public class JdbcToArrowUtils {
           children = new ArrayList<Field>();
           final ArrowType childType = config.getJdbcToArrowTypeConverter().apply(arrayFieldInfo);
           children.add(new Field("child", FieldType.nullable(childType), null));
+        } else if (arrowType.getTypeID() == ArrowType.ArrowTypeID.Map) {
+          FieldType mapType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+          FieldType keyType = new FieldType(false, new ArrowType.Utf8(), null, null);
+          FieldType valueType = new FieldType(false, new ArrowType.Utf8(), null, null);
+          children = new ArrayList<>();
+          children.add(new Field("child", mapType,
+                  Arrays.asList(new Field(MapVector.KEY_NAME, keyType, null),
+                          new Field(MapVector.VALUE_NAME, valueType, null))));
         }
 
         fields.add(new Field(columnName, fieldType, children));
       }
     }
+    return new Schema(fields, config.getSchemaMetadata());
+  }
 
-    return new Schema(fields, null);
+  static JdbcFieldInfo getJdbcFieldInfoForColumn(
+      ResultSetMetaData rsmd,
+      int arrayColumn,
+      JdbcToArrowConfig config)
+          throws SQLException {
+    Preconditions.checkNotNull(rsmd, "ResultSet MetaData object cannot be null");
+    Preconditions.checkNotNull(config, "Configuration must not be null");
+    Preconditions.checkArgument(
+            arrayColumn > 0,
+            "ResultSetMetaData columns start with 1; column cannot be less than 1");
+    Preconditions.checkArgument(
+            arrayColumn <= rsmd.getColumnCount(),
+            "Column number cannot be more than the number of columns");
+
+    JdbcFieldInfo fieldInfo = config.getExplicitTypeByColumnIndex(arrayColumn);
+    if (fieldInfo == null) {
+      fieldInfo = config.getExplicitTypeByColumnName(rsmd.getColumnLabel(arrayColumn));
+    }
+    if (fieldInfo != null) {
+      return fieldInfo;
+    }
+    return new JdbcFieldInfo(rsmd, arrayColumn);
   }
 
   /* Uses the configuration to determine what the array sub-type JdbcFieldInfo is.
@@ -321,12 +366,14 @@ public class JdbcToArrowUtils {
     jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
   }
 
-  static boolean isColumnNullable(ResultSet resultSet, int index) throws SQLException {
-    return isColumnNullable(resultSet.getMetaData(), index);
-  }
-
-  static boolean isColumnNullable(ResultSetMetaData resultSetMetadata, int index) throws SQLException {
-    int nullableValue = resultSetMetadata.isNullable(index);
+  static boolean isColumnNullable(ResultSetMetaData resultSetMetadata, int index, JdbcFieldInfo info)
+      throws SQLException {
+    int nullableValue;
+    if (info != null && info.isNullable() != ResultSetMetaData.columnNullableUnknown) {
+      nullableValue = info.isNullable();
+    } else {
+      nullableValue = resultSetMetadata.isNullable(index);
+    }
     return nullableValue == ResultSetMetaData.columnNullable ||
         nullableValue == ResultSetMetaData.columnNullableUnknown;
   }
@@ -349,7 +396,9 @@ public class JdbcToArrowUtils {
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {
       FieldVector vector = root.getVector(rsmd.getColumnLabel(i));
-      consumers[i - 1] = getConsumer(vector.getField().getType(), i, isColumnNullable(rs, i), vector, config);
+      final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
+      consumers[i - 1] = getConsumer(
+          vector.getField().getType(), i, isColumnNullable(rsmd, i, columnFieldInfo), vector, config);
     }
 
     CompositeJdbcConsumer compositeConsumer = null;
@@ -402,7 +451,8 @@ public class JdbcToArrowUtils {
             return null;
         }
       case Decimal:
-        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable);
+        final RoundingMode bigDecimalRoundingMode = config.getBigDecimalRoundingMode();
+        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
       case FloatingPoint:
         switch (((ArrowType.FloatingPoint) arrowType).getPrecision()) {
           case SINGLE:
@@ -433,6 +483,8 @@ public class JdbcToArrowUtils {
         JdbcConsumer delegate = getConsumer(childVector.getField().getType(), JDBC_ARRAY_VALUE_COLUMN,
             childVector.getField().isNullable(), childVector, config);
         return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
+      case Map:
+        return MapConsumer.createConsumer((MapVector) vector, columnIndex, nullable);
       case Null:
         return new NullConsumer((NullVector) vector);
       default:

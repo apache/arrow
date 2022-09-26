@@ -4,8 +4,8 @@
   "exclude": ["../node_modules"],
   "include": ["../src/bin/*.ts"],
   "compilerOptions": {
-    "target": "esnext",
-    "module": "commonjs",
+    "target": "ESNext",
+    "module": "CommonJS",
     "declaration": false,
     "declarationMap": false
   }

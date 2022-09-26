@@ -18,21 +18,29 @@
 package org.apache.arrow.vector.ipc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
 import org.junit.Assert;
@@ -421,37 +429,77 @@ public class TestJSONFile extends BaseFileTest {
     }
   }
 
+  /** Regression test for ARROW-17107. */
   @Test
-  public void testNoOverFlowWithUINT() {
-    try (final UInt8Vector uInt8Vector = new UInt8Vector("uint8", allocator);
-        final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);
-        final UInt1Vector uInt1Vector = new UInt1Vector("uint1", allocator)) {
+  public void testRoundtripEmptyVector() throws Exception {
+    final List<Field> fields = Arrays.asList(
+        Field.nullable("utf8", ArrowType.Utf8.INSTANCE),
+        Field.nullable("largeutf8", ArrowType.LargeUtf8.INSTANCE),
+        Field.nullable("binary", ArrowType.Binary.INSTANCE),
+        Field.nullable("largebinary", ArrowType.LargeBinary.INSTANCE),
+        Field.nullable("fixedsizebinary", new ArrowType.FixedSizeBinary(2)),
+        Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 128)),
+        Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 256)),
+        new Field("list", FieldType.nullable(ArrowType.List.INSTANCE),
+            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+        new Field("largelist", FieldType.nullable(ArrowType.LargeList.INSTANCE),
+            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+        new Field("map", FieldType.nullable(new ArrowType.Map(/*keyssorted*/ false)),
+            Collections.singletonList(new Field("items", FieldType.notNullable(ArrowType.Struct.INSTANCE),
+                Arrays.asList(Field.notNullable("keys", new ArrowType.Int(32, true)),
+                    Field.nullable("values", new ArrowType.Int(32, true)))))),
+        new Field("fixedsizelist", FieldType.nullable(new ArrowType.FixedSizeList(2)),
+            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+        new Field("denseunion", FieldType.nullable(new ArrowType.Union(UnionMode.Dense, new int[] {0})),
+            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+        new Field("sparseunion", FieldType.nullable(new ArrowType.Union(UnionMode.Sparse, new int[] {0})),
+            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true))))
+    );
 
-      long[] longValues = new long[]{Long.MIN_VALUE, Long.MAX_VALUE, -1L};
-      uInt8Vector.allocateNew(3);
-      uInt8Vector.setValueCount(3);
-      for (int i = 0; i < longValues.length; i++) {
-        uInt8Vector.set(i, longValues[i]);
-        long readValue = uInt8Vector.getObjectNoOverflow(i).longValue();
-        assertEquals(readValue, longValues[i]);
-      }
+    for (final Field field : fields) {
+      final Schema schema = new Schema(Collections.singletonList(field));
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        Path outputPath = Files.createTempFile("arrow-", ".json");
+        File outputFile = outputPath.toFile();
+        outputFile.deleteOnExit();
 
-      int[] intValues = new int[]{Integer.MIN_VALUE, Integer.MAX_VALUE, -1};
-      uInt4Vector.allocateNew(3);
-      uInt4Vector.setValueCount(3);
-      for (int i = 0; i < intValues.length; i++) {
-        uInt4Vector.set(i, intValues[i]);
-        int actualValue = (int) UInt4Vector.getNoOverflow(uInt4Vector.getDataBuffer(), i);
-        assertEquals(intValues[i], actualValue);
-      }
+        // Try with no allocation
+        try (final JsonFileWriter jsonWriter = new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
+          jsonWriter.start(schema, null);
+          jsonWriter.write(root);
+        } catch (Exception e) {
+          throw new RuntimeException("Test failed for empty vector of type " + field, e);
+        }
 
-      byte[] byteValues = new byte[]{Byte.MIN_VALUE, Byte.MAX_VALUE, -1};
-      uInt1Vector.allocateNew(3);
-      uInt1Vector.setValueCount(3);
-      for (int i = 0; i < byteValues.length; i++) {
-        uInt1Vector.set(i, byteValues[i]);
-        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(), i);
-        assertEquals(byteValues[i], actualValue);
+        try (JsonFileReader reader = new JsonFileReader(outputFile, allocator)) {
+          final Schema readSchema = reader.start();
+          assertEquals(schema, readSchema);
+          try (final VectorSchemaRoot data = reader.read()) {
+            assertNotNull(data);
+            assertEquals(data.getRowCount(), 0);
+          }
+          assertNull(reader.read());
+        }
+
+        // Try with an explicit allocation
+        root.allocateNew();
+        root.setRowCount(0);
+        try (final JsonFileWriter jsonWriter = new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
+          jsonWriter.start(schema, null);
+          jsonWriter.write(root);
+        } catch (Exception e) {
+          throw new RuntimeException("Test failed for empty vector of type " + field, e);
+        }
+
+        try (JsonFileReader reader = new JsonFileReader(outputFile, allocator)) {
+          final Schema readSchema = reader.start();
+          assertEquals(schema, readSchema);
+          try (final VectorSchemaRoot data = reader.read()) {
+            assertNotNull(data);
+            assertEquals(data.getRowCount(), 0);
+          }
+          assertNull(reader.read());
+        }
       }
     }
   }

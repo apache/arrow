@@ -129,7 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write.csv(mtcars, file = tf)
@@ -188,7 +188,12 @@ read_delim_arrow <- function(file,
   }
 
   if (!inherits(file, "InputStream")) {
+    compression <- detect_compression(file)
     file <- make_readable_file(file)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      file <- CompressedInputStream$create(file, compression)
+    }
     on.exit(file$close())
   }
   reader <- CsvTableReader$create(
@@ -294,7 +299,7 @@ read_tsv_arrow <- function(file,
 #'
 #' - `$Read()`: returns an Arrow Table.
 #'
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @export
 CsvTableReader <- R6Class("CsvTableReader",
   inherit = ArrowObject,
@@ -346,6 +351,7 @@ CsvTableReader$create <- function(file,
 #' - `autogenerate_column_names` Logical: generate column names instead of
 #' using the first non-skipped row (the default)? If `TRUE`, column names will
 #' be "f0", "f1", ..., "fN".
+#' - `encoding` The file encoding. (default `"UTF-8"`)
 #'
 #' `CsvParseOptions$create()` takes the following arguments:
 #'
@@ -367,9 +373,9 @@ CsvTableReader$create <- function(file,
 #' - `check_utf8` Logical: check UTF8 validity of string columns? (default `TRUE`)
 #' - `null_values` character vector of recognized spellings for null values.
 #'    Analogous to the `na.strings` argument to
-#'    [`read.csv()`][utils::read.csv()] or `na` in `readr::read_csv()`.
+#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
 #' - `strings_can_be_null` Logical: can string / binary columns have
-#'    null values? Similar to the `quoted_na` argument to `readr::read_csv()`.
+#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()].
 #'    (default `FALSE`)
 #' - `true_values` character vector of recognized spellings for `TRUE` values
 #' - `false_values` character vector of recognized spellings for `FALSE` values
@@ -392,7 +398,6 @@ CsvTableReader$create <- function(file,
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
-#' - `encoding` The file encoding.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -654,11 +659,11 @@ readr_to_csv_convert_options <- function(na,
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)
-#' @include arrow-package.R
+#' @include arrow-object.R
 write_csv_arrow <- function(x,
                             sink,
                             file = NULL,
@@ -699,7 +704,6 @@ write_csv_arrow <- function(x,
     )
   }
 
-  # default values are considered missing by base R
   if (missing(include_header) && !missing(col_names)) {
     include_header <- col_names
   }
@@ -712,16 +716,27 @@ write_csv_arrow <- function(x,
   }
 
   x_out <- x
-  if (is.data.frame(x)) {
-    x <- Table$create(x)
-  }
-
-  if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
-    x <- Scanner$create(x)$ToRecordBatchReader()
+  if (!inherits(x, "ArrowTabular")) {
+    tryCatch(
+      x <- as_record_batch_reader(x),
+      error = function(e) {
+        abort(
+          paste0(
+            "x must be an object of class 'data.frame', 'RecordBatch', ",
+            "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+          )
+        )
+      }
+    )
   }
 
   if (!inherits(sink, "OutputStream")) {
+    compression <- detect_compression(sink)
     sink <- make_output_stream(sink)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      sink <- CompressedOutputStream$create(sink, codec = compression)
+    }
     on.exit(sink$close())
   }
 
@@ -731,17 +746,6 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__Table(x, write_options, sink)
   } else if (inherits(x, c("RecordBatchReader"))) {
     csv___WriteCSV__RecordBatchReader(x, write_options, sink)
-  } else {
-    abort(
-      c(
-        paste0(
-          paste(
-            "x must be an object of class 'data.frame', 'RecordBatch',",
-            "'Dataset', 'Table', or 'RecordBatchReader' not '"
-          ), class(x)[[1]], "'."
-        )
-      )
-    )
   }
 
   invisible(x_out)

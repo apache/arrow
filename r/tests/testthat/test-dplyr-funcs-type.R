@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 suppressPackageStartupMessages(library(lubridate))
@@ -119,6 +117,10 @@ test_that("explicit type conversions with as.*()", {
         chr2dbl = as.double(chr),
         chr2int = as.integer(chr),
         chr2num = as.numeric(chr),
+        chr2chr2 = base::as.character(chr),
+        chr2dbl2 = base::as.double(chr),
+        chr2int2 = base::as.integer(chr),
+        chr2num2 = base::as.numeric(chr),
         rchr2chr = as.character("string"),
         rchr2dbl = as.double("1.5"),
         rchr2int = as.integer("1"),
@@ -131,6 +133,7 @@ test_that("explicit type conversions with as.*()", {
     .input %>%
       transmute(
         chr2i64 = as.integer64(chr),
+        chr2i64_nmspc = bit64::as.integer64(chr),
         dbl2i64 = as.integer64(dbl),
         i642i64 = as.integer64(i64),
         rchr2i64 = as.integer64("10000000000"),
@@ -144,6 +147,7 @@ test_that("explicit type conversions with as.*()", {
     .input %>%
       transmute(
         chr2lgl = as.logical(chr),
+        chr2lgl2 = base::as.logical(chr),
         dbl2lgl = as.logical(dbl),
         int2lgl = as.logical(int),
         rchr2lgl = as.logical("TRUE"),
@@ -187,8 +191,10 @@ test_that("explicit type conversions with as.*()", {
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr),
-             rlgl2chr = toupper(rlgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(
+        lgl2chr = toupper(lgl2chr),
+        rlgl2chr = toupper(rlgl2chr)
+      ), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -206,7 +212,9 @@ test_that("is.finite(), is.infinite(), is.nan()", {
     .input %>%
       transmute(
         is_fin = is.finite(x),
-        is_inf = is.infinite(x)
+        is_inf = is.infinite(x),
+        is_fin2 = base::is.finite(x),
+        is_inf2 = base::is.infinite(x)
       ) %>%
       collect(),
     df
@@ -215,7 +223,8 @@ test_that("is.finite(), is.infinite(), is.nan()", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        is_nan = is.nan(x)
+        is_nan = is.nan(x),
+        is_nan2 = base::is.nan(x)
       ) %>%
       collect(),
     df
@@ -227,7 +236,8 @@ test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        is_na = is.na(x)
+        is_na = is.na(x),
+        is_na2 = base::is.na(x)
       ) %>%
       collect(),
     df
@@ -244,47 +254,50 @@ test_that("type checks with is() giving Arrow types", {
       dec256 = Array$create(pi)$cast(decimal256(3, 2)),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
-    ) %>% transmute(
-      i32_is_i32 = is(i32, int32()),
-      i32_is_dec = is(i32, decimal(3, 2)),
-      i32_is_dec128 = is(i32, decimal128(3, 2)),
-      i32_is_dec256 = is(i32, decimal256(3, 2)),
-      i32_is_i64 = is(i32, float64()),
-      i32_is_str = is(i32, arrow::string()),
-      dec_is_i32 = is(dec, int32()),
-      dec_is_dec = is(dec, decimal(3, 2)),
-      dec_is_dec128 = is(dec, decimal128(3, 2)),
-      dec_is_dec256 = is(dec, decimal256(3, 2)),
-      dec_is_i64 = is(dec, float64()),
-      dec_is_str = is(dec, arrow::string()),
-      dec128_is_i32 = is(dec128, int32()),
-      dec128_is_dec128 = is(dec128, decimal128(3, 2)),
-      dec128_is_dec256 = is(dec128, decimal256(3, 2)),
-      dec128_is_i64 = is(dec128, float64()),
-      dec128_is_str = is(dec128, arrow::string()),
-      dec256_is_i32 = is(dec128, int32()),
-      dec256_is_dec128 = is(dec128, decimal128(3, 2)),
-      dec256_is_dec256 = is(dec128, decimal256(3, 2)),
-      dec256_is_i64 = is(dec128, float64()),
-      dec256_is_str = is(dec128, arrow::string()),
-      f64_is_i32 = is(f64, int32()),
-      f64_is_dec = is(f64, decimal(3, 2)),
-      f64_is_dec128 = is(f64, decimal128(3, 2)),
-      f64_is_dec256 = is(f64, decimal256(3, 2)),
-      f64_is_i64 = is(f64, float64()),
-      f64_is_str = is(f64, arrow::string()),
-      str_is_i32 = is(str, int32()),
-      str_is_dec128 = is(str, decimal128(3, 2)),
-      str_is_dec256 = is(str, decimal256(3, 2)),
-      str_is_i64 = is(str, float64()),
-      str_is_str = is(str, arrow::string())
     ) %>%
+      transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
+        i32_is_dec128 = is(i32, decimal128(3, 2)),
+        i32_is_dec256 = is(i32, decimal256(3, 2)),
+        i32_is_f64 = is(i32, float64()),
+        i32_is_str = is(i32, string()),
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_dec128 = is(dec, decimal128(3, 2)),
+        dec_is_dec256 = is(dec, decimal256(3, 2)),
+        dec_is_f64 = is(dec, float64()),
+        dec_is_str = is(dec, string()),
+        dec128_is_i32 = is(dec128, int32()),
+        dec128_is_dec128 = is(dec128, decimal128(3, 2)),
+        dec128_is_dec256 = is(dec128, decimal256(3, 2)),
+        dec128_is_f64 = is(dec128, float64()),
+        dec128_is_str = is(dec128, string()),
+        dec256_is_i32 = is(dec128, int32()),
+        dec256_is_dec128 = is(dec128, decimal128(3, 2)),
+        dec256_is_dec256 = is(dec128, decimal256(3, 2)),
+        dec256_is_f64 = is(dec128, float64()),
+        dec256_is_str = is(dec128, string()),
+        f64_is_i32 = is(f64, int32()),
+        f64_is_dec = is(f64, decimal(3, 2)),
+        f64_is_dec128 = is(f64, decimal128(3, 2)),
+        f64_is_dec256 = is(f64, decimal256(3, 2)),
+        f64_is_f64 = is(f64, float64()),
+        f64_is_str = is(f64, string()),
+        str_is_i32 = is(str, int32()),
+        str_is_dec128 = is(str, decimal128(3, 2)),
+        str_is_dec256 = is(str, decimal256(3, 2)),
+        str_is_i64 = is(str, float64()),
+        str_is_str = is(str, string())
+      ) %>%
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+    c(
+      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
       FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+    )
   )
   # with class2=string
   expect_equal(
@@ -296,6 +309,9 @@ test_that("type checks with is() giving Arrow types", {
       i32_is_i32 = is(i32, "int32"),
       i32_is_i64 = is(i32, "double"),
       i32_is_str = is(i32, "string"),
+      i32_is_i32_nmspc = methods::is(i32, "int32"),
+      i32_is_i64_nmspc = methods::is(i32, "double"),
+      i32_is_str_nmspc = methods::is(i32, "string"),
       f64_is_i32 = is(f64, "int32"),
       f64_is_i64 = is(f64, "double"),
       f64_is_str = is(f64, "string"),
@@ -306,7 +322,7 @@ test_that("type checks with is() giving Arrow types", {
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+    c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
   )
   # with class2=string alias
   expect_equal(
@@ -404,12 +420,12 @@ test_that("type checks with is() giving R types", {
         i64_is_chr = is(i64, "character"),
         i64_is_fct = is(i64, "factor"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is(i64, "integer"),
+        # i64_is_int = is(i64, "integer"), # nolint
         i64_is_i64 = is(i64, "integer64"),
         i64_is_lst = is(i64, "list"),
         i64_is_lgl = is(i64, "logical"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_num = is(i64, "numeric"),
+        # i64_is_num = is(i64, "numeric"), # nolint
         lst_is_chr = is(lst, "character"),
         lst_is_fct = is(lst, "factor"),
         lst_is_int = is(lst, "integer"),
@@ -439,6 +455,14 @@ test_that("type checks with is.*()", {
         chr_is_lst = is.list(chr),
         chr_is_lgl = is.logical(chr),
         chr_is_num = is.numeric(chr),
+        chr_is_chr2 = base::is.character(chr),
+        chr_is_dbl2 = base::is.double(chr),
+        chr_is_fct2 = base::is.factor(chr),
+        chr_is_int2 = base::is.integer(chr),
+        chr_is_i642 = bit64::is.integer64(chr),
+        chr_is_lst2 = base::is.list(chr),
+        chr_is_lgl2 = base::is.logical(chr),
+        chr_is_num2 = base::is.numeric(chr),
         dbl_is_chr = is.character(dbl),
         dbl_is_dbl = is.double(dbl),
         dbl_is_fct = is.factor(dbl),
@@ -480,10 +504,10 @@ test_that("type checks with is.*()", {
       transmute(
         i64_is_chr = is.character(i64),
         # TODO: investigate why this is not matching when testthat runs it
-        # i64_is_dbl = is.double(i64),
+        # i64_is_dbl = is.double(i64), # nolint
         i64_is_fct = is.factor(i64),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is.integer(i64),
+        # i64_is_int = is.integer(i64), # nolint
         i64_is_i64 = is.integer64(i64),
         i64_is_lst = is.list(i64),
         i64_is_lgl = is.logical(i64),
@@ -515,6 +539,11 @@ test_that("type checks with is_*()", {
         chr_is_int = is_integer(chr),
         chr_is_lst = is_list(chr),
         chr_is_lgl = is_logical(chr),
+        chr_is_chr2 = rlang::is_character(chr),
+        chr_is_dbl2 = rlang::is_double(chr),
+        chr_is_int2 = rlang::is_integer(chr),
+        chr_is_lst2 = rlang::is_list(chr),
+        chr_is_lgl2 = rlang::is_logical(chr),
         dbl_is_chr = is_character(dbl),
         dbl_is_dbl = is_double(dbl),
         dbl_is_int = is_integer(dbl),
@@ -595,7 +624,10 @@ test_that("as.factor()/dictionary_encode()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(x = as.factor(x)) %>%
+      transmute(
+        x = as.factor(x),
+        x2 = base::as.factor(x)
+      ) %>%
       collect(),
     df1
   )
@@ -685,6 +717,10 @@ test_that("structs/nested data frames/tibbles can be created", {
         df_col = tibble(
           regular_col1 = regular_col1,
           regular_col2 = regular_col2
+        ),
+        df_col2 = tibble::tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
         )
       ) %>%
       collect(),
@@ -751,10 +787,14 @@ test_that("structs/nested data frames/tibbles can be created", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE)
+        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE),
+        df_col2 = base::data.frame(regular_col1, regular_col1, check.names = FALSE)
       ) %>%
       collect() %>%
-      mutate(df_col = as.data.frame(df_col)),
+      mutate(
+        df_col = as.data.frame(df_col),
+        df_col2 = as.data.frame(df_col2)
+      ),
     df
   )
 
@@ -799,171 +839,15 @@ test_that("nested structs can be created from scalars and existing data frames",
       collect(),
     tibble(a = 1:2)
   )
-
-  })
-
-test_that("`as.Date()` and `as_date()`", {
-  test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
-    dt_europe = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
-    dt_utc = ymd_hms("2010-08-03 00:50:50"),
-    date_var = as.Date("2022-02-25"),
-    difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
-    integer_var = 32L,
-    integerish_var = 32,
-    double_var = 34.56
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_dv1 = as.Date(date_var),
-        date_pv1 = as.Date(posixct_var),
-        date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
-        date_utc1 = as.Date(dt_utc),
-        date_europe1 = as.Date(dt_europe),
-        date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int1 = as.Date(integer_var, origin = "1970-01-01"),
-        date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
-        date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
-        date_dv2 = as_date(date_var),
-        date_pv2 = as_date(posixct_var),
-        date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
-        date_utc2 = as_date(dt_utc),
-        date_europe2 = as_date(dt_europe),
-        date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-        date_int2 = as_date(integer_var, origin = "1970-01-01"),
-        date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
-        date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # we do not support multiple tryFormats
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
-                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
-      collect(),
-    test_df,
-    warning = TRUE
-  )
-
-  # strptime does not support a partial format - testing an error surfaced from
-  # C++ (hence not testing the content of the error message)
-  # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as_date(character_ymd_var)) %>%
-      collect()
-  )
-
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
-      collect(),
-    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
-    fixed = TRUE
-  )
-
-  # we do not support as.Date() with double/ float (error surfaced from C++)
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect()
-  )
-
-  # we do not support as_date with double/ float (error surfaced from C++)
-  # TODO: revisit after https://issues.apache.org/jira/browse/ARROW-15798
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as_date(double_var, origin = "1970-01-01")) %>%
-      collect()
-  )
-
-  # difference between as.Date() and as_date():
-  #`as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
-  # to `as.Date()`
-  # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
-  compare_dplyr_binding(
-    .input %>%
-      transmute(
-        date_diff_lubridate = as_date(difference_date),
-        date_diff_base = as.Date(difference_date)
-      ) %>%
-      collect(),
-    test_df
-  )
-})
-
-test_that("`as_datetime()`", {
-  test_df <- tibble(
-    date = as.Date(c("2022-03-22", "2021-07-30", NA)),
-    char_date = c("2022-03-22", "2021-07-30 14:32:47", NA),
-    char_date_non_iso = c("2022-22-03 12:34:56", "2021-30-07 14:32:47", NA),
-    int_date = c(10L, 25L, NA),
-    integerish_date = c(10, 25, NA),
-    double_date = c(10.1, 25.2, NA)
-  )
-
-  test_df %>%
-    arrow_table() %>%
-    mutate(
-      ddate = as_datetime(date),
-      dchar_date_no_tz = as_datetime(char_date),
-      dchar_date_non_iso = as_datetime(char_date_non_iso, format = "%Y-%d-%m %H:%M:%S"),
-      dint_date = as_datetime(int_date, origin = "1970-01-02"),
-      dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-      dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
-    ) %>%
-    collect()
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        ddate = as_datetime(date),
-        dchar_date_no_tz = as_datetime(char_date),
-        dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
-        dint_date = as_datetime(int_date, origin = "1970-01-02"),
-        dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # Arrow does not support conversion of double to date
-  # the below should error with an error message originating in the C++ code
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(
-        ddouble_date = as_datetime(double_date)
-      ) %>%
-      collect(),
-    regexp = "Float value 10.1 was truncated converting to int64"
-  )
 })
 
 test_that("format date/time", {
-  # locale issues
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
+  # TODO(ARROW-16399): remove this workaround
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     withr::local_locale(LC_TIME = "C")
   }
   # In 3.4 the lack of tzone attribute causes spurious failures
-  skip_if_r_version("3.4.4")
+  skip_on_r_older_than("3.5")
 
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
@@ -974,7 +858,10 @@ test_that("format date/time", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format(datetime, format = formats)) %>%
+      mutate(
+        x = format(datetime, format = formats),
+        x2 = base::format(datetime, format = formats)
+      ) %>%
       collect(),
     times
   )
@@ -1002,8 +889,10 @@ test_that("format date/time", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format(1),
-             y = format(13.7, nsmall = 3)) %>%
+      mutate(
+        x = format(1),
+        y = format(13.7, nsmall = 3)
+      ) %>%
       collect(),
     times
   )

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include array.R
 #' @title RecordBatch class
 #' @description A record batch is a collection of equal-length arrays matching
@@ -102,7 +102,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     ReplaceSchemaMetadata = function(new) {
-      RecordBatch__ReplaceSchemaMetadata(self, new)
+      RecordBatch__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
@@ -196,13 +196,14 @@ rbind.RecordBatch <- function(...) {
 }
 
 cbind_check_length <- function(inputs, call = caller_env()) {
-  sizes <- map_int(inputs, NROW)
-  ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  sizes <- map_dbl(inputs, NROW)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1)
   if (!all(ok_lengths)) {
     first_bad_one <- which.min(ok_lengths)
     abort(
       c("Non-scalar inputs must have an equal number of rows.",
-        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])),
+        i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])
+      ),
       call = call
     )
   }
@@ -230,17 +231,19 @@ cbind.RecordBatch <- function(...) {
       as.list(input)
     } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
       abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
-            i = "Hint: consider converting the RecordBatch into a Table first")
+        i = "Hint: consider converting the RecordBatch into a Table first"
+      )
     } else {
       if (name == "") {
         abort("Vector and array arguments must have names",
-              i = sprintf("Argument ..%d is missing a name", i))
+          i = sprintf("Argument ..%d is missing a name", i)
+        )
       }
       list2("{name}" := input)
     }
   }))
 
-  RecordBatch$create(!!! columns)
+  RecordBatch$create(!!!columns)
 }
 
 #' Convert an object to an Arrow RecordBatch
@@ -286,12 +289,18 @@ as_record_batch.Table <- function(x, ..., schema = NULL) {
 
   arrays_out <- lapply(x$columns, as_arrow_array)
   names(arrays_out) <- names(x)
-  out <- RecordBatch$create(!!! arrays_out)
+  out <- RecordBatch$create(!!!arrays_out)
   if (!is.null(schema)) {
     out <- out$cast(schema)
   }
 
   out
+}
+
+#' @rdname as_record_batch
+#' @export
+as_record_batch.arrow_dplyr_query <- function(x, ...) {
+  as_record_batch(compute.arrow_dplyr_query(x), ...)
 }
 
 #' @rdname as_record_batch

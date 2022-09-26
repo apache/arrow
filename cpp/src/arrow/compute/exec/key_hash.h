@@ -23,8 +23,8 @@
 
 #include <cstdint>
 
-#include "arrow/compute/exec/key_encode.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/light_array.h"
 
 namespace arrow {
 namespace compute {
@@ -45,8 +45,13 @@ class ARROW_EXPORT Hashing32 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                              KeyEncoder::KeyEncoderContext* ctx, uint32_t* out_hash);
+  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
+                              uint32_t* out_hash);
+
+  static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
+                          std::vector<KeyColumnArray>& column_arrays,
+                          int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                          int64_t offset, int64_t length);
 
  private:
   static const uint32_t PRIME32_1 = 0x9E3779B1;
@@ -153,8 +158,13 @@ class ARROW_EXPORT Hashing64 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                              KeyEncoder::KeyEncoderContext* ctx, uint64_t* hashes);
+  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
+                              uint64_t* hashes);
+
+  static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
+                          std::vector<KeyColumnArray>& column_arrays,
+                          int64_t hardware_flags, util::TempVectorStack* temp_stack,
+                          int64_t offset, int64_t length);
 
  private:
   static const uint64_t PRIME64_1 = 0x9E3779B185EBCA87ULL;

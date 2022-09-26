@@ -59,15 +59,6 @@ DEFINE_int32(port, -1, "Server port to listen on");
 
 namespace flight = ::arrow::flight;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 // Flight service
 class SimpleFlightServer : public flight::FlightServerBase {};
 
@@ -84,20 +75,12 @@ class HelloWorldServiceImpl : public HelloWorldService::Service {
   }
 };
 
-int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  if (FLAGS_port < 0) {
-    // For CI
-    std::cout << "Must specify a port with -port" << std::endl;
-    return EXIT_SUCCESS;
-  }
-
+arrow::Status RunFlightGrpc() {
   std::unique_ptr<flight::FlightServerBase> server;
   server.reset(new SimpleFlightServer());
 
   flight::Location bind_location;
-  ABORT_ON_FAILURE(
+  ARROW_RETURN_NOT_OK(
       flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&bind_location));
   flight::FlightServerOptions options(bind_location);
 
@@ -110,9 +93,28 @@ int main(int argc, char** argv) {
                               &extra_port);
     builder->RegisterService(&grpc_service);
   };
-  ABORT_ON_FAILURE(server->Init(options));
+  ARROW_RETURN_NOT_OK(server->Init(options));
   std::cout << "Listening on ports " << FLAGS_port << " and " << extra_port << std::endl;
-  ABORT_ON_FAILURE(server->SetShutdownOnSignals({SIGTERM}));
-  ABORT_ON_FAILURE(server->Serve());
+  ARROW_RETURN_NOT_OK(server->SetShutdownOnSignals({SIGTERM}));
+  ARROW_RETURN_NOT_OK(server->Serve());
+
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (FLAGS_port < 0) {
+    // For CI
+    std::cout << "Must specify a port with -port" << std::endl;
+    return EXIT_SUCCESS;
+  }
+
+  auto status = RunFlightGrpc();
+  if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
+  }
+
   return EXIT_SUCCESS;
 }

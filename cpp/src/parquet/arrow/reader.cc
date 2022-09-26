@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -482,8 +482,8 @@ class LeafReader : public ColumnReaderImpl {
         NextRowGroup();
       }
     }
-    RETURN_NOT_OK(TransferColumnData(record_reader_.get(), field_->type(), descr_,
-                                     ctx_->pool, &out_));
+    RETURN_NOT_OK(
+        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -994,7 +994,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
       }
     }
 
-    *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+    *out = std::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
 
     return Status::OK();
@@ -1038,7 +1038,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
             [table, table_reader] { return table_reader->Next(); });
       });
 
-  *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+  *out = std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 
   return Status::OK();

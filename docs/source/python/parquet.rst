@@ -103,7 +103,7 @@ source, we use ``read_pandas`` to maintain any additional index column data:
 
    pq.read_pandas('example.parquet', columns=['two']).to_pandas()
 
-We need not use a string to specify the origin of the file. It can be any of:
+We do not need to use a string to specify the origin of the file. It can be any of:
 
 * A file path as a string
 * A :ref:`NativeFile <io.native_file>` from PyArrow
@@ -118,7 +118,7 @@ maps) will perform the best.
 Reading Parquet and Memory Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because Parquet data needs to be decoded from the Parquet format 
+Because Parquet data needs to be decoded from the Parquet format
 and compression, it can't be directly mapped from disk.
 Thus the ``memory_map`` option might perform better on some systems
 but won't help much with resident memory consumption.
@@ -131,9 +131,9 @@ but won't help much with resident memory consumption.
 
       >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=False)
       >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
-      RSS: 4299MB   
+      RSS: 4299MB
 
-If you need to deal with Parquet data bigger than memory, 
+If you need to deal with Parquet data bigger than memory,
 the :ref:`dataset` and partitioning is probably what you are looking for.
 
 Parquet file writing options
@@ -756,7 +756,7 @@ An example encryption configuration:
 
 Decryption configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~
-   
+
 :class:`pyarrow.parquet.encryption.DecryptionConfiguration` (used when creating
 file decryption properties) is optional and it includes the following options:
 

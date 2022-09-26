@@ -35,4 +35,5 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    flight
    dataset
    cdata
+   jdbc
    Reference (javadoc) <reference/index>

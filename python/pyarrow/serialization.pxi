@@ -453,7 +453,7 @@ def read_serialized(source, base=None):
 
 def _read_serialized(source, base=None):
     cdef shared_ptr[CRandomAccessFile] stream
-    get_reader(source, True, &stream)
+    get_reader(source, False, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
     serialized.base = base

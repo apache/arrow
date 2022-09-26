@@ -43,6 +43,7 @@ rapidjson
 re2
 snappy
 thrift-cpp>=0.11.0
+xsimd
 zlib
 zstd
 flatbuffers

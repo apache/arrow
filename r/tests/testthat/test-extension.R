@@ -47,12 +47,12 @@ test_that("extension types can be created", {
 
 test_that("extension type subclasses work", {
   SomeExtensionTypeSubclass <- R6Class(
-    "SomeExtensionTypeSubclass", inherit = ExtensionType,
+    "SomeExtensionTypeSubclass",
+    inherit = ExtensionType,
     public = list(
       some_custom_method = function() {
         private$some_custom_field
       },
-
       deserialize_instance = function() {
         private$some_custom_field <- head(self$extension_metadata(), 5)
       }
@@ -126,14 +126,13 @@ test_that("extension types can be printed that don't use UTF-8 for metadata", {
 
 test_that("extension subclasses can override the ExtensionEquals method", {
   SomeExtensionTypeSubclass <- R6Class(
-    "SomeExtensionTypeSubclass", inherit = ExtensionType,
+    "SomeExtensionTypeSubclass",
+    inherit = ExtensionType,
     public = list(
       field_values = NULL,
-
       deserialize_instance = function() {
         self$field_values <- unserialize(self$extension_metadata())
       },
-
       ExtensionEquals = function(other) {
         if (!inherits(other, "SomeExtensionTypeSubclass")) {
           return(FALSE)
@@ -184,7 +183,7 @@ test_that("vctrs extension type works", {
   expect_r6_class(type, "VctrsExtensionType")
   expect_identical(type$ptype(), vctrs::vec_ptype(custom_vctr))
   expect_true(type$Equals(type))
-  expect_match(type$ToString(), "arrow_custom_test")
+  expect_identical(type$ToString(), "<arrow_custom_test[0]>")
 
   array_in <- vctrs_extension_array(custom_vctr)
   expect_true(array_in$type$Equals(type))
@@ -313,6 +312,7 @@ test_that("Table can roundtrip extension types", {
 
 test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
   skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   tf <- tempfile()
   on.exit(unlink(tf, recursive = TRUE))

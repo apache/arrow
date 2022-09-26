@@ -61,8 +61,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v8/arrow/ipc"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func main() {

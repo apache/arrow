@@ -67,11 +67,11 @@ RUN \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
-    python3-numpy \
     python3-pip \
     python3-setuptools \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep -q '^libcuda1'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

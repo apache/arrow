@@ -24,8 +24,6 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <functional>
 #include <memory>
 #include <string>
@@ -39,9 +37,11 @@
 namespace arrow {
 namespace flight {
 
-class ARROW_FLIGHT_EXPORT FlightTest : public testing::Test {
+class ARROW_FLIGHT_EXPORT FlightTest {
  protected:
   virtual std::string transport() const = 0;
+  virtual void SetUpTest() {}
+  virtual void TearDownTest() {}
 };
 
 /// Common tests of startup/shutdown
@@ -67,8 +67,8 @@ class ARROW_FLIGHT_EXPORT ConnectivityTest : public FlightTest {
 /// Common tests of data plane methods
 class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
   Status ConnectClient();
 
   // Test methods
@@ -76,6 +76,7 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   void TestDoGetFloats();
   void TestDoGetDicts();
   void TestDoGetLargeBatch();
+  void TestFlightDataStreamError();
   void TestOverflowServerBatch();
   void TestOverflowClientBatch();
   void TestDoExchange();
@@ -107,6 +108,7 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   TEST_F(FIXTURE, TestDoGetFloats) { TestDoGetFloats(); }                             \
   TEST_F(FIXTURE, TestDoGetDicts) { TestDoGetDicts(); }                               \
   TEST_F(FIXTURE, TestDoGetLargeBatch) { TestDoGetLargeBatch(); }                     \
+  TEST_F(FIXTURE, TestFlightDataStreamError) { TestFlightDataStreamError(); }         \
   TEST_F(FIXTURE, TestOverflowServerBatch) { TestOverflowServerBatch(); }             \
   TEST_F(FIXTURE, TestOverflowClientBatch) { TestOverflowClientBatch(); }             \
   TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }                               \
@@ -124,8 +126,8 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
 /// \brief Specific tests of DoPut.
 class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
   void CheckBatches(const FlightDescriptor& expected_descriptor,
                     const RecordBatchVector& expected_batches);
   void CheckDoPut(const FlightDescriptor& descr, const std::shared_ptr<Schema>& schema,
@@ -171,8 +173,8 @@ class ARROW_FLIGHT_EXPORT AppMetadataTestServer : public FlightServerBase {
 /// \brief Tests of app_metadata in data plane methods.
 class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGet();
@@ -198,8 +200,8 @@ class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
 /// \brief Tests of IPC options in data plane methods.
 class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
  public:
-  void SetUp();
-  void TearDown();
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGetReadOptions();
@@ -233,8 +235,8 @@ class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
 /// If not built with ARROW_CUDA, tests are no-ops.
 class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
  public:
-  void SetUp() override;
-  void TearDown() override;
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestDoGet();
@@ -258,11 +260,13 @@ class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
 /// \brief Tests of error handling.
 class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
  public:
-  void SetUp() override;
-  void TearDown() override;
+  void SetUpTest() override;
+  void TearDownTest() override;
 
   // Test methods
   void TestGetFlightInfo();
+  void TestDoPut();
+  void TestDoExchange();
 
  private:
   std::unique_ptr<FlightClient> client_;
@@ -272,7 +276,9 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 #define ARROW_FLIGHT_TEST_ERROR_HANDLING(FIXTURE)                                 \
   static_assert(std::is_base_of<ErrorHandlingTest, FIXTURE>::value,               \
                 ARROW_STRINGIFY(FIXTURE) " must inherit from ErrorHandlingTest"); \
-  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }
+  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                     \
+  TEST_F(FIXTURE, TestDoPut) { TestDoPut(); }                                     \
+  TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }
 
 }  // namespace flight
 }  // namespace arrow

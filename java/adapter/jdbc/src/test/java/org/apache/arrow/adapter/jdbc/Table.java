@@ -148,6 +148,10 @@ public class Table {
     return getByteArray(values);
   }
 
+  public Integer[][] getListValues() {
+    return JdbcToArrowTestHelper.getListValues(values);
+  }
+
   public String getCreate() {
     return create;
   }
@@ -202,6 +206,11 @@ public class Table {
 
   public void setRowCount(int rowCount) {
     this.rowCount = rowCount;
+  }
+
+  @Override
+  public String toString() {
+    return "Table{name='" + name + "', type='" + type + "'}";
   }
 
   static byte[][] getByteArray(String[] data) {

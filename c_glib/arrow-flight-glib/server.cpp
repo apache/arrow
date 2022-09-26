@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <arrow/util/make_unique.h>
+#include <memory>
 
 #include <arrow-glib/arrow-glib.hpp>
 
@@ -239,7 +239,7 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
   } else {
     arrow_options = &arrow_options_default;
   }
-  auto stream = arrow::internal::make_unique<
+  auto stream = std::make_unique<
     arrow::flight::RecordBatchStream>(arrow_reader, *arrow_options);
   return static_cast<GAFlightRecordBatchStream *>(
     g_object_new(GAFLIGHT_TYPE_RECORD_BATCH_STREAM,
@@ -432,42 +432,26 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
 }
 
 
+G_DEFINE_INTERFACE(GAFlightServable,
+                   gaflight_servable,
+                   G_TYPE_OBJECT)
+
+static void
+gaflight_servable_default_init(GAFlightServableInterface *iface)
+{
+}
+
+
 G_END_DECLS
 namespace gaflight {
-  class DataStream : public arrow::flight::FlightDataStream {
-  public:
-    DataStream(GAFlightDataStream *gastream) :
-      arrow::flight::FlightDataStream(),
-      gastream_(gastream) {
-    }
-
-    ~DataStream() override {
-      g_object_unref(gastream_);
-    }
-
-    std::shared_ptr<arrow::Schema> schema() override {
-      auto stream = gaflight_data_stream_get_raw(gastream_);
-      return stream->schema();
-    }
-
-    arrow::Result<arrow::flight::FlightPayload> GetSchemaPayload() override {
-      auto stream = gaflight_data_stream_get_raw(gastream_);
-      return stream->GetSchemaPayload();
-    }
-
-    arrow::Result<arrow::flight::FlightPayload> Next() override {
-      auto stream = gaflight_data_stream_get_raw(gastream_);
-      return stream->Next();
-    }
-
-  private:
-    GAFlightDataStream *gastream_;
-  };
-
   class Server : public arrow::flight::FlightServerBase {
   public:
-    Server(GAFlightServer *gaserver) : gaserver_(gaserver) {
+    explicit Server(GAFlightServer *gaserver) :
+      FlightServerBase(),
+      gaserver_(gaserver) {
     }
+
+    ~Server() override = default;
 
     arrow::Status
     ListFlights(
@@ -475,11 +459,11 @@ namespace gaflight {
       const arrow::flight::Criteria *criteria,
       std::unique_ptr<arrow::flight::FlightListing> *listing) override {
       auto gacontext = gaflight_server_call_context_new_raw(&context);
-      GAFlightCriteria *gacriteria = NULL;
+      GAFlightCriteria *gacriteria = nullptr;
       if (criteria) {
         gacriteria = gaflight_criteria_new_raw(criteria);
       }
-      GError *gerror = NULL;
+      GError *gerror = nullptr;
       auto gaflights = gaflight_server_list_flights(gaserver_,
                                                     gacontext,
                                                     gacriteria,
@@ -500,8 +484,32 @@ namespace gaflight {
         g_object_unref(gaflight);
       }
       g_list_free(gaflights);
-      *listing = arrow::internal::make_unique<
+      *listing = std::make_unique<
         arrow::flight::SimpleFlightListing>(flights);
+      return arrow::Status::OK();
+    }
+
+    arrow::Status
+    GetFlightInfo(const arrow::flight::ServerCallContext &context,
+                  const arrow::flight::FlightDescriptor &request,
+                  std::unique_ptr<arrow::flight::FlightInfo> *info) override {
+      auto gacontext = gaflight_server_call_context_new_raw(&context);
+      auto garequest = gaflight_descriptor_new_raw(&request);
+      GError *gerror = nullptr;
+      auto gainfo = gaflight_server_get_flight_info(gaserver_,
+                                                    gacontext,
+                                                    garequest,
+                                                    &gerror);
+      g_object_unref(garequest);
+      g_object_unref(gacontext);
+      if (gerror) {
+        return garrow_error_to_status(gerror,
+                                      arrow::StatusCode::UnknownError,
+                                      "[flight-server][get-flight-info]");
+      }
+      *info = std::make_unique<arrow::flight::FlightInfo>(
+        *gaflight_info_get_raw(gainfo));
+      g_object_unref(gainfo);
       return arrow::Status::OK();
     }
 
@@ -511,7 +519,7 @@ namespace gaflight {
       std::unique_ptr<arrow::flight::FlightDataStream> *stream) override {
       auto gacontext = gaflight_server_call_context_new_raw(&context);
       auto gaticket = gaflight_ticket_new_raw(&ticket);
-      GError *gerror = NULL;
+      GError *gerror = nullptr;
       auto gastream = gaflight_server_do_get(gaserver_,
                                              gacontext,
                                              gaticket,
@@ -523,7 +531,7 @@ namespace gaflight {
                                       arrow::StatusCode::UnknownError,
                                       "[flight-server][do-get]");
       }
-      *stream = arrow::internal::make_unique<DataStream>(gastream);
+      *stream = std::make_unique<DataStream>(gastream);
       return arrow::Status::OK();
     }
 
@@ -533,24 +541,47 @@ namespace gaflight {
 };
 G_BEGIN_DECLS
 
-typedef struct GAFlightServerPrivate_ {
+struct GAFlightServerPrivate {
   gaflight::Server server;
-} GAFlightServerPrivate;
+};
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GAFlightServer,
-                                    gaflight_server,
-                                    G_TYPE_OBJECT)
+G_END_DECLS
+static arrow::flight::FlightServerBase *
+gaflight_server_servable_get_raw(GAFlightServable *servable);
+G_BEGIN_DECLS
 
-#define GAFLIGHT_SERVER_GET_PRIVATE(obj)         \
-  static_cast<GAFlightServerPrivate *>(          \
-    gaflight_server_get_instance_private(        \
-      GAFLIGHT_SERVER(obj)))
+static void
+gaflight_server_servable_interface_init(GAFlightServableInterface *iface)
+{
+  iface->get_raw = gaflight_server_servable_get_raw;
+}
+
+G_DEFINE_ABSTRACT_TYPE_WITH_CODE(GAFlightServer,
+                                 gaflight_server,
+                                 G_TYPE_OBJECT,
+                                 G_ADD_PRIVATE(GAFlightServer);
+                                 G_IMPLEMENT_INTERFACE(
+                                   GAFLIGHT_TYPE_SERVABLE,
+                                   gaflight_server_servable_interface_init))
+
+#define GAFLIGHT_SERVER_GET_PRIVATE(object)         \
+  static_cast<GAFlightServerPrivate *>(             \
+    gaflight_server_get_instance_private(           \
+      GAFLIGHT_SERVER(object)))
+
+G_END_DECLS
+static arrow::flight::FlightServerBase *
+gaflight_server_servable_get_raw(GAFlightServable *servable)
+{
+  auto priv = GAFLIGHT_SERVER_GET_PRIVATE(servable);
+  return &(priv->server);
+}
+G_BEGIN_DECLS
 
 static void
 gaflight_server_finalize(GObject *object)
 {
   auto priv = GAFLIGHT_SERVER_GET_PRIVATE(object);
-
   priv->server.~Server();
 
   G_OBJECT_CLASS(gaflight_server_parent_class)->finalize(object);
@@ -567,7 +598,6 @@ static void
 gaflight_server_class_init(GAFlightServerClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-
   gobject_class->finalize = gaflight_server_finalize;
 }
 
@@ -586,7 +616,7 @@ gaflight_server_listen(GAFlightServer *server,
                        GAFlightServerOptions *options,
                        GError **error)
 {
-  auto flight_server = gaflight_server_get_raw(server);
+  auto flight_server = gaflight_servable_get_raw(GAFLIGHT_SERVABLE(server));
   const auto flight_options = gaflight_server_options_get_raw(options);
   return garrow::check(error,
                        flight_server->Init(*flight_options),
@@ -604,7 +634,8 @@ gaflight_server_listen(GAFlightServer *server,
 gint
 gaflight_server_get_port(GAFlightServer *server)
 {
-  const auto flight_server = gaflight_server_get_raw(server);
+  const auto flight_server =
+    gaflight_servable_get_raw(GAFLIGHT_SERVABLE(server));
   return flight_server->port();
 }
 
@@ -624,7 +655,7 @@ gboolean
 gaflight_server_shutdown(GAFlightServer *server,
                          GError **error)
 {
-  auto flight_server = gaflight_server_get_raw(server);
+  auto flight_server = gaflight_servable_get_raw(GAFLIGHT_SERVABLE(server));
   return garrow::check(error,
                        flight_server->Shutdown(),
                        "[flight-server][shutdown]");
@@ -654,9 +685,37 @@ gaflight_server_list_flights(GAFlightServer *server,
                 GARROW_ERROR,
                 GARROW_ERROR_NOT_IMPLEMENTED,
                 "not implemented");
-    return NULL;
+    return nullptr;
   }
   return (*(klass->list_flights))(server, context, criteria, error);
+}
+
+/**
+ * gaflight_server_get_flight_info:
+ * @server: A #GAFlightServer.
+ * @context: A #GAFlightServerCallContext.
+ * @request: A #GAFlightDescriptor.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): A #GAFlightInfo on success, %NULL on error.
+ *
+ * Since: 9.0.0
+ */
+GAFlightInfo *
+gaflight_server_get_flight_info(GAFlightServer *server,
+                                GAFlightServerCallContext *context,
+                                GAFlightDescriptor *request,
+                                GError **error)
+{
+  auto klass = GAFLIGHT_SERVER_GET_CLASS(server);
+  if (!(klass && klass->get_flight_info)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_NOT_IMPLEMENTED,
+                "not implemented");
+    return nullptr;
+  }
+  return (*(klass->get_flight_info))(server, context, request, error);
 }
 
 /**
@@ -682,7 +741,7 @@ gaflight_server_do_get(GAFlightServer *server,
                 GARROW_ERROR,
                 GARROW_ERROR_NOT_IMPLEMENTED,
                 "not implemented");
-    return NULL;
+    return nullptr;
   }
   return (*(klass->do_get))(server, context, ticket, error);
 }
@@ -716,8 +775,8 @@ gaflight_server_call_context_new_raw(
 }
 
 arrow::flight::FlightServerBase *
-gaflight_server_get_raw(GAFlightServer *server)
+gaflight_servable_get_raw(GAFlightServable *servable)
 {
-  auto priv = GAFLIGHT_SERVER_GET_PRIVATE(server);
-  return &(priv->server);
+  auto *iface = GAFLIGHT_SERVABLE_GET_IFACE(servable);
+  return iface->get_raw(servable);
 }

@@ -28,8 +28,23 @@ add_arrow_test(filesystem-test
                EXTRA_LABELS
                filesystem)
 
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(localfs_benchmark
+                      PREFIX
+                      "arrow-filesystem"
+                      SOURCES
+                      localfs_benchmark.cc
+                      STATIC_LINK_LIBS
+                      ${ARROW_BENCHMARK_LINK_LIBS})
+endif()
+
 if(ARROW_GCS)
-  add_arrow_test(gcsfs_test EXTRA_LABELS filesystem)
+  add_arrow_test(gcsfs_test
+                 EXTRA_LABELS
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
 endif()
 
 if(ARROW_S3)
@@ -38,9 +53,12 @@ if(ARROW_S3)
                  s3fs_test.cc
                  s3_test_util.cc
                  EXTRA_LABELS
-                 filesystem)
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
   if(TARGET arrow-s3fs-test)
-    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS)
     get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
     # We need to initialize AWS C++ SDK for direct use (not via
     # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
@@ -73,9 +91,11 @@ if(ARROW_S3)
                         "arrow-filesystem"
                         SOURCES
                         s3fs_benchmark.cc
-                        s3_test_util.cc)
-    target_compile_definitions(arrow-filesystem-s3fs-benchmark
-                               PRIVATE ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+                        s3_test_util.cc
+                        STATIC_LINK_LIBS
+                        ${ARROW_BENCHMARK_LINK_LIBS}
+                        Boost::filesystem
+                        Boost::system)
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
     else()

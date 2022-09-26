@@ -18,16 +18,17 @@ package testutils
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"reflect"
 
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/compress"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/utils"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/compress"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -91,6 +92,9 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 	enc := encoding.NewEncoder(desc.PhysicalType(), e, false, desc, mem)
 	var sz int
 	switch v := values.(type) {
+	case []bool:
+		enc.(encoding.BooleanEncoder).Put(v)
+		sz = len(v)
 	case []int32:
 		enc.(encoding.Int32Encoder).Put(v)
 		sz = len(v)
@@ -109,6 +113,8 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 	case []parquet.ByteArray:
 		enc.(encoding.ByteArrayEncoder).Put(v)
 		sz = len(v)
+	default:
+		panic(fmt.Sprintf("no testutil data page builder for type %T", values))
 	}
 	buf, _ := enc.FlushValues()
 	_, err := d.sink.Write(buf.Bytes())
@@ -147,6 +153,8 @@ func (d *DictionaryPageBuilder) AppendValues(values interface{}) encoding.Buffer
 		d.traits.(encoding.Float64Encoder).Put(v)
 	case []parquet.ByteArray:
 		d.traits.(encoding.ByteArrayEncoder).Put(v)
+	default:
+		panic(fmt.Sprintf("no testutil dictionary page builder for type %T", values))
 	}
 
 	d.numDictValues = int32(d.traits.NumEntries())

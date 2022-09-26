@@ -109,7 +109,7 @@ script:
   - popd
   - pushd apache-arrow-release/yum
   - |
-      for target in almalinux-* centos-*; do
+      for target in almalinux-* amazon-linux-* centos-*; do
         cp -a ${target} ${target}-aarch64
       done
   - popd

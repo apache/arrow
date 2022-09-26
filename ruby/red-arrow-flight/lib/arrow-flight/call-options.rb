@@ -31,5 +31,23 @@ module ArrowFlight
         end
       end
     end
+
+    def headers=(headers)
+      clear_headers
+      headers.each do |name, value|
+        add_header(name, value)
+      end
+    end
+
+    def each_header
+      return to_enum(__method__) unless block_given?
+      foreach_header do |key, value|
+        yield(key, value)
+      end
+    end
+
+    def headers
+      each_header.to_a
+    end
   end
 end

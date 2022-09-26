@@ -23,12 +23,13 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // Reader reads records from an io.Reader.
@@ -43,18 +44,25 @@ type Reader struct {
 	err      error
 
 	// types dictTypeMap
-	memo             dictutils.Memo
-	readInitialDicts bool
+	memo               dictutils.Memo
+	readInitialDicts   bool
+	done               bool
+	swapEndianness     bool
+	ensureNativeEndian bool
+	expectedSchema     *arrow.Schema
 
 	mem memory.Allocator
-
-	done bool
 }
 
 // NewReaderFromMessageReader allows constructing a new reader object with the
 // provided MessageReader allowing injection of reading messages other than
 // by simple streaming bytes such as Arrow Flight which receives a protobuf message
-func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error) {
+func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader, err error) {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
 	cfg := newConfig()
 	for _, opt := range opts {
 		opt(cfg)
@@ -64,13 +72,16 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 		r:        r,
 		refCount: 1,
 		// types:    make(dictTypeMap),
-		memo: dictutils.NewMemo(),
-		mem:  cfg.alloc,
+		memo:               dictutils.NewMemo(),
+		mem:                cfg.alloc,
+		ensureNativeEndian: cfg.ensureNativeEndian,
+		expectedSchema:     cfg.schema,
 	}
 
-	err := rr.readSchema(cfg.schema)
-	if err != nil {
-		return nil, fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
+	if !cfg.noAutoSchema {
+		if err := rr.readSchema(cfg.schema); err != nil {
+			return nil, err
+		}
 	}
 
 	return rr, nil
@@ -85,7 +96,15 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 // underlying stream.
 func (r *Reader) Err() error { return r.err }
 
-func (r *Reader) Schema() *arrow.Schema { return r.schema }
+func (r *Reader) Schema() *arrow.Schema {
+	if r.schema == nil {
+		if err := r.readSchema(r.expectedSchema); err != nil {
+			r.err = fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
+			r.done = true
+		}
+	}
+	return r.schema
+}
 
 func (r *Reader) readSchema(schema *arrow.Schema) error {
 	msg, err := r.r.Message()
@@ -109,6 +128,11 @@ func (r *Reader) readSchema(schema *arrow.Schema) error {
 	// check the provided schema match the one read from stream.
 	if schema != nil && !schema.Equal(r.schema) {
 		return errInconsistentSchema
+	}
+
+	if r.ensureNativeEndian && !r.schema.IsNativeEndian() {
+		r.swapEndianness = true
+		r.schema = r.schema.WithEndianness(endian.NativeEndian)
 	}
 
 	return nil
@@ -175,7 +199,7 @@ func (r *Reader) getInitialDicts() bool {
 		if msg.Type() != MessageDictionaryBatch {
 			r.err = fmt.Errorf("arrow/ipc: IPC stream did not have the expected (%d) dictionaries at the start of the stream", numDicts)
 		}
-		if _, err := readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); err != nil {
+		if _, err := readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem); err != nil {
 			r.done = true
 			r.err = err
 			return false
@@ -186,6 +210,19 @@ func (r *Reader) getInitialDicts() bool {
 }
 
 func (r *Reader) next() bool {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
+	if r.schema == nil {
+		if err := r.readSchema(r.expectedSchema); err != nil {
+			r.err = fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
+			r.done = true
+			return false
+		}
+	}
+
 	if !r.readInitialDicts && !r.getInitialDicts() {
 		return false
 	}
@@ -194,7 +231,7 @@ func (r *Reader) next() bool {
 	msg, r.err = r.r.Message()
 
 	for msg != nil && msg.Type() == MessageDictionaryBatch {
-		if _, r.err = readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); r.err != nil {
+		if _, r.err = readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem); r.err != nil {
 			r.done = true
 			return false
 		}
@@ -213,7 +250,7 @@ func (r *Reader) next() bool {
 		return false
 	}
 
-	r.rec = newRecord(r.schema, &r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
+	r.rec = newRecord(r.schema, &r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem)
 	return true
 }
 

@@ -19,7 +19,7 @@ package arrow
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Table represents a logical sequence of chunked arrays of equal length. It is
@@ -140,16 +140,20 @@ type Chunked struct {
 // NewChunked panics if the chunks do not have the same data type.
 func NewChunked(dtype DataType, chunks []Array) *Chunked {
 	arr := &Chunked{
-		chunks:   make([]Array, len(chunks)),
+		chunks:   make([]Array, 0, len(chunks)),
 		refCount: 1,
 		dtype:    dtype,
 	}
-	for i, chunk := range chunks {
+	for _, chunk := range chunks {
+		if chunk == nil {
+			continue
+		}
+		
 		if !TypeEqual(chunk.DataType(), dtype) {
 			panic("arrow/array: mismatch data type")
 		}
 		chunk.Retain()
-		arr.chunks[i] = chunk
+		arr.chunks = append(arr.chunks, chunk)
 		arr.length += chunk.Len()
 		arr.nulls += chunk.NullN()
 	}

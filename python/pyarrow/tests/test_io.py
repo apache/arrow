@@ -21,6 +21,7 @@ from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
 import gzip
+import math
 import os
 import pathlib
 import pickle
@@ -123,6 +124,50 @@ def test_python_file_read():
 
     with pytest.raises(TypeError, match="binary file expected"):
         pa.PythonFile(StringIO(), mode='r')
+
+
+@pytest.mark.parametrize("nbytes", (-1, 0, 1, 5, 100))
+@pytest.mark.parametrize("file_offset", (-1, 0, 5, 100))
+def test_python_file_get_stream(nbytes, file_offset):
+
+    data = b'data1data2data3data4data5'
+
+    f = pa.PythonFile(BytesIO(data), mode='r')
+
+    # negative nbytes or offsets don't make sense here, raise ValueError
+    if nbytes < 0 or file_offset < 0:
+        with pytest.raises(pa.ArrowInvalid,
+                           match="should be a positive value"):
+            f.get_stream(file_offset=file_offset, nbytes=nbytes)
+        f.close()
+        return
+    else:
+        stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
+
+    # Subsequent calls to 'read' should match behavior if same
+    # data passed to BytesIO where get_stream should handle if
+    # nbytes/file_offset results in no bytes b/c out of bounds.
+    start = min(file_offset, len(data))
+    end = min(file_offset + nbytes, len(data))
+    buf = BytesIO(data[start:end])
+
+    # read some chunks
+    assert stream.read(nbytes=4) == buf.read(4)
+    assert stream.read(nbytes=6) == buf.read(6)
+
+    # Read to end of each stream
+    assert stream.read() == buf.read()
+
+    # Try reading past the stream
+    n = len(data) * 2
+    assert stream.read(n) == buf.read(n)
+
+    # NativeFile[CInputStream] is not seekable
+    with pytest.raises(OSError, match="seekable"):
+        stream.seek(0)
+
+    stream.close()
+    assert stream.closed
 
 
 def test_python_file_read_at():
@@ -674,6 +719,12 @@ def test_compression_level(compression):
     if not Codec.is_available(compression):
         pytest.skip("{} support is not built".format(compression))
 
+    codec = Codec(compression)
+    if codec.name == "snappy":
+        assert codec.compression_level is None
+    else:
+        assert isinstance(codec.compression_level, int)
+
     # These codecs do not support a compression level
     no_level = ['snappy']
     if compression in no_level:
@@ -1199,6 +1250,65 @@ def test_native_file_TextIOWrapper(tmpdir):
     with TextIOWrapper(pa.OSFile(path2, mode='rb')) as fil:
         res = fil.read()
         assert res == data
+
+
+def test_native_file_TextIOWrapper_perf(tmpdir):
+    # ARROW-16272: TextIOWrapper.readline() shouldn't exhaust a large
+    # Arrow input stream.
+    data = b'foo\nquux\n'
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data * 100_000)
+
+    binary_file = pa.OSFile(path, mode='rb')
+    with TextIOWrapper(binary_file) as f:
+        assert binary_file.tell() == 0
+        nbytes = 20_000
+        lines = f.readlines(nbytes)
+        assert len(lines) == math.ceil(2 * nbytes / len(data))
+        assert nbytes <= binary_file.tell() <= nbytes * 2
+
+
+def test_native_file_read1(tmpdir):
+    # ARROW-16272: read1() should not exhaust the input stream if there
+    # is a large amount of data remaining.
+    data = b'123\n' * 1_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    chunks = []
+    with pa.OSFile(path, mode='rb') as f:
+        while True:
+            b = f.read1()
+            assert len(b) < len(data)
+            chunks.append(b)
+            b = f.read1(30_000)
+            assert len(b) <= 30_000
+            chunks.append(b)
+            if not b:
+                break
+
+    assert b"".join(chunks) == data
+
+
+@pytest.mark.pandas
+def test_native_file_pandas_text_reader(tmpdir):
+    # ARROW-16272: Pandas' read_csv() should not exhaust an Arrow
+    # input stream when a small nrows is passed.
+    import pandas as pd
+    import pandas.testing as tm
+    data = b'a,b\n' * 10_000_000
+    path = str(tmpdir / 'largefile.txt')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+    with pa.OSFile(path, mode='rb') as f:
+        df = pd.read_csv(f, nrows=10)
+        expected = pd.DataFrame({'a': ['a'] * 10, 'b': ['b'] * 10})
+        tm.assert_frame_equal(df, expected)
+        # Some readahead occurred, but not up to the end of file
+        assert f.tell() <= 256 * 1024
 
 
 def test_native_file_open_error():

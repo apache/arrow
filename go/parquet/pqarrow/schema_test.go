@@ -20,13 +20,13 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/flight"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/metadata"
-	"github.com/apache/arrow/go/v8/parquet/pqarrow"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
+	"github.com/apache/arrow/go/v10/parquet/pqarrow"
+	"github.com/apache/arrow/go/v10/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,6 +57,37 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 			arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
 			assert.NoError(t, err)
 			assert.True(t, origArrSc.Equal(arrsc))
+		})
+	}
+}
+
+func TestToParquetWriterConfig(t *testing.T) {
+	origSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64},
+	}, nil)
+
+	tests := []struct {
+		name           string
+		rootRepetition parquet.Repetition
+	}{
+		{"test1", parquet.Repetitions.Required},
+		{"test2", parquet.Repetitions.Repeated},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			pqschema, err := pqarrow.ToParquet(origSc,
+				parquet.NewWriterProperties(
+					parquet.WithRootName(tt.name),
+					parquet.WithRootRepetition(tt.rootRepetition),
+				),
+				pqarrow.DefaultWriterProps())
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.name, pqschema.Root().Name())
+			assert.Equal(t, tt.rootRepetition, pqschema.Root().RepetitionType())
 		})
 	}
 }

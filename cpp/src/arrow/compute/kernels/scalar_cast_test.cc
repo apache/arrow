@@ -110,7 +110,7 @@ static void CheckCast(std::shared_ptr<Array> input, std::shared_ptr<Array> expec
 
 static void CheckCastFails(std::shared_ptr<Array> input, CastOptions options) {
   ASSERT_RAISES(Invalid, Cast(input, options))
-      << "\n  to_type:   " << options.to_type->ToString()
+      << "\n  to_type:   " << options.to_type.ToString()
       << "\n  from_type: " << input->type()->ToString()
       << "\n  input:     " << input->ToString();
 
@@ -1798,7 +1798,7 @@ TEST(Cast, UnsupportedTargetType) {
   const auto to_type = dense_union({field("a", int32())});
 
   // Try through concrete API
-  const char* expected_message = "Unsupported cast from int32 to dense_union";
+  const char* expected_message = "Unsupported cast to dense_union<a: int32=0> from int32";
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
                                   Cast(*arr, to_type));
 
@@ -2031,7 +2031,10 @@ TEST(Cast, BinaryToString) {
 
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
-    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+
+    // ARROW-16757: we no longer zero copy, but the contents are equal
+    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+    ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
   }
 }
 
@@ -2065,7 +2068,10 @@ TEST(Cast, BinaryOrStringToBinary) {
 
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
-    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+
+    // ARROW-16757: we no longer zero copy, but the contents are equal
+    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+    ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
 
     // invalid utf-8 masked by a null bit is not an error
     CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),

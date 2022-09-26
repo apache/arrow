@@ -27,7 +27,6 @@ A \link[=data-type]{DataType} object.
 Convert an object to an Arrow DataType
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 as_data_type(int32())
-\dontshow{\}) # examplesIf}
+
 }

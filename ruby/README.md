@@ -19,7 +19,7 @@
 
 # Apache Arrow Ruby
 
-There are the official Ruby bindings for Apache Arrow.
+Here are the official Ruby bindings for Apache Arrow.
 
 [Red Arrow](https://github.com/apache/arrow/tree/master/ruby/red-arrow) is the base Apache Arrow bindings.
 
@@ -65,12 +65,12 @@ Suppose you have your data available via HTTP. Let's connect to demo ClickHouse 
 require 'net/http'
 
 params = {
-  query: "SELECT WatchID as watch FROM hits_v1 LIMIT 10 FORMAT Arrow",
-  user: "playground",
-  password: "clickhouse",
-  database: "datasets"
+  query: "SELECT WatchID as watch FROM hits LIMIT 10 FORMAT Arrow",
+  user: "play",
+  password: "",
+  database: "default"
 }
-uri = URI('https://play-api.clickhouse.com:8443')
+uri = URI('https://play.clickhouse.com:443/')
 uri.query = URI.encode_www_form(params)
 resp = Net::HTTP.get(uri)
 table = Arrow::Table.load(Arrow::Buffer.new(resp))

@@ -313,8 +313,8 @@ class GrpcServiceHandler final : public FlightService::Service {
     CallHeaders incoming_headers;
     for (const auto& entry : context->client_metadata()) {
       incoming_headers.insert(
-          {util::string_view(entry.first.data(), entry.first.length()),
-           util::string_view(entry.second.data(), entry.second.length())});
+          {std::string_view(entry.first.data(), entry.first.length()),
+           std::string_view(entry.second.data(), entry.second.length())});
     }
 
     GrpcAddServerHeaders outgoing_headers(context);

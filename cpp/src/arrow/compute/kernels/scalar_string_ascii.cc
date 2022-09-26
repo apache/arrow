@@ -26,9 +26,14 @@
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using internal::EndsWith;
+using internal::StartsWith;
+
 namespace compute {
 namespace internal {
 
@@ -38,11 +43,11 @@ namespace {
 // re2 utilities
 
 #ifdef ARROW_WITH_RE2
-util::string_view ToStringView(re2::StringPiece piece) {
+std::string_view ToStringView(re2::StringPiece piece) {
   return {piece.data(), piece.length()};
 }
 
-re2::StringPiece ToStringPiece(util::string_view view) {
+re2::StringPiece ToStringPiece(std::string_view view) {
   return {view.data(), view.length()};
 }
 
@@ -76,31 +81,21 @@ RE2::Options MakeRE2Options(bool ignore_case = false, bool literal = false) {
 template <typename StringTransform>
 struct FixedSizeBinaryTransformExecBase {
   static Status Execute(KernelContext* ctx, StringTransform* transform,
-                        const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      return ExecArray(ctx, transform, batch[0].array(), out);
-    }
-    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-    return ExecScalar(ctx, transform, batch[0].scalar(), out);
-  }
+                        const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& input = batch[0].array;
+    ArrayData* output = out->array_data().get();
 
-  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
-                          const std::shared_ptr<ArrayData>& data, Datum* out) {
-    FixedSizeBinaryArray input(data);
-    ArrayData* output = out->mutable_array();
-
-    const int32_t input_width =
-        checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
-    const int32_t output_width =
-        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
-    const int64_t input_nstrings = input.length();
+    const int32_t input_width = input.type->byte_width();
+    const int32_t output_width = out->type()->byte_width();
+    const int64_t input_nstrings = input.length;
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           ctx->Allocate(output_width * input_nstrings));
     uint8_t* output_str = values_buffer->mutable_data();
 
+    const uint8_t* input_data = input.GetValues<uint8_t>(1);
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
-        const uint8_t* input_string = input.GetValue(i);
+        const uint8_t* input_string = input_data + i * input_width;
         auto encoded_nbytes = static_cast<int32_t>(
             transform->Transform(input_string, input_width, output_str));
         if (encoded_nbytes != output_width) {
@@ -115,29 +110,6 @@ struct FixedSizeBinaryTransformExecBase {
     output->buffers[1] = std::move(values_buffer);
     return Status::OK();
   }
-
-  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
-                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
-    if (!input.is_valid) {
-      return Status::OK();
-    }
-    const int32_t out_width =
-        checked_cast<const FixedSizeBinaryType&>(*out->type()).byte_width();
-    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-
-    const int32_t data_nbytes = static_cast<int32_t>(input.value->size());
-    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(out_width));
-    auto encoded_nbytes = static_cast<int32_t>(transform->Transform(
-        input.value->data(), data_nbytes, value_buffer->mutable_data()));
-    if (encoded_nbytes != out_width) {
-      return transform->InvalidInputSequence();
-    }
-
-    result->is_valid = true;
-    result->value = std::move(value_buffer);
-    return Status::OK();
-  }
 };
 
 template <typename StringTransform>
@@ -146,20 +118,19 @@ struct FixedSizeBinaryTransformExecWithState
   using State = typename StringTransform::State;
   using FixedSizeBinaryTransformExecBase<StringTransform>::Execute;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     StringTransform transform(State::Get(ctx));
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
   }
 
-  static Result<ValueDescr> OutputType(KernelContext* ctx,
-                                       const std::vector<ValueDescr>& descrs) {
-    DCHECK_EQ(1, descrs.size());
+  static Result<TypeHolder> OutputType(KernelContext* ctx,
+                                       const std::vector<TypeHolder>& types) {
+    DCHECK_EQ(1, types.size());
     const auto& options = State::Get(ctx);
-    const int32_t input_width =
-        checked_cast<const FixedSizeBinaryType&>(*descrs[0].type).byte_width();
+    const int32_t input_width = types[0].type->byte_width();
     const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
-    return ValueDescr(fixed_size_binary(output_width), descrs[0].shape);
+    return fixed_size_binary(output_width);
   }
 };
 
@@ -167,11 +138,11 @@ template <typename Type1, typename Type2>
 struct StringBinaryTransformBase {
   using ViewType2 = typename GetViewType<Type2>::T;
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
-  using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+  using offset_type = typename ArrayType1::offset_type;
 
   virtual ~StringBinaryTransformBase() = default;
 
-  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  virtual Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return Status::OK();
   }
 
@@ -183,25 +154,20 @@ struct StringBinaryTransformBase {
   // given input characteristics for different input shapes.
   // The Status parameter should only be set if an error needs to be signaled.
 
-  // Scalar-Scalar
-  virtual Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits, const ViewType2) {
-    return input1_ncodeunits;
-  }
-
   // Scalar-Array
   virtual Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
-                                       const ArrayType2&) {
+                                       const ArraySpan&) {
     return input1_ncodeunits;
   }
 
   // Array-Scalar
-  virtual Result<int64_t> MaxCodeunits(const ArrayType1& input1, const ViewType2) {
-    return input1.total_values_length();
+  virtual Result<int64_t> MaxCodeunits(const ArraySpan& input1, const ViewType2) {
+    return GetVarBinaryValuesLength<offset_type>(input1);
   }
 
   // Array-Array
-  virtual Result<int64_t> MaxCodeunits(const ArrayType1& input1, const ArrayType2&) {
-    return input1.total_values_length();
+  virtual Result<int64_t> MaxCodeunits(const ArraySpan& input1, const ArraySpan&) {
+    return GetVarBinaryValuesLength<offset_type>(input1);
   }
 
   // Not all combinations of input shapes are meaningful to string binary
@@ -213,14 +179,14 @@ struct StringBinaryTransformBase {
   //
   // template <typename Type1, typename Type2>
   // struct MyStringTransform : public StringBinaryTransformBase<Type1, Type2> {
-  //   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  //   Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override
+  //   {
   //     enable_scalar_array_ = false;
   //     enable_array_scalar_ = false;
   //     return StringBinaryTransformBase::PreExec(ctx, batch, out);
   //   }
   //   ...
   // };
-  bool enable_scalar_scalar_ = true;
   bool enable_scalar_array_ = true;
   bool enable_array_scalar_ = true;
   bool enable_array_array_ = true;
@@ -251,95 +217,43 @@ struct StringBinaryTransformExecBase {
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
 
   static Status Execute(KernelContext* ctx, StringTransform* transform,
-                        const ExecBatch& batch, Datum* out) {
+                        const ExecSpan& batch, ExecResult* out) {
     if (batch[0].is_scalar()) {
-      if (batch[1].is_scalar()) {
-        if (transform->enable_scalar_scalar_) {
-          return ExecScalarScalar(ctx, transform, batch[0].scalar(), batch[1].scalar(),
-                                  out);
-        }
-      } else if (batch[1].is_array()) {
+      if (batch[1].is_array()) {
         if (transform->enable_scalar_array_) {
-          return ExecScalarArray(ctx, transform, batch[0].scalar(), batch[1].array(),
-                                 out);
+          return ExecScalarArray(ctx, transform, batch[0].scalar, batch[1].array, out);
         }
       }
     } else if (batch[0].is_array()) {
       if (batch[1].is_scalar()) {
         if (transform->enable_array_scalar_) {
-          return ExecArrayScalar(ctx, transform, batch[0].array(), batch[1].scalar(),
-                                 out);
+          return ExecArrayScalar(ctx, transform, batch[0].array, batch[1].scalar, out);
         }
       } else if (batch[1].is_array()) {
         if (transform->enable_array_array_) {
-          return ExecArrayArray(ctx, transform, batch[0].array(), batch[1].array(), out);
+          return ExecArrayArray(ctx, transform, batch[0].array, batch[1].array, out);
         }
       }
     }
-
-    if (!(transform->enable_scalar_scalar_ && transform->enable_scalar_array_ &&
-          transform->enable_array_scalar_ && transform->enable_array_array_)) {
-      return Status::Invalid(
-          "Binary string transform has no combination of operand kinds enabled.");
-    }
-
-    return Status::TypeError("Invalid combination of operands (", batch[0].ToString(),
-                             ", ", batch[1].ToString(), ") for binary string transform.");
-  }
-
-  static Status ExecScalarScalar(KernelContext* ctx, StringTransform* transform,
-                                 const std::shared_ptr<Scalar>& scalar1,
-                                 const std::shared_ptr<Scalar>& scalar2, Datum* out) {
-    if (!scalar1->is_valid || !scalar2->is_valid) {
-      return Status::OK();
-    }
-    const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
-    const auto input_string = binary_scalar1.value->data();
-    const auto input_ncodeunits = binary_scalar1.value->size();
-    const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
-
-    // Calculate max number of output codeunits
-    ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
-                          transform->MaxCodeunits(input_ncodeunits, value2));
-    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
-
-    // Allocate output string
-    const auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    output->is_valid = true;
-    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
-    output->value = value_buffer;
-    auto output_string = output->value->mutable_data();
-
-    // Apply transform
-    ARROW_ASSIGN_OR_RAISE(
-        auto encoded_nbytes_,
-        transform->Transform(input_string, input_ncodeunits, value2, output_string));
-    auto encoded_nbytes = static_cast<offset_type>(encoded_nbytes_);
-    if (encoded_nbytes < 0) {
-      return transform->InvalidInputSequence();
-    }
-    DCHECK_LE(encoded_nbytes, max_output_ncodeunits);
-
-    // Trim the codepoint buffer, since we may have allocated too much
-    return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+    return Status::Invalid(
+        "Binary string transform has no combination of operand kinds enabled.");
   }
 
   static Status ExecArrayScalar(KernelContext* ctx, StringTransform* transform,
-                                const std::shared_ptr<ArrayData>& data1,
-                                const std::shared_ptr<Scalar>& scalar2, Datum* out) {
+                                const ArraySpan& data1, const Scalar* scalar2,
+                                ExecResult* out) {
     if (!scalar2->is_valid) {
       return Status::OK();
     }
-    const ArrayType1 array1(data1);
     const auto value2 = UnboxScalar<Type2>::Unbox(*scalar2);
 
     // Calculate max number of output codeunits
     ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
-                          transform->MaxCodeunits(array1, value2));
+                          transform->MaxCodeunits(data1, value2));
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
-    const auto output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
     const auto output_string = output->buffers[2]->mutable_data();
@@ -350,9 +264,9 @@ struct StringBinaryTransformExecBase {
     offset_type output_ncodeunits = 0;
 
     // Apply transform
-    RETURN_NOT_OK(VisitArrayDataInline<Type1>(
-        *data1,
-        [&](util::string_view input_string_view) {
+    RETURN_NOT_OK(VisitArraySpanInline<Type1>(
+        data1,
+        [&](std::string_view input_string_view) {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           ARROW_ASSIGN_OR_RAISE(
@@ -378,23 +292,22 @@ struct StringBinaryTransformExecBase {
   }
 
   static Status ExecScalarArray(KernelContext* ctx, StringTransform* transform,
-                                const std::shared_ptr<Scalar>& scalar1,
-                                const std::shared_ptr<ArrayData>& data2, Datum* out) {
+                                const Scalar* scalar1, const ArraySpan& data2,
+                                ExecResult* out) {
     if (!scalar1->is_valid) {
       return Status::OK();
     }
     const auto& binary_scalar1 = checked_cast<const BaseBinaryScalar&>(*scalar1);
     const auto input_string = binary_scalar1.value->data();
     const auto input_ncodeunits = binary_scalar1.value->size();
-    const ArrayType2 array2(data2);
 
     // Calculate max number of output codeunits
     ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
-                          transform->MaxCodeunits(input_ncodeunits, array2));
+                          transform->MaxCodeunits(input_ncodeunits, data2));
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
-    const auto output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
     const auto output_string = output->buffers[2]->mutable_data();
@@ -404,11 +317,14 @@ struct StringBinaryTransformExecBase {
     output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
 
+    // TODO(wesm): rewrite to not require boxing
+    const ArrayType2 array2(data2.ToArrayData());
+
     // Apply transform
     RETURN_NOT_OK(arrow::internal::VisitBitBlocks(
-        data2->buffers[0], data2->offset, data2->length,
+        data2.buffers[0].data, data2.offset, data2.length,
         [&](int64_t i) {
-          auto value2 = array2.GetView(i);
+          ViewType2 value2 = array2.GetView(i);
           ARROW_ASSIGN_OR_RAISE(
               auto encoded_nbytes_,
               transform->Transform(input_string, input_ncodeunits, value2,
@@ -432,18 +348,15 @@ struct StringBinaryTransformExecBase {
   }
 
   static Status ExecArrayArray(KernelContext* ctx, StringTransform* transform,
-                               const std::shared_ptr<ArrayData>& data1,
-                               const std::shared_ptr<ArrayData>& data2, Datum* out) {
-    const ArrayType1 array1(data1);
-    const ArrayType2 array2(data2);
-
+                               const ArraySpan& data1, const ArraySpan& data2,
+                               ExecResult* out) {
     // Calculate max number of output codeunits
     ARROW_ASSIGN_OR_RAISE(const auto max_output_ncodeunits,
-                          transform->MaxCodeunits(array1, array2));
+                          transform->MaxCodeunits(data1, data2));
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     // Allocate output strings
-    const auto output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
     const auto output_string = output->buffers[2]->mutable_data();
@@ -453,14 +366,20 @@ struct StringBinaryTransformExecBase {
     output_offsets[0] = 0;
     offset_type output_ncodeunits = 0;
 
+    const offset_type* data1_offsets = data1.GetValues<offset_type>(1);
+    const uint8_t* data1_data = data1.GetValues<uint8_t>(2, /*offset=*/0);
+
+    // TODO(wesm): rewrite to not require boxing
+    const ArrayType2 array2(data2.ToArrayData());
+
     // Apply transform
     RETURN_NOT_OK(arrow::internal::VisitTwoBitBlocks(
-        data1->buffers[0], data1->offset, data2->buffers[0], data2->offset, data1->length,
+        data1.buffers[0].data, data1.offset, data2.buffers[0].data, data2.offset,
+        data1.length,
         [&](int64_t i) {
-          auto input_string_view = array1.GetView(i);
-          auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
-          auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
-          auto value2 = array2.GetView(i);
+          const offset_type input_ncodeunits = data1_offsets[i + 1] - data1_offsets[i];
+          const uint8_t* input_string = data1_data + data1_offsets[i];
+          ViewType2 value2 = array2.GetView(i);
           ARROW_ASSIGN_OR_RAISE(
               auto encoded_nbytes_,
               transform->Transform(input_string, input_ncodeunits, value2,
@@ -498,7 +417,7 @@ struct StringBinaryTransformExec
     : public StringBinaryTransformExecBase<Type1, Type2, StringTransform> {
   using StringBinaryTransformExecBase<Type1, Type2, StringTransform>::Execute;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     StringTransform transform;
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
@@ -511,7 +430,7 @@ struct StringBinaryTransformExecWithState
   using State = typename StringTransform::State;
   using StringBinaryTransformExecBase<Type1, Type2, StringTransform>::Execute;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     StringTransform transform(State::Get(ctx));
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
@@ -520,65 +439,51 @@ struct StringBinaryTransformExecWithState
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
-// Transform a buffer of offsets to one which begins with 0 and has same
-// value lengths.
-template <typename T>
-Status GetShiftedOffsets(KernelContext* ctx, const Buffer& input_buffer, int64_t offset,
-                         int64_t length, std::shared_ptr<Buffer>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, ctx->Allocate((length + 1) * sizeof(T)));
-  const T* input_offsets = reinterpret_cast<const T*>(input_buffer.data()) + offset;
-  T* out_offsets = reinterpret_cast<T*>((*out)->mutable_data());
-  T first_offset = *input_offsets;
-  for (int64_t i = 0; i < length; ++i) {
-    *out_offsets++ = input_offsets[i] - first_offset;
-  }
-  *out_offsets = input_offsets[length] - first_offset;
-  return Status::OK();
-}
-
 // Apply `transform` to input character data- this function cannot change the
 // length
 template <typename Type>
-Status StringDataTransform(KernelContext* ctx, const ExecBatch& batch,
-                           TransformFunc transform, Datum* out) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
+Status StringDataTransform(KernelContext* ctx, const ExecSpan& batch,
+                           TransformFunc transform, ExecResult* out) {
   using offset_type = typename Type::offset_type;
 
-  if (batch[0].kind() == Datum::ARRAY) {
-    const ArrayData& input = *batch[0].array();
-    ArrayType input_boxed(batch[0].array());
+  const ArraySpan& input = batch[0].array;
+  ArrayData* out_arr = out->array_data().get();
 
-    ArrayData* out_arr = out->mutable_array();
-
-    if (input.offset == 0) {
-      // We can reuse offsets from input
-      out_arr->buffers[1] = input.buffers[1];
+  const auto offsets = input.GetValues<offset_type>(1);
+  int64_t offset_nbytes = (input.length + 1) * sizeof(offset_type);
+  if (input.offset == 0) {
+    // We can reuse offsets from input if the input owns it
+    if (input.buffers[1].owner != nullptr) {
+      out_arr->buffers[1] = input.GetBuffer(1);
     } else {
-      DCHECK(input.buffers[1]);
-      // We must allocate new space for the offsets and shift the existing offsets
-      RETURN_NOT_OK(GetShiftedOffsets<offset_type>(ctx, *input.buffers[1], input.offset,
-                                                   input.length, &out_arr->buffers[1]));
-    }
-
-    // Allocate space for output data
-    int64_t data_nbytes = input_boxed.total_values_length();
-    RETURN_NOT_OK(ctx->Allocate(data_nbytes).Value(&out_arr->buffers[2]));
-    if (input.length > 0) {
-      transform(input.buffers[2]->data() + input_boxed.value_offset(0), data_nbytes,
-                out_arr->buffers[2]->mutable_data());
+      RETURN_NOT_OK(ctx->Allocate(offset_nbytes).Value(&out_arr->buffers[1]));
+      std::memcpy(out_arr->buffers[1]->mutable_data(), input.buffers[1].data,
+                  offset_nbytes);
     }
   } else {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
-    if (input.is_valid) {
-      result->is_valid = true;
-      int64_t data_nbytes = input.value->size();
-      RETURN_NOT_OK(ctx->Allocate(data_nbytes).Value(&result->value));
-      transform(input.value->data(), data_nbytes, result->value->mutable_data());
+    // We must allocate new space for the offsets and shift the existing offsets
+    RETURN_NOT_OK(ctx->Allocate(offset_nbytes).Value(&out_arr->buffers[1]));
+    auto out_offsets =
+        reinterpret_cast<offset_type*>(out_arr->buffers[1]->mutable_data());
+    offset_type first_offset = offsets[0];
+    for (int64_t i = 0; i < input.length; ++i) {
+      *out_offsets++ = offsets[i] - first_offset;
     }
-    out->value = result;
+    *out_offsets = offsets[input.length] - first_offset;
   }
 
+  int64_t data_nbytes = GetVarBinaryValuesLength<offset_type>(input);
+  if (input.length > 0) {
+    // Allocate space for output data
+    if (data_nbytes > 0) {
+      RETURN_NOT_OK(ctx->Allocate(data_nbytes).Value(&out_arr->buffers[2]));
+      transform(input.buffers[2].data + offsets[0], data_nbytes,
+                out_arr->buffers[2]->mutable_data());
+    } else {
+      // Empty buffer
+      out_arr->buffers[2] = Buffer::FromString("");
+    }
+  }
   return Status::OK();
 }
 
@@ -776,21 +681,21 @@ const auto ascii_is_title_doc = StringPredicateDoc(
      "an uppercase character."));
 
 void AddAsciiStringPredicates(FunctionRegistry* registry) {
-  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
+  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, string_is_ascii_doc);
 
   AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry,
-                                               &ascii_is_alnum_doc);
-  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry, &ascii_is_alpha_doc);
+                                               ascii_is_alnum_doc);
+  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry, ascii_is_alpha_doc);
   AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry,
-                                          &ascii_is_decimal_doc);
+                                          ascii_is_decimal_doc);
   // no is_digit for ascii, since it is the same as is_decimal
-  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry, &ascii_is_lower_doc);
+  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry, ascii_is_lower_doc);
   // no is_numeric for ascii, since it is the same as is_decimal
   AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry,
-                                            &ascii_is_printable_doc);
-  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry, &ascii_is_space_doc);
-  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry, &ascii_is_upper_doc);
-  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry, &ascii_is_title_doc);
+                                            ascii_is_printable_doc);
+  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry, ascii_is_space_doc);
+  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry, ascii_is_upper_doc);
+  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry, ascii_is_title_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -821,7 +726,7 @@ void TransformAsciiUpper(const uint8_t* input, int64_t length, uint8_t* output) 
 
 template <typename Type>
 struct AsciiUpper {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiUpper, out);
   }
 };
@@ -832,7 +737,7 @@ void TransformAsciiLower(const uint8_t* input, int64_t length, uint8_t* output) 
 
 template <typename Type>
 struct AsciiLower {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiLower, out);
   }
 };
@@ -843,7 +748,7 @@ void TransformAsciiSwapCase(const uint8_t* input, int64_t length, uint8_t* outpu
 
 template <typename Type>
 struct AsciiSwapCase {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiSwapCase, out);
   }
 };
@@ -929,36 +834,31 @@ void AddAsciiStringCaseConversion(FunctionRegistry* registry) {
   // Some kernels are able to reuse the original offsets buffer, so don't
   // preallocate them in the output. Only kernels that invoke
   // "StringDataTransform" support no preallocation.
-  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
+  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
-  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
+  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, ascii_lower_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiSwapCase>(
-      "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
+      "ascii_swapcase", registry, ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
-                                              &ascii_capitalize_doc);
-  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, &ascii_title_doc);
+                                              ascii_capitalize_doc);
+  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, ascii_title_doc);
 }
 
 // ----------------------------------------------------------------------
 // Binary string length
 
 struct BinaryLength {
-  template <typename OutValue, typename Arg0Value = util::string_view>
+  template <typename OutValue, typename Arg0Value = std::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
   }
 
-  static Status FixedSizeExec(KernelContext*, const ExecBatch& batch, Datum* out) {
+  static Status FixedSizeExec(KernelContext*, const ExecSpan& batch, ExecResult* out) {
     // Output is preallocated and validity buffer is precomputed
-    const int32_t width =
-        checked_cast<const FixedSizeBinaryType&>(*batch[0].type()).byte_width();
-    if (batch.values[0].is_array()) {
-      int32_t* buffer = out->mutable_array()->GetMutableValues<int32_t>(1);
-      std::fill(buffer, buffer + batch.length, width);
-    } else {
-      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
-    }
+    const int32_t width = batch[0].type()->byte_width();
+    int32_t* buffer = out->array_span()->GetValues<int32_t>(1);
+    std::fill(buffer, buffer + batch.length, width);
     return Status::OK();
   }
 };
@@ -971,7 +871,7 @@ const FunctionDoc binary_length_doc(
 
 void AddAsciiStringLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
-                                               &binary_length_doc);
+                                               binary_length_doc);
   for (const auto& ty : {binary(), utf8()}) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
@@ -1041,14 +941,14 @@ const FunctionDoc ascii_reverse_doc(
 void AddAsciiStringReverse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("binary_reverse", Arity::Unary(),
-                                                 &binary_reverse_doc);
+                                                 binary_reverse_doc);
     for (const auto& ty : BinaryTypes()) {
       DCHECK_OK(
           func->AddKernel({ty}, ty, GenerateVarBinaryToVarBinary<BinaryReverse>(ty)));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
-  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
+  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, ascii_reverse_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1189,17 +1089,17 @@ const FunctionDoc ascii_rtrim_whitespace_doc(
     {"strings"});
 
 void AddAsciiStringTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, &ascii_trim_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, ascii_trim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
-                                                  &ascii_ltrim_doc);
+                                                  ascii_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiRTrim>("ascii_rtrim", registry,
-                                                  &ascii_rtrim_doc);
+                                                  ascii_rtrim_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
-                                                  &ascii_trim_whitespace_doc);
+                                                  ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
-                                                   &ascii_ltrim_whitespace_doc);
+                                                   ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
-                                                   &ascii_rtrim_whitespace_doc);
+                                                   ascii_rtrim_whitespace_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1213,7 +1113,7 @@ struct AsciiPadTransform : public StringTransformBase {
 
   explicit AsciiPadTransform(const PadOptions& options) : options_(options) {}
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     if (options_.padding.size() != 1) {
       return Status::Invalid("Padding must be one byte, got '", options_.padding, "'");
     }
@@ -1284,10 +1184,10 @@ const FunctionDoc ascii_center_doc(
     {"strings"}, "PadOptions", /*options_required=*/true);
 
 void AddAsciiStringPad(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
-  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, &ascii_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, ascii_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, ascii_rpad_doc);
   MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
-                                                   &ascii_center_doc);
+                                                   ascii_center_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1299,29 +1199,15 @@ using StrToBoolTransformFunc =
 // Apply `transform` to input character data- this function cannot change the
 // length
 template <typename Type>
-void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
-                         StrToBoolTransformFunc transform, Datum* out) {
+void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
+                         StrToBoolTransformFunc transform, ExecResult* out) {
   using offset_type = typename Type::offset_type;
-
-  if (batch[0].kind() == Datum::ARRAY) {
-    const ArrayData& input = *batch[0].array();
-    ArrayData* out_arr = out->mutable_array();
-    if (input.length > 0) {
-      transform(
-          reinterpret_cast<const offset_type*>(input.buffers[1]->data()) + input.offset,
-          input.buffers[2]->data(), input.length, out_arr->offset,
-          out_arr->buffers[1]->mutable_data());
-    }
-  } else {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-    if (input.is_valid) {
-      uint8_t result_value = 0;
-      std::array<offset_type, 2> offsets{0,
-                                         static_cast<offset_type>(input.value->size())};
-      transform(offsets.data(), input.value->data(), 1, /*output_offset=*/0,
-                &result_value);
-      out->value = std::make_shared<BooleanScalar>(result_value > 0);
-    }
+  const ArraySpan& input = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
+  if (input.length > 0) {
+    transform(reinterpret_cast<const offset_type*>(input.buffers[1].data) + input.offset,
+              input.buffers[2].data, input.length, out_arr->offset,
+              out_arr->buffers[1].data);
   }
 }
 
@@ -1336,7 +1222,7 @@ struct PlainSubstringMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
+    return std::make_unique<PlainSubstringMatcher>(options);
   }
 
   explicit PlainSubstringMatcher(const MatchSubstringOptions& options)
@@ -1357,7 +1243,7 @@ struct PlainSubstringMatcher {
     }
   }
 
-  int64_t Find(util::string_view current) const {
+  int64_t Find(std::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
@@ -1376,7 +1262,7 @@ struct PlainSubstringMatcher {
     return -1;
   }
 
-  bool Match(util::string_view current) const { return Find(current) >= 0; }
+  bool Match(std::string_view current) const { return Find(current) >= 0; }
 };
 
 struct PlainStartsWithMatcher {
@@ -1389,12 +1275,11 @@ struct PlainStartsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+    return std::make_unique<PlainStartsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::starts_with is C++20
-    return current.substr(0, options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return StartsWith(current, options_.pattern);
   }
 };
 
@@ -1408,14 +1293,11 @@ struct PlainEndsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+    return std::make_unique<PlainEndsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::ends_with is C++20
-    return current.size() >= options_.pattern.size() &&
-           current.substr(current.size() - options_.pattern.size(),
-                          options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return EndsWith(current, options_.pattern);
   }
 };
 
@@ -1426,8 +1308,7 @@ struct RegexSubstringMatcher {
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
-    auto matcher =
-        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
+    auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
@@ -1438,7 +1319,7 @@ struct RegexSubstringMatcher {
         regex_match_(options_.pattern,
                      MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
 
-  bool Match(util::string_view current) const {
+  bool Match(std::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return RE2::PartialMatch(piece, regex_match_);
   }
@@ -1449,7 +1330,7 @@ template <typename Type, typename Matcher>
 struct MatchSubstringImpl {
   using offset_type = typename Type::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out,
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
                      const Matcher* matcher) {
     StringBoolTransform<Type>(
         ctx, batch,
@@ -1460,7 +1341,7 @@ struct MatchSubstringImpl {
           for (int64_t i = 0; i < length; ++i) {
             const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
             int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
+            if (matcher->Match(std::string_view(current_data, current_length))) {
               bitmap_writer.Set();
             }
             bitmap_writer.Next();
@@ -1474,7 +1355,7 @@ struct MatchSubstringImpl {
 
 template <typename Type, typename Matcher>
 struct MatchSubstring {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // TODO Cache matcher across invocations (for regex compilation)
     ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
     return MatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
@@ -1484,7 +1365,7 @@ struct MatchSubstring {
 #ifdef ARROW_WITH_RE2
 template <typename Type>
 struct MatchSubstring<Type, RegexSubstringMatcher> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // TODO Cache matcher across invocations (for regex compilation)
     ARROW_ASSIGN_OR_RAISE(auto matcher,
                           RegexSubstringMatcher::Make(MatchSubstringState::Get(ctx),
@@ -1497,7 +1378,7 @@ struct MatchSubstring<Type, RegexSubstringMatcher> {
 
 template <typename Type>
 struct MatchSubstring<Type, PlainSubstringMatcher> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
@@ -1518,7 +1399,7 @@ struct MatchSubstring<Type, PlainSubstringMatcher> {
 
 template <typename Type>
 struct MatchSubstring<Type, PlainStartsWithMatcher> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
@@ -1541,7 +1422,7 @@ struct MatchSubstring<Type, PlainStartsWithMatcher> {
 
 template <typename Type>
 struct MatchSubstring<Type, PlainEndsWithMatcher> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     auto options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
@@ -1615,7 +1496,7 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
 template <typename StringType>
 struct MatchLike {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // NOTE: avoid making those constants global to avoid compiling regexes at startup
     static const RE2::Options kRE2Options = MakeRE2Options<StringType>();
     // A LIKE pattern matching this regex can be translated into a substring search.
@@ -1717,7 +1598,7 @@ const FunctionDoc match_like_doc(
 void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
-                                                 &match_substring_doc);
+                                                 match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
       DCHECK_OK(
@@ -1727,7 +1608,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), &starts_with_doc);
+        std::make_shared<ScalarFunction>("starts_with", Arity::Unary(), starts_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
           GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
@@ -1738,7 +1619,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), &ends_with_doc);
+        std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), ends_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
       DCHECK_OK(
@@ -1749,7 +1630,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
-                                                 &match_substring_regex_doc);
+                                                 match_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
       DCHECK_OK(
@@ -1759,7 +1640,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   }
   {
     auto func =
-        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
+        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), match_like_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
       DCHECK_OK(
@@ -1779,7 +1660,7 @@ struct FindSubstring {
   explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     return static_cast<OutValue>(matcher_.Find(val));
   }
 };
@@ -1799,7 +1680,7 @@ struct FindSubstringRegex {
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
     if (RE2::PartialMatch(piece, *regex_match_, &match)) {
@@ -1813,7 +1694,7 @@ struct FindSubstringRegex {
 template <typename InputType>
 struct FindSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
@@ -1842,7 +1723,7 @@ const FunctionDoc find_substring_doc(
 template <typename InputType>
 struct FindSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
         kernel{FindSubstringRegex(options, /*literal=*/false)};
@@ -1861,7 +1742,7 @@ const FunctionDoc find_substring_regex_doc(
 void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
-                                                 &find_substring_doc);
+                                                 find_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -1876,7 +1757,7 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("find_substring_regex", Arity::Unary(),
-                                                 &find_substring_regex_doc);
+                                                 find_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -1900,7 +1781,7 @@ struct CountSubstring {
   explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     uint64_t start = 0;
     const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
@@ -1934,7 +1815,7 @@ struct CountSubstringRegex {
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
@@ -1957,7 +1838,7 @@ struct CountSubstringRegex {
 template <typename InputType>
 struct CountSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(
         auto counter, CountSubstringRegex::Make(options, /*is_utf8=*/InputType::is_utf8));
@@ -1971,7 +1852,7 @@ struct CountSubstringRegexExec {
 template <typename InputType>
 struct CountSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
@@ -2010,7 +1891,7 @@ const FunctionDoc count_substring_regex_doc(
 void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
-                                                 &count_substring_doc);
+                                                 count_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -2025,7 +1906,7 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>("count_substring_regex", Arity::Unary(),
-                                                 &count_substring_regex_doc);
+                                                 count_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
@@ -2052,53 +1933,38 @@ struct ReplaceSubstring {
   using ValueDataBuilder = TypedBufferBuilder<uint8_t>;
   using OffsetBuilder = TypedBufferBuilder<offset_type>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // TODO Cache replacer across invocations (for regex compilation)
     ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(ReplaceState::Get(ctx)));
     return Replace(ctx, batch, *replacer, out);
   }
 
-  static Status Replace(KernelContext* ctx, const ExecBatch& batch,
-                        const Replacer& replacer, Datum* out) {
+  static Status Replace(KernelContext* ctx, const ExecSpan& batch,
+                        const Replacer& replacer, ExecResult* out) {
     ValueDataBuilder value_data_builder(ctx->memory_pool());
     OffsetBuilder offset_builder(ctx->memory_pool());
 
-    if (batch[0].kind() == Datum::ARRAY) {
-      // We already know how many strings we have, so we can use Reserve/UnsafeAppend
-      RETURN_NOT_OK(offset_builder.Reserve(batch[0].array()->length + 1));
-      offset_builder.UnsafeAppend(0);  // offsets start at 0
+    // We already know how many strings we have, so we can use Reserve/UnsafeAppend
+    RETURN_NOT_OK(offset_builder.Reserve(batch.length + 1));
+    offset_builder.UnsafeAppend(0);  // offsets start at 0
 
-      const ArrayData& input = *batch[0].array();
-      RETURN_NOT_OK(VisitArrayDataInline<Type>(
-          input,
-          [&](util::string_view s) {
-            RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
-            offset_builder.UnsafeAppend(
-                static_cast<offset_type>(value_data_builder.length()));
-            return Status::OK();
-          },
-          [&]() {
-            // offset for null value
-            offset_builder.UnsafeAppend(
-                static_cast<offset_type>(value_data_builder.length()));
-            return Status::OK();
-          }));
-      ArrayData* output = out->mutable_array();
-      RETURN_NOT_OK(value_data_builder.Finish(&output->buffers[2]));
-      RETURN_NOT_OK(offset_builder.Finish(&output->buffers[1]));
-    } else {
-      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
-      auto result = std::make_shared<ScalarType>();
-      if (input.is_valid) {
-        util::string_view s = static_cast<util::string_view>(*input.value);
-        RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
-        RETURN_NOT_OK(value_data_builder.Finish(&result->value));
-        result->is_valid = true;
-      }
-      out->value = result;
-    }
-
-    return Status::OK();
+    RETURN_NOT_OK(VisitArraySpanInline<Type>(
+        batch[0].array,
+        [&](std::string_view s) {
+          RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
+          offset_builder.UnsafeAppend(
+              static_cast<offset_type>(value_data_builder.length()));
+          return Status::OK();
+        },
+        [&]() {
+          // offset for null value
+          offset_builder.UnsafeAppend(
+              static_cast<offset_type>(value_data_builder.length()));
+          return Status::OK();
+        }));
+    ArrayData* output = out->array_data().get();
+    RETURN_NOT_OK(value_data_builder.Finish(&output->buffers[2]));
+    return offset_builder.Finish(&output->buffers[1]);
   }
 };
 
@@ -2107,15 +1973,19 @@ struct PlainSubstringReplacer {
 
   static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    return arrow::internal::make_unique<PlainSubstringReplacer>(options);
+    return std::make_unique<PlainSubstringReplacer>(options);
   }
 
   explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
-    const char* i = s.begin();
-    const char* end = s.end();
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    if (s.empty()) {
+      // Special-case empty input as s.data() may not be a valid pointer
+      return Status::OK();
+    }
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
@@ -2152,7 +2022,7 @@ struct RegexSubstringReplacer {
 
   static Result<std::unique_ptr<RegexSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    auto replacer = arrow::internal::make_unique<RegexSubstringReplacer>(options);
+    auto replacer = std::make_unique<RegexSubstringReplacer>(options);
 
     RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
     RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
@@ -2174,11 +2044,15 @@ struct RegexSubstringReplacer {
         regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    if (s.empty()) {
+      // Special-case empty input as s.data() may not be a valid pointer
+      return Status::OK();
+    }
     re2::StringPiece replacement(options_.replacement);
 
     if (options_.max_replacements == -1) {
-      std::string s_copy(s.to_string());
+      std::string s_copy(s);
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2187,8 +2061,8 @@ struct RegexSubstringReplacer {
     // Since RE2 does not have the concept of max_replacements, we have to do some work
     // ourselves.
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
-    const char* i = s.begin();
-    const char* end = s.end();
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     re2::StringPiece piece(s.data(), s.length());
 
     int64_t max_replacements = options_.max_replacements;
@@ -2251,7 +2125,7 @@ const FunctionDoc replace_substring_regex_doc(
 void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("replace_substring", Arity::Unary(),
-                                                 &replace_substring_doc);
+                                                 replace_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringPlain>(ty);
       ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
@@ -2263,7 +2137,7 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_RE2
   {
     auto func = std::make_shared<ScalarFunction>(
-        "replace_substring_regex", Arity::Unary(), &replace_substring_regex_doc);
+        "replace_substring_regex", Arity::Unary(), replace_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringRegex>(ty);
       ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
@@ -2308,19 +2182,20 @@ struct ExtractRegexData {
     return std::move(data);
   }
 
-  Result<ValueDescr> ResolveOutputType(const std::vector<ValueDescr>& args) const {
-    const auto& input_type = args[0].type;
+  Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
+    const DataType* input_type = types[0].type;
     if (input_type == nullptr) {
-      // No input type specified => propagate shape
-      return args[0];
+      // No input type specified
+      return nullptr;
     }
     // Input type is either [Large]Binary or [Large]String and is also the type
     // of each field in the output struct type.
     DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
     fields.reserve(group_names.size());
+    std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
     std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
-                   [&](const std::string& name) { return field(name, input_type); });
+                   [&](const std::string& name) { return field(name, owned_type); });
     return struct_(std::move(fields));
   }
 
@@ -2329,11 +2204,11 @@ struct ExtractRegexData {
       : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
-Result<ValueDescr> ResolveExtractRegexOutput(KernelContext* ctx,
-                                             const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveExtractRegexOutput(KernelContext* ctx,
+                                             const std::vector<TypeHolder>& types) {
   ExtractRegexOptions options = ExtractRegexState::Get(ctx);
   ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options));
-  return data.ResolveOutputType(args);
+  return data.ResolveOutputType(types);
 }
 
 struct ExtractRegexBase {
@@ -2361,7 +2236,7 @@ struct ExtractRegexBase {
     args_pointers_start = (group_count > 0) ? args_pointers.data() : &null_arg;
   }
 
-  bool Match(util::string_view s) {
+  bool Match(std::string_view s) {
     return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
                               group_count);
   }
@@ -2374,62 +2249,46 @@ struct ExtractRegex : public ExtractRegexBase {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using ExtractRegexBase::ExtractRegexBase;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     ExtractRegexOptions options = ExtractRegexState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, Type::is_utf8));
     return ExtractRegex{data}.Extract(ctx, batch, out);
   }
 
-  Status Extract(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ARROW_ASSIGN_OR_RAISE(auto descr, data.ResolveOutputType(batch.GetDescriptors()));
-    DCHECK_NE(descr.type, nullptr);
-    const auto& type = descr.type;
+  Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // TODO: why is this needed? Type resolution should already be
+    // done and the output type set in the output variable
+    ARROW_ASSIGN_OR_RAISE(TypeHolder out_type, data.ResolveOutputType(batch.GetTypes()));
+    DCHECK_NE(out_type.type, nullptr);
+    std::shared_ptr<DataType> type = out_type.GetSharedPtr();
 
-    if (batch[0].kind() == Datum::ARRAY) {
-      std::unique_ptr<ArrayBuilder> array_builder;
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), type, &array_builder));
-      StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    std::unique_ptr<ArrayBuilder> array_builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), type, &array_builder));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
 
-      std::vector<BuilderType*> field_builders;
-      field_builders.reserve(group_count);
-      for (int i = 0; i < group_count; i++) {
-        field_builders.push_back(
-            checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      }
-
-      auto visit_null = [&]() { return struct_builder->AppendNull(); };
-      auto visit_value = [&](util::string_view s) {
-        if (Match(s)) {
-          for (int i = 0; i < group_count; i++) {
-            RETURN_NOT_OK(field_builders[i]->Append(ToStringView(found_values[i])));
-          }
-          return struct_builder->Append();
-        } else {
-          return struct_builder->AppendNull();
-        }
-      };
-      const ArrayData& input = *batch[0].array();
-      RETURN_NOT_OK(VisitArrayDataInline<Type>(input, visit_value, visit_null));
-
-      std::shared_ptr<Array> out_array;
-      RETURN_NOT_OK(struct_builder->Finish(&out_array));
-      *out = std::move(out_array);
-    } else {
-      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
-      auto result = std::make_shared<StructScalar>(type);
-      if (input.is_valid && Match(util::string_view(*input.value))) {
-        result->value.reserve(group_count);
-        for (int i = 0; i < group_count; i++) {
-          result->value.push_back(std::make_shared<ScalarType>(
-              Buffer::FromString(found_values[i].as_string())));
-        }
-        result->is_valid = true;
-      } else {
-        result->is_valid = false;
-      }
-      out->value = std::move(result);
+    std::vector<BuilderType*> field_builders;
+    field_builders.reserve(group_count);
+    for (int i = 0; i < group_count; i++) {
+      field_builders.push_back(
+          checked_cast<BuilderType*>(struct_builder->field_builder(i)));
     }
 
+    auto visit_null = [&]() { return struct_builder->AppendNull(); };
+    auto visit_value = [&](std::string_view s) {
+      if (Match(s)) {
+        for (int i = 0; i < group_count; i++) {
+          RETURN_NOT_OK(field_builders[i]->Append(ToStringView(found_values[i])));
+        }
+        return struct_builder->Append();
+      } else {
+        return struct_builder->AppendNull();
+      }
+    };
+    RETURN_NOT_OK(VisitArraySpanInline<Type>(batch[0].array, visit_value, visit_null));
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(struct_builder->Finish(&out_array));
+    out->value = std::move(out_array->data());
     return Status::OK();
   }
 };
@@ -2446,7 +2305,7 @@ const FunctionDoc extract_regex_doc(
 
 void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex", Arity::Unary(),
-                                               &extract_regex_doc);
+                                               extract_regex_doc);
   OutputType out_ty(ResolveExtractRegexOutput);
   for (const auto& ty : BaseBinaryTypes()) {
     ScalarKernel kernel{{ty},
@@ -2534,7 +2393,7 @@ const FunctionDoc binary_replace_slice_doc(
 
 void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
-                                               &binary_replace_slice_doc);
+                                               binary_replace_slice_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     DCHECK_OK(func->AddKernel({ty}, ty,
                               GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
@@ -2542,9 +2401,11 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
   }
   using TransformExec =
       FixedSizeBinaryTransformExecWithState<BinaryReplaceSliceTransform>;
-  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
-                            OutputType(TransformExec::OutputType), TransformExec::Exec,
-                            ReplaceStringSliceTransformBase::State::Init));
+  ScalarKernel fsb_kernel({InputType(Type::FIXED_SIZE_BINARY)},
+                          OutputType(TransformExec::OutputType), TransformExec::Exec,
+                          ReplaceStringSliceTransformBase::State::Init);
+  fsb_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(fsb_kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2620,7 +2481,7 @@ const FunctionDoc split_pattern_doc(
 
 void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
-                                               &split_pattern_doc);
+                                               split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
     DCHECK_OK(
@@ -2690,7 +2551,7 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
   static const SplitOptions default_options{};
   auto func =
       std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
-                                       &ascii_split_whitespace_doc, &default_options);
+                                       ascii_split_whitespace_doc, &default_options);
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
@@ -2719,7 +2580,7 @@ struct SplitRegexFinder : public StringSplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split = arrow::internal::make_unique<RE2>(pattern, MakeRE2Options<Type>());
+    regex_split = std::make_unique<RE2>(pattern, MakeRE2Options<Type>());
     return RegexStatus(*regex_split);
   }
 
@@ -2760,7 +2621,7 @@ const FunctionDoc split_pattern_regex_doc(
 
 void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
-                                               &split_pattern_regex_doc);
+                                               split_pattern_regex_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
     DCHECK_OK(
@@ -2781,20 +2642,17 @@ struct BinaryJoin {
   using ListOffsetType = typename ListArrayType::offset_type;
   using BuilderType = typename TypeTraits<BinaryType>::BuilderType;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::SCALAR) {
-      if (batch[1].kind() == Datum::SCALAR) {
-        return ExecScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
-      }
-      DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
-      return ExecScalarArray(ctx, *batch[0].scalar(), batch[1].array(), out);
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    if (batch[0].is_scalar()) {
+      DCHECK(batch[1].is_array());
+      return ExecScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
     }
-    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
-    if (batch[1].kind() == Datum::SCALAR) {
-      return ExecArrayScalar(ctx, batch[0].array(), *batch[1].scalar(), out);
+    DCHECK(batch[0].is_array());
+    if (batch[1].is_scalar()) {
+      return ExecArrayScalar(ctx, batch[0].array, *batch[1].scalar, out);
     }
-    DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
-    return ExecArrayArray(ctx, batch[0].array(), batch[1].array(), out);
+    DCHECK(batch[1].is_array());
+    return ExecArrayArray(ctx, batch[0].array, batch[1].array, out);
   }
 
   struct ListScalarOffsetLookup {
@@ -2819,72 +2677,40 @@ struct BinaryJoin {
   };
 
   struct SeparatorScalarLookup {
-    const util::string_view separator;
+    const std::string_view separator;
 
     bool IsNull(int64_t i) { return false; }
-    util::string_view GetView(int64_t i) { return separator; }
+    std::string_view GetView(int64_t i) { return separator; }
   };
 
   struct SeparatorArrayLookup {
     const ArrayType& separators;
 
     bool IsNull(int64_t i) { return separators.IsNull(i); }
-    util::string_view GetView(int64_t i) { return separators.GetView(i); }
+    std::string_view GetView(int64_t i) { return separators.GetView(i); }
   };
-
-  // Scalar, scalar -> scalar
-  static Status ExecScalarScalar(KernelContext* ctx, const Scalar& left,
-                                 const Scalar& right, Datum* out) {
-    const auto& list = checked_cast<const ListScalarType&>(left);
-    const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
-    if (!list.is_valid || !separator_scalar.is_valid) {
-      return Status::OK();
-    }
-    util::string_view separator(*separator_scalar.value);
-
-    const auto& strings = checked_cast<const ArrayType&>(*list.value);
-    if (strings.null_count() > 0) {
-      out->scalar()->is_valid = false;
-      return Status::OK();
-    }
-
-    TypedBufferBuilder<uint8_t> builder(ctx->memory_pool());
-    auto Append = [&](util::string_view value) {
-      return builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
-                            static_cast<int64_t>(value.size()));
-    };
-    if (strings.length() > 0) {
-      auto data_length =
-          strings.total_values_length() + (strings.length() - 1) * separator.length();
-      RETURN_NOT_OK(builder.Reserve(data_length));
-      RETURN_NOT_OK(Append(strings.GetView(0)));
-      for (int64_t j = 1; j < strings.length(); j++) {
-        RETURN_NOT_OK(Append(separator));
-        RETURN_NOT_OK(Append(strings.GetView(j)));
-      }
-    }
-    auto out_scalar = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    return builder.Finish(&out_scalar->value);
-  }
 
   // Scalar, array -> array
   static Status ExecScalarArray(KernelContext* ctx, const Scalar& left,
-                                const std::shared_ptr<ArrayData>& right, Datum* out) {
+                                const ArraySpan& right, ExecResult* out) {
     const auto& list_scalar = checked_cast<const BaseListScalar&>(left);
     if (!list_scalar.is_valid) {
       ARROW_ASSIGN_OR_RAISE(
-          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
-      *out = *nulls->data();
+          auto nulls,
+          MakeArrayOfNull(right.type->GetSharedPtr(), right.length, ctx->memory_pool()));
+      out->value = std::move(nulls->data());
       return Status::OK();
     }
     const auto& strings = checked_cast<const ArrayType&>(*list_scalar.value);
     if (strings.null_count() != 0) {
       ARROW_ASSIGN_OR_RAISE(
-          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
-      *out = *nulls->data();
+          auto nulls,
+          MakeArrayOfNull(right.type->GetSharedPtr(), right.length, ctx->memory_pool()));
+      out->value = std::move(nulls->data());
       return Status::OK();
     }
-    const ArrayType separators(right);
+    // TODO(wesm): rewrite to not use ArrayData
+    const ArrayType separators(right.ToArrayData());
 
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(separators.length()));
@@ -2910,21 +2736,21 @@ struct BinaryJoin {
   }
 
   // Array, scalar -> array
-  static Status ExecArrayScalar(KernelContext* ctx,
-                                const std::shared_ptr<ArrayData>& left,
-                                const Scalar& right, Datum* out) {
-    const ListArrayType lists(left);
+  static Status ExecArrayScalar(KernelContext* ctx, const ArraySpan& left,
+                                const Scalar& right, ExecResult* out) {
+    // TODO(wesm): rewrite to not use ArrayData
+    const ListArrayType lists(left.ToArrayData());
     const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
 
     if (!separator_scalar.is_valid) {
       ARROW_ASSIGN_OR_RAISE(
           auto nulls,
           MakeArrayOfNull(lists.value_type(), lists.length(), ctx->memory_pool()));
-      *out = *nulls->data();
+      out->value = std::move(nulls->data());
       return Status::OK();
     }
 
-    util::string_view separator(*separator_scalar.value);
+    std::string_view separator(*separator_scalar.value);
     const auto& strings = checked_cast<const ArrayType&>(*lists.values());
     const auto list_offsets = lists.raw_value_offsets();
 
@@ -2946,13 +2772,15 @@ struct BinaryJoin {
   }
 
   // Array, array -> array
-  static Status ExecArrayArray(KernelContext* ctx, const std::shared_ptr<ArrayData>& left,
-                               const std::shared_ptr<ArrayData>& right, Datum* out) {
-    const ListArrayType lists(left);
+  static Status ExecArrayArray(KernelContext* ctx, const ArraySpan& left,
+                               const ArraySpan& right, ExecResult* out) {
+    // TODO(wesm): rewrite to not use ArrayData
+    const ListArrayType lists(left.ToArrayData());
+    const ArrayType separators(right.ToArrayData());
+
     const auto& strings = checked_cast<const ArrayType&>(*lists.values());
     const auto list_offsets = lists.raw_value_offsets();
     const auto string_offsets = strings.raw_value_offsets();
-    const ArrayType separators(right);
 
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(lists.length()));
@@ -2975,7 +2803,7 @@ struct BinaryJoin {
       const ArrayType& separators;
 
       bool IsNull(int64_t i) { return separators.IsNull(i); }
-      util::string_view GetView(int64_t i) { return separators.GetView(i); }
+      std::string_view GetView(int64_t i) { return separators.GetView(i); }
     };
     return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
                        SeparatorArrayLookup{separators}, &builder, out);
@@ -2984,7 +2812,7 @@ struct BinaryJoin {
   template <typename ListOffsetLookup, typename SeparatorLookup>
   static Status JoinStrings(int64_t length, const ArrayType& strings,
                             ListOffsetLookup&& list_offsets, SeparatorLookup&& separators,
-                            BuilderType* builder, Datum* out) {
+                            BuilderType* builder, ExecResult* out) {
     for (int64_t i = 0; i < length; ++i) {
       if (list_offsets.IsNull(i) || separators.IsNull(i)) {
         builder->UnsafeAppendNull();
@@ -3008,9 +2836,9 @@ struct BinaryJoin {
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder->Finish(&string_array));
-    *out = *string_array->data();
+    out->value = std::move(string_array->data());
     // Correct the output type based on the input
-    out->mutable_array()->type = strings.type();
+    out->array_data()->type = strings.type();
     return Status::OK();
   }
 
@@ -3035,69 +2863,9 @@ struct BinaryJoinElementWise {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using offset_type = typename Type::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     JoinOptions options = BinaryJoinElementWiseState::Get(ctx);
     // Last argument is the separator (for consistency with binary_join)
-    if (std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecOnlyScalar(ctx, options, batch, out);
-    }
-    return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecOnlyScalar(KernelContext* ctx, const JoinOptions& options,
-                               const ExecBatch& batch, Datum* out) {
-    BaseBinaryScalar* output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    const size_t num_args = batch.values.size();
-    if (num_args == 1) {
-      // Only separator, no values
-      output->is_valid = batch.values[0].scalar()->is_valid;
-      if (output->is_valid) {
-        ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
-      }
-      return Status::OK();
-    }
-
-    int64_t final_size = CalculateRowSize(options, batch, 0);
-    if (final_size < 0) {
-      output->is_valid = false;
-      return Status::OK();
-    }
-    ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(final_size));
-    const auto separator = UnboxScalar<Type>::Unbox(*batch.values.back().scalar());
-    uint8_t* buf = output->value->mutable_data();
-    bool first = true;
-    for (size_t i = 0; i < num_args - 1; i++) {
-      const Scalar& scalar = *batch[i].scalar();
-      util::string_view s;
-      if (scalar.is_valid) {
-        s = UnboxScalar<Type>::Unbox(scalar);
-      } else {
-        switch (options.null_handling) {
-          case JoinOptions::EMIT_NULL:
-            // Handled by CalculateRowSize
-            DCHECK(false) << "unreachable";
-            break;
-          case JoinOptions::SKIP:
-            continue;
-          case JoinOptions::REPLACE:
-            s = options.null_replacement;
-            break;
-        }
-      }
-      if (!first) {
-        buf = std::copy(separator.begin(), separator.end(), buf);
-      }
-      first = false;
-      buf = std::copy(s.begin(), s.end(), buf);
-    }
-    output->is_valid = true;
-    DCHECK_EQ(final_size, buf - output->value->mutable_data());
-    return Status::OK();
-  }
-
-  static Status ExecContainingArrays(KernelContext* ctx, const JoinOptions& options,
-                                     const ExecBatch& batch, Datum* out) {
     // Presize data to avoid reallocations
     int64_t final_size = 0;
     for (int64_t i = 0; i < batch.length; i++) {
@@ -3108,30 +2876,30 @@ struct BinaryJoinElementWise {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<util::string_view> valid_cols(batch.values.size());
-    for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
-      size_t num_valid = 0;  // Not counting separator
-      for (size_t col = 0; col < batch.values.size(); col++) {
+    std::vector<std::string_view> valid_cols(batch.num_values());
+    for (int64_t row = 0; row < batch.length; row++) {
+      int num_valid = 0;  // Not counting separator
+      for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
-          const auto& scalar = *batch[col].scalar();
+          const auto& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
-            if (col < batch.values.size() - 1) num_valid++;
+            if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         } else {
-          const ArrayData& array = *batch[col].array();
+          const ArraySpan& array = batch[col].array;
           if (!array.MayHaveNulls() ||
-              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] = util::string_view(
+            valid_cols[col] = std::string_view(
                 reinterpret_cast<const char*>(data + offsets[row]), length);
-            if (col < batch.values.size() - 1) num_valid++;
+            if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         }
       }
@@ -3140,11 +2908,11 @@ struct BinaryJoinElementWise {
         // Separator is null
         builder.UnsafeAppendNull();
         continue;
-      } else if (batch.values.size() == 1) {
+      } else if (batch.num_values() == 1) {
         // Only given separator
         builder.UnsafeAppendEmptyValue();
         continue;
-      } else if (num_valid < batch.values.size() - 1) {
+      } else if (num_valid < batch.num_values() - 1) {
         // We had some nulls
         if (options.null_handling == JoinOptions::EMIT_NULL) {
           builder.UnsafeAppendNull();
@@ -3153,8 +2921,8 @@ struct BinaryJoinElementWise {
       }
       const auto separator = valid_cols.back();
       bool first = true;
-      for (size_t col = 0; col < batch.values.size() - 1; col++) {
-        util::string_view value = valid_cols[col];
+      for (int col = 0; col < batch.num_values() - 1; col++) {
+        std::string_view value = valid_cols[col];
         if (!value.data()) {
           switch (options.null_handling) {
             case JoinOptions::EMIT_NULL:
@@ -3179,31 +2947,31 @@ struct BinaryJoinElementWise {
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
-    *out = *string_array->data();
-    out->mutable_array()->type = batch[0].type();
-    DCHECK_EQ(batch.length, out->array()->length);
+    out->value = std::move(string_array->data());
+    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    DCHECK_EQ(batch.length, out->array_data()->length);
     DCHECK_EQ(final_size,
               checked_cast<const ArrayType&>(*string_array).total_values_length());
     return Status::OK();
   }
 
   // Compute the length of the output for the given position, or -1 if it would be null.
-  static int64_t CalculateRowSize(const JoinOptions& options, const ExecBatch& batch,
+  static int64_t CalculateRowSize(const JoinOptions& options, const ExecSpan& batch,
                                   const int64_t index) {
-    const auto num_args = batch.values.size();
+    const int num_args = batch.num_values();
     int64_t final_size = 0;
     int64_t num_non_null_args = 0;
-    for (size_t i = 0; i < num_args; i++) {
+    for (int i = 0; i < num_args; i++) {
       int64_t element_size = 0;
       bool valid = true;
       if (batch[i].is_scalar()) {
-        const Scalar& scalar = *batch[i].scalar();
+        const Scalar& scalar = *batch[i].scalar;
         valid = scalar.is_valid;
         element_size = UnboxScalar<Type>::Unbox(scalar).size();
       } else {
-        const ArrayData& array = *batch[i].array();
+        const ArraySpan& array = batch[i].array;
         valid = !array.MayHaveNulls() ||
-                bit_util::GetBit(array.buffers[0]->data(), array.offset + index);
+                bit_util::GetBit(array.buffers[0].data, array.offset + index);
         const offset_type* offsets = array.GetValues<offset_type>(1);
         element_size = offsets[index + 1] - offsets[index];
       }
@@ -3257,7 +3025,8 @@ const JoinOptions* GetDefaultJoinOptions() {
 template <typename ListType>
 void AddBinaryJoinForListType(ScalarFunction* func) {
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
+    auto exec =
+        GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ArrayKernelExec, ListType>(*ty);
     auto list_ty = std::make_shared<ListType>(ty);
     DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, std::move(exec)));
   }
@@ -3265,8 +3034,8 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
 
 void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
-    auto func = std::make_shared<ScalarFunction>("binary_join", Arity::Binary(),
-                                                 &binary_join_doc);
+    auto func =
+        std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), binary_join_doc);
     AddBinaryJoinForListType<ListType>(func.get());
     AddBinaryJoinForListType<LargeListType>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3274,7 +3043,7 @@ void AddAsciiStringJoin(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>(
         "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
-        &binary_join_element_wise_doc, GetDefaultJoinOptions());
+        binary_join_element_wise_doc, GetDefaultJoinOptions());
     for (const auto& ty : BaseBinaryTypes()) {
       ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
@@ -3294,22 +3063,22 @@ void AddAsciiStringJoin(FunctionRegistry* registry) {
 struct ScalarCTypeToInt64Function : public ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    for (auto& descr : *values) {
-      if (is_integer(descr.type->id())) {
-        descr.type = int64();
+    for (auto it = types->begin(); it < types->end(); ++it) {
+      if (is_integer(it->id())) {
+        *it = int64();
       }
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -3317,37 +3086,34 @@ template <typename Type1, typename Type2>
 struct BinaryRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
   using ArrayType1 = typename TypeTraits<Type1>::ArrayType;
   using ArrayType2 = typename TypeTraits<Type2>::ArrayType;
+  using offset_type = typename ArrayType1::offset_type;
+  using repeat_type = typename Type2::c_type;
 
   Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
-                               const int64_t num_repeats) override {
-    ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
-    return input1_ncodeunits * num_repeats;
-  }
-
-  Result<int64_t> MaxCodeunits(const int64_t input1_ncodeunits,
-                               const ArrayType2& input2) override {
+                               const ArraySpan& input2) override {
     int64_t total_num_repeats = 0;
-    for (int64_t i = 0; i < input2.length(); ++i) {
-      auto num_repeats = input2.GetView(i);
-      ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
-      total_num_repeats += num_repeats;
+    const repeat_type* repeats = input2.GetValues<repeat_type>(1);
+    for (int64_t i = 0; i < input2.length; ++i) {
+      ARROW_RETURN_NOT_OK(ValidateRepeatCount(repeats[i]));
+      total_num_repeats += repeats[i];
     }
     return input1_ncodeunits * total_num_repeats;
   }
 
-  Result<int64_t> MaxCodeunits(const ArrayType1& input1,
+  Result<int64_t> MaxCodeunits(const ArraySpan& input1,
                                const int64_t num_repeats) override {
     ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
-    return input1.total_values_length() * num_repeats;
+    return GetVarBinaryValuesLength<offset_type>(input1) * num_repeats;
   }
 
-  Result<int64_t> MaxCodeunits(const ArrayType1& input1,
-                               const ArrayType2& input2) override {
+  Result<int64_t> MaxCodeunits(const ArraySpan& input1,
+                               const ArraySpan& input2) override {
     int64_t total_codeunits = 0;
-    for (int64_t i = 0; i < input2.length(); ++i) {
-      auto num_repeats = input2.GetView(i);
-      ARROW_RETURN_NOT_OK(ValidateRepeatCount(num_repeats));
-      total_codeunits += input1.GetView(i).length() * num_repeats;
+    const repeat_type* repeats = input2.GetValues<repeat_type>(1);
+    const offset_type* offsets = input1.GetValues<offset_type>(1);
+    for (int64_t i = 0; i < input2.length; ++i) {
+      ARROW_RETURN_NOT_OK(ValidateRepeatCount(repeats[i]));
+      total_codeunits += (offsets[i + 1] - offsets[i]) * repeats[i];
     }
     return total_codeunits;
   }
@@ -3412,7 +3178,7 @@ const FunctionDoc binary_repeat_doc(
 
 void AddAsciiStringRepeat(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarCTypeToInt64Function>(
-      "binary_repeat", Arity::Binary(), &binary_repeat_doc);
+      "binary_repeat", Arity::Binary(), binary_repeat_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<BinaryRepeat, Int64Type>(ty);
     ScalarKernel kernel{{ty, int64()}, ty, exec};

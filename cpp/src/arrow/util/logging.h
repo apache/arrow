@@ -86,8 +86,6 @@ enum class ArrowLogLevel : int {
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#define ARROW_WARN_NOT_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status", WARNING)
-
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 

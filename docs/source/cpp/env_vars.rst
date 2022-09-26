@@ -92,7 +92,7 @@ that changing their value later will have an effect.
    Supported values are:
 
    - ``NONE`` disables any runtime-selected SIMD optimization;
-   - ``SSE4.2`` enables any SSE2-based optimizations until SSE4.2 (included);
+   - ``SSE4_2`` enables any SSE2-based optimizations until SSE4.2 (included);
    - ``AVX`` enables any AVX-based optimizations and earlier;
    - ``AVX2`` enables any AVX2-based optimizations and earlier;
    - ``AVX512`` enables any AVX512-based optimizations and earlier.

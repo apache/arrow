@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
 #include <arrow/builder.h>
@@ -375,11 +374,11 @@ struct Converter_String : public Converter {
   bool Parallel() const { return false; }
 
  private:
-  static SEXP r_string_from_view(arrow::util::string_view view) {
+  static SEXP r_string_from_view(std::string_view view) {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
 
-  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
+  static SEXP r_string_from_view_strip_nul(std::string_view view,
                                            bool* nul_was_stripped) {
     const char* old_string = view.data();
 
@@ -392,7 +391,7 @@ struct Converter_String : public Converter {
 
         if (nul_count == 1) {
           // first nul spotted: allocate stripped string storage
-          stripped_string = view.to_string();
+          stripped_string = std::string(view);
           stripped_len = i;
         }
 
@@ -1189,7 +1188,7 @@ bool ArraysCanFitInteger(ArrayVector arrays) {
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
     if (all_can_fit) {
-      all_can_fit = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+      all_can_fit = arrow::IntegersCanFit(*array->data(), *i32).ok();
     }
   }
   return all_can_fit;
@@ -1415,5 +1414,3 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
                                           bool use_threads) {
   return arrow::r::to_data_frame(table, use_threads);
 }
-
-#endif

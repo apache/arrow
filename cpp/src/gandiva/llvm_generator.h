@@ -183,7 +183,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
-  llvm::Value* LoadVectorAtIndex(llvm::Value* arg_addrs, int idx,
+  llvm::Value* LoadVectorAtIndex(llvm::Value* arg_addrs, llvm::Type* type, int idx,
                                  const std::string& name);
 
   /// Generate code to load the vector at specified index and cast it as bitmap.

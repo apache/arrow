@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,6 +59,33 @@ func TestDecimal128Type(t *testing.T) {
 			}
 
 			if got, want := dt.ID(), arrow.DECIMAL128; got != want {
+				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
+			}
+
+			if got, want := dt.String(), tc.want; got != want {
+				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
+
+func TestDecimal256Type(t *testing.T) {
+	for _, tc := range []struct {
+		precision int32
+		scale     int32
+		want      string
+	}{
+		{1, 10, "decimal256(1, 10)"},
+		{10, 10, "decimal256(10, 10)"},
+		{10, 1, "decimal256(10, 1)"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			dt := arrow.Decimal256Type{Precision: tc.precision, Scale: tc.scale}
+			if got, want := dt.BitWidth(), 256; got != want {
+				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
+			}
+
+			if got, want := dt.ID(), arrow.DECIMAL256; got != want {
 				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
 			}
 
@@ -112,7 +139,7 @@ func TestTimestampType(t *testing.T) {
 		{arrow.Second, "", "timestamp[s]"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
-			dt := arrow.TimestampType{tc.unit, tc.timeZone}
+			dt := arrow.TimestampType{Unit: tc.unit, TimeZone: tc.timeZone}
 			if got, want := dt.BitWidth(), 64; got != want {
 				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
 			}

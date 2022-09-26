@@ -25,6 +25,7 @@
     "re2",
     "snappy",
     "utf8proc",
+    "xsimd",
     "zlib",
     "zstd",
     {
@@ -42,6 +43,7 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
+        "boost-process",
         "gtest"
       ]
     },

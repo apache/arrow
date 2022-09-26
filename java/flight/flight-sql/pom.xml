@@ -14,7 +14,7 @@
   <parent>
     <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>8.0.0-SNAPSHOT</version>
+    <version>10.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -58,28 +58,12 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-protobuf</artifactId>
-      <version>${dep.grpc.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-stub</artifactId>
-      <version>${dep.grpc.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${dep.protobuf.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-api</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -125,28 +109,5 @@
       <version>1.4</version>
     </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.xolstice.maven.plugins</groupId>
-        <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.6.1</version>
-        <executions>
-          <execution>
-            <id>proto-compile</id>
-            <phase>generate-sources</phase>
-            <configuration>
-              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
-            </configuration>
-            <goals>
-              <goal>compile</goal>
-              <goal>compile-custom</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
 </project>

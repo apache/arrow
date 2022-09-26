@@ -129,15 +129,51 @@ test_that("write_parquet() can truncate timestamps", {
   expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
-test_that("make_valid_version()", {
-  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version()", {
+  expect_equal(
+    make_valid_parquet_version("1.0"),
+    ParquetVersionType$PARQUET_1_0
+  )
+  expect_deprecated(
+    expect_equal(
+      make_valid_parquet_version("2.0"),
+      ParquetVersionType$PARQUET_2_0
+    )
+  )
+  expect_equal(
+    make_valid_parquet_version("2.4"),
+    ParquetVersionType$PARQUET_2_4
+  )
+  expect_equal(
+    make_valid_parquet_version("2.6"),
+    ParquetVersionType$PARQUET_2_6
+  )
+  expect_equal(
+    make_valid_parquet_version("latest"),
+    ParquetVersionType$PARQUET_2_6
+  )
 
-  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+  expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_deprecated(
+    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
+  )
+  expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
+})
 
-  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version() input validation", {
+  expect_error(
+    make_valid_parquet_version("0.3.14"),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(NULL),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(c("2", "4")),
+    "`version` must be one of"
+  )
 })
 
 test_that("write_parquet() defaults to snappy compression", {
@@ -147,6 +183,22 @@ test_that("write_parquet() defaults to snappy compression", {
   write_parquet(mtcars, tmp1)
   write_parquet(mtcars, tmp2, compression = "snappy")
   expect_equal(file.size(tmp1), file.size(tmp2))
+})
+
+test_that("write_parquet() does not detect compression from filename", {
+  # TODO(ARROW-17221): should this be supported?
+  without <- tempfile(fileext = ".parquet")
+  with_gz <- tempfile(fileext = ".parquet.gz")
+  write_parquet(mtcars, without)
+  write_parquet(mtcars, with_gz)
+  expect_equal(file.size(with_gz), file.size(without))
+})
+
+test_that("read_parquet() handles (ignores) compression in filename", {
+  df <- tibble::tibble(x = 1:5)
+  f <- tempfile(fileext = ".parquet.gz")
+  write_parquet(df, f)
+  expect_equal(read_parquet(f), df)
 })
 
 test_that("Factors are preserved when writing/reading from Parquet", {
@@ -180,7 +232,8 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 
 test_that("Maps are preserved when writing/reading from Parquet", {
   string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
-                              type = map_of(utf8(), boolean()))
+    type = map_of(utf8(), boolean())
+  )
   int_struct <- Array$create(
     list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b"), stringsAsFactors = FALSE))),
     type = map_of(int64(), struct(x = int64(), y = utf8()))
@@ -238,7 +291,7 @@ test_that("write_parquet() handles version argument", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.0", 1.0, 2.0, 1L, 2L), ~ {
+  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
     write_parquet(df, tf, version = .x)
     expect_identical(read_parquet(tf), df)
   })
@@ -326,7 +379,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
   withr::with_options(
     list(
       arrow.parquet_cells_per_group = 25
-    ), {
+    ),
+    {
       # this will be 4 chunks
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
@@ -334,7 +388,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:26))
       expect_true(reader$ReadRowGroup(3) == Table$create(x = 79:101))
       expect_error(reader$ReadRowGroup(4), "Some index in row_group_indices")
-    })
+    }
+  )
 
   # but we always have no more than max_chunks (even if cells_per_group is low!)
   # use a new tempfile so that windows doesn't complain about the file being over-written
@@ -345,7 +400,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
     list(
       arrow.parquet_cells_per_group = 25,
       arrow.parquet_max_chunks = 2
-    ), {
+    ),
+    {
       # this will be 4 chunks
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
@@ -353,7 +409,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:51))
       expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
       expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
-    })
+    }
+  )
 })
 
 test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {

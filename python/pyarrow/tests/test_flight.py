@@ -819,6 +819,9 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     EXPECTED = {
         "x-text": ["foo", "bar"],
         "x-binary-bin": [b"\x00", b"\x01"],
+        # ARROW-16606: ensure mixed-case headers are accepted
+        "x-MIXED-case": ["baz"],
+        b"x-other-MIXED-case": ["baz"],
     }
 
     def __init__(self, factory):
@@ -1517,7 +1520,8 @@ def test_cancel_do_get():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
-        with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
+        with pytest.raises(flight.FlightCancelledError,
+                           match="(?i).*cancel.*"):
             reader.read_chunk()
 
 
@@ -1556,8 +1560,21 @@ def test_cancel_do_get_threaded():
 
 def test_roundtrip_types():
     """Make sure serializable types round-trip."""
+    action = flight.Action("action1", b"action1-body")
+    assert action == flight.Action.deserialize(action.serialize())
+
     ticket = flight.Ticket("foo")
     assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    result = flight.Result(b"result1")
+    assert result == flight.Result.deserialize(result.serialize())
+
+    basic_auth = flight.BasicAuth("username1", "password1")
+    assert basic_auth == flight.BasicAuth.deserialize(basic_auth.serialize())
+
+    schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
+    assert schema_result == flight.SchemaResult.deserialize(
+        schema_result.serialize())
 
     desc = flight.FlightDescriptor.for_command("test")
     assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
@@ -1584,6 +1601,12 @@ def test_roundtrip_types():
     assert info.total_bytes == info2.total_bytes
     assert info.total_records == info2.total_records
     assert info.endpoints == info2.endpoints
+
+    endpoint = flight.FlightEndpoint(
+        ticket,
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+    )
+    assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 
 
 def test_roundtrip_errors():
@@ -1909,6 +1932,9 @@ def test_middleware_multi_header():
             client_headers = ast.literal_eval(raw_headers)
             # Don't directly compare; gRPC may add headers like User-Agent.
             for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+                header = header.lower()
+                if isinstance(header, bytes):
+                    header = header.decode("ascii")
                 assert client_headers.get(header) == values
                 assert headers.last_headers.get(header) == values
 
@@ -1993,6 +2019,11 @@ def test_interrupt():
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         test(reader.read_all)
+        try:
+            writer.close()
+        except (KeyboardInterrupt, flight.FlightCancelledError):
+            # Silence the Cancelled/Interrupt exception
+            pass
 
 
 def test_never_sends_data():
@@ -2085,3 +2116,83 @@ def test_none_action_side_effect():
         client.do_action(flight.Action("append", b""))
         r = client.do_action(flight.Action("get_value", b""))
         assert json.loads(next(r).body.to_pybytes()) == [True]
+
+
+@pytest.mark.slow  # Takes a while for gRPC to "realize" writes fail
+def test_write_error_propagation():
+    """
+    Ensure that exceptions during writing preserve error context.
+
+    See https://issues.apache.org/jira/browse/ARROW-16592.
+    """
+    expected_message = "foo"
+    expected_info = b"bar"
+    exc = flight.FlightCancelledError(
+        expected_message, extra_info=expected_info)
+    descriptor = flight.FlightDescriptor.for_command(b"")
+    schema = pa.schema([("int64", pa.int64())])
+
+    class FailServer(flight.FlightServerBase):
+        def do_put(self, context, descriptor, reader, writer):
+            raise exc
+
+        def do_exchange(self, context, descriptor, reader, writer):
+            raise exc
+
+    with FailServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # DoPut
+        writer, reader = client.do_put(descriptor, schema)
+
+        # Set a concurrent reader - ensure this doesn't block the
+        # writer side from calling Close()
+        def _reader():
+            try:
+                while True:
+                    reader.read()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_batch(pa.record_batch([[1]], schema=schema))
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+        # DoExchange
+        writer, reader = client.do_exchange(descriptor)
+
+        def _reader():
+            try:
+                while True:
+                    reader.read_chunk()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_metadata(b" ")
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+
+def test_interpreter_shutdown():
+    """
+    Ensure that the gRPC server is stopped at interpreter shutdown.
+
+    See https://issues.apache.org/jira/browse/ARROW-16597.
+    """
+    util.invoke_script("arrow_16597.py")

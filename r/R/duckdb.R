@@ -26,9 +26,7 @@
 #' If `auto_disconnect = TRUE`, the DuckDB table that is created will be configured
 #' to be unregistered when the `tbl` object is garbage collected. This is helpful
 #' if you don't want to have extra table objects in DuckDB after you've finished
-#' using them. Currently, this cleanup can, however, sometimes lead to hangs if
-#' tables are created and deleted in quick succession, hence the default value
-#' of `FALSE`
+#' using them.
 #'
 #' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
@@ -36,7 +34,7 @@
 #' @param table_name a name to use in DuckDB for this object. The default is a
 #' unique string `"arrow_"` followed by numbers.
 #' @param auto_disconnect should the table be automatically cleaned up when the
-#' resulting object is removed (and garbage collected)? Default: `FALSE`
+#' resulting object is removed (and garbage collected)? Default: `TRUE`
 #'
 #' @return A `tbl` of the new table in DuckDB
 #'
@@ -49,9 +47,9 @@
 #'
 #' ds %>%
 #'   filter(mpg < 30) %>%
-#'   to_duckdb() %>%
 #'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+#'   to_duckdb() %>%
+#'   slice_min(disp)
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
@@ -123,11 +121,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
-#' @param as_arrow_query should the returned object be wrapped as an
-#' `arrow_dplyr_query`? (logical, default: `TRUE`)
-#'
-#' @return a `RecordBatchReader` object, wrapped as an arrow dplyr query which
-#'  can be used in dplyr pipelines.
+#' @return A `RecordBatchReader`.
 #' @export
 #'
 #' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
@@ -142,7 +136,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
 #'   to_arrow() %>%
 #'   collect()
-to_arrow <- function(.data, as_arrow_query = TRUE) {
+to_arrow <- function(.data) {
   # If this is an Arrow object already, return quickly since we're already Arrow
   if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
     return(.data)
@@ -161,9 +155,5 @@ to_arrow <- function(.data, as_arrow_query = TRUE) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  if (as_arrow_query) {
-    arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
-  } else {
-    duckdb::duckdb_fetch_record_batch(res)
-  }
+  duckdb::duckdb_fetch_record_batch(res)
 }

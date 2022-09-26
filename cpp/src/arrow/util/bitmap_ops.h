@@ -116,6 +116,20 @@ Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* b
 ARROW_EXPORT
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 
+/// Compute the number of 1's in the result of an "and" (&) of two bitmaps
+///
+/// \param[in] left_bitmap a packed LSB-ordered bitmap as a byte array
+/// \param[in] left_offset a bitwise offset into the left bitmap
+/// \param[in] right_bitmap a packed LSB-ordered bitmap as a byte array
+/// \param[in] right_offset a bitwise offset into the right bitmap
+/// \param[in] length the length of the bitmaps (must be the same)
+///
+/// \return The number of set (1) bits in the "and" of the two bitmaps
+ARROW_EXPORT
+int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
+                        const uint8_t* right_bitmap, int64_t right_offset,
+                        int64_t length);
+
 ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                   int64_t right_offset, int64_t length);

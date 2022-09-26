@@ -41,6 +41,11 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_datetime_tz(use_legacy_dataset):

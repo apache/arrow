@@ -22,18 +22,18 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/file"
-	"github.com/apache/arrow/go/v8/parquet/pqarrow"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/file"
+	"github.com/apache/arrow/go/v10/parquet/pqarrow"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
 const alternateOrNA = -1
-const SIZELEN = 10 * 1024 * 1024
+const SIZELEN = 1024 * 1024
 
 func randomUint8(size, truePct int, sampleVals [2]uint8, seed uint64) []uint8 {
 	ret := make([]uint8, size)

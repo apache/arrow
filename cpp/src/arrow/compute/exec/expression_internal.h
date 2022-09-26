@@ -23,6 +23,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -30,6 +31,8 @@
 
 namespace arrow {
 namespace compute {
+
+using internal::GetCastFunction;
 
 struct KnownFieldValues {
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
@@ -41,21 +44,21 @@ inline const Expression::Call* CallNotNull(const Expression& expr) {
   return call;
 }
 
-inline std::vector<ValueDescr> GetDescriptors(const std::vector<Expression>& exprs) {
-  std::vector<ValueDescr> descrs(exprs.size());
+inline std::vector<TypeHolder> GetTypes(const std::vector<Expression>& exprs) {
+  std::vector<TypeHolder> types(exprs.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     DCHECK(exprs[i].IsBound());
-    descrs[i] = exprs[i].descr();
+    types[i] = exprs[i].type();
   }
-  return descrs;
+  return types;
 }
 
-inline std::vector<ValueDescr> GetDescriptors(const std::vector<Datum>& values) {
-  std::vector<ValueDescr> descrs(values.size());
+inline std::vector<TypeHolder> GetTypes(const std::vector<Datum>& values) {
+  std::vector<TypeHolder> types(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
-    descrs[i] = values[i].descr();
+    types[i] = values[i].type();
   }
-  return descrs;
+  return types;
 }
 
 struct Comparison {
@@ -279,9 +282,9 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
     return exec_context->func_registry()->GetFunction(call.function_name);
   }
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
-  const auto& to_type =
+  const TypeHolder& to_type =
       ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;
-  return compute::GetCastFunction(to_type);
+  return GetCastFunction(*to_type);
 }
 
 /// Modify an Expression with pre-order and post-order visitation.

@@ -46,6 +46,11 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
+
+
 @pytest.mark.pandas
 def test_pandas_parquet_custom_metadata(tempdir):
     df = alltypes_sample(size=10000)
@@ -251,7 +256,7 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
 
     with filename.open('wb') as f:
-        _write_table(arrow_table, f, version="1.0")
+        _write_table(arrow_table, f, version="2.4")
 
     data = io.BytesIO(filename.read_bytes())
 

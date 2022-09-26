@@ -35,10 +35,11 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
@@ -86,34 +87,40 @@ jobs:
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Python 3
+    name: AMD64 macOS 11 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -122,6 +129,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: OFF
       ARROW_HDFS: ON
       ARROW_JEMALLOC: ON
       ARROW_ORC: ON
@@ -130,6 +138,7 @@ jobs:
       ARROW_PLASMA: ON
       ARROW_PYTHON: ON
       ARROW_S3: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_LZ4: ON
       ARROW_WITH_BZ2: ON
@@ -141,7 +150,7 @@ jobs:
       PYARROW_TEST_LARGE_MEMORY: ON
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -158,7 +167,10 @@ jobs:
             -r python/requirements-test.txt
       - name: Build
         shell: bash
+        # use brew version of clang, to be consistent with LLVM lib, see ARROW-17790.
         run: |
+          export CC=$(brew --prefix llvm)/bin/clang
+          export CXX=$(brew --prefix llvm)/bin/clang++
           export PYTHON=python3
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build

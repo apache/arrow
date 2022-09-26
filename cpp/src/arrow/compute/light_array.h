@@ -21,7 +21,9 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/type.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 
 /// This file contains lightweight containers for Arrow buffers.  These containers
@@ -30,6 +32,18 @@
 
 namespace arrow {
 namespace compute {
+
+/// \brief Context needed by various execution engine operations
+///
+/// In the execution engine this context is provided by either the node or the
+/// plan and the context exists for the lifetime of the plan.  Defining this here
+/// allows us to take advantage of these resources without coupling the logic with
+/// the execution engine.
+struct LightContext {
+  bool has_avx2() const { return (hardware_flags & arrow::internal::CpuInfo::AVX2) > 0; }
+  int64_t hardware_flags;
+  util::TempVectorStack* stack;
+};
 
 /// \brief Description of the layout of a "key" column
 ///
@@ -121,6 +135,7 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a varbinary type
   uint32_t* mutable_offsets() {
     DCHECK(!metadata_.is_fixed_length);
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<uint32_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the offsets buffer
@@ -128,7 +143,24 @@ class ARROW_EXPORT KeyColumnArray {
   /// Only valid if this is a view into a varbinary type
   const uint32_t* offsets() const {
     DCHECK(!metadata_.is_fixed_length);
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
     return reinterpret_cast<const uint32_t*>(data(kFixedLengthBuffer));
+  }
+  /// \brief Return a mutable version of the large-offsets buffer
+  ///
+  /// Only valid if this is a view into a large varbinary type
+  uint64_t* mutable_large_offsets() {
+    DCHECK(!metadata_.is_fixed_length);
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
+    return reinterpret_cast<uint64_t*>(mutable_data(kFixedLengthBuffer));
+  }
+  /// \brief Return a read-only version of the large-offsets buffer
+  ///
+  /// Only valid if this is a view into a large varbinary type
+  const uint64_t* large_offsets() const {
+    DCHECK(!metadata_.is_fixed_length);
+    DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
+    return reinterpret_cast<const uint64_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return the type metadata
   const KeyColumnMetadata& metadata() const { return metadata_; }
@@ -171,7 +203,18 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
 ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
-    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows);
+    const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
+
+/// \brief Create KeyColumnArray from ArrayData and KeyColumnMetadata
+///
+/// If `type` is a dictionary type then this will return the KeyColumnArray for
+/// the indices array
+///
+/// The caller should ensure this is only called on "key" columns.
+/// \see ColumnMetadataFromDataType for details
+ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+    const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
+    int64_t start_row, int64_t num_rows);
 
 /// \brief Create KeyColumnMetadata instances from an ExecBatch
 ///
@@ -188,8 +231,8 @@ ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row,
-                                              int num_rows,
+ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
+                                              int64_t num_rows,
                                               std::vector<KeyColumnArray>* column_arrays);
 
 /// \brief Create KeyColumnArray instances from an ExecBatch

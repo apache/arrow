@@ -17,45 +17,16 @@
 
 module Arrow
   class Time64DataType
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    # Creates a new {Arrow::Time64DataType}.
-    #
-    # @overload initialize(unit)
-    #
-    #   @param unit [Arrow::TimeUnit, Symbol] The unit of the
-    #     time64 data type.
-    #
-    #     The unit must be microsecond or nanosecond.
-    #
-    #   @example Create a time64 data type with Arrow::TimeUnit
-    #     Arrow::Time64DataType.new(Arrow::TimeUnit::NANO)
-    #
-    #   @example Create a time64 data type with Symbol
-    #     Arrow::Time64DataType.new(:nano)
-    #
-    # @overload initialize(description)
-    #
-    #   @param description [Hash] The description of the time64 data
-    #     type. It must have `:unit` value.
-    #
-    #   @option description [Arrow::TimeUnit, Symbol] :unit The unit of
-    #     the time64 data type.
-    #
-    #     The unit must be microsecond or nanosecond.
-    #
-    #   @example Create a time64 data type with Arrow::TimeUnit
-    #     Arrow::Time64DataType.new(unit: Arrow::TimeUnit::NANO)
-    #
-    #   @example Create a time64 data type with Symbol
-    #     Arrow::Time64DataType.new(unit: :nano)
-    def initialize(unit)
-      if unit.is_a?(Hash)
-        description = unit
-        unit = description[:unit]
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Symbol, Arrow::TimeUnit
+          new(value)
+        else
+          super
+        end
       end
-      initialize_raw(unit)
     end
   end
 end

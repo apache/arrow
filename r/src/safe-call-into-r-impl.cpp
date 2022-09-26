@@ -16,11 +16,10 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
+#include "./safe-call-into-r.h"
 
 #include <functional>
 #include <thread>
-#include "./safe-call-into-r.h"
 
 MainRThread& GetMainRThread() {
   static MainRThread main_r_thread;
@@ -29,6 +28,15 @@ MainRThread& GetMainRThread() {
 
 // [[arrow::export]]
 void InitializeMainRThread() { GetMainRThread().Initialize(); }
+
+// [[arrow::export]]
+bool CanRunWithCapturedR() {
+#if defined(HAS_UNWIND_PROTECT)
+  return GetMainRThread().Executor() == nullptr;
+#else
+  return false;
+#endif
+}
 
 // [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
@@ -85,5 +93,3 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
     cpp11::stop("Unknown `opt`");
   }
 }
-
-#endif
