@@ -2196,3 +2196,33 @@ def test_interpreter_shutdown():
     See https://issues.apache.org/jira/browse/ARROW-16597.
     """
     util.invoke_script("arrow_16597.py")
+
+
+class TracingFlightServer(FlightServerBase):
+    """A server that echoes back trace context values."""
+
+    def do_action(self, context, action):
+        trace_context = context.get_middleware("tracing").trace_context
+        # Don't turn this method into a generator since then
+        # trace_context will be evaluated after we've exited the scope
+        # of the OTel span (and so the value we want won't be present)
+        return ((f"{key}: {value}").encode("utf-8")
+                for (key, value) in trace_context.items())
+
+
+def test_tracing():
+    with TracingFlightServer(middleware={
+            "tracing": flight.TracingServerMiddlewareFactory(),
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # We can't tell if Arrow was built with OpenTelemetry support,
+        # so we can't count on any particular values being there; we
+        # can only ensure things don't blow up either way.
+        options = flight.FlightCallOptions(headers=[
+            # Pretend we have an OTel implementation
+            (b"traceparent", b"00-000ff00f00f0ff000f0f00ff0f00fff0-"
+                             b"000f0000f0f00000-00"),
+            (b"tracestate", b""),
+        ])
+        for value in client.do_action((b"", b""), options=options):
+            pass

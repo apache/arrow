@@ -175,7 +175,7 @@ ConcreteFutureImpl* GetConcreteFuture(FutureImpl* future) {
 }  // namespace
 
 std::unique_ptr<FutureImpl> FutureImpl::Make() {
-  return std::unique_ptr<FutureImpl>(new ConcreteFutureImpl());
+  return std::make_unique<ConcreteFutureImpl>();
 }
 
 std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {

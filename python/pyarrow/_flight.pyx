@@ -1741,13 +1741,22 @@ cdef class ServerCallContext(_Weakrefable):
             CServerMiddleware* c_middleware = \
                 self.context.GetMiddleware(CPyServerMiddlewareName)
             CPyServerMiddleware* middleware
+            vector[CTracingServerMiddlewareTraceKey] c_trace_context
+        if c_middleware == NULL:
+            c_middleware = self.context.GetMiddleware(tobytes(key))
+
         if c_middleware == NULL:
             return None
-        if c_middleware.name() != CPyServerMiddlewareName:
-            return None
-        middleware = <CPyServerMiddleware*> c_middleware
-        py_middleware = <_ServerMiddlewareWrapper> middleware.py_object()
-        return py_middleware.middleware.get(key)
+        elif c_middleware.name() == CPyServerMiddlewareName:
+            middleware = <CPyServerMiddleware*> c_middleware
+            py_middleware = <_ServerMiddlewareWrapper> middleware.py_object()
+            return py_middleware.middleware.get(key)
+        elif c_middleware.name() == CTracingServerMiddlewareName:
+            c_trace_context = (<CTracingServerMiddleware*> c_middleware
+                               ).GetTraceContext()
+            trace_context = {pair.key: pair.value for pair in c_trace_context}
+            return TracingServerMiddleware(trace_context)
+        return None
 
     @staticmethod
     cdef ServerCallContext wrap(const CServerCallContext& context):
@@ -2528,6 +2537,22 @@ cdef class ServerMiddlewareFactory(_Weakrefable):
         """
 
 
+cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
+    """A factory for tracing middleware instances.
+
+    This enables OpenTelemetry support in Arrow (if Arrow was compiled
+    with OpenTelemetry support enabled). A new span will be started on
+    each RPC call. The TracingServerMiddleware instance can then be
+    retrieved within an RPC handler to get the propagated context,
+    which can be used to start a new span on the Python side.
+
+    Because the Python/C++ OpenTelemetry libraries do not
+    interoperate, spans on the C++ side are not directly visible to
+    the Python side and vice versa.
+
+    """
+
+
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
@@ -2572,6 +2597,13 @@ cdef class ServerMiddleware(_Weakrefable):
         vtable.sending_headers = _middleware_sending_headers
         vtable.call_completed = _middleware_call_completed
         c_instance[0].reset(new CPyServerMiddleware(py_middleware, vtable))
+
+
+class TracingServerMiddleware(ServerMiddleware):
+    __slots__ = ["trace_context"]
+
+    def __init__(self, trace_context):
+        self.trace_context = trace_context
 
 
 cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
@@ -2739,7 +2771,27 @@ cdef class FlightServerBase(_Weakrefable):
                 c_options.get().tls_certificates.push_back(c_cert)
 
         if middleware:
-            py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
+            non_tracing_middleware = {}
+            enable_tracing = None
+            for key, factory in middleware.items():
+                if isinstance(factory, TracingServerMiddlewareFactory):
+                    if enable_tracing is not None:
+                        raise ValueError(
+                            "Can only provide "
+                            "TracingServerMiddlewareFactory once")
+                    if tobytes(key) == CPyServerMiddlewareName:
+                        raise ValueError(f"Middleware key cannot be {key}")
+                    enable_tracing = key
+                else:
+                    non_tracing_middleware[key] = factory
+
+            if enable_tracing:
+                c_middleware.first = tobytes(enable_tracing)
+                c_middleware.second = MakeTracingServerMiddlewareFactory()
+                c_options.get().middleware.push_back(c_middleware)
+
+            py_middleware = _ServerMiddlewareFactoryWrapper(
+                non_tracing_middleware)
             c_middleware.first = CPyServerMiddlewareName
             c_middleware.second.reset(new CPyServerMiddlewareFactory(
                 py_middleware,

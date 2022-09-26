@@ -32,7 +32,6 @@
         <org.apache.arrow.flight.version>${project.parent.version}</org.apache.arrow.flight.version>
         <org.apache.arrow.flight.jdbc-driver.name>${project.name}</org.apache.arrow.flight.jdbc-driver.name>
         <org.apache.arrow.flight.jdbc-driver.version>${project.version}</org.apache.arrow.flight.jdbc-driver.version>
-        <jacoco.ut.execution.data.file>${project.build.directory}/coverage-reports/jacoco-ut.html</jacoco.ut.execution.data.file>
     </properties>
 
     <dependencies>
@@ -155,6 +154,15 @@
         </resources>
         <plugins>
             <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <enableAssertions>false</enableAssertions>
+                    <systemPropertyVariables>
+                        <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
@@ -250,121 +258,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.8</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                        <configuration>
-                            <!-- Sets the path to the file which contains the execution data. -->
-                            <destFile>${jacoco.ut.execution.data.file}</destFile>
-                            <!--
-                                Sets the name of the property containing the settings
-                                for JaCoCo runtime agent.
-                            -->
-                            <propertyName>surefireArgLine</propertyName>
-                        </configuration>
-                    </execution>
-                    <!-- attached to Maven test phase -->
-                    <execution>
-                        <id>report</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <!-- Sets the path to the file which contains the execution data. -->
-                            <dataFile>${jacoco.ut.execution.data.file}</dataFile>
-                            <!-- Sets the output directory for the code coverage report. -->
-<!--                            <outputDirectory>${project.reporting.outputDirectory}/jacoco-ut</outputDirectory>-->
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <dataFile>${jacoco.ut.execution.data.file}</dataFile>
-                            <rules>
-                                <rule>
-                                    <element>CLASS</element>
-                                    <excludes>
-                                        <exclude>org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl</exclude>
-                                        <!-- The uncovered branch is unreachable -->
-                                        <exclude>org.apache.arrow.driver.jdbc.utils.UrlParser</exclude>
-                                    </excludes>
-                                    <limits>
-                                        <limit implementation="org.jacoco.report.check.Limit">
-                                            <counter>BRANCH</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.80</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>jdk8</id>
-            <activation>
-                <jdk>1.8</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- Sets the VM argument line used when unit tests are run. -->
-                            <argLine>${surefireArgLine}</argLine>
-                            <excludes>
-                                <exclude>**/IT*.java</exclude>
-                            </excludes>
-                            <enableAssertions>false</enableAssertions>
-                            <systemPropertyVariables>
-                                <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>jdk9+</id>
-            <activation>
-                <jdk>[9,]</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- Sets the VM argument line used when unit tests are run. -->
-                            <argLine>${surefireArgLine} --add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
-                            <excludes>
-                                <exclude>**/IT*.java</exclude>
-                            </excludes>
-                            <enableAssertions>false</enableAssertions>
-                            <systemPropertyVariables>
-                                <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
