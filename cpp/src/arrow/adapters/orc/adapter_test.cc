@@ -735,7 +735,7 @@ TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
 
 class TestORCWriterMultipleWrite : public ::testing::Test {
  public:
-  TestORCWriterSingleArray() : rand(kRandomSeed) {}
+  TestORCWriterMultipleWrite() : rand(kRandomSeed) {}
 
  protected:
   random::RandomArrayGenerator rand;
