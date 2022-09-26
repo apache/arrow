@@ -181,12 +181,7 @@ class ScanNode : public cp::ExecNode {
   [[noreturn]] void ErrorReceived(cp::ExecNode*, Status) override { NoInputs(); }
   [[noreturn]] void InputFinished(cp::ExecNode*, int) override { NoInputs(); }
 
-  Status Init() override {
-    // batch_output_ =
-    //     ::std::make_unique<UnorderedBatchOutputStrategy>(this,
-    //     outputs_[0]);
-    return Status::OK();
-  }
+  Status Init() override { return Status::OK(); }
 
   struct ScanState {
     std::mutex mutex;
@@ -211,7 +206,7 @@ class ScanNode : public cp::ExecNode {
       // Prevent concurrent calls to ScanBatch which might not be thread safe
       std::lock_guard<std::mutex> lk(scan_->mutex);
       return scan_->fragment_scanner->ScanBatch(batch_index_)
-          .Then([this](const std::shared_ptr<RecordBatch> batch) {
+          .Then([this](const std::shared_ptr<RecordBatch>& batch) {
             return HandleBatch(batch);
           });
     }

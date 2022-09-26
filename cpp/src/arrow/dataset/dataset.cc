@@ -18,6 +18,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
@@ -331,7 +332,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
     if (missing_fields.size() == 1) {
       return missing_fields[0];
     }
-    return compute::and_(missing_fields);
+    return compute::and_(std::move(missing_fields));
   }
 
   Result<std::vector<FragmentSelectionColumn>> DevolveSelection(

@@ -282,9 +282,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(submit_result.status(), std::move(lk));
       return;
     }
-    // FIXME(C++17, move into lambda?)
-    std::shared_ptr<Task> task_holder = std::move(task);
-    submit_result->AddCallback([this, cost, task_holder](const Status& st) {
+    // Capture `task` to keep it alive until finished
+    submit_result->AddCallback([this, cost, task = std::move(task)](const Status& st) {
       std::unique_lock<std::mutex> lk(mutex_);
       if (!st.ok()) {
         running_tasks_--;

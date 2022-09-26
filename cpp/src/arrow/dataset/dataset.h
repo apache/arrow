@@ -45,7 +45,7 @@ namespace dataset {
 using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
 /// \brief Description of a column to scan
-struct FragmentSelectionColumn {
+struct ARROW_DS_EXPORT FragmentSelectionColumn {
   /// \brief The path to the column to load
   FieldPath path;
   /// \brief The type of the column in the dataset schema
@@ -61,12 +61,13 @@ struct FragmentSelectionColumn {
   /// \brief The index in the output selection of this column
   int selection_index;
 };
+
 /// \brief Instructions for scanning a particular fragment
 ///
 /// The fragment scan request is dervied from ScanV2Options.  The main
 /// difference is that the scan options are based on the dataset schema
 /// while the fragment request is based on the fragment schema.
-struct FragmentScanRequest {
+struct ARROW_DS_EXPORT FragmentScanRequest {
   /// \brief A row filter
   ///
   /// The filter expression should be written against the fragment schema.
@@ -90,7 +91,8 @@ struct FragmentScanRequest {
   FragmentScanOptions* format_scan_options;
 };
 
-class FragmentScanner {
+/// \brief An iterator-like object that can yield batches created from a fragment
+class ARROW_DS_EXPORT FragmentScanner {
  public:
   /// This instance will only be destroyed after all ongoing scan futures
   /// have been completed.
@@ -110,7 +112,16 @@ class FragmentScanner {
   virtual int NumBatches() = 0;
 };
 
-struct InspectedFragment {
+/// \brief Information learned about a fragment through inspection
+///
+/// This information can be used to figure out which fields need
+/// to be read from a file and how the data read in should be evolved
+/// to match the dataset schema.
+///
+/// For example, from a CSV file we can inspect and learn the column
+/// names and use those column names to determine which columns to load
+/// from the CSV file.
+struct ARROW_DS_EXPORT InspectedFragment {
   explicit InspectedFragment(std::vector<std::string> column_names)
       : column_names(std::move(column_names)) {}
   std::vector<std::string> column_names;
