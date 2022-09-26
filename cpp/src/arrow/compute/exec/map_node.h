@@ -69,9 +69,6 @@ class ARROW_EXPORT MapNode : public ExecNode {
  protected:
   // Counter for the number of batches received
   AtomicCounter input_counter_;
-
-  // Variable used to cancel remaining tasks in the executor
-  StopSource stop_source_;
 };
 
 }  // namespace compute

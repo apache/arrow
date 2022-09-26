@@ -24,13 +24,14 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
@@ -182,7 +183,7 @@ class ScanNode : public cp::ExecNode {
 
   Status Init() override {
     // batch_output_ =
-    //     ::arrow::internal::make_unique<UnorderedBatchOutputStrategy>(this,
+    //     ::std::make_unique<UnorderedBatchOutputStrategy>(this,
     //     outputs_[0]);
     return Status::OK();
   }
@@ -272,8 +273,7 @@ class ScanNode : public cp::ExecNode {
           StateHolder{std::move(scan_state)}, node->batches_throttle_.get());
       for (int i = 0; i < fragment_scanner->NumBatches(); i++) {
         node->num_batches_.fetch_add(1);
-        frag_scheduler->AddTask(
-            arrow::internal::make_unique<ScanBatchTask>(node, state_view, i));
+        frag_scheduler->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
       }
       Future<> list_and_scan_node = frag_scheduler->OnFinished();
       frag_scheduler->End();
@@ -303,7 +303,7 @@ class ScanNode : public cp::ExecNode {
 
     ScanNode* node;
     std::shared_ptr<Fragment> fragment;
-    std::unique_ptr<ScanState> scan_state = arrow::internal::make_unique<ScanState>();
+    std::unique_ptr<ScanState> scan_state = std::make_unique<ScanState>();
   };
 
   Status StartProducing() override {
@@ -325,8 +325,7 @@ class ScanNode : public cp::ExecNode {
     plan_->async_scheduler()->AddAsyncGenerator<std::shared_ptr<Fragment>>(
         std::move(frag_gen),
         [this, scan_scheduler](const std::shared_ptr<Fragment>& fragment) {
-          scan_scheduler->AddTask(
-              arrow::internal::make_unique<ListFragmentTask>(this, fragment));
+          scan_scheduler->AddTask(std::make_unique<ListFragmentTask>(this, fragment));
           return Status::OK();
         },
         [scan_scheduler]() {

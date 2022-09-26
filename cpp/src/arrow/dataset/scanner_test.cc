@@ -60,13 +60,11 @@ namespace dataset {
 // or the fragment other than the schema so we just make a dummy dataset/fragment
 // here.
 std::unique_ptr<Dataset> MakeDatasetFromSchema(std::shared_ptr<Schema> sch) {
-  return ::arrow::internal::make_unique<InMemoryDataset>(std::move(sch),
-                                                         RecordBatchVector{});
+  return std::make_unique<InMemoryDataset>(std::move(sch), RecordBatchVector{});
 }
 
 std::unique_ptr<Fragment> MakeSomeFragment(std::shared_ptr<Schema> sch) {
-  return ::arrow::internal::make_unique<InMemoryFragment>(std::move(sch),
-                                                          RecordBatchVector{});
+  return std::make_unique<InMemoryFragment>(std::move(sch), RecordBatchVector{});
 }
 
 TEST(BasicEvolution, MissingColumn) {
@@ -380,8 +378,7 @@ struct MockDatasetBuilder {
   }
 
   std::unique_ptr<MockDataset> Finish() {
-    return arrow::internal::make_unique<MockDataset>(std::move(dataset_schema),
-                                                     std::move(fragments));
+    return std::make_unique<MockDataset>(std::move(dataset_schema), std::move(fragments));
   }
 
   std::shared_ptr<Schema> dataset_schema;
@@ -466,8 +463,7 @@ std::unique_ptr<MockDataset> MakeTestDataset(int num_fragments, int batches_per_
   MockDatasetBuilder dataset_builder(test_schema);
   for (int i = 0; i < num_fragments; i++) {
     dataset_builder.AddFragment(
-        test_schema,
-        ::arrow::internal::make_unique<InspectedFragment>(test_schema->field_names()),
+        test_schema, std::make_unique<InspectedFragment>(test_schema->field_names()),
         Fragment::kNoPartitionInformation);
     for (int j = 0; j < batches_per_fragment; j++) {
       if (empty) {

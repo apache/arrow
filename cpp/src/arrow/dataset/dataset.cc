@@ -422,8 +422,8 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
         ds_to_frag_map.push_back(column_idx_itr->second);
       }
     }
-    return ::arrow::internal::make_unique<BasicFragmentEvolution>(
-        std::move(ds_to_frag_map), dataset_schema.get());
+    return std::make_unique<BasicFragmentEvolution>(std::move(ds_to_frag_map),
+                                                    dataset_schema.get());
   }
 };
 
@@ -441,7 +441,7 @@ class BasicDatasetEvolutionStrategy : public DatasetEvolutionStrategy {
 }  // namespace
 
 std::unique_ptr<DatasetEvolutionStrategy> MakeBasicDatasetEvolutionStrategy() {
-  return ::arrow::internal::make_unique<BasicDatasetEvolutionStrategy>();
+  return std::make_unique<BasicDatasetEvolutionStrategy>();
 }
 
 }  // namespace dataset

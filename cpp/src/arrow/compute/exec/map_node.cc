@@ -76,9 +76,6 @@ void MapNode::StopProducing(ExecNode* output) {
 
 void MapNode::StopProducing() {
   EVENT(span_, "StopProducing");
-  if (executor_) {
-    this->stop_source_.RequestStop();
-  }
   if (input_counter_.Cancel()) {
     this->Finish();
   }
