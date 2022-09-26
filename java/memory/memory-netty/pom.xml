@@ -77,7 +77,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <compilerArgs combine.children="append">
-            <arg>--patch-module=io.netty.buffer=/Users/dsusanibar/.m2/repository/org/apache/arrow/memory-netty-buffer-patch/8.0.0-SNAPSHOT/memory-netty-buffer-patch-8.0.0-SNAPSHOT.jar</arg>
+            <arg>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-10.0.0-SNAPSHOT.jar</arg>
           </compilerArgs>
         </configuration>
       </plugin>
@@ -85,9 +85,10 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <argLine>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/memory-netty-buffer-patch-8.0.0-SNAPSHOT.jar</argLine>
+          <argLine>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-10.0.0-SNAPSHOT.jar</argLine>
         </configuration>
       </plugin>
+
     </plugins>
   </build>
 

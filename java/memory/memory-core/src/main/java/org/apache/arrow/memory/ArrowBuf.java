@@ -32,7 +32,6 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
@@ -1105,7 +1104,6 @@ public final class ArrowBuf implements AutoCloseable {
    * the verbosity.includeHistoricalLog are true.
    *
    */
-  @VisibleForTesting
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     CommonUtil.indent(sb, indent).append(toString());
 
