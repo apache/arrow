@@ -17,6 +17,7 @@
 
 #include "arrow/array/array_nested.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
