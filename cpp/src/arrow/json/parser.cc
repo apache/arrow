@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/json/options.h"
 #include "arrow/json/rapidjson_defs.h"
 #include "rapidjson/error/en.h"
 #include "rapidjson/reader.h"
@@ -92,7 +93,8 @@ Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
   return static_cast<Kind::type>(name_to_kind.Find(name));
 }
 
-Status Kind::ForType(const DataType& type, Kind::type* kind) {
+Status Kind::ForType(const DataType& type, const ParseOptions& options,
+                     Kind::type* kind) {
   struct {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
@@ -102,9 +104,12 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
-    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const FixedSizeBinaryType&) {
+      return options_.parse_decimal_as_number ? SetKind(Kind::kNumber)
+                                              : SetKind(Kind::kString);
+    }
     Status Visit(const DictionaryType& dict_type) {
-      return Kind::ForType(*dict_type.value_type(), kind_);
+      return Kind::ForType(*dict_type.value_type(), options_, kind_);
     }
     Status Visit(const ListType&) { return SetKind(Kind::kArray); }
     Status Visit(const StructType&) { return SetKind(Kind::kObject); }
@@ -115,8 +120,9 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
       *kind_ = kind;
       return Status::OK();
     }
+    const ParseOptions& options_;
     Kind::type* kind_;
-  } visitor = {kind};
+  } visitor = {options, kind};
   return VisitTypeInline(type, &visitor);
 }
 
@@ -393,7 +399,8 @@ class RawArrayBuilder<Kind::kObject> {
 
 class RawBuilderSet {
  public:
-  explicit RawBuilderSet(MemoryPool* pool) : pool_(pool) {}
+  explicit RawBuilderSet(MemoryPool* pool, const ParseOptions& options)
+      : pool_(pool), options_(options) {}
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
@@ -415,7 +422,7 @@ class RawBuilderSet {
   /// construct a builder of whatever kind corresponds to a DataType
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
     Kind::type kind;
-    RETURN_NOT_OK(Kind::ForType(t, &kind));
+    RETURN_NOT_OK(Kind::ForType(t, options_, &kind));
     switch (kind) {
       case Kind::kNull:
         *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
@@ -565,6 +572,7 @@ class RawBuilderSet {
              std::vector<RawArrayBuilder<Kind::kArray>>,
              std::vector<RawArrayBuilder<Kind::kObject>>>
       arenas_;
+  const ParseOptions& options_;
 };
 
 /// Three implementations are provided for BlockParser, one for each
@@ -573,9 +581,9 @@ class RawBuilderSet {
 class HandlerBase : public BlockParser,
                     public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
  public:
-  explicit HandlerBase(MemoryPool* pool)
-      : BlockParser(pool),
-        builder_set_(pool),
+  explicit HandlerBase(MemoryPool* pool, const ParseOptions& options)
+      : BlockParser(pool, options),
+        builder_set_(pool, options),
         field_index_(-1),
         scalar_values_builder_(pool) {}
 
@@ -1086,15 +1094,15 @@ Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
 
   switch (options.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool, options);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool, options);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool, options);
       break;
   }
   return static_cast<HandlerBase&>(**out).Initialize(options.explicit_schema);
