@@ -18,7 +18,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
@@ -357,7 +357,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
 
   Result<compute::Expression> DevolveFilter(
       const compute::Expression& filter) const override {
-    return compute::Modify(
+    return compute::ModifyExpression(
         filter,
         [&](compute::Expression expr) -> Result<compute::Expression> {
           const FieldRef* ref = expr.field_ref();
