@@ -91,8 +91,8 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 template <typename ItMaker>
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
-  inline SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
-                                 arrow::internal::Executor* io_executor = NULLPTR)
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
+                          arrow::internal::Executor* io_executor = NULLPTR)
       : schema(schema), it_maker(std::move(it_maker)), io_executor(io_executor) {}
 
   /// \brief The schema of the record batches from the iterator
@@ -107,17 +107,26 @@ class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   arrow::internal::Executor* io_executor;
 };
 
-/// \brief An extended Source node which accepts a schema and array-vectors
 using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
-using ArrayVectorSourceNodeOptions = SchemaSourceNodeOptions<ArrayVectorIteratorMaker>;
+/// \brief An extended Source node which accepts a schema and array-vectors
+class ARROW_EXPORT ArrayVectorSourceNodeOptions
+    : public SchemaSourceNodeOptions<ArrayVectorIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
 
 using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
 /// \brief An extended Source node which accepts a schema and exec-batches
-using ExecBatchSourceNodeOptions = SchemaSourceNodeOptions<ExecBatchIteratorMaker>;
+class ARROW_EXPORT ExecBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<ExecBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
 
 using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
 /// \brief An extended Source node which accepts a schema and record-batches
-using RecordBatchSourceNodeOptions = SchemaSourceNodeOptions<RecordBatchIteratorMaker>;
+class ARROW_EXPORT RecordBatchSourceNodeOptions
+    : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
+  using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
