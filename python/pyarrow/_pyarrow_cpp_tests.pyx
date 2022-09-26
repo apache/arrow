@@ -62,6 +62,7 @@ def test_TestNumPyBufferNumpyArray():
 def test_TestPythonDecimalToString():
     check_status(TestPythonDecimalToString())
 
+
 def test_TestInferPrecisionAndScale():
     check_status(TestInferPrecisionAndScale())
 
@@ -80,3 +81,59 @@ def test_TestInferAllLeadingZerosExponentialNotationPositive():
 
 def test_TestInferAllLeadingZerosExponentialNotationNegative():
     check_status(TestInferAllLeadingZerosExponentialNotationNegative())
+
+
+def test_TestObjectBlockWriteFails():
+    check_status(TestObjectBlockWriteFails())
+
+
+def test_TestMixedTypeFails():
+    check_status(TestMixedTypeFails())
+
+
+def test_TestFromPythonDecimalRescaleNotTruncateable():
+    check_status(TestFromPythonDecimalRescaleNotTruncateable())
+
+
+def test_TestFromPythonDecimalRescaleTruncateable():
+    check_status(TestFromPythonDecimalRescaleTruncateable())
+
+
+def test_TestFromPythonNegativeDecimalRescale():
+    check_status(TestFromPythonNegativeDecimalRescale())
+
+
+def test_TestDecimal128FromPythonInteger():
+    check_status(TestDecimal128FromPythonInteger())
+
+
+def test_TestDecimal256FromPythonInteger():
+    check_status(TestDecimal256FromPythonInteger())
+
+
+def test_TestDecimal128OverflowFails():
+    check_status(TestDecimal128OverflowFails())
+
+
+def test_TestDecimal256OverflowFails():
+    check_status(TestDecimal256OverflowFails())
+
+
+def test_TestNoneAndNaN():
+    check_status(TestNoneAndNaN())
+
+
+def test_TestMixedPrecisionAndScale():
+    check_status(TestMixedPrecisionAndScale())
+
+
+def test_TestMixedPrecisionAndScaleSequenceConvert():
+    check_status(TestMixedPrecisionAndScaleSequenceConvert())
+
+
+def test_TestSimpleInference():
+    check_status(TestSimpleInference())
+
+
+def test_TestUpdateWithNaN():
+    check_status(TestUpdateWithNaN())

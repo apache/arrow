@@ -96,3 +96,55 @@ def test_infer_all_leading_zeros_e_pos():
 
 def test_infer_all_leading_zeros_e_neg():
     t.test_TestInferAllLeadingZerosExponentialNotationNegative()
+
+
+def test_object_block_write_fails():
+    t.test_TestObjectBlockWriteFails()
+
+
+def test_mixed_type_fails():
+    t.test_TestMixedTypeFails()
+
+
+def test_from_python_decimal_rescale_not_truncateable():
+    t.test_TestFromPythonDecimalRescaleNotTruncateable()
+
+
+def test_from_python_decimal_rescale_truncateable():
+    t.test_TestFromPythonDecimalRescaleTruncateable()
+
+
+def test_from_python_negative_decimal_rescale():
+    t.test_TestFromPythonNegativeDecimalRescale()
+
+
+def test_decimal_128_from_python_integer():
+    t.test_TestDecimal128FromPythonInteger()
+
+
+def test_decimal_256_from_python_integer():
+    t.test_TestDecimal256FromPythonInteger()
+
+
+def test_decimal_128_overflow_fails():
+    t.test_TestDecimal128OverflowFails()
+
+
+def test_decimal_256_overflow_fails():
+    t.test_TestDecimal256OverflowFails()
+
+
+def test_none_and_nan():
+    t.test_TestNoneAndNaN()
+
+
+def test_mixed_precision_and_scale():
+    t.test_TestMixedPrecisionAndScale()
+
+
+def test_simple_inference():
+    t.test_TestSimpleInference()
+
+
+def test_update_with_nan():
+    t.test_TestUpdateWithNaN()

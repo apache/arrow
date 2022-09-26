@@ -67,5 +67,47 @@ Status TestInferAllLeadingZerosExponentialNotationPositive();
 ARROW_PYTHON_EXPORT
 Status TestInferAllLeadingZerosExponentialNotationNegative();
 
+ARROW_PYTHON_EXPORT
+Status TestObjectBlockWriteFails();
+
+ARROW_PYTHON_EXPORT
+Status TestMixedTypeFails();
+
+ARROW_PYTHON_EXPORT
+Status TestFromPythonDecimalRescaleNotTruncateable();
+
+ARROW_PYTHON_EXPORT
+Status TestFromPythonDecimalRescaleTruncateable();
+
+ARROW_PYTHON_EXPORT
+Status TestFromPythonNegativeDecimalRescale();
+
+ARROW_PYTHON_EXPORT
+Status TestDecimal128FromPythonInteger();
+
+ARROW_PYTHON_EXPORT
+Status TestDecimal256FromPythonInteger();
+
+ARROW_PYTHON_EXPORT
+Status TestDecimal128OverflowFails();
+
+ARROW_PYTHON_EXPORT
+Status TestDecimal256OverflowFails();
+
+ARROW_PYTHON_EXPORT
+Status TestNoneAndNaN();
+
+ARROW_PYTHON_EXPORT
+Status TestMixedPrecisionAndScale();
+
+ARROW_PYTHON_EXPORT
+Status TestMixedPrecisionAndScaleSequenceConvert();
+
+ARROW_PYTHON_EXPORT
+Status TestSimpleInference();
+
+ARROW_PYTHON_EXPORT
+Status TestUpdateWithNaN();
+
 }  // namespace py
 }  // namespace arrow
