@@ -28,6 +28,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
@@ -353,13 +354,28 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 }
 
+namespace {
+
+struct TestFunctionOptions : public FunctionOptions {
+  TestFunctionOptions();
+
+  static const char* kTypeName;
+};
+
+static auto kTestFunctionOptionsType =
+    internal::GetFunctionOptionsType<TestFunctionOptions>();
+
+TestFunctionOptions::TestFunctionOptions() : FunctionOptions(kTestFunctionOptionsType) {}
+
+const char* TestFunctionOptions::kTypeName = "test_options";
+
+}  // namespace
+
 TEST(FunctionExecutor, Basics) {
   VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
   bool init_called = false;
   ExecContext exec_ctx;
-  struct TestFunctionOptions : public FunctionOptions {
-    TestFunctionOptions() : FunctionOptions(NULLPTR) {}
-  } options;
+  TestFunctionOptions options;
   auto init =
       [&init_called, &exec_ctx, &options](
           KernelContext* kernel_ctx,
