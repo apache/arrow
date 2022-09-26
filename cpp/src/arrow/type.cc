@@ -718,16 +718,24 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 // ----------------------------------------------------------------------
 // Run-length encoded type
 
-RunLengthEncodedType::RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
-    : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {
-  children_ = {std::make_shared<Field>("run_ends", int32(), false),
-               std::make_shared<Field>("values", encoded_type, true)};
+RunLengthEncodedType::RunLengthEncodedType(std::shared_ptr<DataType> run_ends_type,
+                                           std::shared_ptr<DataType> encoded_type)
+    : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(encoded_type) {
+  assert(RunEndsTypeValid(*run_ends_type));
+  children_ = {std::make_shared<Field>("run_ends", run_ends_type, false),
+               std::make_shared<Field>("values", std::move(encoded_type), true)};
 }
 
 std::string RunLengthEncodedType::ToString() const {
   std::stringstream s;
-  s << name() << "<" << encoded_type()->ToString() << ">";
+  s << name() << "<run_ends: " << run_ends_type()->ToString()
+    << ", values: " << encoded_type()->ToString() << ">";
   return s.str();
+}
+
+bool RunLengthEncodedType::RunEndsTypeValid(const DataType& run_ends_type) {
+  return run_ends_type.id() == Type::INT16 || run_ends_type.id() == Type::INT32 ||
+         run_ends_type.id() == Type::INT64;
 }
 
 // ----------------------------------------------------------------------
@@ -2155,7 +2163,8 @@ std::string UnionType::ComputeFingerprint() const {
 std::string RunLengthEncodedType::ComputeFingerprint() const {
   std::stringstream ss;
   ss << TypeIdFingerprint(*this) << "{";
-  ss << encoded_type()->fingerprint();
+  ss << run_ends_type()->fingerprint() << ";";
+  ss << encoded_type()->fingerprint() << ";";
   ss << "}";
   return ss.str();
 }
@@ -2296,8 +2305,11 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> run_length_encoded(std::shared_ptr<DataType> encoded_type) {
-  return std::make_shared<RunLengthEncodedType>(std::move(encoded_type));
+std::shared_ptr<DataType> run_length_encoded(
+    std::shared_ptr<arrow::DataType> run_ends_type,
+    std::shared_ptr<DataType> encoded_type) {
+  return std::make_shared<RunLengthEncodedType>(std::move(run_ends_type),
+                                                std::move(encoded_type));
 }
 
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,

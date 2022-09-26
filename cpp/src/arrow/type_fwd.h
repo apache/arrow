@@ -553,8 +553,8 @@ std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
 /// \brief Create a RunLengthEncoded instance
-std::shared_ptr<DataType> ARROW_EXPORT
-run_length_encoded(std::shared_ptr<DataType> encoded_type);
+std::shared_ptr<DataType> ARROW_EXPORT run_length_encoded(
+    std::shared_ptr<DataType> run_ends_type, std::shared_ptr<DataType> encoded_type);
 
 /// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
