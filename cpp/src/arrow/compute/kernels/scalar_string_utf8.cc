@@ -524,7 +524,7 @@ struct Utf8NormalizeBase {
 
   // Try to decompose the given UTF8 string into the codepoints space,
   // returning the number of codepoints output.
-  Result<int64_t> DecomposeIntoScratch(util::string_view v) {
+  Result<int64_t> DecomposeIntoScratch(std::string_view v) {
     auto decompose = [&]() {
       return utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(v.data()),
                                 v.size(),
@@ -544,7 +544,7 @@ struct Utf8NormalizeBase {
     return res;
   }
 
-  Result<int64_t> Decompose(util::string_view v, BufferBuilder* data_builder) {
+  Result<int64_t> Decompose(std::string_view v, BufferBuilder* data_builder) {
     if (::arrow::util::ValidateAscii(v)) {
       // Fast path: normalization is a no-op
       RETURN_NOT_OK(data_builder->Append(v.data(), v.size()));
@@ -623,7 +623,7 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
 
     RETURN_NOT_OK(VisitArraySpanInline<Type>(
         array,
-        [&](util::string_view v) {
+        [&](std::string_view v) {
           ARROW_ASSIGN_OR_RAISE(auto n_bytes, exec.Decompose(v, &data_builder));
           offset += n_bytes;
           *out_offsets++ = static_cast<offset_type>(offset);
@@ -656,7 +656,7 @@ void AddUtf8StringNormalize(FunctionRegistry* registry) {
 // String length
 
 struct Utf8Length {
-  template <typename OutValue, typename Arg0Value = util::string_view>
+  template <typename OutValue, typename Arg0Value = std::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();

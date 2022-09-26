@@ -374,11 +374,11 @@ struct Converter_String : public Converter {
   bool Parallel() const { return false; }
 
  private:
-  static SEXP r_string_from_view(arrow::util::string_view view) {
+  static SEXP r_string_from_view(std::string_view view) {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
 
-  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
+  static SEXP r_string_from_view_strip_nul(std::string_view view,
                                            bool* nul_was_stripped) {
     const char* old_string = view.data();
 
@@ -391,7 +391,7 @@ struct Converter_String : public Converter {
 
         if (nul_count == 1) {
           // first nul spotted: allocate stripped string storage
-          stripped_string = view.to_string();
+          stripped_string = std::string(view);
           stripped_len = i;
         }
 

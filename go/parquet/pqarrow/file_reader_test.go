@@ -191,3 +191,28 @@ func TestRecordReaderSerial(t *testing.T) {
 	assert.Same(t, io.EOF, err)
 	assert.Nil(t, rec)
 }
+
+func TestFileReaderWriterMetadata(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, true, true)
+	defer tbl.Release()
+
+	meta := arrow.NewMetadata([]string{"foo", "bar"}, []string{"bar", "baz"})
+	sc := arrow.NewSchema(tbl.Schema().Fields(), &meta)
+
+	var buf bytes.Buffer
+	writer, err := pqarrow.NewFileWriter(sc, &buf, nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteTable(tbl, tbl.NumRows()))
+	require.NoError(t, writer.Close())
+
+	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), file.WithReadProps(parquet.NewReaderProperties(mem)))
+	require.NoError(t, err)
+	defer pf.Close()
+
+	kvMeta := pf.MetaData().KeyValueMetadata()
+	assert.Equal(t, []string{"foo", "bar"}, kvMeta.Keys())
+	assert.Equal(t, []string{"bar", "baz"}, kvMeta.Values())
+}

@@ -19,12 +19,20 @@
 
 set -ex
 
+# simplistic semver comparison
+verlte() {
+    [ "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+}
+verlt() {
+    [ "$1" = "$2" ] && return 1 || verlte $1 $2
+}
+
 ver=`go env GOVERSION`
 
 source_dir=${1}/go
 
 testargs="-race"
-if [[ "${ver#go}" =~ ^1\.1[8-9] ]] && [ "$(go env GOOS)" != "darwin" ]; then
+if verlte "1.18" "${ver#go}" && [ "$(go env GOOS)" != "darwin" ]; then
     # asan not supported on darwin/amd64
     testargs="-asan"
 fi
@@ -64,6 +72,11 @@ fi
 # in .c files don't get included in non-test builds.
 
 go test $testargs -tags $TAGS ./...
+
+# only test compute when Go is >= 1.18
+if verlte "1.18" "${ver#go}"; then
+    go test $testargs -tags $TAGS ./compute/...
+fi
 
 popd
 

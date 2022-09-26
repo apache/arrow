@@ -131,6 +131,9 @@ func (b *bufferBuilder) Finish() (buffer *memory.Buffer) {
 	buffer = b.buffer
 	b.buffer = nil
 	b.Reset()
+	if buffer == nil {
+		buffer = memory.NewBufferBytes(nil)
+	}
 	return
 }
 

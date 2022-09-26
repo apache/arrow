@@ -20,7 +20,6 @@
 #include <arrow/io/interfaces.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
-#include <arrow/util/string_view.h>
 
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/codec.hpp>
@@ -34,6 +33,7 @@
 #include <arrow-glib/tensor.hpp>
 
 #include <mutex>
+#include <string_view>
 
 G_BEGIN_DECLS
 
@@ -855,7 +855,7 @@ namespace garrow {
       }
     }
 
-    arrow::Result<arrow::util::string_view> Peek(int64_t nbytes) override {
+    arrow::Result<std::string_view> Peek(int64_t nbytes) override {
       if (!G_IS_BUFFERED_INPUT_STREAM(input_stream_)) {
         std::string message("[gio-input-stream][peek] "
                             "not peekable input stream: <");
@@ -882,8 +882,7 @@ namespace garrow {
       if (data_size > static_cast<gsize>(nbytes)) {
         data_size = nbytes;
       }
-      return arrow::util::string_view(static_cast<const char *>(data),
-                                      data_size);
+      return std::string_view(static_cast<const char *>(data), data_size);
     }
 
     arrow::Status Seek(int64_t position) override {

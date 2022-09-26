@@ -16,14 +16,6 @@
 // under the License.
 
 #include "arrow/compute/exec/tpch_node.h"
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/util/formatting.h"
-#include "arrow/util/future.h"
-#include "arrow/util/io_util.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/pcg_random.h"
-#include "arrow/util/unreachable.h"
 
 #include <algorithm>
 #include <bitset>
@@ -32,10 +24,24 @@
 #include <mutex>
 #include <queue>
 #include <random>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/datum.h"
+#include "arrow/util/async_util.h"
+#include "arrow/util/formatting.h"
+#include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
+#include "arrow/util/unreachable.h"
+
 namespace arrow {
+
 using internal::checked_cast;
 using internal::GetRandomSeed;
 
@@ -663,7 +669,7 @@ class PartAndPartSupplierGenerator {
     return SetOutputColumns(cols, kPartsuppTypes, kPartsuppNameMap, partsupp_cols_);
   }
 
-  Result<util::optional<ExecBatch>> NextPartBatch(size_t thread_index) {
+  Result<std::optional<ExecBatch>> NextPartBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
@@ -672,7 +678,7 @@ class PartAndPartSupplierGenerator {
         part_output_queue_.pop();
         return std::move(batch);
       } else if (part_rows_generated_ == part_rows_to_generate_) {
-        return util::nullopt;
+        return std::nullopt;
       } else {
         tld.partkey_start = part_rows_generated_;
         tld.part_to_generate =
@@ -718,7 +724,7 @@ class PartAndPartSupplierGenerator {
     return ExecBatch::Make(std::move(part_result));
   }
 
-  Result<util::optional<ExecBatch>> NextPartSuppBatch(size_t thread_index) {
+  Result<std::optional<ExecBatch>> NextPartSuppBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(partsupp_output_queue_mutex_);
@@ -731,7 +737,7 @@ class PartAndPartSupplierGenerator {
     {
       std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
       if (part_rows_generated_ == part_rows_to_generate_) {
-        return util::nullopt;
+        return std::nullopt;
       } else {
         tld.partkey_start = part_rows_generated_;
         tld.part_to_generate =
@@ -1323,7 +1329,7 @@ class OrdersAndLineItemGenerator {
     return SetOutputColumns(cols, kLineitemTypes, kLineitemNameMap, lineitem_cols_);
   }
 
-  Result<util::optional<ExecBatch>> NextOrdersBatch(size_t thread_index) {
+  Result<std::optional<ExecBatch>> NextOrdersBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
@@ -1332,7 +1338,7 @@ class OrdersAndLineItemGenerator {
         orders_output_queue_.pop();
         return std::move(batch);
       } else if (orders_rows_generated_ == orders_rows_to_generate_) {
-        return util::nullopt;
+        return std::nullopt;
       } else {
         tld.orderkey_start = orders_rows_generated_;
         tld.orders_to_generate =
@@ -1378,7 +1384,7 @@ class OrdersAndLineItemGenerator {
     return ExecBatch::Make(std::move(orders_result));
   }
 
-  Result<util::optional<ExecBatch>> NextLineItemBatch(size_t thread_index) {
+  Result<std::optional<ExecBatch>> NextLineItemBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ExecBatch queued;
     bool from_queue = false;
@@ -1400,7 +1406,7 @@ class OrdersAndLineItemGenerator {
       std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
       if (orders_rows_generated_ == orders_rows_to_generate_) {
         if (from_queue) return std::move(queued);
-        return util::nullopt;
+        return std::nullopt;
       }
 
       tld.orderkey_start = orders_rows_generated_;
@@ -2708,7 +2714,7 @@ class PartGenerator : public TpchTableGenerator {
  private:
   Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+    ARROW_ASSIGN_OR_RAISE(std::optional<ExecBatch> maybe_batch,
                           gen_->NextPartBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->part_batches_generated();
@@ -2770,7 +2776,7 @@ class PartSuppGenerator : public TpchTableGenerator {
  private:
   Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+    ARROW_ASSIGN_OR_RAISE(std::optional<ExecBatch> maybe_batch,
                           gen_->NextPartSuppBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->partsupp_batches_generated();
@@ -3089,7 +3095,7 @@ class OrdersGenerator : public TpchTableGenerator {
  private:
   Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+    ARROW_ASSIGN_OR_RAISE(std::optional<ExecBatch> maybe_batch,
                           gen_->NextOrdersBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->orders_batches_generated();
@@ -3151,7 +3157,7 @@ class LineitemGenerator : public TpchTableGenerator {
  private:
   Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+    ARROW_ASSIGN_OR_RAISE(std::optional<ExecBatch> maybe_batch,
                           gen_->NextLineItemBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->lineitem_batches_generated();
@@ -3374,13 +3380,18 @@ class TpchNode : public ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    return generator_->StartProducing(
+    num_running_++;
+    ARROW_RETURN_NOT_OK(generator_->StartProducing(
         plan_->max_concurrency(),
         [this](ExecBatch batch) { this->OutputBatchCallback(std::move(batch)); },
         [this](int64_t num_batches) { this->FinishedCallback(num_batches); },
         [this](std::function<Status(size_t)> func) -> Status {
           return this->ScheduleTaskCallback(std::move(func));
-        });
+        }));
+    if (--num_running_ == 0) {
+      finished_.MarkFinished(Status::OK());
+    }
+    return Status::OK();
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
@@ -3408,16 +3419,20 @@ class TpchNode : public ExecNode {
 
   void FinishedCallback(int64_t total_num_batches) {
     outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-    finished_.MarkFinished();
+    finished_generating_.store(true);
   }
 
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-    if (finished_.is_finished()) return Status::OK();
+    if (finished_generating_.load()) return Status::OK();
+    num_running_++;
     return plan_->ScheduleTask([this, func](size_t thread_index) {
       Status status = func(thread_index);
       if (!status.ok()) {
         StopProducing();
         ErrorIfNotOk(status);
+      }
+      if (--num_running_ == 0) {
+        finished_.MarkFinished(Status::OK());
       }
       return status;
     });
@@ -3425,6 +3440,8 @@ class TpchNode : public ExecNode {
 
   const char* name_;
   std::unique_ptr<TpchTableGenerator> generator_;
+  std::atomic<bool> finished_generating_{false};
+  std::atomic<int> num_running_{0};
 };
 
 class TpchGenImpl : public TpchGen {
@@ -3459,7 +3476,7 @@ class TpchGenImpl : public TpchGen {
 template <typename Generator>
 Result<ExecNode*> TpchGenImpl::CreateNode(const char* name,
                                           std::vector<std::string> columns) {
-  std::unique_ptr<Generator> generator = arrow::internal::make_unique<Generator>();
+  std::unique_ptr<Generator> generator = std::make_unique<Generator>();
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, name, std::move(generator));
@@ -3474,7 +3491,7 @@ Result<ExecNode*> TpchGenImpl::Part(std::vector<std::string> columns) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
   std::unique_ptr<PartGenerator> generator =
-      arrow::internal::make_unique<PartGenerator>(part_and_part_supp_generator_);
+      std::make_unique<PartGenerator>(part_and_part_supp_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Part", std::move(generator));
@@ -3485,7 +3502,7 @@ Result<ExecNode*> TpchGenImpl::PartSupp(std::vector<std::string> columns) {
     part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
   }
   std::unique_ptr<PartSuppGenerator> generator =
-      arrow::internal::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
+      std::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "PartSupp", std::move(generator));
@@ -3500,7 +3517,7 @@ Result<ExecNode*> TpchGenImpl::Orders(std::vector<std::string> columns) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
   std::unique_ptr<OrdersGenerator> generator =
-      arrow::internal::make_unique<OrdersGenerator>(orders_and_line_item_generator_);
+      std::make_unique<OrdersGenerator>(orders_and_line_item_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Orders", std::move(generator));
@@ -3511,7 +3528,7 @@ Result<ExecNode*> TpchGenImpl::Lineitem(std::vector<std::string> columns) {
     orders_and_line_item_generator_ = std::make_shared<OrdersAndLineItemGenerator>();
   }
   std::unique_ptr<LineitemGenerator> generator =
-      arrow::internal::make_unique<LineitemGenerator>(orders_and_line_item_generator_);
+      std::make_unique<LineitemGenerator>(orders_and_line_item_generator_);
   RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_,
                                 kSeedDist(seed_rng_)));
   return plan_->EmplaceNode<TpchNode>(plan_, "Lineitem", std::move(generator));
@@ -3529,9 +3546,9 @@ Result<ExecNode*> TpchGenImpl::Region(std::vector<std::string> columns) {
 
 Result<std::unique_ptr<TpchGen>> TpchGen::Make(ExecPlan* plan, double scale_factor,
                                                int64_t batch_size,
-                                               util::optional<int64_t> seed) {
+                                               std::optional<int64_t> seed) {
   if (!seed.has_value()) seed = GetRandomSeed();
-  return std::unique_ptr<TpchGen>(new TpchGenImpl(plan, scale_factor, batch_size, *seed));
+  return std::make_unique<TpchGenImpl>(plan, scale_factor, batch_size, *seed);
 }
 
 }  // namespace internal

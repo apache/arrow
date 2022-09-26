@@ -20,12 +20,21 @@ package org.apache.arrow.flight.sql;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.IntStream.range;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCancelQueryRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedSubstraitPlanRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionEndSavepointRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionEndTransactionRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementSubstraitPlan;
 import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.complex.MapVector.KEY_NAME;
 import static org.apache.arrow.vector.complex.MapVector.VALUE_NAME;
@@ -37,6 +46,8 @@ import static org.apache.arrow.vector.types.Types.MinorType.STRUCT;
 import static org.apache.arrow.vector.types.Types.MinorType.UINT4;
 import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import org.apache.arrow.flight.Action;
@@ -95,6 +106,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     if (command.is(CommandStatementQuery.class)) {
       return getFlightInfoStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+    } else if (command.is(CommandStatementSubstraitPlan.class)) {
+      return getFlightInfoSubstraitPlan(
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementSubstraitPlan.class), context, descriptor);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getFlightInfoPreparedStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
@@ -130,7 +144,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackOrThrow(command, CommandGetXdbcTypeInfo.class), context, descriptor);
     }
 
-    throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT
+        .withDescription("Unrecognized request: " + command.getTypeUrl())
+        .toRuntimeException();
   }
 
   /**
@@ -150,6 +166,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getSchemaPreparedStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
+    } else if (command.is(CommandStatementSubstraitPlan.class)) {
+      return getSchemaSubstraitPlan(
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementSubstraitPlan.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
     } else if (command.is(CommandGetCrossReference.class)) {
@@ -175,7 +194,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_TYPE_INFO_SCHEMA);
     }
 
-    throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT
+        .withDescription("Unrecognized request: " + command.getTypeUrl())
+        .toRuntimeException();
   }
 
   /**
@@ -249,6 +270,10 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return acceptPutStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
           context, flightStream, ackStream);
+    } else if (command.is(CommandStatementSubstraitPlan.class)) {
+      return acceptPutSubstraitPlan(
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementSubstraitPlan.class),
+          context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementUpdate.class)) {
       return acceptPutPreparedStatementUpdate(
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementUpdate.class),
@@ -284,17 +309,89 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   @Override
   default void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     final String actionType = action.getType();
-    if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType())) {
+
+    if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_BEGIN_SAVEPOINT.getType())) {
+      final ActionBeginSavepointRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionBeginSavepointRequest.class);
+      beginSavepoint(request, context, new ProtoListener<>(listener));
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_BEGIN_TRANSACTION.getType())) {
+      final ActionBeginTransactionRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionBeginTransactionRequest.class);
+      beginTransaction(request, context, new ProtoListener<>(listener));
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CANCEL_QUERY.getType())) {
+      final ActionCancelQueryRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionCancelQueryRequest.class);
+      final FlightInfo info;
+      try {
+        info = FlightInfo.deserialize(request.getInfo().asReadOnlyByteBuffer());
+      } catch (IOException | URISyntaxException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack FlightInfo: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      cancelQuery(info, context, new CancelListener(listener));
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType())) {
       final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_SUBSTRAIT_PLAN.getType())) {
+      final ActionCreatePreparedSubstraitPlanRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionCreatePreparedSubstraitPlanRequest.class);
+      createPreparedSubstraitPlan(request, context, new ProtoListener<>(listener));
     } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.getType())) {
-      final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
-          ActionClosePreparedStatementRequest.class);
-      closePreparedStatement(request, context, listener);
+      final ActionClosePreparedStatementRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionClosePreparedStatementRequest.class);
+      closePreparedStatement(request, context, new NoResultListener(listener));
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_END_SAVEPOINT.getType())) {
+      ActionEndSavepointRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionEndSavepointRequest.class);
+      endSavepoint(request, context, new NoResultListener(listener));
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_END_TRANSACTION.getType())) {
+      ActionEndTransactionRequest request =
+          FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionEndTransactionRequest.class);
+      endTransaction(request, context, new NoResultListener(listener));
     } else {
-      throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid action provided.").toRuntimeException();
+      throw CallStatus.INVALID_ARGUMENT
+          .withDescription("Unrecognized request: " + action.getType())
+          .toRuntimeException();
     }
+  }
+
+  /**
+   * Create a savepoint within a transaction.
+   *
+   * @param request  The savepoint request.
+   * @param context  Per-call context.
+   * @param listener The newly created savepoint ID.
+   */
+  default void beginSavepoint(ActionBeginSavepointRequest request, CallContext context,
+                              StreamListener<ActionBeginSavepointResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Begin a transaction.
+   *
+   * @param request  The transaction request.
+   * @param context  Per-call context.
+   * @param listener The newly created transaction ID.
+   */
+  default void beginTransaction(ActionBeginTransactionRequest request, CallContext context,
+                                StreamListener<ActionBeginTransactionResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Explicitly cancel a query.
+   *
+   * @param info     The FlightInfo of the query to cancel.
+   * @param context  Per-call context.
+   * @param listener Whether cancellation succeeded.
+   */
+  default void cancelQuery(FlightInfo info, CallContext context, StreamListener<CancelResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
   }
 
   /**
@@ -310,6 +407,17 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                StreamListener<Result> listener);
 
   /**
+   * Pre-compile a Substrait plan.
+   * @param request  The plan.
+   * @param context  Per-call context.
+   * @param listener The resulting prepared statement.
+   */
+  default void createPreparedSubstraitPlan(ActionCreatePreparedSubstraitPlanRequest request, CallContext context,
+                                           StreamListener<ActionCreatePreparedStatementResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
    * Closes a prepared statement on the server. No result is expected.
    *
    * @param request  The sql command to generate the prepared statement.
@@ -320,15 +428,54 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                               StreamListener<Result> listener);
 
   /**
-   * Gets information about a particular SQL query based data stream.
+   * Release or roll back to a savepoint.
    *
-   * @param command    The sql command to generate the data stream.
+   * @param request  The savepoint, and whether to release/rollback.
+   * @param context  Per-call context.
+   * @param listener Call {@link StreamListener#onCompleted()} or
+   *                 {@link StreamListener#onError(Throwable)} when done; do not send a result.
+   */
+  default void endSavepoint(ActionEndSavepointRequest request, CallContext context,
+                            StreamListener<Result> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Commit or roll back to a transaction.
+   *
+   * @param request  The transaction, and whether to release/rollback.
+   * @param context  Per-call context.
+   * @param listener Call {@link StreamListener#onCompleted()} or
+   *                 {@link StreamListener#onError(Throwable)} when done; do not send a result.
+   */
+  default void endTransaction(ActionEndTransactionRequest request, CallContext context,
+                              StreamListener<Result> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Evaluate a SQL query.
+   *
+   * @param command    The SQL query.
    * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
   FlightInfo getFlightInfoStatement(CommandStatementQuery command, CallContext context,
                                     FlightDescriptor descriptor);
+
+  /**
+   * Evaluate a Substrait plan.
+   *
+   * @param command    The Substrait plan.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  default FlightInfo getFlightInfoSubstraitPlan(CommandStatementSubstraitPlan command, CallContext context,
+                                                FlightDescriptor descriptor) {
+    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+  }
 
   /**
    * Gets information about a particular prepared statement data stream.
@@ -342,7 +489,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                             CallContext context, FlightDescriptor descriptor);
 
   /**
-   * Get the schema of the result set of a query.
+   * Get the result schema for a SQL query.
    *
    * @param command    The SQL query.
    * @param context    Per-call context.
@@ -365,6 +512,19 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     throw CallStatus.UNIMPLEMENTED
         .withDescription("GetSchema with CommandPreparedStatementQuery is not implemented")
         .toRuntimeException();
+  }
+
+  /**
+   * Get the result schema for a Substrait plan.
+   *
+   * @param command    The Substrait plan.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Schema for the stream.
+   */
+  default SchemaResult getSchemaSubstraitPlan(CommandStatementSubstraitPlan command, CallContext context,
+                                              FlightDescriptor descriptor) {
+    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
 
   /**
@@ -398,6 +558,22 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
                               FlightStream flightStream, StreamListener<PutResult> ackStream);
+
+  /**
+   * Handle a Substrait plan with uploaded data.
+   *
+   * @param command      The Substrait plan to evaluate.
+   * @param context      Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream    The result data stream.
+   * @return A runnable to process the stream.
+   */
+  default Runnable acceptPutSubstraitPlan(CommandStatementSubstraitPlan command, CallContext context,
+                                          FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    return () -> {
+      ackStream.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+    };
+  }
 
   /**
    * Accepts uploaded data for a particular prepared statement data stream.
@@ -450,7 +626,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
   /**
    * Returns a description of all the data types supported by source.
-   * 
+   *
    * @param request     request filter parameters.
    * @param descriptor  The descriptor identifying the data stream.
    * @return  Metadata about the stream.

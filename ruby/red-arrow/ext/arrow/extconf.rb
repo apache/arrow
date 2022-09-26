@@ -38,6 +38,8 @@ checking_for(checking_message("Homebrew")) do
   end
 end
 
+$CXXFLAGS += " -std=c++17 "
+
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,

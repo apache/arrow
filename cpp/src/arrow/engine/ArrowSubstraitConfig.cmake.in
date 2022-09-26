@@ -36,3 +36,5 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowSubstraitTargets.cmake")
 arrow_keep_backward_compatibility(ArrowSubstrait arrow_substrait)
 
 check_required_components(ArrowSubstrait)
+
+arrow_show_details(ArrowSubstrait ARROW_SUBSTRAIT)

@@ -448,7 +448,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   }
 
   std::unique_ptr<DictBuilder> CreateDictBuilder() {
-    return std::unique_ptr<DictBuilder>(new DictBuilder(default_memory_pool()));
+    return std::make_unique<DictBuilder>(default_memory_pool());
   }
 
   // Setup encoder/decoder pair for testing with
@@ -931,7 +931,7 @@ class DictEncoding : public TestArrowBuilderDecoding {
  public:
   void SetupEncoderDecoder() override {
     auto node = schema::ByteArray("name");
-    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    descr_ = std::make_unique<ColumnDescriptor>(node, 0, 0);
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
                                                descr_.get());
     if (null_count_ == 0) {

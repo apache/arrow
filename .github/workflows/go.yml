@@ -36,9 +36,8 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
-env:
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+permissions:
+  contents: read
 
 jobs:
 
@@ -50,9 +49,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -72,9 +71,15 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run debian-go
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-go
 
@@ -86,9 +91,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -108,9 +113,15 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run debian-go-cgo
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-go-cgo
 
@@ -123,9 +134,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -144,9 +155,15 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run debian-go-cgo-python
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-go-cgo-python
 
@@ -158,9 +175,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -193,9 +210,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest
@@ -228,9 +245,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16, 1.18]
+        go: [1.17, 1.18]
         include:
-          - go: 1.16
+          - go: 1.17
             staticcheck: v0.2.2
           - go: 1.18
             staticcheck: latest

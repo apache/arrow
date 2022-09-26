@@ -16,6 +16,7 @@
 // under the License.
 
 #include <limits>
+#include <optional>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
@@ -26,7 +27,6 @@
 #include "arrow/result.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/visit_data_inline.h"
 
@@ -57,7 +57,7 @@ struct NumericToStringCastFunctor {
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
-          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+          return formatter(v, [&](std::string_view v) { return builder.Append(v); });
         },
         [&]() { return builder.AppendNull(); }));
 
@@ -84,7 +84,7 @@ struct TemporalToStringCastFunctor {
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
-          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+          return formatter(v, [&](std::string_view v) { return builder.Append(v); });
         },
         [&]() { return builder.AppendNull(); }));
 
@@ -126,7 +126,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
       RETURN_NOT_OK(VisitArraySpanInline<TimestampType>(
           input,
           [&](value_type v) {
-            return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+            return formatter(v, [&](std::string_view v) { return builder.Append(v); });
           },
           [&]() {
             builder.UnsafeAppendNull();
@@ -196,7 +196,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
 struct Utf8Validator {
   Status VisitNull() { return Status::OK(); }
 
-  Status VisitValue(util::string_view str) {
+  Status VisitValue(std::string_view str) {
     if (ARROW_PREDICT_FALSE(!ValidateUTF8Inline(str))) {
       return Status::Invalid("Invalid UTF8 payload");
     }

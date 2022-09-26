@@ -249,7 +249,7 @@ class ARROW_EXPORT BlockedBloomFilter {
 // b) It is preferred for small and medium size Bloom filters, because it skips extra
 // synchronization related steps from parallel variant (partitioning and taking locks).
 //
-enum class ARROW_EXPORT BloomFilterBuildStrategy {
+enum class BloomFilterBuildStrategy {
   SINGLE_THREADED = 0,
   PARALLEL = 1,
 };

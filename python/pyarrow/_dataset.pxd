@@ -161,4 +161,4 @@ cdef class WrittenFile(_Weakrefable):
     # the written file.
     cdef public object metadata
     # The size of the file in bytes
-    cdef public int size
+    cdef public int64_t size

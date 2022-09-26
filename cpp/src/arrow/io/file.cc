@@ -434,7 +434,7 @@ class MemoryMappedFile::MemoryMap
 
   Status Open(const std::string& path, FileMode::type mode, const int64_t offset = 0,
               const int64_t length = -1) {
-    file_.reset(new OSFile());
+    file_ = std::make_unique<OSFile>();
 
     if (mode != FileMode::READ) {
       // Memory mapping has permission failures if PROT_READ not set

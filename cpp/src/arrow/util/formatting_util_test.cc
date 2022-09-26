@@ -33,7 +33,7 @@ using internal::StringFormatter;
 
 class StringAppender {
  public:
-  Status operator()(util::string_view v) {
+  Status operator()(std::string_view v) {
     string_.append(v.data(), v.size());
     return Status::OK();
   }

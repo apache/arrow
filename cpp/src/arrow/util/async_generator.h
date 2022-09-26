@@ -22,15 +22,16 @@
 #include <cstring>
 #include <deque>
 #include <limits>
+#include <optional>
 #include <queue>
 
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/queue.h"
 #include "arrow/util/thread_pool.h"
 
@@ -66,9 +67,6 @@ namespace arrow {
 //   until all outstanding futures have completed.  Generators that spawn multiple
 //   concurrent futures may need to hold onto an error while other concurrent futures wrap
 //   up.
-template <typename T>
-using AsyncGenerator = std::function<Future<T>()>;
-
 template <typename T>
 struct IterationTraits<AsyncGenerator<T>> {
   /// \brief by default when iterating through a sequence of AsyncGenerator<T>,
@@ -128,23 +126,19 @@ Future<> DiscardAllFromAsyncGenerator(AsyncGenerator<T> generator) {
 template <typename T>
 Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   auto vec = std::make_shared<std::vector<T>>();
-  struct LoopBody {
-    Future<ControlFlow<std::vector<T>>> operator()() {
-      auto next = generator_();
-      auto vec = vec_;
-      return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
-        if (IsIterationEnd(result)) {
-          return Break(*vec);
-        } else {
-          vec->push_back(result);
-          return Continue();
-        }
-      });
-    }
-    AsyncGenerator<T> generator_;
-    std::shared_ptr<std::vector<T>> vec_;
+  auto loop_body = [generator = std::move(generator),
+                    vec = std::move(vec)]() -> Future<ControlFlow<std::vector<T>>> {
+    auto next = generator();
+    return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
+      if (IsIterationEnd(result)) {
+        return Break(*vec);
+      } else {
+        vec->push_back(result);
+        return Continue();
+      }
+    });
   };
-  return Loop(LoopBody{std::move(generator), std::move(vec)});
+  return Loop(std::move(loop_body));
 }
 
 /// \see MakeMappedGenerator
@@ -275,13 +269,10 @@ template <typename T, typename MapFn,
           typename Mapped = detail::result_of_t<MapFn(const T&)>,
           typename V = typename EnsureFuture<Mapped>::type::ValueType>
 AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
-  struct MapCallback {
-    MapFn map_;
-
-    Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
+  auto map_callback = [map = std::move(map)](const T& val) mutable -> Future<V> {
+    return ToFuture(map(val));
   };
-
-  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
+  return MappingGenerator<T, V>(std::move(source_generator), std::move(map_callback));
 }
 
 /// \brief Create a generator that will apply the map function to
@@ -498,7 +489,7 @@ class TransformingGenerator {
     }
 
     // See comment on TransformingIterator::Pump
-    Result<util::optional<V>> Pump() {
+    Result<std::optional<V>> Pump() {
       if (!finished_ && last_value_.has_value()) {
         ARROW_ASSIGN_OR_RAISE(TransformFlow<V> next, transformer_(*last_value_));
         if (next.ReadyForNext()) {
@@ -517,12 +508,12 @@ class TransformingGenerator {
       if (finished_) {
         return IterationTraits<V>::End();
       }
-      return util::nullopt;
+      return std::nullopt;
     }
 
     AsyncGenerator<T> generator_;
     Transformer<T, V> transformer_;
-    util::optional<T> last_value_;
+    std::optional<T> last_value_;
     bool finished_;
   };
 
@@ -839,7 +830,7 @@ class PushGenerator {
 
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
-    util::optional<Future<T>> consumer_fut;
+    std::optional<Future<T>> consumer_fut;
     bool finished = false;
   };
 
@@ -1726,7 +1717,7 @@ class BackgroundGenerator {
     bool should_shutdown;
     // If the queue is empty, the consumer will create a waiting future and wait for it
     std::queue<Result<T>> queue;
-    util::optional<Future<T>> waiting_future;
+    std::optional<Future<T>> waiting_future;
     // Every background task is given a future to complete when it is entirely finished
     // processing and ready for the next task to start or for State to be destroyed
     Future<> task_finished;

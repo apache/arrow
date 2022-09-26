@@ -19,7 +19,9 @@
 
 #pragma once
 
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -50,6 +52,18 @@ ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
+
+/// \brief Serialize a declaration into a substrait::Plan.
+///
+/// Note that, this is a part of a roundtripping test API and not
+/// designed for use in production
+/// \param[in] declr the sequence of declarations to be serialized
+/// \param[in, out] ext_set the extension set to be updated
+/// \param[in] conversion_options options to control serialization behavior
+/// \return the serialized plan
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(
+    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 }  // namespace engine
 }  // namespace arrow

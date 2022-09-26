@@ -56,7 +56,7 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -90,7 +90,8 @@ class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
   std::shared_ptr<const KeyValueMetadata> metadata;
 
  protected:
-  using FileWriteOptions::FileWriteOptions;
+  explicit IpcFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
 
   friend class IpcFileFormat;
 };

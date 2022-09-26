@@ -258,7 +258,7 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
 
 namespace {
 
-Status ValidateSubPath(util::string_view s) {
+Status ValidateSubPath(std::string_view s) {
   if (internal::IsLikelyUri(s)) {
     return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
   }
@@ -639,7 +639,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
     }
 
     auto destination_path =
-        internal::ConcatAbstractPath(destination_base_dir, relative->to_string());
+        internal::ConcatAbstractPath(destination_base_dir, std::string(*relative));
 
     if (source_info.IsDirectory()) {
       dirs.push_back(destination_path);

@@ -42,6 +42,7 @@ final class Scenarios {
     scenarios.put("auth:basic_proto", AuthBasicProtoScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
     scenarios.put("flight_sql", FlightSqlScenario::new);
+    scenarios.put("flight_sql:extension", FlightSqlExtensionScenario::new);
   }
 
   private static Scenarios getInstance() {

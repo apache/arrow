@@ -39,7 +39,7 @@ recipes. Most of these updates are touching the version pinning files
 (under `.ci_support`) and other CI related configuration files.
 
 Because all three recipes must be built in the same continuous integration
-job prefer porting from the [arrpw-cpp feedstock][arrow-cpp-feedstock].
+job prefer porting from the [arrow-cpp feedstock][arrow-cpp-feedstock].
 
 #### Updating the variants:
 
@@ -64,4 +64,4 @@ copied to the upstream feedstocks.
 
 [arrow-cpp-feedstock]: https://github.com/conda-forge/arrow-cpp-feedstock
 [parquet-cpp-feedstock]: https://github.com/conda-forge/parquet-cpp-feedstock
-[matrix-definition]: https://github.com/conda-forge/arrow-cpp-feedstock/blob/master/.azure-pipelines/azure-pipelines-linux.yml#L12
+[matrix-definition]: https://github.com/conda-forge/arrow-cpp-feedstock/blob/main/.azure-pipelines/azure-pipelines-linux.yml#L12
