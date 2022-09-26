@@ -263,8 +263,8 @@ if [ $? -eq 0 ]; then
   if arrow_built_with ARROW_S3; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
     if [ "$BUNDLED_LIBS" != "" ]; then
-      # We're depending on openssl/curl from the system, so they're not in the bundled deps
-      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
+      # We're depending on openssl/curl/AWS SDK from the system, so they're not in the bundled deps
+      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl -laws-cpp-sdk-identity-management -laws-cpp-sdk-sts -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common"
     fi
   fi
   if arrow_built_with ARROW_GCS; then
