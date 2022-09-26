@@ -156,11 +156,23 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
     } else {
-      
-      auto projection = scan_options->projection;
-      if(!projection.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(scan_options->projection, projection.Bind(*dataset_schema));
+      ARROW_ASSIGN_OR_RAISE(scan_options->projection, scan_options->projection.Bind(*dataset_schema));
+      // do the rest as it is done above for extracting arguments from call
+      if (auto call = scan_options->projection.call()) {
+        if (call->function_name != "make_struct") {
+          return Status::Invalid(
+              "Top level projection expression call must be make_struct");
+        }
+        FieldVector fields;
+        for (const compute::Expression& arg : call->arguments) {
+          if(auto arg_call = arg.call()) {
+            fields.push_back(field(arg_call->function_name, arg_call->type.GetSharedPtr()));
+            break;
+          }
+        }
+        scan_options->projected_schema = schema(fields);
       }
+
     }
 
     // If we couldn't infer it from the projection expression then just grab all

@@ -2787,24 +2787,12 @@ TEST(ScanNode, DiskScanIssue) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
   auto dummy_schema = schema(
-      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+      {field("key", int64()), field("shared", int64()), field("distinct", int64())});
 
   // creating a dummy dataset using a dummy table
   auto table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
       [3, 4, 20]
-    ])",
-                                            R"([
-      [0, 2, 1],
-      [1, 3, 2],
-      [4, 1, 3],
-      [3, 1, 3],
-      [1, 2, 5]
-    ])",
-                                            R"([
-      [2, 2, 12],
-      [5, 3, 12],
-      [1, 3, 12]
     ])"});
 
   auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
@@ -2833,8 +2821,8 @@ TEST(ScanNode, DiskScanIssue) {
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   // compute::Expression field_expr = compute::project({compute::field_ref("key")},
   //  {"key_only"});
-  compute::Expression a_times_2 = call("multiply", {compute::field_ref("key"), compute::literal(2)});
-  scan_options->projection = call("make_struct", {a_times_2}, compute::MakeStructOptions{{"key * 2"}});
+  compute::Expression a_times_2 = call("multiply", {compute::field_ref("shared"), compute::literal(2)});
+  scan_options->projection = call("make_struct", {a_times_2}, compute::MakeStructOptions{{"shared * 2"}});
 
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
@@ -2848,7 +2836,8 @@ TEST(ScanNode, DiskScanIssue) {
   ASSERT_OK(decl->Validate());
 
   auto output_schema = schema(
-      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
+      {field("shared * 2", int64())}
+      );
 
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
       output_schema, std::move(sink_gen), exec_context.memory_pool());
