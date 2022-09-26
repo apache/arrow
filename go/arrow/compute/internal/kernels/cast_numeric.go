@@ -24,7 +24,7 @@ import (
 
 var castNumericUnsafe func(itype, otype arrow.Type, in, out []byte, len int) = castNumericGo
 
-func doStaticCast[InT, OutT numeric](in []InT, out []OutT) {
+func DoStaticCast[InT, OutT numeric](in []InT, out []OutT) {
 	for i, v := range in {
 		out[i] = OutT(v)
 	}
@@ -37,25 +37,25 @@ func reinterpret[T numeric](b []byte, len int) (res []T) {
 func castNumberToNumberUnsafeImpl[T numeric](outT arrow.Type, in []T, out []byte) {
 	switch outT {
 	case arrow.INT8:
-		doStaticCast(in, reinterpret[int8](out, len(in)))
+		DoStaticCast(in, reinterpret[int8](out, len(in)))
 	case arrow.UINT8:
-		doStaticCast(in, reinterpret[uint8](out, len(in)))
+		DoStaticCast(in, reinterpret[uint8](out, len(in)))
 	case arrow.INT16:
-		doStaticCast(in, reinterpret[int16](out, len(in)))
+		DoStaticCast(in, reinterpret[int16](out, len(in)))
 	case arrow.UINT16:
-		doStaticCast(in, reinterpret[uint16](out, len(in)))
+		DoStaticCast(in, reinterpret[uint16](out, len(in)))
 	case arrow.INT32:
-		doStaticCast(in, reinterpret[int32](out, len(in)))
+		DoStaticCast(in, reinterpret[int32](out, len(in)))
 	case arrow.UINT32:
-		doStaticCast(in, reinterpret[uint32](out, len(in)))
+		DoStaticCast(in, reinterpret[uint32](out, len(in)))
 	case arrow.INT64:
-		doStaticCast(in, reinterpret[int64](out, len(in)))
+		DoStaticCast(in, reinterpret[int64](out, len(in)))
 	case arrow.UINT64:
-		doStaticCast(in, reinterpret[uint64](out, len(in)))
+		DoStaticCast(in, reinterpret[uint64](out, len(in)))
 	case arrow.FLOAT32:
-		doStaticCast(in, reinterpret[float32](out, len(in)))
+		DoStaticCast(in, reinterpret[float32](out, len(in)))
 	case arrow.FLOAT64:
-		doStaticCast(in, reinterpret[float64](out, len(in)))
+		DoStaticCast(in, reinterpret[float64](out, len(in)))
 	}
 }
 

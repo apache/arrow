@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
 library(dplyr, warn.conflicts = FALSE)

@@ -410,14 +410,14 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     util::string_view json) {
+                                     std::string_view json) {
   EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                         util::string_view indices_json,
-                                         util::string_view dictionary_json) {
+                                         std::string_view indices_json,
+                                         std::string_view dictionary_json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
@@ -432,7 +432,7 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 }
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
-                                                 util::string_view json) {
+                                                 std::string_view json) {
   // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
@@ -442,15 +442,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 }
 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                       util::string_view json) {
+                                       std::string_view json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
   return out;
 }
 
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                           util::string_view index_json,
-                                           util::string_view dictionary_json) {
+                                           std::string_view index_json,
+                                           std::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
@@ -466,10 +466,10 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
-                                                   const ChunkedArray& actual) {
+Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   std::stringstream ss;
@@ -1031,9 +1031,11 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status Unlock() {
-    std::lock_guard<std::mutex> lk(mx_);
-    unlocked_ = true;
-    unlocked_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+      unlocked_cv_.notify_all();
+    }
     unlocked_future_.MarkFinished();
     return status_;
   }

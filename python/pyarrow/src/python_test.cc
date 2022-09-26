@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -28,7 +29,6 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/optional.h"
 
 #include "arrow_to_pandas.h"
 #include "decimal.h"
@@ -399,7 +399,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
 template <typename DecimalValue>
 void DecimalTestFromPythonDecimalRescale(std::shared_ptr<DataType> type,
                                          OwnedRef python_decimal,
-                                         ::arrow::util::optional<int> expected) {
+                                         std::optional<int> expected) {
   DecimalValue value;
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
 

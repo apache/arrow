@@ -165,8 +165,13 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
         cpp11::stop(
             "Requires at least one element to infer the values' type of a list vector");
       }
-
-      ptype = VECTOR_ELT(x, 0);
+      // Iterate through the vector until we get a non-null result
+      for (R_xlen_t i = 0; i < XLENGTH(x); i++) {
+        ptype = VECTOR_ELT(x, i);
+        if (!Rf_isNull(ptype)) {
+          break;
+        }
+      }
     }
 
     return arrow::list(InferArrowType(ptype));
@@ -198,6 +203,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
         return InferArrowTypeFromVector<STRSXP>(x);
       case VECSXP:
         return InferArrowTypeFromVector<VECSXP>(x);
+      case NILSXP:
+        return null();
       default:
         cpp11::stop("Cannot infer type from vector");
     }

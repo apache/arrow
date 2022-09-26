@@ -4,7 +4,13 @@
 \alias{register_binding}
 \title{Register compute bindings}
 \usage{
-register_binding(fun_name, fun, registry = nse_funcs, update_cache = FALSE)
+register_binding(
+  fun_name,
+  fun,
+  registry = nse_funcs,
+  update_cache = FALSE,
+  notes = character(0)
+)
 }
 \arguments{
 \item{fun_name}{A string containing a function name in the form \code{"function"} or
@@ -25,6 +31,9 @@ reason why .cache$functions is needed in addition to nse_funcs for
 non-aggregate functions could be revisited...it is currently used
 as the data mask in mutate, filter, and aggregate (but not
 summarise) because the data mask has to be a list.}
+
+\item{notes}{string for the docs: note any limitations or differences in
+behavior between the Arrow version and the R function.}
 
 \item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
 aggregate function. This function must accept \code{Expression} objects as

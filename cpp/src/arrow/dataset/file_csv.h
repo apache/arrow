@@ -57,7 +57,7 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& scan_options,
       const std::shared_ptr<FileFragment>& file) const override;
 
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -73,6 +73,9 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
 struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   std::string type_name() const override { return kCsvTypeName; }
 
+  using StreamWrapFunc = std::function<Result<std::shared_ptr<io::InputStream>>(
+      std::shared_ptr<io::InputStream>)>;
+
   /// CSV conversion options
   csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
 
@@ -80,6 +83,13 @@ struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   ///
   /// Note that use_threads is always ignored.
   csv::ReadOptions read_options = csv::ReadOptions::Defaults();
+
+  /// Optional stream wrapping function
+  ///
+  /// If defined, all open dataset file fragments will be passed
+  /// through this function.  One possible use case is to transparently
+  /// transcode all input files from a given character set to utf8.
+  StreamWrapFunc stream_transform_func{};
 };
 
 class ARROW_DS_EXPORT CsvFileWriteOptions : public FileWriteOptions {
@@ -88,7 +98,8 @@ class ARROW_DS_EXPORT CsvFileWriteOptions : public FileWriteOptions {
   std::shared_ptr<csv::WriteOptions> write_options;
 
  protected:
-  using FileWriteOptions::FileWriteOptions;
+  explicit CsvFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
 
   friend class CsvFileFormat;
 };

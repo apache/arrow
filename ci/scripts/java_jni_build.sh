@@ -20,9 +20,12 @@
 set -ex
 
 arrow_dir=${1}
-build_dir=${2}/java_jni
+arrow_install_dir=${2}
+build_dir=${3}/java_jni
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}
+dist_dir=${4}
+
+prefix_dir="${build_dir}/java-jni"
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -32,11 +35,44 @@ echo "=== Building Arrow Java C Data Interface native library ==="
 mkdir -p "${build_dir}"
 pushd "${build_dir}"
 
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  *)
+    n_jobs=${NPROC:-1}
+    ;;
+esac
+
+: ${ARROW_JAVA_BUILD_TESTS:=${ARROW_BUILD_TESTS:-OFF}}
+: ${CMAKE_BUILD_TYPE:=release}
 cmake \
-  -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
-  -DCMAKE_INSTALL_PREFIX=${dist_dir} \
+  -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_DATASET:-ON} \
+  -DARROW_JAVA_JNI_ENABLE_GANDIVA=${ARROW_GANDIVA:-ON} \
+  -DARROW_JAVA_JNI_ENABLE_ORC=${ARROW_ORC:-ON} \
+  -DARROW_JAVA_JNI_ENABLE_PLASMA=${ARROW_PLASMA:-ON} \
+  -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+  -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  -GNinja \
   ${JAVA_JNI_CMAKE_ARGS:-} \
   ${arrow_dir}/java
-cmake --build . --target install --config ${ARROW_BUILD_TYPE:-release}
+export CMAKE_BUILD_PARALLEL_LEVEL=${n_jobs}
+cmake --build . --config ${CMAKE_BUILD_TYPE}
+if [ "${ARROW_JAVA_BUILD_TESTS}" = "ON" ]; then
+  ctest \
+    --output-on-failure \
+    --parallel ${n_jobs} \
+    --timeout 300
+fi
+cmake --build . --config ${CMAKE_BUILD_TYPE} --target install
 popd
+
+mkdir -p ${dist_dir}
+mv ${prefix_dir}/lib/* ${dist_dir}/

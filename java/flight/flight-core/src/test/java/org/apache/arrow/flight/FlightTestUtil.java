@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
@@ -130,7 +130,7 @@ public class FlightTestUtil {
    */
   public static CallStatus assertCode(FlightStatusCode code, Executable r) {
     final FlightRuntimeException ex = Assertions.assertThrows(FlightRuntimeException.class, r);
-    Assert.assertEquals(code, ex.status().code());
+    Assertions.assertEquals(code, ex.status().code());
     return ex.status();
   }
 

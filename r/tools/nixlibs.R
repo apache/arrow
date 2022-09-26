@@ -192,7 +192,7 @@ compile_test_program <- function(code) {
   # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
   # path as a -I directory. But since we (currently) only run this code to
   # determine whether we can download a Linux binary, it's not relevant.
-  runner <- "`R CMD config CXX11` `R CMD config CPPFLAGS` `R CMD config CXX11FLAGS` `R CMD config CXX11STD` -E -xc++"
+  runner <- "`R CMD config CXX17` `R CMD config CPPFLAGS` `R CMD config CXX17FLAGS` `R CMD config CXX17STD` -E -xc++"
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
@@ -240,7 +240,7 @@ header_not_found <- function(header, errs) {
   any(grepl(regex, errs))
 }
 
-compiler_version_string <- function(compiler = R_CMD_config("CXX11")) {
+compiler_version_string <- function(compiler = R_CMD_config("CXX17")) {
   system(paste(compiler, "--version"), intern = TRUE)
 }
 
@@ -431,8 +431,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     # is found, it will be used by the libarrow build, and this does
     # not affect how R compiles the arrow bindings.
     CC = sub("^.*ccache", "", R_CMD_config("CC")),
-    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX11")), R_CMD_config("CXX11STD")),
-    # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
+    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX17")), R_CMD_config("CXX17STD")),
+    # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_var_list <- with_cloud_support(env_var_list)

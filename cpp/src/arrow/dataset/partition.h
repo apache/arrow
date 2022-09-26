@@ -22,6 +22,7 @@
 #include <functional>
 #include <iosfwd>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -31,7 +32,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -174,7 +174,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// of a scalar value
   struct Key {
     std::string name;
-    util::optional<std::string> value;
+    std::optional<std::string> value;
   };
 
   Result<PartitionedBatches> Partition(
@@ -289,8 +289,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   std::string null_fallback() const { return hive_options_.null_fallback; }
   const HivePartitioningOptions& options() const { return hive_options_; }
 
-  static Result<util::optional<Key>> ParseKey(const std::string& segment,
-                                              const HivePartitioningOptions& options);
+  static Result<std::optional<Key>> ParseKey(const std::string& segment,
+                                             const HivePartitioningOptions& options);
 
   bool Equals(const Partitioning& other) const override;
 

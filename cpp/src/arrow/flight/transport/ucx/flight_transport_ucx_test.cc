@@ -246,7 +246,7 @@ class SimpleTestServer : public FlightServerBase {
     RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     auto batch_reader = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
     return Status::OK();
   }
 

@@ -92,8 +92,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
     ARROW_ASSIGN_OR_RAISE(schema_buffer, value);
 
     column_fields.clear();
-    ARROW_RETURN_NOT_OK(
-        schema_builder.Append(::arrow::util::string_view(*schema_buffer)));
+    ARROW_RETURN_NOT_OK(schema_builder.Append(::std::string_view(*schema_buffer)));
   }
 
   std::shared_ptr<Array> schema_array;

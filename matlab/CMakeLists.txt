@@ -187,7 +187,7 @@ macro(build_gtest)
   add_dependencies(GTest::gtest_main arrow_ep)
 endmacro()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 set(MLARROW_VERSION "10.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")

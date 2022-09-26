@@ -18,11 +18,11 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
 #include "arrow/type_traits.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace internal {
@@ -81,14 +81,14 @@ struct DataMemberProperty {
 
   void set(Class* obj, Type value) const { (*obj).*ptr_ = std::move(value); }
 
-  constexpr util::string_view name() const { return name_; }
+  constexpr std::string_view name() const { return name_; }
 
-  util::string_view name_;
+  std::string_view name_;
   Type Class::*ptr_;
 };
 
 template <typename Class, typename Type>
-constexpr DataMemberProperty<Class, Type> DataMember(util::string_view name,
+constexpr DataMemberProperty<Class, Type> DataMember(std::string_view name,
                                                      Type Class::*ptr) {
   return {name, ptr};
 }

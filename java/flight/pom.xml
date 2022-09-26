@@ -28,6 +28,7 @@
         <module>flight-core</module>
         <module>flight-grpc</module>
         <module>flight-sql</module>
+        <module>flight-sql-jdbc-driver</module>
         <module>flight-integration-tests</module>
     </modules>
 

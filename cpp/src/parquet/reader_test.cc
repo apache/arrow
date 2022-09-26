@@ -31,7 +31,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -153,7 +152,7 @@ TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
     ASSERT_FALSE(is_null);
     std::string expected = expected_prefix + std::to_string(i * i);
     ASSERT_TRUE(val.len == expected.length());
-    ASSERT_EQ(::arrow::util::string_view(reinterpret_cast<const char*>(val.ptr), val.len),
+    ASSERT_EQ(::std::string_view(reinterpret_cast<const char*>(val.ptr), val.len),
               expected);
   }
   ASSERT_FALSE(scanner->HasNext());
@@ -200,9 +199,9 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
       auto expected =
           expected_prefix + std::to_string((i + values_read) * (i + values_read));
       ASSERT_TRUE(values[i].len == expected.length());
-      ASSERT_EQ(::arrow::util::string_view(reinterpret_cast<const char*>(values[i].ptr),
-                                           values[i].len),
-                expected);
+      ASSERT_EQ(
+          ::std::string_view(reinterpret_cast<const char*>(values[i].ptr), values[i].len),
+          expected);
     }
     values_read += curr_batch_read;
   }
@@ -612,7 +611,7 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
       row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
   EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
 
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(num_rows);
+  auto indices = std::make_unique<int32_t[]>(num_rows);
   const double* dict = nullptr;
   int32_t dict_len = 0;
   for (int row_index = 0; row_index < num_rows; ++row_index) {

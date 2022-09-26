@@ -1265,7 +1265,7 @@ struct Strptime {
         out_writer.Next();
         null_count++;
       };
-      auto visit_value = [&](util::string_view s) {
+      auto visit_value = [&](std::string_view s) {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;
@@ -1292,7 +1292,7 @@ struct Strptime {
         *out_data++ = 0;
         return Status::OK();
       };
-      auto visit_value = [&](util::string_view s) {
+      auto visit_value = [&](std::string_view s) {
         int64_t result;
         if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
           *out_data++ = result;

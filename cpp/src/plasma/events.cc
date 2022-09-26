@@ -51,7 +51,7 @@ bool EventLoop::AddFileEvent(int fd, int events, const FileCallback& callback) {
   if (file_callbacks_.find(fd) != file_callbacks_.end()) {
     return false;
   }
-  auto data = std::unique_ptr<FileCallback>(new FileCallback(callback));
+  auto data = std::make_unique<FileCallback>(callback);
   void* context = reinterpret_cast<void*>(data.get());
   // Try to add the file descriptor.
   int err = aeCreateFileEvent(loop_, fd, events, EventLoop::FileEventCallback, context);
@@ -90,7 +90,7 @@ void EventLoop::Shutdown() {
 EventLoop::~EventLoop() { Shutdown(); }
 
 int64_t EventLoop::AddTimer(int64_t timeout, const TimerCallback& callback) {
-  auto data = std::unique_ptr<TimerCallback>(new TimerCallback(callback));
+  auto data = std::make_unique<TimerCallback>(callback);
   void* context = reinterpret_cast<void*>(data.get());
   int64_t timer_id =
       aeCreateTimeEvent(loop_, timeout, EventLoop::TimerEventCallback, context, NULL);

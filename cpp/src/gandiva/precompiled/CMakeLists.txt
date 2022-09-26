@@ -43,10 +43,10 @@ if(MSVC)
   else()
     message(FATAL_ERROR "Unsupported MSVC_VERSION=${MSVC_VERSION}")
   endif()
-  set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility
+  set(PLATFORM_CLANG_OPTIONS -std=c++17 -fms-compatibility
                              -fms-compatibility-version=${FMS_COMPATIBILITY})
 else()
-  set(PLATFORM_CLANG_OPTIONS -std=c++11)
+  set(PLATFORM_CLANG_OPTIONS -std=c++17)
 endif()
 
 # Create bitcode for each of the source files.

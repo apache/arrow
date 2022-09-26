@@ -91,7 +91,7 @@ class ApacheArrowStatic < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", \
+    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", \
       "-larrow", "-larrow_bundled_dependencies", "-o", "test"
     system "./test"
   end

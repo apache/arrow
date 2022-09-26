@@ -1,7 +1,7 @@
 bzip2:
 - '1'
 c_compiler:
-- vs2017
+- vs2019
 channel_sources:
 - conda-forge
 channel_targets:
@@ -11,7 +11,7 @@ cuda_compiler:
 cuda_compiler_version:
 - '10.2'
 cxx_compiler:
-- vs2017
+- vs2019
 gflags:
 - '2.2'
 glog:

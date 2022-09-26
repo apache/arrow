@@ -34,7 +34,7 @@ namespace test {
 
 template <typename T>
 using optional = StreamReader::optional<T>;
-using ::arrow::util::nullopt;
+using ::std::nullopt;
 
 struct TestData {
   static void init() { std::time(&ts_offset_); }

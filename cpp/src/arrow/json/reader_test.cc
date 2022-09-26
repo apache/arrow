@@ -31,7 +31,7 @@
 namespace arrow {
 namespace json {
 
-using util::string_view;
+using std::string_view;
 
 using internal::checked_cast;
 
@@ -43,7 +43,7 @@ class ReaderTest : public ::testing::TestWithParam<bool> {
                                                     read_options_, parse_options_));
   }
 
-  void SetUpReader(util::string_view input) {
+  void SetUpReader(std::string_view input) {
     ASSERT_OK(MakeStream(input, &input_));
     SetUpReader();
   }

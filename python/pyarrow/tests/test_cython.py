@@ -29,9 +29,9 @@ import pyarrow.tests.util as test_util
 here = os.path.dirname(os.path.abspath(__file__))
 test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
 if os.name == 'posix':
-    compiler_opts = ['-std=c++11']
+    compiler_opts = ['-std=c++17']
 elif os.name == 'nt':
-    compiler_opts = ['-D_ENABLE_EXTENDED_ALIGNED_STORAGE']
+    compiler_opts = ['-D_ENABLE_EXTENDED_ALIGNED_STORAGE', '/std:c++17']
 else:
     compiler_opts = []
 
@@ -81,8 +81,6 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="ARROW-17172: currently fails on windows")
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """

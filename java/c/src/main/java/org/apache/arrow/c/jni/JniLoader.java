@@ -81,6 +81,7 @@ public class JniLoader {
     final String libraryToLoad = System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
+      temp.deleteOnExit();
       try (final InputStream is = JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
         if (is == null) {
           throw new FileNotFoundException(libraryToLoad);

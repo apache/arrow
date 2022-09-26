@@ -39,7 +39,7 @@ Status RandomGeneratorHolder::Make(const FunctionNode& node,
       Status::Invalid("'random' function requires an int32 literal as parameter"));
 
   *holder = std::shared_ptr<RandomGeneratorHolder>(new RandomGeneratorHolder(
-      literal->is_null() ? 0 : arrow::util::get<int32_t>(literal->holder())));
+      literal->is_null() ? 0 : std::get<int32_t>(literal->holder())));
   return Status::OK();
 }
 }  // namespace gandiva

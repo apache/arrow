@@ -63,7 +63,7 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
   }
 }
 
-util::optional<std::string> timezone_db_path;
+std::optional<std::string> timezone_db_path;
 
 };  // namespace
 
@@ -80,7 +80,7 @@ RuntimeInfo GetRuntimeInfo() {
 #if !USE_OS_TZDB
   info.timezone_db_path = timezone_db_path;
 #else
-  info.timezone_db_path = util::optional<std::string>();
+  info.timezone_db_path = std::optional<std::string>();
 #endif
   return info;
 }

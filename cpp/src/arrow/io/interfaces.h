@@ -20,13 +20,13 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -175,7 +175,7 @@ class ARROW_EXPORT Writable {
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();
 
-  Status Write(util::string_view data);
+  Status Write(std::string_view data);
 };
 
 class ARROW_EXPORT Readable {
@@ -227,7 +227,7 @@ class ARROW_EXPORT InputStream : virtual public FileInterface,
   /// May return NotImplemented on streams that don't support it.
   ///
   /// \param[in] nbytes the maximum number of bytes to see
-  virtual Result<util::string_view> Peek(int64_t nbytes);
+  virtual Result<std::string_view> Peek(int64_t nbytes);
 
   /// \brief Return true if InputStream is capable of zero copy Buffer reads
   ///
