@@ -30,9 +30,11 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     .data <- dplyr::group_by(.data, !!!syms(names(.data)))
   }
   if (isTRUE(.keep_all)) {
-    # (TODO) `.keep_all = TRUE` return first row value, but this implementation
-    # do NOT always return the same result because `hash_one` skips rows if they contain null value.
-    # This option may distroy data if the first row of each group contain null value.
+    # (TODO) `.keep_all = TRUE` return first row value,
+    # but this implementation do NOT always return the same result
+    # because `hash_one` skips rows if they contain null value.
+    # Skipping null values is happened by each cols,
+    # so this option has possiblity to destory data.
     keeps <- names(.data)[!(names(.data) %in% .data$group_by_vars)]
     # `one()` is wrapper for calling "hash_one" function (implemented ARROW-13993)
     # `USAGE: summarize(x = one(x), y = one(y) ...)` for x, y in non-group cols
