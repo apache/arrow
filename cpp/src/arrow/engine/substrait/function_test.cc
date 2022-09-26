@@ -48,7 +48,6 @@
 #include "arrow/type_fwd.h"
 
 namespace arrow {
-
 namespace engine {
 
 struct FunctionTestCase {
