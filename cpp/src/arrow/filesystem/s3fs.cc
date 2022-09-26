@@ -85,7 +85,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
@@ -858,7 +857,7 @@ class RegionResolver {
 
   static Result<std::shared_ptr<RegionResolver>> DefaultInstance() {
     static std::shared_ptr<RegionResolver> instance;
-    auto resolver = arrow::internal::atomic_load(&instance);
+    auto resolver = std::atomic_load(&instance);
     if (resolver) {
       return resolver;
     }
@@ -869,8 +868,7 @@ class RegionResolver {
     // Make sure to always return the same instance even if several threads
     // call DefaultInstance at once.
     std::shared_ptr<RegionResolver> existing;
-    if (arrow::internal::atomic_compare_exchange_strong(&instance, &existing,
-                                                        *maybe_resolver)) {
+    if (std::atomic_compare_exchange_strong(&instance, &existing, *maybe_resolver)) {
       return *maybe_resolver;
     } else {
       return existing;
