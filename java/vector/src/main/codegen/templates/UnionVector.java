@@ -851,4 +851,13 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
         }
       }
     }
+
+  /**
+   * Set the element at the given index to null. For DenseUnionVector, it is a no-op as nulls are not supported at the
+   * top level, and isNull() always returns false. Nullability is only handled at the level of individual child vectors.
+   *
+   * @param index position of element
+   */
+  @Override
+  public void setNull(int index) {}
 }
