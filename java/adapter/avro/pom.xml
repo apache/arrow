@@ -54,6 +54,12 @@
       <artifactId>avro</artifactId>
       <version>${dep.avro.version}</version>
     </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.11.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
 </project>

@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 
 import org.apache.arrow.memory.RootAllocator;
@@ -40,15 +41,11 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.api.io.TempDir;
 
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://github.com/junit-team/junit5/issues/2811")
 public class OrcReaderTest {
 
-  @TempDir
   public File testFolder;
 
   private static final int MAX_ALLOCATION = 8 * 1024;
@@ -57,6 +54,11 @@ public class OrcReaderTest {
   @BeforeAll
   static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
+  }
+
+  @BeforeEach
+  void setUp() throws Exception {
+    testFolder = Files.createTempDirectory("avro").toFile();
   }
 
   @Test
