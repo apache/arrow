@@ -123,10 +123,10 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
   return data_ptr + i * byte_width_;
 }
 
-util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
+std::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
-  return util::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
-                           byte_width_);
+  return std::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+                          byte_width_);
 }
 
 // ----------------------------------------------------------------------

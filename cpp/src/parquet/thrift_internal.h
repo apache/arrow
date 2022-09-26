@@ -401,7 +401,7 @@ class ThriftDeserializer {
     return std::shared_ptr<ThriftBuffer>(
         new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
 #else
-    return std::shared_ptr<ThriftBuffer>(new ThriftBuffer(buf, len));
+    return std::make_shared<ThriftBuffer>(buf, len);
 #endif
   }
 

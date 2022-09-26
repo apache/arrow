@@ -593,7 +593,7 @@ be quite tricky to configure.  To process data from files the scan operation is 
 
 The source node requires some kind of function that can be called to poll for more data.  This
 function should take no arguments and should return an
-``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
+``arrow::Future<std::optional<arrow::ExecBatch>>``.
 This function might be reading a file, iterating through an in memory structure, or receiving data
 from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
 and there are a number of utilities for working with these functions.  For this example we use 
@@ -752,7 +752,7 @@ execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used
 the required options. Similar to the source operator the sink operator exposes the output
 with a function that returns a record batch future each time it is called.  It is expected the
 caller will repeatedly call this function until the generator function is exhausted (returns
-``arrow::util::optional::nullopt``).  If this function is not called often enough then record batches
+``std::optional::nullopt``).  If this function is not called often enough then record batches
 will accumulate in memory.  An execution plan should only have one
 "terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or 
 an error, before the output is fully consumed. However, the plan can be safely destroyed independently

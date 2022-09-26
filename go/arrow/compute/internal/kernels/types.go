@@ -52,3 +52,14 @@ var (
 		arrow.FixedWidthTypes.Date32, arrow.FixedWidthTypes.Date64},
 		numericTypes...), baseBinaryTypes...)
 )
+
+type CompareOperator int8
+
+const (
+	CmpEQ CompareOperator = iota
+	CmpNE
+	CmpGT
+	CmpGE
+	CmpLT
+	CmpLE
+)

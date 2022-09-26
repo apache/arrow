@@ -32,13 +32,7 @@ void InitializeMainRThread() { GetMainRThread().Initialize(); }
 // [[arrow::export]]
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
-  static int on_old_windows = -1;
-  if (on_old_windows == -1) {
-    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
-    on_old_windows = on_old_windows_fun();
-  }
-
-  return !on_old_windows && GetMainRThread().Executor() == nullptr;
+  return GetMainRThread().Executor() == nullptr;
 #else
   return false;
 #endif

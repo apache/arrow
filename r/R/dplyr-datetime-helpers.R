@@ -442,8 +442,10 @@ parse_period_unit <- function(x) {
   str_unit <- substr(x, capture_start[[2]], capture_end[[2]])
   str_multiple <- substr(x, capture_start[[1]], capture_end[[1]])
 
-  known_units <- c("nanosecond", "microsecond", "millisecond", "second",
-                   "minute", "hour", "day", "week", "month", "quarter", "year")
+  known_units <- c(
+    "nanosecond", "microsecond", "millisecond", "second",
+    "minute", "hour", "day", "week", "month", "quarter", "year"
+  )
 
   # match the period unit
   str_unit_start <- substr(str_unit, 1, 3)
@@ -464,7 +466,7 @@ parse_period_unit <- function(x) {
   if (capture_length[[1]] == 0) {
     multiple <- 1L
 
-  # otherwise parse the multiple
+    # otherwise parse the multiple
   } else {
     multiple <- as.numeric(str_multiple)
 

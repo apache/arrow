@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -43,7 +44,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_type_inline.h"
 
 #include "arrow/compute/api.h"
@@ -586,7 +586,7 @@ template <typename T>
 struct MemoizationTraits<T, enable_if_has_string_view<T>> {
   // For binary, we memoize string_view as a scalar value to avoid having to
   // unnecessarily copy the memory into the memo table data structure
-  using Scalar = util::string_view;
+  using Scalar = std::string_view;
 };
 
 // Generic Array -> PyObject** converter that handles object deduplication, if
@@ -1018,7 +1018,7 @@ struct ObjectWriterVisitor {
   enable_if_t<is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value,
               Status>
   Visit(const Type& type) {
-    auto WrapValue = [](const util::string_view& view, PyObject** out) {
+    auto WrapValue = [](const std::string_view& view, PyObject** out) {
       *out = WrapBytes<Type>::Wrap(view.data(), view.length());
       if (*out == nullptr) {
         PyErr_Clear();

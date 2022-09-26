@@ -139,7 +139,12 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
   PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
-echo "*** Writing Makevars.win"
+echo "*** Writing $(pwd)/src/Makevars.win"
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars.win
+
+echo "*** Contents of $(pwd)/src/Makevars.win"
+cat src/Makevars.win
+echo "*** /End contents"
+
 # Success
 exit 0

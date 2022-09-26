@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
 tbl <- example_data
@@ -88,6 +86,16 @@ test_that("distinct() can contain expressions", {
       distinct(x = some_grouping + 1) %>%
       collect() %>%
       arrange(int),
+    tbl
+  )
+})
+
+test_that("across() works in distinct()", {
+  compare_dplyr_binding(
+    .input %>%
+      distinct(across(starts_with("d"))) %>%
+      collect() %>%
+      arrange(dbl, dbl2),
     tbl
   )
 })

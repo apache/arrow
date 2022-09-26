@@ -36,10 +36,14 @@ if(ARROW_FLIGHT)
   # we'll violate ODR for gRPC symbols
   if(ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
-    # We don't directly use symbols from the reflection library, so
-    # ensure the linker still links to it
-    set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
-                                  -Wl,--as-needed)
+    if(APPLE)
+      set(GRPC_REFLECTION_LINK_LIBS gRPC::grpc++_reflection)
+    else()
+      # We don't directly use symbols from the reflection library, so
+      # ensure the linker still links to it
+      set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
+                                    -Wl,--as-needed)
+    endif()
   elseif(NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()

@@ -2685,30 +2685,49 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr2.values.values.equals(arr0)
 
 
-@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
-def test_list_value_parent_indices(list_type_factory):
+@pytest.mark.parametrize('list_type', [
+    pa.list_(pa.int32()),
+    pa.list_(pa.int32(), list_size=2),
+    pa.large_list(pa.int32())])
+def test_list_value_parent_indices(list_type):
     arr = pa.array(
         [
-            [0, 1, 2],
+            [0, 1],
             None,
-            [],
+            [None, None],
             [3, 4]
-        ], type=list_type_factory(pa.int32()))
-    expected = pa.array([0, 0, 0, 3, 3], type=pa.int64())
+        ], type=list_type)
+    expected = pa.array([0, 0, 2, 2, 3, 3], type=pa.int64())
     assert arr.value_parent_indices().equals(expected)
 
 
-@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
-def test_list_value_lengths(offset_type, list_type_factory):
-    arr = pa.array(
-        [
-            [0, 1, 2],
-            None,
-            [],
-            [3, 4]
-        ], type=list_type_factory(pa.int32()))
-    expected = pa.array([3, None, 0, 2], type=offset_type)
+@pytest.mark.parametrize(('offset_type', 'list_type'),
+                         [(pa.int32(), pa.list_(pa.int32())),
+                          (pa.int32(), pa.list_(pa.int32(), list_size=2)),
+                          (pa.int64(), pa.large_list(pa.int32()))])
+def test_list_value_lengths(offset_type, list_type):
+
+    # FixedSizeListArray needs fixed list sizes
+    if getattr(list_type, "list_size", None):
+        arr = pa.array(
+            [
+                [0, 1],
+                None,
+                [None, None],
+                [3, 4]
+            ], type=list_type)
+        expected = pa.array([2, None, 2, 2], type=offset_type)
+
+    # Otherwise create variable list sizes
+    else:
+        arr = pa.array(
+            [
+                [0, 1, 2],
+                None,
+                [],
+                [3, 4]
+            ], type=list_type)
+        expected = pa.array([3, None, 0, 2], type=offset_type)
     assert arr.value_lengths().equals(expected)
 
 
@@ -2771,7 +2790,6 @@ def test_fixed_size_list_array_flatten():
     typ1 = pa.list_(pa.int64(), 2)
     arr1 = pa.array([
         [1, 2], [3, 4], [5, 6],
-        None, None, None,
         [7, None], None, [8, 9]
     ], type=typ1)
     assert arr1.type.equals(typ1)
@@ -2779,13 +2797,17 @@ def test_fixed_size_list_array_flatten():
 
     typ0 = pa.int64()
     arr0 = pa.array([
-        1, 2, 3, 4, 5, 6,
-        None, None, None, None, None, None,
-        7, None, None, None, 8, 9,
+        1, 2, 3, 4, 5, 6, 7, None, 8, 9,
     ], type=typ0)
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_fixed_size_list_array_flatten_with_slice():
+    array = pa.array([[1], [2], [3]],
+                     type=pa.list_(pa.float64(), list_size=1))
+    assert array[2:].flatten() == pa.array([3], type=pa.float64())
 
 
 def test_map_array_values_offsets():

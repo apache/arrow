@@ -2125,7 +2125,7 @@ cdef class MapArray(ListArray):
         return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
-cdef class FixedSizeListArray(Array):
+cdef class FixedSizeListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a fixed size list data type.
     """
@@ -2212,16 +2212,6 @@ cdef class FixedSizeListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
-
-    def flatten(self):
-        """
-        Unnest this FixedSizeListArray by one level.
-
-        Returns
-        -------
-        result : Array
-        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 

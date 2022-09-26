@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
@@ -44,6 +45,7 @@ using arrow::FieldVector;
 using arrow::KeyValueMetadata;
 using arrow::Status;
 using arrow::internal::checked_cast;
+using arrow::internal::EndsWith;
 
 using ArrowType = arrow::DataType;
 using ArrowTypeId = arrow::Type;
@@ -496,8 +498,8 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 //   If the name is array or ends in _tuple, this should be a list of struct
 //   even for single child elements.
 bool HasStructListName(const GroupNode& node) {
-  ::arrow::util::string_view name{node.name()};
-  return name == "array" || name.ends_with("_tuple");
+  ::std::string_view name{node.name()};
+  return name == "array" || EndsWith(name, "_tuple");
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,

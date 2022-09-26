@@ -21,11 +21,11 @@
 
 #include <utf8proc.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/util/double_conversion.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -102,7 +102,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+    arrow::Status status = formatter(value, [&](std::string_view v) {             \
       int64_t size = static_cast<int64_t>(v.size());                              \
       *out_len = static_cast<int32_t>(len < size ? len : size);                   \
       memcpy(ret, v.data(), *out_len);                                            \
@@ -138,7 +138,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {     \
+    arrow::Status status = formatter(value, [&](std::string_view v) {             \
       int64_t size = static_cast<int64_t>(v.size());                              \
       *out_len = static_cast<int32_t>(len < size ? len : size);                   \
       memcpy(ret, v.data(), *out_len);                                            \

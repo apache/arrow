@@ -73,7 +73,7 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
   return result;
 }
 
-std::string FormatStatValue(Type::type parquet_type, ::arrow::util::string_view val) {
+std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
   std::stringstream result;
 
   const char* bytes = val.data();

@@ -35,7 +35,7 @@ void MakeCSVParser(std::vector<std::string> lines, ParseOptions options, int32_t
   auto csv = MakeCSVData(lines);
   auto parser = std::make_shared<BlockParser>(options, num_cols);
   uint32_t out_size;
-  ASSERT_OK(parser->Parse(util::string_view(csv), &out_size));
+  ASSERT_OK(parser->Parse(std::string_view(csv), &out_size));
   ASSERT_EQ(out_size, csv.size()) << "trailing CSV data not parsed";
   *out = parser;
 }

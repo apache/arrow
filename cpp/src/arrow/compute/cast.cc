@@ -94,7 +94,9 @@ class CastMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     ARROW_ASSIGN_OR_RAISE(auto cast_options, ValidateOptions(options));
-    if (args[0].type()->Equals(*cast_options->to_type)) {
+    // args[0].type() could be a nullptr so check for that before
+    // we do anything with it.
+    if (args[0].type() && args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
     Result<std::shared_ptr<CastFunction>> result =

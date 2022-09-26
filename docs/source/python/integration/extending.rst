@@ -434,12 +434,7 @@ To build this module, you will need a slightly customized ``setup.py`` file
         ext.library_dirs.extend(pa.get_library_dirs())
 
         if os.name == 'posix':
-            ext.extra_compile_args.append('-std=c++11')
-
-        # Try uncommenting the following line on Linux
-        # if you get weird linker errors or runtime crashes
-        # ext.define_macros.append(("_GLIBCXX_USE_CXX11_ABI", "0"))
-
+            ext.extra_compile_args.append('-std=c++17')
 
     setup(ext_modules=ext_modules)
 
@@ -476,7 +471,3 @@ the CentOS `devtoolset-9`. In addition to the other notes
 above, if you are compiling C++ using these shared libraries, you will need
 to make sure you use a compatible toolchain as well or you might see a
 segfault during runtime.
-
-Also, if you encounter errors when linking or loading the library, consider
-setting the ``_GLIBCXX_USE_CXX11_ABI`` preprocessor macro to ``0``
-(for example by adding ``-D_GLIBCXX_USE_CXX11_ABI=0`` to ``CFLAGS``).
