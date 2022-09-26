@@ -1222,7 +1222,8 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   static constexpr const char* type_name() { return "run_length_encoded"; }
 
-  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type);
+  explicit RunLengthEncodedType(std::shared_ptr<DataType> run_ends_type,
+                                std::shared_ptr<DataType> encoded_type);
 
   DataTypeLayout layout() const override {
     // always add one that is NULLPTR to make code, since existing code may assume there
@@ -1230,9 +1231,13 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
     return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
+  const std::shared_ptr<DataType>& run_ends_type() const { return fields()[0]->type(); }
+
   std::string ToString() const override;
 
   std::string name() const override { return "run_length_encoded"; }
+
+  static bool RunEndsTypeValid(const DataType& run_ends_type);
 
  private:
   std::string ComputeFingerprint() const override;

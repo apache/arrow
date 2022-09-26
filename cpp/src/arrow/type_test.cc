@@ -1822,9 +1822,9 @@ TEST(TypesTest, TestDecimalEquals) {
 }
 
 TEST(TypesTest, TestRunLengthEncodedType) {
-  auto int8_make_shared = std::make_shared<RunLengthEncodedType>(list(int8()));
-  auto int8_factory = run_length_encoded(list(int8()));
-  auto int32_factory = run_length_encoded(list(int32()));
+  auto int8_make_shared = std::make_shared<RunLengthEncodedType>(int32(), list(int8()));
+  auto int8_factory = run_length_encoded(int32(), list(int8()));
+  auto int32_factory = run_length_encoded(int32(), list(int32()));
 
   ASSERT_EQ(*int8_make_shared, *int8_factory);
   ASSERT_NE(*int8_make_shared, *int32_factory);
@@ -1841,7 +1841,16 @@ TEST(TypesTest, TestRunLengthEncodedType) {
   ASSERT_TRUE(int8_rle_type->field(0)->Equals(Field("run_ends", int32(), false)));
   ASSERT_TRUE(int8_rle_type->field(1)->Equals(Field("values", list(int8()), true)));
 
-  ASSERT_EQ(int8_factory->ToString(), "run_length_encoded<list<item: int8>>");
+  auto int16_int32 = run_length_encoded(int16(), list(int32()));
+  auto int64_int32 = run_length_encoded(int64(), list(int32()));
+  ASSERT_NE(*int32_factory, *int16_int32);
+  ASSERT_NE(*int32_factory, *int64_int32);
+  ASSERT_NE(*int16_int32, *int64_int32);
+
+  ASSERT_EQ(int8_factory->ToString(),
+            "run_length_encoded<run_ends: int32, values: list<item: int8>>");
+  ASSERT_EQ(int16_int32->ToString(),
+            "run_length_encoded<run_ends: int16, values: list<item: int32>>");
 }
 
 #define TEST_PREDICATE(all_types, type_predicate)                 \
