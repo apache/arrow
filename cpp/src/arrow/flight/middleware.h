@@ -30,7 +30,6 @@
 #include "arrow/status.h"
 
 namespace arrow {
-
 namespace flight {
 
 /// \brief Headers sent from the client or server.
@@ -66,6 +65,10 @@ enum class FlightMethod : char {
   DoExchange = 9,
 };
 
+/// \brief Get a human-readable name for a Flight method.
+ARROW_FLIGHT_EXPORT
+std::string ToString(FlightMethod method);
+
 /// \brief Information about an instance of a Flight RPC.
 struct ARROW_FLIGHT_EXPORT CallInfo {
  public:
@@ -74,5 +77,4 @@ struct ARROW_FLIGHT_EXPORT CallInfo {
 };
 
 }  // namespace flight
-
 }  // namespace arrow
