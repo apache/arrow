@@ -255,7 +255,7 @@ Status TestPyBufferInvalidInputObject() {
 // ("unresolved external symbol arrow_ARRAY_API referenced").
 #ifndef _WIN32
 Status TestPyBufferNumpyArray() {
-  const npy_intp dims[1] = {10};
+  npy_intp dims[1] = {10};
 
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
   PyObject* arr = arr_ref.obj();
