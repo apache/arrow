@@ -150,7 +150,7 @@ void WindowRank::OnSeparateAttribute(RankType rank_type, int64_t num_rows,
       } else {
         ProgressiveSeparateAttributeRank(
             /*dense_rank=*/false, rank_type == RankType::RANK_TIES_LOW, num_rows,
-            frame_begins, frame_ends, global_ranks_sorted, output);
+            frame_begins, frame_ends, global_ranks_sorted, permutation, output);
       }
       break;
     case RankType::DENSE_RANK:
@@ -161,7 +161,7 @@ void WindowRank::OnSeparateAttribute(RankType rank_type, int64_t num_rows,
       } else {
         ProgressiveSeparateAttributeRank(
             /*dense_rank=*/true, false, num_rows, frame_begins, frame_ends,
-            global_ranks_sorted, output);
+            global_ranks_sorted, permutation, output);
       }
       break;
   }
@@ -246,16 +246,26 @@ void WindowRank::RankWithinFrame(bool ties_low, int64_t num_rows, const uint64_t
         output[i] = 1;
       } else if (i >= frame_ends[i]) {
         if (tie_with_last) {
-          output[i] -= frame_begins[i];
+          if (ties_low) {
+            output[i] -= frame_begins[i];
+          } else {
+            output[i] = frame_ends[i] - frame_begins[i] + 1;
+          }
         } else {
           output[i] = frame_ends[i] - frame_begins[i] + 1;
         }
       } else {
-        output[i] -= frame_begins[i];
+        if (tie_with_last && !ties_low) {
+          output[i] = frame_ends[i] - frame_begins[i];
+        } else {
+          output[i] -= frame_begins[i];
+        }
       }
     } else {
       if (tie_with_last) {
-        output[i] = 1;
+        output[i] = ties_low ? 1
+                             : frame_ends[i] - frame_begins[i] +
+                                   ((i < frame_begins[i] || i >= frame_ends[i]) ? 1 : 0);
       } else {
         // Bit vector rank of current row is the same as the beginning of
         // the frame but different than for the last row of the frame, which
@@ -352,8 +362,10 @@ void WindowRank::SeparateAttributeRank(
   // Ties low means outputting the number of rows in window frame with rank
   // lower than current row plus 1. Initialize output counter accordingly.
   //
-  int64_t delta = ties_low ? 1 : 0;
-  std::fill_n(output, num_rows, delta);
+  for (int64_t i = 0; i < num_rows; ++i) {
+    bool outside_of_frame = i < begins[i] || i >= ends[i];
+    output[i] = (ties_low || outside_of_frame) ? 1 : 0;
+  }
 
   // For each row compute the number of rows with the lower rank (lower or
   // equal in case of ties high).
@@ -362,8 +374,19 @@ void WindowRank::SeparateAttributeRank(
   // merge tree.
   //
   std::vector<int64_t> y_ends(num_rows);
+  int64_t first_in_group;
+  int64_t group_size;
   for (int64_t i = 0; i < num_rows; ++i) {
-    y_ends[permutation[i]] = (ranks_sorted ? ranks_sorted[i] : (i + 1)) + delta;
+    if (i == 0 || ranks_sorted[i] != ranks_sorted[i - 1]) {
+      first_in_group = i;
+      group_size = 1;
+      for (int64_t j = i + 1; j < num_rows; ++j) {
+        if (ranks_sorted[j] == ranks_sorted[i]) {
+          ++group_size;
+        }
+      }
+    }
+    y_ends[permutation[i]] = ties_low ? first_in_group : first_in_group + group_size;
   }
 
   BEGIN_MINI_BATCH_FOR(batch_begin, batch_length, num_rows)
@@ -493,26 +516,30 @@ void WindowRank::SeparateAttributeDenseRank(
 void WindowRank::ProgressiveSeparateAttributeRank(bool dense_rank, bool ties_low,
                                                   int64_t num_rows, const int64_t* begins,
                                                   const int64_t* ends,
-                                                  const int64_t* global_ranks,
+                                                  const int64_t* global_ranks_sorted,
+                                                  const int64_t* permutation,
                                                   int64_t* output) {
   if (dense_rank) {
-    ProgressiveSeparateAttributeRankImp<true>(false, num_rows, begins, ends, global_ranks,
-                                              output);
+    ProgressiveSeparateAttributeRankImp<true>(false, num_rows, begins, ends,
+                                              global_ranks_sorted, permutation, output);
   } else {
     ProgressiveSeparateAttributeRankImp<false>(ties_low, num_rows, begins, ends,
-                                               global_ranks, output);
+                                               global_ranks_sorted, permutation, output);
   }
 }
 
 template <bool T_DENSE_RANK>
-void WindowRank::ProgressiveSeparateAttributeRankImp(bool ties_low, int64_t num_rows,
-                                                     const int64_t* begins,
-                                                     const int64_t* ends,
-                                                     const int64_t* global_ranks,
-                                                     int64_t* output) {
+void WindowRank::ProgressiveSeparateAttributeRankImp(
+    bool ties_low, int64_t num_rows, const int64_t* begins, const int64_t* ends,
+    const int64_t* global_ranks_sorted, const int64_t* permutation, int64_t* output) {
   SplayTree tree;
   int64_t begin = begins[0];
   int64_t end = begin;
+
+  std::vector<int64_t> global_ranks(num_rows);
+  for (int64_t i = 0; i < num_rows; ++i) {
+    global_ranks[permutation[i]] = global_ranks_sorted[i];
+  }
 
   for (int64_t iframe = 0; iframe < num_rows; ++iframe) {
     int64_t frame_begin = begins[iframe];
@@ -536,6 +563,9 @@ void WindowRank::ProgressiveSeparateAttributeRankImp(bool ties_low, int64_t num_
       output[iframe] = tree.DenseRank(global_ranks[iframe]);
     } else {
       output[iframe] = tree.Rank(ties_low, global_ranks[iframe]);
+      if (!ties_low && (iframe < frame_begin || iframe >= frame_end)) {
+        ++output[iframe];
+      }
     }
   }
 }
@@ -548,10 +578,7 @@ void WindowRankBasic::Global(RankType rank_type, int64_t num_rows, const uint64_
   for (int64_t i = 0; i < num_rows; ++i) {
     if (i == 0) {
       current_group_id = 0;
-      first_in_group = 0;
-      num_in_group = 1;
-      for (num_in_group = 1; first_in_group + num_in_group < num_rows; ++num_in_group) {
-      }
+      first_in_group = i;
     } else {
       if (bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec), i)) {
         ++current_group_id;
@@ -559,6 +586,7 @@ void WindowRankBasic::Global(RankType rank_type, int64_t num_rows, const uint64_
       }
     }
     if (first_in_group == i) {
+      num_in_group = 1;
       while (first_in_group + num_in_group < num_rows &&
              !bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec),
                                first_in_group + num_in_group)) {
@@ -596,29 +624,40 @@ void WindowRankBasic::WithinFrame(RankType rank_type, int64_t num_rows,
     int64_t num_words = bit_util::CeilDiv(end - begin + 1, 64);
     std::vector<uint64_t> frame_bitvec(num_words);
     memset(frame_bitvec.data(), 0, num_words * sizeof(uint64_t));
+    bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()), 0);
+
+    int64_t start_offset = 0;
     if (i < begin) {
-      output[i] = 1;
-      continue;
-    }
-    for (int64_t j = 0; j < end - begin; ++j) {
-      if (bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec), j)) {
-        bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()), j);
+      start_offset = 1;
+      for (int64_t j = i + 1; j <= begin; ++j) {
+        if (bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec), j)) {
+          bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()), start_offset);
+        }
       }
     }
-    bool one_more_group = false;
+    for (int64_t j = begin; j < end; ++j) {
+      if (bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec), j)) {
+        bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()),
+                         j - begin + start_offset);
+      }
+    }
     if (i >= end) {
       for (int64_t j = end; j <= i; ++j) {
         if (bit_util::GetBit(reinterpret_cast<const uint8_t*>(bitvec), j)) {
-          one_more_group = true;
-          bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()), end - begin);
+          bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()),
+                           end - begin + start_offset);
           break;
         }
       }
     }
     std::vector<int64_t> frame_output(end - begin + 1);
-    Global(rank_type, end - begin + (one_more_group ? 1 : 0), frame_bitvec.data(),
-           frame_output.data());
-    output[i] = frame_output[std::min(end, i) - begin];
+    Global(rank_type, end - begin + ((i < begin || i >= end) ? 1 : 0),
+           frame_bitvec.data(), frame_output.data());
+    if (i < begin) {
+      output[i] = frame_output[0];
+    } else {
+      output[i] = frame_output[std::min(end, i) - begin];
+    }
   }
 }
 
@@ -648,34 +687,25 @@ void WindowRankBasic::SeparateAttribute(RankType rank_type, int64_t num_rows,
     for (int64_t j = begin; j < end; ++j) {
       rank_row.push_back(std::make_pair(inverse_permutation[j], j));
     }
-    bool one_more_group = false;
-    if (i >= end) {
+    if (i >= end || i < begin) {
       rank_row.push_back(std::make_pair(inverse_permutation[i], i));
-      if (global_ranks_sorted[inverse_permutation[i]] >
-          global_ranks_sorted[inverse_permutation[end - 1]]) {
-        one_more_group = true;
-      }
     }
 
+    int64_t rank_row_length = static_cast<int64_t>(rank_row.size());
     std::sort(rank_row.begin(), rank_row.end());
 
     int64_t num_words = bit_util::CeilDiv(end - begin + 1, 64);
     std::vector<uint64_t> frame_bitvec(num_words);
     memset(frame_bitvec.data(), 0, num_words * sizeof(uint64_t));
-    if (i < begin) {
-      output[i] = 1;
-      continue;
-    }
-    for (int64_t j = 0; j < end - begin + (one_more_group ? 1 : 0); ++j) {
+    for (int64_t j = 0; j < rank_row_length; ++j) {
       if (j == 0 || global_ranks_sorted[rank_row[j - 1].first] !=
                         global_ranks_sorted[rank_row[j].first]) {
         bit_util::SetBit(reinterpret_cast<uint8_t*>(frame_bitvec.data()), j);
       }
     }
-    std::vector<int64_t> frame_output(end - begin + 1);
-    Global(rank_type, end - begin + (one_more_group ? 1 : 0), frame_bitvec.data(),
-           frame_output.data());
-    for (int64_t j = 0; j < end - begin + (one_more_group ? 1 : 0); ++j) {
+    std::vector<int64_t> frame_output(rank_row_length);
+    Global(rank_type, rank_row_length, frame_bitvec.data(), frame_output.data());
+    for (int64_t j = 0; j < rank_row_length; ++j) {
       if (rank_row[j].second == i) {
         output[i] = frame_output[j];
         break;
@@ -787,8 +817,8 @@ void WindowRankTest::TestRank(RankType rank_type, bool separate_ranking_attribut
     }
     // int64_t end = __rdtsc();
     // printf("cpr basic %.1f ",
-    //        static_cast<float>(end - start) / static_cast<float>(num_rows *
-    //        num_repeats));
+    //       static_cast<float>(end - start) / static_cast<float>(num_rows *
+    //       num_repeats));
     // start = __rdtsc();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       if (!use_frames) {
@@ -807,11 +837,15 @@ void WindowRankTest::TestRank(RankType rank_type, bool separate_ranking_attribut
     }
     // end = __rdtsc();
     // printf("cpr normal %.1f ",
-    //        static_cast<float>(end - start) / static_cast<float>(num_rows *
-    //        num_repeats));
+    //       static_cast<float>(end - start) / static_cast<float>(num_rows *
+    //       num_repeats));
 
     bool ok = true;
     for (int64_t i = 0; i < num_rows; ++i) {
+      if (output[0][i] != output[1][i]) {
+        ARROW_DCHECK(false);
+        ok = false;
+      }
     }
     printf("%s\n", ok ? "correct" : "wrong");
   }

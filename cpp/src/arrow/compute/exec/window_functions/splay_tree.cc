@@ -30,11 +30,11 @@ void SplayTree::Insert(int64_t value) {
   Find(value, kCountStar, &parent_id, &parent_side, &node_id, &rank);
 
   if (node_id != kNilId) {
+    ++nodes_[node_id].value_count;
+    ++nodes_[node_id].subtree_count[kCountStar];
     while (parent_id != kNilId) {
-      NodeType& node = nodes_[node_id];
-      ++node.value_count;
+      NodeType& node = nodes_[parent_id];
       ++node.subtree_count[kCountStar];
-      node_id = parent_id;
       parent_id = node.parent_id;
     }
 
@@ -56,7 +56,7 @@ void SplayTree::Insert(int64_t value) {
     root_id_ = new_node_id;
   } else {
     nodes_[parent_id].child_id[parent_side] = new_node_id;
-    Splay(node_id);
+    Splay(new_node_id);
   }
   nodes_[root_id_].value_count = 1;
   for (int i = 0; i < 2; ++i) {
@@ -88,6 +88,7 @@ void SplayTree::Remove(int64_t value) {
     nodes_[x].subtree_count[kCountStar] -= 1;
   }
   --node->value_count;
+  --node->subtree_count[kCountStar];
 
   if (node->value_count > 0) {
 #ifndef NDEBUG
@@ -100,6 +101,7 @@ void SplayTree::Remove(int64_t value) {
   for (index_t x = parent_id; x != kNilId; x = nodes_[x].parent_id) {
     nodes_[x].subtree_count[kCountDistinctValue] -= 1;
   }
+  --node->subtree_count[kCountDistinctValue];
 
   if (node->child_id[0] != kNilId && node->child_id[1] != kNilId) {
     index_t prev_node_id = node->child_id[0];
@@ -112,15 +114,27 @@ void SplayTree::Remove(int64_t value) {
       nodes_[x].subtree_count[kCountStar] -= prev_node.value_count;
       nodes_[x].subtree_count[kCountDistinctValue] -= 1;
     }
+    index_t prev_node_parent_id = nodes_[prev_node_id].parent_id;
+    if (nodes_[prev_node_parent_id].child_id[0] == prev_node_id) {
+      nodes_[prev_node_parent_id].child_id[0] = nodes_[prev_node_id].child_id[0];
+    } else {
+      nodes_[prev_node_parent_id].child_id[1] = nodes_[prev_node_id].child_id[0];
+    }
+    if (nodes_[prev_node_id].child_id[0] != kNilId) {
+      nodes_[nodes_[prev_node_id].child_id[0]].parent_id = prev_node_parent_id;
+    }
+    nodes_[prev_node_id].parent_id = kNilId;
 
     node->value = prev_node.value;
     node->value_count = prev_node.value_count;
-    node->subtree_count[kCountStar] -= 1;
-    node->subtree_count[kCountDistinctValue] -= 1;
 
-    node_id = prev_node_id;
-    parent_id = prev_node.parent_id;
-    node = &nodes_[node_id];
+    DeallocateNode(prev_node_id);
+
+#ifndef NDEBUG
+    ValidateTree();
+#endif
+
+    return;
   }
 
   for (int side = 0; side < 2; ++side) {
@@ -161,7 +175,7 @@ int64_t SplayTree::Rank(bool ties_low, int64_t value) {
   int parent_side;
   index_t node_id;
   Find(value, kCountStar, &parent_id, &parent_side, &node_id, &rank);
-  if (ties_low || node_id == kNilId) {
+  if (ties_low) {
     return rank + 1;
   }
   return rank + nodes_[node_id].value_count;
@@ -215,11 +229,11 @@ void SplayTree::SwitchParent(index_t old_parent_id, int old_child_side,
   }
 }
 
-//     parent         node              |
-//    /      \       /    \             |
-//   node     y --> x      parent       |
-//  /    \                /      \      |
-// x      mid            mid      y     |
+//     parent         node            |
+//    /      \       /    \           |
+//   node     y --> x      parent     |
+//  /    \                /      \    |
+// x      mid            mid      y   |
 void SplayTree::Zig(index_t node_id, index_t parent_id, int parent_side) {
   NodeType& node = nodes_[node_id];
   NodeType& parent = nodes_[parent_id];
@@ -232,13 +246,13 @@ void SplayTree::Zig(index_t node_id, index_t parent_id, int parent_side) {
   //
   SwitchParent(node_id, 1 - parent_side, parent_id, parent_side);
 
-  // At this point we have:         |
-  //                                |
-  //     nil          nil           |
-  //      |            |            |
-  //    node     +   parent         |
-  //   /    \       /      \        |
-  //  x      nil   mid      y       |
+  // At this point we have:
+  //
+  //     nil          nil       |
+  //      |            |        |
+  //    node     +   parent     |
+  //   /    \       /      \    |
+  //  x      nil   mid      y   |
   //
 
   // Connect parent to node
@@ -251,36 +265,42 @@ void SplayTree::Zig(index_t node_id, index_t parent_id, int parent_side) {
   root_id_ = node_id;
 }
 
-//          grandparent         node                            |
-//         /           \       /    \                           |
-//        parent        y     x      parent                     |
-//       /      \         -->       /       \                   |
-//      node     mid1              mid0      grandparent        |
-//     /    \                               /           \       |
-//    x      mid0                          mid1          y      |
+//          grandparent         node                          |
+//         /           \       /    \                         |
+//        parent        y     x      parent                   |
+//       /      \         -->       /       \                 |
+//      node     mid1              mid0      grandparent      |
+//     /    \                               /           \     |
+//    x      mid0                          mid1          y    |
 void SplayTree::ZigZig(index_t node_id, index_t parent_id, index_t grandparent_id,
                        int parent_side) {
   NodeType& node = nodes_[node_id];
   NodeType& parent = nodes_[parent_id];
   NodeType& grandparent = nodes_[grandparent_id];
 
-  // Rearrange tree nodes
+  // Rearrange tree nodes.
+  // The order of the calls below is important.
   //
-  SwitchParent(node_id, 1 - parent_side, parent_id, parent_side);
   SwitchParent(parent_id, 1 - parent_side, grandparent_id, parent_side);
+  SwitchParent(node_id, 1 - parent_side, parent_id, parent_side);
 
-  // At this point we have:                                 |
-  //                                                        |
-  //     nil          nil                z                  |
-  //      |            |                 |                  |
-  //    node     +   parent     +   grandparent             |
-  //   /    \       /      \       /           \            |
-  //  x      nil   mid0     nil   mid1          y           |
+  // At this point we have:
   //
+  //     nil          nil                z          |
+  //      |            |                 |          |
+  //    node     +   parent     +   grandparent     |
+  //   /    \       /      \       /           \    |
+  //  x      nil   mid0     nil   mid1          y   |
+  //
+
+  node.parent_id = grandparent.parent_id;
+  if (node.parent_id != kNilId) {
+    int side = (nodes_[node.parent_id].child_id[0] == grandparent_id) ? 0 : 1;
+    nodes_[node.parent_id].child_id[side] = node_id;
+  }
 
   // Connect grandparent to parent
   //
-  node.parent_id = grandparent.parent_id;
   parent.child_id[1 - parent_side] = grandparent_id;
   grandparent.parent_id = parent_id;
   for (int i = 0; i < 2; ++i) {
@@ -299,36 +319,48 @@ void SplayTree::ZigZig(index_t node_id, index_t parent_id, index_t grandparent_i
   }
 }
 
-//         grandparent                    node                  |
-//        /           \                  /     \                |
-//       parent        y                parent  grandparent     |
-//      /      \          -->          /\      /    \           |
-//     x        node                  x  mid0 mid1   y          |
-//             /    \                                           |
-//            mid0   mid1                                       |
+//         grandparent                    node                |
+//        /           \                  /     \              |
+//       parent        y                parent  grandparent   |
+//      /      \          -->          /\      /    \         |
+//     x        node                  x  mid0 mid1   y        |
+//             /    \                                         |
+//            mid0   mid1                                     |
 void SplayTree::ZigZag(index_t node_id, index_t parent_id, index_t grandparent_id,
                        int parent_side, int grandparent_side) {
   NodeType& node = nodes_[node_id];
   NodeType& parent = nodes_[parent_id];
   NodeType& grandparent = nodes_[grandparent_id];
 
-  // Rearrange tree nodes
+  // Rearrange tree nodes.
+  // The order of the calls below is important.
   //
-  SwitchParent(node_id, 1 - parent_side, parent_id, parent_side);
   SwitchParent(node_id, parent_side, grandparent_id, 1 - parent_side);
+  if (grandparent.child_id[1 - parent_side] != kNilId) {
+    for (int i = 0; i < 2; ++i) {
+      parent.subtree_count[i] -=
+          nodes_[grandparent.child_id[1 - parent_side]].subtree_count[i];
+    }
+  }
+  SwitchParent(node_id, 1 - parent_side, parent_id, parent_side);
 
-  // At this point we have:                               |
-  //                                                      |
-  //     nil          nil                 z               |
-  //      |            |                  |               |
-  //    node     +   parent      +    grandparent         |
-  //   /    \       /      \         /           \        |
-  //  nil    nil   x        mid0    mid1          y       |
-  //                                                      |
+  // At this point we have:
+  //
+  //     nil          nil                 z           |
+  //      |            |                  |           |
+  //    node     +   parent      +    grandparent     |
+  //   /    \       /      \         /           \    |
+  //  nil    nil   x        mid0    mid1          y   |
+  //
+
+  node.parent_id = grandparent.parent_id;
+  if (node.parent_id != kNilId) {
+    int side = (nodes_[node.parent_id].child_id[0] == grandparent_id) ? 0 : 1;
+    nodes_[node.parent_id].child_id[side] = node_id;
+  }
 
   // Connect parent and grandparent to node
   //
-  node.parent_id = grandparent.parent_id;
   node.child_id[1 - parent_side] = parent_id;
   node.child_id[parent_side] = grandparent_id;
   parent.parent_id = node_id;
@@ -362,6 +394,9 @@ void SplayTree::Splay(index_t node_id) {
     } else {
       ZigZag(node_id, parent_id, grandparent_id, parent_side, grandparent_side);
     }
+#ifndef NDEBUG
+    ValidateTree();
+#endif
   }
 }
 
@@ -399,18 +434,28 @@ void SplayTree::Find(int64_t value, int counter_id, index_t* parent_id, int* par
 
 void SplayTree::ValidateVisit(index_t node_id, index_t* count, index_t* count_distinct) {
   ARROW_DCHECK(node_id != kNilId);
+  ARROW_DCHECK(nodes_[node_id].parent_id == kNilId ||
+               nodes_[nodes_[node_id].parent_id].child_id[0] == node_id ||
+               nodes_[nodes_[node_id].parent_id].child_id[1] == node_id);
   *count = nodes_[node_id].value_count;
-  *count_distinct = 1;
+  *count_distinct = nodes_[node_id].value_count > 0 ? 1 : 0;
   for (int side = 0; side < 2; ++side) {
     if (nodes_[node_id].child_id[side] != kNilId) {
       index_t count_child, count_distinct_child;
+      ARROW_DCHECK(nodes_[nodes_[node_id].child_id[side]].parent_id == node_id);
       ValidateVisit(nodes_[node_id].child_id[side], &count_child, &count_distinct_child);
       *count += count_child;
       *count_distinct += count_distinct_child;
     }
   }
-  ARROW_DCHECK(*count == nodes_[node_id].subtree_count[kCountStar]);
-  ARROW_DCHECK(*count_distinct == nodes_[node_id].subtree_count[kCountDistinctValue]);
+  bool count_correct = (*count == nodes_[node_id].subtree_count[kCountStar]);
+  bool count_distinct_correct =
+      (*count_distinct == nodes_[node_id].subtree_count[kCountDistinctValue]);
+  if (!count_correct || !count_distinct_correct) {
+    Print();
+  }
+  ARROW_DCHECK(count_correct);
+  ARROW_DCHECK(count_distinct_correct);
 }
 
 void SplayTree::ValidateTree() {
@@ -419,7 +464,8 @@ void SplayTree::ValidateTree() {
   if (root_id_ != kNilId) {
     ValidateVisit(root_id_, &count, &count_distinct);
   }
-  ARROW_DCHECK(nodes_.size() == empty_slots_.size() + count + /*extra one for kNilId*/ 1);
+  ARROW_DCHECK(nodes_.size() <= empty_slots_.size() + count_distinct +
+                                    /*extra one for kNilId*/ 1 + 1);
 }
 
 template <typename T>
@@ -447,9 +493,10 @@ void SplayTree::Print_BoxWH(index_t node_id, std::map<index_t, PrintBox>& boxes)
   }
 
   PrintBox box;
+  box.x = box.y = 0;
   int label_size = static_cast<int>(Print_Label(node_id).length());
 
-  if (!has_child[0] && !has_child[1] == 0) {
+  if (!has_child[0] && !has_child[1]) {
     box.root_x = 0;
     box.w = label_size;
     box.h = 1;
@@ -479,6 +526,7 @@ void SplayTree::Print_BoxWH(index_t node_id, std::map<index_t, PrintBox>& boxes)
 void SplayTree::Print_BoxXY(int x, int y, index_t node_id,
                             std::map<index_t, PrintBox>& boxes) {
   PrintBox& box = boxes.find(node_id)->second;
+  box.root_x += x;
   box.x += x;
   box.y += y;
   bool has_child[2];
@@ -507,8 +555,8 @@ void SplayTree::Print_PutChar(std::vector<std::vector<char>>& canvas, int x, int
 
 void SplayTree::Print_PutString(std::vector<std::vector<char>>& canvas, int x, int y,
                                 std::string str) {
-  for (size_t i = 0; i < str.length(); ++i) {
-    Print_PutChar(canvas, x, y, str[i]);
+  for (int i = 0; i < static_cast<int>(str.length()); ++i) {
+    Print_PutChar(canvas, x + i, y, str[i]);
   }
 }
 

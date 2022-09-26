@@ -70,30 +70,30 @@ class SplayTree {
   void SwitchParent(index_t old_parent_id, int old_child_side, index_t new_parent_id,
                     int new_child_side);
 
-  //     parent         node                |
-  //    /      \       /    \               |
-  //   node     y --> x      parent         |
-  //  /    \                /      \        |
-  // x      mid            mid      y       |
+  //     parent         node          |
+  //    /      \       /    \         |
+  //   node     y --> x      parent   |
+  //  /    \                /      \  |
+  // x      mid            mid      y |
   void Zig(index_t node_id, index_t parent_id, int parent_side);
 
-  //          grandparent         node                          |
-  //         /           \       /    \                         |
-  //        parent        y     x      parent                   |
-  //       /      \         -->       /       \                 |
-  //      node     mid1              mid0      grandparent      |
-  //     /    \                               /           \     |
-  //    x      mid0                          mid1          y    |
+  //          grandparent         node                        |
+  //         /           \       /    \                       |
+  //        parent        y     x      parent                 |
+  //       /      \         -->       /       \               |
+  //      node     mid1              mid0      grandparent    |
+  //     /    \                               /           \   |
+  //    x      mid0                          mid1          y  |
   void ZigZig(index_t node_id, index_t parent_id, index_t grandparent_id,
               int parent_side);
 
-  //         grandparent                    node                |
-  //        /           \                  /     \              |
-  //       parent        y                parent  grandparent   |
-  //      /      \          -->          /\      /    \         |
-  //     x        node                  x  mid0 mid1   y        |
-  //             /    \                                         |
-  //            mid0   mid1                                     |
+  //         grandparent                    node              |
+  //        /           \                  /     \            |
+  //       parent        y                parent  grandparent |
+  //      /      \          -->          /\      /    \       |
+  //     x        node                  x  mid0 mid1   y      |
+  //             /    \                                       |
+  //            mid0   mid1                                   |
   void ZigZag(index_t node_id, index_t parent_id, index_t grandparent_id, int parent_side,
               int grandparent_side);
 

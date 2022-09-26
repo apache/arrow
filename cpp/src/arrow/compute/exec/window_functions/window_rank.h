@@ -114,15 +114,14 @@ class WindowRank {
   static void ProgressiveSeparateAttributeRank(bool dense_rank, bool ties_low,
                                                int64_t num_rows, const int64_t* begins,
                                                const int64_t* ends,
-                                               const int64_t* global_ranks,
+                                               const int64_t* global_ranks_sorted,
+                                               const int64_t* permutation,
                                                int64_t* output);
 
   template <bool T_DENSE_RANK>
-  static void ProgressiveSeparateAttributeRankImp(bool ties_low, int64_t num_rows,
-                                                  const int64_t* begins,
-                                                  const int64_t* ends,
-                                                  const int64_t* global_ranks,
-                                                  int64_t* output);
+  static void ProgressiveSeparateAttributeRankImp(
+      bool ties_low, int64_t num_rows, const int64_t* begins, const int64_t* ends,
+      const int64_t* global_ranks_sorted, const int64_t* permutation, int64_t* output);
 };
 
 class WindowRankBasic {

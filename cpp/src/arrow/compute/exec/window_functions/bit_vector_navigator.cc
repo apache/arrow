@@ -64,8 +64,7 @@ void BitVectorNavigator::SelectsForRangeOfRanks(
 
   int64_t first_select =
       BitVectorNavigator::Select(rank_begin, num_bits, bitvec, popcounts);
-  int64_t last_select =
-      BitVectorNavigator::Select(rank_begin, num_bits, bitvec, popcounts);
+  int64_t last_select = BitVectorNavigator::Select(rank_end, num_bits, bitvec, popcounts);
 
   for (int64_t minibatch_begin = first_select; minibatch_begin < last_select + 1;
        minibatch_begin += minibatch_length_max) {

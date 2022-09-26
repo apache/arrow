@@ -215,7 +215,7 @@ class MergeTree {
             Cascade_End(level + 1, y_end, &y_ends_new[0], &y_ends_new[1]);
           }
           if (y_ends_2nd[iquery] != kEmptyRangeBoundary) {
-            Cascade_End(level + 1, y_end, &y_ends_new[2], &y_ends_new[3]);
+            Cascade_End(level + 1, y_end_2nd, &y_ends_new[2], &y_ends_new[3]);
           }
         }
 
