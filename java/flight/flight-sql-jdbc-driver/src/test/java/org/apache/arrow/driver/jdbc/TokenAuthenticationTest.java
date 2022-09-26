@@ -36,8 +36,6 @@ public class TokenAuthenticationTest {
 
   static {
     FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
         .authentication(new TokenAuthentication.Builder()
             .token("1234")
             .build())

@@ -23,10 +23,13 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::StartsWith;
+
 namespace fs {
 namespace internal {
 
@@ -34,7 +37,7 @@ namespace internal {
 
 std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   std::vector<std::string> parts;
-  auto v = util::string_view(path);
+  auto v = std::string_view(path);
   // Strip trailing separator
   if (v.length() > 0 && v.back() == sep) {
     v = v.substr(0, v.length() - 1);
@@ -75,13 +78,13 @@ std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) 
 }
 
 std::string GetAbstractPathExtension(const std::string& s) {
-  util::string_view basename(s);
+  std::string_view basename(s);
   auto offset = basename.find_last_of(kSep);
   if (offset != std::string::npos) {
     basename = basename.substr(offset);
   }
   auto dot = basename.find_last_of('.');
-  if (dot == util::string_view::npos) {
+  if (dot == std::string_view::npos) {
     // Empty extension
     return "";
   }
@@ -108,7 +111,7 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
 }
 
-std::string EnsureTrailingSlash(util::string_view v) {
+std::string EnsureTrailingSlash(std::string_view v) {
   if (v.length() > 0 && v.back() != kSep) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
     // Unless the local filesystem always uses absolute paths
@@ -118,7 +121,7 @@ std::string EnsureTrailingSlash(util::string_view v) {
   }
 }
 
-std::string EnsureLeadingSlash(util::string_view v) {
+std::string EnsureLeadingSlash(std::string_view v) {
   if (v.length() == 0 || v.front() != kSep) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "/C:"...
     return kSep + std::string(v);
@@ -126,21 +129,21 @@ std::string EnsureLeadingSlash(util::string_view v) {
     return std::string(v);
   }
 }
-util::string_view RemoveTrailingSlash(util::string_view key) {
+std::string_view RemoveTrailingSlash(std::string_view key) {
   while (!key.empty() && key.back() == kSep) {
     key.remove_suffix(1);
   }
   return key;
 }
 
-util::string_view RemoveLeadingSlash(util::string_view key) {
+std::string_view RemoveLeadingSlash(std::string_view key) {
   while (!key.empty() && key.front() == kSep) {
     key.remove_prefix(1);
   }
   return key;
 }
 
-Status AssertNoTrailingSlash(util::string_view key) {
+Status AssertNoTrailingSlash(std::string_view key) {
   if (key.back() == '/') {
     return NotAFile(key);
   }
@@ -154,8 +157,8 @@ Result<std::string> MakeAbstractPathRelative(const std::string& base,
                            base, "'");
   }
   auto b = EnsureLeadingSlash(RemoveTrailingSlash(base));
-  auto p = util::string_view(path);
-  if (p.substr(0, b.size()) != util::string_view(b)) {
+  auto p = std::string_view(path);
+  if (p.substr(0, b.size()) != std::string_view(b)) {
     return Status::Invalid("Path '", path, "' is not relative to '", base, "'");
   }
   p = p.substr(b.size());
@@ -165,7 +168,7 @@ Result<std::string> MakeAbstractPathRelative(const std::string& base,
   return std::string(RemoveLeadingSlash(p));
 }
 
-bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
+bool IsAncestorOf(std::string_view ancestor, std::string_view descendant) {
   ancestor = RemoveTrailingSlash(ancestor);
   if (ancestor == "") {
     // everything is a descendant of the root directory
@@ -173,7 +176,7 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   }
 
   descendant = RemoveTrailingSlash(descendant);
-  if (!descendant.starts_with(ancestor)) {
+  if (!StartsWith(descendant, ancestor)) {
     // an ancestor path is a prefix of descendant paths
     return false;
   }
@@ -186,11 +189,11 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   }
 
   // "/hello/w" is not an ancestor of "/hello/world"
-  return descendant.starts_with(std::string{kSep});
+  return StartsWith(descendant, std::string{kSep});
 }
 
-std::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
-                                                util::string_view descendant) {
+std::optional<std::string_view> RemoveAncestor(std::string_view ancestor,
+                                               std::string_view descendant) {
   if (!IsAncestorOf(ancestor, descendant)) {
     return std::nullopt;
   }
@@ -199,8 +202,8 @@ std::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
   return RemoveLeadingSlash(relative_to_ancestor);
 }
 
-std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
-                                               util::string_view descendant) {
+std::vector<std::string> AncestorsFromBasePath(std::string_view base_path,
+                                               std::string_view descendant) {
   std::vector<std::string> ancestry;
   if (auto relative = RemoveAncestor(base_path, descendant)) {
     auto relative_segments = fs::internal::SplitAbstractPath(std::string(*relative));
@@ -245,7 +248,7 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs) {
   return dirs;
 }
 
-std::string ToBackslashes(util::string_view v) {
+std::string ToBackslashes(std::string_view v) {
   std::string s(v);
   for (auto& c : s) {
     if (c == '/') {
@@ -255,7 +258,7 @@ std::string ToBackslashes(util::string_view v) {
   return s;
 }
 
-std::string ToSlashes(util::string_view v) {
+std::string ToSlashes(std::string_view v) {
   std::string s(v);
 #ifdef _WIN32
   for (auto& c : s) {
@@ -267,7 +270,7 @@ std::string ToSlashes(util::string_view v) {
   return s;
 }
 
-bool IsEmptyPath(util::string_view v) {
+bool IsEmptyPath(std::string_view v) {
   for (const auto c : v) {
     if (c != '/') {
       return false;
@@ -276,7 +279,7 @@ bool IsEmptyPath(util::string_view v) {
   return true;
 }
 
-bool IsLikelyUri(util::string_view v) {
+bool IsLikelyUri(std::string_view v) {
   if (v.empty() || v[0] == '/') {
     return false;
   }

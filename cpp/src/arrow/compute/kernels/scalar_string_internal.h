@@ -224,7 +224,7 @@ struct StringPredicateFunctor {
     ArraySpan* out_arr = out->array_span();
     ::arrow::internal::GenerateBitsUnrolled(
         out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
-          util::string_view val = input_it();
+          std::string_view val = input_it();
           return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
                                  val.size(), &st);
         });
@@ -307,7 +307,7 @@ struct StringSplitExec {
   using State = OptionsWrapper<Options>;
 
   // Keep the temporary storage accross individual values, to minimize reallocations
-  std::vector<util::string_view> parts;
+  std::vector<std::string_view> parts;
   Options options;
 
   explicit StringSplitExec(const Options& options) : options(options) {}
@@ -351,7 +351,7 @@ struct StringSplitExec {
     return Status::OK();
   }
 
-  Status SplitString(const util::string_view& s, SplitFinder* finder,
+  Status SplitString(const std::string_view& s, SplitFinder* finder,
                      BuilderType* builder) {
     const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.data());
     const uint8_t* end = begin + s.length();

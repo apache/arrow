@@ -18,11 +18,14 @@ package kernels
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 )
 
@@ -85,6 +88,149 @@ func preallocateData(ctx *exec.KernelCtx, length int64, bitWidth int, allocateVa
 	} else {
 		out.Buffers[1].WrapBuffer(ctx.Allocate(int(length) * (bitWidth / 8)))
 	}
+}
+
+type builder[T any] interface {
+	array.Builder
+	Append(T)
+	UnsafeAppend(T)
+	UnsafeAppendBoolToBitmap(bool)
+}
+
+func getTakeIndices[T exec.IntTypes | exec.UintTypes](mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) arrow.ArrayData {
+	var (
+		filterData      = filter.Buffers[1].Buf
+		haveFilterNulls = filter.MayHaveNulls()
+		filterIsValid   = filter.Buffers[0].Buf
+		idxType         = exec.GetDataType[T]()
+	)
+
+	if haveFilterNulls && nullSelect == EmitNulls {
+		// Most complex case: the filter may have nulls and we don't drop them.
+		// The logic is ternary:
+		// - filter is null: emit null
+		// - filter is valid and true: emit index
+		// - filter is valid and false: don't emit anything
+
+		bldr := array.NewBuilder(mem, idxType).(builder[T])
+		defer bldr.Release()
+
+		// position relative to start of filter
+		var pos T
+		// current position taking the filter offset into account
+		posWithOffset := filter.Offset
+
+		// to count blocks where filterData[i] || !filterIsValid[i]
+		filterCounter := bitutils.NewBinaryBitBlockCounter(filterData, filterIsValid, filter.Offset, filter.Offset, filter.Len)
+		isValidCounter := bitutils.NewBitBlockCounter(filterIsValid, filter.Offset, filter.Len)
+		for int64(pos) < filter.Len {
+			// true OR NOT valid
+			selectedOrNullBlock := filterCounter.NextOrNotWord()
+			if selectedOrNullBlock.NoneSet() {
+				pos += T(selectedOrNullBlock.Len)
+				posWithOffset += int64(selectedOrNullBlock.Len)
+				continue
+			}
+			bldr.Reserve(int(selectedOrNullBlock.Popcnt))
+
+			// if the values are all valid and the selectedOrNullBlock
+			// is full, then we can infer that all the values are true
+			// and skip the bit checking
+			isValidBlock := isValidCounter.NextWord()
+			if selectedOrNullBlock.AllSet() && isValidBlock.AllSet() {
+				// all the values are selected and non-null
+				for i := 0; i < int(selectedOrNullBlock.Len); i++ {
+					bldr.UnsafeAppend(pos)
+					pos++
+				}
+				posWithOffset += int64(selectedOrNullBlock.Len)
+			} else {
+				// some of the values are false or null
+				for i := 0; i < int(selectedOrNullBlock.Len); i++ {
+					if bitutil.BitIsSet(filterIsValid, int(posWithOffset)) {
+						if bitutil.BitIsSet(filterData, int(posWithOffset)) {
+							bldr.UnsafeAppend(pos)
+						}
+					} else {
+						// null slot, append null
+						bldr.UnsafeAppendBoolToBitmap(false)
+					}
+					pos++
+					posWithOffset++
+				}
+			}
+		}
+
+		result := bldr.NewArray()
+		defer result.Release()
+		result.Data().Retain()
+		return result.Data()
+	}
+
+	bldr := newBufferBuilder[T](mem)
+	if haveFilterNulls {
+		// the filter may have nulls, so we scan the validity bitmap
+		// and the filter data bitmap together
+		debug.Assert(nullSelect == DropNulls, "incorrect nullselect logic")
+
+		// position relative to start of the filter
+		var pos T
+		// current position taking the filter offset into account
+		posWithOffset := filter.Offset
+
+		filterCounter := bitutils.NewBinaryBitBlockCounter(filterData, filterIsValid, filter.Offset, filter.Offset, filter.Len)
+		for int64(pos) < filter.Len {
+			andBlock := filterCounter.NextAndWord()
+			bldr.reserve(int(andBlock.Popcnt))
+			if andBlock.AllSet() {
+				// all the values are selected and non-null
+				for i := 0; i < int(andBlock.Len); i++ {
+					bldr.unsafeAppend(pos)
+					pos++
+				}
+				posWithOffset += int64(andBlock.Len)
+			} else if !andBlock.NoneSet() {
+				// some values are false or null
+				for i := 0; i < int(andBlock.Len); i++ {
+					if bitutil.BitIsSet(filterIsValid, int(posWithOffset)) && bitutil.BitIsSet(filterData, int(posWithOffset)) {
+						bldr.unsafeAppend(pos)
+					}
+					pos++
+					posWithOffset++
+				}
+			} else {
+				pos += T(andBlock.Len)
+				posWithOffset += int64(andBlock.Len)
+			}
+		}
+	} else {
+		// filter has no nulls, so we only need to look for true values
+		bitutils.VisitSetBitRuns(filterData, filter.Offset, filter.Len,
+			func(pos, length int64) error {
+				// append consecutive run of indices
+				bldr.reserve(int(length))
+				for i := int64(0); i < length; i++ {
+					bldr.unsafeAppend(T(pos + i))
+				}
+				return nil
+			})
+	}
+
+	length := bldr.len()
+	outBuf := bldr.finish()
+	defer outBuf.Release()
+	return array.NewData(idxType, length, []*memory.Buffer{nil, outBuf}, nil, 0, 0)
+}
+
+func GetTakeIndices(mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) (arrow.ArrayData, error) {
+	debug.Assert(filter.Type.ID() == arrow.BOOL, "filter should be a boolean array")
+	if filter.Len < math.MaxUint16 {
+		return getTakeIndices[uint16](mem, filter, nullSelect), nil
+	} else if filter.Len < math.MaxUint32 {
+		return getTakeIndices[uint32](mem, filter, nullSelect), nil
+	}
+	return nil, fmt.Errorf("%w: filter length exceeds UINT32_MAX, consider a different strategy for selecting elements",
+		arrow.ErrNotImplemented)
 }
 
 type writeFiltered interface {
@@ -991,19 +1137,174 @@ func binaryFilterImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, values, filter
 	return nil
 }
 
-func FilterFSB(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+func takeExecImpl[T exec.UintTypes](ctx *exec.KernelCtx, outputLen int64, values, indices *exec.ArraySpan, out *exec.ExecResult, visitValid func(int64) error, visitNull func() error) error {
 	var (
-		values       = &batch.Values[0].Array
-		selection    = &batch.Values[1].Array
-		outputLength = getFilterOutputSize(selection, ctx.State.(FilterState).NullSelection)
-		valueSize    = int64(values.Type.(arrow.FixedWidthDataType).Bytes())
-		valueData    = values.Buffers[1].Buf[values.Offset*valueSize:]
+		validityBuilder = validityBuilder{mem: exec.GetAllocator(ctx.Ctx)}
+		indicesValues   = exec.GetSpanValues[T](indices, 1)
+		isValid         = indices.Buffers[0].Buf
+		valuesHaveNulls = values.MayHaveNulls()
+
+		indicesIsValid = bitutil.OptionalBitIndexer{Bitmap: isValid, Offset: int(indices.Offset)}
+		valuesIsValid  = bitutil.OptionalBitIndexer{Bitmap: values.Buffers[0].Buf, Offset: int(values.Offset)}
+		bitCounter     = bitutils.NewOptionalBitBlockCounter(isValid, indices.Offset, indices.Len)
+		pos            int64
+	)
+
+	validityBuilder.Reserve(outputLen)
+	for pos < indices.Len {
+		block := bitCounter.NextBlock()
+		indicesHaveNulls := block.Popcnt < block.Len
+		if !indicesHaveNulls && !valuesHaveNulls {
+			// fastest path, neither indices nor values have nulls
+			validityBuilder.UnsafeAppendN(int64(block.Len), true)
+			for i := 0; i < int(block.Len); i++ {
+				if err := visitValid(int64(indicesValues[pos])); err != nil {
+					return err
+				}
+				pos++
+			}
+		} else if block.Popcnt > 0 {
+			// since we have to branch on whether indices are null or not,
+			// we combine the "non-null indices block but some values null"
+			// and "some null indices block but values non-null" into single loop
+			for i := 0; i < int(block.Len); i++ {
+				if (!indicesHaveNulls || indicesIsValid.GetBit(int(pos))) && valuesIsValid.GetBit(int(indicesValues[pos])) {
+					validityBuilder.UnsafeAppend(true)
+					if err := visitValid(int64(indicesValues[pos])); err != nil {
+						return err
+					}
+				} else {
+					validityBuilder.UnsafeAppend(false)
+					if err := visitNull(); err != nil {
+						return err
+					}
+				}
+				pos++
+			}
+		} else {
+			// the whole block is null
+			validityBuilder.UnsafeAppendN(int64(block.Len), false)
+			for i := 0; i < int(block.Len); i++ {
+				if err := visitNull(); err != nil {
+					return err
+				}
+			}
+			pos += int64(block.Len)
+		}
+	}
+
+	out.Len = int64(validityBuilder.bitLength)
+	out.Nulls = int64(validityBuilder.falseCount)
+	out.Buffers[0].WrapBuffer(validityBuilder.Finish())
+	return nil
+}
+
+func takeExec(ctx *exec.KernelCtx, outputLen int64, values, indices *exec.ArraySpan, out *exec.ExecResult, visitValid func(int64) error, visitNull func() error) error {
+	indexWidth := indices.Type.(arrow.FixedWidthDataType).Bytes()
+
+	switch indexWidth {
+	case 1:
+		return takeExecImpl[uint8](ctx, outputLen, values, indices, out, visitValid, visitNull)
+	case 2:
+		return takeExecImpl[uint16](ctx, outputLen, values, indices, out, visitValid, visitNull)
+	case 4:
+		return takeExecImpl[uint32](ctx, outputLen, values, indices, out, visitValid, visitNull)
+	case 8:
+		return takeExecImpl[uint64](ctx, outputLen, values, indices, out, visitValid, visitNull)
+	default:
+		return fmt.Errorf("%w: invalid index width", arrow.ErrInvalid)
+	}
+}
+
+type selectionOutputFn func(*exec.KernelCtx, int64, *exec.ArraySpan, *exec.ArraySpan, *exec.ExecResult, func(int64) error, func() error) error
+type selectionImplFn func(*exec.KernelCtx, *exec.ExecSpan, int64, *exec.ExecResult, selectionOutputFn) error
+
+func FilterExec(impl selectionImplFn) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		var (
+			selection    = &batch.Values[1].Array
+			outputLength = getFilterOutputSize(selection, ctx.State.(FilterState).NullSelection)
+		)
+		return impl(ctx, batch, outputLength, out, filterExec)
+	}
+}
+
+func TakeExec(impl selectionImplFn) exec.ArrayKernelExec {
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if ctx.State.(TakeState).BoundsCheck {
+			if err := checkIndexBounds(&batch.Values[1].Array, uint64(batch.Values[0].Array.Len)); err != nil {
+				return err
+			}
+		}
+
+		return impl(ctx, batch, batch.Values[1].Array.Len, out, takeExec)
+	}
+}
+
+func VarBinaryImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values        = &batch.Values[0].Array
+		selection     = &batch.Values[1].Array
+		rawOffsets    = exec.GetSpanOffsets[OffsetT](values, 1)
+		rawData       = values.Buffers[2].Buf
+		offsetBuilder = newBufferBuilder[OffsetT](exec.GetAllocator(ctx.Ctx))
+		dataBuilder   = newBufferBuilder[uint8](exec.GetAllocator(ctx.Ctx))
+	)
+
+	// presize the data builder with a rough estimate of the required data size
+	if values.Len > 0 {
+		dataLength := rawOffsets[values.Len] - rawOffsets[0]
+		meanValueLen := float64(dataLength) / float64(values.Len)
+		dataBuilder.reserve(int(meanValueLen))
+	}
+
+	offsetBuilder.reserve(int(outputLength) + 1)
+	spaceAvail := dataBuilder.cap()
+	var offset OffsetT
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offsetBuilder.unsafeAppend(offset)
+			valOffset := rawOffsets[idx]
+			valSize := rawOffsets[idx+1] - valOffset
+
+			if valSize == 0 {
+				return nil
+			}
+			offset += valSize
+			if valSize > OffsetT(spaceAvail) {
+				dataBuilder.reserve(int(valSize))
+				spaceAvail = dataBuilder.cap() - dataBuilder.len()
+			}
+			dataBuilder.unsafeAppendSlice(rawData[valOffset : valOffset+valSize])
+			spaceAvail -= int(valSize)
+			return nil
+		}, func() error {
+			offsetBuilder.unsafeAppend(offset)
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	offsetBuilder.unsafeAppend(offset)
+	out.Buffers[1].WrapBuffer(offsetBuilder.finish())
+	out.Buffers[2].WrapBuffer(dataBuilder.finish())
+	return nil
+}
+
+func FSBImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+		valueSize = int64(values.Type.(arrow.FixedWidthDataType).Bytes())
+		valueData = values.Buffers[1].Buf[values.Offset*valueSize:]
 	)
 
 	out.Buffers[1].WrapBuffer(ctx.Allocate(int(valueSize * outputLength)))
 	buf := out.Buffers[1].Buf
 
-	err := filterExec(ctx, outputLength, values, selection, out,
+	err := fn(ctx, outputLength, values, selection, out,
 		func(idx int64) error {
 			start := idx * int64(valueSize)
 			copy(buf, valueData[start:start+valueSize])
@@ -1022,6 +1323,149 @@ func FilterFSB(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) 
 		return err
 	}
 
+	return nil
+}
+
+func ListImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		rawOffsets      = exec.GetSpanOffsets[OffsetT](values, 1)
+		mem             = exec.GetAllocator(ctx.Ctx)
+		offsetBuilder   = newBufferBuilder[OffsetT](mem)
+		childIdxBuilder = newBufferBuilder[OffsetT](mem)
+	)
+
+	if values.Len > 0 {
+		dataLength := rawOffsets[values.Len] - rawOffsets[0]
+		meanListLen := float64(dataLength) / float64(values.Len)
+		childIdxBuilder.reserve(int(meanListLen))
+	}
+
+	offsetBuilder.reserve(int(outputLength) + 1)
+	var offset OffsetT
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offsetBuilder.unsafeAppend(offset)
+			valueOffset := rawOffsets[idx]
+			valueLength := rawOffsets[idx+1] - valueOffset
+			offset += valueLength
+			childIdxBuilder.reserve(int(valueLength))
+			for j := valueOffset; j < valueOffset+valueLength; j++ {
+				childIdxBuilder.unsafeAppend(j)
+			}
+			return nil
+		}, func() error {
+			offsetBuilder.unsafeAppend(offset)
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	offsetBuilder.unsafeAppend(offset)
+	out.Buffers[1].WrapBuffer(offsetBuilder.finish())
+
+	out.Children = make([]exec.ArraySpan, 1)
+	out.Children[0].Type = exec.GetDataType[OffsetT]()
+	out.Children[0].Len = int64(childIdxBuilder.len())
+	out.Children[0].Buffers[1].WrapBuffer(childIdxBuilder.finish())
+
+	return nil
+}
+
+func FSLImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		listSize   = values.Type.(*arrow.FixedSizeListType).Len()
+		baseOffset = values.Offset
+
+		childIdxBuilder = array.NewInt64Builder(exec.GetAllocator(ctx.Ctx))
+	)
+
+	// we need to take listSize elements even for null elements of indices
+	childIdxBuilder.Reserve(int(outputLength) * int(listSize))
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			offset := (baseOffset + idx) * int64(listSize)
+			for j := offset; j < (offset + int64(listSize)); j++ {
+				childIdxBuilder.UnsafeAppend(j)
+			}
+			return nil
+		}, func() error {
+			for n := int32(0); n < listSize; n++ {
+				childIdxBuilder.AppendNull()
+			}
+			return nil
+		})
+
+	if err != nil {
+		return err
+	}
+
+	arr := childIdxBuilder.NewArray()
+	defer arr.Release()
+	out.Children = make([]exec.ArraySpan, 1)
+	out.Children[0].TakeOwnership(arr.Data())
+	return nil
+}
+
+func DenseUnionImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+
+		mem               = exec.GetAllocator(ctx.Ctx)
+		valueOffsetBldr   = newBufferBuilder[int32](mem)
+		childIdBldr       = newBufferBuilder[int8](mem)
+		typeCodes         = values.Type.(arrow.UnionType).TypeCodes()
+		childIndicesBldrs = make([]*array.Int32Builder, len(typeCodes))
+	)
+
+	for i := range childIndicesBldrs {
+		childIndicesBldrs[i] = array.NewInt32Builder(mem)
+	}
+
+	childIdBldr.reserve(int(outputLength))
+	valueOffsetBldr.reserve(int(outputLength))
+
+	typedValues := values.MakeArray().(*array.DenseUnion)
+	defer typedValues.Release()
+
+	err := fn(ctx, outputLength, values, selection, out,
+		func(idx int64) error {
+			childID := typedValues.ChildID(int(idx))
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffset := typedValues.ValueOffset(int(idx))
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].Append(valueOffset)
+			return nil
+		}, func() error {
+			childID := 0
+			childIdBldr.unsafeAppend(typeCodes[childID])
+			valueOffsetBldr.unsafeAppend(int32(childIndicesBldrs[childID].Len()))
+			childIndicesBldrs[childID].AppendNull()
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	out.Type = typedValues.DataType()
+	out.Buffers[1].WrapBuffer(childIdBldr.finish())
+	out.Buffers[2].WrapBuffer(valueOffsetBldr.finish())
+
+	out.Children = make([]exec.ArraySpan, len(childIndicesBldrs))
+	for i, b := range childIndicesBldrs {
+		arr := b.NewArray()
+		out.Children[i].TakeOwnership(arr.Data())
+		arr.Release()
+		b.Release()
+	}
 	return nil
 }
 
@@ -1067,6 +1511,19 @@ func FilterBinary(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResul
 	return fmt.Errorf("%w: invalid type for binary filter", arrow.ErrInvalid)
 }
 
+func visitNoop() error         { return nil }
+func visitIdxNoop(int64) error { return nil }
+
+func StructImpl(ctx *exec.KernelCtx, batch *exec.ExecSpan, outputLength int64, out *exec.ExecResult, fn selectionOutputFn) error {
+	var (
+		values    = &batch.Values[0].Array
+		selection = &batch.Values[1].Array
+	)
+
+	// nothing we need to do other than generate the validity bitmap
+	return fn(ctx, outputLength, values, selection, out, visitIdxNoop, visitNoop)
+}
+
 type SelectionKernelData struct {
 	In   exec.InputType
 	Exec exec.ArrayKernelExec
@@ -1076,9 +1533,9 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 	filterkernels = []SelectionKernelData{
 		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveFilter},
 		{In: exec.NewExactInput(arrow.Null), Exec: NullFilter},
-		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: FilterFSB},
-		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: FilterFSB},
-		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: FilterFSB},
+		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: FilterExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: FilterExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: FilterExec(FSBImpl)},
 		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: FilterBinary},
 		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: FilterBinary},
 	}
@@ -1086,6 +1543,11 @@ func GetVectorSelectionKernels() (filterkernels, takeKernels []SelectionKernelDa
 	takeKernels = []SelectionKernelData{
 		{In: exec.NewExactInput(arrow.Null), Exec: NullTake},
 		{In: exec.NewMatchedInput(exec.Primitive()), Exec: PrimitiveTake},
+		{In: exec.NewIDInput(arrow.DECIMAL128), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.DECIMAL256), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewIDInput(arrow.FIXED_SIZE_BINARY), Exec: TakeExec(FSBImpl)},
+		{In: exec.NewMatchedInput(exec.BinaryLike()), Exec: TakeExec(VarBinaryImpl[int32])},
+		{In: exec.NewMatchedInput(exec.LargeBinaryLike()), Exec: TakeExec(VarBinaryImpl[int64])},
 	}
 	return
 }

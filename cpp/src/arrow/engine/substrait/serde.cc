@@ -17,11 +17,20 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include <utility>
+
+#include "arrow/buffer.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
-#include "arrow/util/string_view.h"
+#include "arrow/type.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
@@ -305,7 +314,7 @@ static Status CheckMessagesEquivalent(const Buffer& l_buf, const Buffer& r_buf) 
   return Status::Invalid("Messages were not equivalent: ", out);
 }
 
-Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_buf,
+Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_buf,
                                const Buffer& r_buf) {
   if (message_name == "Type") {
     return CheckMessagesEquivalent<substrait::Type>(l_buf, r_buf);
@@ -347,9 +356,9 @@ inline google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
   return type_resolver.get();
 }
 
-Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
-                                                  util::string_view json) {
-  std::string type_url = "/substrait." + type_name.to_string();
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
+                                                  std::string_view json) {
+  std::string type_url = "/substrait." + std::string(type_name);
 
   google::protobuf::io::ArrayInputStream json_stream{json.data(),
                                                      static_cast<int>(json.size())};
@@ -368,8 +377,8 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
   return Buffer::FromString(std::move(out));
 }
 
-Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
-  std::string type_url = "/substrait." + type_name.to_string();
+Result<std::string> SubstraitToJSON(std::string_view type_name, const Buffer& buf) {
+  std::string type_url = "/substrait." + std::string(type_name);
 
   google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
                                                     static_cast<int>(buf.size())};

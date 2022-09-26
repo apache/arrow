@@ -26,6 +26,7 @@ add_custom_target(gandiva-benchmarks)
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVMAlt REQUIRED)
+provide_find_module(LLVMAlt "Gandiva")
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
@@ -155,7 +156,8 @@ add_arrow_lib(gandiva
               ${GANDIVA_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static
-              LLVM::LLVM_HEADERS)
+              LLVM::LLVM_HEADERS
+              LLVM::LLVM_LIBS)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
@@ -245,10 +247,6 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc)
-
-if(ARROW_GANDIVA_JAVA)
-  add_subdirectory(jni)
-endif()
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)

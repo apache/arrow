@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sstream>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -48,7 +49,7 @@ struct EqualsImpl {
 template <typename Class>
 struct ToStringImpl {
   template <typename Properties>
-  ToStringImpl(util::string_view class_name, const Class& obj, const Properties& props)
+  ToStringImpl(std::string_view class_name, const Class& obj, const Properties& props)
       : class_name_(class_name), obj_(obj), members_(props.size()) {
     props.ForEach(*this);
   }
@@ -61,10 +62,10 @@ struct ToStringImpl {
   }
 
   std::string Finish() {
-    return class_name_.to_string() + "{" + JoinStrings(members_, ",") + "}";
+    return std::string(class_name_) + "{" + JoinStrings(members_, ",") + "}";
   }
 
-  util::string_view class_name_;
+  std::string_view class_name_;
   const Class& obj_;
   std::vector<std::string> members_;
 };
@@ -73,7 +74,7 @@ struct ToStringImpl {
 template <typename Class>
 struct FromStringImpl {
   template <typename Properties>
-  FromStringImpl(util::string_view class_name, util::string_view repr,
+  FromStringImpl(std::string_view class_name, std::string_view repr,
                  const Properties& props) {
     Init(class_name, repr, props.size());
     props.ForEach(*this);
@@ -81,8 +82,8 @@ struct FromStringImpl {
 
   void Fail() { obj_ = std::nullopt; }
 
-  void Init(util::string_view class_name, util::string_view repr, size_t num_properties) {
-    if (!repr.starts_with(class_name)) return Fail();
+  void Init(std::string_view class_name, std::string_view repr, size_t num_properties) {
+    if (!StartsWith(repr, class_name)) return Fail();
 
     repr = repr.substr(class_name.size());
     if (repr.empty()) return Fail();
@@ -99,7 +100,7 @@ struct FromStringImpl {
     if (!obj_) return;
 
     auto first_colon = members_[i].find_first_of(':');
-    if (first_colon == util::string_view::npos) return Fail();
+    if (first_colon == std::string_view::npos) return Fail();
 
     auto name = members_[i].substr(0, first_colon);
     if (name != prop.name()) return Fail();
@@ -107,7 +108,7 @@ struct FromStringImpl {
     auto value_repr = members_[i].substr(first_colon + 1);
     typename Property::Type value;
     try {
-      std::stringstream ss(value_repr.to_string());
+      std::stringstream ss{std::string{value_repr}};
       ss >> value;
       if (!ss.eof()) return Fail();
     } catch (...) {
@@ -117,7 +118,7 @@ struct FromStringImpl {
   }
 
   std::optional<Class> obj_ = Class{};
-  std::vector<util::string_view> members_;
+  std::vector<std::string_view> members_;
 };
 
 // unmodified structure which we wish to reflect on:
@@ -146,7 +147,7 @@ std::string ToString(const Person& obj) {
 
 void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
 
-std::optional<Person> PersonFromString(util::string_view repr) {
+std::optional<Person> PersonFromString(std::string_view repr) {
   return FromStringImpl<Person>("Person", repr, kPersonProperties).obj_;
 }
 

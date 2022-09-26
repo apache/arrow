@@ -31,6 +31,8 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \

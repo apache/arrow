@@ -166,3 +166,113 @@ test_that("group_by() with namespaced functions", {
     tbl
   )
 })
+
+test_that("group_by() with .add", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(.add = FALSE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr, .add = FALSE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = FALSE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    "The `add` argument of `group_by\\(\\)` is deprecated"
+  )
+  expect_error(
+    suppressWarnings(
+      tbl %>%
+        arrow_table() %>%
+        group_by(add = dbl2) %>%
+        collect()
+    ),
+    "object 'dbl2' not found"
+  )
+})
+
+test_that("Can use across() within group_by()", {
+  test_groups <- c("dbl", "int", "chr")
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across()) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(starts_with("d"))) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across({{ test_groups }})) %>%
+      collect(),
+    tbl
+  )
+
+  # ARROW-12778 - `where()` is not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(across(where(is.numeric))) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+})

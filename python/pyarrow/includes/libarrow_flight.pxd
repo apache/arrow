@@ -22,8 +22,8 @@ from pyarrow.includes.libarrow cimport *
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
-    cdef char* CPyServerMiddlewareName\
-        " arrow::py::flight::kPyServerMiddlewareName"
+    cdef char* CTracingServerMiddlewareName\
+        " arrow::flight::TracingServerMiddleware::kMiddlewareName"
 
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
@@ -322,6 +322,20 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::ClientMiddlewareFactory":
         pass
 
+    cpdef cppclass CTracingServerMiddlewareTraceKey\
+            " arrow::flight::TracingServerMiddleware::TraceKey":
+        CTracingServerMiddlewareTraceKey()
+        c_string key
+        c_string value
+
+    cdef cppclass CTracingServerMiddleware\
+            " arrow::flight::TracingServerMiddleware"(CServerMiddleware):
+        vector[CTracingServerMiddlewareTraceKey] GetTraceContext()
+
+    cdef shared_ptr[CServerMiddlewareFactory] \
+        MakeTracingServerMiddlewareFactory\
+        " arrow::flight::MakeTracingServerMiddlewareFactory"()
+
     cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
         CFlightServerOptions(const CLocation& location)
         CLocation location
@@ -472,6 +486,9 @@ ctypedef CStatus cb_client_middleware_start_call(
     unique_ptr[CClientMiddleware]*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
+    cdef char* CPyServerMiddlewareName\
+        " arrow::py::flight::kPyServerMiddlewareName"
+
     cdef cppclass PyFlightServerVtable:
         PyFlightServerVtable()
         function[cb_list_flights] list_flights
@@ -577,8 +594,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         unique_ptr[CSchemaResult]* out)
 
 
-cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:
-    cdef cppclass CIntStringVariant" arrow::util::Variant<int, std::string>":
+cdef extern from "<variant>" namespace "std" nogil:
+    cdef cppclass CIntStringVariant" std::variant<int, std::string>":
         CIntStringVariant()
         CIntStringVariant(int)
         CIntStringVariant(c_string)

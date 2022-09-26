@@ -397,6 +397,7 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join_node.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
+       compute/exec/map_node.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
        compute/exec/options.cc

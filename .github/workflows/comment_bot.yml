@@ -24,6 +24,10 @@ on:
       - created
       - edited
 
+permissions:
+  contents: read
+  pull-requests: write
+  
 jobs:
   crossbow:
     name: Listen!

@@ -67,12 +67,12 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.hamcrest.Matcher;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.hamcrest.MatcherAssert;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import com.google.common.collect.ImmutableList;
 
@@ -95,10 +95,8 @@ public class TestFlightSql {
   private static BufferAllocator allocator;
   private static FlightServer server;
   private static FlightSqlClient sqlClient;
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
@@ -136,7 +134,7 @@ public class TestFlightSql {
             Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE));
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
   }
@@ -177,13 +175,13 @@ public class TestFlightSql {
   @Test
   public void testGetTablesSchema() {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, true);
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
   }
 
   @Test
   public void testGetTablesSchemaExcludeSchema() {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, false);
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
   }
 
   @Test
@@ -192,36 +190,42 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
-      final List<List<String>> results = getResults(stream);
-      final List<List<String>> expectedResults = ImmutableList.of(
-          // catalog_name | schema_name | table_name | table_type | table_schema
-          asList(null /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
-          asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
-          asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
-      collector.checkThat(results, is(expectedResults));
+      Assertions.assertAll(
+          () -> {
+            MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
+          },
+          () -> {
+            final List<List<String>> results = getResults(stream);
+            final List<List<String>> expectedResults = ImmutableList.of(
+                // catalog_name | schema_name | table_name | table_type | table_schema
+                asList(null /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
+                asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
+                asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+            MatcherAssert.assertThat(results, is(expectedResults));
+          }
+      );
     }
   }
 
@@ -231,13 +235,18 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), false)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
-      final List<List<String>> results = getResults(stream);
-      final List<List<String>> expectedResults = ImmutableList.of(
-          // catalog_name | schema_name | table_name | table_type | table_schema
-          asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
-          asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
-      collector.checkThat(results, is(expectedResults));
+
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA)),
+          () -> {
+            final List<List<String>> results = getResults(stream);
+            final List<List<String>> expectedResults = ImmutableList.of(
+                // catalog_name | schema_name | table_name | table_type | table_schema
+                asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
+                asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+            MatcherAssert.assertThat(results, is(expectedResults));
+          }
+      );
     }
   }
 
@@ -247,104 +256,115 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), true)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
-      final List<List<String>> results = getResults(stream);
-      final List<List<String>> expectedResults = ImmutableList.of(
-          // catalog_name | schema_name | table_name | table_type | table_schema
-          asList(
-              null /* TODO No catalog yet */,
-              "APP",
-              "FOREIGNTABLE",
-              "TABLE",
-              new Schema(asList(
-                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("INTEGER")
-                          .schemaName("APP")
-                          .tableName("FOREIGNTABLE")
-                          .precision(10)
-                          .scale(0)
-                          .isAutoIncrement(true)
-                          .build().getMetadataMap()), null),
-                  new Field("FOREIGNNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("VARCHAR")
-                          .schemaName("APP")
-                          .tableName("FOREIGNTABLE")
-                          .precision(100)
-                          .scale(0)
-                          .isAutoIncrement(false)
-                          .build().getMetadataMap()), null),
-                  new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("INTEGER")
-                          .schemaName("APP")
-                          .tableName("FOREIGNTABLE")
-                          .precision(10)
-                          .scale(0)
-                          .isAutoIncrement(false)
-                          .build().getMetadataMap()), null))).toJson()),
-          asList(
-              null /* TODO No catalog yet */,
-              "APP",
-              "INTTABLE",
-              "TABLE",
-              new Schema(asList(
-                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("INTEGER")
-                          .schemaName("APP")
-                          .tableName("INTTABLE")
-                          .precision(10)
-                          .scale(0)
-                          .isAutoIncrement(true)
-                          .build().getMetadataMap()), null),
-                  new Field("KEYNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("VARCHAR")
-                          .schemaName("APP")
-                          .tableName("INTTABLE")
-                          .precision(100)
-                          .scale(0)
-                          .isAutoIncrement(false)
-                          .build().getMetadataMap()), null),
-                  new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("INTEGER")
-                          .schemaName("APP")
-                          .tableName("INTTABLE")
-                          .precision(10)
-                          .scale(0)
-                          .isAutoIncrement(false)
-                          .build().getMetadataMap()), null),
-                  new Field("FOREIGNID", new FieldType(true, MinorType.INT.getType(), null,
-                      new FlightSqlColumnMetadata.Builder()
-                          .catalogName("")
-                          .typeName("INTEGER")
-                          .schemaName("APP")
-                          .tableName("INTTABLE")
-                          .precision(10)
-                          .scale(0)
-                          .isAutoIncrement(false)
-                          .build().getMetadataMap()), null))).toJson()));
-      collector.checkThat(results, is(expectedResults));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA)),
+          () -> {
+            MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
+            final List<List<String>> results = getResults(stream);
+            final List<List<String>> expectedResults = ImmutableList.of(
+                // catalog_name | schema_name | table_name | table_type | table_schema
+                asList(
+                    null /* TODO No catalog yet */,
+                    "APP",
+                    "FOREIGNTABLE",
+                    "TABLE",
+                    new Schema(asList(
+                        new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("INTEGER")
+                                .schemaName("APP")
+                                .tableName("FOREIGNTABLE")
+                                .precision(10)
+                                .scale(0)
+                                .isAutoIncrement(true)
+                                .build().getMetadataMap()), null),
+                        new Field("FOREIGNNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("VARCHAR")
+                                .schemaName("APP")
+                                .tableName("FOREIGNTABLE")
+                                .precision(100)
+                                .scale(0)
+                                .isAutoIncrement(false)
+                                .build().getMetadataMap()), null),
+                        new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("INTEGER")
+                                .schemaName("APP")
+                                .tableName("FOREIGNTABLE")
+                                .precision(10)
+                                .scale(0)
+                                .isAutoIncrement(false)
+                                .build().getMetadataMap()), null))).toJson()),
+                asList(
+                    null /* TODO No catalog yet */,
+                    "APP",
+                    "INTTABLE",
+                    "TABLE",
+                    new Schema(asList(
+                        new Field("ID", new FieldType(false, MinorType.INT.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("INTEGER")
+                                .schemaName("APP")
+                                .tableName("INTTABLE")
+                                .precision(10)
+                                .scale(0)
+                                .isAutoIncrement(true)
+                                .build().getMetadataMap()), null),
+                        new Field("KEYNAME", new FieldType(true, MinorType.VARCHAR.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("VARCHAR")
+                                .schemaName("APP")
+                                .tableName("INTTABLE")
+                                .precision(100)
+                                .scale(0)
+                                .isAutoIncrement(false)
+                                .build().getMetadataMap()), null),
+                        new Field("VALUE", new FieldType(true, MinorType.INT.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("INTEGER")
+                                .schemaName("APP")
+                                .tableName("INTTABLE")
+                                .precision(10)
+                                .scale(0)
+                                .isAutoIncrement(false)
+                                .build().getMetadataMap()), null),
+                        new Field("FOREIGNID", new FieldType(true, MinorType.INT.getType(), null,
+                            new FlightSqlColumnMetadata.Builder()
+                                .catalogName("")
+                                .typeName("INTEGER")
+                                .schemaName("APP")
+                                .tableName("INTTABLE")
+                                .precision(10)
+                                .scale(0)
+                                .isAutoIncrement(false)
+                                .build().getMetadataMap()), null))).toJson()));
+            MatcherAssert.assertThat(results, is(expectedResults));
+          }
+      );
     }
   }
 
   @Test
   public void testSimplePreparedStatementSchema() throws Exception {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
-      final Schema actualSchema = preparedStatement.getResultSetSchema();
-      collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
+      Assertions.assertAll(
+          () -> {
+            final Schema actualSchema = preparedStatement.getResultSetSchema();
+            MatcherAssert.assertThat(actualSchema, is(SCHEMA_INT_TABLE));
 
-      final FlightInfo info = preparedStatement.execute();
-      collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+          },
+          () -> {
+            final FlightInfo info = preparedStatement.execute();
+            MatcherAssert.assertThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+          }
+      );
     }
   }
 
@@ -353,8 +373,10 @@ public class TestFlightSql {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
          final FlightStream stream = sqlClient.getStream(
              preparedStatement.execute().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-      collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
+          () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY))
+      );
     }
   }
 
@@ -376,8 +398,10 @@ public class TestFlightSql {
             .getEndpoints()
             .get(0).getTicket());
 
-        collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-        collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING));
+        Assertions.assertAll(
+            () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
+            () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
+        );
       }
     }
   }
@@ -410,9 +434,10 @@ public class TestFlightSql {
           deletePrepare.setParameters(deleteRoot);
           deletedRows = deletePrepare.executeUpdate();
         }
-
-        collector.checkThat(updatedRows, is(10L));
-        collector.checkThat(deletedRows, is(10L));
+        Assertions.assertAll(
+            () -> MatcherAssert.assertThat(updatedRows, is(10L)),
+            () -> MatcherAssert.assertThat(deletedRows, is(10L))
+        );
       }
     }
   }
@@ -426,84 +451,108 @@ public class TestFlightSql {
 
       final long deletedRows = deletePrepare.executeUpdate();
 
-      collector.checkThat(updatedRows, is(1L));
-      collector.checkThat(deletedRows, is(1L));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(updatedRows, is(1L)),
+          () -> MatcherAssert.assertThat(deletedRows, is(1L))
+      );
     }
   }
 
   @Test
   public void testSimplePreparedStatementClosesProperly() {
     final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
-    collector.checkThat(preparedStatement.isClosed(), is(false));
-    preparedStatement.close();
-    collector.checkThat(preparedStatement.isClosed(), is(true));
+    Assertions.assertAll(
+        () -> {
+          MatcherAssert.assertThat(preparedStatement.isClosed(), is(false));
+        },
+        () -> {
+          preparedStatement.close();
+          MatcherAssert.assertThat(preparedStatement.isClosed(), is(true));
+        }
+    );
   }
 
   @Test
   public void testGetCatalogsSchema() {
     final FlightInfo info = sqlClient.getCatalogs();
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA));
   }
 
   @Test
   public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA));
-      List<List<String>> catalogs = getResults(stream);
-      collector.checkThat(catalogs, is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA)),
+          () -> {
+            List<List<String>> catalogs = getResults(stream);
+            MatcherAssert.assertThat(catalogs, is(emptyList()));
+          }
+      );
     }
   }
 
   @Test
   public void testGetTableTypesSchema() {
     final FlightInfo info = sqlClient.getTableTypes();
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
   }
 
   @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
-      final List<List<String>> tableTypes = getResults(stream);
-      final List<List<String>> expectedTableTypes = ImmutableList.of(
-          // table_type
-          singletonList("SYNONYM"),
-          singletonList("SYSTEM TABLE"),
-          singletonList("TABLE"),
-          singletonList("VIEW")
+      Assertions.assertAll(
+          () -> {
+            MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
+          },
+          () -> {
+            final List<List<String>> tableTypes = getResults(stream);
+            final List<List<String>> expectedTableTypes = ImmutableList.of(
+                // table_type
+                singletonList("SYNONYM"),
+                singletonList("SYSTEM TABLE"),
+                singletonList("TABLE"),
+                singletonList("VIEW")
+            );
+            MatcherAssert.assertThat(tableTypes, is(expectedTableTypes));
+          }
       );
-      collector.checkThat(tableTypes, is(expectedTableTypes));
     }
   }
 
   @Test
   public void testGetSchemasSchema() {
     final FlightInfo info = sqlClient.getSchemas(null, null);
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
   }
 
   @Test
   public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
-      final List<List<String>> schemas = getResults(stream);
-      final List<List<String>> expectedSchemas = ImmutableList.of(
-          // catalog_name | schema_name
-          asList(null /* TODO Add catalog. */, "APP"),
-          asList(null /* TODO Add catalog. */, "NULLID"),
-          asList(null /* TODO Add catalog. */, "SQLJ"),
-          asList(null /* TODO Add catalog. */, "SYS"),
-          asList(null /* TODO Add catalog. */, "SYSCAT"),
-          asList(null /* TODO Add catalog. */, "SYSCS_DIAG"),
-          asList(null /* TODO Add catalog. */, "SYSCS_UTIL"),
-          asList(null /* TODO Add catalog. */, "SYSFUN"),
-          asList(null /* TODO Add catalog. */, "SYSIBM"),
-          asList(null /* TODO Add catalog. */, "SYSPROC"),
-          asList(null /* TODO Add catalog. */, "SYSSTAT"));
-      collector.checkThat(schemas, is(expectedSchemas));
+      Assertions.assertAll(
+          () -> {
+            MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
+          },
+          () -> {
+            final List<List<String>> schemas = getResults(stream);
+            final List<List<String>> expectedSchemas = ImmutableList.of(
+                // catalog_name | schema_name
+                asList(null /* TODO Add catalog. */, "APP"),
+                asList(null /* TODO Add catalog. */, "NULLID"),
+                asList(null /* TODO Add catalog. */, "SQLJ"),
+                asList(null /* TODO Add catalog. */, "SYS"),
+                asList(null /* TODO Add catalog. */, "SYSCAT"),
+                asList(null /* TODO Add catalog. */, "SYSCS_DIAG"),
+                asList(null /* TODO Add catalog. */, "SYSCS_UTIL"),
+                asList(null /* TODO Add catalog. */, "SYSFUN"),
+                asList(null /* TODO Add catalog. */, "SYSIBM"),
+                asList(null /* TODO Add catalog. */, "SYSPROC"),
+                asList(null /* TODO Add catalog. */, "SYSSTAT"));
+            MatcherAssert.assertThat(schemas, is(expectedSchemas));
+          }
+      );
     }
   }
 
@@ -513,30 +562,37 @@ public class TestFlightSql {
     final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
-    collector.checkThat(results.size(), is(1));
 
-    final List<String> result = results.get(0);
-
-    collector.checkThat(result.get(0), is(""));
-    collector.checkThat(result.get(1), is("APP"));
-    collector.checkThat(result.get(2), is("INTTABLE"));
-    collector.checkThat(result.get(3), is("ID"));
-    collector.checkThat(result.get(4), is("1"));
-    collector.checkThat(result.get(5), notNullValue());
+    Assertions.assertAll(
+        () -> MatcherAssert.assertThat(results.size(), is(1)),
+        () -> {
+          final List<String> result = results.get(0);
+          Assertions.assertAll(
+              () -> MatcherAssert.assertThat(result.get(0), is("")),
+              () -> MatcherAssert.assertThat(result.get(1), is("APP")),
+              () -> MatcherAssert.assertThat(result.get(2), is("INTTABLE")),
+              () -> MatcherAssert.assertThat(result.get(3), is("ID")),
+              () -> MatcherAssert.assertThat(result.get(4), is("1")),
+              () -> MatcherAssert.assertThat(result.get(5), notNullValue())
+          );
+        }
+    );
   }
 
   @Test
   public void testGetSqlInfoSchema() {
     final FlightInfo info = sqlClient.getSqlInfo();
-    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+    MatcherAssert.assertThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
   }
 
   @Test
   public void testGetSqlInfoResults() throws Exception {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream)), is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
+          () -> MatcherAssert.assertThat(getNonConformingResultsForGetSqlInfo(getResults(stream)), is(emptyList()))
+      );
     }
   }
 
@@ -545,8 +601,10 @@ public class TestFlightSql {
     final FlightSql.SqlInfo arg = FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME;
     final FlightInfo info = sqlClient.getSqlInfo(arg);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), arg), is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
+          () -> MatcherAssert.assertThat(getNonConformingResultsForGetSqlInfo(getResults(stream), arg), is(emptyList()))
+      );
     }
   }
 
@@ -557,8 +615,16 @@ public class TestFlightSql {
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION};
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), args), is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(
+              stream.getSchema(),
+              is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)
+          ),
+          () -> MatcherAssert.assertThat(
+              getNonConformingResultsForGetSqlInfo(getResults(stream), args),
+              is(emptyList())
+          )
+      );
     }
   }
 
@@ -570,8 +636,16 @@ public class TestFlightSql {
         FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR};
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), args), is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(
+              stream.getSchema(),
+              is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)
+          ),
+          () -> MatcherAssert.assertThat(
+              getNonConformingResultsForGetSqlInfo(getResults(stream), args),
+              is(emptyList())
+          )
+      );
     }
   }
 
@@ -599,10 +673,14 @@ public class TestFlightSql {
         is("3"), // update_rule
         is("3")); // delete_rule
 
-    Assert.assertEquals(1, results.size());
+    final List<Executable> assertions = new ArrayList<>();
+    Assertions.assertEquals(1, results.size());
     for (int i = 0; i < matchers.size(); i++) {
-      collector.checkThat(results.get(0).get(i), matchers.get(i));
+      final String actual = results.get(0).get(i);
+      final Matcher<String> expected = matchers.get(i);
+      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
     }
+    Assertions.assertAll(assertions);
   }
 
   @Test
@@ -629,10 +707,14 @@ public class TestFlightSql {
         is("3"), // update_rule
         is("3")); // delete_rule
 
-    Assert.assertEquals(1, results.size());
+    Assertions.assertEquals(1, results.size());
+    final List<Executable> assertions = new ArrayList<>();
     for (int i = 0; i < matchers.size(); i++) {
-      collector.checkThat(results.get(0).get(i), matchers.get(i));
+      final String actual = results.get(0).get(i);
+      final Matcher<String> expected = matchers.get(i);
+      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
     }
+    Assertions.assertAll(assertions);
   }
 
   @Test
@@ -710,7 +792,7 @@ public class TestFlightSql {
         asList("XML", "2009", null, null, null, emptyList().toString(), "1", "true", "0", "false", "false", "false",
             "XML", null, null,
             null, null, null, null));
-    collector.checkThat(results, is(matchers));
+    MatcherAssert.assertThat(results, is(matchers));
   }
 
   @Test
@@ -725,7 +807,7 @@ public class TestFlightSql {
         asList("BIGINT", "-5", "19", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
             "BIGINT", "0", "0",
             null, null, "10", null));
-    collector.checkThat(results, is(matchers));
+    MatcherAssert.assertThat(results, is(matchers));
   }
 
   @Test
@@ -751,16 +833,20 @@ public class TestFlightSql {
         is("3"), // update_rule
         is("3")); // delete_rule
 
-    Assert.assertEquals(1, results.size());
+    Assertions.assertEquals(1, results.size());
+    final List<Executable> assertions = new ArrayList<>();
     for (int i = 0; i < matchers.size(); i++) {
-      collector.checkThat(results.get(0).get(i), matchers.get(i));
+      final String actual = results.get(0).get(i);
+      final Matcher<String> expected = matchers.get(i);
+      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
     }
+    Assertions.assertAll(assertions);
   }
 
   @Test
   public void testCreateStatementSchema() throws Exception {
     final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
-    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+    MatcherAssert.assertThat(info.getSchema(), is(SCHEMA_INT_TABLE));
 
     // Consume statement to close connection before cache eviction
     try (FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
@@ -774,8 +860,14 @@ public class TestFlightSql {
   public void testCreateStatementResults() throws Exception {
     try (final FlightStream stream = sqlClient
         .getStream(sqlClient.execute("SELECT * FROM intTable").getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-      collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
+      Assertions.assertAll(
+          () -> {
+            MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
+          },
+          () -> {
+            MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
+          }
+      );
     }
   }
 
@@ -865,16 +957,24 @@ public class TestFlightSql {
 
   @Test
   public void testExecuteUpdate() {
-    long insertedCount = sqlClient.executeUpdate("INSERT INTO INTTABLE (keyName, value) VALUES " +
-        "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)");
-    collector.checkThat(insertedCount, is(3L));
+    Assertions.assertAll(
+        () -> {
+          long insertedCount = sqlClient.executeUpdate("INSERT INTO INTTABLE (keyName, value) VALUES " +
+              "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)");
+          MatcherAssert.assertThat(insertedCount, is(3L));
 
-    long updatedCount = sqlClient.executeUpdate("UPDATE INTTABLE SET keyName = 'KEYNAME1' " +
-        "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'");
-    collector.checkThat(updatedCount, is(2L));
+        },
+        () -> {
+          long updatedCount = sqlClient.executeUpdate("UPDATE INTTABLE SET keyName = 'KEYNAME1' " +
+              "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'");
+          MatcherAssert.assertThat(updatedCount, is(2L));
 
-    long deletedCount = sqlClient.executeUpdate("DELETE FROM INTTABLE WHERE keyName = 'KEYNAME1'");
-    collector.checkThat(deletedCount, is(3L));
+        },
+        () -> {
+          long deletedCount = sqlClient.executeUpdate("DELETE FROM INTTABLE WHERE keyName = 'KEYNAME1'");
+          MatcherAssert.assertThat(deletedCount, is(3L));
+        }
+    );
   }
 
   @Test
@@ -882,10 +982,13 @@ public class TestFlightSql {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable WHERE 1 = 0");
          final FlightStream stream = sqlClient
              .getStream(preparedStatement.execute().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-
-      final List<List<String>> result = getResults(stream);
-      collector.checkThat(result, is(emptyList()));
+      Assertions.assertAll(
+          () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
+          () -> {
+            final List<List<String>> result = getResults(stream);
+            MatcherAssert.assertThat(result, is(emptyList()));
+          }
+      );
     }
   }
 }

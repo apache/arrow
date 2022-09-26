@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
@@ -40,7 +41,6 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
@@ -1110,28 +1110,29 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(util::get<FieldPath>(impl_).indices().size(), 0);
+  DCHECK_GT(std::get<FieldPath>(impl_).indices().size(), 0);
 }
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
   // flatten children
   struct Visitor {
-    void operator()(std::string* name) { *out++ = FieldRef(std::move(*name)); }
+    void operator()(std::string&& name) { out->push_back(FieldRef(std::move(name))); }
 
-    void operator()(FieldPath* indices) { *out++ = FieldRef(std::move(*indices)); }
+    void operator()(FieldPath&& indices) { out->push_back(FieldRef(std::move(indices))); }
 
-    void operator()(std::vector<FieldRef>* children) {
-      for (auto& child : *children) {
-        util::visit(*this, &child.impl_);
+    void operator()(std::vector<FieldRef>&& children) {
+      out->reserve(out->size() + children.size());
+      for (auto&& child : children) {
+        std::visit(*this, std::move(child.impl_));
       }
     }
 
-    std::back_insert_iterator<std::vector<FieldRef>> out;
+    std::vector<FieldRef>* out;
   };
 
   std::vector<FieldRef> out;
-  Visitor visitor{std::back_inserter(out)};
-  visitor(&children);
+  Visitor visitor{&out};
+  visitor(std::move(children));
 
   DCHECK(!out.empty());
   DCHECK(std::none_of(out.begin(), out.end(),
@@ -1151,35 +1152,35 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
 
   std::vector<FieldRef> children;
 
-  util::string_view dot_path = dot_path_arg;
+  std::string_view dot_path = dot_path_arg;
 
   auto parse_name = [&] {
     std::string name;
     for (;;) {
       auto segment_end = dot_path.find_first_of("\\[.");
-      if (segment_end == util::string_view::npos) {
+      if (segment_end == std::string_view::npos) {
         // dot_path doesn't contain any other special characters; consume all
-        name.append(dot_path.begin(), dot_path.end());
+        name.append(dot_path.data(), dot_path.length());
         dot_path = "";
         break;
       }
 
       if (dot_path[segment_end] != '\\') {
         // segment_end points to a subscript for a new FieldRef
-        name.append(dot_path.begin(), segment_end);
+        name.append(dot_path.data(), segment_end);
         dot_path = dot_path.substr(segment_end);
         break;
       }
 
       if (dot_path.size() == segment_end + 1) {
         // dot_path ends with backslash; consume it all
-        name.append(dot_path.begin(), dot_path.end());
+        name.append(dot_path.data(), dot_path.length());
         dot_path = "";
         break;
       }
 
       // append all characters before backslash, then the character which follows it
-      name.append(dot_path.begin(), segment_end);
+      name.append(dot_path.data(), segment_end);
       name.push_back(dot_path[segment_end + 1]);
       dot_path = dot_path.substr(segment_end + 2);
     }
@@ -1197,7 +1198,7 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
       }
       case '[': {
         auto subscript_end = dot_path.find_first_not_of("0123456789");
-        if (subscript_end == util::string_view::npos || dot_path[subscript_end] != ']') {
+        if (subscript_end == std::string_view::npos || dot_path[subscript_end] != ']') {
           return Status::Invalid("Dot path '", dot_path_arg,
                                  "' contained an unterminated index");
         }
@@ -1237,7 +1238,7 @@ std::string FieldRef::ToDotPath() const {
     }
   };
 
-  return util::visit(Visitor{}, impl_);
+  return std::visit(Visitor{}, impl_);
 }
 
 size_t FieldRef::hash() const {
@@ -1257,7 +1258,7 @@ size_t FieldRef::hash() const {
     }
   };
 
-  return util::visit(Visitor{}, impl_);
+  return std::visit(Visitor{}, impl_);
 }
 
 std::string FieldRef::ToString() const {
@@ -1277,7 +1278,7 @@ std::string FieldRef::ToString() const {
     }
   };
 
-  return "FieldRef." + util::visit(Visitor{}, impl_);
+  return "FieldRef." + std::visit(Visitor{}, impl_);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
@@ -1379,7 +1380,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
     const FieldVector& fields_;
   };
 
-  return util::visit(Visitor{fields}, impl_);
+  return std::visit(Visitor{fields}, impl_);
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {
@@ -1716,14 +1717,13 @@ class SchemaBuilder::Impl {
 
 SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(policy, field_merge_options);
+  impl_ = std::make_unique<Impl>(policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
                              ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
-  impl_ = internal::make_unique<Impl>(std::move(fields), nullptr, policy,
-                                      field_merge_options);
+  impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy, field_merge_options);
 }
 
 SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPolicy policy,
@@ -1733,8 +1733,8 @@ SchemaBuilder::SchemaBuilder(const std::shared_ptr<Schema>& schema, ConflictPoli
     metadata = schema->metadata()->Copy();
   }
 
-  impl_ = internal::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
-                                      field_merge_options);
+  impl_ = std::make_unique<Impl>(schema->fields(), std::move(metadata), policy,
+                                 field_merge_options);
 }
 
 SchemaBuilder::~SchemaBuilder() {}

@@ -146,6 +146,34 @@ TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
       scanner->ToTable());
 }
 
+TEST_F(TestInMemoryDataset, GetFragmentsSync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetFragmentsEqual(reader.get(), dataset.get());
+}
+
+TEST_F(TestInMemoryDataset, GetFragmentsAsync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetAsyncFragmentsEqual(reader.get(), dataset.get());
+}
+
 class TestUnionDataset : public DatasetFixtureMixin {};
 
 TEST_F(TestUnionDataset, ReplaceSchema) {

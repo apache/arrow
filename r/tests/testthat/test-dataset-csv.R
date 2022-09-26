@@ -380,3 +380,13 @@ test_that("skip argument in open_dataset", {
   )
   expect_equal(collect(ds), tbl)
 })
+
+test_that("error message if non-schema passed in as schema to open_dataset", {
+
+  # passing in the schema function, not an actual schema
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema),
+    regexp = "`schema` must be an object of class 'Schema' not 'function'.",
+    fixed = TRUE
+  )
+})

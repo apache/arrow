@@ -16,6 +16,9 @@
 // under the License.
 
 #include "arrow/engine/substrait/util.h"
+
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 
@@ -140,7 +143,7 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 }
 
 const std::string& default_extension_types_uri() {
-  static std::string uri = engine::kArrowExtTypesUri.to_string();
+  static std::string uri(engine::kArrowExtTypesUri);
   return uri;
 }
 

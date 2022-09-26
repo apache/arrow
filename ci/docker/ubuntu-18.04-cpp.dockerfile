@@ -60,6 +60,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
@@ -100,6 +101,10 @@ RUN apt-get update -y -q && \
 # - s3 tests would require boost-asio that is included since Boost 1.66.0
 # ARROW-17051: this build uses static Protobuf, so we must also use
 # static Arrow to run Flight/Flight SQL tests
+
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 ENV ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \

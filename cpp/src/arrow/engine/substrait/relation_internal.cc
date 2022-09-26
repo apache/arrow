@@ -30,14 +30,16 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
+
+#include <memory>
 
 namespace arrow {
 
-using ::arrow::internal::UriFromAbsolutePath;
 using internal::checked_cast;
-using internal::make_unique;
+using internal::StartsWith;
+using internal::UriFromAbsolutePath;
 
 namespace engine {
 
@@ -165,23 +167,23 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       for (const auto& item : read.local_files().items()) {
         std::string path;
         if (item.path_type_case() ==
-            substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath) {
+            substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath) {
           path = item.uri_path();
         } else if (item.path_type_case() ==
-                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
+                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile) {
           path = item.uri_file();
         } else if (item.path_type_case() ==
-                   substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
+                   substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder) {
           path = item.uri_folder();
         } else {
           path = item.uri_path_glob();
         }
 
         switch (item.file_format_case()) {
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kParquet:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kParquet:
             format = std::make_shared<dataset::ParquetFileFormat>();
             break;
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kArrow:
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kArrow:
             format = std::make_shared<dataset::IpcFileFormat>();
             break;
           default:
@@ -189,7 +191,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                 "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
         }
 
-        if (!util::string_view{path}.starts_with("file:///")) {
+        if (!StartsWith(path, "file:///")) {
           return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
                                         ") with other than local filesystem "
                                         "(file:///)");
@@ -212,7 +214,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
         path = path.substr(7);
         switch (item.path_type_case()) {
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath: {
             ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
             if (file.type() == fs::FileType::File) {
               files.push_back(std::move(file));
@@ -226,11 +228,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             }
             break;
           }
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFile: {
             files.emplace_back(path, fs::FileType::File);
             break;
           }
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriFolder: {
             fs::FileSelector selector;
             selector.base_dir = path;
             selector.recursive = true;
@@ -240,7 +242,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                       std::back_inserter(files));
             break;
           }
-          case substrait::ReadRel_LocalFiles_FileOrFiles::kUriPathGlob: {
+          case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPathGlob: {
             ARROW_ASSIGN_OR_RAISE(auto discovered_files,
                                   fs::internal::GlobFiles(filesystem, path));
             std::move(discovered_files.begin(), discovered_files.end(),
@@ -558,7 +560,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
     const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
     bind_schema = opts.dataset->schema();
   } else if (declr.factory_name == "filter") {
-    auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
+    auto input_declr = std::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
   } else if (declr.factory_name == "sink") {
     // Note that the sink has no output_schema
@@ -573,7 +575,7 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto read_rel = make_unique<substrait::ReadRel>();
+  auto read_rel = std::make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
       checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
   auto dataset =
@@ -582,15 +584,17 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     return Status::Invalid(
         "Can only convert scan node with FileSystemDataset to a Substrait plan.");
   }
+
   // set schema
   ARROW_ASSIGN_OR_RAISE(auto named_struct,
                         ToProto(*dataset->schema(), ext_set, conversion_options));
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
-  auto read_rel_lfs = make_unique<substrait::ReadRel_LocalFiles>();
+  auto read_rel_lfs = std::make_unique<substrait::ReadRel::LocalFiles>();
   for (const auto& file : dataset->files()) {
-    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
+    auto read_rel_lfs_ffs =
+        std::make_unique<substrait::ReadRel::LocalFiles::FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path(UriFromAbsolutePath(file));
     // set file format
     auto format_type_name = dataset->format()->type_name();
@@ -615,7 +619,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
-  auto filter_rel = make_unique<substrait::FilterRel>();
+  auto filter_rel = std::make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
       checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
 
@@ -633,7 +637,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   auto declr_input = declaration.inputs[0];
   ARROW_ASSIGN_OR_RAISE(
       auto input_rel,
-      ToProto(util::get<compute::Declaration>(declr_input), ext_set, conversion_options));
+      ToProto(std::get<compute::Declaration>(declr_input), ext_set, conversion_options));
   filter_rel->set_allocated_input(input_rel.release());
 
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
@@ -667,7 +671,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
     // Generally when a plan is deserialized the declaration will be a sink declaration.
     // Since there is no Sink relation in substrait, this function would be recursively
     // called on the input of the Sink declaration.
-    auto sink_input_decl = util::get<compute::Declaration>(declaration.inputs[0]);
+    auto sink_input_decl = std::get<compute::Declaration>(declaration.inputs[0]);
     RETURN_NOT_OK(
         SerializeAndCombineRelations(sink_input_decl, ext_set, rel, conversion_options));
   } else {
@@ -681,7 +685,7 @@ Status SerializeAndCombineRelations(const compute::Declaration& declaration,
 Result<std::unique_ptr<substrait::Rel>> ToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
-  auto rel = make_unique<substrait::Rel>();
+  auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
   return std::move(rel);
 }

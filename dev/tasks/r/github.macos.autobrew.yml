@@ -31,8 +31,8 @@ jobs:
             - macos-11
             - macos-10.13 # self-hosted
           r-version:
-            - {{ macros.r_release }}
-            - {{ macros.r_oldrel }}
+            - "{{ macros.r_release.ver }}"
+            - "{{ macros.r_oldrel.ver }}"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Configure autobrew script

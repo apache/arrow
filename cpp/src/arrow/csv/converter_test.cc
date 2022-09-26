@@ -655,7 +655,7 @@ TEST(TimestampConversion, UserDefinedParsersWithZone) {
   AssertConversionError(type, {"01/02/1970,1970-01-03T00:00:00+0000\n"}, {0}, options);
 }
 
-Decimal128 Dec128(util::string_view value) {
+Decimal128 Dec128(std::string_view value) {
   Decimal128 dec;
   int32_t scale = 0;
   int32_t precision = 0;

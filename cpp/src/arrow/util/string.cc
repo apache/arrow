@@ -69,9 +69,9 @@ std::string HexEncode(const char* data, size_t length) {
   return HexEncode(reinterpret_cast<const uint8_t*>(data), length);
 }
 
-std::string HexEncode(util::string_view str) { return HexEncode(str.data(), str.size()); }
+std::string HexEncode(std::string_view str) { return HexEncode(str.data(), str.size()); }
 
-std::string Escape(util::string_view str) { return Escape(str.data(), str.size()); }
+std::string Escape(std::string_view str) { return Escape(str.data(), str.size()); }
 
 Status ParseHexValue(const char* data, uint8_t* out) {
   char c1 = data[0];
@@ -92,9 +92,9 @@ Status ParseHexValue(const char* data, uint8_t* out) {
 
 namespace internal {
 
-std::vector<util::string_view> SplitString(util::string_view v, char delimiter,
-                                           int64_t limit) {
-  std::vector<util::string_view> parts;
+std::vector<std::string_view> SplitString(std::string_view v, char delimiter,
+                                          int64_t limit) {
+  std::vector<std::string_view> parts;
   size_t start = 0, end;
   while (true) {
     if (limit > 0 && static_cast<size_t>(limit - 1) <= parts.size()) {
@@ -113,7 +113,7 @@ std::vector<util::string_view> SplitString(util::string_view v, char delimiter,
 
 template <typename StringLike>
 static std::string JoinStringLikes(const std::vector<StringLike>& strings,
-                                   util::string_view delimiter) {
+                                   std::string_view delimiter) {
   if (strings.size() == 0) {
     return "";
   }
@@ -125,13 +125,13 @@ static std::string JoinStringLikes(const std::vector<StringLike>& strings,
   return out;
 }
 
-std::string JoinStrings(const std::vector<util::string_view>& strings,
-                        util::string_view delimiter) {
+std::string JoinStrings(const std::vector<std::string_view>& strings,
+                        std::string_view delimiter) {
   return JoinStringLikes(strings, delimiter);
 }
 
 std::string JoinStrings(const std::vector<std::string>& strings,
-                        util::string_view delimiter) {
+                        std::string_view delimiter) {
   return JoinStringLikes(strings, delimiter);
 }
 
@@ -152,7 +152,7 @@ std::string TrimString(std::string value) {
   return value;
 }
 
-bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right) {
+bool AsciiEqualsCaseInsensitive(std::string_view left, std::string_view right) {
   // TODO: ASCII validation
   if (left.size() != right.size()) {
     return false;
@@ -166,7 +166,7 @@ bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right)
   return true;
 }
 
-std::string AsciiToLower(util::string_view value) {
+std::string AsciiToLower(std::string_view value) {
   // TODO: ASCII validation
   std::string result = std::string(value);
   std::transform(result.begin(), result.end(), result.begin(),
@@ -174,7 +174,7 @@ std::string AsciiToLower(util::string_view value) {
   return result;
 }
 
-std::string AsciiToUpper(util::string_view value) {
+std::string AsciiToUpper(std::string_view value) {
   // TODO: ASCII validation
   std::string result = std::string(value);
   std::transform(result.begin(), result.end(), result.begin(),
@@ -182,17 +182,17 @@ std::string AsciiToUpper(util::string_view value) {
   return result;
 }
 
-std::optional<std::string> Replace(util::string_view s, util::string_view token,
-                                   util::string_view replacement) {
+std::optional<std::string> Replace(std::string_view s, std::string_view token,
+                                   std::string_view replacement) {
   size_t token_start = s.find(token);
   if (token_start == std::string::npos) {
     return std::nullopt;
   }
-  return s.substr(0, token_start).to_string() + replacement.to_string() +
-         s.substr(token_start + token.size()).to_string();
+  return std::string(s.substr(0, token_start)) + std::string(replacement) +
+         std::string(s.substr(token_start + token.size()));
 }
 
-Result<bool> ParseBoolean(util::string_view value) {
+Result<bool> ParseBoolean(std::string_view value) {
   if (AsciiEqualsCaseInsensitive(value, "true") || value == "1") {
     return true;
   } else if (AsciiEqualsCaseInsensitive(value, "false") || value == "0") {

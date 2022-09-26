@@ -44,7 +44,6 @@
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
-using testing::IsEmpty;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -1265,11 +1264,11 @@ TEST(ScanOptions, TestMaterializedFields) {
   // empty dataset, project nothing = nothing materialized
   opts->dataset_schema = schema({});
   set_projection_from_names({});
-  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+  ASSERT_EQ(opts->MaterializedFields().size(), 0);
 
   // non-empty dataset, project nothing = nothing materialized
   opts->dataset_schema = schema({i32, i64});
-  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+  ASSERT_EQ(opts->MaterializedFields().size(), 0);
 
   // project nothing, filter on i32 = materialize i32
   opts->filter = equal(field_ref("i32"), literal(10));

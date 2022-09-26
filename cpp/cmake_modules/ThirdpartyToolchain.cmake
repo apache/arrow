@@ -210,11 +210,13 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME)
+macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
   set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME}")
-    install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
+    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+    )
+    install(FILES "${module_}"
+            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
   unset(module_)
 endmacro()
@@ -283,7 +285,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME})
+    provide_find_module(${PACKAGE_NAME} "Arrow")
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -1624,10 +1626,6 @@ if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
     # FlightSQL uses proto3 optionals, which require 3.15 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
-  elseif(ARROW_GANDIVA_JAVA)
-    # google::protobuf::MessageLite::ByteSize() is deprecated since
-    # Protobuf 3.4.0.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
@@ -1976,9 +1974,8 @@ macro(build_gtest)
   set(dummy ">")
 
   set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_TOOLCHAIN}
+      ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=ON
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_LIBDIR=lib
@@ -2397,30 +2394,32 @@ macro(build_zstd)
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
-  add_library(zstd::libzstd STATIC IMPORTED)
-  set_target_properties(zstd::libzstd
+  add_library(zstd::libzstd_static STATIC IMPORTED)
+  set_target_properties(zstd::libzstd_static
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
-  add_dependencies(zstd::libzstd zstd_ep)
+  add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+
+  set(ZSTD_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
   # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
   resolve_dependency(zstd
+                     HAVE_ALT
+                     TRUE
                      PC_PACKAGE_NAMES
                      libzstd
                      REQUIRED_VERSION
                      1.4.0)
 
-  if(TARGET zstd::libzstd)
-    set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
+  if(ZSTD_VENDORED)
+    set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
   else()
-    # "SYSTEM" source will prioritize cmake config, which exports
-    # zstd::libzstd_{static,shared}
     if(ARROW_ZSTD_USE_SHARED)
       if(TARGET zstd::libzstd_shared)
         set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)

@@ -19,10 +19,10 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -35,47 +35,59 @@ ARROW_EXPORT std::string Escape(const char* data, size_t length);
 
 ARROW_EXPORT std::string HexEncode(const char* data, size_t length);
 
-ARROW_EXPORT std::string HexEncode(util::string_view str);
+ARROW_EXPORT std::string HexEncode(std::string_view str);
 
-ARROW_EXPORT std::string Escape(util::string_view str);
+ARROW_EXPORT std::string Escape(std::string_view str);
 
 ARROW_EXPORT Status ParseHexValue(const char* data, uint8_t* out);
 
 namespace internal {
 
+/// Like std::string_view::starts_with in C++20
+inline bool StartsWith(std::string_view s, std::string_view prefix) {
+  return s.length() >= prefix.length() &&
+         (s.empty() || s.substr(0, prefix.length()) == prefix);
+}
+
+/// Like std::string_view::ends_with in C++20
+inline bool EndsWith(std::string_view s, std::string_view suffix) {
+  return s.length() >= suffix.length() &&
+         (s.empty() || s.substr(s.length() - suffix.length()) == suffix);
+}
+
 /// \brief Split a string with a delimiter
 ARROW_EXPORT
-std::vector<util::string_view> SplitString(util::string_view v, char delim,
-                                           int64_t limit = 0);
+std::vector<std::string_view> SplitString(std::string_view v, char delim,
+                                          int64_t limit = 0);
 
 /// \brief Join strings with a delimiter
 ARROW_EXPORT
-std::string JoinStrings(const std::vector<util::string_view>& strings,
-                        util::string_view delimiter);
+std::string JoinStrings(const std::vector<std::string_view>& strings,
+                        std::string_view delimiter);
 
 /// \brief Join strings with a delimiter
 ARROW_EXPORT
 std::string JoinStrings(const std::vector<std::string>& strings,
-                        util::string_view delimiter);
+                        std::string_view delimiter);
 
 /// \brief Trim whitespace from left and right sides of string
 ARROW_EXPORT
 std::string TrimString(std::string value);
 
 ARROW_EXPORT
-bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right);
+bool AsciiEqualsCaseInsensitive(std::string_view left, std::string_view right);
 
 ARROW_EXPORT
-std::string AsciiToLower(util::string_view value);
+std::string AsciiToLower(std::string_view value);
 
 ARROW_EXPORT
-std::string AsciiToUpper(util::string_view value);
+std::string AsciiToUpper(std::string_view value);
 
 /// \brief Search for the first instance of a token and replace it or return nullopt if
 /// the token is not found.
 ARROW_EXPORT
-std::optional<std::string> Replace(util::string_view s, util::string_view token,
-                                   util::string_view replacement);
+std::optional<std::string> Replace(std::string_view s, std::string_view token,
+                                   std::string_view replacement);
 
 /// \brief Get boolean value from string
 ///
@@ -83,6 +95,7 @@ std::optional<std::string> Replace(util::string_view s, util::string_view token,
 /// If "0", "false" (case-insensitive), returns false
 /// Otherwise, returns Status::Invalid
 ARROW_EXPORT
-arrow::Result<bool> ParseBoolean(util::string_view value);
+arrow::Result<bool> ParseBoolean(std::string_view value);
+
 }  // namespace internal
 }  // namespace arrow

@@ -18,8 +18,10 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
+#include <memory>
 #include <numeric>
 #include <random>
+#include <string_view>
 #include <unordered_set>
 
 #include "arrow/api.h"
@@ -33,8 +35,6 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
@@ -69,7 +69,7 @@ bool is_temporal_primitive(Type::type type_id) {
 
 Result<BatchesWithSchema> MakeBatchesFromNumString(
     const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
+    const std::vector<std::string_view>& json_strings, int multiplicity = 1) {
   FieldVector num_fields;
   for (auto field : schema->fields()) {
     num_fields.push_back(
@@ -209,8 +209,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
                     const AsofJoinNodeOptions join_options) {
-  auto exec_ctx =
-      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  auto exec_ctx = std::make_unique<ExecContext>(default_memory_pool(), nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   Declaration join{"asofjoin", join_options};
@@ -413,12 +412,12 @@ struct BasicTestTypes {
 };
 
 struct BasicTest {
-  BasicTest(const std::vector<util::string_view>& l_data,
-            const std::vector<util::string_view>& r0_data,
-            const std::vector<util::string_view>& r1_data,
-            const std::vector<util::string_view>& exp_nokey_data,
-            const std::vector<util::string_view>& exp_emptykey_data,
-            const std::vector<util::string_view>& exp_data, int64_t tolerance)
+  BasicTest(const std::vector<std::string_view>& l_data,
+            const std::vector<std::string_view>& r0_data,
+            const std::vector<std::string_view>& r1_data,
+            const std::vector<std::string_view>& exp_nokey_data,
+            const std::vector<std::string_view>& exp_emptykey_data,
+            const std::vector<std::string_view>& exp_data, int64_t tolerance)
       : l_data(std::move(l_data)),
         r0_data(std::move(r0_data)),
         r1_data(std::move(r1_data)),
@@ -568,7 +567,7 @@ struct BasicTest {
     std::uniform_int_distribution<size_t> r0_distribution(0, r0_types.size() - 1);
     std::uniform_int_distribution<size_t> r1_distribution(0, r1_types.size() - 1);
 
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 100; i++) {
       auto time_type = time_types[time_distribution(engine)];
       ARROW_SCOPED_TRACE("Time type: ", *time_type);
       auto key_type = key_types[key_distribution(engine)];
@@ -584,8 +583,7 @@ struct BasicTest {
 
       auto end_time = std::chrono::system_clock::now();
       std::chrono::duration<double> diff = end_time - start_time;
-      if (diff.count() > 2) {
-        // this normally happens on slow CI systems, but is fine
+      if (diff.count() > 0.2) {
         break;
       }
     }
@@ -622,16 +620,20 @@ struct BasicTest {
                    exp_emptykey_batches, exp_batches);
   }
 
-  std::vector<util::string_view> l_data;
-  std::vector<util::string_view> r0_data;
-  std::vector<util::string_view> r1_data;
-  std::vector<util::string_view> exp_nokey_data;
-  std::vector<util::string_view> exp_emptykey_data;
-  std::vector<util::string_view> exp_data;
+  std::vector<std::string_view> l_data;
+  std::vector<std::string_view> r0_data;
+  std::vector<std::string_view> r1_data;
+  std::vector<std::string_view> exp_nokey_data;
+  std::vector<std::string_view> exp_emptykey_data;
+  std::vector<std::string_view> exp_data;
   int64_t tolerance;
 };
 
 using AsofJoinBasicParams = std::tuple<std::function<void(BasicTest&)>, std::string>;
+
+void PrintTo(const AsofJoinBasicParams& x, ::std::ostream* os) {
+  *os << "AsofJoinBasicParams: " << std::get<1>(x);
+}
 
 struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {};
 

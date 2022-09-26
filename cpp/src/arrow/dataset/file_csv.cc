@@ -56,13 +56,13 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
-    util::string_view first_block, MemoryPool* pool) {
+    std::string_view first_block, MemoryPool* pool) {
   // Skip BOM when reading column names (ARROW-14644, ARROW-17382)
   auto size = first_block.length();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
   ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
   size = size - static_cast<uint32_t>(data_no_bom - data);
-  first_block = util::string_view(reinterpret_cast<const char*>(data_no_bom), size);
+  first_block = std::string_view(reinterpret_cast<const char*>(data_no_bom), size);
   if (!read_options.column_names.empty()) {
     std::unordered_set<std::string> column_names;
     for (const auto& s : read_options.column_names) {
@@ -78,7 +78,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
   csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
                           max_num_rows);
 
-  RETURN_NOT_OK(parser.Parse(util::string_view{first_block}, &parsed_size));
+  RETURN_NOT_OK(parser.Parse(std::string_view{first_block}, &parsed_size));
 
   if (parser.num_rows() != max_num_rows) {
     return Status::Invalid("Could not read first ", max_num_rows,
@@ -104,7 +104,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        util::string_view view{reinterpret_cast<const char*>(data), size};
+        std::string_view view{reinterpret_cast<const char*>(data), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
@@ -116,7 +116,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const ScanOptions* scan_options,
-    const util::string_view first_block) {
+    const std::string_view first_block) {
   ARROW_ASSIGN_OR_RAISE(
       auto csv_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(

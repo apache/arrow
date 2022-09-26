@@ -55,6 +55,10 @@ TEST(FlightIntegration, Middleware) { ASSERT_OK(RunScenario("middleware")); }
 
 TEST(FlightIntegration, FlightSql) { ASSERT_OK(RunScenario("flight_sql")); }
 
+TEST(FlightIntegration, FlightSqlExtension) {
+  ASSERT_OK(RunScenario("flight_sql:extension"));
+}
+
 }  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow

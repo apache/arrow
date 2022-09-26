@@ -19,6 +19,7 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -33,7 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
@@ -46,7 +46,7 @@ enum class S3Backend { Amazon, Minio, Other };
 inline S3Backend DetectS3Backend(const Aws::Http::HeaderValueCollection& headers) {
   const auto it = headers.find("server");
   if (it != headers.end()) {
-    const auto& value = util::string_view(it->second);
+    const auto& value = std::string_view(it->second);
     if (value.find("AmazonS3") != std::string::npos) {
       return S3Backend::Amazon;
     }
@@ -218,7 +218,7 @@ inline Aws::String ToAwsString(const std::string& s) {
   return Aws::String(s.begin(), s.end());
 }
 
-inline util::string_view FromAwsString(const Aws::String& s) {
+inline std::string_view FromAwsString(const Aws::String& s) {
   return {s.data(), s.length()};
 }
 

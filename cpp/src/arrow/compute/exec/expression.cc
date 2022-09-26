@@ -40,6 +40,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::EndsWith;
 
 namespace compute {
 
@@ -76,10 +77,10 @@ Expression call(std::string function, std::vector<Expression> arguments,
   return Expression(std::move(call));
 }
 
-const Datum* Expression::literal() const { return util::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const { return std::get_if<Datum>(impl_.get()); }
 
 const Expression::Parameter* Expression::parameter() const {
-  return util::get_if<Parameter>(impl_.get());
+  return std::get_if<Parameter>(impl_.get());
 }
 
 const FieldRef* Expression::field_ref() const {
@@ -90,7 +91,7 @@ const FieldRef* Expression::field_ref() const {
 }
 
 const Expression::Call* Expression::call() const {
-  return util::get_if<Call>(impl_.get());
+  return std::get_if<Call>(impl_.get());
 }
 
 const DataType* Expression::type() const {
@@ -117,8 +118,7 @@ std::string PrintDatum(const Datum& datum) {
       case Type::STRING:
       case Type::LARGE_STRING:
         return '"' +
-               Escape(util::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) +
-               '"';
+               Escape(std::string_view(*datum.scalar_as<BaseBinaryScalar>().value)) + '"';
 
       case Type::BINARY:
       case Type::FIXED_SIZE_BINARY:
@@ -163,8 +163,8 @@ std::string Expression::ToString() const {
     return binary(Comparison::GetOp(*cmp));
   }
 
-  constexpr util::string_view kleene = "_kleene";
-  if (util::string_view{call->function_name}.ends_with(kleene)) {
+  constexpr std::string_view kleene = "_kleene";
+  if (EndsWith(call->function_name, kleene)) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }

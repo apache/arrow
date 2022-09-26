@@ -22,6 +22,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 #include <xsimd/xsimd.hpp>
@@ -30,7 +31,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/simd.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/visibility.h"
@@ -201,7 +201,7 @@ static inline bool ValidateUTF8Inline(const uint8_t* data, int64_t size) {
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
 
-static inline bool ValidateUTF8Inline(const util::string_view& str) {
+static inline bool ValidateUTF8Inline(const std::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
@@ -266,7 +266,7 @@ static inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #endif
 }
 
-static inline bool ValidateAscii(const util::string_view& str) {
+static inline bool ValidateAscii(const std::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 

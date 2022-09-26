@@ -667,8 +667,29 @@ MemoryPool* default_memory_pool() {
 
 #ifndef ARROW_JEMALLOC
 Status jemalloc_set_decay_ms(int ms) {
-  return Status::Invalid("jemalloc support is not built");
+  return Status::NotImplemented("jemalloc support is not built");
 }
+
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_peak_reset() {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
 #endif
 
 ///////////////////////////////////////////////////////////////////////
@@ -857,7 +878,7 @@ class PoolBuffer final : public ResizableBuffer {
     } else {
       mm = CPUDevice::memory_manager(pool);
     }
-    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+    return std::make_unique<PoolBuffer>(std::move(mm), pool);
   }
 
  private:

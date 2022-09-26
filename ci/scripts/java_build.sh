@@ -87,7 +87,7 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
   ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
 fi
 
-if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
+if [ "${ARROW_JNI}" = "ON" ]; then
   ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
 fi
 

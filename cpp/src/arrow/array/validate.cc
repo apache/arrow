@@ -54,7 +54,7 @@ struct UTF8DataValidator {
     int64_t i = 0;
     return VisitArraySpanInline<StringType>(
         data,
-        [&](util::string_view v) {
+        [&](std::string_view v) {
           if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
             return Status::Invalid("Invalid UTF8 sequence at string index ", i);
           }
@@ -675,7 +675,7 @@ struct ValidateArrayImpl {
       const int32_t precision = type.precision();
       return VisitArraySpanInline<DecimalType>(
           data,
-          [&](util::string_view bytes) {
+          [&](std::string_view bytes) {
             DCHECK_EQ(bytes.size(), DecimalType::kByteWidth);
             CType value(reinterpret_cast<const uint8_t*>(bytes.data()));
             if (!value.FitsInPrecision(precision)) {

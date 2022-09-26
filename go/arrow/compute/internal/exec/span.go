@@ -160,6 +160,9 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 		defer dict.Release()
 		result.SetDictionary(dict)
 		return result
+	} else if dt.ID() == arrow.DENSE_UNION || dt.ID() == arrow.SPARSE_UNION {
+		bufs[0] = nil
+		nulls = 0
 	}
 
 	if len(a.Children) > 0 {
