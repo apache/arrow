@@ -40,57 +40,62 @@
   auto&& _left = (x); \
   auto&& _right = (y); \
   if (_left != _right) { \
-    return Status::Invalid("Expected equality but ", _left, " != ", _right); \
+    return Status::Invalid("Expected equality between `", #x, "` and `", #y, \
+                           "`, but ", _left, " != ", _right); \
   } \
 }
-#define ASSERT_NE(x, y){ \
+
+#define ASSERT_NE(x, y) { \
   auto&& _left = (x); \
   auto&& _right = (y); \
   if (_left == _right) { \
-    return Status::Invalid("Expected inequality but ", _left, " == ", _right); \
+    return Status::Invalid("Expected inequality between `", #x, "` and `", #y, \
+                           "`, but ", _left, " == ", _right); \
   } \
 }
-#define ASSERT_FALSE_PY(error){ \
-  auto&& _err = (error); \
-  if (_err != NULL){ \
-    return Status::Invalid("Expected no error, but got one"); \
+
+#define ASSERT_FALSE(v) { \
+  auto&& _v = (v); \
+  if (!!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", _v); \
   } \
 }
-#define ASSERT_TRUE_PY(error){ \
-  auto&& _err = (error); \
-  if (_err == NULL){ \
-    return Status::Invalid("Expected an error but did not get one."); \
+
+#define ASSERT_TRUE(v){ \
+  auto&& _v = (v); \
+  if (!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", _v); \
   } \
 }
-#define ASSERT_FALSE(error){ \
-  auto&& _err = (error); \
-  if (_err != false){ \
-    return Status::Invalid("Expected no error, but got one"); \
+
+#define ASSERT_FALSE_MSG(v, msg) { \
+  auto&& _v = (v); \
+  if (!!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to false, but got ", \
+                           _v, ": ", msg); \
   } \
 }
-#define ASSERT_TRUE(error){ \
-  auto&& _err = (error); \
-  if (_err == false){ \
-    return Status::Invalid("Expected an error but did not get one."); \
+
+#define ASSERT_TRUE_MSG(v, msg) { \
+  auto&& _v = (v); \
+  if (!_v) { \
+    return Status::Invalid("Expected `", #v, "` to evaluate to true, but got ", \
+                           _v, ": ", msg); \
   } \
 }
-#define ASSERT_TRUE_MSG(error, msg){ \
-  auto&& _err = (error); \
-  auto&& _msg = (msg); \
-  if (_err == false){ \
-    return Status::Invalid("Expected an error but did not got one: ", _msg); \
-  } \
-}
-#define ASSERT_OK(expr){ \
+
+#define ASSERT_OK(expr) { \
   for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
-  return Status::Invalid(expr, " failed with ", _st.ToString()); \
+  return Status::Invalid("`", #expr, "` failed with ", _st.ToString()); \
 }
-#define ASSERT_RAISES(st, expr){ \
-  auto&& _st = (st); \
+
+#define ASSERT_RAISES(code, expr) { \
   for (::arrow::Status _st_expr = ::arrow::internal::GenericToStatus((expr)); \
-       _st_expr.code() != _st.code();) \
-  return Status::Invalid("Expected to fail with ", _st.ToString()); \
+       !_st_expr.Is##code();) \
+  return Status::Invalid("Expected `", #expr, "` to fail with ", \
+                         #code, ", but got ", _st_expr.ToString()); \
 }
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -156,7 +161,7 @@ Status TestCheckPyErrorStatus() {
                         std::string expected_detail = "") {
     st = CheckPyError();
     ASSERT_EQ(st.message(), expected_message);
-    ASSERT_FALSE_PY(PyErr_Occurred());
+    ASSERT_FALSE(PyErr_Occurred());
     if (expected_detail.size() > 0) {
       auto detail = st.detail();
       ASSERT_NE(detail, nullptr);
@@ -198,7 +203,7 @@ Status TestCheckPyErrorStatus() {
   st = CheckPyError(StatusCode::SerializationError);
   ASSERT_TRUE(st.IsSerializationError());
   ASSERT_EQ(st.message(), "some error");
-  ASSERT_FALSE_PY(PyErr_Occurred());
+  ASSERT_FALSE(PyErr_Occurred());
 
   return Status::OK();
 }
@@ -209,7 +214,7 @@ Status TestCheckPyErrorStatusNoGIL() {
     Status st;
     PyErr_SetString(PyExc_ZeroDivisionError, "zzzt");
     st = ConvertPyError();
-    ASSERT_FALSE_PY(PyErr_Occurred());
+    ASSERT_FALSE(PyErr_Occurred());
     lock.release();
     ASSERT_TRUE(st.IsUnknownError());
     ASSERT_EQ(st.message(), "zzzt");
@@ -221,13 +226,13 @@ Status TestCheckPyErrorStatusNoGIL() {
 Status TestRestorePyErrorBasics() {
   PyErr_SetString(PyExc_ZeroDivisionError, "zzzt");
   auto st = ConvertPyError();
-  ASSERT_FALSE_PY(PyErr_Occurred());
+  ASSERT_FALSE(PyErr_Occurred());
   ASSERT_TRUE(st.IsUnknownError());
   ASSERT_EQ(st.message(), "zzzt");
   ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
 
   RestorePyError(st);
-  ASSERT_TRUE_PY(PyErr_Occurred());
+  ASSERT_TRUE(PyErr_Occurred());
   PyObject* exc_type;
   PyObject* exc_value;
   PyObject* exc_traceback;
@@ -247,7 +252,7 @@ Status TestPyBufferInvalidInputObject() {
   {
     Status st = PyBuffer::FromPyObject(input).status();
     ASSERT_TRUE_MSG(IsPyError(st), st.ToString());
-    ASSERT_FALSE_PY(PyErr_Occurred());
+    ASSERT_FALSE(PyErr_Occurred());
   }
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
   return Status::OK();
@@ -472,7 +477,7 @@ Status TestObjectBlockWriteFails(){
   options.use_threads = true;
   st = ConvertTableToPandas(options, table, &out);
   Py_END_ALLOW_THREADS;
-  ASSERT_RAISES(::arrow::Status::UnknownError(""), st);
+  ASSERT_RAISES(UnknownError, st);
 
   return Status::OK();
 }
@@ -498,8 +503,7 @@ Status TestMixedTypeFails(){
   ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
-  ASSERT_RAISES(::arrow::Status::TypeError(""),
-                ConvertPySequence(list, nullptr, {}));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, {}));
 
   return Status::OK();
 }
@@ -519,10 +523,10 @@ Status DecimalTestFromPythonDecimalRescale(std::shared_ptr<DataType> type,
     ASSERT_OK(internal::DecimalFromPyObject(python_decimal, decimal_type, &value));
     ASSERT_EQ(expected.value(), value);
   } else {
-    ASSERT_RAISES(::arrow::Status::Invalid(""),
+    ASSERT_RAISES(Invalid,
                   internal::DecimalFromPythonDecimal(python_decimal,
                                                      decimal_type, &value));
-    ASSERT_RAISES(::arrow::Status::Invalid(""),
+    ASSERT_RAISES(Invalid,
                   internal::DecimalFromPyObject(python_decimal,
                                                 decimal_type, &value));
   }
@@ -629,7 +633,7 @@ Status TestDecimal128OverflowFails(){
 
   auto type = ::arrow::decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
-  ASSERT_RAISES(::arrow::Status::Invalid(""),
+  ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal,
                                                    decimal_type, &value));
   return Status::OK();
@@ -655,7 +659,7 @@ Status TestDecimal256OverflowFails(){
 
   auto type = ::arrow::decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
-  ASSERT_RAISES(::arrow::Status::Invalid(""),
+  ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal,
                                                    decimal_type, &value));
   return Status::OK();
@@ -694,7 +698,7 @@ Status TestNoneAndNaN(){
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
   PyConversionOptions options;
-  ASSERT_RAISES(::arrow::Status::TypeError(""),
+  ASSERT_RAISES(TypeError,
                 ConvertPySequence(list, nullptr, options));
 
   options.from_pandas = true;
