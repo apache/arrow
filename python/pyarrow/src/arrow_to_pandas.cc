@@ -18,6 +18,7 @@
 // Functions for pandas conversion via NumPy
 
 #include "arrow_to_pandas.h"
+#include <arrow/compute/cast.h>
 #include "numpy_interop.h"  // IWYU pragma: expand
 
 #include <cmath>
@@ -155,7 +156,7 @@ struct WrapBytes<FixedSizeBinaryType> {
 };
 
 static inline bool ListTypeSupported(const DataType& type) {
-  switch (type.id()) {
+  switch (type.storage_id()) {
     case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
@@ -730,17 +731,33 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
 template <typename ListArrayT>
 Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
                         PyObject** out_values) {
+  using ListArrayType = typename ListArrayT::TypeClass;
+  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
+  const auto& value_type = list_type.value_type();
+
+  const auto& val_type = checked_cast<const ExtensionType&>(*value_type);
+  const auto& storage_ty = val_type.storage_type();
+  const auto& lt = dynamic_cast<const FixedSizeListType*>(&list_type);
+
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
+
+    std::shared_ptr<DataType> out_ty;
+    if (lt != nullptr) {
+      out_ty = fixed_size_list(storage_ty, lt->list_size());
+    } else {
+      out_ty = list(storage_ty);
+    }
+    compute::CastOptions options;
+    options.to_type = out_ty;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> casted, compute::Cast(*data.chunk(c), out_ty, options));
+    const auto& arr = checked_cast<const ListArrayT&>(*casted);
+    
     value_arrays.emplace_back(arr.values());
   }
-  using ListArrayType = typename ListArrayT::TypeClass;
-  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
-  auto value_type = list_type.value_type();
 
-  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
+  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, storage_ty);
 
   options = MakeInnerOptions(std::move(options));
 
@@ -753,8 +770,17 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
 
+    std::shared_ptr<DataType> out_ty;
+    if (lt != nullptr) {
+      out_ty = fixed_size_list(storage_ty, lt->list_size());
+    } else {
+      out_ty = list(storage_ty);
+    }
+    compute::CastOptions options;
+    options.to_type = out_ty;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> casted, compute::Cast(*data.chunk(c), out_ty, options));
+    const auto& arr = checked_cast<const ListArrayT&>(*casted);
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (has_nulls && arr.IsNull(i)) {
@@ -1969,6 +1995,7 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::LARGE_LIST:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
+
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
@@ -2291,6 +2318,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   if (options.decode_dictionaries) {
     DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
   }
+
 
   std::shared_ptr<PandasWriter> writer;
   RETURN_NOT_OK(MakeWriter(modified_options, output_type, *arr->type(), arr->length(),
