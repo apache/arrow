@@ -60,17 +60,17 @@ def test_py_buffer_invalid_input_object():
     t.test_TestPyBufferInvalidInputObject()
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="C++ test are skipped on Windows due to "
-                    "the Numpy C API instance not being visible")
 def test_py_buffer_numpy_array():
+    if sys.platform == 'win32':
+        pytest.skip("C++ test are skipped on Windows due to "
+                    "the Numpy C API instance not being visible")
     t.test_TestPyBufferNumpyArray()
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="C++ test are skipped on Windows due to "
-                    "the Numpy C API instance not being visible")
 def test_numpy_buffer_numpy_array():
+    if sys.platform == 'win32':
+        pytest.skip("C++ test are skipped on Windows due to "
+                    "the Numpy C API instance not being visible")
     t.test_TestNumPyBufferNumpyArray()
 
 
