@@ -48,8 +48,8 @@
 #include "arrow/type_fwd.h"
 
 namespace arrow {
-namespace engine {
 
+namespace engine {
 struct FunctionTestCase {
   Id function_id;
   std::vector<std::string> arguments;
