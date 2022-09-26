@@ -655,25 +655,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       // Note: at the moment Acero only supports UNION_ALL operation
       switch (op) {
         case substrait::SetRel::SET_OP_UNSPECIFIED:
-          return Status::NotImplemented(
-              "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
-        case substrait::SetRel::SET_OP_MINUS_PRIMARY:
-          return Status::NotImplemented(
-              "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
+        case substrait::SetRel::SET_OP_MINUS_PRIMARY:     
         case substrait::SetRel::SET_OP_MINUS_MULTISET:
-          return Status::NotImplemented(
-              "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
         case substrait::SetRel::SET_OP_INTERSECTION_PRIMARY:
-          return Status::NotImplemented(
-              "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
         case substrait::SetRel::SET_OP_INTERSECTION_MULTISET:
-          return Status::NotImplemented(
-              "NotImplemented union type : ",
-              EnumToString(op, substrait::SetRel_SetOp_descriptor()));
         case substrait::SetRel::SET_OP_UNION_DISTINCT:
           return Status::NotImplemented(
               "NotImplemented union type : ",
