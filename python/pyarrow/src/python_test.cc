@@ -26,14 +26,15 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/table.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 
 #include "arrow_to_pandas.h"
 #include "decimal.h"
 #include "helpers.h"
 #include "numpy_convert.h"
 #include "numpy_interop.h"
+#include "python_test.h"
 #include "python_to_arrow.h"
-#include "arrow/util/logging.h"
 
 #define ASSERT_EQ(x, y) { \
   auto&& _left = (x); \
@@ -95,6 +96,8 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace py {
+namespace testing {
+namespace {
 
 Status TestOwnedRefMoves() {
   std::vector<OwnedRef> vec;
@@ -811,5 +814,48 @@ Status TestUpdateWithNaN(){
   return Status::OK();
 }
 
+}  // namespace
+
+std::vector<TestCase> GetCppTestCases() {
+  return {
+    {"test_owned_ref_moves", TestOwnedRefMoves},
+    {"test_owned_ref_nogil_moves", TestOwnedRefNoGILMoves},
+    {"test_check_pyerror_status", TestCheckPyErrorStatus},
+    {"test_check_pyerror_status_nogil", TestCheckPyErrorStatusNoGIL},
+    {"test_restore_pyerror_basics", TestRestorePyErrorBasics},
+    {"test_pybuffer_invalid_input_object", TestPyBufferInvalidInputObject},
+#ifndef _WIN32
+    {"test_pybuffer_numpy_array", TestPyBufferNumpyArray},
+    {"test_numpybuffer_numpy_array", TestNumPyBufferNumpyArray},
+#endif
+    {"test_python_decimal_to_string", TestPythonDecimalToString},
+    {"test_infer_precision_and_scale", TestInferPrecisionAndScale},
+    {"test_infer_precision_and_negative_scale", TestInferPrecisionAndNegativeScale},
+    {"test_infer_all_leading_zeros", TestInferAllLeadingZeros},
+    {"test_infer_all_leading_zeros_exponential_notation_positive",
+     TestInferAllLeadingZerosExponentialNotationPositive},
+    {"test_infer_all_leading_zeros_exponential_notation_negative",
+     TestInferAllLeadingZerosExponentialNotationNegative},
+    {"test_object_block_write_fails", TestObjectBlockWriteFails},
+    {"test_mixed_type_fails", TestMixedTypeFails},
+    {"test_from_python_decimal_rescale_not_truncateable",
+     TestFromPythonDecimalRescaleNotTruncateable},
+    {"test_from_python_decimal_rescale_truncateable",
+     TestFromPythonDecimalRescaleTruncateable},
+    {"test_from_python_negative_decimal_rescale", TestFromPythonNegativeDecimalRescale},
+    {"test_decimal128_from_python_integer", TestDecimal128FromPythonInteger},
+    {"test_decimal256_from_python_integer", TestDecimal256FromPythonInteger},
+    {"test_decimal128_overflow_fails", TestDecimal128OverflowFails},
+    {"test_decimal256_overflow_fails", TestDecimal256OverflowFails},
+    {"test_none_and_nan", TestNoneAndNaN},
+    {"test_mixed_precision_and_scale", TestMixedPrecisionAndScale},
+    {"test_mixed_precision_and_scale_sequence_convert",
+     TestMixedPrecisionAndScaleSequenceConvert},
+    {"test_simple_inference", TestSimpleInference},
+    {"test_update_with_nan", TestUpdateWithNaN},
+  };
+}
+
+}  // namespace testing
 }  // namespace py
 }  // namespace arrow

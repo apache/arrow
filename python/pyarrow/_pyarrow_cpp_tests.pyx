@@ -20,120 +20,43 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status)
+from pyarrow.lib cimport check_status
 
-from decimal import Decimal
-
-
-def test_TestOwnedRefMoves():
-    check_status(TestOwnedRefMoves())
+from pyarrow.lib import frombytes
 
 
-def test_TestOwnedRefNoGILMoves():
-    check_status(TestOwnedRefNoGILMoves())
+cdef class CppTestCase:
+    """
+    A simple wrapper for a C++ test case.
+    """
+    cdef:
+        CTestCase c_case
+
+    @staticmethod
+    cdef wrap(CTestCase c_case):
+        cdef:
+            CppTestCase obj
+        obj = CppTestCase.__new__(CppTestCase)
+        obj.c_case = c_case
+        return obj
+
+    @property
+    def name(self):
+        return frombytes(self.c_case.name)
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.name!r}>"
+
+    def __call__(self):
+        check_status(self.c_case.func())
 
 
-def test_TestCheckPyErrorStatus():
-    check_status(TestCheckPyErrorStatus())
-
-
-def test_TestCheckPyErrorStatusNoGIL():
-    check_status(TestCheckPyErrorStatusNoGIL())
-
-
-def test_TestRestorePyErrorBasics():
-    check_status(TestRestorePyErrorBasics())
-
-
-def test_TestPyBufferInvalidInputObject():
-    check_status(TestPyBufferInvalidInputObject())
-
-
-# ifdef _WIN32
-def test_TestPyBufferNumpyArray():
-    check_status(TestPyBufferNumpyArray())
-
-
-def test_TestNumPyBufferNumpyArray():
-    check_status(TestNumPyBufferNumpyArray())
-# endif
-
-
-def test_TestPythonDecimalToString():
-    check_status(TestPythonDecimalToString())
-
-
-def test_TestInferPrecisionAndScale():
-    check_status(TestInferPrecisionAndScale())
-
-
-def test_TestInferPrecisionAndNegativeScale():
-    check_status(TestInferPrecisionAndNegativeScale())
-
-
-def test_TestInferAllLeadingZeros():
-    check_status(TestInferAllLeadingZeros())
-
-
-def test_TestInferAllLeadingZerosExponentialNotationPositive():
-    check_status(TestInferAllLeadingZerosExponentialNotationPositive())
-
-
-def test_TestInferAllLeadingZerosExponentialNotationNegative():
-    check_status(TestInferAllLeadingZerosExponentialNotationNegative())
-
-
-def test_TestObjectBlockWriteFails():
-    check_status(TestObjectBlockWriteFails())
-
-
-def test_TestMixedTypeFails():
-    check_status(TestMixedTypeFails())
-
-
-def test_TestFromPythonDecimalRescaleNotTruncateable():
-    check_status(TestFromPythonDecimalRescaleNotTruncateable())
-
-
-def test_TestFromPythonDecimalRescaleTruncateable():
-    check_status(TestFromPythonDecimalRescaleTruncateable())
-
-
-def test_TestFromPythonNegativeDecimalRescale():
-    check_status(TestFromPythonNegativeDecimalRescale())
-
-
-def test_TestDecimal128FromPythonInteger():
-    check_status(TestDecimal128FromPythonInteger())
-
-
-def test_TestDecimal256FromPythonInteger():
-    check_status(TestDecimal256FromPythonInteger())
-
-
-def test_TestDecimal128OverflowFails():
-    check_status(TestDecimal128OverflowFails())
-
-
-def test_TestDecimal256OverflowFails():
-    check_status(TestDecimal256OverflowFails())
-
-
-def test_TestNoneAndNaN():
-    check_status(TestNoneAndNaN())
-
-
-def test_TestMixedPrecisionAndScale():
-    check_status(TestMixedPrecisionAndScale())
-
-
-def test_TestMixedPrecisionAndScaleSequenceConvert():
-    check_status(TestMixedPrecisionAndScaleSequenceConvert())
-
-
-def test_TestSimpleInference():
-    check_status(TestSimpleInference())
-
-
-def test_TestUpdateWithNaN():
-    check_status(TestUpdateWithNaN())
+def get_cpp_tests():
+    """
+    Get a list of C++ test cases.
+    """
+    cases = []
+    c_cases = GetCppTestCases()
+    for c_case in c_cases:
+        cases.append(CppTestCase.wrap(c_case))
+    return cases

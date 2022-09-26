@@ -21,37 +21,13 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CStatus
 
-cdef extern from "arrow/python/python_test.h" namespace "arrow::py" nogil:
 
-    CStatus TestOwnedRefMoves()
-    CStatus TestOwnedRefNoGILMoves()
-    CStatus TestCheckPyErrorStatus()
-    CStatus TestCheckPyErrorStatusNoGIL()
-    CStatus TestRestorePyErrorBasics()
-    CStatus TestPyBufferInvalidInputObject()
+ctypedef CStatus cb_test_func()
 
-    # ifdef _WIN32
-    CStatus TestPyBufferNumpyArray()
-    CStatus TestNumPyBufferNumpyArray()
-    # endif
+cdef extern from "arrow/python/python_test.h" namespace "arrow::py::testing" nogil:
 
-    CStatus TestPythonDecimalToString()
-    CStatus TestInferPrecisionAndScale()
-    CStatus TestInferPrecisionAndNegativeScale()
-    CStatus TestInferAllLeadingZeros()
-    CStatus TestInferAllLeadingZerosExponentialNotationPositive()
-    CStatus TestInferAllLeadingZerosExponentialNotationNegative()
-    CStatus TestObjectBlockWriteFails()
-    CStatus TestMixedTypeFails()
-    CStatus TestFromPythonDecimalRescaleNotTruncateable()
-    CStatus TestFromPythonDecimalRescaleTruncateable()
-    CStatus TestFromPythonNegativeDecimalRescale()
-    CStatus TestDecimal128FromPythonInteger()
-    CStatus TestDecimal256FromPythonInteger()
-    CStatus TestDecimal128OverflowFails()
-    CStatus TestDecimal256OverflowFails()
-    CStatus TestNoneAndNaN()
-    CStatus TestMixedPrecisionAndScale()
-    CStatus TestMixedPrecisionAndScaleSequenceConvert()
-    CStatus TestSimpleInference()
-    CStatus TestUpdateWithNaN()
+    cdef cppclass CTestCase "arrow::py::testing::TestCase":
+        c_string name
+        cb_test_func func
+
+    vector[CTestCase] GetCppTestCases()
