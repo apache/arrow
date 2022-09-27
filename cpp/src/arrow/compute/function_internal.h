@@ -74,7 +74,7 @@ Result<Enum> ValidateEnumValue(CType raw) {
   return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
 }
 
-class GenericOptionsType : public FunctionOptionsType {
+class ARROW_EXPORT GenericOptionsType : public FunctionOptionsType {
  public:
   Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
   Result<std::unique_ptr<FunctionOptions>> Deserialize(
