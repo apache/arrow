@@ -124,6 +124,13 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	reg.AddFunction(subCheckedFn, false)
 }
 
+// Add performs an addition between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is added to each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if CheckOverflow is true.
 func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	fn := "add"
 	if opts.CheckOverflow {
@@ -132,6 +139,13 @@ func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum,
 	return CallFunction(ctx, fn, nil, left, right)
 }
 
+// Sub performs a subtraction between the passed in arguments (scalar or array)
+// and returns the result. If one argument is a scalar and the other is an
+// array, the scalar value is subtracted from each value of the array.
+//
+// ArithmeticOptions specifies whether or not to check for overflows,
+// performance is faster if not explicitly checking for overflows but
+// will error on an overflow if CheckOverflow is true.
 func Subtract(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	fn := "sub"
 	if opts.CheckOverflow {
