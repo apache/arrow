@@ -156,7 +156,7 @@ struct WrapBytes<FixedSizeBinaryType> {
 };
 
 static inline bool ListTypeSupported(const DataType& type) {
-  switch (type.storage_id()) {
+  switch (type.id()) {
     case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
@@ -191,6 +191,13 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::LARGE_LIST: {
       const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
+    }
+    case Type::EXTENSION: {
+      auto ext = std::dynamic_pointer_cast<ExtensionType>(type.GetSharedPtr());
+      if (ext == nullptr) {
+        return false;
+      }
+      return ListTypeSupported(*(ext->storage_type()));
     }
     default:
       break;
