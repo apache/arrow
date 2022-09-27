@@ -732,12 +732,14 @@ class ORCFileWriter::Impl {
       ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
       arrow_schema_ = table.schema();
       ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+          writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
     } else {
       bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
       if (!schemas_matching) {
-        return(Status(StatusCode::Invalid, "The schema of the table does not match"
-        " the initial schema. All exported tables must have the same schema."));
+        return(Status(
+            StatusCode::Invalid,
+            "The schema of the table does not match"
+            " the initial schema. All exported tables must have the same schema."));
       }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
