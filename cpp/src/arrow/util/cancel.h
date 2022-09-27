@@ -42,6 +42,7 @@ class ARROW_EXPORT StopSource {
   // Consumer API (the side that stops)
   void RequestStop();
   void RequestStop(Status error);
+  // Async-signal-safe. TODO Deprecate this?
   void RequestStopFromSignal(int signum);
 
   StopToken token();

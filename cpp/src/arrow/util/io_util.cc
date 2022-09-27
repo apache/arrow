@@ -95,6 +95,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 
 // For filename conversion
 #if defined(_WIN32)
@@ -1212,6 +1213,10 @@ class SelfPipeImpl : public SelfPipe {
       // Already closed
       return ClosedPipe();
     }
+    if (InForkedChild()) {
+      return Status::Invalid(
+          "Self-pipe was created in parent process, cannot wait in child");
+    }
     uint64_t payload = 0;
     char* buf = reinterpret_cast<char*>(&payload);
     auto buf_size = static_cast<int64_t>(sizeof(payload));
@@ -1248,6 +1253,12 @@ class SelfPipeImpl : public SelfPipe {
   }
 
   Status Shutdown() override {
+    if (InForkedChild()) {
+      // We're in a forked child process, avoid sending an EOF payload
+      // that may be received by the parent; just close our file descriptor
+      // (shared with the parent).
+      return pipe_.wfd.Close();
+    }
     please_shutdown_.store(true);
     errno = 0;
     if (!DoSend(kEofPayload)) {
@@ -1265,10 +1276,22 @@ class SelfPipeImpl : public SelfPipe {
  protected:
   Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
 
+  bool InForkedChild() {
+#ifndef _WIN32
+    return pid_.load() != getpid();
+#else
+    return false;
+#endif
+  }
+
   bool DoSend(uint64_t payload) {
     // This needs to be async-signal safe as it's called from Send()
     if (pipe_.wfd.closed()) {
       // Already closed
+      return false;
+    }
+    if (InForkedChild()) {
+      // We're in a forked child process, avoid sending payload to parent.
       return false;
     }
     const char* buf = reinterpret_cast<const char*>(&payload);
@@ -1294,6 +1317,7 @@ class SelfPipeImpl : public SelfPipe {
   const bool signal_safe_;
   Pipe pipe_;
   std::atomic<bool> please_shutdown_{false};
+  std::atomic<pid_t> pid_{getpid()};
 };
 
 #undef PIPE_WRITE
