@@ -730,8 +730,15 @@ class ORCFileWriter::Impl {
     if (!writer_.get()) {
       ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(table.schema())));
       ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+      arrow_schema_ = table.schema();
       ORC_CATCH_NOT_OK(
-          writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+        writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+    } else {
+      bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
+      if (!schemas_matching) {
+        return(Status(StatusCode::Invalid, "The schema of the table does not match"
+        " the initial schema. All exported tables must have the same schema."));
+      }
     }
     auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
     int64_t num_rows = table.num_rows();
@@ -766,6 +773,7 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  std::shared_ptr<Schema> arrow_schema_;
   WriteOptions write_options_;
   ORC_UNIQUE_PTR<liborc::Type> orc_schema_;
 };
