@@ -551,3 +551,42 @@ def upload_artifacts(obj, tag, sha, patterns, method):
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, method=method, patterns=patterns
     )
+
+
+@crossbow.command()
+@click.option('--dry-run/--execute', default=False,
+              help='Just display process, don\'t download anything')
+@click.option('--days', default=90,
+              help='Old branches to be maintained on the repo')
+@click.pass_obj
+def delete_old_branches(obj, dry_run, days):
+    """
+    Deletes branches on queue repository (crossbow) that are older than number
+    of days.
+    """
+    queue = obj['queue']
+    ts = time.time() - days * 24 * 3600
+    refs = []
+    for ref in queue.repo.listall_reference_objects():
+        commit = ref.peel()
+        if commit.commit_time < ts and not ref.name.startswith(
+                "refs/remotes/origin/pr/"):
+            # Check if reference is a remote reference to point
+            # to the remote head.
+            ref_name = ref.name
+            if ref_name.startswith("refs/remotes/origin"):
+                ref_name = ref_name.replace("remotes/origin", "heads")
+            refs.append(f":{ref_name}")
+
+    print(f"Total number of references to delete: {len(refs)}")
+
+    def batch_gen(iterable, step=1):
+        total_length = len(iterable)
+        for index in range(0, total_length, step):
+            yield iterable[index:min(index + step, total_length)]
+
+    for batch in batch_gen(refs, 50):
+        if not dry_run:
+            queue.push(batch)
+        else:
+            print(batch)
