@@ -25,11 +25,15 @@ The Gandiva Expression Compiler
 
 Gandiva is a runtime expression compiler that uses `LLVM`_ to generate
 efficient native code for projections and filters on Arrow record batches.
-Gandiva only handles projections and filters. For other transformations, see
+efficient native code for compute on Arrow record batches.
+Gandiva only handles projections and filters; for other transformations, see
 :ref:`Compute Functions <compute-cpp>`.
 
 Gandiva was designed to take advantage of the Arrow memory format and modern
-hardware. Compiling expressions using LLVM allows the execution to be optimized
+hardware. From the Arrow memory model, since Arrow arrays have separate buffers for values and 
+validity bitmaps, values and their null status can often be processed 
+independently, allowing for better instruction pipelining. On modern hardware,
+compiling expressions using LLVM allows the execution to be optimized
 to the local runtime environment and hardware, including available SIMD
 instructions. To reduce optimization overhead, many Gandiva functions are
 pre-compiled into LLVM IR (intermediate representation).
