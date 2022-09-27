@@ -381,23 +381,13 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
-      - name: Cache Python wheels
-        uses: actions/cache@v3
-        with:
-          path: "${{ env.PIP_CACHE_DIR }}"
-          key: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
-          restore-keys: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-
       - name: Install Google Cloud Storage Testbench
-        shell: msys2 {0}
+        shell: bash
         run: |
           ci/scripts/install_gcs_testbench.sh default
+          echo "PYTHON_BIN_DIR=$(cygpath --windows $(dirname $(which python3.exe)))" >> $GITHUB_ENV
       - name: Test
         shell: msys2 {0}
         run: |
-          python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
-          export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
-          PYTHONPATH="${PYTHONHOME}"
-          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
-          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\site-packages"
-          export PYTHONPATH
+          PATH="$(cygpath --unix ${PYTHON_BIN_DIR}):${PATH}"
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
