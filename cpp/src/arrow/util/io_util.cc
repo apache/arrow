@@ -1317,7 +1317,9 @@ class SelfPipeImpl : public SelfPipe {
   const bool signal_safe_;
   Pipe pipe_;
   std::atomic<bool> please_shutdown_{false};
+#ifndef _WIN32
   std::atomic<pid_t> pid_{getpid()};
+#endif
 };
 
 #undef PIPE_WRITE
