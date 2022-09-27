@@ -317,7 +317,8 @@ class ARROW_DS_EXPORT DatasetEvolutionStrategy {
   virtual std::string ToString() const = 0;
 };
 
-std::unique_ptr<DatasetEvolutionStrategy> MakeBasicDatasetEvolutionStrategy();
+ARROW_DS_EXPORT std::unique_ptr<DatasetEvolutionStrategy>
+MakeBasicDatasetEvolutionStrategy();
 
 /// \brief A container of zero or more Fragments.
 ///
