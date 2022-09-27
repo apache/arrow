@@ -121,15 +121,17 @@ struct SignalStopState {
     }
     if (!self_pipe_) {
       // Make sure the self-pipe is initialized
-      if (!std::atomic_is_lock_free(&self_pipe_ptr_)) {
-        return Status::NotImplemented(
-            "Cannot setup signal StopSource because atomic pointers are not "
-            "lock-free on this platform");
-      }
+      // (NOTE: avoid std::atomic_is_lock_free() which may require libatomic)
+#if ATOMIC_POINTER_LOCK_FREE != 2
+      return Status::NotImplemented(
+          "Cannot setup signal StopSource because atomic pointers are not "
+          "lock-free on this platform");
+#else
       ARROW_ASSIGN_OR_RAISE(self_pipe_, SelfPipe::Make(/*signal_safe=*/true));
       // Spawn thread for receiving signals
       DCHECK(!signal_receiving_thread_);
       SpawnSignalReceivingThread();
+#endif
     }
     self_pipe_ptr_.store(self_pipe_.get());
     for (int signum : signals) {
