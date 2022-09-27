@@ -252,7 +252,7 @@ see its help page:
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://help.github.com/articles/creating-a-new-repository
-.. _TravisCI: https://travis-ci.com/getting_started
+.. _TravisCI: https://travis-ci.com/getting-started/
 .. _Appveyor: https://www.appveyor.com/docs/
 .. _CircleCI: https://circleci.com/docs/2.0/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
