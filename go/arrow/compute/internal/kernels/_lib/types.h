@@ -31,9 +31,9 @@ enum class arrtype : int {
     FLOAT64
 };
 
-// Copied from <type_traits> since we use -target x86_64-target-none
-// makes life easier rather than creating is_integral, etc. templates
-// ourselves
+// The following is copied from <type_traits> since we use -target 
+// x86_64-target-none makes life easier rather than creating is_integral,
+// etc. templates ourselves
 
 /// remove_cv
   template<typename _Tp>

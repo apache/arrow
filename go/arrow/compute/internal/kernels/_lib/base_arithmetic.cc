@@ -17,9 +17,9 @@
 #include <arch.h>
 #include <stdint.h>
 #include "types.h"
-#include "safe-math.h"
+#include "vendored/safe-math.h"
 
-	// Define functions AddWithOverflow, SubtractWithOverflow, MultiplyWithOverflow
+// Define functions AddWithOverflow, SubtractWithOverflow, MultiplyWithOverflow
 // with the signature `bool(T u, T v, T* out)` where T is an integer type.
 // On overflow, these functions return true.  Otherwise, false is returned
 // and `out` is updated with the result of the operation.
@@ -44,6 +44,14 @@ OPS_WITH_OVERFLOW(SubtractWithOverflow, sub)
 OPS_WITH_OVERFLOW(MultiplyWithOverflow, mul)
 OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 
+// Corresponds to equivalent ArithmeticOp enum in base_arithmetic.go
+// for passing across which operation to perform. This allows simpler
+// implementation at the cost of having to pass the extra int8 and
+// perform a switch.
+//
+// In cases of small arrays, this is completely negligible. In cases
+// of large arrays, the time saved by using SIMD here is significantly
+// worth the cost.
 enum class optype : int8_t {
     ADD,
     ADD_CHECKED,
