@@ -12,6 +12,7 @@
 .. KIND, either express or implied.  See the License for the
 .. specific language governing permissions and limitations
 .. under the License.
+
 Gandiva Expression Compiler
 ===========================
 
@@ -37,8 +38,8 @@ Function registry
 .. doxygenclass:: gandiva::FunctionSignature
     :members:
 
-..
-    .. doxygenfunction:: gandiva::GetRegisteredFunctionSignatures
+.. doxygenfunction:: gandiva::GetRegisteredFunctionSignatures
+
 Configuration
 -------------
 

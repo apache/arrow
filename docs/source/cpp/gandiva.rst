@@ -17,7 +17,7 @@
 
 .. default-domain:: cpp
 .. highlight:: cpp
-.. cpp:namespace:: arrow::compute
+.. cpp:namespace:: gandiva
 
 ===============================
 The Gandiva Expression Compiler
@@ -46,57 +46,40 @@ Building Expressions
 
 Gandiva provides a general expression representation where expressions are
 represented by a tree of nodes. The expression trees are built using
-:class:`gandiva::TreeExprBuilder`. The leaves of the expression tree are typically
-field references, created by :func:`gandiva::TreeExprBuilder::MakeField`, and
-literal values, created by :func:`gandiva::TreeExprBuilder::MakeLiteral`. Nodes
+:class:`TreeExprBuilder`. The leaves of the expression tree are typically
+field references, created by :func:`TreeExprBuilder::MakeField`, and
+literal values, created by :func:`TreeExprBuilder::MakeLiteral`. Nodes
 can be combined into more complex expression trees using:
 
-* :func:`gandiva::TreeExprBuilder::MakeFunction` to create a function
+* :func:`TreeExprBuilder::MakeFunction` to create a function
   node.
-* :func:`gandiva::TreeExprBuilder::MakeIf` to create if-else logic.
-* :func:`gandiva::TreeExprBuilder::MakeAnd` and :func:`gandiva::TreeExprBuilder::MakeOr`
+* :func:`TreeExprBuilder::MakeIf` to create if-else logic.
+* :func:`TreeExprBuilder::MakeAnd` and :func:`TreeExprBuilder::MakeOr`
   to create boolean expressions. (For "not", use the ``not(bool)`` function in ``MakeFunction``.)
-* :func:`gandiva::TreeExprBuilder::MakeInExpressionInt32` and the other "in expression"
+* :func:`TreeExprBuilder::MakeInExpressionInt32` and the other "in expression"
   functions to create set membership tests.
 
-Once an expression tree is built, they are wrapped in either :class:`gandiva::Expression`
-or :class:`gandiva::Condition`, depending on how they will be used.
+Once an expression tree is built, they are wrapped in either :class:`Expression`
+or :class:`Condition`, depending on how they will be used.
 ``Expression`` is used in projections while ``Condition`` is used filters.
 
 As an example, here is how to create an Expression representing ``x + 3`` and a
 Condition representing ``x < 3``:
 
-.. code-block:: cpp
-
-   auto field_x_raw = arrow::field("x", arrow::int32());
-   auto field_x = TreeExprBuilder::MakeField(field_x_raw);
-   auto literal_3 = TreeExprBuilder::MakeLiteral(3);
-   auto field_result = arrow::field("result", arrow::int32());
-
-   auto add_node = TreeExprBuilder::MakeFunction("add", {field_x, literal_3}, arrow::int32());
-   auto expression = TreeExprBuilder::MakeExpression(add_node, field_result);
-
-   auto less_than_node = TreeExprBuilder::MakeFunction("less_than", {field_x, literal_3},
-                                                       boolean());
-   auto condition = TreeExprBuilder::MakeCondition(less_than_node);
-
-For simpler expressions, there are also convenience functions that allow you to
-use functions directly in ``MakeExpression`` and ``MakeCondition``:
-
-.. code-block:: cpp
-
-   auto expression = TreeExprBuilder::MakeExpression("add", {field_x, literal_3}, field_result);
-
-   auto condition = TreeExprBuilder::MakeCondition("less_than", {field_x, literal_3});
+.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
+   :language: cpp
+   :start-after: (Doc section: Create expressions)
+   :end-before: (Doc section: Create expressions)
+   :dedent: 2
 
 
 Projectors and Filters
 ======================
 
-Gandiva's two execution kernels are :class:`gandiva::Projector` and
-:class:`gandiva::Filter`. ``Projector`` consumes a record batch and projects
+Gandiva's two execution kernels are :class:`Projector` and
+:class:`Filter`. ``Projector`` consumes a record batch and projects
 into a new record batch. ``Filter`` consumes a record batch and produces a
-:class:`gandiva::SelectionVector` containing the indices that matched the condition.
+:class:`SelectionVector` containing the indices that matched the condition.
 
 For both ``Projector`` and ``Filter``, optimization of the expression IR happens
 when creating instances. They are compiled against a static schema, so the
@@ -105,51 +88,67 @@ schema of the record batches must be known at this point.
 Continuing with the ``expression`` and ``condition`` created in the previous
 section, here is an example of creating a Projector and a Filter:
 
-.. code-block:: cpp
-
-   auto schema = arrow::schema({field_x});
-   std::shared_ptr<Projector> projector;
-   auto status = Projector::Make(schema, {expression}, &projector);
-   ARROW_CHECK_OK(status);
-
-   std::shared_ptr<Filter> filter;
-   status = Filter::Make(schema, condition, &filter);
-   ARROW_CHECK_OK(status);
-
+.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
+   :language: cpp
+   :start-after: (Doc section: Create projector and filter)
+   :end-before: (Doc section: Create projector and filter)
+   :dedent: 2
 
 Once a Projector or Filter is created, it can be evaluated on Arrow record batches.
 These execution kernels are single-threaded on their own, but are designed to be
 reused to process distinct record batches in parallel.
 
-Execution is performed with :func:`gandiva::Projector::Evaluate` and
-:func:`gandiva::Filter::Evaluate`. Filters produce :class:`gandiva::SelectionVector`,
-a vector of row indices that matched the filter condition. When filtering and
-projecting record batches, you can pass the selection vector into the projector
-so that the projection is only evaluated on matching rows.
+Evaluating projections
+----------------------
 
-Here is an example of evaluating the Filter and Projector created above:
+Execution is performed with :func:`Projector::Evaluate`. This outputs 
+a vector of arrays, which can be passed along with the output schema to
+:func:`arrow::RecordBatch::Make()`.
 
-.. code-block:: cpp
+.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
+   :language: cpp
+   :start-after: (Doc section: Evaluate projection)
+   :end-before: (Doc section: Evaluate projection)
+   :dedent: 2
 
-   auto pool = arrow::default_memory_pool();
-   int num_records = 4;
-   arrow::Int32Buider builder;
-   int32_t values[4] = {1, 2, 3, 4};
-   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> array, builder.Finish());
-   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+Evaluating filters
+------------------
 
-   // Just project
-   arrow::ArrayVector outputs;
-   status = projector->Evaluate(*in_batch, pool, &outputs);
-   ARROW_CHECK_OK(status);
+For filters, :func:`Filter::Evaluate` produces :class:`SelectionVector`,
+a vector of row indices that matched the filter condition. The selection vector
+is a wrapper around an arrow integer array, parameterized by bitwidth. When 
+creating the selection vector (you must initialize it *before* passing to 
+``Evaluate()``), you must choose the bitwidth, which determines the max index 
+value it can hold, and the max number of slots, which determines how many indices
+it may contain. In general, the max number of slots should be set to your batch 
+size and the bitwidth the smallest integer size that can represent all integers 
+less than the batch size. For example, if your batch size is 100k, set the 
+maximum number of slots to 100k and the bitwidth to 32 (since 2^16 = 64k which 
+would be too small).
 
-   // Evaluate filter
-   gandiva::SelectionVector result_indices;
-   status = filter->Evaluate(*in_batch, &result_indices);
-   ARROW_CHECK_OK(status);
+Once ``Evaluate()`` has been run and the :class:`SelectionVector` is
+populated, use the :func:`SelectionVector::ToArray()` method to get
+the underlying array and then :func:`::arrow::compute::Take()` to materialize the
+output record batch.
 
-   // Project with filter
-   arrow::ArrayVector outputs_filtered;
-   status = projector->Evaluate(*in_batch, selection_vector.get(),
-                                pool, &outputs_filtered);
-   ARROW_CHECK_OK(status);
+.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
+   :language: cpp
+   :start-after: (Doc section: Evaluate filter)
+   :end-before: (Doc section: Evaluate filter)
+   :dedent: 2
+
+Evaluating projections and filters
+----------------------------------
+
+Finally, you can also project while apply a selection vector, with 
+:func:`Projector::Evaluate()`. To do so, first make sure to initialize the
+:class:`Projector` with :func:`SelectionVector::GetMode()` so that the projector
+compiles with the correct bitwidth. Then you can pass the 
+:class:`SelectionVector` into the :func:`Projector::Evaluate()` method.
+
+
+.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
+   :language: cpp
+   :start-after: (Doc section: Evaluate filter and projection)
+   :end-before: (Doc section: Evaluate filter and projection)
+   :dedent: 2
