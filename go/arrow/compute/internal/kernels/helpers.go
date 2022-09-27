@@ -23,7 +23,9 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/apache/arrow/go/v10/internal/bitutils"
 	"golang.org/x/exp/constraints"
 )
@@ -157,6 +159,72 @@ func ScalarUnaryBoolArg[OutT exec.FixedWidthTypes](op func(*exec.KernelCtx, []by
 		outData := exec.GetSpanValues[OutT](out, 1)
 		return op(ctx, input.Values[0].Array.Buffers[1].Buf, outData)
 	}
+}
+
+func UnboxScalar[T exec.FixedWidthTypes](val scalar.PrimitiveScalar) T {
+	return exec.GetData[T](val.Data())[0]
+}
+
+func UnboxBinaryScalar(val scalar.BinaryScalar) []byte {
+	if !val.IsValid() {
+		return nil
+	}
+	return val.Data()
+}
+
+type binaryOps[OutT, Arg0T, Arg1T exec.FixedWidthTypes] struct {
+	arrArr    func(*exec.KernelCtx, []Arg0T, []Arg1T, []OutT) error
+	arrScalar func(*exec.KernelCtx, []Arg0T, Arg1T, []OutT) error
+	scalarArr func(*exec.KernelCtx, Arg0T, []Arg1T, []OutT) error
+}
+
+func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, Arg0T, Arg1T]) exec.ArrayKernelExec {
+	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
+			a1      = exec.GetSpanValues[Arg1T](arg1, 1)
+			outData = exec.GetSpanValues[OutT](out, 1)
+		)
+		return ops.arrArr(ctx, a0, a1, outData)
+	}
+
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
+			a1      = UnboxScalar[Arg1T](arg1.(scalar.PrimitiveScalar))
+			outData = exec.GetSpanValues[OutT](out, 1)
+		)
+		return ops.arrScalar(ctx, a0, a1, outData)
+	}
+
+	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0      = UnboxScalar[Arg0T](arg0.(scalar.PrimitiveScalar))
+			a1      = exec.GetSpanValues[Arg1T](arg1, 1)
+			outData = exec.GetSpanValues[OutT](out, 1)
+		)
+		return ops.scalarArr(ctx, a0, a1, outData)
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrayArray(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrayScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
+}
+
+func ScalarBinaryEqualTypes[OutT, ArgT exec.FixedWidthTypes](ops binaryOps[OutT, ArgT, ArgT]) exec.ArrayKernelExec {
+	return ScalarBinary(ops)
 }
 
 // SizeOf determines the size in number of bytes for an integer

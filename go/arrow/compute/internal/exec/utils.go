@@ -135,6 +135,13 @@ func Min[T constraints.Ordered](a, b T) T {
 	return b
 }
 
+func Max[T constraints.Ordered](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // OptionsInit should be used in the case where a KernelState is simply
 // represented with a specific type by value (instead of pointer).
 // This will initialize the KernelState as a value-copied instance of
@@ -170,6 +177,11 @@ var typMap = map[reflect.Type]arrow.DataType{
 func GetDataType[T NumericTypes | bool | string]() arrow.DataType {
 	var z T
 	return typMap[reflect.TypeOf(z)]
+}
+
+func GetType[T NumericTypes | bool | string]() arrow.Type {
+	var z T
+	return typMap[reflect.TypeOf(z)].ID()
 }
 
 type arrayBuilder[T NumericTypes] interface {
