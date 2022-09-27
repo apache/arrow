@@ -309,9 +309,9 @@ This result will be a new vector (for example, an ``IntVector``) that can act in
     IntVector encoded = (IntVector) encoder.encode(unencoded);
 
     // 6. re-create an un-encoded version from the encoded vector
-    VarCharVector decoded = (VarCharVector) encoder.decode(encoded)
+    VarCharVector decoded = (VarCharVector) encoder.decode(encoded);
 
-One thing we haven't discussed is how to create the dictionary vector from the original un-encoded values. That is left to the library user since a custom method will likely be more efficient than a general utility.
+One thing we haven't discussed is how to create the dictionary vector from the original un-encoded values. That is left to the library user since a custom method will likely be more efficient than a general utility. Since the dictionary vector is just a normal vector, you can populate its values with the standard APIs.
 
 Finally, you can package a number of dictionaries together, which is useful if you're working with a ``VectorSchemaRoot`` with several dictionary-encoded vectors. This is done using an object called a ``DictionaryProvider``. as shown in the example below. Note that we don't put the dictionary vectors in the same ``VectorSchemaRoot`` as the data vectors, as they will generally have fewer values.
 
@@ -321,7 +321,7 @@ Finally, you can package a number of dictionaries together, which is useful if y
     DictionaryProvider.MapDictionaryProvider provider =
         new DictionaryProvider.MapDictionaryProvider();
 
-    provider.put(dictionary)))
+    provider.put(dictionary);
 
 The ``DictionaryProvider`` is simply a map of identifiers to ``Dictionary`` objects, where each identifier is a long value. In the above code you will see it as the first argument to the ``DictionaryEncoding`` constructor.
 
