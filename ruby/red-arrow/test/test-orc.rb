@@ -164,8 +164,8 @@ class ORCTest < Test::Unit::TestCase
         ]
       end
       assert_equal([
-        ["byte1: int8", [pp_values([1, 100])]],
-        ["int1: int32", [pp_values([65536, 65536])]],
+                     ["byte1: int8", [pp_values([1, 100])]],
+                     ["int1: int32", [pp_values([65536, 65536])]],
                    ],
                    dump)
     end
