@@ -227,12 +227,16 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
     switch (opt) {
     case optype::ADD:
         arithmetic_op<Add, Impl>(type, in_left, in_right, out, len);
+        break;
     case optype::ADD_CHECKED:
         arithmetic_op<AddChecked, Impl>(type, in_left, in_right, out, len);
+        break;
     case optype::SUB:
         arithmetic_op<Sub, Impl>(type, in_left, in_right, out, len);
+        break;
     case optype::SUB_CHECKED:
         arithmetic_op<SubChecked, Impl>(type, in_left, in_right, out, len);
+        break;
     default:
         break;
     }
