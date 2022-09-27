@@ -141,7 +141,6 @@ TEST(BlockParserWithSchema, UnquotedDecimal) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema =
       schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
-  options.parse_decimal_as_number = true;
   AssertParseColumns(options, unquoted_decimal_src(),
                      {field("price", utf8()), field("cost", utf8())},
                      {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
@@ -150,10 +149,10 @@ TEST(BlockParserWithSchema, UnquotedDecimal) {
 TEST(BlockParserWithSchema, MixedDecimal) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema =
-      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 2))});
-  options.parse_decimal_as_number = true;
-  std::shared_ptr<arrow::Array> parsed;
-  ASSERT_RAISES(Invalid, ParseFromString(options, mixed_decimal_src(), &parsed));
+      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  AssertParseColumns(options, mixed_decimal_src(),
+                     {field("price", utf8()), field("cost", utf8())},
+                     {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
 }
 
 class BlockParserTypeError : public ::testing::TestWithParam<UnexpectedFieldBehavior> {

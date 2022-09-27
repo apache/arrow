@@ -277,7 +277,6 @@ TEST(ReaderTest, ListArrayWithFewValues) {
 
 TEST_P(ReaderTest, UnquotedDecimal) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  parse_options_.parse_decimal_as_number = true;
   auto schema =
       ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
   parse_options_.explicit_schema = schema;
@@ -293,13 +292,17 @@ TEST_P(ReaderTest, UnquotedDecimal) {
 
 TEST_P(ReaderTest, MixedDecimal) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  parse_options_.parse_decimal_as_number = true;
   auto schema =
       ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
   parse_options_.explicit_schema = schema;
   auto src = mixed_decimal_src();
   SetUpReader(src);
-  ASSERT_RAISES(Invalid, reader_->Read());
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
+
+  auto expected_table = Table::Make(
+      schema, {ArrayFromJSON(schema->field(0)->type(), R"(["30.04", "1.23"])"),
+               ArrayFromJSON(schema->field(1)->type(), R"(["30.001", "1.229"])")});
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 }  // namespace json

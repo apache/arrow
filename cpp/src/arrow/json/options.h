@@ -53,9 +53,6 @@ struct ARROW_EXPORT ParseOptions {
   /// How JSON fields outside of explicit_schema (if given) are treated
   UnexpectedFieldBehavior unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
-  /// Whether decimals are represented as strings(quoted) or numbers(unquoted)
-  bool parse_decimal_as_number = false;
-
   /// Create parsing options with default values
   static ParseOptions Defaults();
 };

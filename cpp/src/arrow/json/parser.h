@@ -37,7 +37,15 @@ class ResizableBuffer;
 namespace json {
 
 struct Kind {
-  enum type : uint8_t { kNull, kBoolean, kNumber, kString, kArray, kObject };
+  enum type : uint8_t {
+    kNull,
+    kBoolean,
+    kNumber,
+    kString,
+    kArray,
+    kObject,
+    kNumberOrString
+  };
 
   static const std::string& Name(Kind::type);
 
@@ -45,8 +53,7 @@ struct Kind {
 
   static Kind::type FromTag(const std::shared_ptr<const KeyValueMetadata>& tag);
 
-  static Status ForType(const DataType& type, const ParseOptions& options,
-                        Kind::type* kind);
+  static Status ForType(const DataType& type, Kind::type* kind);
 };
 
 constexpr int32_t kMaxParserNumRows = 100000;
@@ -92,12 +99,10 @@ class ARROW_EXPORT BlockParser {
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
-  explicit BlockParser(MemoryPool* pool, const ParseOptions& options)
-      : pool_(pool), options_(options) {}
+  explicit BlockParser(MemoryPool* pool) : pool_(pool) {}
 
   MemoryPool* pool_;
   int32_t num_rows_ = 0;
-  const ParseOptions& options_;
 };
 
 }  // namespace json

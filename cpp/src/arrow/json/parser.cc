@@ -26,7 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/json/options.h"
 #include "arrow/json/rapidjson_defs.h"
 #include "rapidjson/error/en.h"
 #include "rapidjson/reader.h"
@@ -56,8 +55,8 @@ static Status ParseError(T&&... t) {
 }
 
 const std::string& Kind::Name(Kind::type kind) {
-  static const std::string names[] = {"null",   "boolean", "number",
-                                      "string", "array",   "object"};
+  static const std::string names[] = {"null",  "boolean", "number",          "string",
+                                      "array", "object",  "number_or_string"};
 
   return names[kind];
 }
@@ -70,6 +69,7 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
       key_value_metadata({{"json_kind", Kind::Name(Kind::kString)}}),
       key_value_metadata({{"json_kind", Kind::Name(Kind::kArray)}}),
       key_value_metadata({{"json_kind", Kind::Name(Kind::kObject)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNumberOrString)}}),
   };
   return tags[kind];
 }
@@ -77,7 +77,7 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
 static arrow::internal::Trie MakeFromTagTrie() {
   arrow::internal::TrieBuilder builder;
   for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
-                    Kind::kArray, Kind::kObject}) {
+                    Kind::kArray, Kind::kObject, Kind::kNumberOrString}) {
     DCHECK_OK(builder.Append(Kind::Name(kind)));
   }
   auto name_to_kind = builder.Finish();
@@ -93,8 +93,7 @@ Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
   return static_cast<Kind::type>(name_to_kind.Find(name));
 }
 
-Status Kind::ForType(const DataType& type, const ParseOptions& options,
-                     Kind::type* kind) {
+Status Kind::ForType(const DataType& type, Kind::type* kind) {
   struct {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
@@ -104,12 +103,9 @@ Status Kind::ForType(const DataType& type, const ParseOptions& options,
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
-    Status Visit(const FixedSizeBinaryType&) {
-      return options_.parse_decimal_as_number ? SetKind(Kind::kNumber)
-                                              : SetKind(Kind::kString);
-    }
+    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kNumberOrString); }
     Status Visit(const DictionaryType& dict_type) {
-      return Kind::ForType(*dict_type.value_type(), options_, kind_);
+      return Kind::ForType(*dict_type.value_type(), kind_);
     }
     Status Visit(const ListType&) { return SetKind(Kind::kArray); }
     Status Visit(const StructType&) { return SetKind(Kind::kObject); }
@@ -120,9 +116,8 @@ Status Kind::ForType(const DataType& type, const ParseOptions& options,
       *kind_ = kind;
       return Status::OK();
     }
-    const ParseOptions& options_;
     Kind::type* kind_;
-  } visitor = {options, kind};
+  } visitor = {kind};
   return VisitTypeInline(type, &visitor);
 }
 
@@ -397,10 +392,15 @@ class RawArrayBuilder<Kind::kObject> {
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
 
+template <>
+class RawArrayBuilder<Kind::kNumberOrString> : public ScalarBuilder {
+ public:
+  using ScalarBuilder::ScalarBuilder;
+};
+
 class RawBuilderSet {
  public:
-  explicit RawBuilderSet(MemoryPool* pool, const ParseOptions& options)
-      : pool_(pool), options_(options) {}
+  explicit RawBuilderSet(MemoryPool* pool) : pool_(pool) {}
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
@@ -422,7 +422,7 @@ class RawBuilderSet {
   /// construct a builder of whatever kind corresponds to a DataType
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
     Kind::type kind;
-    RETURN_NOT_OK(Kind::ForType(t, options_, &kind));
+    RETURN_NOT_OK(Kind::ForType(t, &kind));
     switch (kind) {
       case Kind::kNull:
         *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
@@ -461,6 +461,8 @@ class RawBuilderSet {
         }
         return Status::OK();
       }
+      case Kind::kNumberOrString:
+        return MakeBuilder<Kind::kNumberOrString>(leading_nulls, builder);
       default:
         return Status::NotImplemented("invalid builder type");
     }
@@ -511,6 +513,9 @@ class RawBuilderSet {
         }
         return Status::OK();
       }
+      case Kind::kNumberOrString: {
+        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
+      }
       default:
         return Status::NotImplemented("invalid builder Kind");
     }
@@ -543,6 +548,9 @@ class RawBuilderSet {
       case Kind::kObject:
         return Cast<Kind::kObject>(builder)->Finish(std::move(finish_children), out);
 
+      case Kind::kNumberOrString:
+        return FinishScalar(scalar_values, Cast<Kind::kNumberOrString>(builder), out);
+
       default:
         return Status::NotImplemented("invalid builder kind");
     }
@@ -570,9 +578,9 @@ class RawBuilderSet {
              std::vector<RawArrayBuilder<Kind::kNumber>>,
              std::vector<RawArrayBuilder<Kind::kString>>,
              std::vector<RawArrayBuilder<Kind::kArray>>,
-             std::vector<RawArrayBuilder<Kind::kObject>>>
+             std::vector<RawArrayBuilder<Kind::kObject>>,
+             std::vector<RawArrayBuilder<Kind::kNumberOrString>>>
       arenas_;
-  const ParseOptions& options_;
 };
 
 /// Three implementations are provided for BlockParser, one for each
@@ -581,9 +589,9 @@ class RawBuilderSet {
 class HandlerBase : public BlockParser,
                     public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
  public:
-  explicit HandlerBase(MemoryPool* pool, const ParseOptions& options)
-      : BlockParser(pool, options),
-        builder_set_(pool, options),
+  explicit HandlerBase(MemoryPool* pool)
+      : BlockParser(pool),
+        builder_set_(pool),
         field_index_(-1),
         scalar_values_builder_(pool) {}
 
@@ -618,12 +626,22 @@ class HandlerBase : public BlockParser,
   }
 
   bool RawNumber(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
+    if (builder_.kind == Kind::kNumberOrString) {
+      status_ =
+          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
+    } else {
+      status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
+    }
     return status_.ok();
   }
 
   bool String(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
+    if (builder_.kind == Kind::kNumberOrString) {
+      status_ =
+          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
+    } else {
+      status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
+    }
     return status_.ok();
   }
 
@@ -1094,15 +1112,15 @@ Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
 
   switch (options.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool, options);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool, options);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool, options);
+      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
       break;
   }
   return static_cast<HandlerBase&>(**out).Initialize(options.explicit_schema);
