@@ -925,3 +925,18 @@ def test_empty_take():
     result = empty_arr.take(pa.array([], pa.int32()))
     assert len(result) == 0
     assert result.equals(empty_arr)
+
+
+def test_array_constructor():
+    ext_type = IntegerType()
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = pa.array([1, 2, 3], type=IntegerType())
+    assert result.equals(expected)
+
+    result = pa.array(np.array([1, 2, 3]), type=IntegerType())
+    assert result.equals(expected)
+
+    result = pa.array(np.array([1.0, 2.0, 3.0]), type=IntegerType())
+    assert result.equals(expected)
