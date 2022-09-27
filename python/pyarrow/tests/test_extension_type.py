@@ -552,6 +552,25 @@ def test_cast_between_extension_types():
     assert int_arr.type == IntegerType()
 
 
+@pytest.mark.parametrize("data,type_factory", (
+    # list<extension>
+    ([[1, 2, 3]], lambda: pa.list_(IntegerType())),
+    # struct<extension>
+    ([{"foo": 1}], lambda: pa.struct([("foo", IntegerType())])),
+    # list<struct<extension>>
+    ([[{"foo": 1}]], lambda: pa.list_(pa.struct([("foo", IntegerType())]))),
+    # struct<list<extension>>
+    ([{"foo": [1, 2, 3]}], lambda: pa.struct(
+        [("foo", pa.list_(IntegerType()))])),
+))
+def test_cast_nested_extension_types(data, type_factory):
+    ty = type_factory()
+    a = pa.array(data)
+    b = a.cast(ty)
+    assert b.type == ty  # casted to target extension
+    assert b.cast(a.type)  # and can cast back
+
+
 def test_casting_dict_array_to_extension_type():
     storage = pa.array([b"0123456789abcdef"], type=pa.binary(16))
     arr = pa.ExtensionArray.from_storage(UuidType(), storage)
