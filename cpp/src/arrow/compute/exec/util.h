@@ -406,7 +406,7 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
     return post_call(Expression(std::move(modified_call)), &expr);
   }
 
-  return post_call(std::move(expr), nullptr);
+  return post_call(std::move(expr), NULLPTR);
 }
 
 }  // namespace compute
