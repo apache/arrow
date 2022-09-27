@@ -122,8 +122,8 @@ to step 3:
    - **Appveyor**: ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
 
      - Check the ``skip branches without appveyor.yml`` checkbox under the repository settings.
-
-
+   
+.. line-block::
 7. Install Python (minimum supported version is 3.7):
 
    Miniconda is preferred, see installation instructions:
