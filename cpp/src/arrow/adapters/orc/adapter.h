@@ -274,6 +274,8 @@ class ARROW_EXPORT ORCFileWriter {
 
   /// \brief Write a table. This can be called multiple times.
   ///
+  /// Tables passed in subsequent calls must match the schema of the table that was written first.
+  ///
   /// \param[in] table the Arrow table from which data is extracted.
   /// \return Status
   Status Write(const Table& table);
