@@ -18,6 +18,7 @@
 #include "arrow/api.h"
 #include "arrow/io/api.h"
 #include "arrow/result.h"
+#include "arrow/util/type_fwd.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 
@@ -100,23 +101,46 @@ arrow::Result<std::shared_ptr<arrow::TableBatchReader>> GetRBR() {
 
 arrow::Status WriteFullFile(std::string path_to_file) {
   // #include "parquet/arrow/writer.h"
+  // #include "arrow/util/type_fwd.h"
+  using parquet::ArrowWriterProperties;
+  using parquet::WriterProperties;
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table, GetTable());
+
+  // Choose compression
+  std::shared_ptr<WriterProperties> props =
+      WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
+
+  // Opt to store Arrow schema for easier reads back into Arrow
+  std::shared_ptr<ArrowWriterProperties> arrow_props =
+      ArrowWriterProperties::Builder().store_schema()->build();
 
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
   ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open(path_to_file));
 
-  ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
-      *table.get(), arrow::default_memory_pool(), outfile, /*chunk_size=*/3));
+  ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(*table.get(),
+                                                 arrow::default_memory_pool(), outfile,
+                                                 /*chunk_size=*/3, props, arrow_props));
   return arrow::Status::OK();
 }
 
 arrow::Status WriteInBatches(std::string path_to_file) {
   // #include "parquet/arrow/writer.h"
+  // #include "arrow/util/type_fwd.h"
+  using parquet::ArrowWriterProperties;
+  using parquet::WriterProperties;
 
   // Data is in RBR
   std::shared_ptr<arrow::RecordBatchReader> batch_stream;
   ARROW_ASSIGN_OR_RAISE(batch_stream, GetRBR());
+
+  // Choose compression
+  std::shared_ptr<WriterProperties> props =
+      WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
+
+  // Opt to store Arrow schema for easier reads back into Arrow
+  std::shared_ptr<ArrowWriterProperties> arrow_props =
+      ArrowWriterProperties::Builder().store_schema()->build();
 
   // Create a writer
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
@@ -124,7 +148,8 @@ arrow::Status WriteInBatches(std::string path_to_file) {
   std::unique_ptr<parquet::arrow::FileWriter> writer;
   ARROW_ASSIGN_OR_RAISE(
       writer, parquet::arrow::FileWriter::Open(*batch_stream->schema().get(),
-                                               arrow::default_memory_pool(), outfile));
+                                               arrow::default_memory_pool(), outfile,
+                                               props, arrow_props));
 
   // Write each batch as a row_group
   for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *batch_stream) {

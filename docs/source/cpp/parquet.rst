@@ -36,7 +36,7 @@ Reading Parquet files
 =====================
 
 The :class:`arrow::FileReader` class reads data for an entire
-file or row group into an :class:`::arrow::Table`.
+file or row group into an :class:`arrow::Table`.
 
 The :class:`StreamReader` and :class:`StreamWriter` classes allow for
 data to be written using a C++ input/output streams approach to
@@ -64,11 +64,12 @@ file.
    :dedent: 2
 
 Finer-grained options are available through the
-:class:`arrow::FileReaderBuilder` helper class, and the :class:`ReaderProperties`
+:class:`arrow::FileReaderBuilder` helper class, which accepts the :class:`ReaderProperties`
 and :class:`ArrowReaderProperties` classes.
 
-For reading as a stream of batches, use the :func:`arrow::FileReader::GetRecordBatchReader`.
-It will use the batch size set in :class:`ArrowReaderProperties`.
+For reading as a stream of batches, use the :func:`arrow::FileReader::GetRecordBatchReader`
+method to retrieve a :class:`arrow::RecordBatchReader`. It will use the batch 
+size set in :class:`ArrowReaderProperties`.
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
    :language: cpp
@@ -80,7 +81,7 @@ It will use the batch size set in :class:`ArrowReaderProperties`.
 Performance and Memory Efficiency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For remote filesystems, use read coalescing to reduce number of API calls:
+For remote filesystems, use read coalescing (pre-buffering) to reduce number of API calls:
 
 .. code-block:: cpp
 
@@ -102,10 +103,11 @@ If memory efficiency is more important than performance, then:
 #. Turn off ``use_buffered_stream``.
 
 In addition, if you know certain columns contain many repeated values, you can
-read them as dictionary encoded columns. This is enabled with the ``set_read_dictionary``
-setting on :class:`ArrowReaderProperties`. If the files were written with Arrow
-C++ and the ``store_schema`` was activated, then the original Arrow schema will
-be automatically read and will override this setting.
+read them as :term:`dictionary encoded<dictionary-encoding>` columns. This is 
+enabled with the ``set_read_dictionary`` setting on :class:`ArrowReaderProperties`. 
+If the files were written with Arrow C++ and the ``store_schema`` was activated,
+then the original Arrow schema will be automatically read and will override this
+setting.
 
 StreamReader
 ------------
@@ -164,13 +166,13 @@ The :func:`arrow::WriteTable` function writes an entire
    :language: cpp
    :start-after: arrow::Status WriteFullFile(
    :end-before: return arrow::Status::OK();
-   :emphasize-lines: 8-9
+   :emphasize-lines: 19-21
    :dedent: 2
 
 .. warning::
 
-   Column compression is off by default in C++. See below for how to choose a
-   compression codec in the writer properties.
+   Column compression is off by default in C++. See :ref:`below <parquet-writer-properties>` 
+   for how to choose a compression codec in the writer properties.
 
 To write out data batch-by-batch, use :class:`arrow::FileWriter`.
 
@@ -178,7 +180,7 @@ To write out data batch-by-batch, use :class:`arrow::FileWriter`.
    :language: cpp
    :start-after: arrow::Status WriteInBatches(
    :end-before: return arrow::Status::OK();
-   :emphasize-lines: 12-13,20,24
+   :emphasize-lines: 23-25,32,36
    :dedent: 2
 
 .. seealso::
@@ -234,6 +236,8 @@ thrown in the following circumstances:
       }
    }
 
+.. _parquet-writer-properties:
+
 Writer properties
 -----------------
 
@@ -249,12 +253,12 @@ To configure how Parquet files are written, use the :class:`WriterProperties::Bu
    using parquet::ParquetDataPageVersion;
    using arrow::Compression;
 
-   WriterProperties arrow_props = WriterProperties::Builder()
+   std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
       .max_row_group_length(64 * 1024)
       .created_by("My Application")
       .version(ParquetVersion::PARQUET_2_6)
       .data_page_version(ParquetDataPageVersion::V2)
-      .compression(Compression::Snappy)
+      .compression(Compression::SNAPPY)
       .build();
 
 The ``max_row_group_length`` sets an upper bound that takes precedent over the
@@ -289,14 +293,14 @@ be changed with ``encoding()``.
    using arrow::Compression;
    using parquet::Encoding;
 
-   WriterProperties arrow_props = WriterProperties::Builder()
-     .compression(Compression::Snappy)       // Fallback
-     .compression("colA", Compression::ZSTD) // Only applies to colA
-     .encoding(Encoding::BIT_PACKED)         // Fallback
-     .encoding("colB", Encoding::RLE)        // Only applies to colB
-     .disable_dictionary("colB")             // Always use RLE, never dictionary
-     .disable_statistics("colB")             // Stats won't be written for colB
-     .build();
+   std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
+     .compression(Compression::SNAPPY)        // Fallback
+     ->compression("colA", Compression::ZSTD) // Only applies to colA
+     ->encoding(Encoding::BIT_PACKED)         // Fallback
+     ->encoding("colB", Encoding::RLE)        // Only applies to colB
+     ->disable_dictionary("colB")             // Always use RLE, never dictionary
+     ->disable_statistics("colB")             // Stats won't be written for colB
+     ->build();
 
 Statistics are enabled by default for all columns. You can disable statistics for
 all columns or specific columns using ``disable_statistics`` on the builder.
@@ -312,11 +316,11 @@ There are also Arrow-specific settings that can be configured with
 
    using parquet::ArrowWriterProperties;
 
-   auto arrow_props = ArrowWriterProperties::Builder()
+   std::shared_ptr<ArrowWriterProperties> arrow_props = ArrowWriterProperties::Builder()
       .enable_deprecated_int96_timestamps() // default False
-      .store_schema() // default False
-      .enable_compliant_nested_types() // default False
-      .build();
+      ->store_schema() // default False
+      ->enable_compliant_nested_types() // default False
+      ->build();
 
 These options mostly dictate how Arrow types are converted to Parquet types.
 Turning on ``store_schema`` will cause the writer to place the serialized Arrow
