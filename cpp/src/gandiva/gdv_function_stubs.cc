@@ -134,9 +134,9 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   if (buffer->capacity() < new_size) {
     auto status =
         buffer->Reserve(std::max(buffer->capacity() * 2, static_cast<int64_t>(new_size)));
-    if (!status.ok()) {
+    // ARROW-17869 Java's buffer type doesn't support reserve
+    if (!status.ok() && !status.IsNotImplemented()) {
       auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-
       context->set_error_msg(status.message().c_str());
       return -1;
     }
