@@ -52,12 +52,17 @@ literal values, created by :func:`TreeExprBuilder::MakeLiteral`. Nodes
 can be combined into more complex expression trees using:
 
 * :func:`TreeExprBuilder::MakeFunction` to create a function
-  node.
+  node. (You can call :func:`GetRegisteredFunctionSignatures` to 
+  get a list of valid function signatures.)
 * :func:`TreeExprBuilder::MakeIf` to create if-else logic.
 * :func:`TreeExprBuilder::MakeAnd` and :func:`TreeExprBuilder::MakeOr`
   to create boolean expressions. (For "not", use the ``not(bool)`` function in ``MakeFunction``.)
 * :func:`TreeExprBuilder::MakeInExpressionInt32` and the other "in expression"
   functions to create set membership tests.
+
+Each of these functions create new composite nodes, which contain the leaf nodes
+(literals and field references) or other composite nodes as children. By 
+composing these, you can create arbitrarily complex expression trees.
 
 Once an expression tree is built, they are wrapped in either :class:`Expression`
 or :class:`Condition`, depending on how they will be used.
