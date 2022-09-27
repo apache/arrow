@@ -50,7 +50,7 @@ jobs:
           sudo chown -R ${USER}: build
           # These are only used while generating the page
           rm -rf build/docs/.doctrees
-      - name: Push changes
+      - name: Upload preview to S3
         env: 
           AWS_ACCESS_KEY_ID: {{ '${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}' }}
           AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}' }}
