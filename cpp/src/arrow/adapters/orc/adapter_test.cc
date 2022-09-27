@@ -226,7 +226,7 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 // nb_writes parameter is for testing writing several times the input_table.
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
-                               const int64_t max_size = kDefaultSmallMemStreamSize, 
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
                                int nb_writes = 1) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
@@ -259,7 +259,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
 
 void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
                                const std::shared_ptr<Array>& expected_output_array,
-                               const int64_t max_size = kDefaultSmallMemStreamSize, 
+                               const int64_t max_size = kDefaultSmallMemStreamSize,
                                int nb_writes = 1) {
   std::shared_ptr<Schema> input_schema = schema({field("col0", input_array->type())}),
                           output_schema =
@@ -755,7 +755,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   auto input_chunked_array = std::make_shared<ChunkedArray>(array_int),
        expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}),
-                         expected_output_table = 
+                         expected_output_table =
                              Table::Make(input_schema, {expected_output_chunked_array});
   AssertTableWriteReadEqual(input_table, expected_output_table, 
                             kDefaultSmallMemStreamSize * 100, nb_writes);
@@ -777,7 +777,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
                        io::BufferOutputStream::Create(kDefaultSmallMemStreamSize));
   auto write_options = adapters::orc::WriteOptions();
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
-                                       buffer_output_stream.get(), write_options));
+                                        buffer_output_stream.get(), write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));
 
   // This should not pass
