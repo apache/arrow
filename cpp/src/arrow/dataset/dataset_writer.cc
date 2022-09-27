@@ -345,24 +345,29 @@ class DatasetWriterDirectoryQueue {
     }
     init_future_ = Future<>::Make();
     auto create_dir_cb = [this] {
-      return DeferNotOk(
-          write_options_.filesystem->io_context().executor()->Submit([this]() {
-            ARROW_RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
-            init_future_.MarkFinished();
-            return Status::OK();
-          }));
+      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
+    };
+    // We need to notify waiters whether the directory succeeded or failed.
+    auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
+    auto notify_waiters_on_err_cb = [this](const Status& err) {
+      init_future_.MarkFinished();
+      return err;
     };
     std::function<Future<>()> init_task;
     if (write_options_.existing_data_behavior ==
         ExistingDataBehavior::kDeleteMatchingPartitions) {
-      init_task = [this, create_dir_cb] {
+      init_task = [this, create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
         return write_options_.filesystem
             ->DeleteDirContentsAsync(directory_,
                                      /*missing_dir_ok=*/true)
-            .Then(create_dir_cb);
+            .Then(create_dir_cb)
+            .Then(notify_waiters_cb, notify_waiters_on_err_cb);
       };
     } else {
-      init_task = [create_dir_cb] { return create_dir_cb(); };
+      init_task = [create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
+        return create_dir_cb().Then(notify_waiters_cb, notify_waiters_on_err_cb);
+      };
     }
     scheduler_->AddSimpleTask(std::move(init_task));
   }
