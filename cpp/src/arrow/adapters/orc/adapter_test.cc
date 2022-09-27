@@ -225,7 +225,8 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
-                               const int64_t max_size = kDefaultSmallMemStreamSize) {
+                               const int64_t max_size = kDefaultSmallMemStreamSize, 
+                               std::vector<int>* opt_selected_read_indices = nullptr) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
   auto write_options = adapters::orc::WriteOptions();
@@ -249,7 +250,9 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   ASSERT_EQ(reader->GetCompression(), write_options.compression);
   ASSERT_EQ(reader->GetCompressionSize(), write_options.compression_block_size);
   ASSERT_EQ(reader->GetRowIndexStride(), write_options.row_index_stride);
-  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table,
+                      opt_selected_read_indices == nullptr ?
+                      reader->Read() : reader->Read(*opt_selected_read_indices));
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
@@ -449,6 +452,17 @@ TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunk) {
 TEST_F(TestORCWriterTrivialNoConversion, writeChunkless) {
   std::shared_ptr<Table> table = TableFromJSON(table_schema, {});
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
+}
+TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
+  std::shared_ptr<Table> table = TableFromJSON(table_schema, {R"([])"});
+  std::shared_ptr<Schema> schema_selected = schema(
+        {
+         field("int32", int32()), field("int64", int64()), field("float", float32()),
+         field("decimal128z", decimal128(32, 0)), field("date32", date32())
+         });
+  std::shared_ptr<Table> table_selected = TableFromJSON(schema_selected, {R"([])"});
+  std::vector<int> selected_indices = {1,3};
+  AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize / 16, &selected_indices);
 }
 class TestORCWriterTrivialWithConversion : public ::testing::Test {
  public:
