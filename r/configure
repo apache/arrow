@@ -184,8 +184,8 @@ else
 
         # Use pkg-config to do static linking of libarrow's dependencies
         if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
-          PKG_LIBS="`PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --static  --silence-errors ${PKG_CONFIG_NAME}`"
-          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
+          export PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
+          PKG_LIBS="`pkg-config --libs --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
         # When using brew's openssl it is not bundled and it is not on the system
