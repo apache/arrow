@@ -557,7 +557,7 @@ def upload_artifacts(obj, tag, sha, patterns, method):
 @click.option('--dry-run/--execute', default=False,
               help='Just display process, don\'t download anything')
 @click.option('--days', default=90,
-              help='Old branches to be maintained on the repo')
+              help='Branches older than this amount of days will be deleted')
 @click.pass_obj
 def delete_old_branches(obj, dry_run, days):
     """
