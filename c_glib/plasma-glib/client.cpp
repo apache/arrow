@@ -35,6 +35,9 @@ G_BEGIN_DECLS
  * @title: Client related classes
  * @include: plasma-glib/plasma-glib.h
  *
+ * Apache Arrow Plasma C GLib is deprecated since 10.0.0. This will be
+ * removed from 12.0.0 or so.
+ *
  * #GPlasmaClientOptions is a class for customizing plasma store
  * connection.
  *
