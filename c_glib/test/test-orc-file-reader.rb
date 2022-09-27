@@ -186,7 +186,7 @@ map: map<string, struct<int1: int32, string1: string>>
       require_gi_bindings(3, 2, 6)
       @reader.field_indices = [1, 3]
       assert_equal(build_table("byte1" => build_int8_array([1, 100]),
-                              "int1" => build_int32_array([65536, 65536])),
+                               "int1" => build_int32_array([65536, 65536])),
                    @reader.read_stripes)
     end
   end
