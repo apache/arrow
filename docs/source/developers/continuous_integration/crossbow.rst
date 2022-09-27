@@ -46,7 +46,7 @@ Executors
 
 Individual jobs are executed on public CI services, currently:
 
-- Linux: TravisCI, CircleCI, Azure Pipelines
+- Linux: TravisCI, Azure Pipelines
 - Mac: TravisCI, Azure Pipelines
 - Windows: AppVeyor, Azure Pipelines
 
@@ -80,8 +80,8 @@ to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
-   integrations on for the newly created queue repository.
+2. Enable `TravisCI`_, `Appveyor`_, and `Azure Pipelines`_ integrations on for
+   the newly created queue repository.
 
 3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
@@ -114,8 +114,6 @@ to step 3:
    set them at the following URLs, where ``ghuser`` is the GitHub
    username and ``ghrepo`` is the GitHub repository name (typically
    ``crossbow``):
-
-   - **CircleCI**: ``https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars``
 
    - **TravisCI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
@@ -251,10 +249,9 @@ see its help page:
 .. _conda-forge packages: conda-recipes
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
-.. _Create the queue repository: https://help.github.com/articles/creating-a-new-repository
+.. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
 .. _TravisCI: https://travis-ci.com/getting-started/
 .. _Appveyor: https://www.appveyor.com/docs/
-.. _CircleCI: https://circleci.com/docs/2.0/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
 .. _Create a Personal Access Token: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
