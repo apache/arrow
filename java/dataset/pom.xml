@@ -101,7 +101,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>${dep.guava.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
