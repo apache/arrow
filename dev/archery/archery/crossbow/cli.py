@@ -558,11 +558,14 @@ def upload_artifacts(obj, tag, sha, patterns, method):
               help='Just display process, don\'t download anything')
 @click.option('--days', default=90,
               help='Branches older than this amount of days will be deleted')
+@click.option('--maximum', default=1000,
+              help='Maximum limit of branches to delete for a single run')
 @click.pass_obj
-def delete_old_branches(obj, dry_run, days):
+def delete_old_branches(obj, dry_run, days, maximum):
     """
     Deletes branches on queue repository (crossbow) that are older than number
     of days.
+    With a maximum number of branches to be deleted.
     """
     queue = obj['queue']
     ts = time.time() - days * 24 * 3600
@@ -578,12 +581,12 @@ def delete_old_branches(obj, dry_run, days):
                 ref_name = ref_name.replace("remotes/origin", "heads")
             refs.append(f":{ref_name}")
 
-    print(f"Total number of references to delete: {len(refs)}")
-
-    def batch_gen(iterable, step=1):
+    def batch_gen(iterable, step):
         total_length = len(iterable)
-        for index in range(0, total_length, step):
-            yield iterable[index:min(index + step, total_length)]
+        to_delete = min(total_length, maximum)
+        print(f"Total number of references to be deleted: {to_delete}")
+        for index in range(0, to_delete, step):
+            yield iterable[index:min(index + step, to_delete)]
 
     for batch in batch_gen(refs, 50):
         if not dry_run:
