@@ -636,6 +636,52 @@ Caveats
 
 The Plasma component is not supported on Windows.
 
+Deleting stale build artifacts
+==============================
+
+When there have been changes to the structure of the Arrow C++ library or Pyarrow,
+a thorough cleaning is recommended as a first attempt to fixing build errors.
+
+.. note::
+
+   It is not necessarily intuitive from the error itself that the problem is due to stale artifacts.
+   Example of a build error from stale artifacts is "Unknown CMake command "arrow_keep_backward_compatibility".
+
+To delete stale Arrow C++ build artifacts:
+
+.. code-block::
+
+  $ rm -rf arrow/cpp/build
+
+To delete stale PyArrow build artifacts:
+
+.. code-block::
+
+  $ pushd python
+  $ python3 setup.py clean
+  $ popd
+
+To delete misc build artifacts that are hidden from ``git``:
+
+.. code-block::
+
+  $ git clean -Xfd .
+
+If using a Conda environment, there are some build artifacts that get installed in
+``$ARROW_HOME`` (aka ``$CONDA_PREFIX``). For example, ``$ARROW_HOME/lib/cmake/Arrow*``.
+If still running into build errors, the files can be manually found and erased by hand,
+but one approach is to set-up a new Conda environment.
+
+You can either delete the current one, and start fresh:
+
+.. code-block::
+
+   $ conda deactivate
+   $ conda remove -n pyarrow-dev
+
+Or, less destructively, create a different environment with a different name.
+
+
 Installing Nightly Packages
 ===========================
 
