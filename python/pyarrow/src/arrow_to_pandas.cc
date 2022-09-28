@@ -750,18 +750,13 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
 
-    std::shared_ptr<DataType> out_ty;
-    if (lt != nullptr) {
-      out_ty = fixed_size_list(storage_ty, lt->list_size());
+    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
+    if (arr.type()->id() == Type::EXTENSION) {
+      const auto& arr_ext = checked_cast<const ExtensionArray&>(*data.chunk(c));
+      value_arrays.emplace_back(arr_ext.storage());
     } else {
-      out_ty = list(storage_ty);
+      value_arrays.emplace_back(arr.values());
     }
-    compute::CastOptions options;
-    options.to_type = out_ty;
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> casted, compute::Cast(*data.chunk(c), out_ty, options));
-    const auto& arr = checked_cast<const ListArrayT&>(*casted);
-    
-    value_arrays.emplace_back(arr.values());
   }
 
   auto flat_column = std::make_shared<ChunkedArray>(value_arrays, storage_ty);
@@ -771,23 +766,14 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
                                             owned_numpy_array.ref()));
-
+  ARROW_LOG(INFO) << "Convert chunked";
   PyObject* numpy_array = owned_numpy_array.obj();
   DCHECK(PyArray_Check(numpy_array));
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
 
-    std::shared_ptr<DataType> out_ty;
-    if (lt != nullptr) {
-      out_ty = fixed_size_list(storage_ty, lt->list_size());
-    } else {
-      out_ty = list(storage_ty);
-    }
-    compute::CastOptions options;
-    options.to_type = out_ty;
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> casted, compute::Cast(*data.chunk(c), out_ty, options));
-    const auto& arr = checked_cast<const ListArrayT&>(*casted);
+    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (has_nulls && arr.IsNull(i)) {

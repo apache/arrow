@@ -925,3 +925,28 @@ def test_empty_take():
     result = empty_arr.take(pa.array([], pa.int32()))
     assert len(result) == 0
     assert result.equals(empty_arr)
+    
+    
+class LabelType(pa.ExtensionType):
+     
+         def __init__(self):
+             super(LabelType, self).__init__(pa.string(), "label")
+     
+         def __arrow_ext_serialize__(self):
+             return b""
+     
+         @classmethod
+         def __arrow_ext_deserialize__(cls, storage_type, serialized):
+             return LabelType()
+
+@pytest.mark.parametrize("data,ty", (
+    ([1, 2, 3], IntegerType),
+    #(["cat", "dog", "horse"], LabelType)
+))
+def test_extension_array_to_numpy(data, ty):     
+     storage = pa.array(data)
+     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
+     offsets = pa.array([0, 1])
+     list_arr = pa.ListArray.from_arrays(offsets, ext_arr)
+     list_arr.to_numpy(zero_copy_only=False)
+
