@@ -251,9 +251,9 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   ASSERT_EQ(reader->GetCompressionSize(), write_options.compression_block_size);
   ASSERT_EQ(reader->GetRowIndexStride(), write_options.row_index_stride);
   EXPECT_OK_AND_ASSIGN(auto actual_output_table,
-                      opt_selected_read_indices == nullptr
-                          ? reader->Read()
-                          : reader->Read(*opt_selected_read_indices));
+                       opt_selected_read_indices == nullptr
+                           ? reader->Read()
+                           : reader->Read(*opt_selected_read_indices));
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
 
@@ -456,8 +456,8 @@ TEST_F(TestORCWriterTrivialNoConversion, writeChunkless) {
 }
 TEST_F(TestORCWriterTrivialNoConversion, writeTrivialChunkAndSelectField) {
   std::shared_ptr<Table> table = TableFromJSON(table_schema, {R"([])"});
-  std::shared_ptr<Schema> schema_selected = 
-       schema({field("int8", int8()), field("int32", int32())});
+  std::shared_ptr<Schema> schema_selected =
+      schema({field("int8", int8()), field("int32", int32())});
   std::shared_ptr<Table> table_selected = TableFromJSON(schema_selected, {R"([])"});
   std::vector<int> selected_indices = {1, 3};
   AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize / 16,
