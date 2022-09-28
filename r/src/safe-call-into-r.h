@@ -150,43 +150,60 @@ class MainRThread {
 // (when we are evaluating code *on* the R thread, R's signal handlers are
 // sufficient and will signal an interupt condition that will propagate
 // via a cpp11::unwind_excpetion).
-class RunWithCapturedRContext {
+class WithSignalHandlerContext {
  public:
-  arrow::Status Init() {
+  WithSignalHandlerContext() : signal_handler_registered_(false) {
     if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
-      RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
-    }
+      arrow::Status result = arrow::RegisterCancellingSignalHandler({SIGINT});
 
-    return arrow::Status::OK();
+      // If this result was not OK we don't get cancellation for the
+      // lifecycle of this object; however, we can still carry on. This
+      // can occur when forking the R process (e.g., using parallel::mclapply()).
+      if (result.ok()) {
+        signal_handler_registered_ = true;
+      } else {
+        result.Warn();
+      }
+    }
   }
 
-  ~RunWithCapturedRContext() {
-    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
+  ~WithSignalHandlerContext() {
+    if (signal_handler_registered_) {
       arrow::UnregisterCancellingSignalHandler();
     }
   }
+
+ private:
+  bool signal_handler_registered_;
 };
 
 // This is an object whose scope ensures we do not register signal handlers when
 // evaluating R code when that evaluation happens via SafeCallIntoR.
-class SafeCallIntoRContext {
+class WithoutSignalHandlerContext {
  public:
-  SafeCallIntoRContext() {
-    if (!MainRThread::GetInstance().IsMainThread() &&
-        MainRThread::GetInstance().SignalStopSourceEnabled()) {
+  WithoutSignalHandlerContext() : signal_handler_unregistered_(false) {
+    if (MainRThread::GetInstance().SignalStopSourceEnabled()) {
       arrow::UnregisterCancellingSignalHandler();
+      signal_handler_unregistered_ = true;
     }
   }
 
-  ~SafeCallIntoRContext() {
-    if (!MainRThread::GetInstance().IsMainThread() &&
-        MainRThread::GetInstance().SignalStopSourceEnabled()) {
+  ~WithoutSignalHandlerContext() {
+    if (signal_handler_unregistered_) {
       arrow::Status result = arrow::RegisterCancellingSignalHandler({SIGINT});
+
+      // This is unlikely because the signal handlers were previously registered;
+      // however, it's better to warn here instead of error because it doesn't
+      // affect what the user tried to do (it probably just means we didn't
+      // anticipate a use case).
       if (!result.ok()) {
-        MainRThread::GetInstance().SetError(result);
+        result.Warn();
       }
     }
   }
+
+ private:
+  bool signal_handler_unregistered_;
 };
 
 // Call into R and return a C++ object. Note that you can't return
@@ -200,13 +217,12 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // If we're on the main thread, run the task immediately and let
     // the cpp11::unwind_exception be thrown since it will be caught
     // at the top level.
-    SafeCallIntoRContext context;
     return fun();
   } else if (main_r_thread.CanExecuteSafeCallIntoR()) {
     // If we are not on the main thread and have an Executor,
     // use it to run the task on the main R thread. We can't throw
     // a cpp11::unwind_exception here, so we need to propagate it back
-    // to RunWithCapturedR through the MainRThread singleton.
+    // to RunWithCapturedR through the MainRThread instance.
     return DeferNotOk(main_r_thread.Executor()->Submit([fun,
                                                         reason]() -> arrow::Result<T> {
       // This occurs when some other R code that was previously scheduled to run
@@ -217,11 +233,11 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
       }
 
       try {
-        SafeCallIntoRContext context;
+        WithoutSignalHandlerContext context;
         return fun();
       } catch (cpp11::unwind_exception& e) {
         // Set the MainRThread error so that subsequent calls to SafeCallIntoR
-        // know not to execute R code
+        // know not to execute R code.
         MainRThread::GetInstance().SetError(arrow::StatusUnwindProtect(e.token, reason));
 
         // Return an error Status (which is unlikely to surface since RunWithCapturedR
@@ -266,10 +282,8 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
 
-  RunWithCapturedRContext context;
-  ARROW_RETURN_NOT_OK(context.Init());
   MainRThread::GetInstance().ResetError();
-
+  WithSignalHandlerContext context;
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
       [make_arrow_call](arrow::internal::Executor* executor) {
         MainRThread::GetInstance().Executor() = executor;
@@ -313,7 +327,7 @@ static inline arrow::Status RunWithCapturedRIfPossibleVoid(
     ARROW_RETURN_NOT_OK(make_arrow_call());
     return true;
   });
-  ARROW_RETURN_NOT_OK(result);
+
   return result.status();
 }
 
