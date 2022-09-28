@@ -757,7 +757,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}),
                          expected_output_table =
                              Table::Make(input_schema, {expected_output_chunked_array});
-  AssertTableWriteReadEqual(input_table, expected_output_table, 
+  AssertTableWriteReadEqual(input_table, expected_output_table,
                             kDefaultSmallMemStreamSize * 100, nb_writes);
 }
 
