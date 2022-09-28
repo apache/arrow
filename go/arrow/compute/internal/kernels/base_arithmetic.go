@@ -18,7 +18,6 @@ package kernels
 
 import (
 	"fmt"
-	"math/bits"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
@@ -30,112 +29,119 @@ type ArithmeticOp int8
 
 const (
 	OpAdd ArithmeticOp = iota
-	OpAddChecked
 	OpSub
+
+	OpAddChecked
 	OpSubChecked
 )
 
-func getGoArithmeticBinaryOpsFloating[T constraints.Float](op ArithmeticOp) binaryOps[T, T, T] {
-	Op := map[ArithmeticOp]func(a, b T, e *error) T{
-		OpAdd:        func(a, b T, _ *error) T { return a + b },
-		OpAddChecked: func(a, b T, _ *error) T { return a + b },
-		OpSub:        func(a, b T, _ *error) T { return a - b },
-		OpSubChecked: func(a, b T, _ *error) T { return a - b },
-	}[op]
-
+func getGoArithmeticBinary[T exec.NumericTypes](op func(a, b T, e *error) T) binaryOps[T, T, T] {
 	return binaryOps[T, T, T]{
 		arrArr: func(_ *exec.KernelCtx, left, right, out []T) error {
 			var err error
 			for i := range out {
-				out[i] = Op(left[i], right[i], &err)
+				out[i] = op(left[i], right[i], &err)
 			}
 			return err
 		},
 		arrScalar: func(ctx *exec.KernelCtx, left []T, right T, out []T) error {
 			var err error
 			for i := range out {
-				out[i] = Op(left[i], right, &err)
+				out[i] = op(left[i], right, &err)
 			}
 			return err
 		},
 		scalarArr: func(ctx *exec.KernelCtx, left T, right, out []T) error {
 			var err error
 			for i := range out {
-				out[i] = Op(left, right[i], &err)
+				out[i] = op(left, right[i], &err)
 			}
 			return err
 		},
 	}
 }
 
-func getGoArithmeticBinaryOpsIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) binaryOps[T, T, T] {
-	Op := map[ArithmeticOp]func(a, b T, e *error) T{
-		OpAdd: func(a, b T, _ *error) T { return a + b },
-		OpAddChecked: func(a, b T, e *error) T {
-			out, carry := bits.Add64(uint64(a), uint64(b), 0)
-			if carry > 0 {
-				*e = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
-			}
-			return T(out)
-		},
-		OpSub: func(a, b T, _ *error) T { return a - b },
-		OpSubChecked: func(a, b T, e *error) T {
-			out, carry := bits.Sub64(uint64(a), uint64(b), 0)
-			if carry > 0 {
-				*e = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
-			}
-			return T(out)
-		},
-	}[op]
+var errOverflow = fmt.Errorf("%w: overflow", arrow.ErrInvalid)
 
-	return binaryOps[T, T, T]{
-		arrArr: func(_ *exec.KernelCtx, left, right, out []T) error {
-			var err error
-			for i := range out {
-				out[i] = Op(left[i], right[i], &err)
+func getGoArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	switch op {
+	case OpAdd:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+	case OpAddChecked:
+		shiftBy := (SizeOf[T]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^T(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			out = a + b
+			// see math/bits/bits.go Add64 for explanation of logic
+			carry := ((a & b) | ((a | b) &^ out)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
 			}
-			return err
-		},
-		arrScalar: func(ctx *exec.KernelCtx, left []T, right T, out []T) error {
-			var err error
-			for i := range out {
-				out[i] = Op(left[i], right, &err)
+			return
+		})
+	case OpSubChecked:
+		shiftBy := (SizeOf[T]() * 8) - 1
+		// ie: uint32 does a >> 31 at the end, int32 does >> 30
+		if ^T(0) < 0 {
+			shiftBy--
+		}
+		return ScalarBinaryNotNull(func(_ *exec.KernelCtx, a, b T, e *error) (out T) {
+			out = a - b
+			// see math/bits/bits.go Sub64 for explanation of bit logic
+			carry := ((^a & b) | (^(a ^ b) & out)) >> shiftBy
+			if carry > 0 {
+				*e = errOverflow
 			}
-			return err
-		},
-		scalarArr: func(ctx *exec.KernelCtx, left T, right, out []T) error {
-			var err error
-			for i := range out {
-				out[i] = Op(left, right[i], &err)
-			}
-			return err
-		},
+			return
+		})
 	}
+	debug.Assert(false, "invalid arithmetic op")
+	return nil
+}
+
+func getGoArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	if op >= OpAddChecked {
+		op -= OpAddChecked // floating checked is the same as floating unchecked
+	}
+	switch op {
+	case OpAdd:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a + b }))
+	case OpSub:
+		return ScalarBinary(getGoArithmeticBinary(func(a, b T, _ *error) T { return a - b }))
+	}
+	debug.Assert(false, "invalid arithmetic op")
+	return nil
 }
 
 func ArithmeticExec(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 	switch ty {
 	case arrow.INT8:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[int8](op))
+		return getArithmeticBinaryOpIntegral[int8](op)
 	case arrow.UINT8:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[uint8](op))
+		return getArithmeticBinaryOpIntegral[uint8](op)
 	case arrow.INT16:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[int16](op))
+		return getArithmeticBinaryOpIntegral[int16](op)
 	case arrow.UINT16:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[uint16](op))
+		return getArithmeticBinaryOpIntegral[uint16](op)
 	case arrow.INT32:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[int32](op))
+		return getArithmeticBinaryOpIntegral[int32](op)
 	case arrow.UINT32:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[uint32](op))
+		return getArithmeticBinaryOpIntegral[uint32](op)
 	case arrow.INT64:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[int64](op))
+		return getArithmeticBinaryOpIntegral[int64](op)
 	case arrow.UINT64:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsIntegral[uint64](op))
+		return getArithmeticBinaryOpIntegral[uint64](op)
 	case arrow.FLOAT32:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsFloating[float32](op))
+		return getArithmeticBinaryOpFloating[float32](op)
 	case arrow.FLOAT64:
-		return ScalarBinaryEqualTypes(getArithmeticBinaryOpsFloating[float64](op))
+		return getArithmeticBinaryOpFloating[float64](op)
 	}
 	debug.Assert(false, "invalid arithmetic type")
 	return nil
+
 }

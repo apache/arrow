@@ -62,22 +62,27 @@ func getSSE4ArithmeticBinaryNumeric[T exec.NumericTypes](op ArithmeticOp) binary
 	}
 }
 
-func getArithmeticBinaryOpsFloating[T constraints.Float](op ArithmeticOp) binaryOps[T, T, T] {
-	if cpu.X86.HasAVX2 {
-		return getAvx2ArithmeticBinaryNumeric[T](op)
-	} else if cpu.X86.HasSSE42 {
-		return getSSE4ArithmeticBinaryNumeric[T](op)
+func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	if op >= OpAddChecked {
+		// integral checked funcs need to use ScalarBinaryNotNull
+		return getGoArithmeticBinaryOpIntegral[T](op)
 	}
 
-	return getGoArithmeticBinaryOpsFloating[T](op)
+	if cpu.X86.HasAVX2 {
+		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
+	} else if cpu.X86.HasSSE42 {
+		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
+	}
+
+	return getGoArithmeticBinaryOpIntegral[T](op)
 }
 
-func getArithmeticBinaryOpsIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) binaryOps[T, T, T] {
+func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
 	if cpu.X86.HasAVX2 {
-		return getAvx2ArithmeticBinaryNumeric[T](op)
+		return ScalarBinary(getAvx2ArithmeticBinaryNumeric[T](op))
 	} else if cpu.X86.HasSSE42 {
-		return getSSE4ArithmeticBinaryNumeric[T](op)
+		return ScalarBinary(getSSE4ArithmeticBinaryNumeric[T](op))
 	}
 
-	return getGoArithmeticBinaryOpsIntegral[T](op)
+	return getGoArithmeticBinaryOpFloating[T](op)
 }

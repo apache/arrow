@@ -596,6 +596,7 @@ func (s *scalarExecutor) executeSpans(data chan<- Datum) (err error) {
 			resultOffset = nextOffset
 		}
 		if err != nil {
+			prealloc.Release()
 			return
 		}
 

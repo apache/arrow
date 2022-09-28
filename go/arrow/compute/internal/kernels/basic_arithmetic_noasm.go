@@ -23,10 +23,10 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-func getArithmeticBinaryOpsFloating[T constraints.Float](op ArithmeticOp) binaryOps[T, T, T] {
-	return getGoArithmeticBinaryOps[T](op)
+func getArithmeticBinaryOpFloating[T constraints.Float](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticBinaryOpFloating[T](op)
 }
 
-func getArithmeticBinaryOpsIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) binaryOps[T, T, T] {
-	return getGoArithmeticBinaryOps[T](op)
+func getArithmeticBinaryOpIntegral[T exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+	return getGoArithmeticBinaryOpIntegral[T](op)
 }

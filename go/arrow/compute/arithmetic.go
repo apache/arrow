@@ -19,7 +19,6 @@ package compute
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
@@ -28,6 +27,8 @@ import (
 
 type arithmeticFunction struct {
 	ScalarFunction
+
+	promote decimalPromotion
 }
 
 func (fn *arithmeticFunction) checkDecimals(vals ...arrow.DataType) error {
@@ -39,17 +40,11 @@ func (fn *arithmeticFunction) checkDecimals(vals ...arrow.DataType) error {
 		return nil
 	}
 
-	op := fn.name[:strings.Index(fn.name, "_")]
-	switch op {
-	case "add", "subtract":
-		return castBinaryDecimalArgs(decPromoteAdd, vals...)
-	case "multiply":
-		return castBinaryDecimalArgs(decPromoteMultiply, vals...)
-	case "divide":
-		return castBinaryDecimalArgs(decPromoteDivide, vals...)
-	default:
+	if fn.promote == decPromoteNone {
 		return fmt.Errorf("%w: invalid decimal function: %s", arrow.ErrInvalid, fn.name)
 	}
+
+	return castBinaryDecimalArgs(fn.promote, vals...)
 }
 
 func (fn *arithmeticFunction) DispatchBest(vals ...arrow.DataType) (exec.Kernel, error) {
@@ -87,7 +82,7 @@ var (
 )
 
 func RegisterScalarArithmetic(reg FunctionRegistry) {
-	addFn := &arithmeticFunction{*NewScalarFunction("add", Binary(), addDoc)}
+	addFn := &arithmeticFunction{*NewScalarFunction("add_unchecked", Binary(), addDoc), decPromoteAdd}
 	for _, k := range kernels.GetArithmeticKernels(kernels.OpAdd) {
 		if err := addFn.AddKernel(k); err != nil {
 			panic(err)
@@ -96,7 +91,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	reg.AddFunction(addFn, false)
 
-	addCheckedFn := &arithmeticFunction{*NewScalarFunction("add_checked", Binary(), addDoc)}
+	addCheckedFn := &arithmeticFunction{*NewScalarFunction("add", Binary(), addDoc), decPromoteAdd}
 	for _, k := range kernels.GetArithmeticKernels(kernels.OpAddChecked) {
 		if err := addCheckedFn.AddKernel(k); err != nil {
 			panic(err)
@@ -105,7 +100,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	reg.AddFunction(addCheckedFn, false)
 
-	subFn := &arithmeticFunction{*NewScalarFunction("sub", Binary(), addDoc)}
+	subFn := &arithmeticFunction{*NewScalarFunction("sub_unchecked", Binary(), addDoc), decPromoteAdd}
 	for _, k := range kernels.GetArithmeticKernels(kernels.OpSub) {
 		if err := subFn.AddKernel(k); err != nil {
 			panic(err)
@@ -114,7 +109,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 
 	reg.AddFunction(subFn, false)
 
-	subCheckedFn := &arithmeticFunction{*NewScalarFunction("sub_checked", Binary(), addDoc)}
+	subCheckedFn := &arithmeticFunction{*NewScalarFunction("sub", Binary(), addDoc), decPromoteAdd}
 	for _, k := range kernels.GetArithmeticKernels(kernels.OpSubChecked) {
 		if err := subCheckedFn.AddKernel(k); err != nil {
 			panic(err)
@@ -133,8 +128,8 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 // will error on an overflow if CheckOverflow is true.
 func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	fn := "add"
-	if opts.CheckOverflow {
-		fn = "add_checked"
+	if opts.NoCheckOverflow {
+		fn = "add_unchecked"
 	}
 	return CallFunction(ctx, fn, nil, left, right)
 }
@@ -148,8 +143,8 @@ func Add(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum,
 // will error on an overflow if CheckOverflow is true.
 func Subtract(ctx context.Context, opts ArithmeticOptions, left, right Datum) (Datum, error) {
 	fn := "sub"
-	if opts.CheckOverflow {
-		fn = "sub_checked"
+	if opts.NoCheckOverflow {
+		fn = "sub_unchecked"
 	}
 	return CallFunction(ctx, fn, nil, left, right)
 }

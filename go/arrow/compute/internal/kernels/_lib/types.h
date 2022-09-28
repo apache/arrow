@@ -31,447 +31,338 @@ enum class arrtype : int {
     FLOAT64
 };
 
-// The following is copied from <type_traits> since we use -target 
-// x86_64-target-none makes life easier rather than creating is_integral,
-// etc. templates ourselves
 
-/// remove_cv
-  template<typename _Tp>
-    struct remove_cv
-    { using type = _Tp; };
+#define _LIBCPP_TEMPLATE_VIS
+#define _LIBCPP_CONSTEXPR constexpr
+#define _LIBCPP_INLINE_VISIBILITY
+#define _LIBCPP_STD_VER 17
+#define _LIBCPP_NODEBUG
+#define _LIBCPP_HAS_NO_CHAR8_T
+#define _NOEXCEPT noexcept
+#define _NOEXCEPT_(x) noexcept(x)
 
-  template<typename _Tp>
-    struct remove_cv<const _Tp>
-    { using type = _Tp; };
+// copied from libcxx/include/__type_traits/integral_constant.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
-  template<typename _Tp>
-    struct remove_cv<volatile _Tp>
-    { using type = _Tp; };
-
-  template<typename _Tp>
-    struct remove_cv<const volatile _Tp>
-    { using type = _Tp; };
-
-// __remove_cv_t (std::remove_cv_t for C++11).
-  template<typename _Tp>
-    using __remove_cv_t = typename remove_cv<_Tp>::type;
-
-
-  /// integral_constant
-  template<typename _Tp, _Tp __v>
-    struct integral_constant
-    {
-      static constexpr _Tp                  value = __v;
-      typedef _Tp                           value_type;
-      typedef integral_constant<_Tp, __v>   type;
-      constexpr operator value_type() const noexcept { return value; }
-#if __cplusplus > 201103L
-
-#define __cpp_lib_integral_constant_callable 201304
-
-      constexpr value_type operator()() const noexcept { return value; }
+template <class _Tp, _Tp __v>
+struct _LIBCPP_TEMPLATE_VIS integral_constant
+{
+  static _LIBCPP_CONSTEXPR const _Tp      value = __v;
+  typedef _Tp               value_type;
+  typedef integral_constant type;
+  _LIBCPP_INLINE_VISIBILITY
+  _LIBCPP_CONSTEXPR operator value_type() const _NOEXCEPT {return value;}
+#if _LIBCPP_STD_VER > 11
+  _LIBCPP_INLINE_VISIBILITY
+  constexpr value_type operator ()() const _NOEXCEPT {return value;}
 #endif
-    };
+};
 
-  template<typename _Tp, _Tp __v>
-    constexpr _Tp integral_constant<_Tp, __v>::value;
+template <class _Tp, _Tp __v>
+_LIBCPP_CONSTEXPR const _Tp integral_constant<_Tp, __v>::value;
 
+typedef integral_constant<bool, true>  true_type;
+typedef integral_constant<bool, false> false_type;
 
-  /// The type used as a compile-time boolean with true value.
-  using true_type =  integral_constant<bool, true>;
+template <bool _Val>
+using _BoolConstant _LIBCPP_NODEBUG = integral_constant<bool, _Val>;
 
-  /// The type used as a compile-time boolean with false value.
-  using false_type = integral_constant<bool, false>;
-
-  /// @cond undocumented
-  /// bool_constant for C++11
-  template<bool __v>
-    using __bool_constant = integral_constant<bool, __v>;
-  /// @endcond
-
-#if __cplusplus >= 201703L
-# define __cpp_lib_bool_constant 201505
-  /// Alias template for compile-time boolean constant types.
-  /// @since C++17
-  template<bool __v>
-    using bool_constant = integral_constant<bool, __v>;
+#if _LIBCPP_STD_VER > 14
+template <bool __b>
+using bool_constant = integral_constant<bool, __b>;
 #endif
 
-  /// is_same
-  template<typename _Tp, typename _Up>
-    struct is_same
-#ifdef _GLIBCXX_HAVE_BUILTIN_IS_SAME
-    : public integral_constant<bool, __is_same(_Tp, _Up)>
+// copied from libcxx/include/__type_traits/remove_const.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__remove_const)
+template <class _Tp>
+struct remove_const {
+  using type _LIBCPP_NODEBUG = __remove_const(_Tp);
+};
+
+template <class _Tp>
+using __remove_const_t = __remove_const(_Tp);
 #else
-    : public false_type
-#endif
-    { };
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_const            {typedef _Tp type;};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_const<const _Tp> {typedef _Tp type;};
 
-#ifndef _GLIBCXX_HAVE_BUILTIN_IS_SAME
-  template<typename _Tp>
-    struct is_same<_Tp, _Tp>
-    : public true_type
-    { };
-#endif
+template <class _Tp>
+using __remove_const_t = typename remove_const<_Tp>::type;
+#endif // __has_builtin(__remove_const)
 
-
-  template<bool, typename, typename>
-    struct conditional;
-
-  /// @cond undocumented
-  template <typename _Type>
-    struct __type_identity
-    { using type = _Type; };
-
-  template<typename _Tp>
-    using __type_identity_t = typename __type_identity<_Tp>::type;
-
-  template<typename...>
-    struct __or_;
-
-  template<>
-    struct __or_<>
-    : public false_type
-    { };
-
-  template<typename _B1>
-    struct __or_<_B1>
-    : public _B1
-    { };
-
-  template<typename _B1, typename _B2>
-    struct __or_<_B1, _B2>
-    : public conditional<_B1::value, _B1, _B2>::type
-    { };
-
-  template<typename _B1, typename _B2, typename _B3, typename... _Bn>
-    struct __or_<_B1, _B2, _B3, _Bn...>
-    : public conditional<_B1::value, _B1, __or_<_B2, _B3, _Bn...>>::type
-    { };
-
-  template<typename...>
-    struct __and_;
-
-  template<>
-    struct __and_<>
-    : public true_type
-    { };
-
-  template<typename _B1>
-    struct __and_<_B1>
-    : public _B1
-    { };
-
-  template<typename _B1, typename _B2>
-    struct __and_<_B1, _B2>
-    : public conditional<_B1::value, _B2, _B1>::type
-    { };
-
-  template<typename _B1, typename _B2, typename _B3, typename... _Bn>
-    struct __and_<_B1, _B2, _B3, _Bn...>
-    : public conditional<_B1::value, __and_<_B2, _B3, _Bn...>, _B1>::type
-    { };
-
-  template<typename _Pp>
-    struct __not_
-    : public __bool_constant<!bool(_Pp::value)>
-    { };
-  /// @endcond
-
-#if __cplusplus >= 201703L
-
-  /// @cond undocumented
-  template<typename... _Bn>
-    inline constexpr bool __or_v = __or_<_Bn...>::value;
-  template<typename... _Bn>
-    inline constexpr bool __and_v = __and_<_Bn...>::value;
-  /// @endcond
+#if _LIBCPP_STD_VER > 11
+template <class _Tp> using remove_const_t = __remove_const_t<_Tp>;
 #endif
 
-  /// remove_reference
-  template<typename _Tp>
-    struct remove_reference
-    { typedef _Tp   type; };
+// copied from libcxx/include/__type_traits/remove_volatile.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
-  template<typename _Tp>
-    struct remove_reference<_Tp&>
-    { typedef _Tp   type; };
+#if __has_builtin(__remove_volatile)
+template <class _Tp>
+struct remove_volatile {
+  using type _LIBCPP_NODEBUG = __remove_volatile(_Tp);
+};
 
-  template<typename _Tp>
-    struct remove_reference<_Tp&&>
-    { typedef _Tp   type; };
+template <class _Tp>
+using __remove_volatile_t = __remove_volatile(_Tp);
+#else
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_volatile               {typedef _Tp type;};
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_volatile<volatile _Tp> {typedef _Tp type;};
 
+template <class _Tp>
+using __remove_volatile_t = typename remove_volatile<_Tp>::type;
+#endif // __has_builtin(__remove_volatile)
 
-// Primary template.
-  /// Define a member typedef `type` only if a boolean constant is true.
-  template<bool, typename _Tp = void>
-    struct enable_if
-    { };
-
-  // Partial specialization for true.
-  template<typename _Tp>
-    struct enable_if<true, _Tp>
-    { typedef _Tp type; };
-
-  /// @cond undocumented
-
-  // __enable_if_t (std::enable_if_t for C++11)
-  template<bool _Cond, typename _Tp = void>
-    using __enable_if_t = typename enable_if<_Cond, _Tp>::type;
-
-  // Helper for SFINAE constraints
-  template<typename... _Cond>
-    using _Require = __enable_if_t<__and_<_Cond...>::value>;
-
-
-/// Alias template for enable_if
-  template<bool _Cond, typename _Tp = void>
-    using enable_if_t = typename enable_if<_Cond, _Tp>::type;
-
-  // __remove_cvref_t (std::remove_cvref_t for C++11).
-  template<typename _Tp>
-    using __remove_cvref_t
-     = typename remove_cv<typename remove_reference<_Tp>::type>::type;
-  /// @endcond
-
-  // Primary template.
-  /// Define a member typedef @c type to one of two argument types.
-  template<bool _Cond, typename _Iftrue, typename _Iffalse>
-    struct conditional
-    { typedef _Iftrue type; };
-
-  // Partial specialization for false.
-  template<typename _Iftrue, typename _Iffalse>
-    struct conditional<false, _Iftrue, _Iffalse>
-    { typedef _Iffalse type; };
-
-
-/// @cond undocumented
-  template<typename _Tp, typename... _Types>
-    using __is_one_of = __or_<is_same<_Tp, _Types>...>;
-
-  /// @cond undocumented
-  template<typename>
-    struct __is_integral_helper
-    : public false_type { };
-
-  template<>
-    struct __is_integral_helper<bool>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<char>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<signed char>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned char>
-    : public true_type { };
-
-  // We want is_integral<wchar_t> to be true (and make_signed/unsigned to work)
-  // even when libc doesn't provide working <wchar.h> and related functions,
-  // so check __WCHAR_TYPE__ instead of _GLIBCXX_USE_WCHAR_T.
-#ifdef __WCHAR_TYPE__
-  template<>
-    struct __is_integral_helper<wchar_t>
-    : public true_type { };
+#if _LIBCPP_STD_VER > 11
+template <class _Tp> using remove_volatile_t = __remove_volatile_t<_Tp>;
 #endif
 
-#ifdef _GLIBCXX_USE_CHAR8_T
-  template<>
-    struct __is_integral_helper<char8_t>
-    : public true_type { };
+// copied from libcxx/include/__type_traits/remove_cv.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__remove_cv)
+template <class _Tp>
+struct remove_cv {
+  using type _LIBCPP_NODEBUG = __remove_cv(_Tp);
+};
+
+template <class _Tp>
+using __remove_cv_t = __remove_cv(_Tp);
+#else
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS remove_cv
+{typedef __remove_volatile_t<__remove_const_t<_Tp> > type;};
+
+template <class _Tp>
+using __remove_cv_t = __remove_volatile_t<__remove_const_t<_Tp> >;
+#endif // __has_builtin(__remove_cv)
+
+#if _LIBCPP_STD_VER > 11
+template <class _Tp> using remove_cv_t = __remove_cv_t<_Tp>;
 #endif
 
-  template<>
-    struct __is_integral_helper<char16_t>
-    : public true_type { };
+// copied from libcxx/include/__type_traits/is_floating_point.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
-  template<>
-    struct __is_integral_helper<char32_t>
-    : public true_type { };
 
-  template<>
-    struct __is_integral_helper<short>
-    : public true_type { };
+template <class _Tp> struct __libcpp_is_floating_point              : public false_type {};
+template <>          struct __libcpp_is_floating_point<float>       : public true_type {};
+template <>          struct __libcpp_is_floating_point<double>      : public true_type {};
+template <>          struct __libcpp_is_floating_point<long double> : public true_type {};
 
-  template<>
-    struct __is_integral_helper<unsigned short>
-    : public true_type { };
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_floating_point
+    : public __libcpp_is_floating_point<__remove_cv_t<_Tp> > {};
 
-  template<>
-    struct __is_integral_helper<int>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned int>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<long>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned long>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<long long>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned long long>
-    : public true_type { };
-
-  // Conditionalizing on __STRICT_ANSI__ here will break any port that
-  // uses one of these types for size_t.
-#if defined(__GLIBCXX_TYPE_INT_N_0)
-  template<>
-    struct __is_integral_helper<__GLIBCXX_TYPE_INT_N_0>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned __GLIBCXX_TYPE_INT_N_0>
-    : public true_type { };
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_floating_point_v = is_floating_point<_Tp>::value;
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_1)
-  template<>
-    struct __is_integral_helper<__GLIBCXX_TYPE_INT_N_1>
-    : public true_type { };
 
-  template<>
-    struct __is_integral_helper<unsigned __GLIBCXX_TYPE_INT_N_1>
-    : public true_type { };
+// copied from libcxx/include/__type_traits/is_integral.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+template <class _Tp> struct __libcpp_is_integral                     { enum { value = 0 }; };
+template <>          struct __libcpp_is_integral<bool>               { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<char>               { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<signed char>        { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<unsigned char>      { enum { value = 1 }; };
+#ifndef _LIBCPP_HAS_NO_WIDE_CHARACTERS
+template <>          struct __libcpp_is_integral<wchar_t>            { enum { value = 1 }; };
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_2)
-  template<>
-    struct __is_integral_helper<__GLIBCXX_TYPE_INT_N_2>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned __GLIBCXX_TYPE_INT_N_2>
-    : public true_type { };
+#ifndef _LIBCPP_HAS_NO_CHAR8_T
+template <>          struct __libcpp_is_integral<char8_t>            { enum { value = 1 }; };
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_3)
-  template<>
-    struct __is_integral_helper<__GLIBCXX_TYPE_INT_N_3>
-    : public true_type { };
-
-  template<>
-    struct __is_integral_helper<unsigned __GLIBCXX_TYPE_INT_N_3>
-    : public true_type { };
+template <>          struct __libcpp_is_integral<char16_t>           { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<char32_t>           { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<short>              { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<unsigned short>     { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<int>                { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<unsigned int>       { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<long>               { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<unsigned long>      { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<long long>          { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<unsigned long long> { enum { value = 1 }; };
+#ifndef _LIBCPP_HAS_NO_INT128
+template <>          struct __libcpp_is_integral<__int128_t>         { enum { value = 1 }; };
+template <>          struct __libcpp_is_integral<__uint128_t>        { enum { value = 1 }; };
 #endif
-  /// @endcond
 
-  /// is_integral
-  template<typename _Tp>
-    struct is_integral
-    : public __is_integral_helper<__remove_cv_t<_Tp>>::type
-    { };
+#if __has_builtin(__is_integral)
 
-  /// @cond undocumented
-  template<typename>
-    struct __is_floating_point_helper
-    : public false_type { };
+template <class _Tp>
+struct _LIBCPP_TEMPLATE_VIS is_integral : _BoolConstant<__is_integral(_Tp)> { };
 
-  template<>
-    struct __is_floating_point_helper<float>
-    : public true_type { };
-
-  template<>
-    struct __is_floating_point_helper<double>
-    : public true_type { };
-
-  template<>
-    struct __is_floating_point_helper<long double>
-    : public true_type { };
-
-  /// is_floating_point
-  template<typename _Tp>
-    struct is_floating_point
-    : public __is_floating_point_helper<__remove_cv_t<_Tp>>::type
-    { };
-
-
-  // Check if a type is one of the unsigned integer types.
-  template<typename _Tp>
-    using __is_unsigned_integer = __is_one_of<__remove_cv_t<_Tp>,
-	  unsigned char, unsigned short, unsigned int, unsigned long,
-	  unsigned long long
-#if defined(__GLIBCXX_TYPE_INT_N_0)
-	  , unsigned __GLIBCXX_TYPE_INT_N_0
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_integral_v = __is_integral(_Tp);
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_1)
-	  , unsigned __GLIBCXX_TYPE_INT_N_1
+
+#else
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_integral
+    : public _BoolConstant<__libcpp_is_integral<__remove_cv_t<_Tp> >::value> {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_integral_v = is_integral<_Tp>::value;
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_2)
-	  , unsigned __GLIBCXX_TYPE_INT_N_2
+
+#endif // __has_builtin(__is_integral)
+
+// copied from libcxx/include/__type_traits/is_arithmetic.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_arithmetic
+    : public integral_constant<bool, is_integral<_Tp>::value      ||
+                                     is_floating_point<_Tp>::value> {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_arithmetic_v = is_arithmetic<_Tp>::value;
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_3)
-	  , unsigned __GLIBCXX_TYPE_INT_N_3
+
+// copied from libcxx/include/__type_traits/is_signed.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#if __has_builtin(__is_signed)
+
+template<class _Tp>
+struct _LIBCPP_TEMPLATE_VIS is_signed : _BoolConstant<__is_signed(_Tp)> { };
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_signed_v = __is_signed(_Tp);
 #endif
-	  >;
 
+#else // __has_builtin(__is_signed)
 
-  // Check if a type is one of the signed integer types.
-  template<typename _Tp>
-    using __is_signed_integer = __is_one_of<__remove_cv_t<_Tp>,
-	  signed char, signed short, signed int, signed long,
-	  signed long long
-#if defined(__GLIBCXX_TYPE_INT_N_0)
-	  , signed __GLIBCXX_TYPE_INT_N_0
+template <class _Tp, bool = is_integral<_Tp>::value>
+struct __libcpp_is_signed_impl : public _BoolConstant<(_Tp(-1) < _Tp(0))> {};
+
+template <class _Tp>
+struct __libcpp_is_signed_impl<_Tp, false> : public true_type {};  // floating point
+
+template <class _Tp, bool = is_arithmetic<_Tp>::value>
+struct __libcpp_is_signed : public __libcpp_is_signed_impl<_Tp> {};
+
+template <class _Tp> struct __libcpp_is_signed<_Tp, false> : public false_type {};
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_signed : public __libcpp_is_signed<_Tp> {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_signed_v = is_signed<_Tp>::value;
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_1)
-	  , signed __GLIBCXX_TYPE_INT_N_1
+
+#endif // __has_builtin(__is_signed)
+
+
+// copied from libcxx/include/__type_traits/is_unsigned.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+// Before AppleClang 14, __is_unsigned returned true for enums with signed underlying type.
+#if __has_builtin(__is_unsigned) && !(defined(_LIBCPP_APPLE_CLANG_VER) && _LIBCPP_APPLE_CLANG_VER < 1400)
+
+template<class _Tp>
+struct _LIBCPP_TEMPLATE_VIS is_unsigned : _BoolConstant<__is_unsigned(_Tp)> { };
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_unsigned_v = __is_unsigned(_Tp);
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_2)
-	  , signed __GLIBCXX_TYPE_INT_N_2
+
+#else // __has_builtin(__is_unsigned)
+
+template <class _Tp, bool = is_integral<_Tp>::value>
+struct __libcpp_is_unsigned_impl : public _BoolConstant<(_Tp(0) < _Tp(-1))> {};
+
+template <class _Tp>
+struct __libcpp_is_unsigned_impl<_Tp, false> : public false_type {};  // floating point
+
+template <class _Tp, bool = is_arithmetic<_Tp>::value>
+struct __libcpp_is_unsigned : public __libcpp_is_unsigned_impl<_Tp> {};
+
+template <class _Tp> struct __libcpp_is_unsigned<_Tp, false> : public false_type {};
+
+template <class _Tp> struct _LIBCPP_TEMPLATE_VIS is_unsigned : public __libcpp_is_unsigned<_Tp> {};
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp>
+inline constexpr bool is_unsigned_v = is_unsigned<_Tp>::value;
 #endif
-#if defined(__GLIBCXX_TYPE_INT_N_3)
-	  , signed __GLIBCXX_TYPE_INT_N_3
+
+#endif // __has_builtin(__is_unsigned)
+
+// copied from libcxx/include/__type_traits/is_same.h
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+template <class _Tp, class _Up>
+struct _LIBCPP_TEMPLATE_VIS is_same : _BoolConstant<__is_same(_Tp, _Up)> { };
+
+#if _LIBCPP_STD_VER > 14
+template <class _Tp, class _Up>
+inline constexpr bool is_same_v = __is_same(_Tp, _Up);
 #endif
-	  >;
-
-
-  /// is_arithmetic
-  template<typename _Tp>
-    struct is_arithmetic
-    : public __or_<is_integral<_Tp>, is_floating_point<_Tp>>::type
-    { };
-
-
-  /// @cond undocumented
-  template<typename _Tp,
-	   bool = is_arithmetic<_Tp>::value>
-    struct __is_signed_helper
-    : public false_type { };
-
-  template<typename _Tp>
-    struct __is_signed_helper<_Tp, true>
-    : public integral_constant<bool, _Tp(-1) < _Tp(0)>
-    { };
-  /// @endcond
-
-  /// is_signed
-  template<typename _Tp>
-    struct is_signed
-    : public __is_signed_helper<_Tp>::type
-    { };
-
-  /// is_unsigned
-  template<typename _Tp>
-    struct is_unsigned
-    : public __and_<is_arithmetic<_Tp>, __not_<is_signed<_Tp>>>
-    { };
-
-template <typename _Tp>
-  inline constexpr bool is_integral_v = is_integral<_Tp>::value;
-template <typename _Tp>
-  inline constexpr bool is_floating_point_v = is_floating_point<_Tp>::value;
-template <typename _Tp>
-  inline constexpr bool is_signed_v = is_signed<_Tp>::value;
-template <typename _Tp>
-  inline constexpr bool is_unsigned_v = is_unsigned<_Tp>::value;

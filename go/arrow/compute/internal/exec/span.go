@@ -86,6 +86,21 @@ type ArraySpan struct {
 	Children []ArraySpan
 }
 
+// if an error is encountered, call Release on a preallocated span
+// to ensure it releases any self-allocated buffers, it will
+// not call release on buffers it doesn't own (SelfAlloc != true)
+func (a *ArraySpan) Release() {
+	for _, c := range a.Children {
+		c.Release()
+	}
+
+	for _, b := range a.Buffers {
+		if b.SelfAlloc {
+			b.Owner.Release()
+		}
+	}
+}
+
 func (a *ArraySpan) MayHaveNulls() bool {
 	return atomic.LoadInt64(&a.Nulls) != 0 && a.Buffers[0].Buf != nil
 }

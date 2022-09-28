@@ -19,31 +19,6 @@
 #include "types.h"
 #include "vendored/safe-math.h"
 
-// Define functions AddWithOverflow, SubtractWithOverflow, MultiplyWithOverflow
-// with the signature `bool(T u, T v, T* out)` where T is an integer type.
-// On overflow, these functions return true.  Otherwise, false is returned
-// and `out` is updated with the result of the operation.
-
-#define OP_WITH_OVERFLOW(_func_name, _psnip_op, _type, _psnip_type) \
-  static inline bool _func_name(_type u, _type v, _type* out) {     \
-    return !psnip_safe_##_psnip_type##_##_psnip_op(out, u, v);      \
-  }
-
-#define OPS_WITH_OVERFLOW(_func_name, _psnip_op)            \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, int8_t, int8)     \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, int16_t, int16)   \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, int32_t, int32)   \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, int64_t, int64)   \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, uint8_t, uint8)   \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, uint16_t, uint16) \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, uint32_t, uint32) \
-  OP_WITH_OVERFLOW(_func_name, _psnip_op, uint64_t, uint64)
-
-OPS_WITH_OVERFLOW(AddWithOverflow, add)
-OPS_WITH_OVERFLOW(SubtractWithOverflow, sub)
-OPS_WITH_OVERFLOW(MultiplyWithOverflow, mul)
-OPS_WITH_OVERFLOW(DivideWithOverflow, div)
-
 // Corresponds to equivalent ArithmeticOp enum in base_arithmetic.go
 // for passing across which operation to perform. This allows simpler
 // implementation at the cost of having to pass the extra int8 and
@@ -54,86 +29,48 @@ OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 // worth the cost.
 enum class optype : int8_t {
     ADD,
-    ADD_CHECKED,
     SUB, 
-    SUB_CHECKED,
+
+    // this impl doesn't actually perform any overflow checks as we need
+    // to only run overflow checks on non-null entries
+    ADD_CHECKED,
+    SUB_CHECKED, 
 };
-
-template <typename T>
-using is_unsigned_integer_value = bool_constant<is_integral_v<T> && is_unsigned_v<T>>;
-
-template <typename T>
-using is_signed_integer_value = bool_constant<is_integral_v<T> && is_signed_v<T>>;
-
-template <typename T, typename R = T>
-using enable_if_signed_integer_t = enable_if_t<is_signed_integer_value<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_unsigned_integer_t = enable_if_t<is_unsigned_integer_value<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_integer_t = enable_if_t<
-    is_signed_integer_value<T>::value || is_unsigned_integer_value<T>::value, R>;
-
-template <typename T, typename R = T>
-using enable_if_floating_t = enable_if_t<is_floating_point_v<T>, R>;
 
 struct Add {
     template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_floating_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left + right;
-    }
-
-    template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_integer_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left + right;
-    }
+    static constexpr T Call(Arg0 left, Arg1 right) {
+        if constexpr (is_arithmetic_v<T>)
+            return left + right;
+    }    
 };
 
 struct Sub {
     template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_floating_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left - right;
-    }
-
-    template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_integer_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left - right;
+    static constexpr T Call(Arg0 left, Arg1 right) {
+        if constexpr (is_arithmetic_v<T>)
+            return left - right;
     }
 };
 
 struct AddChecked {
     template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_floating_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left + right;
-    }
-
-    template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_integer_t<T> Call(Arg0 left, Arg1 right, bool* failure) {
+    static constexpr T Call(Arg0 left, Arg1 right) {
         static_assert(is_same<T, Arg0>::value && is_same<T, Arg1>::value, "");
-        T result = 0;
-        if (AddWithOverflow(left, right, &result)) {
-            *failure = true;
+        if constexpr(is_arithmetic_v<T>) {
+            return left + right;
         }
-        return result;
     }    
 };
 
 
-struct SubChecked {
+struct SubChecked {    
     template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_floating_t<T> Call(Arg0 left, Arg1 right, bool*) {
-        return left - right;
-    }
-
-    template <typename T, typename Arg0, typename Arg1>
-    static constexpr enable_if_integer_t<T> Call(Arg0 left, Arg1 right, bool* failure) {
+    static constexpr T Call(Arg0 left, Arg1 right) {
         static_assert(is_same<T, Arg0>::value && is_same<T, Arg1>::value, "");
-        T result = 0;
-        if (SubtractWithOverflow(left, right, &result)) {
-            *failure = true;
+        if constexpr(is_arithmetic_v<T>) {            
+            return left - right;
         }
-        return result;
     }    
 };
 
@@ -143,11 +80,10 @@ struct arithmetic_op_arr_arr_impl {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T* right = reinterpret_cast<const T*>(in_right);
         T* output = reinterpret_cast<T*>(out);
-
-        bool failure = false;
+        
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left[i], right[i], &failure);
-        }
+            output[i] = Op::template Call<T, T, T>(left[i], right[i]);
+        }        
     }
 };
 
@@ -157,11 +93,10 @@ struct arithmetic_op_arr_scalar_impl {
         const T* left = reinterpret_cast<const T*>(in_left);
         const T right = *reinterpret_cast<const T*>(scalar_right);
         T* output = reinterpret_cast<T*>(out);
-
-        bool failure = false;
+        
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left[i], right, &failure);
-        }
+            output[i] = Op::template Call<T, T, T>(left[i], right);
+        }        
     }
 };
 
@@ -171,10 +106,9 @@ struct arithmetic_op_scalar_arr_impl {
         const T left = *reinterpret_cast<const T*>(scalar_left);
         const T* right = reinterpret_cast<const T*>(in_right);
         T* output = reinterpret_cast<T*>(out);
-
-        bool failure = false;
+        
         for (int i = 0; i < len; ++i) {
-            output[i] = Op::template Call<T, T, T>(left, right[i], &failure);
+            output[i] = Op::template Call<T, T, T>(left, right[i]);
         }
     }
 };
@@ -186,35 +120,25 @@ static inline void arithmetic_op(const int type, const void* in_left, const void
 
     switch (intype) {
     case arrtype::UINT8:
-        Impl<uint8_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<uint8_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::INT8:
-        Impl<int8_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<int8_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::UINT16:
-        Impl<uint16_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<uint16_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::INT16:
-        Impl<int16_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<int16_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::UINT32:
-        Impl<uint32_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<uint32_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::INT32:
-        Impl<int32_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<int32_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::UINT64:
-        Impl<uint64_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<uint64_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::INT64:
-        Impl<int64_t, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<int64_t, Op>::exec(in_left, in_right, output, len);        
     case arrtype::FLOAT32:
-        Impl<float, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<float, Op>::exec(in_left, in_right, output, len);        
     case arrtype::FLOAT64:
-        Impl<double, Op>::exec(in_left, in_right, output, len);
-        break;
+        return Impl<double, Op>::exec(in_left, in_right, output, len);        
     default:
         break;
     }
@@ -226,17 +150,13 @@ static inline void arithmetic_impl(const int type, const int8_t op, const void* 
 
     switch (opt) {
     case optype::ADD:
-        arithmetic_op<Add, Impl>(type, in_left, in_right, out, len);
-        break;
+        return arithmetic_op<Add, Impl>(type, in_left, in_right, out, len);        
     case optype::ADD_CHECKED:
-        arithmetic_op<AddChecked, Impl>(type, in_left, in_right, out, len);
-        break;
+        return arithmetic_op<AddChecked, Impl>(type, in_left, in_right, out, len);        
     case optype::SUB:
-        arithmetic_op<Sub, Impl>(type, in_left, in_right, out, len);
-        break;
+        return arithmetic_op<Sub, Impl>(type, in_left, in_right, out, len);        
     case optype::SUB_CHECKED:
-        arithmetic_op<SubChecked, Impl>(type, in_left, in_right, out, len);
-        break;
+        return arithmetic_op<SubChecked, Impl>(type, in_left, in_right, out, len);        
     default:
         break;
     }

@@ -223,8 +223,90 @@ func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, A
 	}
 }
 
-func ScalarBinaryEqualTypes[OutT, ArgT exec.FixedWidthTypes](ops binaryOps[OutT, ArgT, ArgT]) exec.ArrayKernelExec {
-	return ScalarBinary(ops)
+func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.KernelCtx, Arg0T, Arg1T, *error) OutT) exec.ArrayKernelExec {
+	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
+			a1      = exec.GetSpanValues[Arg1T](arg1, 1)
+			outData = exec.GetSpanValues[OutT](out, 1)
+			outPos  int64
+			err     error
+			def     OutT
+		)
+		bitutils.VisitTwoBitBlocks(arg0.Buffers[0].Buf, arg1.Buffers[0].Buf, arg0.Offset, arg1.Offset, out.Len,
+			func(pos int64) {
+				outData[outPos] = op(ctx, a0[pos], a1[pos], &err)
+				outPos++
+			}, func() {
+				outData[outPos] = def
+				outPos++
+			})
+		return err
+	}
+
+	arrayScalar := func(ctx *exec.KernelCtx, arg0 *exec.ArraySpan, arg1 scalar.Scalar, out *exec.ExecResult) error {
+		var (
+			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
+			outData = exec.GetSpanValues[OutT](out, 1)
+			outPos  int64
+			err     error
+			def     OutT
+		)
+		if !arg1.IsValid() {
+			return nil
+		}
+
+		a1 := UnboxScalar[Arg1T](arg1.(scalar.PrimitiveScalar))
+		bitutils.VisitBitBlocks(arg0.Buffers[0].Buf, arg0.Offset, arg0.Len,
+			func(pos int64) {
+				outData[outPos] = op(ctx, a0[pos], a1, &err)
+				outPos++
+			}, func() {
+				outData[outPos] = def
+				outPos++
+			})
+		return err
+	}
+
+	scalarArray := func(ctx *exec.KernelCtx, arg0 scalar.Scalar, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
+		var (
+			a1      = exec.GetSpanValues[Arg1T](arg1, 1)
+			outData = exec.GetSpanValues[OutT](out, 1)
+			outPos  int64
+			err     error
+			def     OutT
+		)
+		if !arg0.IsValid() {
+			return nil
+		}
+
+		a0 := UnboxScalar[Arg0T](arg0.(scalar.PrimitiveScalar))
+		bitutils.VisitBitBlocks(arg1.Buffers[0].Buf, arg1.Offset, arg1.Len,
+			func(pos int64) {
+				outData[outPos] = op(ctx, a0, a1[pos], &err)
+				outPos++
+			}, func() {
+				outData[outPos] = def
+				outPos++
+			})
+		return err
+	}
+
+	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+		if batch.Values[0].IsArray() {
+			if batch.Values[1].IsArray() {
+				return arrayArray(ctx, &batch.Values[0].Array, &batch.Values[1].Array, out)
+			}
+			return arrayScalar(ctx, &batch.Values[0].Array, batch.Values[1].Scalar, out)
+		}
+
+		if batch.Values[1].IsArray() {
+			return scalarArray(ctx, batch.Values[0].Scalar, &batch.Values[1].Array, out)
+		}
+
+		debug.Assert(false, "should be unreachable")
+		return fmt.Errorf("%w: scalar binary with two scalars?", arrow.ErrInvalid)
+	}
 }
 
 // SizeOf determines the size in number of bytes for an integer

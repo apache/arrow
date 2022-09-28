@@ -232,7 +232,8 @@ func hasDecimal(vals ...arrow.DataType) bool {
 type decimalPromotion uint8
 
 const (
-	decPromoteAdd decimalPromotion = iota
+	decPromoteNone decimalPromotion = iota
+	decPromoteAdd
 	decPromoteMultiply
 	decPromoteDivide
 )

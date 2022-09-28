@@ -19,32 +19,32 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	jne	.LBB0_537
 # %bb.3:
 	cmp	edi, 6
-	jg	.LBB0_158
+	jg	.LBB0_291
 # %bb.4:
 	cmp	edi, 3
 	jle	.LBB0_5
-# %bb.152:
+# %bb.285:
 	cmp	edi, 4
-	je	.LBB0_191
-# %bb.153:
+	je	.LBB0_324
+# %bb.286:
 	cmp	edi, 5
-	je	.LBB0_203
-# %bb.154:
+	je	.LBB0_336
+# %bb.287:
 	cmp	edi, 6
 	jne	.LBB0_537
-# %bb.155:
+# %bb.288:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.156:
+# %bb.289:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_215
-# %bb.157:
+	jae	.LBB0_348
+# %bb.290:
 	xor	esi, esi
-	jmp	.LBB0_220
+	jmp	.LBB0_353
 .LBB0_10:
 	cmp	sil, 2
-	je	.LBB0_278
+	je	.LBB0_152
 # %bb.11:
 	cmp	sil, 3
 	jne	.LBB0_537
@@ -98,53 +98,53 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.31:
 	xor	esi, esi
 	jmp	.LBB0_94
-.LBB0_278:
+.LBB0_152:
 	cmp	edi, 6
-	jg	.LBB0_291
-# %bb.279:
+	jg	.LBB0_165
+# %bb.153:
 	cmp	edi, 3
-	jle	.LBB0_280
-# %bb.285:
+	jle	.LBB0_154
+# %bb.159:
 	cmp	edi, 4
-	je	.LBB0_324
-# %bb.286:
+	je	.LBB0_198
+# %bb.160:
 	cmp	edi, 5
-	je	.LBB0_336
-# %bb.287:
+	je	.LBB0_210
+# %bb.161:
 	cmp	edi, 6
 	jne	.LBB0_537
-# %bb.288:
+# %bb.162:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.289:
+# %bb.163:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_348
-# %bb.290:
-	xor	esi, esi
-	jmp	.LBB0_353
-.LBB0_158:
-	cmp	edi, 8
-	jle	.LBB0_159
+	jae	.LBB0_222
 # %bb.164:
+	xor	esi, esi
+	jmp	.LBB0_227
+.LBB0_291:
+	cmp	edi, 8
+	jle	.LBB0_292
+# %bb.297:
 	cmp	edi, 9
-	je	.LBB0_245
-# %bb.165:
+	je	.LBB0_378
+# %bb.298:
 	cmp	edi, 11
-	je	.LBB0_257
-# %bb.166:
+	je	.LBB0_390
+# %bb.299:
 	cmp	edi, 12
 	jne	.LBB0_537
-# %bb.167:
+# %bb.300:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.168:
+# %bb.301:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_269
-# %bb.169:
+	jae	.LBB0_402
+# %bb.302:
 	xor	esi, esi
-	jmp	.LBB0_274
+	jmp	.LBB0_407
 .LBB0_417:
 	cmp	edi, 8
 	jle	.LBB0_418
@@ -189,31 +189,31 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.43:
 	xor	esi, esi
 	jmp	.LBB0_148
-.LBB0_291:
+.LBB0_165:
 	cmp	edi, 8
-	jle	.LBB0_292
-# %bb.297:
+	jle	.LBB0_166
+# %bb.171:
 	cmp	edi, 9
-	je	.LBB0_378
-# %bb.298:
+	je	.LBB0_252
+# %bb.172:
 	cmp	edi, 11
-	je	.LBB0_390
-# %bb.299:
+	je	.LBB0_264
+# %bb.173:
 	cmp	edi, 12
 	jne	.LBB0_537
-# %bb.300:
+# %bb.174:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.301:
+# %bb.175:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_402
-# %bb.302:
+	jae	.LBB0_276
+# %bb.176:
 	xor	esi, esi
-	jmp	.LBB0_407
+	jmp	.LBB0_281
 .LBB0_5:
 	cmp	edi, 2
-	je	.LBB0_170
+	je	.LBB0_303
 # %bb.6:
 	cmp	edi, 3
 	jne	.LBB0_537
@@ -223,10 +223,10 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.8:
 	mov	r10d, r9d
 	cmp	r9d, 128
-	jae	.LBB0_182
+	jae	.LBB0_315
 # %bb.9:
 	xor	esi, esi
-	jmp	.LBB0_187
+	jmp	.LBB0_320
 .LBB0_14:
 	cmp	edi, 2
 	je	.LBB0_429
@@ -259,38 +259,38 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.25:
 	xor	esi, esi
 	jmp	.LBB0_61
-.LBB0_280:
+.LBB0_154:
 	cmp	edi, 2
-	je	.LBB0_303
-# %bb.281:
+	je	.LBB0_177
+# %bb.155:
 	cmp	edi, 3
 	jne	.LBB0_537
-# %bb.282:
+# %bb.156:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.283:
+# %bb.157:
 	mov	r10d, r9d
 	cmp	r9d, 128
-	jae	.LBB0_315
-# %bb.284:
+	jae	.LBB0_189
+# %bb.158:
 	xor	esi, esi
-	jmp	.LBB0_320
-.LBB0_159:
+	jmp	.LBB0_194
+.LBB0_292:
 	cmp	edi, 7
-	je	.LBB0_224
-# %bb.160:
+	je	.LBB0_357
+# %bb.293:
 	cmp	edi, 8
 	jne	.LBB0_537
-# %bb.161:
+# %bb.294:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.162:
+# %bb.295:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_236
-# %bb.163:
+	jae	.LBB0_369
+# %bb.296:
 	xor	esi, esi
-	jmp	.LBB0_241
+	jmp	.LBB0_374
 .LBB0_418:
 	cmp	edi, 7
 	je	.LBB0_483
@@ -323,42 +323,42 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.37:
 	xor	esi, esi
 	jmp	.LBB0_115
-.LBB0_292:
+.LBB0_166:
 	cmp	edi, 7
-	je	.LBB0_357
-# %bb.293:
+	je	.LBB0_231
+# %bb.167:
 	cmp	edi, 8
 	jne	.LBB0_537
-# %bb.294:
+# %bb.168:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.295:
+# %bb.169:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_369
-# %bb.296:
+	jae	.LBB0_243
+# %bb.170:
 	xor	esi, esi
-	jmp	.LBB0_374
-.LBB0_191:
+	jmp	.LBB0_248
+.LBB0_324:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.192:
+# %bb.325:
 	mov	r10d, r9d
 	cmp	r9d, 64
-	jae	.LBB0_194
-# %bb.193:
+	jae	.LBB0_327
+# %bb.326:
 	xor	esi, esi
-	jmp	.LBB0_199
-.LBB0_203:
+	jmp	.LBB0_332
+.LBB0_336:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.204:
+# %bb.337:
 	mov	r10d, r9d
 	cmp	r9d, 64
-	jae	.LBB0_206
-# %bb.205:
+	jae	.LBB0_339
+# %bb.338:
 	xor	esi, esi
-	jmp	.LBB0_211
+	jmp	.LBB0_344
 .LBB0_450:
 	test	r9d, r9d
 	jle	.LBB0_537
@@ -399,46 +399,46 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.79:
 	xor	esi, esi
 	jmp	.LBB0_85
-.LBB0_324:
+.LBB0_198:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.325:
+# %bb.199:
 	mov	r10d, r9d
 	cmp	r9d, 64
-	jae	.LBB0_327
-# %bb.326:
+	jae	.LBB0_201
+# %bb.200:
 	xor	esi, esi
-	jmp	.LBB0_332
-.LBB0_336:
+	jmp	.LBB0_206
+.LBB0_210:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.337:
+# %bb.211:
 	mov	r10d, r9d
 	cmp	r9d, 64
-	jae	.LBB0_339
-# %bb.338:
+	jae	.LBB0_213
+# %bb.212:
 	xor	esi, esi
-	jmp	.LBB0_344
-.LBB0_245:
+	jmp	.LBB0_218
+.LBB0_378:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.246:
+# %bb.379:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_248
-# %bb.247:
+	jae	.LBB0_381
+# %bb.380:
 	xor	esi, esi
-	jmp	.LBB0_253
-.LBB0_257:
+	jmp	.LBB0_386
+.LBB0_390:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.258:
+# %bb.391:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_260
-# %bb.259:
+	jae	.LBB0_393
+# %bb.392:
 	xor	esi, esi
-	jmp	.LBB0_265
+	jmp	.LBB0_398
 .LBB0_504:
 	test	r9d, r9d
 	jle	.LBB0_537
@@ -479,36 +479,36 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.133:
 	xor	esi, esi
 	jmp	.LBB0_139
-.LBB0_378:
+.LBB0_252:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.379:
+# %bb.253:
 	mov	r10d, r9d
 	cmp	r9d, 16
-	jae	.LBB0_381
-# %bb.380:
+	jae	.LBB0_255
+# %bb.254:
 	xor	esi, esi
-	jmp	.LBB0_386
-.LBB0_390:
+	jmp	.LBB0_260
+.LBB0_264:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.391:
+# %bb.265:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_393
-# %bb.392:
+	jae	.LBB0_267
+# %bb.266:
 	xor	esi, esi
-	jmp	.LBB0_398
-.LBB0_170:
+	jmp	.LBB0_272
+.LBB0_303:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.171:
+# %bb.304:
 	mov	r10d, r9d
 	cmp	r9d, 128
-	jae	.LBB0_173
-# %bb.172:
+	jae	.LBB0_306
+# %bb.305:
 	xor	esi, esi
-	jmp	.LBB0_178
+	jmp	.LBB0_311
 .LBB0_429:
 	test	r9d, r9d
 	jle	.LBB0_537
@@ -529,26 +529,26 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.46:
 	xor	esi, esi
 	jmp	.LBB0_52
-.LBB0_303:
+.LBB0_177:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.304:
+# %bb.178:
 	mov	r10d, r9d
 	cmp	r9d, 128
-	jae	.LBB0_306
-# %bb.305:
+	jae	.LBB0_180
+# %bb.179:
 	xor	esi, esi
-	jmp	.LBB0_311
-.LBB0_224:
+	jmp	.LBB0_185
+.LBB0_357:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.225:
+# %bb.358:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_227
-# %bb.226:
+	jae	.LBB0_360
+# %bb.359:
 	xor	esi, esi
-	jmp	.LBB0_232
+	jmp	.LBB0_365
 .LBB0_483:
 	test	r9d, r9d
 	jle	.LBB0_537
@@ -569,17 +569,17 @@ arithmetic_avx2:                        # @arithmetic_avx2
 # %bb.100:
 	xor	esi, esi
 	jmp	.LBB0_106
-.LBB0_357:
+.LBB0_231:
 	test	r9d, r9d
 	jle	.LBB0_537
-# %bb.358:
+# %bb.232:
 	mov	r10d, r9d
 	cmp	r9d, 32
-	jae	.LBB0_360
-# %bb.359:
+	jae	.LBB0_234
+# %bb.233:
 	xor	esi, esi
-	jmp	.LBB0_365
-.LBB0_215:
+	jmp	.LBB0_239
+.LBB0_348:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -593,66 +593,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_220
-# %bb.216:
+	jne	.LBB0_353
+# %bb.349:
 	and	al, dil
-	jne	.LBB0_220
-# %bb.217:
+	jne	.LBB0_353
+# %bb.350:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_218:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+.LBB0_351:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_218
-# %bb.219:
+	jne	.LBB0_351
+# %bb.352:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_220:
+.LBB0_353:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_222
-.LBB0_221:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rcx + 4*rsi]
-	add	edi, dword ptr [rdx + 4*rsi]
+	je	.LBB0_355
+.LBB0_354:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_221
-.LBB0_222:
+	jne	.LBB0_354
+.LBB0_355:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_223:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rcx + 4*rsi]
-	add	eax, dword ptr [rdx + 4*rsi]
+.LBB0_356:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 4]
-	add	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
 	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 8]
-	add	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
 	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 12]
-	add	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_223
+	jne	.LBB0_356
 	jmp	.LBB0_537
 .LBB0_474:
 	lea	rsi, [r8 + 4*r10]
@@ -804,7 +804,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_97
 	jmp	.LBB0_537
-.LBB0_348:
+.LBB0_222:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -818,68 +818,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_353
-# %bb.349:
+	jne	.LBB0_227
+# %bb.223:
 	and	al, dil
-	jne	.LBB0_353
-# %bb.350:
+	jne	.LBB0_227
+# %bb.224:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_351:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+.LBB0_225:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_351
-# %bb.352:
+	jne	.LBB0_225
+# %bb.226:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_353:
+.LBB0_227:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_355
-.LBB0_354:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
+	je	.LBB0_229
+.LBB0_228:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	add	edi, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_354
-.LBB0_355:
+	jne	.LBB0_228
+.LBB0_229:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_356:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
+.LBB0_230:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	add	eax, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	add	eax, dword ptr [rdx + 4*rsi + 4]
 	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	add	eax, dword ptr [rdx + 4*rsi + 8]
 	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	add	eax, dword ptr [rdx + 4*rsi + 12]
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_356
+	jne	.LBB0_230
 	jmp	.LBB0_537
-.LBB0_269:
+.LBB0_402:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -893,66 +893,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_274
-# %bb.270:
+	jne	.LBB0_407
+# %bb.403:
 	and	al, dil
-	jne	.LBB0_274
-# %bb.271:
+	jne	.LBB0_407
+# %bb.404:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_272:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovupd	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vaddpd	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+.LBB0_405:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_272
-# %bb.273:
+	jne	.LBB0_405
+# %bb.406:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_274:
+.LBB0_407:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_276
-.LBB0_275:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+	je	.LBB0_409
+.LBB0_408:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_275
-.LBB0_276:
+	jne	.LBB0_408
+.LBB0_409:
 	cmp	rdi, 3
 	jb	.LBB0_537
-.LBB0_277:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
+.LBB0_410:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 8] # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 8]
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
 	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 16] # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 16]
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
 	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
-	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 24] # xmm0 = mem[0],zero
-	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 24]
+	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
 	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_277
+	jne	.LBB0_410
 	jmp	.LBB0_537
 .LBB0_528:
 	lea	rsi, [r8 + 8*r10]
@@ -1104,7 +1104,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_151
 	jmp	.LBB0_537
-.LBB0_402:
+.LBB0_276:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -1118,68 +1118,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_407
-# %bb.403:
+	jne	.LBB0_281
+# %bb.277:
 	and	al, dil
-	jne	.LBB0_407
-# %bb.404:
+	jne	.LBB0_281
+# %bb.278:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_405:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovupd	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vsubpd	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+.LBB0_279:                              # =>This Inner Loop Header: Depth=1
+	vmovupd	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovupd	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovupd	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovupd	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vaddpd	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_405
-# %bb.406:
+	jne	.LBB0_279
+# %bb.280:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_407:
+.LBB0_281:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_409
-.LBB0_408:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+	je	.LBB0_283
+.LBB0_282:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_408
-.LBB0_409:
+	jne	.LBB0_282
+.LBB0_283:
 	cmp	rdi, 3
 	jb	.LBB0_537
-.LBB0_410:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi]   # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi]
+.LBB0_284:                              # =>This Inner Loop Header: Depth=1
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi]   # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi]
 	vmovsd	qword ptr [r8 + 8*rsi], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 8] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 8]
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 8] # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 8]
 	vmovsd	qword ptr [r8 + 8*rsi + 8], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 16] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 16]
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 16] # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 16]
 	vmovsd	qword ptr [r8 + 8*rsi + 16], xmm0
-	vmovsd	xmm0, qword ptr [rdx + 8*rsi + 24] # xmm0 = mem[0],zero
-	vsubsd	xmm0, xmm0, qword ptr [rcx + 8*rsi + 24]
+	vmovsd	xmm0, qword ptr [rcx + 8*rsi + 24] # xmm0 = mem[0],zero
+	vaddsd	xmm0, xmm0, qword ptr [rdx + 8*rsi + 24]
 	vmovsd	qword ptr [r8 + 8*rsi + 24], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_410
+	jne	.LBB0_284
 	jmp	.LBB0_537
-.LBB0_182:
+.LBB0_315:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
 	cmp	rax, r8
@@ -1193,66 +1193,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_187
-# %bb.183:
+	jne	.LBB0_320
+# %bb.316:
 	and	al, dil
-	jne	.LBB0_187
-# %bb.184:
+	jne	.LBB0_320
+# %bb.317:
 	mov	esi, r10d
 	and	esi, -128
 	xor	edi, edi
-.LBB0_185:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+.LBB0_318:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
 	sub	rdi, -128
 	cmp	rsi, rdi
-	jne	.LBB0_185
-# %bb.186:
+	jne	.LBB0_318
+# %bb.319:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_187:
+.LBB0_320:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB0_189
-.LBB0_188:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
+	je	.LBB0_322
+.LBB0_321:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB0_188
-.LBB0_189:
+	jne	.LBB0_321
+.LBB0_322:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_190:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
+.LBB0_323:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
+	movzx	eax, byte ptr [rdx + rsi + 1]
+	sub	al, byte ptr [rcx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
+	movzx	eax, byte ptr [rdx + rsi + 2]
+	sub	al, byte ptr [rcx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
+	movzx	eax, byte ptr [rdx + rsi + 3]
+	sub	al, byte ptr [rcx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], al
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_190
+	jne	.LBB0_323
 	jmp	.LBB0_537
 .LBB0_441:
 	lea	rsi, [r8 + r10]
@@ -1404,7 +1404,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_64
 	jmp	.LBB0_537
-.LBB0_315:
+.LBB0_189:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
 	cmp	rax, r8
@@ -1418,68 +1418,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_320
-# %bb.316:
+	jne	.LBB0_194
+# %bb.190:
 	and	al, dil
-	jne	.LBB0_320
-# %bb.317:
+	jne	.LBB0_194
+# %bb.191:
 	mov	esi, r10d
 	and	esi, -128
 	xor	edi, edi
-.LBB0_318:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
+.LBB0_192:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
 	sub	rdi, -128
 	cmp	rsi, rdi
-	jne	.LBB0_318
-# %bb.319:
+	jne	.LBB0_192
+# %bb.193:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_320:
+.LBB0_194:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB0_322
-.LBB0_321:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
+	je	.LBB0_196
+.LBB0_195:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
 	mov	byte ptr [r8 + rsi], al
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB0_321
-.LBB0_322:
+	jne	.LBB0_195
+.LBB0_196:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_323:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
+.LBB0_197:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
 	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rdx + rsi + 1]
-	sub	al, byte ptr [rcx + rsi + 1]
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rdx + rsi + 2]
-	sub	al, byte ptr [rcx + rsi + 2]
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rdx + rsi + 3]
-	sub	al, byte ptr [rcx + rsi + 3]
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], al
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_323
+	jne	.LBB0_197
 	jmp	.LBB0_537
-.LBB0_236:
+.LBB0_369:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -1493,66 +1493,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_241
-# %bb.237:
+	jne	.LBB0_374
+# %bb.370:
 	and	al, dil
-	jne	.LBB0_241
-# %bb.238:
+	jne	.LBB0_374
+# %bb.371:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_239:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+.LBB0_372:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_239
-# %bb.240:
+	jne	.LBB0_372
+# %bb.373:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_241:
+.LBB0_374:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_243
-.LBB0_242:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
+	je	.LBB0_376
+.LBB0_375:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_242
-.LBB0_243:
+	jne	.LBB0_375
+.LBB0_376:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_244:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
+.LBB0_377:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
 	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
 	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
 	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_244
+	jne	.LBB0_377
 	jmp	.LBB0_537
 .LBB0_495:
 	lea	rsi, [r8 + 8*r10]
@@ -1704,7 +1704,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_118
 	jmp	.LBB0_537
-.LBB0_369:
+.LBB0_243:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -1718,68 +1718,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_374
-# %bb.370:
+	jne	.LBB0_248
+# %bb.244:
 	and	al, dil
-	jne	.LBB0_374
-# %bb.371:
+	jne	.LBB0_248
+# %bb.245:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_372:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+.LBB0_246:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_372
-# %bb.373:
+	jne	.LBB0_246
+# %bb.247:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_374:
+.LBB0_248:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_376
-.LBB0_375:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
+	je	.LBB0_250
+.LBB0_249:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_375
-.LBB0_376:
+	jne	.LBB0_249
+.LBB0_250:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_377:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
+.LBB0_251:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
 	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
 	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
 	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_377
+	jne	.LBB0_251
 	jmp	.LBB0_537
-.LBB0_194:
+.LBB0_327:
 	lea	rsi, [r8 + 2*r10]
 	lea	rax, [rdx + 2*r10]
 	cmp	rax, r8
@@ -1793,68 +1793,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_199
-# %bb.195:
+	jne	.LBB0_332
+# %bb.328:
 	and	al, dil
-	jne	.LBB0_199
-# %bb.196:
+	jne	.LBB0_332
+# %bb.329:
 	mov	esi, r10d
 	and	esi, -64
 	xor	edi, edi
-.LBB0_197:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+.LBB0_330:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
 	add	rdi, 64
 	cmp	rsi, rdi
-	jne	.LBB0_197
-# %bb.198:
+	jne	.LBB0_330
+# %bb.331:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_199:
+.LBB0_332:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_201
-.LBB0_200:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
+	je	.LBB0_334
+.LBB0_333:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_200
-.LBB0_201:
+	jne	.LBB0_333
+.LBB0_334:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_202:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
+.LBB0_335:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_202
+	jne	.LBB0_335
 	jmp	.LBB0_537
-.LBB0_206:
+.LBB0_339:
 	lea	rsi, [r8 + 2*r10]
 	lea	rax, [rdx + 2*r10]
 	cmp	rax, r8
@@ -1868,66 +1868,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_211
-# %bb.207:
+	jne	.LBB0_344
+# %bb.340:
 	and	al, dil
-	jne	.LBB0_211
-# %bb.208:
+	jne	.LBB0_344
+# %bb.341:
 	mov	esi, r10d
 	and	esi, -64
 	xor	edi, edi
-.LBB0_209:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
+.LBB0_342:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
 	add	rdi, 64
 	cmp	rsi, rdi
-	jne	.LBB0_209
-# %bb.210:
+	jne	.LBB0_342
+# %bb.343:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_211:
+.LBB0_344:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_213
-.LBB0_212:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, word ptr [rdx + 2*rsi]
+	je	.LBB0_346
+.LBB0_345:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rdx + 2*rsi]
+	sub	di, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_212
-.LBB0_213:
+	jne	.LBB0_345
+.LBB0_346:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_214:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rcx + 2*rsi]
-	add	ax, word ptr [rdx + 2*rsi]
+.LBB0_347:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rdx + 2*rsi]
+	sub	ax, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 2]
-	add	ax, word ptr [rdx + 2*rsi + 2]
+	movzx	eax, word ptr [rdx + 2*rsi + 2]
+	sub	ax, word ptr [rcx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 4]
-	add	ax, word ptr [rdx + 2*rsi + 4]
+	movzx	eax, word ptr [rdx + 2*rsi + 4]
+	sub	ax, word ptr [rcx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rcx + 2*rsi + 6]
-	add	ax, word ptr [rdx + 2*rsi + 6]
+	movzx	eax, word ptr [rdx + 2*rsi + 6]
+	sub	ax, word ptr [rcx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_214
+	jne	.LBB0_347
 	jmp	.LBB0_537
 .LBB0_453:
 	lea	rsi, [r8 + 2*r10]
@@ -2229,7 +2229,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_88
 	jmp	.LBB0_537
-.LBB0_327:
+.LBB0_201:
 	lea	rsi, [r8 + 2*r10]
 	lea	rax, [rdx + 2*r10]
 	cmp	rax, r8
@@ -2243,68 +2243,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_332
-# %bb.328:
+	jne	.LBB0_206
+# %bb.202:
 	and	al, dil
-	jne	.LBB0_332
-# %bb.329:
+	jne	.LBB0_206
+# %bb.203:
 	mov	esi, r10d
 	and	esi, -64
 	xor	edi, edi
-.LBB0_330:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+.LBB0_204:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
 	add	rdi, 64
 	cmp	rsi, rdi
-	jne	.LBB0_330
-# %bb.331:
+	jne	.LBB0_204
+# %bb.205:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_332:
+.LBB0_206:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_334
-.LBB0_333:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
+	je	.LBB0_208
+.LBB0_207:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_333
-.LBB0_334:
+	jne	.LBB0_207
+.LBB0_208:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_335:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
+.LBB0_209:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_335
+	jne	.LBB0_209
 	jmp	.LBB0_537
-.LBB0_339:
+.LBB0_213:
 	lea	rsi, [r8 + 2*r10]
 	lea	rax, [rdx + 2*r10]
 	cmp	rax, r8
@@ -2318,68 +2318,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_344
-# %bb.340:
+	jne	.LBB0_218
+# %bb.214:
 	and	al, dil
-	jne	.LBB0_344
-# %bb.341:
+	jne	.LBB0_218
+# %bb.215:
 	mov	esi, r10d
 	and	esi, -64
 	xor	edi, edi
-.LBB0_342:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm1, ymm1, ymmword ptr [rcx + 2*rdi + 32]
-	vpsubw	ymm2, ymm2, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm3, ymm3, ymmword ptr [rcx + 2*rdi + 96]
+.LBB0_216:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 2*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 2*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 2*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm1, ymm1, ymmword ptr [rdx + 2*rdi + 32]
+	vpaddw	ymm2, ymm2, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm3, ymm3, ymmword ptr [rdx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm3
 	add	rdi, 64
 	cmp	rsi, rdi
-	jne	.LBB0_342
-# %bb.343:
+	jne	.LBB0_216
+# %bb.217:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_344:
+.LBB0_218:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_346
-.LBB0_345:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	di, word ptr [rcx + 2*rsi]
+	je	.LBB0_220
+.LBB0_219:                              # =>This Inner Loop Header: Depth=1
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, word ptr [rdx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_345
-.LBB0_346:
+	jne	.LBB0_219
+.LBB0_220:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_347:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, word ptr [rdx + 2*rsi]
-	sub	ax, word ptr [rcx + 2*rsi]
+.LBB0_221:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, word ptr [rcx + 2*rsi]
+	add	ax, word ptr [rdx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 2]
-	sub	ax, word ptr [rcx + 2*rsi + 2]
+	movzx	eax, word ptr [rcx + 2*rsi + 2]
+	add	ax, word ptr [rdx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 4]
-	sub	ax, word ptr [rcx + 2*rsi + 4]
+	movzx	eax, word ptr [rcx + 2*rsi + 4]
+	add	ax, word ptr [rdx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], ax
-	movzx	eax, word ptr [rdx + 2*rsi + 6]
-	sub	ax, word ptr [rcx + 2*rsi + 6]
+	movzx	eax, word ptr [rcx + 2*rsi + 6]
+	add	ax, word ptr [rdx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], ax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_347
+	jne	.LBB0_221
 	jmp	.LBB0_537
-.LBB0_248:
+.LBB0_381:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -2393,68 +2393,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_253
-# %bb.249:
+	jne	.LBB0_386
+# %bb.382:
 	and	al, dil
-	jne	.LBB0_253
-# %bb.250:
+	jne	.LBB0_386
+# %bb.383:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_251:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
+.LBB0_384:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_251
-# %bb.252:
+	jne	.LBB0_384
+# %bb.385:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_253:
+.LBB0_386:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_255
-.LBB0_254:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rcx + 8*rsi]
-	add	rdi, qword ptr [rdx + 8*rsi]
+	je	.LBB0_388
+.LBB0_387:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rdx + 8*rsi]
+	sub	rdi, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_254
-.LBB0_255:
+	jne	.LBB0_387
+.LBB0_388:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_256:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rcx + 8*rsi]
-	add	rax, qword ptr [rdx + 8*rsi]
+.LBB0_389:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rdx + 8*rsi]
+	sub	rax, qword ptr [rcx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 8]
-	add	rax, qword ptr [rdx + 8*rsi + 8]
+	mov	rax, qword ptr [rdx + 8*rsi + 8]
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
 	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 16]
-	add	rax, qword ptr [rdx + 8*rsi + 16]
+	mov	rax, qword ptr [rdx + 8*rsi + 16]
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
 	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rcx + 8*rsi + 24]
-	add	rax, qword ptr [rdx + 8*rsi + 24]
+	mov	rax, qword ptr [rdx + 8*rsi + 24]
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
 	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_256
+	jne	.LBB0_389
 	jmp	.LBB0_537
-.LBB0_260:
+.LBB0_393:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -2468,66 +2468,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_265
-# %bb.261:
+	jne	.LBB0_398
+# %bb.394:
 	and	al, dil
-	jne	.LBB0_265
-# %bb.262:
+	jne	.LBB0_398
+# %bb.395:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_263:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+.LBB0_396:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_263
-# %bb.264:
+	jne	.LBB0_396
+# %bb.397:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_265:
+.LBB0_398:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_267
-.LBB0_266:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+	je	.LBB0_400
+.LBB0_399:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
 	vmovss	dword ptr [r8 + 4*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_266
-.LBB0_267:
+	jne	.LBB0_399
+.LBB0_400:
 	cmp	rdi, 3
 	jb	.LBB0_537
-.LBB0_268:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
+.LBB0_401:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
 	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
 	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
 	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
+	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
 	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_268
+	jne	.LBB0_401
 	jmp	.LBB0_537
 .LBB0_507:
 	lea	rsi, [r8 + 8*r10]
@@ -2829,7 +2829,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_142
 	jmp	.LBB0_537
-.LBB0_381:
+.LBB0_255:
 	lea	rsi, [r8 + 8*r10]
 	lea	rax, [rdx + 8*r10]
 	cmp	rax, r8
@@ -2843,68 +2843,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_386
-# %bb.382:
+	jne	.LBB0_260
+# %bb.256:
 	and	al, dil
-	jne	.LBB0_386
-# %bb.383:
+	jne	.LBB0_260
+# %bb.257:
 	mov	esi, r10d
 	and	esi, -16
 	xor	edi, edi
-.LBB0_384:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm2, ymm2, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm3, ymm3, ymmword ptr [rcx + 8*rdi + 96]
+.LBB0_258:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 8*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 8*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm2, ymm2, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm3, ymm3, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm3
 	add	rdi, 16
 	cmp	rsi, rdi
-	jne	.LBB0_384
-# %bb.385:
+	jne	.LBB0_258
+# %bb.259:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_386:
+.LBB0_260:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_388
-.LBB0_387:                              # =>This Inner Loop Header: Depth=1
-	mov	rdi, qword ptr [rdx + 8*rsi]
-	sub	rdi, qword ptr [rcx + 8*rsi]
+	je	.LBB0_262
+.LBB0_261:                              # =>This Inner Loop Header: Depth=1
+	mov	rdi, qword ptr [rcx + 8*rsi]
+	add	rdi, qword ptr [rdx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rdi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_387
-.LBB0_388:
+	jne	.LBB0_261
+.LBB0_262:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_389:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, qword ptr [rdx + 8*rsi]
-	sub	rax, qword ptr [rcx + 8*rsi]
+.LBB0_263:                              # =>This Inner Loop Header: Depth=1
+	mov	rax, qword ptr [rcx + 8*rsi]
+	add	rax, qword ptr [rdx + 8*rsi]
 	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 8]
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	rax, qword ptr [rcx + 8*rsi + 8]
+	add	rax, qword ptr [rdx + 8*rsi + 8]
 	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 16]
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	rax, qword ptr [rcx + 8*rsi + 16]
+	add	rax, qword ptr [rdx + 8*rsi + 16]
 	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, qword ptr [rdx + 8*rsi + 24]
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	rax, qword ptr [rcx + 8*rsi + 24]
+	add	rax, qword ptr [rdx + 8*rsi + 24]
 	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_389
+	jne	.LBB0_263
 	jmp	.LBB0_537
-.LBB0_393:
+.LBB0_267:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -2918,68 +2918,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_398
-# %bb.394:
+	jne	.LBB0_272
+# %bb.268:
 	and	al, dil
-	jne	.LBB0_398
-# %bb.395:
+	jne	.LBB0_272
+# %bb.269:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_396:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovups	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovups	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vsubps	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+.LBB0_270:                              # =>This Inner Loop Header: Depth=1
+	vmovups	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovups	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovups	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovups	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vaddps	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_396
-# %bb.397:
+	jne	.LBB0_270
+# %bb.271:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_398:
+.LBB0_272:
 	mov	rdi, rsi
 	not	rdi
 	add	rdi, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_400
-.LBB0_399:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+	je	.LBB0_274
+.LBB0_273:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
 	vmovss	dword ptr [r8 + 4*rsi], xmm0
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_399
-.LBB0_400:
+	jne	.LBB0_273
+.LBB0_274:
 	cmp	rdi, 3
 	jb	.LBB0_537
-.LBB0_401:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm0, dword ptr [rdx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi]
+.LBB0_275:                              # =>This Inner Loop Header: Depth=1
+	vmovss	xmm0, dword ptr [rcx + 4*rsi]   # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi]
 	vmovss	dword ptr [r8 + 4*rsi], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 4]
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 4] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 4]
 	vmovss	dword ptr [r8 + 4*rsi + 4], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 8]
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 8] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 8]
 	vmovss	dword ptr [r8 + 4*rsi + 8], xmm0
-	vmovss	xmm0, dword ptr [rdx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
-	vsubss	xmm0, xmm0, dword ptr [rcx + 4*rsi + 12]
+	vmovss	xmm0, dword ptr [rcx + 4*rsi + 12] # xmm0 = mem[0],zero,zero,zero
+	vaddss	xmm0, xmm0, dword ptr [rdx + 4*rsi + 12]
 	vmovss	dword ptr [r8 + 4*rsi + 12], xmm0
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_401
+	jne	.LBB0_275
 	jmp	.LBB0_537
-.LBB0_173:
+.LBB0_306:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
 	cmp	rax, r8
@@ -2993,66 +2993,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_178
-# %bb.174:
+	jne	.LBB0_311
+# %bb.307:
 	and	al, dil
-	jne	.LBB0_178
-# %bb.175:
+	jne	.LBB0_311
+# %bb.308:
 	mov	esi, r10d
 	and	esi, -128
 	xor	edi, edi
-.LBB0_176:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
+.LBB0_309:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
 	sub	rdi, -128
 	cmp	rsi, rdi
-	jne	.LBB0_176
-# %bb.177:
+	jne	.LBB0_309
+# %bb.310:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_178:
+.LBB0_311:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB0_180
-.LBB0_179:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
+	je	.LBB0_313
+.LBB0_312:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB0_179
-.LBB0_180:
+	jne	.LBB0_312
+.LBB0_313:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_181:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rcx + rsi]
-	add	al, byte ptr [rdx + rsi]
+.LBB0_314:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rdx + rsi]
+	sub	al, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rcx + rsi + 1]
-	add	al, byte ptr [rdx + rsi + 1]
+	movzx	eax, byte ptr [rdx + rsi + 1]
+	sub	al, byte ptr [rcx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rcx + rsi + 2]
-	add	al, byte ptr [rdx + rsi + 2]
+	movzx	eax, byte ptr [rdx + rsi + 2]
+	sub	al, byte ptr [rcx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rcx + rsi + 3]
-	add	al, byte ptr [rdx + rsi + 3]
+	movzx	eax, byte ptr [rdx + rsi + 3]
+	sub	al, byte ptr [rcx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], al
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_181
+	jne	.LBB0_314
 	jmp	.LBB0_537
 .LBB0_432:
 	lea	rsi, [r8 + r10]
@@ -3204,7 +3204,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_55
 	jmp	.LBB0_537
-.LBB0_306:
+.LBB0_180:
 	lea	rsi, [r8 + r10]
 	lea	rax, [rdx + r10]
 	cmp	rax, r8
@@ -3218,68 +3218,68 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_311
-# %bb.307:
+	jne	.LBB0_185
+# %bb.181:
 	and	al, dil
-	jne	.LBB0_311
-# %bb.308:
+	jne	.LBB0_185
+# %bb.182:
 	mov	esi, r10d
 	and	esi, -128
 	xor	edi, edi
-.LBB0_309:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm1, ymm1, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm2, ymm2, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm3, ymm3, ymmword ptr [rcx + rdi + 96]
+.LBB0_183:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm1, ymm1, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm2, ymm2, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm3, ymm3, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm3
 	sub	rdi, -128
 	cmp	rsi, rdi
-	jne	.LBB0_309
-# %bb.310:
+	jne	.LBB0_183
+# %bb.184:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_311:
+.LBB0_185:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
-	je	.LBB0_313
-.LBB0_312:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
+	je	.LBB0_187
+.LBB0_186:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
 	mov	byte ptr [r8 + rsi], al
 	add	rsi, 1
 	add	rdi, -1
-	jne	.LBB0_312
-.LBB0_313:
+	jne	.LBB0_186
+.LBB0_187:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_314:                              # =>This Inner Loop Header: Depth=1
-	movzx	eax, byte ptr [rdx + rsi]
-	sub	al, byte ptr [rcx + rsi]
+.LBB0_188:                              # =>This Inner Loop Header: Depth=1
+	movzx	eax, byte ptr [rcx + rsi]
+	add	al, byte ptr [rdx + rsi]
 	mov	byte ptr [r8 + rsi], al
-	movzx	eax, byte ptr [rdx + rsi + 1]
-	sub	al, byte ptr [rcx + rsi + 1]
+	movzx	eax, byte ptr [rcx + rsi + 1]
+	add	al, byte ptr [rdx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], al
-	movzx	eax, byte ptr [rdx + rsi + 2]
-	sub	al, byte ptr [rcx + rsi + 2]
+	movzx	eax, byte ptr [rcx + rsi + 2]
+	add	al, byte ptr [rdx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], al
-	movzx	eax, byte ptr [rdx + rsi + 3]
-	sub	al, byte ptr [rcx + rsi + 3]
+	movzx	eax, byte ptr [rcx + rsi + 3]
+	add	al, byte ptr [rdx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], al
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_314
+	jne	.LBB0_188
 	jmp	.LBB0_537
-.LBB0_227:
+.LBB0_360:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -3293,66 +3293,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_232
-# %bb.228:
+	jne	.LBB0_365
+# %bb.361:
 	and	al, dil
-	jne	.LBB0_232
-# %bb.229:
+	jne	.LBB0_365
+# %bb.362:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_230:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
+.LBB0_363:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_230
-# %bb.231:
+	jne	.LBB0_363
+# %bb.364:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_232:
+.LBB0_365:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_234
-.LBB0_233:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rcx + 4*rsi]
-	add	edi, dword ptr [rdx + 4*rsi]
+	je	.LBB0_367
+.LBB0_366:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rdx + 4*rsi]
+	sub	edi, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_233
-.LBB0_234:
+	jne	.LBB0_366
+.LBB0_367:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_235:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rcx + 4*rsi]
-	add	eax, dword ptr [rdx + 4*rsi]
+.LBB0_368:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rdx + 4*rsi]
+	sub	eax, dword ptr [rcx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 4]
-	add	eax, dword ptr [rdx + 4*rsi + 4]
+	mov	eax, dword ptr [rdx + 4*rsi + 4]
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
 	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 8]
-	add	eax, dword ptr [rdx + 4*rsi + 8]
+	mov	eax, dword ptr [rdx + 4*rsi + 8]
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
 	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rcx + 4*rsi + 12]
-	add	eax, dword ptr [rdx + 4*rsi + 12]
+	mov	eax, dword ptr [rdx + 4*rsi + 12]
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_235
+	jne	.LBB0_368
 	jmp	.LBB0_537
 .LBB0_486:
 	lea	rsi, [r8 + 4*r10]
@@ -3504,7 +3504,7 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	cmp	r10, rsi
 	jne	.LBB0_109
 	jmp	.LBB0_537
-.LBB0_360:
+.LBB0_234:
 	lea	rsi, [r8 + 4*r10]
 	lea	rax, [rdx + 4*r10]
 	cmp	rax, r8
@@ -3518,66 +3518,66 @@ arithmetic_avx2:                        # @arithmetic_avx2
 	seta	dil
 	xor	esi, esi
 	test	r9b, r11b
-	jne	.LBB0_365
-# %bb.361:
+	jne	.LBB0_239
+# %bb.235:
 	and	al, dil
-	jne	.LBB0_365
-# %bb.362:
+	jne	.LBB0_239
+# %bb.236:
 	mov	esi, r10d
 	and	esi, -32
 	xor	edi, edi
-.LBB0_363:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm0, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm2, ymm2, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm3, ymm3, ymmword ptr [rcx + 4*rdi + 96]
+.LBB0_237:                              # =>This Inner Loop Header: Depth=1
+	vmovdqu	ymm0, ymmword ptr [rcx + 4*rdi]
+	vmovdqu	ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vmovdqu	ymm2, ymmword ptr [rcx + 4*rdi + 64]
+	vmovdqu	ymm3, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm2, ymm2, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm3, ymm3, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm3
 	add	rdi, 32
 	cmp	rsi, rdi
-	jne	.LBB0_363
-# %bb.364:
+	jne	.LBB0_237
+# %bb.238:
 	cmp	rsi, r10
 	je	.LBB0_537
-.LBB0_365:
+.LBB0_239:
 	mov	r9, rsi
 	not	r9
 	add	r9, r10
 	mov	rax, r10
 	and	rax, 3
-	je	.LBB0_367
-.LBB0_366:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, dword ptr [rdx + 4*rsi]
-	sub	edi, dword ptr [rcx + 4*rsi]
+	je	.LBB0_241
+.LBB0_240:                              # =>This Inner Loop Header: Depth=1
+	mov	edi, dword ptr [rcx + 4*rsi]
+	add	edi, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], edi
 	add	rsi, 1
 	add	rax, -1
-	jne	.LBB0_366
-.LBB0_367:
+	jne	.LBB0_240
+.LBB0_241:
 	cmp	r9, 3
 	jb	.LBB0_537
-.LBB0_368:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, dword ptr [rdx + 4*rsi]
-	sub	eax, dword ptr [rcx + 4*rsi]
+.LBB0_242:                              # =>This Inner Loop Header: Depth=1
+	mov	eax, dword ptr [rcx + 4*rsi]
+	add	eax, dword ptr [rdx + 4*rsi]
 	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 4]
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	eax, dword ptr [rcx + 4*rsi + 4]
+	add	eax, dword ptr [rdx + 4*rsi + 4]
 	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 8]
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	eax, dword ptr [rcx + 4*rsi + 8]
+	add	eax, dword ptr [rdx + 4*rsi + 8]
 	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, dword ptr [rdx + 4*rsi + 12]
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	eax, dword ptr [rcx + 4*rsi + 12]
+	add	eax, dword ptr [rdx + 4*rsi + 12]
 	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
-	jne	.LBB0_368
+	jne	.LBB0_242
 .LBB0_537:
 	mov	rsp, rbp
 	pop	rbp
@@ -3644,7 +3644,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_423
 .LBB1_422:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
@@ -3654,16 +3654,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_424:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 4], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 8], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -3851,7 +3851,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_447
 .LBB1_446:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
@@ -3861,16 +3861,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_448:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 4], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 8], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -3914,7 +3914,8 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	and	rdi, 3
 	je	.LBB1_455
 .LBB1_454:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
@@ -3923,13 +3924,17 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	cmp	rsi, 3
 	jb	.LBB1_737
 .LBB1_456:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 8] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 16] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
+	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 24] # xmm1 = mem[0],zero
+	vsubsd	xmm1, xmm1, xmm0
 	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
 	add	rcx, 4
 	cmp	rax, rcx
@@ -4096,8 +4101,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	and	rdi, 3
 	je	.LBB1_479
 .LBB1_478:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
@@ -4106,17 +4110,13 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	cmp	rsi, 3
 	jb	.LBB1_737
 .LBB1_480:                              # =>This Inner Loop Header: Depth=1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx]   # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx]
 	vmovsd	qword ptr [r8 + 8*rcx], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 8] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 8]
 	vmovsd	qword ptr [r8 + 8*rcx + 8], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 16] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 16]
 	vmovsd	qword ptr [r8 + 8*rcx + 16], xmm1
-	vmovsd	xmm1, qword ptr [rdx + 8*rcx + 24] # xmm1 = mem[0],zero
-	vsubsd	xmm1, xmm1, xmm0
+	vaddsd	xmm1, xmm0, qword ptr [rdx + 8*rcx + 24]
 	vmovsd	qword ptr [r8 + 8*rcx + 24], xmm1
 	add	rcx, 4
 	cmp	rax, rcx
@@ -4155,7 +4155,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_487
 .LBB1_486:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
 	add	rdi, -1
@@ -4165,16 +4165,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_488:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 1], cl
 	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 2], cl
 	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4329,7 +4329,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_511
 .LBB1_510:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
 	add	rdi, -1
@@ -4339,16 +4339,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_512:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 1], cl
 	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 2], cl
 	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4387,7 +4387,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_519
 .LBB1_518:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	add	rsi, 1
 	add	rdi, -1
@@ -4397,16 +4397,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_520:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 8], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 16], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 24], rcx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4561,7 +4561,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_543
 .LBB1_542:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	add	rsi, 1
 	add	rdi, -1
@@ -4571,16 +4571,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_544:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 8], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 16], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 24], rcx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4613,7 +4613,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_551
 .LBB1_550:                              # =>This Inner Loop Header: Depth=1
 	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
+	sub	edi, eax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rcx, -1
@@ -4623,16 +4623,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_552:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 2], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 4], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 6], cx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4665,7 +4665,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_559
 .LBB1_558:                              # =>This Inner Loop Header: Depth=1
 	movzx	edi, word ptr [rdx + 2*rsi]
-	add	di, ax
+	sub	edi, eax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rcx, -1
@@ -4675,16 +4675,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_560:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, word ptr [rdx + 2*rsi]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 2], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 4], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	add	cx, ax
+	sub	ecx, eax
 	mov	word ptr [r8 + 2*rsi + 6], cx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4925,7 +4925,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_599
 .LBB1_598:                              # =>This Inner Loop Header: Depth=1
 	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
+	add	di, ax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rcx, -1
@@ -4935,16 +4935,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_600:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 2], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 4], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 6], cx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -4977,7 +4977,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_607
 .LBB1_606:                              # =>This Inner Loop Header: Depth=1
 	movzx	edi, word ptr [rdx + 2*rsi]
-	sub	edi, eax
+	add	di, ax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rcx, -1
@@ -4987,16 +4987,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_608:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, word ptr [rdx + 2*rsi]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 2]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 2], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 4]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 4], cx
 	movzx	ecx, word ptr [rdx + 2*rsi + 6]
-	sub	ecx, eax
+	add	cx, ax
 	mov	word ptr [r8 + 2*rsi + 6], cx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5029,7 +5029,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_615
 .LBB1_614:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	add	rsi, 1
 	add	rdi, -1
@@ -5039,16 +5039,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_616:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 8], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 16], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	add	rcx, rax
+	sub	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 24], rcx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5080,7 +5080,8 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	and	rdi, 3
 	je	.LBB1_623
 .LBB1_622:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
@@ -5089,13 +5090,17 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	cmp	rsi, 3
 	jb	.LBB1_737
 .LBB1_624:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
+	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
+	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
+	vsubss	xmm1, xmm1, xmm0
 	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
 	add	rcx, 4
 	cmp	rax, rcx
@@ -5331,7 +5336,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_663
 .LBB1_662:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	add	rsi, 1
 	add	rdi, -1
@@ -5341,16 +5346,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_664:                              # =>This Inner Loop Header: Depth=1
 	mov	rcx, qword ptr [rdx + 8*rsi]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 8]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 8], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 16]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 16], rcx
 	mov	rcx, qword ptr [rdx + 8*rsi + 24]
-	sub	rcx, rax
+	add	rcx, rax
 	mov	qword ptr [r8 + 8*rsi + 24], rcx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5382,8 +5387,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	and	rdi, 3
 	je	.LBB1_671
 .LBB1_670:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
 	vmovss	dword ptr [r8 + 4*rcx], xmm1
 	add	rcx, 1
 	add	rdi, -1
@@ -5392,17 +5396,13 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	cmp	rsi, 3
 	jb	.LBB1_737
 .LBB1_672:                              # =>This Inner Loop Header: Depth=1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx]   # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx]
 	vmovss	dword ptr [r8 + 4*rcx], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 4] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 4]
 	vmovss	dword ptr [r8 + 4*rcx + 4], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 8] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 8]
 	vmovss	dword ptr [r8 + 4*rcx + 8], xmm1
-	vmovss	xmm1, dword ptr [rdx + 4*rcx + 12] # xmm1 = mem[0],zero,zero,zero
-	vsubss	xmm1, xmm1, xmm0
+	vaddss	xmm1, xmm0, dword ptr [rdx + 4*rcx + 12]
 	vmovss	dword ptr [r8 + 4*rcx + 12], xmm1
 	add	rcx, 4
 	cmp	rax, rcx
@@ -5435,7 +5435,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_679
 .LBB1_678:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
 	add	rdi, -1
@@ -5445,16 +5445,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_680:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	movzx	ecx, byte ptr [rdx + rsi + 1]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 1], cl
 	movzx	ecx, byte ptr [rdx + rsi + 2]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 2], cl
 	movzx	ecx, byte ptr [rdx + rsi + 3]
-	add	cl, al
+	sub	cl, al
 	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5591,7 +5591,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_703
 .LBB1_702:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	add	rsi, 1
 	add	rdi, -1
@@ -5601,16 +5601,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_704:                              # =>This Inner Loop Header: Depth=1
 	movzx	ecx, byte ptr [rdx + rsi]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi], cl
 	movzx	ecx, byte ptr [rdx + rsi + 1]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 1], cl
 	movzx	ecx, byte ptr [rdx + rsi + 2]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 2], cl
 	movzx	ecx, byte ptr [rdx + rsi + 3]
-	sub	cl, al
+	add	cl, al
 	mov	byte ptr [r8 + rsi + 3], cl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5643,7 +5643,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_711
 .LBB1_710:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
@@ -5653,16 +5653,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_712:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 4], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 8], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	add	ecx, eax
+	sub	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5799,7 +5799,7 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_735
 .LBB1_734:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	add	rsi, 1
 	add	rdi, -1
@@ -5809,16 +5809,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	jb	.LBB1_737
 .LBB1_736:                              # =>This Inner Loop Header: Depth=1
 	mov	ecx, dword ptr [rdx + 4*rsi]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 4]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 4], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 8]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 8], ecx
 	mov	ecx, dword ptr [rdx + 4*rsi + 12]
-	sub	ecx, eax
+	add	ecx, eax
 	mov	dword ptr [r8 + 4*rsi + 12], ecx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -5841,18 +5841,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_299:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -5960,26 +5968,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_308:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -5999,29 +5999,37 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	rsi, rsi
 	je	.LBB1_449
 # %bb.310:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
 .LBB1_311:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
-	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
-	add	rdi, 32
-	add	rsi, 2
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm5, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
+	add	rsi, 32
+	add	rdi, 2
 	jne	.LBB1_311
 	jmp	.LBB1_450
 .LBB1_312:
@@ -6115,37 +6123,29 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	rsi, rsi
 	je	.LBB1_473
 # %bb.319:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
 .LBB1_320:                              # =>This Inner Loop Header: Depth=1
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm5
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi + 128]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 160]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 192]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 224]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm5, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi + 128], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 160], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 192], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 224], ymm5
-	add	rsi, 32
-	add	rdi, 2
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rdx + 8*rdi + 224]
+	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 224], ymm5
+	add	rdi, 32
+	add	rsi, 2
 	jne	.LBB1_320
 	jmp	.LBB1_474
 .LBB1_321:
@@ -6165,18 +6165,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_323:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -6284,26 +6292,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_332:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -6329,18 +6329,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_335:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -6448,26 +6456,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_344:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -6493,12 +6493,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_347:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -6522,12 +6526,16 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_350:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm2, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -6675,16 +6683,12 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_365:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -6708,16 +6712,12 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_368:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi + 64]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 96]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm2, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rdx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -6741,18 +6741,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_371:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -6772,29 +6780,37 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	rsi, rsi
 	je	.LBB1_617
 # %bb.373:
-	mov	rsi, r9
-	and	rsi, -2
-	neg	rsi
-	xor	edi, edi
+	mov	rdi, r9
+	and	rdi, -2
+	neg	rdi
+	xor	esi, esi
 .LBB1_374:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
-	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
-	add	rdi, 64
-	add	rsi, 2
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm5, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
+	add	rsi, 64
+	add	rdi, 2
 	jne	.LBB1_374
 	jmp	.LBB1_618
 .LBB1_375:
@@ -6976,26 +6992,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_389:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 224]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm4, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rdx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -7015,37 +7023,29 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	rsi, rsi
 	je	.LBB1_665
 # %bb.391:
-	mov	rdi, r9
-	and	rdi, -2
-	neg	rdi
-	xor	esi, esi
+	mov	rsi, r9
+	and	rsi, -2
+	neg	rsi
+	xor	edi, edi
 .LBB1_392:                              # =>This Inner Loop Header: Depth=1
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm5
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi + 128]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 160]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 192]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 224]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm5, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi + 128], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 160], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 192], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 224], ymm5
-	add	rsi, 64
-	add	rdi, 2
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rdx + 4*rdi + 224]
+	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 224], ymm5
+	add	rdi, 64
+	add	rsi, 2
 	jne	.LBB1_392
 	jmp	.LBB1_666
 .LBB1_393:
@@ -7065,18 +7065,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_395:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -7184,26 +7192,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_404:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 224]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm4, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rdx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -7229,18 +7229,26 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_407:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm4, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -7348,26 +7356,18 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	neg	rcx
 	xor	edi, edi
 .LBB1_416:                              # =>This Inner Loop Header: Depth=1
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi + 128]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 160]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 192]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 224]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm4, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rdx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -7382,10 +7382,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_420
 # %bb.419:
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -7440,14 +7444,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_444
 # %bb.443:
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm0, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -7457,19 +7457,23 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_737
 	jmp	.LBB1_445
 .LBB1_449:
-	xor	edi, edi
+	xor	esi, esi
 .LBB1_450:
 	test	r9b, 1
 	je	.LBB1_452
 # %bb.451:
-	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
-	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
+	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
+	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
+	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
+	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
+	vsubpd	ymm2, ymm2, ymm1
+	vsubpd	ymm3, ymm3, ymm1
+	vsubpd	ymm4, ymm4, ymm1
+	vsubpd	ymm1, ymm5, ymm1
+	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
 .LBB1_452:
 	cmp	rcx, rax
 	je	.LBB1_737
@@ -7515,23 +7519,19 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_737
 	jmp	.LBB1_469
 .LBB1_473:
-	xor	esi, esi
+	xor	edi, edi
 .LBB1_474:
 	test	r9b, 1
 	je	.LBB1_476
 # %bb.475:
-	vmovupd	ymm2, ymmword ptr [rdx + 8*rsi]
-	vmovupd	ymm3, ymmword ptr [rdx + 8*rsi + 32]
-	vmovupd	ymm4, ymmword ptr [rdx + 8*rsi + 64]
-	vmovupd	ymm5, ymmword ptr [rdx + 8*rsi + 96]
-	vsubpd	ymm2, ymm2, ymm1
-	vsubpd	ymm3, ymm3, ymm1
-	vsubpd	ymm4, ymm4, ymm1
-	vsubpd	ymm1, ymm5, ymm1
-	vmovupd	ymmword ptr [r8 + 8*rsi], ymm2
-	vmovupd	ymmword ptr [r8 + 8*rsi + 32], ymm3
-	vmovupd	ymmword ptr [r8 + 8*rsi + 64], ymm4
-	vmovupd	ymmword ptr [r8 + 8*rsi + 96], ymm1
+	vaddpd	ymm2, ymm1, ymmword ptr [rdx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rdx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rdx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rdx + 8*rdi + 96]
+	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
+	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
+	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
+	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm1
 .LBB1_476:
 	cmp	rcx, rax
 	je	.LBB1_737
@@ -7542,10 +7542,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_484
 # %bb.483:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -7600,14 +7604,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_508
 # %bb.507:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -7622,10 +7622,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_516
 # %bb.515:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -7680,14 +7684,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_540
 # %bb.539:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -7702,8 +7702,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_548
 # %bb.547:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB1_548:
@@ -7716,8 +7718,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_556
 # %bb.555:
-	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
+	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
+	vpsubw	ymm1, ymm1, ymm0
+	vpsubw	ymm0, ymm2, ymm0
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB1_556:
@@ -7790,10 +7794,8 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_596
 # %bb.595:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB1_596:
@@ -7806,10 +7808,8 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_604
 # %bb.603:
-	vmovdqu	ymm1, ymmword ptr [rdx + 2*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 2*rdi + 32]
-	vpsubw	ymm1, ymm1, ymm0
-	vpsubw	ymm0, ymm2, ymm0
+	vpaddw	ymm1, ymm0, ymmword ptr [rdx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rdx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB1_604:
@@ -7822,10 +7822,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_612
 # %bb.611:
-	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
+	vpsubq	ymm1, ymm1, ymm0
+	vpsubq	ymm2, ymm2, ymm0
+	vpsubq	ymm3, ymm3, ymm0
+	vpsubq	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -7835,19 +7839,23 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_737
 	jmp	.LBB1_613
 .LBB1_617:
-	xor	edi, edi
+	xor	esi, esi
 .LBB1_618:
 	test	r9b, 1
 	je	.LBB1_620
 # %bb.619:
-	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
-	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
+	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
+	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
+	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
+	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
+	vsubps	ymm2, ymm2, ymm1
+	vsubps	ymm3, ymm3, ymm1
+	vsubps	ymm4, ymm4, ymm1
+	vsubps	ymm1, ymm5, ymm1
+	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
 .LBB1_620:
 	cmp	rcx, rax
 	je	.LBB1_737
@@ -7938,14 +7946,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_660
 # %bb.659:
-	vmovdqu	ymm1, ymmword ptr [rdx + 8*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 8*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 8*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 8*rdi + 96]
-	vpsubq	ymm1, ymm1, ymm0
-	vpsubq	ymm2, ymm2, ymm0
-	vpsubq	ymm3, ymm3, ymm0
-	vpsubq	ymm0, ymm4, ymm0
+	vpaddq	ymm1, ymm0, ymmword ptr [rdx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rdx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rdx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rdx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -7955,23 +7959,19 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	je	.LBB1_737
 	jmp	.LBB1_661
 .LBB1_665:
-	xor	esi, esi
+	xor	edi, edi
 .LBB1_666:
 	test	r9b, 1
 	je	.LBB1_668
 # %bb.667:
-	vmovups	ymm2, ymmword ptr [rdx + 4*rsi]
-	vmovups	ymm3, ymmword ptr [rdx + 4*rsi + 32]
-	vmovups	ymm4, ymmword ptr [rdx + 4*rsi + 64]
-	vmovups	ymm5, ymmword ptr [rdx + 4*rsi + 96]
-	vsubps	ymm2, ymm2, ymm1
-	vsubps	ymm3, ymm3, ymm1
-	vsubps	ymm4, ymm4, ymm1
-	vsubps	ymm1, ymm5, ymm1
-	vmovups	ymmword ptr [r8 + 4*rsi], ymm2
-	vmovups	ymmword ptr [r8 + 4*rsi + 32], ymm3
-	vmovups	ymmword ptr [r8 + 4*rsi + 64], ymm4
-	vmovups	ymmword ptr [r8 + 4*rsi + 96], ymm1
+	vaddps	ymm2, ymm1, ymmword ptr [rdx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rdx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rdx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rdx + 4*rdi + 96]
+	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
+	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
+	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
+	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm1
 .LBB1_668:
 	cmp	rcx, rax
 	je	.LBB1_737
@@ -7982,10 +7982,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_676
 # %bb.675:
-	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
+	vpsubb	ymm1, ymm1, ymm0
+	vpsubb	ymm2, ymm2, ymm0
+	vpsubb	ymm3, ymm3, ymm0
+	vpsubb	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -8040,14 +8044,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_700
 # %bb.699:
-	vmovdqu	ymm1, ymmword ptr [rdx + rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + rdi + 96]
-	vpsubb	ymm1, ymm1, ymm0
-	vpsubb	ymm2, ymm2, ymm0
-	vpsubb	ymm3, ymm3, ymm0
-	vpsubb	ymm0, ymm4, ymm0
+	vpaddb	ymm1, ymm0, ymmword ptr [rdx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rdx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rdx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rdx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -8062,10 +8062,14 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_708
 # %bb.707:
-	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
+	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
+	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
+	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
+	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
+	vpsubd	ymm1, ymm1, ymm0
+	vpsubd	ymm2, ymm2, ymm0
+	vpsubd	ymm3, ymm3, ymm0
+	vpsubd	ymm0, ymm4, ymm0
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -8120,14 +8124,10 @@ arithmetic_arr_scalar_avx2:             # @arithmetic_arr_scalar_avx2
 	test	r9b, 1
 	je	.LBB1_732
 # %bb.731:
-	vmovdqu	ymm1, ymmword ptr [rdx + 4*rdi]
-	vmovdqu	ymm2, ymmword ptr [rdx + 4*rdi + 32]
-	vmovdqu	ymm3, ymmword ptr [rdx + 4*rdi + 64]
-	vmovdqu	ymm4, ymmword ptr [rdx + 4*rdi + 96]
-	vpsubd	ymm1, ymm1, ymm0
-	vpsubd	ymm2, ymm2, ymm0
-	vpsubd	ymm3, ymm3, ymm0
-	vpsubd	ymm0, ymm4, ymm0
+	vpaddd	ymm1, ymm0, ymmword ptr [rdx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rdx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rdx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rdx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -8178,7 +8178,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.9:
-	mov	eax, dword ptr [rdx]
+	mov	r11d, dword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 32
 	jb	.LBB2_10
@@ -8193,35 +8193,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_10:
 	xor	esi, esi
 .LBB2_421:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_423
 .LBB2_422:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_422
 .LBB2_423:
-	cmp	r9, 3
+	cmp	rdx, 3
 	jb	.LBB2_737
 .LBB2_424:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_424
@@ -8385,7 +8385,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.35:
-	mov	r11d, dword ptr [rdx]
+	mov	eax, dword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 32
 	jb	.LBB2_36
@@ -8400,35 +8400,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_36:
 	xor	esi, esi
 .LBB2_445:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_447
 .LBB2_446:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_446
 .LBB2_447:
-	cmp	rdx, 3
+	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_448:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_448
@@ -8471,7 +8471,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_455
 .LBB2_454:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
@@ -8480,13 +8480,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	rsi, 3
 	jb	.LBB2_737
 .LBB2_456:                              # =>This Inner Loop Header: Depth=1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
 	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
 	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
-	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
 	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
@@ -8648,7 +8648,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_479
 .LBB2_478:                              # =>This Inner Loop Header: Depth=1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
@@ -8657,13 +8657,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	rsi, 3
 	jb	.LBB2_737
 .LBB2_480:                              # =>This Inner Loop Header: Depth=1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx]
 	vmovsd	qword ptr [r8 + 8*rdx], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 8]
 	vmovsd	qword ptr [r8 + 8*rdx + 8], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 16]
 	vmovsd	qword ptr [r8 + 8*rdx + 16], xmm1
-	vsubsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
+	vaddsd	xmm1, xmm0, qword ptr [rcx + 8*rdx + 24]
 	vmovsd	qword ptr [r8 + 8*rdx + 24], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
@@ -8701,8 +8701,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_487
 .LBB2_486:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
 	add	rdi, -1
@@ -8711,17 +8711,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_488:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -8875,8 +8875,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_511
 .LBB2_510:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
 	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
 	add	rdi, -1
@@ -8885,17 +8885,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_512:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
 	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -8911,7 +8911,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.88:
-	mov	rax, qword ptr [rdx]
+	mov	r11, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB2_89
@@ -8926,35 +8926,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_89:
 	xor	esi, esi
 .LBB2_517:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_519
 .LBB2_518:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_518
 .LBB2_519:
-	cmp	r9, 3
+	cmp	rdx, 3
 	jb	.LBB2_737
 .LBB2_520:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_520
@@ -9085,7 +9085,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.103:
-	mov	r11, qword ptr [rdx]
+	mov	rax, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB2_104
@@ -9100,35 +9100,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_104:
 	xor	esi, esi
 .LBB2_541:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_543
 .LBB2_542:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_542
 .LBB2_543:
-	cmp	rdx, 3
+	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_544:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_544
@@ -9159,8 +9159,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdx, 3
 	je	.LBB2_551
 .LBB2_550:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rdx, -1
@@ -9169,17 +9169,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_552:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], dx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -9211,8 +9211,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdx, 3
 	je	.LBB2_559
 .LBB2_558:                              # =>This Inner Loop Header: Depth=1
-	movzx	edi, word ptr [rcx + 2*rsi]
-	add	di, ax
+	mov	edi, eax
+	sub	di, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rdx, -1
@@ -9221,17 +9221,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_560:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, word ptr [rcx + 2*rsi]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi]
 	mov	word ptr [r8 + 2*rsi], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 2]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 2]
 	mov	word ptr [r8 + 2*rsi + 2], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 4]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 4]
 	mov	word ptr [r8 + 2*rsi + 4], dx
-	movzx	edx, word ptr [rcx + 2*rsi + 6]
-	add	dx, ax
+	mov	edx, eax
+	sub	dx, word ptr [rcx + 2*rsi + 6]
 	mov	word ptr [r8 + 2*rsi + 6], dx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -9471,8 +9471,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdx, 3
 	je	.LBB2_599
 .LBB2_598:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rdx, -1
@@ -9481,17 +9481,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_600:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 2], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 4], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 6], dx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -9523,8 +9523,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdx, 3
 	je	.LBB2_607
 .LBB2_606:                              # =>This Inner Loop Header: Depth=1
-	mov	edi, eax
-	sub	di, word ptr [rcx + 2*rsi]
+	movzx	edi, word ptr [rcx + 2*rsi]
+	add	di, ax
 	mov	word ptr [r8 + 2*rsi], di
 	add	rsi, 1
 	add	rdx, -1
@@ -9533,17 +9533,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_608:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi]
+	movzx	edx, word ptr [rcx + 2*rsi]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 2]
+	movzx	edx, word ptr [rcx + 2*rsi + 2]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 2], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 4]
+	movzx	edx, word ptr [rcx + 2*rsi + 4]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 4], dx
-	mov	edx, eax
-	sub	dx, word ptr [rcx + 2*rsi + 6]
+	movzx	edx, word ptr [rcx + 2*rsi + 6]
+	add	dx, ax
 	mov	word ptr [r8 + 2*rsi + 6], dx
 	add	rsi, 4
 	cmp	r10, rsi
@@ -9553,7 +9553,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.130:
-	mov	rax, qword ptr [rdx]
+	mov	r11, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB2_131
@@ -9568,35 +9568,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_131:
 	xor	esi, esi
 .LBB2_613:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_615
 .LBB2_614:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_614
 .LBB2_615:
-	cmp	r9, 3
+	cmp	rdx, 3
 	jb	.LBB2_737
 .LBB2_616:                              # =>This Inner Loop Header: Depth=1
-	mov	rdx, qword ptr [rcx + 8*rsi]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 8]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 8], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 16]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 16], rdx
-	mov	rdx, qword ptr [rcx + 8*rsi + 24]
-	add	rdx, rax
-	mov	qword ptr [r8 + 8*rsi + 24], rdx
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi]
+	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 8]
+	mov	qword ptr [r8 + 8*rsi + 8], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 16]
+	mov	qword ptr [r8 + 8*rsi + 16], rax
+	mov	rax, r11
+	sub	rax, qword ptr [rcx + 8*rsi + 24]
+	mov	qword ptr [r8 + 8*rsi + 24], rax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_616
@@ -9627,7 +9627,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_623
 .LBB2_622:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
@@ -9636,13 +9636,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	rsi, 3
 	jb	.LBB2_737
 .LBB2_624:                              # =>This Inner Loop Header: Depth=1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
 	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
 	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
-	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
 	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
@@ -9850,7 +9850,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.148:
-	mov	r11, qword ptr [rdx]
+	mov	rax, qword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 16
 	jb	.LBB2_149
@@ -9865,35 +9865,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_149:
 	xor	esi, esi
 .LBB2_661:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_663
 .LBB2_662:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_662
 .LBB2_663:
-	cmp	rdx, 3
+	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_664:                              # =>This Inner Loop Header: Depth=1
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi]
-	mov	qword ptr [r8 + 8*rsi], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 8]
-	mov	qword ptr [r8 + 8*rsi + 8], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 16]
-	mov	qword ptr [r8 + 8*rsi + 16], rax
-	mov	rax, r11
-	sub	rax, qword ptr [rcx + 8*rsi + 24]
-	mov	qword ptr [r8 + 8*rsi + 24], rax
+	mov	rdx, qword ptr [rcx + 8*rsi]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 8]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 8], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 16]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 16], rdx
+	mov	rdx, qword ptr [rcx + 8*rsi + 24]
+	add	rdx, rax
+	mov	qword ptr [r8 + 8*rsi + 24], rdx
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_664
@@ -9924,7 +9924,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_671
 .LBB2_670:                              # =>This Inner Loop Header: Depth=1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
 	add	rdx, 1
 	add	rdi, -1
@@ -9933,13 +9933,13 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	rsi, 3
 	jb	.LBB2_737
 .LBB2_672:                              # =>This Inner Loop Header: Depth=1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx]
 	vmovss	dword ptr [r8 + 4*rdx], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 4]
 	vmovss	dword ptr [r8 + 4*rdx + 4], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 8]
 	vmovss	dword ptr [r8 + 4*rdx + 8], xmm1
-	vsubss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
+	vaddss	xmm1, xmm0, dword ptr [rcx + 4*rdx + 12]
 	vmovss	dword ptr [r8 + 4*rdx + 12], xmm1
 	add	rdx, 4
 	cmp	rax, rdx
@@ -9971,8 +9971,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_679
 .LBB2_678:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
 	add	rdi, -1
@@ -9981,17 +9981,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_680:                              # =>This Inner Loop Header: Depth=1
-	movzx	edx, byte ptr [rcx + rsi]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi]
 	mov	byte ptr [r8 + rsi], dl
-	movzx	edx, byte ptr [rcx + rsi + 1]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 1]
 	mov	byte ptr [r8 + rsi + 1], dl
-	movzx	edx, byte ptr [rcx + rsi + 2]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 2]
 	mov	byte ptr [r8 + rsi + 2], dl
-	movzx	edx, byte ptr [rcx + rsi + 3]
-	add	dl, al
+	mov	edx, eax
+	sub	dl, byte ptr [rcx + rsi + 3]
 	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -10127,8 +10127,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	and	rdi, 3
 	je	.LBB2_703
 .LBB2_702:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
 	mov	byte ptr [r8 + rsi], dl
 	add	rsi, 1
 	add	rdi, -1
@@ -10137,17 +10137,17 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_704:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi]
+	movzx	edx, byte ptr [rcx + rsi]
+	add	dl, al
 	mov	byte ptr [r8 + rsi], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 1]
+	movzx	edx, byte ptr [rcx + rsi + 1]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 1], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 2]
+	movzx	edx, byte ptr [rcx + rsi + 2]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 2], dl
-	mov	edx, eax
-	sub	dl, byte ptr [rcx + rsi + 3]
+	movzx	edx, byte ptr [rcx + rsi + 3]
+	add	dl, al
 	mov	byte ptr [r8 + rsi + 3], dl
 	add	rsi, 4
 	cmp	r10, rsi
@@ -10157,7 +10157,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.166:
-	mov	eax, dword ptr [rdx]
+	mov	r11d, dword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 32
 	jb	.LBB2_167
@@ -10172,35 +10172,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_167:
 	xor	esi, esi
 .LBB2_709:
-	mov	r9, rsi
-	not	r9
-	add	r9, r10
+	mov	rdx, rsi
+	not	rdx
+	add	rdx, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_711
 .LBB2_710:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_710
 .LBB2_711:
-	cmp	r9, 3
+	cmp	rdx, 3
 	jb	.LBB2_737
 .LBB2_712:                              # =>This Inner Loop Header: Depth=1
-	mov	edx, dword ptr [rcx + 4*rsi]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 4]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 4], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 8]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 8], edx
-	mov	edx, dword ptr [rcx + 4*rsi + 12]
-	add	edx, eax
-	mov	dword ptr [r8 + 4*rsi + 12], edx
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi]
+	mov	dword ptr [r8 + 4*rsi], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 4]
+	mov	dword ptr [r8 + 4*rsi + 4], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 8]
+	mov	dword ptr [r8 + 4*rsi + 8], eax
+	mov	eax, r11d
+	sub	eax, dword ptr [rcx + 4*rsi + 12]
+	mov	dword ptr [r8 + 4*rsi + 12], eax
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_712
@@ -10313,7 +10313,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9d, r9d
 	jle	.LBB2_737
 # %bb.175:
-	mov	r11d, dword ptr [rdx]
+	mov	eax, dword ptr [rdx]
 	mov	r10d, r9d
 	cmp	r9d, 32
 	jb	.LBB2_176
@@ -10328,35 +10328,35 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_176:
 	xor	esi, esi
 .LBB2_733:
-	mov	rdx, rsi
-	not	rdx
-	add	rdx, r10
+	mov	r9, rsi
+	not	r9
+	add	r9, r10
 	mov	rdi, r10
 	and	rdi, 3
 	je	.LBB2_735
 .LBB2_734:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
 	add	rsi, 1
 	add	rdi, -1
 	jne	.LBB2_734
 .LBB2_735:
-	cmp	rdx, 3
+	cmp	r9, 3
 	jb	.LBB2_737
 .LBB2_736:                              # =>This Inner Loop Header: Depth=1
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi]
-	mov	dword ptr [r8 + 4*rsi], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 4]
-	mov	dword ptr [r8 + 4*rsi + 4], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 8]
-	mov	dword ptr [r8 + 4*rsi + 8], eax
-	mov	eax, r11d
-	sub	eax, dword ptr [rcx + 4*rsi + 12]
-	mov	dword ptr [r8 + 4*rsi + 12], eax
+	mov	edx, dword ptr [rcx + 4*rsi]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 4]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 4], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 8]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 8], edx
+	mov	edx, dword ptr [rcx + 4*rsi + 12]
+	add	edx, eax
+	mov	dword ptr [r8 + 4*rsi + 12], edx
 	add	rsi, 4
 	cmp	r10, rsi
 	jne	.LBB2_736
@@ -10364,7 +10364,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_297:
 	mov	esi, r10d
 	and	esi, -32
-	vmovd	xmm0, eax
+	vmovd	xmm0, r11d
 	vpbroadcastd	ymm0, xmm0
 	lea	rdx, [rsi - 32]
 	mov	r9, rdx
@@ -10378,18 +10378,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_299:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -10475,7 +10475,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_306:
 	mov	esi, r10d
 	and	esi, -32
-	vmovd	xmm0, r11d
+	vmovd	xmm0, eax
 	vpbroadcastd	ymm0, xmm0
 	lea	rdx, [rsi - 32]
 	mov	r9, rdx
@@ -10489,18 +10489,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_308:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -10525,18 +10525,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rsi
 	xor	edi, edi
 .LBB2_311:                              # =>This Inner Loop Header: Depth=1
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
 	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
@@ -10633,18 +10633,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rsi
 	xor	edi, edi
 .LBB2_320:                              # =>This Inner Loop Header: Depth=1
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
 	vmovupd	ymmword ptr [r8 + 8*rdi + 96], ymm5
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
-	vsubpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi + 128]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 160]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 192]
+	vaddpd	ymm5, ymm1, ymmword ptr [rcx + 8*rdi + 224]
 	vmovupd	ymmword ptr [r8 + 8*rdi + 128], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 160], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 192], ymm4
@@ -10670,18 +10670,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_323:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -10781,18 +10781,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_332:                              # =>This Inner Loop Header: Depth=1
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -10804,7 +10804,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_333:
 	mov	esi, r10d
 	and	esi, -16
-	vmovq	xmm0, rax
+	vmovq	xmm0, r11
 	vpbroadcastq	ymm0, xmm0
 	lea	rdx, [rsi - 16]
 	mov	r9, rdx
@@ -10818,18 +10818,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_335:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -10915,7 +10915,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_342:
 	mov	esi, r10d
 	and	esi, -16
-	vmovq	xmm0, r11
+	vmovq	xmm0, rax
 	vpbroadcastq	ymm0, xmm0
 	lea	rdx, [rsi - 16]
 	mov	r9, rdx
@@ -10929,18 +10929,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_344:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -10966,12 +10966,12 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_347:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -10995,12 +10995,12 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_350:                              # =>This Inner Loop Header: Depth=1
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -11140,12 +11140,12 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_365:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -11169,12 +11169,12 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_368:                              # =>This Inner Loop Header: Depth=1
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm2
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
-	vpsubw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi + 64]
+	vpaddw	ymm2, ymm0, ymmword ptr [rcx + 2*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 64], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 96], ymm2
 	add	rdi, 64
@@ -11184,7 +11184,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_369:
 	mov	esi, r10d
 	and	esi, -16
-	vmovq	xmm0, rax
+	vmovq	xmm0, r11
 	vpbroadcastq	ymm0, xmm0
 	lea	rdx, [rsi - 16]
 	mov	r9, rdx
@@ -11198,18 +11198,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_371:                              # =>This Inner Loop Header: Depth=1
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -11234,18 +11234,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rsi
 	xor	edi, edi
 .LBB2_374:                              # =>This Inner Loop Header: Depth=1
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
 	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
 	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
@@ -11403,7 +11403,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_387:
 	mov	esi, r10d
 	and	esi, -16
-	vmovq	xmm0, r11
+	vmovq	xmm0, rax
 	vpbroadcastq	ymm0, xmm0
 	lea	rdx, [rsi - 16]
 	mov	r9, rdx
@@ -11417,18 +11417,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_389:                              # =>This Inner Loop Header: Depth=1
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 96], ymm4
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
-	vpsubq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi + 128]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 160]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 192]
+	vpaddq	ymm4, ymm0, ymmword ptr [rcx + 8*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 192], ymm3
@@ -11453,18 +11453,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rsi
 	xor	edi, edi
 .LBB2_392:                              # =>This Inner Loop Header: Depth=1
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
 	vmovups	ymmword ptr [r8 + 4*rdi + 96], ymm5
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
-	vsubps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi + 128]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 160]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 192]
+	vaddps	ymm5, ymm1, ymmword ptr [rcx + 4*rdi + 224]
 	vmovups	ymmword ptr [r8 + 4*rdi + 128], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 160], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 192], ymm4
@@ -11490,18 +11490,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_395:                              # =>This Inner Loop Header: Depth=1
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -11601,18 +11601,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_404:                              # =>This Inner Loop Header: Depth=1
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + rdi + 96], ymm4
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
-	vpsubb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi + 128]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 160]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 192]
+	vpaddb	ymm4, ymm0, ymmword ptr [rcx + rdi + 224]
 	vmovdqu	ymmword ptr [r8 + rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 192], ymm3
@@ -11624,7 +11624,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_405:
 	mov	esi, r10d
 	and	esi, -32
-	vmovd	xmm0, eax
+	vmovd	xmm0, r11d
 	vpbroadcastd	ymm0, xmm0
 	lea	rdx, [rsi - 32]
 	mov	r9, rdx
@@ -11638,18 +11638,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_407:                              # =>This Inner Loop Header: Depth=1
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -11735,7 +11735,7 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 .LBB2_414:
 	mov	esi, r10d
 	and	esi, -32
-	vmovd	xmm0, r11d
+	vmovd	xmm0, eax
 	vpbroadcastd	ymm0, xmm0
 	lea	rdx, [rsi - 32]
 	mov	r9, rdx
@@ -11749,18 +11749,18 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	neg	rdx
 	xor	edi, edi
 .LBB2_416:                              # =>This Inner Loop Header: Depth=1
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 96], ymm4
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
-	vpsubd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi + 128]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 160]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 192]
+	vpaddd	ymm4, ymm0, ymmword ptr [rcx + 4*rdi + 224]
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 128], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 160], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 192], ymm3
@@ -11775,10 +11775,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_420
 # %bb.419:
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -11829,10 +11829,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_444
 # %bb.443:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -11847,10 +11847,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_452
 # %bb.451:
-	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
@@ -11901,10 +11901,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_476
 # %bb.475:
-	vsubpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
-	vsubpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
-	vsubpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
-	vsubpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
+	vaddpd	ymm2, ymm1, ymmword ptr [rcx + 8*rdi]
+	vaddpd	ymm3, ymm1, ymmword ptr [rcx + 8*rdi + 32]
+	vaddpd	ymm4, ymm1, ymmword ptr [rcx + 8*rdi + 64]
+	vaddpd	ymm1, ymm1, ymmword ptr [rcx + 8*rdi + 96]
 	vmovupd	ymmword ptr [r8 + 8*rdi], ymm2
 	vmovupd	ymmword ptr [r8 + 8*rdi + 32], ymm3
 	vmovupd	ymmword ptr [r8 + 8*rdi + 64], ymm4
@@ -11919,10 +11919,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_484
 # %bb.483:
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -11973,10 +11973,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_508
 # %bb.507:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -11991,10 +11991,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_516
 # %bb.515:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -12045,10 +12045,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_540
 # %bb.539:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -12063,8 +12063,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_548
 # %bb.547:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB2_548:
@@ -12077,8 +12077,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_556
 # %bb.555:
-	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB2_556:
@@ -12147,8 +12147,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_596
 # %bb.595:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB2_596:
@@ -12161,8 +12161,8 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_604
 # %bb.603:
-	vpsubw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
-	vpsubw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
+	vpaddw	ymm1, ymm0, ymmword ptr [rcx + 2*rdi]
+	vpaddw	ymm0, ymm0, ymmword ptr [rcx + 2*rdi + 32]
 	vmovdqu	ymmword ptr [r8 + 2*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 2*rdi + 32], ymm0
 .LBB2_604:
@@ -12175,10 +12175,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_612
 # %bb.611:
-	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -12193,10 +12193,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_620
 # %bb.619:
-	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
@@ -12283,10 +12283,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_660
 # %bb.659:
-	vpsubq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
-	vpsubq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
-	vpsubq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
-	vpsubq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
+	vpaddq	ymm1, ymm0, ymmword ptr [rcx + 8*rdi]
+	vpaddq	ymm2, ymm0, ymmword ptr [rcx + 8*rdi + 32]
+	vpaddq	ymm3, ymm0, ymmword ptr [rcx + 8*rdi + 64]
+	vpaddq	ymm0, ymm0, ymmword ptr [rcx + 8*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 8*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 8*rdi + 64], ymm3
@@ -12301,10 +12301,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_668
 # %bb.667:
-	vsubps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
-	vsubps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
-	vsubps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
-	vsubps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
+	vaddps	ymm2, ymm1, ymmword ptr [rcx + 4*rdi]
+	vaddps	ymm3, ymm1, ymmword ptr [rcx + 4*rdi + 32]
+	vaddps	ymm4, ymm1, ymmword ptr [rcx + 4*rdi + 64]
+	vaddps	ymm1, ymm1, ymmword ptr [rcx + 4*rdi + 96]
 	vmovups	ymmword ptr [r8 + 4*rdi], ymm2
 	vmovups	ymmword ptr [r8 + 4*rdi + 32], ymm3
 	vmovups	ymmword ptr [r8 + 4*rdi + 64], ymm4
@@ -12319,10 +12319,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_676
 # %bb.675:
-	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -12373,10 +12373,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_700
 # %bb.699:
-	vpsubb	ymm1, ymm0, ymmword ptr [rcx + rdi]
-	vpsubb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
-	vpsubb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
-	vpsubb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
+	vpaddb	ymm1, ymm0, ymmword ptr [rcx + rdi]
+	vpaddb	ymm2, ymm0, ymmword ptr [rcx + rdi + 32]
+	vpaddb	ymm3, ymm0, ymmword ptr [rcx + rdi + 64]
+	vpaddb	ymm0, ymm0, ymmword ptr [rcx + rdi + 96]
 	vmovdqu	ymmword ptr [r8 + rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + rdi + 64], ymm3
@@ -12391,10 +12391,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_708
 # %bb.707:
-	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
@@ -12445,10 +12445,10 @@ arithmetic_scalar_arr_avx2:             # @arithmetic_scalar_arr_avx2
 	test	r9b, 1
 	je	.LBB2_732
 # %bb.731:
-	vpsubd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
-	vpsubd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
-	vpsubd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
-	vpsubd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
+	vpaddd	ymm1, ymm0, ymmword ptr [rcx + 4*rdi]
+	vpaddd	ymm2, ymm0, ymmword ptr [rcx + 4*rdi + 32]
+	vpaddd	ymm3, ymm0, ymmword ptr [rcx + 4*rdi + 64]
+	vpaddd	ymm0, ymm0, ymmword ptr [rcx + 4*rdi + 96]
 	vmovdqu	ymmword ptr [r8 + 4*rdi], ymm1
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 32], ymm2
 	vmovdqu	ymmword ptr [r8 + 4*rdi + 64], ymm3
