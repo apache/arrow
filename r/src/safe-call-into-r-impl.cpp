@@ -89,9 +89,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
       }
     });
 
-    if (thread.joinable()) {
-      thread.join();
-    }
+    thread.join();
 
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread
