@@ -144,7 +144,7 @@
 #' tf2 <- tempfile()
 #' dir.create(tf2)
 #' on.exit(unlink(tf2))
-#' write_dataset(data, tf2, format = "ipc")
+#' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
 #' open_dataset(tf2)
