@@ -926,7 +926,11 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
 endfunction()
 
 function(ARROW_ADD_PKG_CONFIG MODULE)
-  configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc" @ONLY)
+  configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc.generate.in"
+                 @ONLY)
+  file(GENERATE
+       OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+       INPUT "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc.generate.in")
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()
