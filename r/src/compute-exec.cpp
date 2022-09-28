@@ -113,8 +113,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     // this will be redundant.
     if (stop_token_.IsStopRequested()) {
       StopProducing();
-      ARROW_RETURN_NOT_OK(stop_token_.Poll());
-      return arrow::Status::Cancelled("Cancelled");
+      return stop_token_.Poll();
     }
 
     auto out = sink_gen_().result();
