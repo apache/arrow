@@ -385,8 +385,9 @@ using their registered function name.
 
 UDF support is limited to scalar functions. A scalar function is a function which
 executes elementwise operations on arrays or scalars. In general, the output of a
-scalar function do not depend on the order of values in the arguments. Note that 
-such functions have a rough correspondence to the functions used in SQL expressions.
+scalar function does not depend on the order of values in the arguments. Note that
+such functions have a rough correspondence to the functions used in SQL expressions,
+or to NumPy `universal functions <https://numpy.org/doc/stable/reference/ufuncs.html>`_.
 
 To register a UDF, a function name, function docs, input types and
 output type need to be defined. Using :func:`pyarrow.compute.register_scalar_function`,
@@ -431,7 +432,7 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
                               output_type)
    
 
-The implementation of a user-defined function always takes first *context*
+The implementation of a user-defined function always takes a first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
 :class:`pyarrow.compute.ScalarUdfContext`.
 This context exposes several useful attributes, particularly a
