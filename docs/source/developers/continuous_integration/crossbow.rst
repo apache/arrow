@@ -46,8 +46,8 @@ Executors
 
 Individual jobs are executed on public CI services, currently:
 
-- Linux: TravisCI, Azure Pipelines
-- macOS: TravisCI, Azure Pipelines
+- Linux: Travis CI, Azure Pipelines
+- macOS: Travis CI, Azure Pipelines
 - Windows: AppVeyor, Azure Pipelines
 
 Queue
@@ -80,7 +80,7 @@ to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `TravisCI`_, `Appveyor`_, and `Azure Pipelines`_ integrations on for
+2. Enable `Travis CI`_, `Appveyor`_, and `Azure Pipelines`_ integrations on for
    the newly created queue repository.
 
 3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
@@ -115,7 +115,7 @@ to step 3:
    username and ``ghrepo`` is the GitHub repository name (typically
    ``crossbow``):
 
-   - **TravisCI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
+   - **Travis CI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
      - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default.
 
@@ -250,7 +250,7 @@ see its help page:
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
-.. _TravisCI: https://travis-ci.com/getting-started/
+.. _Travis CI: https://travis-ci.com/getting-started/
 .. _Appveyor: https://www.appveyor.com/docs/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
