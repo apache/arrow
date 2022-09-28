@@ -216,8 +216,11 @@ class ScanNode : public cp::ExecNode {
           compute::ExecBatch evolved_batch,
           scan_->fragment_evolution->EvolveBatch(batch, node_->options_.columns,
                                                  scan_->scan_request.columns));
-      node_->outputs_[0]->InputReceived(node_, std::move(evolved_batch));
-      return Status::OK();
+      return node_->plan_->ScheduleTask(
+          [node = node_, evolved_batch = std::move(evolved_batch)] {
+            node->outputs_[0]->InputReceived(node, std::move(evolved_batch));
+            return Status::OK();
+          });
     }
 
     int cost() const override { return cost_; }
@@ -331,13 +334,11 @@ class ScanNode : public cp::ExecNode {
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    // FIXME(TODO)
-    // Need to ressurect AsyncToggle and then all fragment scanners
-    // should share the same toggle
+    // TODO(ARROW-17755)
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    // FIXME(TODO)
+    // TODO(ARROW-17755)
   }
 
   void StopProducing(ExecNode* output) override {
@@ -350,7 +351,6 @@ class ScanNode : public cp::ExecNode {
  private:
   ScanV2Options options_;
   std::atomic<int> num_batches_{0};
-  // std::unique_ptr<BatchOutputStrategy> batch_output_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> fragments_throttle_;
   std::unique_ptr<util::AsyncTaskScheduler::Throttle> batches_throttle_;
 };
