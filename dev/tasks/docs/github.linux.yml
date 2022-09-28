@@ -60,4 +60,4 @@ jobs:
           {% endraw %}
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
-          echo ":open_book: You can find the preview here: https://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
