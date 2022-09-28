@@ -108,16 +108,16 @@ to step 3:
 
    or pass as an argument to the CLI script ``--github-token``
 
-6. Export the previously created GitHub token on both CI services:
+6. Add the previously created GitHub token to **Travis CI**:
 
    Use ``CROSSBOW_GITHUB_TOKEN`` encrypted environment variable. You can
-   set them at the following URLs, where ``ghuser`` is the GitHub
+   set it at the following URL, where ``ghuser`` is the GitHub
    username and ``ghrepo`` is the GitHub repository name (typically
    ``crossbow``):
 
-   - **Travis CI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
+   ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
-     - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default.
+   - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
    
 .. line-block::
 7. Install Python (minimum supported version is 3.7):
