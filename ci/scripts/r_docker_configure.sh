@@ -88,12 +88,52 @@ if [[ -n "$DEVTOOLSET_VERSION" ]]; then
 fi
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
-  # Install curl and openssl for S3/GCS support
-  if [ "$PACKAGE_MANAGER" = "apt-get" ]; then
-    apt-get install -y libcurl4-openssl-dev libssl-dev
-  else
-    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
-  fi
+  # Install curl and OpenSSL for S3/GCS support
+  case "$PACKAGE_MANAGER" in
+    apt-get)
+      # "pkg-config --static --libs libcurl" has
+      #   * -lnghttp2
+      #   * -lidn2
+      #   * -lrtmp
+      #   * -lssh
+      #   * -lpsl
+      #   * -lssl
+      #   * -lcrypto
+      #   * -lssl
+      #   * -lcrypto
+      #   * -lgssapi_krb5
+      #   * -lkrb5
+      #   * -lk5crypto
+      #   * -lcom_err
+      #   * -llber
+      #   * -lldap
+      #   * -llber
+      #   * -lbrotlidec
+      #   * -lz
+      apt-get install -y \
+              libbrotoli-dev \
+              libcurl4-openssl-dev \
+              libidn2-dev \
+              libkrb5-dev \
+              libldap-dev \
+              libnghttp2-dev \
+              libpsl-dev \
+              librtmp-dev \
+              libssh-dev \
+              libssl-dev
+      ;;
+    dnf|yum)
+      # "pkg-config --static --libs libcurl" has -lidl and -lssh2
+      $PACKAGE_MANAGER install -y \
+                       libcurl-devel \
+                       libidl-devel \
+                       libssh2-devel \
+                       openssl-devel
+      ;;
+    *)
+      $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
+      ;;
+  esac
 
   # The Dockerfile should have put this file here
   if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
