@@ -86,6 +86,8 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
 
 struct ArrayResolve {
   ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
+    // TODO: should probably use a binary search? Likely only matters in
+    // chunked arrays where there are many chunks. Maybe Arrow has this already?
     for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
       std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
       auto chunk_size = chunk->length();
@@ -107,7 +109,8 @@ struct ArrayResolve {
 
 // base class for all altrep vectors
 //
-// data1: the Array as an external pointer.
+// data1: the Array as an external pointer; becomes NULL when
+//        materialization is needed.
 // data2: starts as NULL, and becomes a standard R vector with the same
 //        data if necessary: if materialization is needed, e.g. if we need
 //        to access its data pointer, with DATAPTR().
@@ -128,7 +131,13 @@ struct AltrepVectorBase {
   // standard R vector with the same data as the array.
   static bool IsMaterialized(SEXP alt) { return !Rf_isNull(Impl::Representation(alt)); }
 
-  static R_xlen_t Length(SEXP alt) { return GetChunkedArray(alt)->length(); }
+  static R_xlen_t Length(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return Rf_xlength(Representation(alt));
+    } else {
+      return GetChunkedArray(alt)->length();
+    }
+  }
 
   static int No_NA(SEXP alt) { return GetChunkedArray(alt)->null_count() == 0; }
 
@@ -137,11 +146,18 @@ struct AltrepVectorBase {
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    const auto& chunked_array = GetChunkedArray(alt);
-    Rprintf("arrow::ChunkedArray<%p, %s, %d chunks, %d nulls> len=%d\n",
-            chunked_array.get(), chunked_array->type()->ToString().c_str(),
-            chunked_array->num_chunks(), chunked_array->null_count(),
-            chunked_array->length());
+    SEXP data_class_sym = CAR(ATTRIB(ALTREP_CLASS(alt)));
+    const char* class_name = CHAR(PRINTNAME(data_class_sym));
+
+    if (IsMaterialized(alt)) {
+      Rprintf("materialized %s len=%d\n", class_name, Rf_xlength(Representation(alt)));
+    } else {
+      const auto& chunked_array = GetChunkedArray(alt);
+      Rprintf("%s<%p, %s, %d chunks, %d nulls> len=%d\n", class_name, chunked_array.get(),
+              chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
+              chunked_array->null_count(), chunked_array->length());
+    }
+
     return TRUE;
   }
 
@@ -184,21 +200,22 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   // Force materialization. After calling this, the data2 slot of the altrep
   // object contains a standard R vector with the same data, with
   // R sentinels where the Array has nulls.
-  //
-  // The Array remains available so that it can be used by Length(), Min(), etc ...
   static SEXP Materialize(SEXP alt) {
     if (!IsMaterialized(alt)) {
       auto size = Base::Length(alt);
 
-      // create an immutable standard R vector
+      // create a standard R vector
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
-      MARK_NOT_MUTABLE(copy);
 
       // copy the data from the array, through Get_region
       Get_region(alt, 0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
+
+      // we no longer need the original array (keeping it alive uses more
+      // memory than is required, since our methods can now use the
+      // materialized array)
 
       UNPROTECT(1);
     }
@@ -239,22 +256,15 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise we have to materialize and hand the pointer to data2
-    //
-    // NOTE: this returns the DATAPTR() of data2 even in the case writeable = TRUE
-    //
-    // which is risky because C(++) clients of this object might
-    // modify data2, and therefore make it diverge from the data of the Array,
-    // but the object was marked as immutable on creation, so doing this is
-    // disregarding the R api.
-    //
-    // Simply stop() when `writeable = TRUE` is too strong, e.g. this fails
-    // identical() which calls DATAPTR() even though DATAPTR_RO() would
-    // be enough
     return DATAPTR(Materialize(alt));
   }
 
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
+    if (IsMaterialized(alt)) {
+      return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
+    }
+
     ArrayResolve resolve(GetChunkedArray(alt), i);
     auto array = resolve.array_;
     auto j = resolve.index_;
@@ -279,7 +289,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     // do a second pass to force the R sentinels for where the
     // array has nulls
     //
-    // This only materialize the region, into buf. Not the entire vector.
+    // This only materializes the region into buf (not the entire vector).
     auto slice = GetChunkedArray(alt)->Slice(i, n);
     R_xlen_t ncopy = slice->length();
 
@@ -388,6 +398,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
+
+  static R_xlen_t Length(SEXP alt) {
+    return GetChunkedArray(alt)->length();
+  }
 
   // redefining because data2 is a paired list with the representation as the
   // first node: the CAR
@@ -786,6 +800,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Materialize if not done so yet, given that it is
   // likely that there will be another call from R if there is a call (e.g. unique()),
   // and getting a string from Array is much more costly than from data2.
+  // TODO: Fix this! It means we materialize on something like head() that was
+  // only going to extract a few values
   static SEXP Elt(SEXP alt, R_xlen_t i) {
     if (!Base::IsMaterialized(alt)) {
       Materialize(alt);
@@ -871,12 +887,13 @@ void InitAltvecMethods(R_altrep_class_t class_t, DllInfo* dll) {
 
 template <typename AltrepClass>
 void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
+  // R_set_altreal_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altreal_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  R_set_altreal_Sum_method(class_t, AltrepClass::Sum);
-  R_set_altreal_Min_method(class_t, AltrepClass::Min);
-  R_set_altreal_Max_method(class_t, AltrepClass::Max);
+  // TODO: reenable when we get materialization sorted
+  // R_set_altreal_Sum_method(class_t, AltrepClass::Sum);
+  // R_set_altreal_Min_method(class_t, AltrepClass::Min);
+  // R_set_altreal_Max_method(class_t, AltrepClass::Max);
 
   R_set_altreal_Elt_method(class_t, AltrepClass::Elt);
   R_set_altreal_Get_region_method(class_t, AltrepClass::Get_region);
@@ -884,12 +901,13 @@ void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
 
 template <typename AltrepClass>
 void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
-  R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
+  // R_set_altinteger_No_NA_method(class_t, AltrepClass::No_NA);
   R_set_altinteger_Is_sorted_method(class_t, AltrepClass::Is_sorted);
 
-  R_set_altinteger_Sum_method(class_t, AltrepClass::Sum);
-  R_set_altinteger_Min_method(class_t, AltrepClass::Min);
-  R_set_altinteger_Max_method(class_t, AltrepClass::Max);
+  // TODO: reenable when we get materialization sorted
+  // R_set_altinteger_Sum_method(class_t, AltrepClass::Sum);
+  // R_set_altinteger_Min_method(class_t, AltrepClass::Min);
+  // R_set_altinteger_Max_method(class_t, AltrepClass::Max);
 
   R_set_altinteger_Elt_method(class_t, AltrepClass::Elt);
   R_set_altinteger_Get_region_method(class_t, AltrepClass::Get_region);
@@ -927,7 +945,7 @@ void InitAltStringClass(DllInfo* dll, const char* name) {
 
   R_set_altstring_Elt_method(AltrepClass::class_t, AltrepClass::Elt);
   R_set_altstring_Set_elt_method(AltrepClass::class_t, AltrepClass::Set_elt);
-  R_set_altstring_No_NA_method(AltrepClass::class_t, AltrepClass::No_NA);
+  // R_set_altstring_No_NA_method(AltrepClass::class_t, AltrepClass::No_NA);
   R_set_altstring_Is_sorted_method(AltrepClass::class_t, AltrepClass::Is_sorted);
 }
 
@@ -986,7 +1004,7 @@ bool is_arrow_altrep(SEXP x) {
 }
 
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
-  if (is_arrow_altrep(x)) {
+  if (is_arrow_altrep(x) && R_altrep_data1(x) != R_NilValue) {
     return GetChunkedArray(x);
   }
 
@@ -1022,4 +1040,4 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullpt
 void test_SET_STRING_ELT(SEXP s) { SET_STRING_ELT(s, 0, Rf_mkChar("forbidden")); }
 
 // [[arrow::export]]
-bool is_arrow_altrep(SEXP x) { return arrow::r::altrep::is_arrow_altrep(x); }
+bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }

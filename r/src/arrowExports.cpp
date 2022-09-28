@@ -14,10 +14,10 @@ BEGIN_CPP11
 END_CPP11
 }
 // altrep.cpp
-bool is_arrow_altrep(SEXP x);
+bool is_arrow_altrep(cpp11::sexp x);
 extern "C" SEXP _arrow_is_arrow_altrep(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<cpp11::sexp>::type x(x_sexp);
 	return cpp11::as_sexp(is_arrow_altrep(x));
 END_CPP11
 }
