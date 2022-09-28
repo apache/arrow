@@ -280,12 +280,8 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
 
   // A StatusUnwindProtect error, if it was thrown, lives in the MainRThread and
   // should be returned if possible.
-  arrow::Status global_status = MainRThread::GetInstance().ReraiseErrorIfExists();
-  if (!global_status.ok()) {
-    return global_status;
-  } else {
-    return result;
-  }
+  ARROW_RETURN_NOT_OK(MainRThread::GetInstance().ReraiseErrorIfExists());
+  return result;
 }
 
 // Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
