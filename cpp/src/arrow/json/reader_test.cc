@@ -204,6 +204,36 @@ TEST_P(ReaderTest, MultipleChunks) {
   AssertTablesEqual(*expected_table, *table_);
 }
 
+TEST_P(ReaderTest, UnquotedDecimal) {
+  auto schema =
+      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  parse_options_.explicit_schema = schema;
+  auto src = unquoted_decimal_src();
+  SetUpReader(src);
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
+
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
+  AssertTablesEqual(*expected_table, *table_);
+}
+
+TEST_P(ReaderTest, MixedDecimal) {
+  auto schema =
+      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  parse_options_.explicit_schema = schema;
+  auto src = mixed_decimal_src();
+  SetUpReader(src);
+  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
+
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
+  AssertTablesEqual(*expected_table, *table_);
+}
+
 TEST(ReaderTest, MultipleChunksParallel) {
   int64_t count = 1 << 10;
 
@@ -273,38 +303,6 @@ TEST(ReaderTest, ListArrayWithFewValues) {
 
   ASSERT_OK_AND_ASSIGN(auto actual_table, reader->Read());
   AssertTablesEqual(*actual_table, *expected_table);
-}
-
-TEST_P(ReaderTest, UnquotedDecimal) {
-  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  auto schema =
-      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
-  parse_options_.explicit_schema = schema;
-  auto src = unquoted_decimal_src();
-  SetUpReader(src);
-  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
-
-  auto expected_table = TableFromJSON(schema, {R"([
-    { "price": "30.04", "cost":"30.001" },
-    { "price": "1.23", "cost":"1.229" }
-  ])"});
-  AssertTablesEqual(*expected_table, *table_);
-}
-
-TEST_P(ReaderTest, MixedDecimal) {
-  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  auto schema =
-      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
-  parse_options_.explicit_schema = schema;
-  auto src = mixed_decimal_src();
-  SetUpReader(src);
-  ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
-
-  auto expected_table = TableFromJSON(schema, {R"([
-    { "price": "30.04", "cost":"30.001" },
-    { "price": "1.23", "cost":"1.229" }
-  ])"});
-  AssertTablesEqual(*expected_table, *table_);
 }
 
 }  // namespace json

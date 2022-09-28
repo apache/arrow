@@ -104,7 +104,7 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
-    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kNumberOrString); }
+    Status Visit(const DecimalType&) { return SetKind(Kind::kNumberOrString); }
     Status Visit(const DictionaryType& dict_type) {
       return Kind::ForType(*dict_type.value_type(), kind_);
     }
@@ -438,6 +438,9 @@ class RawBuilderSet {
       case Kind::kString:
         return MakeBuilder<Kind::kString>(leading_nulls, builder);
 
+      case Kind::kNumberOrString:
+        return MakeBuilder<Kind::kNumberOrString>(leading_nulls, builder);
+
       case Kind::kArray: {
         RETURN_NOT_OK(MakeBuilder<Kind::kArray>(leading_nulls, builder));
         const auto& list_type = checked_cast<const ListType&>(t);
@@ -462,8 +465,6 @@ class RawBuilderSet {
         }
         return Status::OK();
       }
-      case Kind::kNumberOrString:
-        return MakeBuilder<Kind::kNumberOrString>(leading_nulls, builder);
       default:
         return Status::NotImplemented("invalid builder type");
     }
@@ -501,6 +502,10 @@ class RawBuilderSet {
       case Kind::kString:
         return Cast<Kind::kString>(builder)->AppendNull();
 
+      case Kind::kNumberOrString: {
+        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
+      }
+
       case Kind::kArray:
         return Cast<Kind::kArray>(builder)->AppendNull();
 
@@ -514,9 +519,7 @@ class RawBuilderSet {
         }
         return Status::OK();
       }
-      case Kind::kNumberOrString: {
-        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
-      }
+
       default:
         return Status::NotImplemented("invalid builder Kind");
     }
@@ -543,14 +546,14 @@ class RawBuilderSet {
       case Kind::kString:
         return FinishScalar(scalar_values, Cast<Kind::kString>(builder), out);
 
+      case Kind::kNumberOrString:
+        return FinishScalar(scalar_values, Cast<Kind::kNumberOrString>(builder), out);
+
       case Kind::kArray:
         return Cast<Kind::kArray>(builder)->Finish(std::move(finish_children), out);
 
       case Kind::kObject:
         return Cast<Kind::kObject>(builder)->Finish(std::move(finish_children), out);
-
-      case Kind::kNumberOrString:
-        return FinishScalar(scalar_values, Cast<Kind::kNumberOrString>(builder), out);
 
       default:
         return Status::NotImplemented("invalid builder kind");
