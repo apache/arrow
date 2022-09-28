@@ -85,6 +85,13 @@ func (b *bufferWriteSeeker) Seek(offset int64, whence int) (int64, error) {
 	return int64(newpos), nil
 }
 
+// ensureDictionaryDecoded is used by DispatchBest to determine
+// the proper types for promotion. Casting is then performed by
+// the executor before continuing execution: see the implementation
+// of execInternal in exec.go after calling DispatchBest.
+//
+// That casting is where actual decoding would be performed for
+// the dictionary
 func ensureDictionaryDecoded(vals ...arrow.DataType) {
 	for i, v := range vals {
 		if v.ID() == arrow.DICTIONARY {

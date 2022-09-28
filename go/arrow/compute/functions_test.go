@@ -19,8 +19,10 @@ package compute_test
 import (
 	"testing"
 
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/compute"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestArityBasics(t *testing.T) {
@@ -43,4 +45,23 @@ func TestArityBasics(t *testing.T) {
 	varargs := compute.VarArgs(2)
 	assert.Equal(t, 2, varargs.NArgs)
 	assert.True(t, varargs.IsVarArgs)
+}
+
+func CheckDispatchBest(t *testing.T, funcName string, originalTypes, expected []arrow.DataType) {
+	fn, exists := compute.GetFunctionRegistry().GetFunction(funcName)
+	require.True(t, exists)
+
+	vals := make([]arrow.DataType, len(originalTypes))
+	copy(vals, originalTypes)
+
+	actualKernel, err := fn.DispatchBest(vals...)
+	require.NoError(t, err)
+	expKernel, err := fn.DispatchExact(expected...)
+	require.NoError(t, err)
+
+	assert.Same(t, expKernel, actualKernel)
+	assert.Equal(t, len(expected), len(vals))
+	for i, v := range vals {
+		assert.True(t, arrow.TypeEqual(v, expected[i]), v.String(), expected[i].String())
+	}
 }
