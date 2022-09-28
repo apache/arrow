@@ -43,7 +43,7 @@
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
     <arrow.vector.classifier />
-    <forkCount>2</forkCount>
+    <forkCount>0</forkCount><!--FIXME! To be reviewed. Value more than "0" produce: NoClassDefFound Could not initialize class org.apache.arrow.memory.RootAllocator-->
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.13.1</error_prone_core.version>

@@ -12,7 +12,7 @@ module arrow.vector {
     requires com.fasterxml.jackson.databind;
     requires io.netty.common;
     requires java.sql;
-    requires commons.codec;
     requires com.fasterxml.jackson.datatype.jsr310;
+    requires org.apache.commons.codec;
 //    requires org.slf4j;
 }
