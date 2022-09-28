@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow/benchmark.h"
-#include "pyarrow/helpers.h"
+#include <pyarrow/benchmark.h>
+#include <pyarrow/helpers.h>
 
 namespace arrow {
 namespace py {

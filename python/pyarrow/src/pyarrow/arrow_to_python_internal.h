@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "pyarrow/arrow/array.h"
+#include "arrow/array.h"
 #include "pyarrow/platform.h"
 
 namespace arrow {

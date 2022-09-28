@@ -20,7 +20,7 @@
 #include <string>
 
 #include "pyarrow/visibility.h"
-#include "pyarrow/arrow/type.h"
+#include "arrow/type.h"
 
 namespace arrow {
 
