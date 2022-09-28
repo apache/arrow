@@ -399,9 +399,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
 
-  static R_xlen_t Length(SEXP alt) {
-    return GetChunkedArray(alt)->length();
-  }
+  static R_xlen_t Length(SEXP alt) { return GetChunkedArray(alt)->length(); }
 
   // redefining because data2 is a paired list with the representation as the
   // first node: the CAR
@@ -707,11 +705,19 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   using Base::Representation;
   using Base::SetRepresentation;
 
-  // Helper class to convert to R strings
+  static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
+    string_viewer().set_strip_out_nuls(GetBoolOption("arrow.skip_nul", false));
+    return Base::Make(chunked_array);
+  }
+
+  // Helper class to convert to R strings. We declare one of these for the
+  // class to avoid having to stack-allocate one for every STRING_ELT call.
   struct RStringViewer {
-    RStringViewer()
-        : strip_out_nuls_(GetBoolOption("arrow.skip_nul", false)),
-          nul_was_stripped_(false) {}
+    RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
+
+    void reset_null_was_stripped() { nul_was_stripped_ = false; }
+
+    void set_strip_out_nuls(bool strip_out_nuls) { strip_out_nuls_ = strip_out_nuls; }
 
     // convert the i'th string of the Array to an R string (CHARSXP)
     SEXP Convert(size_t i) {
@@ -791,22 +797,41 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     std::shared_ptr<Array> array_;
     const StringArrayType* string_array_;
     std::string stripped_string_;
-    const bool strip_out_nuls_;
+    bool strip_out_nuls_;
     bool nul_was_stripped_;
     std::string_view view_;
   };
 
-  // Get a single string, as a CHARSXP SEXP from data2.
-  // Materialize if not done so yet, given that it is
-  // likely that there will be another call from R if there is a call (e.g. unique()),
-  // and getting a string from Array is much more costly than from data2.
-  // TODO: Fix this! It means we materialize on something like head() that was
-  // only going to extract a few values
+  // Get a single string as a CHARSXP SEXP
+  // Note that a previous version of this function used BEGIN_CPP11
+  // and END_CPP11, which stack-allocates 8kb for the error message.
+  // This is fine for top-level calls, but here
   static SEXP Elt(SEXP alt, R_xlen_t i) {
-    if (!Base::IsMaterialized(alt)) {
-      Materialize(alt);
+    if (Base::IsMaterialized(alt)) {
+      return STRING_ELT(Representation(alt), i);
     }
-    return STRING_ELT(Representation(alt), i);
+
+    // TODO: this probably slow for an array with a lot of chunks
+    // consider a binary search or a cache of the last array range since
+    // it's likely that i will be nearby in a lot of cases
+    ArrayResolve resolve(GetChunkedArray(alt), i);
+    auto array = resolve.array_;
+    auto j = resolve.index_;
+
+    SEXP s = NA_STRING;
+    RStringViewer& r_string_viewer = string_viewer();
+    r_string_viewer.SetArray(array);
+    // Note: we don't check GetBoolOption("arrow.skip_nul", false) here
+    // because it is too expensive to do so. We do set this value whenever
+    // an altrep string; however, there is a chance that this value could
+    // be out of date by the time a value in the vector is accessed.
+    r_string_viewer.reset_null_was_stripped();
+    s = r_string_viewer.Convert(j);
+    if (r_string_viewer.nul_was_stripped()) {
+      cpp11::warning("Stripping '\\0' (nul) from character vector");
+    }
+
+    return s;
   }
 
   static void* Dataptr(SEXP alt, Rboolean writeable) { return DATAPTR(Materialize(alt)); }
@@ -816,41 +841,32 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       return Representation(alt);
     }
 
-    BEGIN_CPP11
-
     const auto& chunked_array = GetChunkedArray(alt);
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, chunked_array->length()));
     MARK_NOT_MUTABLE(data2);
 
-    RStringViewer r_string_viewer;
+    R_xlen_t i = 0;
+    RStringViewer& r_string_viewer = string_viewer();
+    r_string_viewer.reset_null_was_stripped();
+    r_string_viewer.set_strip_out_nuls(GetBoolOption("arrow.skip_nul", false));
+    for (const auto& array : chunked_array->chunks()) {
+      r_string_viewer.SetArray(array);
 
-    // r_string_viewer.Convert() might jump so we have to
-    // wrap it in unwind_protect() to:
-    // - correctly destruct the C++ objects
-    // - resume the unwinding
-    cpp11::unwind_protect([&]() {
-      R_xlen_t i = 0;
-      for (const auto& array : chunked_array->chunks()) {
-        r_string_viewer.SetArray(array);
-
-        auto ni = array->length();
-        for (R_xlen_t j = 0; j < ni; j++, i++) {
-          SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
-        }
+      auto ni = array->length();
+      for (R_xlen_t j = 0; j < ni; j++, i++) {
+        SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
       }
+    }
 
-      if (r_string_viewer.nul_was_stripped()) {
-        cpp11::warning("Stripping '\\0' (nul) from character vector");
-      }
-    });
+    if (r_string_viewer.nul_was_stripped()) {
+      cpp11::warning("Stripping '\\0' (nul) from character vector");
+    }
 
     // only set to data2 if all the values have been converted
     SetRepresentation(alt, data2);
     UNPROTECT(1);  // data2
 
     return data2;
-
-    END_CPP11
   }
 
   static const void* Dataptr_or_null(SEXP alt) {
@@ -862,6 +878,11 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
   static void Set_elt(SEXP alt, R_xlen_t i, SEXP v) {
     Rf_error("ALTSTRING objects of type <arrow::array_string_vector> are immutable");
+  }
+
+  static RStringViewer& string_viewer() {
+    static RStringViewer string_viewer;
+    return string_viewer;
   }
 };
 
