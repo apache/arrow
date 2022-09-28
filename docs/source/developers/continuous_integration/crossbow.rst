@@ -55,11 +55,12 @@ Queue
 
 Because of the nature of how the CI services work, the scheduling of
 jobs happens through an additional git repository, which acts like a job
-queue for the tasks. Anyone can host a ``queue`` repository which is usually
-called as ``crossbow``.
+queue for the tasks. Anyone can host a ``queue`` repository (usually
+named ``crossbow``).
 
-A job is a git commit on a particular git branch, containing only the required
-configuration file to run the requested build (like ``.travis.yml`` or ``azure-pipelines.yml``).
+A job is a git commit on a particular git branch, containing the required
+configuration files to run the requested builds (like ``.travis.yml``, 
+``azure-pipelines.yml``, or ``crossbow.yml`` for `GitHub Actions`_ ).
 
 Scheduler
 ~~~~~~~~~
@@ -245,6 +246,7 @@ see its help page:
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
+.. _Github Actions: https://docs.github.com/en/actions/quickstart
 .. _Travis CI: https://travis-ci.com/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
