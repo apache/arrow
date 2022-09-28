@@ -118,7 +118,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
               libpsl-dev \
               librtmp-dev \
               libssh-dev \
-              libssh2-dev \
+              libssh2-1-dev \
               libssl-dev \
               libzstd-dev
       ;;
