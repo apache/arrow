@@ -237,15 +237,15 @@ is_compressed <- function(compression) {
 }
 
 # handler function which checks for a number of different read errors
-augment_io_error_msg <- function(e, call, ...) {
+augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
   dots <- list2(...)
   msg <- conditionMessage(e)
 
-  if (!is.null(dots[["schema"]])) {
-    handle_csv_read_error(msg, call, dots[["schema"]])
+  if (!is.null(schema)) {
+    handle_csv_read_error(msg, call, schema)
   }
-  if (!is.null(dots[["format"]])) {
-    handle_parquet_io_error(msg, call, dots[["format"]])
+  if (!is.null(format)) {
+    handle_parquet_io_error(msg, call, format)
   }
 
   handle_augmented_field_misuse(msg, call)
