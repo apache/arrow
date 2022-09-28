@@ -74,7 +74,10 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
           return fut;
         });
 
-    thread_ptr->join();
+    if (result.ok()) {
+      thread_ptr->join();
+    }
+
     return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
     auto fut = arrow::Future<std::string>::Make();
