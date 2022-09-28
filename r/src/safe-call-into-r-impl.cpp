@@ -57,43 +57,41 @@ bool CanRunWithCapturedR() {
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
                               std::string opt) {
   if (opt == "async_with_executor") {
-    std::unique_ptr<std::thread> thread_ptr;
+    std::thread thread;
 
-    auto result =
-        RunWithCapturedR<std::string>([&thread_ptr, r_fun_that_returns_a_string]() {
-          auto fut = arrow::Future<std::string>::Make();
-          thread_ptr =
-              std::make_unique<std::thread>([&fut, r_fun_that_returns_a_string]() {
-                auto result = SafeCallIntoR<std::string>([&] {
-                  return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
-                });
+    auto result = RunWithCapturedR<std::string>([&thread, r_fun_that_returns_a_string]() {
+      auto fut = arrow::Future<std::string>::Make();
+      thread = std::thread([&fut, r_fun_that_returns_a_string]() {
+        auto result = SafeCallIntoR<std::string>(
+            [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
 
-                fut.MarkFinished(result);
-              });
+        fut.MarkFinished(result);
+      });
 
-          return fut;
-        });
+      return fut;
+    });
 
-    if (result.ok()) {
-      thread_ptr->join();
+    if (thread.joinable()) {
+      thread.join();
     }
 
     return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
     auto fut = arrow::Future<std::string>::Make();
-    auto thread_ptr =
-        std::make_unique<std::thread>([&fut, r_fun_that_returns_a_string]() {
-          auto result = SafeCallIntoR<std::string>(
-              [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
+    std::thread thread([&fut, r_fun_that_returns_a_string]() {
+      auto result = SafeCallIntoR<std::string>(
+          [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
 
-          if (result.ok()) {
-            fut.MarkFinished(result.ValueUnsafe());
-          } else {
-            fut.MarkFinished(result.status());
-          }
-        });
+      if (result.ok()) {
+        fut.MarkFinished(result.ValueUnsafe());
+      } else {
+        fut.MarkFinished(result.status());
+      }
+    });
 
-    thread_ptr->join();
+    if (thread.joinable()) {
+      thread.join();
+    }
 
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread
