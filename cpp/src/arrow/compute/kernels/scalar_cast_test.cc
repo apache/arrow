@@ -2277,6 +2277,33 @@ TEST(Cast, FSLToFSLOptionsPassThru) {
 }
 
 TEST(Cast, MapToMapFieldNames) {
+  const std::string map_json =
+      "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
+  const std::string map_json_nullable =
+      "[[[\"x\", 1], [\"y\", null], [\"z\", 9]], null, [[\"y\", 36]]]";
+
+  auto CheckMapCast = [map_json,
+                       map_json_nullable](const std::shared_ptr<DataType>& dst_type) {
+    std::shared_ptr<DataType> src_type = map(utf8(), field("x", int64()));
+    std::shared_ptr<Array> src = ArrayFromJSON(src_type, map_json);
+    std::shared_ptr<Array> dst = ArrayFromJSON(dst_type, map_json);
+    CheckCast(src, dst);
+
+    src = ArrayFromJSON(src_type, map_json_nullable);
+    dst = ArrayFromJSON(dst_type, map_json_nullable);
+    CheckCast(src, dst);
+  };
+
+  // Can rename fields
+  CheckMapCast(map(utf8(), field("y", int64())));
+  // Can map keys and values
+  CheckMapCast(map(large_utf8(), field("y", int32())));
+  // Can cast a map to a to a list<struct<keys=.., values=..>>
+  CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
+  // Can cast a map to a large_list<struct<keys=.., values=..>>
+  CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
+
+  // Can rename nested field names
   std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
   std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
 
@@ -2287,22 +2314,7 @@ TEST(Cast, MapToMapFieldNames) {
 
   CheckCast(src, dst);
 
-  src_type = map(utf8(), field("x", int64()));
-  dst_type = map(utf8(), field("y", int64()));
-
-  src = ArrayFromJSON(src_type, "[[[\"1\", 1]], [[\"2\", 6]], [[\"3\", 36]]]");
-  dst = ArrayFromJSON(dst_type, "[[[\"1\", 1]], [[\"2\", 6]], [[\"3\", 36]]]");
-
-  CheckCast(src, dst);
-
-  src_type = map(int32(), int32());
-  dst_type = list(struct_({field("a", int32()), field("b", int64())}));
-
-  src = ArrayFromJSON(src_type, "[[[1, 1]], [[1, 6]], [[1, 36]]]");
-  dst = ArrayFromJSON(dst_type, "[[[1, 1]], [[1, 6]], [[1, 36]]]");
-
-  CheckCast(src, dst);
-
+  // Cannot cast to a list<struct<[fields]>> if there are not exactly 2 fields
   dst_type = list(
       struct_({field("key", int32()), field("value", int64()), field("extra", int64())}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(

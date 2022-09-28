@@ -197,7 +197,7 @@ Result<Datum> Datum::View(const std::shared_ptr<DataType>& out_type) const {
   } else if (this->kind() == Datum::NONE) {
     return Datum();
   } else {
-    return Status::Invalid("Cannot cast tabular structure to a single data type.");
+    return Status::TypeError("Cannot cast tabular structure to a single data type.");
   }
 }
 

@@ -71,13 +71,6 @@ struct CastList {
                               ArrayData* out_array, std::shared_ptr<ArrayData>* values) {
     auto offsets = in_array.GetValues<src_offset_type>(1);
 
-    // Shift bitmap in case the source offset is non-zero
-    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
-                                       in_array.offset, in_array.length));
-    }
-
     // Handle list offsets
     // Several cases can arise:
     // - the source offset is non-zero, in which case we slice the underlying values
@@ -122,6 +115,13 @@ struct CastList {
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+
+    // Shift bitmap in case the source offset is non-zero
+    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
+                                       in_array.offset, in_array.length));
+    }
 
     RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
 
@@ -267,6 +267,13 @@ struct CastMap {
 
     std::shared_ptr<ArrayData> entries = in_array.child_data[0].ToArrayData();
 
+    // Shift bitmap in case the source offset is non-zero
+    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
+                                       in_array.offset, in_array.length));
+    }
+
     RETURN_NOT_OK(CastListImpl::HandleOffsets(ctx, in_array, out_array, &entries));
 
     // Handle keys
@@ -283,18 +290,10 @@ struct CastMap {
                           Cast(values, value_type, options, ctx->exec_context()));
     DCHECK(cast_values.is_array());
 
-    // Copy null bitmap
-    std::shared_ptr<Buffer> null_bitmap;
-    if (in_array.buffers[0].data != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(null_bitmap,
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
-                                       in_array.offset, in_array.length));
-    }
-
     // Create struct array
-    std::shared_ptr<ArrayData> struct_array = ArrayData::Make(
-        entry_type, /*length=*/entries->length, {null_bitmap},
-        {cast_keys.array(), cast_values.array()}, /*null_count=*/entries->null_count);
+    std::shared_ptr<ArrayData> struct_array =
+        ArrayData::Make(entry_type, /*length=*/entries->length, {nullptr},
+                        {cast_keys.array(), cast_values.array()}, /*null_count=*/0);
     out_array->child_data.push_back(struct_array);
 
     return Status::OK();
