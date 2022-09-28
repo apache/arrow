@@ -46,9 +46,9 @@ Executors
 
 Individual jobs are executed on public CI services, currently:
 
-- Linux: Travis CI, Azure Pipelines
-- macOS: Travis CI, Azure Pipelines
-- Windows: Azure Pipelines
+- Linux: GitHub Actions, Travis CI, Azure Pipelines
+- macOS: GitHub Actions, Travis CI, Azure Pipelines
+- Windows: GitHub Actions, Azure Pipelines
 
 Queue
 ~~~~~
