@@ -152,7 +152,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<arrow::compute::ExecPlan> plan_;
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
-  enum ExecPlanReaderStatus status_;
+  ExecPlanReaderStatus status_;
   arrow::StopToken stop_token_;
 
   arrow::Status StartProducing() {
