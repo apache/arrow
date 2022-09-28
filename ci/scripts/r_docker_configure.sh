@@ -111,7 +111,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
       #   * -lbrotlidec
       #   * -lz
       apt-get install -y \
-              libbrotoli-dev \
+              libbrotli-dev \
               libcurl4-openssl-dev \
               libidn2-dev \
               libkrb5-dev \
@@ -126,7 +126,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
       # "pkg-config --static --libs libcurl" has -lidl and -lssh2
       $PACKAGE_MANAGER install -y \
                        libcurl-devel \
-                       libidl-devel \
+                       libidn-devel \
                        libssh2-devel \
                        openssl-devel
       ;;
