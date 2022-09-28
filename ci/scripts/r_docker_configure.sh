@@ -95,19 +95,17 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
       #   * -lnghttp2
       #   * -lidn2
       #   * -lrtmp
-      #   * -lssh
+      #   * -lssh or -lssh2
       #   * -lpsl
-      #   * -lssl
-      #   * -lcrypto
       #   * -lssl
       #   * -lcrypto
       #   * -lgssapi_krb5
       #   * -lkrb5
       #   * -lk5crypto
       #   * -lcom_err
-      #   * -llber
       #   * -lldap
       #   * -llber
+      #   * -lzstd
       #   * -lbrotlidec
       #   * -lz
       apt-get install -y \
@@ -120,14 +118,17 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
               libpsl-dev \
               librtmp-dev \
               libssh-dev \
-              libssl-dev
+              libssh2-dev \
+              libssl-dev \
+              libzstd-dev
       ;;
     dnf|yum)
-      # "pkg-config --static --libs libcurl" has -lidl and -lssh2
+      # "pkg-config --static --libs libcurl" has -lidl, -lssh2 and -lldap
       $PACKAGE_MANAGER install -y \
                        libcurl-devel \
                        libidn-devel \
                        libssh2-devel \
+                       openldap-devel \
                        openssl-devel
       ;;
     *)
