@@ -17,18 +17,24 @@
 
 #include "arrow/flight/sql/example/sqlite_statement.h"
 
+#include <algorithm>
+
 #include <sqlite3.h>
 
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-#include <boost/algorithm/string.hpp>
-
+#include "arrow/array/array_base.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
+#include "arrow/scalar.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
 namespace example {
+
+using arrow::internal::checked_cast;
 
 std::shared_ptr<DataType> GetDataTypeFromSqliteType(const int column_type) {
   switch (column_type) {
@@ -119,7 +125,7 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
       // Try to retrieve column type from sqlite3_column_decltype
       const char* column_decltype = sqlite3_column_decltype(stmt_, i);
       if (column_decltype != NULLPTR) {
-        data_type = GetArrowType(column_decltype);
+        ARROW_ASSIGN_OR_RAISE(data_type, GetArrowType(column_decltype));
       } else {
         // If it can not determine the actual column type, return a dense_union type
         // covering any type SQLite supports.
@@ -160,8 +166,83 @@ arrow::Result<int> SqliteStatement::Reset() {
 sqlite3_stmt* SqliteStatement::GetSqlite3Stmt() const { return stmt_; }
 
 arrow::Result<int64_t> SqliteStatement::ExecuteUpdate() {
-  ARROW_RETURN_NOT_OK(Step());
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(int rc, Step());
+    if (rc == SQLITE_DONE) break;
+  }
   return sqlite3_changes(db_);
+}
+
+Status SqliteStatement::SetParameters(
+    std::vector<std::shared_ptr<arrow::RecordBatch>> parameters) {
+  const int num_params = sqlite3_bind_parameter_count(stmt_);
+  for (const auto& batch : parameters) {
+    if (batch->num_columns() != num_params) {
+      return Status::Invalid("Expected ", num_params, " parameters, but got ",
+                             batch->num_columns());
+    }
+  }
+  parameters_ = std::move(parameters);
+  auto end = std::remove_if(
+      parameters_.begin(), parameters_.end(),
+      [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows() == 0; });
+  parameters_.erase(end, parameters_.end());
+  return Status::OK();
+}
+
+Status SqliteStatement::Bind(size_t batch_index, int64_t row_index) {
+  if (batch_index >= parameters_.size()) {
+    return Status::Invalid("Cannot bind to batch ", batch_index);
+  }
+  const RecordBatch& batch = *parameters_[batch_index];
+  if (row_index < 0 || row_index >= batch.num_rows()) {
+    return Status::Invalid("Cannot bind to row ", row_index, " in batch ", batch_index);
+  }
+
+  if (sqlite3_clear_bindings(stmt_) != SQLITE_OK) {
+    return Status::Invalid("Failed to reset bindings: ", sqlite3_errmsg(db_));
+  }
+  for (int c = 0; c < batch.num_columns(); ++c) {
+    const std::shared_ptr<Array>& column = batch.column(c);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, column->GetScalar(row_index));
+    if (scalar->type->id() == Type::DENSE_UNION) {
+      scalar = checked_cast<DenseUnionScalar&>(*scalar).value;
+    }
+
+    int rc = 0;
+    if (!scalar->is_valid) {
+      rc = sqlite3_bind_null(stmt_, c + 1);
+      continue;
+    } else {
+      switch (scalar->type->id()) {
+        case Type::INT64: {
+          int64_t value = checked_cast<const Int64Scalar&>(*scalar).value;
+          rc = sqlite3_bind_int64(stmt_, c + 1, value);
+          break;
+        }
+        case Type::FLOAT: {
+          float value = checked_cast<const FloatScalar&>(*scalar).value;
+          rc = sqlite3_bind_double(stmt_, c + 1, value);
+          break;
+        }
+        case Type::STRING: {
+          const std::shared_ptr<Buffer>& buffer =
+              checked_cast<const StringScalar&>(*scalar).value;
+          rc = sqlite3_bind_text(stmt_, c + 1,
+                                 reinterpret_cast<const char*>(buffer->data()),
+                                 static_cast<int>(buffer->size()), SQLITE_TRANSIENT);
+          break;
+        }
+        default:
+          return Status::Invalid("Received unsupported data type: ", *scalar->type);
+      }
+    }
+    if (rc != SQLITE_OK) {
+      return Status::UnknownError("Failed to bind parameter: ", sqlite3_errmsg(db_));
+    }
+  }
+
+  return Status::OK();
 }
 
 }  // namespace example
