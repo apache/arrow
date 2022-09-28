@@ -25,8 +25,8 @@ The content of ``arrow/dev/tasks`` directory aims for automating the process of
 Arrow packaging and integration testing.
 
 Packages:
-  - C++ and Python `conda-forge packages`_ for Linux, Mac and Windows
-  - Python `Wheels`_ for Linux, Mac and Windows
+  - C++ and Python `conda-forge packages`_ for Linux, macOS and Windows
+  - Python `Wheels`_ for Linux, macOS and Windows
   - C++ and GLib `Linux packages`_ for multiple distributions
   - Java for Gandiva
 
@@ -47,7 +47,7 @@ Executors
 Individual jobs are executed on public CI services, currently:
 
 - Linux: TravisCI, Azure Pipelines
-- Mac: TravisCI, Azure Pipelines
+- macOS: TravisCI, Azure Pipelines
 - Windows: AppVeyor, Azure Pipelines
 
 Queue
