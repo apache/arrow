@@ -565,7 +565,8 @@ def delete_old_branches(obj, dry_run, days, maximum):
     """
     Deletes branches on queue repository (crossbow) that are older than number
     of days.
-    With a maximum number of branches to be deleted.
+    With a maximum number of branches to be deleted. This is required to avoid
+    triggering GitHub protection limits.
     """
     queue = obj['queue']
     ts = time.time() - days * 24 * 3600
