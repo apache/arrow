@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import io
 import datetime
 import decimal
 from collections import OrderedDict
+import io
 
 import numpy as np
 import pytest
@@ -435,7 +435,7 @@ def test_write_metadata(tempdir):
 
     # append metadata with different schema raises an error
     msg = ("AppendRowGroups requires equal schemas.\n"
-           "These two columns differ at index: 0")
+           "The two columns with index 0 differ.")
     with pytest.raises(RuntimeError, match=msg):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
@@ -585,14 +585,14 @@ def test_metadata_equals():
         original_metadata.equals(None)
 
 
-@pytest.mark.parametrize("t1,t2,expected", (
+@pytest.mark.parametrize("t1,t2,expected_error", (
     ({'col1': range(10)}, {'col1': range(10)}, None),
     ({'col1': range(10)}, {'col2': range(10)},
-     "These two columns differ at index: 0"),
+     "The two columns with index 0 differ."),
     ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
      "This schema has 2 columns, other has 1")
 ))
-def test_metadata_append_row_groups_diff(t1, t2, expected):
+def test_metadata_append_row_groups_diff(t1, t2, expected_error):
     table1 = pa.table(t1)
     table2 = pa.table(t2)
 
@@ -606,10 +606,10 @@ def test_metadata_append_row_groups_diff(t1, t2, expected):
     meta1 = pq.ParquetFile(buf1).metadata
     meta2 = pq.ParquetFile(buf2).metadata
 
-    if expected:
+    if expected_error:
         # Error clearly defines it's happening at append row groups call
         prefix = "AppendRowGroups requires equal schemas.\n"
-        with pytest.raises(RuntimeError, match=prefix + expected):
+        with pytest.raises(RuntimeError, match=prefix + expected_error):
             meta1.append_row_groups(meta2)
     else:
         meta1.append_row_groups(meta2)

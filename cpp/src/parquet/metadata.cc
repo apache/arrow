@@ -690,9 +690,9 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
-    auto diff_msg = std::make_shared<std::stringstream>();
-    if (!schema()->Equals(*other->schema(), diff_msg)) {
-      auto msg = "AppendRowGroups requires equal schemas.\n" + diff_msg->str();
+    std::ostringstream diff_output;
+    if (!schema()->Equals(*other->schema(), &diff_output)) {
+      auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
       throw ParquetException(msg);
     }
 
