@@ -826,6 +826,25 @@ TEST(TestNewScanner, MissingColumn) {
   AssertArraysEqual(*expected_nulls, *batches[0]->column(1));
 }
 
+void WriteIpcData(const std::string& path,
+                  const std::shared_ptr<fs::FileSystem> file_system,
+                  const std::shared_ptr<Table> input) {
+  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
+  ASSERT_OK_AND_ASSIGN(
+      auto file_writer,
+      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
+  TableBatchReader reader(input);
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ASSERT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(file_writer->Close());
+}
+
 struct TestScannerParams {
   bool use_threads;
   int num_child_datasets;
@@ -2512,8 +2531,11 @@ TEST(ScanNode, MinimalEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression project_expr = field_ref("a");
   options->projection =
-      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+      call("make_struct", {project_expr}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2607,8 +2629,11 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression project_expr = field_ref("a");
   options->projection =
-      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+      call("make_struct", {project_expr}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2699,9 +2724,12 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  // set the projection such that required project experssion field is included as a
+  // field_ref
+  compute::Expression a = field_ref("a");
   compute::Expression b = field_ref("b");
   options->projection =
-      call("make_struct", {a_times_2, b}, compute::MakeStructOptions{{"a * 2", "b"}});
+      call("make_struct", {a, b}, compute::MakeStructOptions{{"a * 2", "b"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
@@ -2762,25 +2790,6 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
-void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input) {
-  EXPECT_OK_AND_ASSIGN(auto mmap, file_system->OpenOutputStream(path));
-  ASSERT_OK_AND_ASSIGN(
-      auto file_writer,
-      MakeFileWriter(mmap, input->schema(), ipc::IpcWriteOptions::Defaults()));
-  TableBatchReader reader(input);
-  std::shared_ptr<RecordBatch> batch;
-  while (true) {
-    ASSERT_OK(reader.ReadNext(&batch));
-    if (batch == nullptr) {
-      break;
-    }
-    ASSERT_OK(file_writer->WriteRecordBatch(*batch));
-  }
-  ASSERT_OK(file_writer->Close());
-}
-
 TEST(ScanNode, DiskScanIssue) {
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
@@ -2821,33 +2830,38 @@ TEST(ScanNode, DiskScanIssue) {
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   // compute::Expression field_expr = compute::project({compute::field_ref("key")},
   //  {"key_only"});
-  compute::Expression a_times_2 = call("multiply", {compute::field_ref("shared"), compute::literal(2)});
-  scan_options->projection = call("make_struct", {a_times_2}, compute::MakeStructOptions{{"shared * 2"}});
+  compute::Expression extract_expr = compute::field_ref("shared");
+  // don't use a function.
+  scan_options->projection =
+      call("make_struct", {extract_expr}, compute::MakeStructOptions{{"shared"}});
 
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration(
-           {"scan", dataset::ScanNodeOptions{dataset, scan_options}}),
+      {compute::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}}),
        compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}})});
-  
+
   ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
 
   ASSERT_OK(decl->Validate());
 
-  auto output_schema = schema(
-      {field("shared * 2", int64())}
-      );
+  auto output_schema =
+      schema({field("a", int64()), field("b", int64()), field("c", int64())});
+
+  auto expected = TableFromJSON(dummy_schema, {R"([
+      [null, 1, null],
+      [null, 4, null]
+  ])"});
 
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
       output_schema, std::move(sink_gen), exec_context.memory_pool());
 
   ASSERT_OK(plan->Validate());
   ASSERT_OK(plan->StartProducing());
-  ASSERT_OK_AND_ASSIGN(auto output_table, arrow::Table::FromRecordBatchReader(sink_reader.get()));
-  std::cout << "Output Table " << std::endl;
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  std::cout << output_table->ToString() << std::endl;
+  AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset

@@ -44,6 +44,9 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
+// TODO: remove
+#include <iostream>
+
 namespace arrow {
 
 using internal::Executor;
@@ -155,33 +158,61 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       }
       // If the projection isn't a call we assume it's literal(true) or some
       // invalid expression and just ignore it.  It will be replaced below
-    } else {
-      ARROW_ASSIGN_OR_RAISE(scan_options->projection, scan_options->projection.Bind(*dataset_schema));
-      // do the rest as it is done above for extracting arguments from call
-      if (auto call = scan_options->projection.call()) {
-        if (call->function_name != "make_struct") {
-          return Status::Invalid(
-              "Top level projection expression call must be make_struct");
-        }
-        FieldVector fields;
-        for (const compute::Expression& arg : call->arguments) {
-          if(auto arg_call = arg.call()) {
-            fields.push_back(field(arg_call->function_name, arg_call->type.GetSharedPtr()));
-            break;
-          }
-        }
-        scan_options->projected_schema = schema(fields);
-      }
-
     }
 
     // If we couldn't infer it from the projection expression then just grab all
     // fields from the dataset
     if (!scan_options->projected_schema) {
-      ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                            ProjectionDescr::Default(*dataset_schema));
-      scan_options->projected_schema = std::move(projection_descr.schema);
-      scan_options->projection = projection_descr.expression;
+      // Until now, we assume the project expression is bound, but if it is not
+      // bound, we have to check the expressions and make sure bind them
+      // and create the projected schema based on the field_refs (which guarantees
+      // IsName() to be true).
+
+      // process resultant dataset_schema after projection
+      std::shared_ptr<Schema> projected_schema;
+      FieldVector project_fields;
+      if (auto call = scan_options->projection.call()) {
+        if (call->function_name != "make_struct") {
+          return Status::Invalid(
+              "Top level projection expression call must be make_struct");
+        }
+        for (const compute::Expression& arg : call->arguments) {
+          if (auto field_ref = arg.field_ref()) {
+            if (field_ref->IsName()) {
+              auto field = dataset_schema->GetFieldByName(*field_ref->name());
+              if (field) {
+                project_fields.push_back(std::move(field));
+              }
+              // if the field is not present in the schema we ignore it.
+              // the case is if kAugmentedFields are present in the expression
+              // and if they are not present in the provided schema, we ignore them.
+            } else {
+              return Status::Invalid(
+                  "No projected schema was supplied and we could not infer the projected "
+                  "schema from the projection expression.");
+            }
+          }
+        }
+      }
+
+      if (project_fields.size() > 0) {
+        // create the projected schema only if the provided expressions
+        // produces valid set of fields.
+        projected_schema = schema(std::move(project_fields));
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*projected_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+        ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                              scan_options->projection.Bind(*projected_schema));
+      } else {
+        // if projected_fields are not found, we default to creating the projected_schema
+        // and projection from the dataset_schema.
+        ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                              ProjectionDescr::Default(*dataset_schema));
+        scan_options->projected_schema = std::move(projection_descr.schema);
+        scan_options->projection = projection_descr.expression;
+      }
     }
   }
 
