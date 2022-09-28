@@ -20,12 +20,12 @@
 #include <algorithm>
 #include <chrono>
 
-#include "platform.h"
-#include "visibility.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
+#include "pyarrow/platform.h"
+#include "pyarrow/visibility.h"
 
 // By default, PyDateTimeAPI is a *static* variable.  This forces
 // PyDateTime_IMPORT to be called in every C/C++ module using the

@@ -20,14 +20,14 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <memory>
 #include <string>
 #include <unordered_set>
 
 #include "arrow/memory_pool.h"
-#include "visibility.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 

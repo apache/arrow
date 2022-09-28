@@ -20,16 +20,16 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <cstdint>
 #include <memory>
 
-#include "visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
+#include "pyarrow/visibility.h"
 
-#include "common.h"
+#include "pyarrow/common.h"
 
 namespace arrow {
 

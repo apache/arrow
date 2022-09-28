@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <memory>
 
 #include "arrow/compute/api.h"
-#include "visibility.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 

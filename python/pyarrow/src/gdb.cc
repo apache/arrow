@@ -24,7 +24,6 @@
 #include "arrow/datum.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/json_simple.h"
-#include "gdb.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -34,6 +33,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "pyarrow/gdb.h"
 
 namespace arrow {
 

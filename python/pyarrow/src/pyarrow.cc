@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "pyarrow.h"
+#include "pyarrow/pyarrow.h"
 
 #include <memory>
 #include <utility>
@@ -25,10 +25,10 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 
-#include "common.h"
-#include "datetime.h"
+#include "pyarrow/common.h"
+#include "pyarrow/datetime.h"
 namespace {
-#include "pyarrow_api.h"
+#include "pyarrow/pyarrow_api.h"
 }
 
 namespace arrow {

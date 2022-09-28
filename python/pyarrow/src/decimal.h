@@ -19,8 +19,8 @@
 
 #include <string>
 
-#include "visibility.h"
-#include "arrow/type.h"
+#include "pyarrow/visibility.h"
+#include "pyarrow/arrow/type.h"
 
 namespace arrow {
 

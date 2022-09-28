@@ -24,8 +24,8 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
-#include "pyarrow.h"
-#include "visibility.h"
+#include "pyarrow/pyarrow.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 

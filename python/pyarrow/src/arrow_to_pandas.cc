@@ -17,8 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "arrow_to_pandas.h"
-#include "numpy_interop.h"  // IWYU pragma: expand
+#include "pyarrow/arrow_to_pandas.h"
+#include "pyarrow/numpy_interop.h"  // IWYU pragma: expand
 
 #include <cmath>
 #include <cstdint>
@@ -48,16 +48,16 @@
 
 #include "arrow/compute/api.h"
 
-#include "arrow_to_python_internal.h"
-#include "common.h"
-#include "datetime.h"
-#include "decimal.h"
-#include "helpers.h"
-#include "numpy_convert.h"
-#include "numpy_internal.h"
-#include "pyarrow.h"
-#include "python_to_arrow.h"
-#include "type_traits.h"
+#include "pyarrow/arrow_to_python_internal.h"
+#include "pyarrow/common.h"
+#include "pyarrow/datetime.h"
+#include "pyarrow/decimal.h"
+#include "pyarrow/helpers.h"
+#include "pyarrow/numpy_convert.h"
+#include "pyarrow/numpy_internal.h"
+#include "pyarrow/pyarrow.h"
+#include "pyarrow/python_to_arrow.h"
+#include "pyarrow/type_traits.h"
 
 namespace arrow {
 

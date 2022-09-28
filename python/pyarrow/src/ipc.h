@@ -19,11 +19,11 @@
 
 #include <memory>
 
-#include "common.h"
-#include "visibility.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "pyarrow/common.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 namespace py {

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "visibility.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 namespace gdb {

@@ -18,12 +18,12 @@
 #include <algorithm>
 #include <limits>
 
-#include "common.h"
-#include "decimal.h"
-#include "helpers.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "pyarrow/common.h"
+#include "pyarrow/decimal.h"
+#include "pyarrow/helpers.h"
 
 namespace arrow {
 namespace py {

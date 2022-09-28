@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "platform.h"
-#include "visibility.h"
+#include "pyarrow/platform.h"
+#include "pyarrow/visibility.h"
 
 extern "C" {
 ARROW_PYTHON_EXPORT

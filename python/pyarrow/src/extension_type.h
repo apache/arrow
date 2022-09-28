@@ -21,9 +21,9 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "common.h"
-#include "visibility.h"
 #include "arrow/util/macros.h"
+#include "pyarrow/common.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 namespace py {

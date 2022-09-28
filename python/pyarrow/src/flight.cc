@@ -18,9 +18,9 @@
 #include <signal.h>
 #include <utility>
 
-#include "flight.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "pyarrow/flight.h"
 
 using arrow::flight::FlightPayload;
 

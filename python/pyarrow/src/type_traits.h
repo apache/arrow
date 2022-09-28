@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <cstdint>
 #include <limits>
 
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
 #include <numpy/halffloat.h>
 

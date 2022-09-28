@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "serialize.h"
-#include "numpy_interop.h"
+#include "pyarrow/serialize.h"
+#include "pyarrow/numpy_interop.h"
 
 #include <cstdint>
 #include <limits>
@@ -42,13 +42,13 @@
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
-#include "common.h"
-#include "datetime.h"
-#include "helpers.h"
-#include "iterators.h"
-#include "numpy_convert.h"
-#include "platform.h"
-#include "pyarrow.h"
+#include "pyarrow/common.h"
+#include "pyarrow/datetime.h"
+#include "pyarrow/helpers.h"
+#include "pyarrow/iterators.h"
+#include "pyarrow/numpy_convert.h"
+#include "pyarrow/platform.h"
+#include "pyarrow/pyarrow.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 

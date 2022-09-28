@@ -17,20 +17,20 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
 #include <numpy/halffloat.h>
 
-#include "visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 

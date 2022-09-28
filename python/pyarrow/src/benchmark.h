@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
-#include "visibility.h"
+#include "pyarrow/visibility.h"
 
 namespace arrow {
 namespace py {

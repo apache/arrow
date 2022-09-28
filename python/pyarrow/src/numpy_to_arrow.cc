@@ -17,8 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "numpy_to_arrow.h"
-#include "numpy_interop.h"
+#include "pyarrow/numpy_to_arrow.h"
+#include "pyarrow/numpy_interop.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,14 +49,14 @@
 
 #include "arrow/compute/api_scalar.h"
 
-#include "common.h"
-#include "datetime.h"
-#include "helpers.h"
-#include "iterators.h"
-#include "numpy_convert.h"
-#include "numpy_internal.h"
-#include "python_to_arrow.h"
-#include "type_traits.h"
+#include "pyarrow/common.h"
+#include "pyarrow/datetime.h"
+#include "pyarrow/helpers.h"
+#include "pyarrow/iterators.h"
+#include "pyarrow/numpy_convert.h"
+#include "pyarrow/numpy_internal.h"
+#include "pyarrow/python_to_arrow.h"
+#include "pyarrow/type_traits.h"
 
 namespace arrow {
 

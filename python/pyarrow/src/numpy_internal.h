@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
 #include "arrow/status.h"
 
-#include "platform.h"
+#include "pyarrow/platform.h"
 
 #include <cstdint>
 #include <sstream>

@@ -24,7 +24,7 @@
 
 #include "arrow/csv/options.h"
 #include "arrow/util/macros.h"
-#include "common.h"
+#include "pyarrow/common.h"
 
 namespace arrow {
 namespace py {

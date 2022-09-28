@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "udf.h"
+#include "pyarrow/udf.h"
 #include "arrow/compute/function.h"
-#include "common.h"
+#include "pyarrow/common.h"
 
 namespace arrow {
 

@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "pyarrow.h"
+#include "pyarrow/pyarrow.h"
 
 namespace arrow {
 namespace py {

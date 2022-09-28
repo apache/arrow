@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "arrow/array.h"
-#include "platform.h"
+#include "pyarrow/arrow/array.h"
+#include "pyarrow/platform.h"
 
 namespace arrow {
 namespace py {

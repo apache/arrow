@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet_encryption.h"
+#include "pyarrow/parquet_encryption.h"
 #include "parquet/exception.h"
 
 namespace arrow {

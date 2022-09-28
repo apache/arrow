@@ -21,8 +21,8 @@
 
 #include "arrow/array/array_primitive.h"
 
-#include "common.h"
-#include "numpy_internal.h"
+#include "pyarrow/common.h"
+#include "pyarrow/numpy_internal.h"
 
 namespace arrow {
 namespace py {

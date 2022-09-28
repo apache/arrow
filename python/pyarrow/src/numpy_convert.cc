@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
-#include "numpy_convert.h"
+#include "pyarrow/numpy_convert.h"
 
 #include <cstdint>
 #include <memory>
@@ -30,9 +30,9 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
-#include "common.h"
-#include "pyarrow.h"
-#include "type_traits.h"
+#include "pyarrow/common.h"
+#include "pyarrow/pyarrow.h"
+#include "pyarrow/type_traits.h"
 
 namespace arrow {
 namespace py {

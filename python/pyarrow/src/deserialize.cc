@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "deserialize.h"
+#include "pyarrow/deserialize.h"
 
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
 #include <cstdint>
 #include <memory>
@@ -40,12 +40,12 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 
-#include "common.h"
-#include "datetime.h"
-#include "helpers.h"
-#include "numpy_convert.h"
-#include "pyarrow.h"
-#include "serialize.h"
+#include "pyarrow/common.h"
+#include "pyarrow/datetime.h"
+#include "pyarrow/helpers.h"
+#include "pyarrow/numpy_convert.h"
+#include "pyarrow/pyarrow.h"
+#include "pyarrow/serialize.h"
 
 namespace arrow {
 

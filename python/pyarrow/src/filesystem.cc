@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "filesystem.h"
 #include "arrow/util/logging.h"
+#include "pyarrow/filesystem.h"
 
 namespace arrow {
 

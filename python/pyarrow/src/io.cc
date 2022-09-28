@@ -28,8 +28,8 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include "common.h"
-#include "pyarrow.h"
+#include "pyarrow/common.h"
+#include "pyarrow/pyarrow.h"
 
 namespace arrow {
 

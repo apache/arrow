@@ -16,20 +16,20 @@
 // under the License.
 
 // helpers.h includes a NumPy header, so we include this first
-#include "numpy_interop.h"
+#include "pyarrow/numpy_interop.h"
 
-#include "helpers.h"
+#include "pyarrow/helpers.h"
 
 #include <cmath>
 #include <limits>
 #include <sstream>
 #include <type_traits>
 
-#include "common.h"
-#include "decimal.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "pyarrow/common.h"
+#include "pyarrow/decimal.h"
 
 namespace arrow {
 
