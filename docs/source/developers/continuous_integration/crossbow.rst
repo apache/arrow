@@ -48,7 +48,7 @@ Individual jobs are executed on public CI services, currently:
 
 - Linux: Travis CI, Azure Pipelines
 - macOS: Travis CI, Azure Pipelines
-- Windows: AppVeyor, Azure Pipelines
+- Windows: Azure Pipelines
 
 Queue
 ~~~~~
@@ -59,8 +59,7 @@ queue for the tasks. Anyone can host a ``queue`` repository which is usually
 called as ``crossbow``.
 
 A job is a git commit on a particular git branch, containing only the required
-configuration file to run the requested build (like ``.travis.yml``,
-``appveyor.yml`` or ``azure-pipelines.yml``).
+configuration file to run the requested build (like ``.travis.yml`` or ``azure-pipelines.yml``).
 
 Scheduler
 ~~~~~~~~~
@@ -80,8 +79,8 @@ to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `Travis CI`_, `Appveyor`_, and `Azure Pipelines`_ integrations on for
-   the newly created queue repository.
+2. Enable `Travis CI`_ and `Azure Pipelines`_ integrations for the newly
+   created queue repository.
 
 3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
@@ -118,10 +117,6 @@ to step 3:
    - **Travis CI**: ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
      - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default.
-
-   - **Appveyor**: ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
-
-     - Check the ``skip branches without appveyor.yml`` checkbox under the repository settings.
    
 .. line-block::
 7. Install Python (minimum supported version is 3.7):
@@ -251,7 +246,6 @@ see its help page:
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
 .. _Travis CI: https://travis-ci.com/getting-started/
-.. _Appveyor: https://www.appveyor.com/docs/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
 .. _Create a Personal Access Token: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
