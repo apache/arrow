@@ -55,8 +55,9 @@ static Status ParseError(T&&... t) {
 }
 
 const std::string& Kind::Name(Kind::type kind) {
-  static const std::string names[] = {"null",  "boolean", "number",          "string",
-                                      "array", "object",  "number_or_string"};
+  static const std::string names[] = {
+      "null", "boolean", "number", "string", "array", "object", "number_or_string",
+  };
 
   return names[kind];
 }

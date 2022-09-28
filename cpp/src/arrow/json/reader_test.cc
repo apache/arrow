@@ -284,9 +284,10 @@ TEST_P(ReaderTest, UnquotedDecimal) {
   SetUpReader(src);
   ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
-  auto expected_table = Table::Make(
-      schema, {ArrayFromJSON(schema->field(0)->type(), R"(["30.04", "1.23"])"),
-               ArrayFromJSON(schema->field(1)->type(), R"(["30.001", "1.229"])")});
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -299,9 +300,10 @@ TEST_P(ReaderTest, MixedDecimal) {
   SetUpReader(src);
   ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
-  auto expected_table = Table::Make(
-      schema, {ArrayFromJSON(schema->field(0)->type(), R"(["30.04", "1.23"])"),
-               ArrayFromJSON(schema->field(1)->type(), R"(["30.001", "1.229"])")});
+  auto expected_table = TableFromJSON(schema, {R"([
+    { "price": "30.04", "cost":"30.001" },
+    { "price": "1.23", "cost":"1.229" }
+  ])"});
   AssertTablesEqual(*expected_table, *table_);
 }
 
