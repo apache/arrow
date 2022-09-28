@@ -56,7 +56,7 @@ Queue
 Because of the nature of how the CI services work, the scheduling of
 jobs happens through an additional git repository, which acts like a job
 queue for the tasks. Anyone can host a ``queue`` repository (usually
-named ``crossbow``).
+named ``<ghuser>/crossbow``).
 
 A job is a git commit on a particular git branch, containing the required
 configuration files to run the requested builds (like ``.travis.yml``, 
