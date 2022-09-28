@@ -1745,10 +1745,9 @@ cdef class ParquetWriter(_Weakrefable):
 
         pool = maybe_unbox_memory_pool(memory_pool)
         with nogil:
-            check_status(
+            self.writer = move(GetResultValue(
                 FileWriter.Open(deref(schema.schema), pool,
-                                self.sink, properties, arrow_properties,
-                                &self.writer))
+                                self.sink, properties, arrow_properties)))
 
     def close(self):
         with nogil:
