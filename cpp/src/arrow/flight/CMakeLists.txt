@@ -246,6 +246,10 @@ add_arrow_lib(arrow_flight
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static)
 
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
+endif()
+
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
 endforeach()

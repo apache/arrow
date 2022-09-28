@@ -147,7 +147,7 @@
             <resource>
                 <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libarrow_dataset_jni.*</include>
+                    <include>**/*arrow_dataset_jni.*</include>
                 </includes>
             </resource>
         </resources>

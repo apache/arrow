@@ -82,6 +82,10 @@ add_arrow_lib(arrow_dataset
               STATIC_INSTALL_INTERFACE_LIBS
               ${ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS})
 
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_dataset_static PUBLIC ARROW_DS_STATIC)
+endif()
+
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
