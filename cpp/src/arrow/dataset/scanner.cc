@@ -44,9 +44,6 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
-// TODO: remove
-#include <iostream>
-
 namespace arrow {
 
 using internal::Executor;
