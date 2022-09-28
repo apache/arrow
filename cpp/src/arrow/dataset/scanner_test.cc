@@ -2828,8 +2828,6 @@ TEST(ScanNode, DiskScanIssue) {
   ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
-  // compute::Expression field_expr = compute::project({compute::field_ref("key")},
-  //  {"key_only"});
   compute::Expression extract_expr = compute::field_ref("shared");
   // don't use a function.
   scan_options->projection =
