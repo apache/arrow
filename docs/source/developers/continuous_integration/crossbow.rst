@@ -86,8 +86,8 @@ to step 3:
 3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
 
-   By default the scripts looks for ``crossbow`` next to arrow repository, but
-   this can configured through command line arguments.
+   By default the scripts looks for a ``crossbow`` clone next to the ``arrow``
+   directory, but this can configured through command line arguments.
 
    .. code:: bash
 
