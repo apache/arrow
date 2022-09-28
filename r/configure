@@ -31,7 +31,6 @@ PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow"
 
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
@@ -80,10 +79,12 @@ fi
 if [ "$ARROW_HOME" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
   echo "*** Using ARROW_HOME as the source of libarrow"
   PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
+  PKG_LIBS="-larrow"
   PKG_DIRS="-L$ARROW_HOME/lib"
 elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
   echo "*** Using INCLUDE_DIR/LIB_DIR as the source of libarrow"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
+  PKG_LIBS="-larrow"
   PKG_DIRS="-L$LIB_DIR"
 else
   # Use pkg-config to find libarrow if available and allowed
@@ -91,17 +92,16 @@ else
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     # Set the search paths and compile flags
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS="${PKGCONFIG_LIBS} `pkg-config --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`"
+    PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
-    FOUND_LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+    FOUND_LIB_DIR=`echo $PKGCONFIG_DIRS | sed -e 's/^-L//'`
     echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
-    PKG_CFLAGS="$PKGCONFIG_CFLAGS"
-    PKG_LIBS=${PKGCONFIG_LIBS}
-    PKG_DIRS=${PKGCONFIG_DIRS}
+    PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
+    PKG_LIBS="$PKGCONFIG_LIBS"
+    PKG_DIRS="$PKGCONFIG_DIRS"
 
     # Check for version mismatch
     PC_LIB_VERSION=`pkg-config --modversion arrow`
@@ -118,9 +118,9 @@ else
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
-        PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
+        PKG_LIBS="-larrow -larrow_bundled_dependencies"
         PKG_DIRS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_DIRS"
-        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include $PKG_CFLAGS"
       else
         echo "*** Downloading ${PKG_BREW_NAME}"
         if [ -f "autobrew" ]; then
@@ -181,8 +181,8 @@ else
         if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
           export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
           PKG_CFLAGS="`pkg-config --cflags --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-          PKG_DIRS="`pkg-config --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_DIRS"
-          PKG_LIBS="`pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}` $PKG_LIBS"
+          PKG_DIRS="`pkg-config --libs-only-L --static --silence-errors ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="`pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
         else
           # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
           # and put their -L location in PKG_DIRS
