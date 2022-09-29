@@ -1172,6 +1172,43 @@ test_that("as_arrow_array() default method errors", {
   )
 })
 
+test_that("as_arrow_array() works for blob::blob()", {
+  skip_if_not_installed("blob")
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5))),
+    as_arrow_array(list(as.raw(1:5)), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = large_binary()),
+    as_arrow_array(list(as.raw(1:5)), type = large_binary())
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(blob::blob(as.raw(1:5)), type = int32())
+  )
+})
+
+test_that("as_arrow_array() works for vctrs::list_of()", {
+  expect_equal(
+    as_arrow_array(vctrs::list_of(1:5, .ptype = integer())),
+    as_arrow_array(list(1:5), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(
+      vctrs::list_of(1:5, .ptype = integer()),
+      type = large_list_of(int32())
+    ),
+    as_arrow_array(list(1:5), type = large_list_of(int32()))
+  )
+
+  expect_snapshot_error(
+    as_arrow_array(vctrs::list_of(1:5, .ptype = integer()), type = int32())
+  )
+})
+
 test_that("concat_arrays works", {
   concat_empty <- concat_arrays()
   expect_true(concat_empty$type == null())

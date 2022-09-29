@@ -85,6 +85,20 @@ test_that("infer_type() can infer nested extension types", {
   )
 })
 
+test_that("infer_type() can infer vctrs::list_of() types", {
+  expect_equal(infer_type(vctrs::list_of(.ptype = integer())), list_of(int32()))
+})
+
+test_that("infer_type() can infer blob type", {
+  skip_if_not_installed("blob")
+
+  expect_equal(infer_type(blob::blob()), binary())
+
+  big_ish_raw <- raw(2 ^ 20)
+  big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
+  expect_equal(infer_type(big_ish_blob), large_binary())
+})
+
 test_that("DataType$Equals", {
   a <- int32()
   b <- int32()
