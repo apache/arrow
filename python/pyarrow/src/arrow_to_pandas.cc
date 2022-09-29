@@ -17,7 +17,6 @@
 
 // Functions for pandas conversion via NumPy
 
-#include <arrow/compute/cast.h>
 #include "arrow_to_pandas.h"
 #include "numpy_interop.h"  // IWYU pragma: expand
 
