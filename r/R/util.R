@@ -238,7 +238,7 @@ is_compressed <- function(compression) {
 
 # handler function which checks for a number of different read errors
 augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
-  dots <- list2(...)
+
   msg <- conditionMessage(e)
 
   if (!is.null(schema)) {
