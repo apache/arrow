@@ -107,7 +107,7 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
   ARROW_ASSIGN_OR_RAISE(auto file_infos, local_fs->GetFileInfo(selector));
   for (auto& file_info : file_infos) {
     if (file_info.IsFile()) {
-      rel_fpaths->push_back(file_info);
+      rel_fpaths->push_back(std::move(file_info));
     }
   }
 
@@ -139,7 +139,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                               FromProto(read.filter(), ext_set, conversion_options));
       }
 
-      // NOTE: scan_options->projection is not used by the scanner and thus can't be used
       if (read.has_projection()) {
         return Status::NotImplemented("substrait::ReadRel::projection");
       }
@@ -227,7 +226,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         if (!item_uri.is_file_scheme()) {
           return Status::NotImplemented("substrait::ReadRel::LocalFiles item (",
                                         item_uri.ToString(),
-                                        ") with non-filesystem scheme (file:///)");
+                                        ") does not have file scheme (file:///)");
         }
 
         if (item_uri.port() != -1) {
@@ -250,7 +249,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             format = std::make_shared<dataset::IpcFileFormat>();
             break;
           default:
-            // TODO: maybe check for ".feather" or ".arrows"?
             return Status::NotImplemented(
                 "unsupported file format ",
                 "(see substrait::ReadRel::LocalFiles::FileOrFiles::file_format)");
