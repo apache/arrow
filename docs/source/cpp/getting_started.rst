@@ -45,6 +45,3 @@ API.
    tutorials/io_tutorial.rst
    tutorials/compute_tutorial.rst
    tutorials/datasets_tutorial.rst
-   acero_overview
-
-

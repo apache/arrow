@@ -29,6 +29,7 @@ User Guide
    datatypes
    tables
    compute
+   acero_overview
    streaming_execution
    io
    ipc
