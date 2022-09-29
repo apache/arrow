@@ -34,19 +34,18 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   // Try to prevent user errors by preventing casting between extensions w/
   // different storage types. Provide a tip on how to accomplish same outcome.
+  std::shared_ptr<Array> result = array;
   if (array->type()->id() == Type::EXTENSION) {
-    const auto& ext_arr = checked_cast<const ExtensionArray&>(*array);
-    if (out_ty->id() != ext_arr.extension_type()->storage_id()) {
-      return Status::Invalid("Casting from '" + ext_arr.extension_type()->ToString() +
+    if (!array->type()->Equals(out_ty)) {
+      return Status::Invalid("Casting from '" + array->type()->ToString() +
                              "' to extension with different storage type '" +
                              out_ty->ToString() +
                              "' not permitted. One can first cast to the storage "
                              "type, then to the extension type.");
     }
+  } else {
+    ARROW_ASSIGN_OR_RAISE(result, Cast(*array, out_ty, options, ctx->exec_context()));
   }
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
-                        Cast(*array, out_ty, options, ctx->exec_context()));
 
   ExtensionArray extension(options.to_type.GetSharedPtr(), result);
   out->value = std::move(extension.data());

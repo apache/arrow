@@ -558,11 +558,6 @@ def test_cast_between_extension_types():
         tiny_int_arr.cast(IntegerType())
     tiny_int_arr.cast(pa.int64()).cast(IntegerType())
 
-    # Casting between extension types w/ same storage type is okay.
-    arr = pa.array([b'1' * 16, b'2' * 16], pa.binary(16))
-    uuid_arr = arr.cast(UuidType())
-    uuid2_arr = uuid_arr.cast(UuidType2())
-
 
 @pytest.mark.parametrize("data,type_factory", (
     # list<extension>
