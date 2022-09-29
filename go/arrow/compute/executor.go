@@ -242,7 +242,7 @@ func propagateNulls(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ArraySp
 	}
 
 	var (
-		arrsWithNulls = make([]*exec.ArraySpan, 0)
+		arrsWithNulls = make([]*exec.ArraySpan, 0, len(batch.Values))
 		isAllNull     bool
 		prealloc      bool = out.Buffers[0].Buf != nil
 	)

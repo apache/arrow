@@ -27,12 +27,34 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/compute"
 	"github.com/apache/arrow/go/v10/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/gen"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/klauspost/cpuid/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+var (
+	CpuCacheSizes = [...]int{ // defaults
+		32 * 1024,   // level 1: 32K
+		256 * 1024,  // level 2: 256K
+		3072 * 1024, // level 3: 3M
+	}
+)
+
+func init() {
+	if cpuid.CPU.Cache.L1D != -1 {
+		CpuCacheSizes[0] = cpuid.CPU.Cache.L1D
+	}
+	if cpuid.CPU.Cache.L2 != -1 {
+		CpuCacheSizes[1] = cpuid.CPU.Cache.L2
+	}
+	if cpuid.CPU.Cache.L3 != -1 {
+		CpuCacheSizes[2] = cpuid.CPU.Cache.L3
+	}
+}
 
 type binaryArithmeticFunc = func(context.Context, compute.ArithmeticOptions, compute.Datum, compute.Datum) (compute.Datum, error)
 
@@ -338,5 +360,143 @@ func TestBinaryArithmeticDispatchBest(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+const seed = 0x94378165
+
+type binaryOp = func(ctx context.Context, left, right compute.Datum) (compute.Datum, error)
+
+func Add(ctx context.Context, left, right compute.Datum) (compute.Datum, error) {
+	var opts compute.ArithmeticOptions
+	return compute.Add(ctx, opts, left, right)
+}
+
+func Subtract(ctx context.Context, left, right compute.Datum) (compute.Datum, error) {
+	var opts compute.ArithmeticOptions
+	return compute.Subtract(ctx, opts, left, right)
+}
+
+func AddUnchecked(ctx context.Context, left, right compute.Datum) (compute.Datum, error) {
+	opts := compute.ArithmeticOptions{NoCheckOverflow: true}
+	return compute.Add(ctx, opts, left, right)
+}
+
+func SubtractUnchecked(ctx context.Context, left, right compute.Datum) (compute.Datum, error) {
+	opts := compute.ArithmeticOptions{NoCheckOverflow: true}
+	return compute.Subtract(ctx, opts, left, right)
+}
+
+func arrayScalarKernel(b *testing.B, sz int, nullProp float64, op binaryOp, dt arrow.DataType) {
+	b.Run("array scalar", func(b *testing.B) {
+		var (
+			mem                     = memory.NewCheckedAllocator(memory.DefaultAllocator)
+			arraySize               = int64(sz / dt.(arrow.FixedWidthDataType).Bytes())
+			min       int64         = 6
+			max                     = min + 15
+			sc, _                   = scalar.MakeScalarParam(6, dt)
+			rhs       compute.Datum = &compute.ScalarDatum{Value: sc}
+			rng                     = gen.NewRandomArrayGenerator(seed, mem)
+		)
+
+		lhs := rng.Numeric(dt.ID(), arraySize, min, max, nullProp)
+		b.Cleanup(func() {
+			lhs.Release()
+		})
+
+		var (
+			res  compute.Datum
+			err  error
+			ctx  = context.Background()
+			left = &compute.ArrayDatum{Value: lhs.Data()}
+		)
+
+		b.SetBytes(arraySize)
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			res, err = op(ctx, left, rhs)
+			b.StopTimer()
+			if err != nil {
+				b.Fatal(err)
+			}
+			res.Release()
+			b.StartTimer()
+		}
+	})
+}
+
+func arrayArrayKernel(b *testing.B, sz int, nullProp float64, op binaryOp, dt arrow.DataType) {
+	b.Run("array array", func(b *testing.B) {
+		var (
+			mem             = memory.NewCheckedAllocator(memory.DefaultAllocator)
+			arraySize       = int64(sz / dt.(arrow.FixedWidthDataType).Bytes())
+			rmin      int64 = 1
+			rmax            = rmin + 6 // 7
+			lmin            = rmax + 1 // 8
+			lmax            = lmin + 6 // 14
+			rng             = gen.NewRandomArrayGenerator(seed, mem)
+		)
+
+		lhs := rng.Numeric(dt.ID(), arraySize, lmin, lmax, nullProp)
+		rhs := rng.Numeric(dt.ID(), arraySize, rmin, rmax, nullProp)
+		b.Cleanup(func() {
+			lhs.Release()
+			rhs.Release()
+		})
+		var (
+			res   compute.Datum
+			err   error
+			ctx   = context.Background()
+			left  = &compute.ArrayDatum{Value: lhs.Data()}
+			right = &compute.ArrayDatum{Value: rhs.Data()}
+		)
+
+		b.SetBytes(arraySize)
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			res, err = op(ctx, left, right)
+			b.StopTimer()
+			if err != nil {
+				b.Fatal(err)
+			}
+			res.Release()
+			b.StartTimer()
+		}
+	})
+}
+
+func BenchmarkScalarArithmetic(b *testing.B) {
+	args := []struct {
+		sz       int
+		nullProb float64
+	}{
+		{CpuCacheSizes[2], 0},
+		{CpuCacheSizes[2], 0.5},
+		{CpuCacheSizes[2], 1},
+	}
+
+	testfns := []struct {
+		name string
+		op   binaryOp
+	}{
+		{"Add", Add},
+		{"AddUnchecked", AddUnchecked},
+		{"Subtract", Subtract},
+		{"SubtractUnchecked", SubtractUnchecked},
+	}
+
+	for _, dt := range numericTypes {
+		b.Run(dt.String(), func(b *testing.B) {
+			for _, benchArgs := range args {
+				b.Run(fmt.Sprintf("sz=%d/nullprob=%.2f", benchArgs.sz, benchArgs.nullProb), func(b *testing.B) {
+					for _, tfn := range testfns {
+						b.Run(tfn.name, func(b *testing.B) {
+							arrayArrayKernel(b, benchArgs.sz, benchArgs.nullProb, tfn.op, dt)
+							arrayScalarKernel(b, benchArgs.sz, benchArgs.nullProb, tfn.op, dt)
+						})
+					}
+				})
+			}
+		})
 	}
 }

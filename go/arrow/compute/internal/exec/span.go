@@ -129,7 +129,7 @@ func (a *ArraySpan) NumBuffers() int { return getNumBuffers(a.Type) }
 // MakeData generates an arrow.ArrayData object for this ArraySpan,
 // properly updating the buffer ref count if necessary.
 func (a *ArraySpan) MakeData() arrow.ArrayData {
-	bufs := make([]*memory.Buffer, a.NumBuffers())
+	var bufs [3]*memory.Buffer
 	for i := range bufs {
 		b := a.GetBuffer(i)
 		bufs[i] = b
@@ -170,7 +170,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	}
 
 	if dt.ID() == arrow.DICTIONARY {
-		result := array.NewData(a.Type, length, bufs, nil, nulls, off)
+		result := array.NewData(a.Type, length, bufs[:], nil, nulls, off)
 		dict := a.Dictionary().MakeData()
 		defer dict.Release()
 		result.SetDictionary(dict)
@@ -188,7 +188,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 			children[i] = d
 		}
 	}
-	return array.NewData(a.Type, length, bufs, children, nulls, off)
+	return array.NewData(a.Type, length, bufs[:], children, nulls, off)
 }
 
 // MakeArray is a convenience function for calling array.MakeFromData(a.MakeData())
@@ -201,14 +201,20 @@ func (a *ArraySpan) MakeArray() arrow.Array {
 // SetSlice updates the offset and length of this ArraySpan to refer to
 // a specific slice of the underlying buffers.
 func (a *ArraySpan) SetSlice(off, length int64) {
-	a.Offset, a.Len = off, length
-	if a.Type.ID() != arrow.NULL {
+	if off == a.Offset && length == a.Len {
+		// don't modify the nulls if the slice is the entire span
+		return
+	}
+
+	if a.Nulls != a.Len && a.Type.ID() != arrow.NULL {
 		if a.Nulls != 0 {
 			a.Nulls = array.UnknownNullCount
 		}
 	} else {
-		a.Nulls = a.Len
+		a.Nulls = length
 	}
+
+	a.Offset, a.Len = off, length
 }
 
 // GetBuffer returns the buffer for the requested index. If this buffer
