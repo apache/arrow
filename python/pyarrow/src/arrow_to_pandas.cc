@@ -735,13 +735,6 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
 template <typename ListArrayT>
 Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
                         PyObject** out_values) {
-  using ListArrayType = typename ListArrayT::TypeClass;
-  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
-  const auto& value_type = list_type.value_type();
-
-  const auto& val_type = checked_cast<const ExtensionType&>(*value_type);
-  const auto& storage_ty = val_type.storage_type();
-
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -754,7 +747,13 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
     }
   }
 
-  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, storage_ty);
+  using ListArrayType = typename ListArrayT::TypeClass;
+  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
+  auto value_type = list_type.value_type();
+  if (value_type->id() == Type::EXTENSION) {
+    value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
+  }
+  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
 
   options = MakeInnerOptions(std::move(options));
 
