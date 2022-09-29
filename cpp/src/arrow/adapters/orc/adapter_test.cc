@@ -241,7 +241,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
-  for (int iWrite = 0; iWrite < nb_writes; iWrite++) {
+  for (int i_write = 0; i_write < nb_writes; i_write++) {
     ARROW_EXPECT_OK(writer->Write(*input_table));
   }
   ARROW_EXPECT_OK(writer->Close());
