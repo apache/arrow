@@ -184,6 +184,7 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
+  - travis_wait 20 sleep infinity &
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \
