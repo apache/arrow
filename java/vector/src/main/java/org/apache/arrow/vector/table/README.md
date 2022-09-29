@@ -313,26 +313,25 @@ Buffers are transferred to the VectorSchemaRoot and the Table is cleared.
 
 ## Table API: Working with the Streaming API and the C-Data interface
 
-The ability to work with native code is required for many Arrow features. This section describes how tables can be be exported and imported using two mechanisms: the C-Data Interface and the Streaming API. 
+The ability to work with native code is required for many Arrow features. This section describes how tables can be be exported and imported.
 
-In both cases, the current solution works by converting the data to a VectorSchemaRoot and using the existing facilities for transferring the data. This is not ideal because conversion to a VectorSchemaRoot breaks the immutability guarantees, arguably when they're most desirable.  
+### Exporting Tables to native code using the C-Data interface
 
-### Using the Streaming API with Tables
+This works by converting the data to a VectorSchemaRoot and using the existing facilities for transferring the data. This would not generally be ideal because conversion to a VectorSchemaRoot breaks the immutability guarantees. Using the static utility methods defined in the class org.apache.arrow.c.Data` avoids this concern because the vector schema root used is not expored.  See the example code below:
+
+```java
+Data.exportTable(bufferAllocator, table, dictionaryProvider, outArrowArray);
+```
+
+***Current limitation: Data imported from native code using the C-Data-interface cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.*** 
+
+### Exporting Tables to native code using the Streaming API
 
 ***Current limitation: Streaming API is not currently supported.***
 
-Ideally, it would be possible to load a construct a table directly from an ArrowStreamReader, but this is not currently supported. 
-
-### Using the C-Data interface with Tables
-
-***Current limitation: Data transferred from native code using the C-Data-interface cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.*** 
-
-Data can be transferred from a Table to native code by using methods defined in the `org.apache.arrow.c.Data` class.
-
-```java
 
 
-```
+***Current limitation: Data imported from native code using the Streaming API cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.*** 
 
 ## Implementation notes
 
