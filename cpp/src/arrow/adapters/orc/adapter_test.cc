@@ -745,11 +745,11 @@ class TestORCWriterMultipleWrite : public ::testing::Test {
 
 TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
   const int64_t num_rows = 1234;
-  const int nb_writes = 5;
+  const int num_writes = 5;
   auto array_int = rand.ArrayOf(int32(), num_rows, 0);
   std::shared_ptr<Schema> input_schema = schema({field("col0", array_int->type())});
   ArrayVector vect;
-  for (int i = 0; i < nb_writes; i++) {
+  for (int i = 0; i < num_writes; i++) {
     vect.push_back(array_int);
   }
   auto input_chunked_array = std::make_shared<ChunkedArray>(array_int),
@@ -758,7 +758,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
                          expected_output_table =
                              Table::Make(input_schema, {expected_output_chunked_array});
   AssertTableWriteReadEqual(input_table, expected_output_table,
-                            kDefaultSmallMemStreamSize * 100, nb_writes);
+                            kDefaultSmallMemStreamSize * 100, num_writes);
 }
 
 TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
@@ -778,9 +778,8 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
   ARROW_EXPECT_OK(writer->Write(*input_table));
 
   // This should not pass
-  ASSERT_NOT_OK(writer->Write(*input_table2));
+  ASSERT_RAISES(Status::Invalid, writer->Write(*input_table2));
 
   ARROW_EXPECT_OK(writer->Close());
-  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
 }
 }  // namespace arrow
