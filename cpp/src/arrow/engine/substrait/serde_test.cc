@@ -1735,6 +1735,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
               "args": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
               "outputType": {
                 "i64": {}
               }
@@ -1745,24 +1746,18 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
     }],
     "extensionUris": [{
       "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "count"
+        "name": "sum"
       }
     }],
   })"));
 
-  auto sp_ext_id_reg = MakeExtensionIdRegistry();
-  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-  // invalid before registration
-  ExtensionSet ext_set_invalid(ext_id_reg);
-  ASSERT_RAISES(Invalid,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateWithFilter) {
@@ -3194,5 +3189,3 @@ TEST(Substrait, IsthmusPlan) {
 
 }  // namespace engine
 }  // namespace arrow
-
-
