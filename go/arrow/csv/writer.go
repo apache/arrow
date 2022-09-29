@@ -19,6 +19,8 @@ package csv
 import (
 	"encoding/csv"
 	"io"
+	"math"
+	"math/big"
 	"strconv"
 	"sync"
 
@@ -222,15 +224,13 @@ func (w *Writer) Write(record arrow.Record) error {
 		case *arrow.Decimal128Type:
 			fieldType := w.schema.Field(j).Type.(*arrow.Decimal128Type)
 			scale := fieldType.Scale
+			precision := fieldType.Precision
 			arr := col.(*array.Decimal128)
 			for i := 0; i < arr.Len(); i++ {
 				if arr.IsValid(i) {
-					decString := arr.Value(i).BigInt().Text(10)
-					decimalLocation := len(decString) - int(scale)
-					if decimalLocation >= 0 && scale > 0 {
-						decString = decString[:decimalLocation] + "." + decString[decimalLocation:]
-					}
-					recs[i][j] = decString
+					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+					recs[i][j] = f.Text('g', int(precision))
 				} else {
 					recs[i][j] = w.nullValue
 				}
@@ -238,15 +238,13 @@ func (w *Writer) Write(record arrow.Record) error {
 		case *arrow.Decimal256Type:
 			fieldType := w.schema.Field(j).Type.(*arrow.Decimal256Type)
 			scale := fieldType.Scale
+			precision := fieldType.Precision
 			arr := col.(*array.Decimal256)
 			for i := 0; i < arr.Len(); i++ {
 				if arr.IsValid(i) {
-					decString := arr.Value(i).BigInt().Text(10)
-					decimalLocation := len(decString) - int(scale)
-					if decimalLocation >= 0 && scale > 0 {
-						decString = decString[:decimalLocation] + "." + decString[decimalLocation:]
-					}
-					recs[i][j] = decString
+					f := (&big.Float{}).SetInt(arr.Value(i).BigInt())
+					f.Quo(f, big.NewFloat(math.Pow10(int(scale))))
+					recs[i][j] = f.Text('g', int(precision))
 				} else {
 					recs[i][j] = w.nullValue
 				}
