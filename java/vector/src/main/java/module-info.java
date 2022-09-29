@@ -14,5 +14,6 @@ module arrow.vector {
     requires java.sql;
     requires com.fasterxml.jackson.datatype.jsr310;
     requires org.apache.commons.codec;
+    requires flatbuffers.java;
 //    requires org.slf4j;
 }
