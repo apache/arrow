@@ -219,6 +219,22 @@ func (w *Writer) Write(record arrow.Record) error {
 					recs[i][j] = w.nullValue
 				}
 			}
+		case *arrow.Decimal128Type:
+			fieldType := w.schema.Field(j).Type.(*arrow.Decimal128Type)
+			scale := fieldType.Scale
+			arr := col.(*array.Decimal128)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					decString := arr.Value(i).BigInt().Text(10)
+					decimalLocation := len(decString) - int(scale)
+					if decimalLocation >= 0 {
+						decString = decString[:decimalLocation] + "." + decString[decimalLocation:]
+					}
+					recs[i][j] = decString
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
 		}
 	}
 
