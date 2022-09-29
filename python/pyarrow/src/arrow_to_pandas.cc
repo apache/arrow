@@ -17,8 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
-#include "arrow_to_pandas.h"
 #include <arrow/compute/cast.h>
+#include "arrow_to_pandas.h"
 #include "numpy_interop.h"  // IWYU pragma: expand
 
 #include <cmath>
@@ -193,11 +193,8 @@ static inline bool ListTypeSupported(const DataType& type) {
       return ListTypeSupported(*list_type.value_type());
     }
     case Type::EXTENSION: {
-      auto ext = std::dynamic_pointer_cast<ExtensionType>(type.GetSharedPtr());
-      if (ext == nullptr) {
-        return false;
-      }
-      return ListTypeSupported(*(ext->storage_type()));
+      const auto& ext = checked_cast<const ExtensionType&>(*type.GetSharedPtr());
+      return ListTypeSupported(*(ext.storage_type()));
     }
     default:
       break;
