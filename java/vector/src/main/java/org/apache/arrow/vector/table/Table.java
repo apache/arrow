@@ -34,7 +34,7 @@ import org.apache.arrow.vector.util.TransferPair;
  *
  * <p>See {@link VectorSchemaRoot} for batch processing use cases
  */
-public class Table extends BaseTable implements Iterable<Cursor> {
+public class Table extends BaseTable implements Iterable<Row> {
 
   /** Constructs new instance containing each of the given vectors. */
   public Table(Iterable<FieldVector> vectors) {
@@ -164,16 +164,16 @@ public class Table extends BaseTable implements Iterable<Cursor> {
     return new Table(sliceVectors);
   }
 
-  /** Returns a Cursor iterator for this Table. */
+  /** Returns a Row iterator for this Table. */
   @Override
-  public Iterator<Cursor> iterator() {
+  public Iterator<Row> iterator() {
 
-    return new Iterator<Cursor>() {
+    return new Iterator<Row>() {
 
-      private final Cursor row = new Cursor(Table.this);
+      private final Row row = new Row(Table.this);
 
       @Override
-      public Cursor next() {
+      public Row next() {
         row.next();
         return row;
       }

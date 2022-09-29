@@ -95,41 +95,41 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 
 /**
- * Cursor is a positionable, immutable cursor backed by a {@link Table}. If a row in a table is
+ * Row is a positionable, immutable cursor backed by a {@link Table}. If a row in a table is
  * marked as deleted, it is skipped when iterating.
  *
  * <p>Getters are provided for most vector types. The exceptions being {@link org.apache.arrow.vector.NullVector},
  * which only contains null values and has no getter, and {@link org.apache.arrow.vector.ZeroVector},
  * which is a zero-length vector of any type
  */
-public class Cursor extends BaseCursor implements Iterator<Cursor> {
+public class Row extends BaseRow implements Iterator<Row> {
 
   /** Indicates whether the next non-deleted row has been determined yet. */
   private boolean nextRowSet;
 
   /**
    * An iterator that returns every row in the table, deleted or not. The implemented next() and
-   * hasNext() methods in Cursor wrap it with a filter to get only the non-deleted ones.
+   * hasNext() methods in Row wrap it with a filter to get only the non-deleted ones.
    */
   private final Iterator<Integer> iterator = intIterator();
 
   /**
-   * Constructs a new BaseCursor backed by the given table.
+   * Constructs a new BaseRow backed by the given table.
    *
-   * @param table the table that this Cursor object represents
+   * @param table the table that this Row object represents
    */
-  public Cursor(BaseTable table) {
+  public Row(BaseTable table) {
     super(table);
   }
 
   /**
    * Constructs a newCursor backed by the given table.
    *
-   * @param table the table that this Cursor object represents
+   * @param table the table that this Row object represents
    * @param charset the standard charset for decoding bytes into strings. Note: This can be
    *     overridden for individual columns
    */
-  public Cursor(BaseTable table, Charset charset) {
+  public Row(BaseTable table, Charset charset) {
     super(table, charset);
   }
 
@@ -137,16 +137,16 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
    * Resets the current row to -1 and returns this object.
    */
   @Override
-  Cursor resetPosition() {
-    return (Cursor) super.resetPosition();
+  Row resetPosition() {
+    return (Row) super.resetPosition();
   }
 
   /**
-   * Moves this Cursor to the given 0-based row index.
+   * Moves this Row to the given 0-based row index.
    *
-   * @return this Cursor for chaining
+   * @return this Row for chaining
    */
-  public Cursor setPosition(int rowNumber) {
+  public Row setPosition(int rowNumber) {
     this.rowNumber = rowNumber;
     this.nextRowSet = false;
     return this;
@@ -171,7 +171,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an object representing the value in the named ExtensionTypeVector at the currentRow. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if the type is incorrect.
    */
   public Object getExtensionType(int vectorIndex) {
@@ -181,7 +181,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an object representing the value in the ExtensionTypeVector at the currentRow. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type.
    *
    * @param columnName The name of the vector providing the result
@@ -194,7 +194,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a Map from the column of the given name at the current row. An IllegalStateException is
-   * thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown if
+   * thrown if the column is not present in the Row and an IllegalArgumentException is thrown if
    * it has a different type.
    */
   public List<?> getMap(int vectorIndex) {
@@ -204,7 +204,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a Map from the column of the given name at the current row. An IllegalStateException is
-   * thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown if
+   * thrown if the column is not present in the Row and an IllegalArgumentException is thrown if
    * it has a different type
    */
   public List<?> getMap(String columnName) {
@@ -214,7 +214,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an Object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getStruct(int vectorIndex) {
@@ -224,7 +224,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an Object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getStruct(String columnName) {
@@ -234,7 +234,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a List from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getUnion(int vectorIndex) {
@@ -244,7 +244,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getUnion(String columnName) {
@@ -254,7 +254,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an object from the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getDenseUnion(String columnName) {
@@ -264,7 +264,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a List from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public Object getDenseUnion(int vectorIndex) {
@@ -274,7 +274,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a List from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    */
   public List<?> getList(String columnName) {
@@ -294,7 +294,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an int from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    */
   public int getInt(String columnName) {
@@ -314,7 +314,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Updates the holder with the value at the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public void getInt(String columnName, NullableIntHolder holder) {
@@ -334,7 +334,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns an int from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    */
   public int getUInt4(String columnName) {
@@ -354,7 +354,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Updates the holder with the value at the column of the given name at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public void getUInt4(String columnName, NullableUInt4Holder holder) {
@@ -1635,7 +1635,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    *
    * <p>StandardCharsets.UTF_8 is used as the charset
@@ -1647,7 +1647,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    *
    * @param vectorName the name of the FieldVector holding the value
@@ -1660,7 +1660,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    *
    * @param columnIndex the index of the FieldVector holding the value
@@ -1672,7 +1672,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    *
    * @param columnIndex the index of the FieldVector holding the value
@@ -1685,7 +1685,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    *
    * <p>StandardCharsets.UTF_8 is used as the charset, unless this cursor was created with a default
@@ -1698,7 +1698,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Cursor and an IllegalArgumentException is thrown
+   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
    * if it has a different type
    *
    * @param vectorName the name of the FieldVector holding the value
@@ -1711,7 +1711,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    */
   public String getLargeVarChar(int columnIndex) {
@@ -1721,7 +1721,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
 
   /**
    * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Cursor and an
+   * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
    *
    * @param columnIndex the index of the FieldVector holding the value
@@ -1753,7 +1753,7 @@ public class Cursor extends BaseCursor implements Iterator<Cursor> {
    * @throws NoSuchElementException if there are no more rows
    */
   @Override
-  public Cursor next() {
+  public Row next() {
     if (!nextRowSet && !setNextObject()) {
       throw new NoSuchElementException();
     }

@@ -23,7 +23,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Provides row based access to the data held by a {@link Table}.
  */
-public abstract class BaseCursor {
+public abstract class BaseRow {
 
   /** The table we're enumerating. */
   protected final BaseTable table;
@@ -38,22 +38,22 @@ public abstract class BaseCursor {
   private Charset defaultCharacterSet = StandardCharsets.UTF_8;
 
   /**
-   * Constructs a new BaseCursor backed by the given table.
+   * Constructs a new BaseRow backed by the given table.
    *
    * @param table the table that this MutableCursor object represents
    */
-  public BaseCursor(BaseTable table) {
+  public BaseRow(BaseTable table) {
     this.table = table;
   }
 
   /**
-   * Constructs a new BaseCursor backed by the given table.
+   * Constructs a new BaseRow backed by the given table.
    *
    * @param table the table that this cursor represents
    * @param charset the standard charset for decoding bytes into strings. Note: This can be
    *     overridden for individual columns.
    */
-  public BaseCursor(BaseTable table, Charset charset) {
+  public BaseRow(BaseTable table, Charset charset) {
     this.table = table;
     this.defaultCharacterSet = charset;
   }
@@ -61,7 +61,7 @@ public abstract class BaseCursor {
   /**
    * Resets the row index to -1 and returns this object.
    */
-  BaseCursor resetPosition() {
+  BaseRow resetPosition() {
     rowNumber = -1;
     return this;
   }

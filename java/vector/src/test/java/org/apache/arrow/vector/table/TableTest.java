@@ -54,7 +54,7 @@ class TableTest {
   void of() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = Table.of(vectorList.toArray(new FieldVector[2]))) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       assertEquals(2, t.getRowCount());
       assertEquals(2, t.getVectorCount());
       IntVector intVector1 = (IntVector) vectorList.get(0);
@@ -80,7 +80,7 @@ class TableTest {
     try (Table t = new Table(vectorList, 2)) {
       assertEquals(2, t.getRowCount());
       assertEquals(2, t.getVectorCount());
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       IntVector intVector1 = (IntVector) vectorList.get(0);
       c.setPosition(0);
 
@@ -131,11 +131,11 @@ class TableTest {
   void iterator1() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Iterator<Cursor> iterator = t.iterator();
+      Iterator<Row> iterator = t.iterator();
       assertNotNull(iterator);
       assertTrue(iterator.hasNext());
       int sum = 0;
-      for (Cursor row : t) {
+      for (Row row : t) {
         sum += row.getInt(0);
       }
       assertEquals(3, sum);
@@ -148,13 +148,13 @@ class TableTest {
   void iterator2() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Iterator<Cursor> iterator = t.iterator();
+      Iterator<Row> iterator = t.iterator();
       assertNotNull(iterator);
       assertTrue(iterator.hasNext());
       int sum = 0;
-      Iterator<Cursor> it = t.iterator();
+      Iterator<Row> it = t.iterator();
       while (it.hasNext()) {
-        Cursor row = it.next();
+        Row row = it.next();
         sum += row.getInt(0);
       }
       assertEquals(3, sum);
@@ -198,7 +198,7 @@ class TableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (VectorSchemaRoot vsr = new VectorSchemaRoot(vectorList)) {
       Table t = new Table(vsr);
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       assertEquals(2, t.rowCount);
       assertEquals(0, vsr.getRowCount()); // memory is copied for slice, not transferred
       IntVector intVector1 = (IntVector) vectorList.get(0);

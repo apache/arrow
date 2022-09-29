@@ -265,21 +265,21 @@ public abstract class BaseTable implements AutoCloseable {
   }
 
   /**
-   * Returns an immutable Cursor object holding a reference to this table. The default character
+   * Returns an immutable Row object holding a reference to this table. The default character
    * encoding used by the cursor to decode Strings will be StandardCharsets.UTF_8.
    */
-  public Cursor immutableCursor() {
-    return new Cursor(this);
+  public Row immutableCursor() {
+    return new Row(this);
   }
 
   /**
-   * Returns an immutable Cursor object holding a reference to this table.
+   * Returns an immutable Row object holding a reference to this table.
    *
    * @param defaultCharset The default character encoding used by the cursor to decode Strings. It
    *     can be overridden for individual vectors in the get() method
    */
-  public Cursor immutableCursor(Charset defaultCharset) {
-    return new Cursor(this, defaultCharset);
+  public Row immutableCursor(Charset defaultCharset) {
+    return new Row(this, defaultCharset);
   }
 
   /**

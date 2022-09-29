@@ -58,7 +58,6 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.platform.commons.util.Preconditions;
 
 public class TestUtils {
 
@@ -77,7 +76,6 @@ public class TestUtils {
    */
   static List<FieldVector> twoIntColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
-    Preconditions.condition(allocator != null, "allocator is null");
     IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
     v1.allocateNew(2);
     v1.set(0, 1);
@@ -99,7 +97,6 @@ public class TestUtils {
    */
   static List<FieldVector> intPlusVarcharColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
-    Preconditions.condition(allocator != null, "allocator is null");
     IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
     v1.allocateNew(2);
     v1.set(0, 1);

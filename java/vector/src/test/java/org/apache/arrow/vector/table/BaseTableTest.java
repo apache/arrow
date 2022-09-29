@@ -197,7 +197,7 @@ class BaseTableTest {
     try (Table t = Table.of(v)) {
       assertEquals(3, t.rowCount);
       List<Integer> values = new ArrayList<>();
-      for (Cursor r : t) {
+      for (Row r : t) {
         values.add(r.getInt(INT_VECTOR_NAME));
       }
       assertEquals(3, values.size());

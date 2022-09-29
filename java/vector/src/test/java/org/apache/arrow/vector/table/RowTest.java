@@ -52,7 +52,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class CursorTest {
+class RowTest {
 
   private BufferAllocator allocator;
 
@@ -70,7 +70,7 @@ class CursorTest {
   void constructor() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor(StandardCharsets.US_ASCII);
+      Row c = t.immutableCursor(StandardCharsets.US_ASCII);
       assertEquals(StandardCharsets.US_ASCII, c.getDefaultCharacterSet());
     }
   }
@@ -79,7 +79,7 @@ class CursorTest {
   void at() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       assertEquals(c.getRowNumber(), -1);
       c.setPosition(1);
       assertEquals(c.getRowNumber(), 1);
@@ -90,7 +90,7 @@ class CursorTest {
   void getIntByVectorIndex() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(1);
       assertEquals(2, c.getInt(0));
     }
@@ -100,7 +100,7 @@ class CursorTest {
   void getIntByVectorName() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(1);
       assertEquals(2, c.getInt(INT_VECTOR_NAME_1));
     }
@@ -110,7 +110,7 @@ class CursorTest {
   void hasNext() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       assertTrue(c.hasNext());
       c.setPosition(1);
       assertFalse(c.hasNext());
@@ -121,7 +121,7 @@ class CursorTest {
   void next() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(0);
       c.next();
       assertEquals(1, c.getRowNumber());
@@ -132,7 +132,7 @@ class CursorTest {
   void isNull() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(1);
       assertFalse(c.isNull(0));
     }
@@ -142,7 +142,7 @@ class CursorTest {
   void isNullByFieldName() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(1);
       assertFalse(c.isNull(INT_VECTOR_NAME_1));
     }
@@ -152,7 +152,7 @@ class CursorTest {
   void fixedWidthVectorTest() {
     List<FieldVector> vectorList = fixedWidthVectors(allocator, 2);
     try (Table t = new Table(vectorList)) {
-      Cursor c = t.immutableCursor();
+      Row c = t.immutableCursor();
       c.setPosition(1);
       assertFalse(c.isNull("bigInt_vector"));
       assertEquals(c.getInt("int_vector"), c.getInt(0));
@@ -186,7 +186,7 @@ class CursorTest {
     try (ListVector listVector = simpleListVector(allocator);
         VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(listVector);
         Table table = new Table(vectorSchemaRoot)) {
-      for (Cursor c : table) {
+      for (Row c : table) {
         @SuppressWarnings("unchecked")
         List<Integer> list = (List<Integer>) c.getList(INT_LIST_VECTOR_NAME);
         assertEquals(10, list.size());
@@ -199,7 +199,7 @@ class CursorTest {
     try (ListVector listVector = simpleListVector(allocator);
         VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(listVector);
         Table table = new Table(vectorSchemaRoot)) {
-      for (Cursor c : table) {
+      for (Row c : table) {
         @SuppressWarnings("unchecked")
         List<Integer> list = (List<Integer>) c.getList(0);
         assertEquals(10, list.size());
@@ -213,7 +213,7 @@ class CursorTest {
         VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(structVector);
         Table table = new Table(vectorSchemaRoot)) {
       System.out.println(table.contentToTSVString());
-      for (Cursor c : table) {
+      for (Row c : table) {
         @SuppressWarnings("unchecked")
         JsonStringHashMap<String, ?> struct =
             (JsonStringHashMap<String, ?>) c.getStruct(STRUCT_VECTOR_NAME);
@@ -231,7 +231,7 @@ class CursorTest {
     try (UnionVector unionVector = simpleUnionVector(allocator);
         VectorSchemaRoot vsr = VectorSchemaRoot.of(unionVector);
         Table table = new Table(vsr)) {
-      Cursor c = table.immutableCursor();
+      Row c = table.immutableCursor();
       c.setPosition(0);
       Object object0 = c.getUnion(UNION_VECTOR_NAME);
       c.setPosition(1);
@@ -248,7 +248,7 @@ class CursorTest {
     try (DenseUnionVector unionVector = simpleDenseUnionVector(allocator);
         VectorSchemaRoot vsr = VectorSchemaRoot.of(unionVector);
         Table table = new Table(vsr)) {
-      Cursor c = table.immutableCursor();
+      Row c = table.immutableCursor();
       c.setPosition(0);
       Object object0 = c.getDenseUnion(UNION_VECTOR_NAME);
       c.setPosition(1);
@@ -266,7 +266,7 @@ class CursorTest {
         Table table = Table.of(mapVector)) {
 
       int i = 1;
-      for (Cursor c : table) {
+      for (Row c : table) {
         @SuppressWarnings("unchecked")
         List<JsonStringHashMap<String, ?>> list =
             (List<JsonStringHashMap<String, ?>>) c.getMap(BIGINT_INT_MAP_VECTOR_NAME);
