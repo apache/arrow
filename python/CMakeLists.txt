@@ -589,6 +589,9 @@ if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
 
+# Error on any warnings not already explicitly ignored.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
+
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})
   list(GET directories -1 module_name)
