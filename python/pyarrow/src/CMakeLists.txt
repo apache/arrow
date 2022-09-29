@@ -78,25 +78,25 @@ include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} ${ARROW_
 add_custom_target(arrow_python)
 
 set(ARROW_PYTHON_SRCS
-    pyarrow/arrow_to_pandas.cc
-    pyarrow/benchmark.cc
-    pyarrow/common.cc
-    pyarrow/datetime.cc
-    pyarrow/decimal.cc
-    pyarrow/deserialize.cc
-    pyarrow/extension_type.cc
-    pyarrow/gdb.cc
-    pyarrow/helpers.cc
-    pyarrow/inference.cc
-    pyarrow/init.cc
-    pyarrow/io.cc
-    pyarrow/ipc.cc
-    pyarrow/numpy_convert.cc
-    pyarrow/numpy_to_arrow.cc
-    pyarrow/python_to_arrow.cc
-    pyarrow/pyarrow.cc
-    pyarrow/serialize.cc
-    pyarrow/udf.cc)
+    arrow/python/arrow_to_pandas.cc
+    arrow/python/benchmark.cc
+    arrow/python/common.cc
+    arrow/python/datetime.cc
+    arrow/python/decimal.cc
+    arrow/python/deserialize.cc
+    arrow/python/extension_type.cc
+    arrow/python/gdb.cc
+    arrow/python/helpers.cc
+    arrow/python/inference.cc
+    arrow/python/init.cc
+    arrow/python/io.cc
+    arrow/python/ipc.cc
+    arrow/python/numpy_convert.cc
+    arrow/python/numpy_to_arrow.cc
+    arrow/python/python_to_arrow.cc
+    arrow/python/pyarrow.cc
+    arrow/python/serialize.cc
+    arrow/python/udf.cc)
 
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
@@ -126,7 +126,7 @@ endif()
 
 if(PYARROW_WITH_PARQUET_ENCRYPTION)
   if(PARQUET_REQUIRE_ENCRYPTION)
-    list(APPEND ARROW_PYTHON_SRCS pyarrow/parquet_encryption.cc)
+    list(APPEND ARROW_PYTHON_SRCS arrow/python/parquet_encryption.cc)
     find_package(Parquet REQUIRED)
     list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS Parquet::parquet_shared)
     list(APPEND ARROW_PYTHON_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
@@ -145,11 +145,11 @@ endif()
 
 # Check for only Arrow C++ options
 if(ARROW_CSV)
-  list(APPEND ARROW_PYTHON_SRCS pyarrow/csv.cc)
+  list(APPEND ARROW_PYTHON_SRCS arrow/python/csv.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
-  list(APPEND ARROW_PYTHON_SRCS pyarrow/filesystem.cc)
+  list(APPEND ARROW_PYTHON_SRCS arrow/python/filesystem.cc)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -224,7 +224,7 @@ add_arrow_lib(arrow_python
               SOURCES
               ${ARROW_PYTHON_SRCS}
               PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:pyarrow/pch.h>"
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>"
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
               SHARED_LINK_FLAGS
@@ -268,7 +268,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                 PKG_CONFIG_NAME
                 arrow-python-flight
                 SOURCES
-                pyarrow/flight.cc
+                arrow/python/flight.cc
                 OUTPUTS
                 ARROW_PYFLIGHT_LIBRARIES
                 SHARED_LINK_FLAGS
@@ -308,4 +308,4 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
 
-arrow_install_all_headers("arrow/python")
+add_subdirectory(arrow/python)
