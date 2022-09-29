@@ -96,7 +96,6 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
-// Other helper functions
 Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs,
                             const std::string& dirpath,
                             std::vector<fs::FileInfo>* rel_fpaths) {
