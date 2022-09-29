@@ -170,7 +170,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 	}
 
 	if dt.ID() == arrow.DICTIONARY {
-		result := array.NewData(a.Type, length, bufs[:], nil, nulls, off)
+		result := array.NewData(a.Type, length, bufs[:a.NumBuffers()], nil, nulls, off)
 		dict := a.Dictionary().MakeData()
 		defer dict.Release()
 		result.SetDictionary(dict)
@@ -188,7 +188,7 @@ func (a *ArraySpan) MakeData() arrow.ArrayData {
 			children[i] = d
 		}
 	}
-	return array.NewData(a.Type, length, bufs[:], children, nulls, off)
+	return array.NewData(a.Type, length, bufs[:a.NumBuffers()], children, nulls, off)
 }
 
 // MakeArray is a convenience function for calling array.MakeFromData(a.MakeData())
@@ -206,9 +206,13 @@ func (a *ArraySpan) SetSlice(off, length int64) {
 		return
 	}
 
-	if a.Nulls != a.Len && a.Type.ID() != arrow.NULL {
+	if a.Type.ID() != arrow.NULL {
 		if a.Nulls != 0 {
-			a.Nulls = array.UnknownNullCount
+			if a.Nulls == a.Len {
+				a.Nulls = length
+			} else {
+				a.Nulls = array.UnknownNullCount
+			}
 		}
 	} else {
 		a.Nulls = length
