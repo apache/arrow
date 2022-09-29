@@ -778,7 +778,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
   ARROW_EXPECT_OK(writer->Write(*input_table));
 
   // This should not pass
-  ASSERT_RAISES(Status::Invalid, writer->Write(*input_table2));
+  ASSERT_RAISES(Invalid, writer->Write(*input_table2));
 
   ARROW_EXPECT_OK(writer->Close());
 }
