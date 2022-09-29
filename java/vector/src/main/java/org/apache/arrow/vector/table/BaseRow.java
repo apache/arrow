@@ -22,6 +22,9 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Provides row based access to the data held by a {@link Table}.
+ *
+ * <p>
+ * This API is EXPERIMENTAL.
  */
 public abstract class BaseRow {
 

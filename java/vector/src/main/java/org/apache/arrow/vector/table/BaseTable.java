@@ -37,7 +37,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.TransferPair;
 
-/** Abstract base class for Table with mutable and immutable concrete implementations. */
+/**
+ * Abstract base class for Table.
+ * <p>
+ * This API is EXPERIMENTAL.
+ */
 public abstract class BaseTable implements AutoCloseable {
 
   /** The field vectors holding the data in this table. */

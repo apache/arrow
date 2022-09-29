@@ -33,6 +33,9 @@ import org.apache.arrow.vector.util.TransferPair;
  * Table is an immutable tabular data structure.
  *
  * <p>See {@link VectorSchemaRoot} for batch processing use cases
+ *
+ * <p>
+ * This API is EXPERIMENTAL.
  */
 public class Table extends BaseTable implements Iterable<Row> {
 

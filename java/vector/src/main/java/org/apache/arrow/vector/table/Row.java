@@ -101,6 +101,9 @@ import org.apache.arrow.vector.holders.NullableUInt8Holder;
  * <p>Getters are provided for most vector types. The exceptions being {@link org.apache.arrow.vector.NullVector},
  * which only contains null values and has no getter, and {@link org.apache.arrow.vector.ZeroVector},
  * which is a zero-length vector of any type
+ *
+ * <p>
+ * This API is EXPERIMENTAL.
  */
 public class Row extends BaseRow implements Iterator<Row> {
 
