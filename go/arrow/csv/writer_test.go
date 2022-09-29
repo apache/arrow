@@ -330,7 +330,7 @@ func BenchmarkWrite(b *testing.B) {
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
-			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 5, Scale: 2}},
+			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 4, Scale: 3}},
 		},
 		nil,
 	)
