@@ -768,11 +768,8 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
   auto array_int2 = rand.ArrayOf(int64(), num_rows, 0);
   std::shared_ptr<Schema> input_schema2 = schema({field("col0", array_int2->type())});
 
-  auto input_chunked_array = std::make_shared<ChunkedArray>(array_int),
-       input_chunked_array2 = std::make_shared<ChunkedArray>(array_int2);
-  std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}),
-                         input_table2 =
-                             Table::Make(input_schema2, {input_chunked_array2});
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, {array_int});
+  std::shared_ptr<Table> input_table2 = Table::Make(input_schema2, {array_int2});
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(kDefaultSmallMemStreamSize));
   auto write_options = adapters::orc::WriteOptions();
