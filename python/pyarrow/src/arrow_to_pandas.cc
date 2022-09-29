@@ -744,15 +744,13 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
 
   const auto& val_type = checked_cast<const ExtensionType&>(*value_type);
   const auto& storage_ty = val_type.storage_type();
-  const auto& lt = dynamic_cast<const FixedSizeListType*>(&list_type);
 
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
-
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-    if (arr.type()->id() == Type::EXTENSION) {
-      const auto& arr_ext = checked_cast<const ExtensionArray&>(*data.chunk(c));
+    if (arr.values()->type()->id() == Type::EXTENSION) {
+      const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr.values());
       value_arrays.emplace_back(arr_ext.storage());
     } else {
       value_arrays.emplace_back(arr.values());
@@ -766,13 +764,11 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   OwnedRefNoGIL owned_numpy_array;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
                                             owned_numpy_array.ref()));
-  ARROW_LOG(INFO) << "Convert chunked";
   PyObject* numpy_array = owned_numpy_array.obj();
   DCHECK(PyArray_Check(numpy_array));
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
-
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -2311,7 +2307,6 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   if (options.decode_dictionaries) {
     DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
   }
-
 
   std::shared_ptr<PandasWriter> writer;
   RETURN_NOT_OK(MakeWriter(modified_options, output_type, *arr->type(), arr->length(),

@@ -941,7 +941,7 @@ class LabelType(pa.ExtensionType):
 
 @pytest.mark.parametrize("data,ty", (
     ([1, 2, 3], IntegerType),
-    #(["cat", "dog", "horse"], LabelType)
+    (["cat", "dog", "horse"], LabelType)
 ))
 def test_extension_array_to_numpy(data, ty):     
      storage = pa.array(data)
