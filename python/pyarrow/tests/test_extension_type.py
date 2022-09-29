@@ -548,8 +548,20 @@ def test_cast_between_extension_types():
     tiny_int_arr = array.cast(TinyIntType())
     assert tiny_int_arr.type == TinyIntType()
 
-    int_arr = tiny_int_arr.cast(IntegerType())
-    assert int_arr.type == IntegerType()
+    # Casting between extension types w/ different storage types not okay.
+    msg = (
+        "Casting from 'extension<arrow.py_extension_type<TinyIntType>>' "
+        "to extension with different storage type 'int64' not permitted. "
+        "One can first cast to the storage type, then to the extension type."
+    )
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        tiny_int_arr.cast(IntegerType())
+    tiny_int_arr.cast(pa.int64()).cast(IntegerType())
+
+    # Casting between extension types w/ same storage type is okay.
+    arr = pa.array([b'1' * 16, b'2' * 16], pa.binary(16))
+    uuid_arr = arr.cast(UuidType())
+    uuid2_arr = uuid_arr.cast(UuidType2())
 
 
 @pytest.mark.parametrize("data,type_factory", (

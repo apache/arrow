@@ -2826,12 +2826,12 @@ TEST(Cast, IntToExtensionTypeDowncast) {
               SmallintArrayFromJSON("[0, null, 32767, 1, 3]"), options);
   }
 
-  // Cannot cast between extension types
+  // Cannot cast between extension types when storage types differ
   {
     CastOptions options;
     options.to_type = smallint();
     auto tiny_array = TinyintArrayFromJSON("[0, 1, 3]");
-    ASSERT_OK(Cast(tiny_array, smallint(), options));
+    ASSERT_NOT_OK(Cast(tiny_array, smallint(), options));
   }
 }
 
