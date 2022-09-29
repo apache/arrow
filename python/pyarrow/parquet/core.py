@@ -21,7 +21,6 @@ from concurrent import futures
 from contextlib import nullcontext
 from functools import partial, reduce
 
-import sys
 import json
 from collections.abc import Collection
 import numpy as np
@@ -45,7 +44,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
 from pyarrow.fs import (LocalFileSystem, FileSystem,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
-from pyarrow.util import guid, _is_path_like, _stringify_path
+from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 _URI_STRIP_SCHEMES = ('hdfs',)
 
@@ -141,11 +140,27 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
     """
 
 
-def _filters_to_expression(filters):
+def filters_to_expression(filters):
     """
-    Check if filters are well-formed.
+    Check if filters are well-formed and convert to an ``Expression``.
 
-    See _DNF_filter_doc above for more details.
+    Parameters
+    ----------
+    filters : List[Tuple] or List[List[Tuple]]
+
+    Notes
+    -----
+    See internal ``pyarrow._DNF_filter_doc`` attribute for more details.
+
+    Examples
+    --------
+
+    >>> filters_to_expression([('foo', '==', 'bar')])
+    <pyarrow.compute.Expression (foo == "bar")>
+
+    Returns
+    -------
+    pyarrow.compute.Expression
     """
     import pyarrow.dataset as ds
 
@@ -189,6 +204,11 @@ def _filters_to_expression(filters):
         disjunction_members.append(reduce(operator.and_, conjunction_members))
 
     return reduce(operator.or_, disjunction_members)
+
+
+_filters_to_expression = _deprecate_api(
+    "_filters_to_expression", "filters_to_expression",
+    filters_to_expression, "10.0.0", DeprecationWarning)
 
 
 # ----------------------------------------------------------------------
@@ -2343,7 +2363,7 @@ class _ParquetDatasetV2:
 
         self._filter_expression = None
         if filters is not None:
-            self._filter_expression = _filters_to_expression(filters)
+            self._filter_expression = filters_to_expression(filters)
 
         # map old filesystems to new one
         if filesystem is not None:
@@ -3506,6 +3526,31 @@ def read_schema(where, memory_map=False, decryption_properties=None,
         return file.schema.to_arrow_schema()
 
 
-# re-export everything
-# std `from . import *` ignores symbols with leading `_`
-__all__ = list(sys.modules[__name__].__dict__)
+__all__ = (
+    "ColumnChunkMetaData",
+    "ColumnSchema",
+    "FileDecryptionProperties",
+    "FileEncryptionProperties",
+    "FileMetaData",
+    "ParquetDataset",
+    "ParquetDatasetPiece",
+    "ParquetFile",
+    "ParquetLogicalType",
+    "ParquetManifest",
+    "ParquetPartitions",
+    "ParquetReader",
+    "ParquetSchema",
+    "ParquetWriter",
+    "PartitionSet",
+    "RowGroupMetaData",
+    "Statistics",
+    "read_metadata",
+    "read_pandas",
+    "read_schema",
+    "read_table",
+    "write_metadata",
+    "write_table",
+    "write_to_dataset",
+    "_filters_to_expression",
+    "filters_to_expression",
+)

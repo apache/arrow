@@ -167,16 +167,6 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-# ----------------------------------------------------------------------
-# cmake options
-include(DefineOptions)
-
-if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
-  message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
-  )
-  set(ARROW_POSITION_INDEPENDENT_CODE ON)
-endif()
-
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
   find_package(PythonInterp)
@@ -190,6 +180,16 @@ else()
 
   find_package(Python3)
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+endif()
+
+# ----------------------------------------------------------------------
+# cmake options
+include(DefineOptions)
+
+if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
+  message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
+  )
+  set(ARROW_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 if(ARROW_USE_SCCACHE
@@ -349,88 +349,6 @@ if(UNIX)
   add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
   add_custom_target(iwyu-all ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh all)
 endif(UNIX)
-
-#
-# Set up various options
-#
-
-if(ARROW_BUILD_BENCHMARKS
-   OR ARROW_BUILD_TESTS
-   OR ARROW_BUILD_INTEGRATION
-   OR ARROW_FUZZING)
-  set(ARROW_TESTING ON)
-endif()
-
-if(ARROW_GANDIVA)
-  set(ARROW_WITH_RE2 ON)
-  set(ARROW_WITH_UTF8PROC ON)
-endif()
-
-if(ARROW_BUILD_INTEGRATION AND ARROW_FLIGHT)
-  set(ARROW_FLIGHT_SQL ON)
-endif()
-
-if(ARROW_FLIGHT_SQL)
-  set(ARROW_FLIGHT ON)
-endif()
-
-if(ARROW_CUDA
-   OR ARROW_FLIGHT
-   OR ARROW_PARQUET
-   OR ARROW_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS)
-  set(ARROW_IPC ON)
-endif()
-
-if(ARROW_SUBSTRAIT)
-  set(ARROW_PARQUET ON)
-  set(ARROW_IPC ON)
-  set(ARROW_COMPUTE ON)
-  set(ARROW_DATASET ON)
-endif()
-
-if(ARROW_SKYHOOK)
-  set(ARROW_DATASET ON)
-  set(ARROW_PARQUET ON)
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_SNAPPY ON)
-endif()
-
-if(ARROW_TESTING)
-  set(ARROW_JSON ON)
-endif()
-
-if(ARROW_DATASET)
-  set(ARROW_COMPUTE ON)
-  set(ARROW_FILESYSTEM ON)
-endif()
-
-if(ARROW_PARQUET)
-  set(ARROW_COMPUTE ON)
-endif()
-
-if(ARROW_PYTHON)
-  set(ARROW_COMPUTE ON)
-  set(ARROW_CSV ON)
-  set(ARROW_DATASET ON)
-  set(ARROW_FILESYSTEM ON)
-  set(ARROW_HDFS ON)
-  set(ARROW_JSON ON)
-endif()
-
-if(MSVC_TOOLCHAIN)
-  # ORC doesn't build on windows
-  set(ARROW_ORC OFF)
-  # Plasma using glog is not fully tested on windows.
-  set(ARROW_USE_GLOG OFF)
-endif()
-
-if(ARROW_ORC)
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_SNAPPY ON)
-  set(ARROW_WITH_ZLIB ON)
-  set(ARROW_WITH_ZSTD ON)
-endif()
 
 # datetime code used by iOS requires zlib support
 if(IOS)

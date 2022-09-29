@@ -96,16 +96,13 @@ Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
 
 // Presize a builder based on parser contents
 template <typename BuilderType>
-enable_if_t<!is_base_binary_type<typename BuilderType::TypeClass>::value, Status>
-PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
-  return builder->Resize(parser.num_rows());
-}
-
-// Same, for variable-sized binary builders
-template <typename T>
-Status PresizeBuilder(const BlockParser& parser, BaseBinaryBuilder<T>* builder) {
+Status PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
   RETURN_NOT_OK(builder->Resize(parser.num_rows()));
-  return builder->ReserveData(parser.num_bytes());
+  if constexpr (is_base_binary_type<typename BuilderType::TypeClass>::value) {
+    return builder->ReserveData(parser.num_bytes());
+  } else {
+    return Status::OK();
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -195,19 +192,15 @@ struct BinaryValueDecoder : public ValueDecoder {
 // Value decoder for integers, floats and temporals
 //
 
-template <typename T, typename Enable = void>
-struct StringConverterFromOptions {
-  static arrow::internal::StringConverter<T> Make(const ConvertOptions&) {
+template <typename T>
+static arrow::internal::StringConverter<T> MakeStringConverter(
+    const ConvertOptions& options) {
+  if constexpr (is_floating_type<T>::value) {
+    return arrow::internal::StringConverter<T>{options.decimal_point};
+  } else {
     return arrow::internal::StringConverter<T>{};
   }
-};
-
-template <typename T>
-struct StringConverterFromOptions<T, enable_if_floating_point<T>> {
-  static arrow::internal::StringConverter<T> Make(const ConvertOptions& options) {
-    return arrow::internal::StringConverter<T>{options.decimal_point};
-  }
-};
+}
 
 template <typename T>
 struct NumericValueDecoder : public ValueDecoder {
@@ -217,7 +210,7 @@ struct NumericValueDecoder : public ValueDecoder {
                       const ConvertOptions& options)
       : ValueDecoder(type, options),
         concrete_type_(checked_cast<const T&>(*type)),
-        string_converter_(StringConverterFromOptions<T>::Make(options)) {}
+        string_converter_(MakeStringConverter<T>(options)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?

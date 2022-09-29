@@ -66,10 +66,8 @@ class ReadWriteFileInterface;
 
 class LatencyGenerator;
 
-class BufferReader;
-
-class BufferInputStream;
 class BufferOutputStream;
+class BufferReader;
 class CompressedInputStream;
 class CompressedOutputStream;
 class BufferedInputStream;

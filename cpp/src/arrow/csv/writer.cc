@@ -367,81 +367,67 @@ class QuotedColumnPopulator : public ColumnPopulator {
   std::vector<bool> row_needs_escaping_;
 };
 
-struct PopulatorFactory {
-  template <typename TypeClass>
-  enable_if_t<is_base_binary_type<TypeClass>::value ||
-                  std::is_same<FixedSizeBinaryType, TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
-    // Determine what ColumnPopulator to use based on desired CSV quoting style.
-    switch (quoting_style) {
-      case QuotingStyle::None:
-        // In unquoted output we must reject values with quotes. Since these types can
-        // produce quotes in their output rendering, we must check them and reject if
-        // quotes appear, hence reject_values_with_quotes is set to true.
-        populator = new UnquotedColumnPopulator(pool, end_chars, delimiter, null_string,
-                                                /*reject_values_with_quotes=*/true);
-        break;
-        // Quoting is needed for strings/binary, or when all valid values need to be
-        // quoted.
-      case QuotingStyle::Needed:
-      case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
-        break;
+Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
+    const DataType& type, const std::string& end_chars, const char delimiter,
+    const std::shared_ptr<Buffer>& null_string, QuotingStyle quoting_style,
+    MemoryPool* pool) {
+  auto make_populator =
+      [&](const auto& type) -> Result<std::unique_ptr<ColumnPopulator>> {
+    using Type = std::decay_t<decltype(type)>;
+
+    if constexpr (is_primitive_ctype<Type>::value || is_decimal_type<Type>::value ||
+                  is_null_type<Type>::value || is_temporal_type<Type>::value) {
+      switch (quoting_style) {
+        // These types are assumed not to produce any quotes, so we do not need to
+        // check and reject for potential quotes in the casted values in case the
+        // QuotingStyle is None.
+        case QuotingStyle::None:
+          [[fallthrough]];
+        case QuotingStyle::Needed:
+          return std::make_unique<UnquotedColumnPopulator>(
+              pool, end_chars, delimiter, null_string,
+              /*reject_values_with_quotes=*/false);
+        case QuotingStyle::AllValid:
+          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string);
+      }
     }
-    return Status::OK();
-  }
 
-  template <typename TypeClass>
-  enable_if_dictionary<TypeClass, Status> Visit(const TypeClass& type) {
-    return VisitTypeInline(*type.value_type(), this);
-  }
+    if constexpr (is_base_binary_type<Type>::value ||
+                  std::is_same<Type, FixedSizeBinaryType>::value) {
+      // Determine what ColumnPopulator to use based on desired CSV quoting style.
+      switch (quoting_style) {
+        case QuotingStyle::None:
+          // In unquoted output we must reject values with quotes. Since these types
+          // can produce quotes in their output rendering, we must check them and
+          // reject if quotes appear, hence reject_values_with_quotes is set to true.
+          return std::make_unique<UnquotedColumnPopulator>(
+              pool, end_chars, delimiter, null_string,
+              /*reject_values_with_quotes=*/true);
+          // Quoting is needed for strings/binary, or when all valid values need to be
+          // quoted.
+        case QuotingStyle::Needed:
+          [[fallthrough]];
+        case QuotingStyle::AllValid:
+          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string);
+      }
+    }
 
-  template <typename TypeClass>
-  enable_if_t<is_nested_type<TypeClass>::value || is_extension_type<TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
+    if constexpr (std::is_same<Type, DictionaryType>::value) {
+      return MakePopulator(*type.value_type(), end_chars, delimiter, null_string,
+                           quoting_style, pool);
+    }
+
     return Status::Invalid("Unsupported Type:", type.ToString());
-  }
-
-  template <typename TypeClass>
-  enable_if_t<is_primitive_ctype<TypeClass>::value || is_decimal_type<TypeClass>::value ||
-                  is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
-    // Determine what ColumnPopulator to use based on desired CSV quoting style.
-    switch (quoting_style) {
-        // These types are assumed not to produce any quotes, so we do not need to check
-        // and reject for potential quotes in the casted values in case the QuotingStyle
-        // is None.
-      case QuotingStyle::None:
-      case QuotingStyle::Needed:
-        populator = new UnquotedColumnPopulator(pool, end_chars, delimiter, null_string,
-                                                /*reject_values_with_quotes=*/false);
-        break;
-      case QuotingStyle::AllValid:
-        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
-        break;
-    }
-    return Status::OK();
-  }
-
-  const std::string end_chars;
-  const char delimiter;
-  std::shared_ptr<Buffer> null_string;
-  const QuotingStyle quoting_style;
-  MemoryPool* pool;
-  ColumnPopulator* populator;
-};
+  };
+  return VisitType(type, make_populator);
+}
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, std::string end_chars, char delimiter,
-    std::shared_ptr<Buffer> null_string, QuotingStyle quoting_style, MemoryPool* pool) {
-  PopulatorFactory factory{std::move(end_chars), delimiter, std::move(null_string),
-                           quoting_style,        pool,      nullptr};
-
-  RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
-  return std::unique_ptr<ColumnPopulator>(factory.populator);
+    const Field& field, const std::string& end_chars, char delimiter,
+    const std::shared_ptr<Buffer>& null_string, QuotingStyle quoting_style,
+    MemoryPool* pool) {
+  return MakePopulator(*field.type(), end_chars, delimiter, null_string, quoting_style,
+                       pool);
 }
 
 class CSVWriterImpl : public ipc::RecordBatchWriter {
