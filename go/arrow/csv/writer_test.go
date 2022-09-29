@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/csv"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
@@ -130,18 +131,18 @@ func Example_writer() {
 
 var (
 	fullData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128"},
-		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45"},
-		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0"},
-		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 	bananaData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128"},
-		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45"},
-		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0"},
-		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45"},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0"},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 )
 
@@ -215,6 +216,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 			{Name: "d32", Type: arrow.FixedWidthTypes.Date32},
 			{Name: "d64", Type: arrow.FixedWidthTypes.Date64},
 			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 5, Scale: 2}},
+			{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 5, Scale: 2}},
 		},
 		nil,
 	)
@@ -238,6 +240,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	b.Field(13).(*array.Date32Builder).AppendValues([]arrow.Date32{17304, 19304, 20304}, nil)
 	b.Field(14).(*array.Date64Builder).AppendValues([]arrow.Date64{1840400000000, 1940400000000, 2040400000000}, nil)
 	b.Field(15).(*array.Decimal128Builder).AppendValues([]decimal128.Num{decimal128.FromI64(-12345), decimal128.FromI64(0), decimal128.FromI64(12345)}, nil)
+	b.Field(16).(*array.Decimal256Builder).AppendValues([]decimal256.Num{decimal256.FromI64(-12345), decimal256.FromI64(0), decimal256.FromI64(12345)}, nil)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()
@@ -331,6 +334,7 @@ func BenchmarkWrite(b *testing.B) {
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
 			{Name: "dec128", Type: &arrow.Decimal128Type{Precision: 4, Scale: 3}},
+			{Name: "dec128", Type: &arrow.Decimal256Type{Precision: 4, Scale: 3}},
 		},
 		nil,
 	)
@@ -353,6 +357,7 @@ func BenchmarkWrite(b *testing.B) {
 		bldr.Field(10).(*array.Float64Builder).Append(float64(i))
 		bldr.Field(11).(*array.StringBuilder).Append(fmt.Sprintf("str-%d", i))
 		bldr.Field(12).(*array.Decimal128Builder).Append(decimal128.FromI64(int64(i)))
+		bldr.Field(13).(*array.Decimal256Builder).Append(decimal256.FromI64(int64(i)))
 	}
 
 	rec := bldr.NewRecord()
