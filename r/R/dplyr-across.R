@@ -52,15 +52,6 @@ expand_across <- function(.data, quos_in) {
         inline = TRUE
       )
 
-      if (!is_list(setup$fns) && !is.null(setup$fns) && as.character(setup$fns)[[1]] == "~") {
-        abort(
-          paste(
-            "purrr-style lambda functions as `.fns` argument to `across()`",
-            "not yet supported in Arrow"
-          )
-        )
-      }
-
       new_quos <- quosures_from_setup(setup, quo_env)
 
       quos_out <- append(quos_out, new_quos)
@@ -82,6 +73,11 @@ quosures_from_setup <- function(setup, quo_env) {
     new_quo_list <- map2(
       func_list_full, cols_list_full,
       ~ quo(!!call2(.x, sym(.y)))
+    )
+
+    new_quo_list <- map2(
+      func_list_full, cols_list_full,
+      ~ quosure_from_func_and_col(.x, .y)
     )
   } else {
     # if there's no functions, just map to variables themselves
@@ -119,15 +115,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
   } else {
     names <- names %||% "{.col}_{.fn}"
     fns <- call_args(fns)
-  }
-
-  if (any(map_lgl(fns, is_formula))) {
-    abort(
-      paste(
-        "purrr-style lambda functions as `.fns` argument to `across()`",
-        "not yet supported in Arrow"
-      )
-    )
   }
 
   if (!is.list(fns)) {
@@ -174,4 +161,14 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
 
 across_glue_mask <- function(.col, .fn, .caller_env) {
   env(.caller_env, .col = .col, .fn = .fn, col = .col, fn = .fn)
+}
+
+quosure_from_func_and_col <- function(func, col) {
+  if (is_formula(func)) {
+    func_as_text <- f_text(func)
+    new_call_text <- sub(".x", col, func_as_text)
+    quo(!!parse_expr(new_call_text))
+  } else {
+    quo(!!call2(func, sym(col)))
+  }
 }
