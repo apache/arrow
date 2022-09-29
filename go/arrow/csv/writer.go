@@ -227,7 +227,7 @@ func (w *Writer) Write(record arrow.Record) error {
 				if arr.IsValid(i) {
 					decString := arr.Value(i).BigInt().Text(10)
 					decimalLocation := len(decString) - int(scale)
-					if decimalLocation >= 0 {
+					if decimalLocation >= 0 && scale > 0 {
 						decString = decString[:decimalLocation] + "." + decString[decimalLocation:]
 					}
 					recs[i][j] = decString
