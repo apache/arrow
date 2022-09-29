@@ -639,7 +639,7 @@ The Plasma component is not supported on Windows.
 Deleting stale build artifacts
 ==============================
 
-When there have been changes to the structure of the Arrow C++ library or Pyarrow,
+When there have been changes to the structure of the Arrow C++ library or PyArrow,
 a thorough cleaning is recommended as a first attempt to fixing build errors.
 
 .. note::
@@ -653,11 +653,11 @@ To delete stale Arrow C++ build artifacts:
 
    $ rm -rf arrow/cpp/build
 
-To delete stale Pyarrow build artifacts:
+To delete stale PyArrow build artifacts:
 
 .. code-block::
 
-   $ git clean -Xfd .
+   $ git clean -Xfd python
 
 If using a Conda environment, there are some build artifacts that get installed in
 ``$ARROW_HOME`` (aka ``$CONDA_PREFIX``). For example, ``$ARROW_HOME/lib/cmake/Arrow*``,
