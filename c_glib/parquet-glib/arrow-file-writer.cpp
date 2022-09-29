@@ -422,7 +422,7 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
   auto arrow_output_stream = garrow_output_stream_get_raw(sink);
   auto arrow_memory_pool = arrow::default_memory_pool();
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
-  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter> maybe_writer;
+  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
     auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
     maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
@@ -476,7 +476,7 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
     arrow_file_output_stream.ValueOrDie();
   auto arrow_memory_pool = arrow::default_memory_pool();
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
-  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter> maybe_writer;
+  arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
     auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
     maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
