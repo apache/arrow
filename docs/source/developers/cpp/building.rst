@@ -340,7 +340,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: This option is deprecated since 10.0.0. This
   will be removed in a future release. Use CMake presets instead. Or
-  you can use ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
+  you can enable ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
   ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON`` directly
   instead.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
