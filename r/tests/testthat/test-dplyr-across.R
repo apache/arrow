@@ -149,16 +149,6 @@ test_that("expand_across correctly expands quosures", {
     example_data
   )
 
-  # ARROW-17366: purrr-style lambda functions not yet supported
-  expect_error(
-    expand_across(
-      example_data,
-      quos(across(1:dbl2, ~ round(.x, digits = -1)))
-    ),
-    regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
-    fixed = TRUE
-  )
-
   # .names argument
   expect_across_equal(
     quos(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")),
