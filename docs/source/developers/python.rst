@@ -332,7 +332,8 @@ created above (stored in ``$ARROW_HOME``):
            -DARROW_WITH_ZSTD=ON \
            -DPARQUET_REQUIRE_ENCRYPTION=ON \
            ..
-   $ cmake --build . --target install --config Debug
+   $ make -j4
+   $ make install
    $ popd
 
 There are a number of optional components that can be switched ON by
@@ -371,7 +372,7 @@ Python executable which you are using.
 .. note::
 
    On Linux systems with support for building on multiple architectures,
-   libraries may be installed into the ``lib64`` directory by default. For
+   ``make`` may install libraries in the ``lib64`` directory by default. For
    this reason we recommend passing ``-DCMAKE_INSTALL_LIBDIR=lib`` because the
    Python build scripts assume the library directory is ``lib``
 
