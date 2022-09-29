@@ -950,6 +950,6 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
    */
   @Override
   public void setNull(int index) {
-    throw new UnsupportedOperationException("The method setNull() is not supported on DenseUnionVector.")
+    throw new UnsupportedOperationException("The method setNull() is not supported on DenseUnionVector.");
   }
 }

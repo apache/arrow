@@ -861,6 +861,6 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
    */
   @Override
   public void setNull(int index) {
-    throw new UnsupportedOperationException("The method setNull() is not supported on UnionVector.")
+    throw new UnsupportedOperationException("The method setNull() is not supported on UnionVector.");
   }
 }
