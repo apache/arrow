@@ -160,6 +160,7 @@ across_glue_mask <- function(.col, .fn, .caller_env) {
   env(.caller_env, .col = .col, .fn = .fn, col = .col, fn = .fn)
 }
 
+# Substitutes instances of `.` and `.x` with the variable in question
 as_across_fn_call <- function(fn, var, quo_env) {
 
   if (is_formula(fn, lhs = FALSE)) {
