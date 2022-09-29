@@ -226,12 +226,12 @@ test_that("purrr-style lambda functions are supported", {
   )
 
   expect_across_equal(
-    quos(across(c(dbl, dbl2), c(~round(.x, digits = 0), ~ceiling(.x)))),
+    quos(across(c(dbl, dbl2), c(~round(.x, digits = 0), ~.x*2))),
     quos(
       dbl_1 = round(dbl, digits = 0),
-      dbl_2 = ceiling(dbl),
+      dbl_2 = dbl * 2,
       dbl2_1 = round(dbl2, digits = 0),
-      dbl2_2 = ceiling(dbl2)
+      dbl2_2 = dbl2 * 2
     ),
     example_data
   )
