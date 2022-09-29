@@ -72,26 +72,23 @@ quosures_from_setup <- function(setup, quo_env) {
     # get new quosures
     new_quo_list <- map2(
       func_list_full, cols_list_full,
-      ~ quo(!!call2(.x, sym(.y)))
+      ~ as_across_fn_call(.x, .y, quo_env)
     )
 
-    new_quo_list <- map2(
-      func_list_full, cols_list_full,
-      ~ quosure_from_func_and_col(.x, .y)
-    )
   } else {
     # if there's no functions, just map to variables themselves
     new_quo_list <- map(
       setup$vars,
-      ~ quo(!!sym(.x))
+      ~ quo_set_env(quo(!!sym(.x)), quo_env)
     )
   }
 
-  quosures <- set_names(new_quo_list, setup$names)
-  map(quosures, ~ quo_set_env(.x, quo_env))
+  set_names(new_quo_list, setup$names)
+
 }
 
 across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
+
   cols <- enquo(cols)
 
   vars <- names(dplyr::select(mask, !!cols))
@@ -163,12 +160,33 @@ across_glue_mask <- function(.col, .fn, .caller_env) {
   env(.caller_env, .col = .col, .fn = .fn, col = .col, fn = .fn)
 }
 
-quosure_from_func_and_col <- function(func, col) {
-  if (is_formula(func)) {
-    func_as_text <- f_text(func)
-    new_call_text <- sub(".x", col, func_as_text)
-    quo(!!parse_expr(new_call_text))
+as_across_fn_call <- function(fn, var, quo_env) {
+
+  if (is_formula(fn, lhs = FALSE)) {
+    expr <- f_rhs(fn)
+    expr <- expr_substitute(expr, quote(.), sym(var))
+    expr <- expr_substitute(expr, quote(.x), sym(var))
+    new_quosure(expr, quo_env)
   } else {
-    quo(!!call2(func, sym(col)))
+    fn_call <- call2(fn, sym(var))
+    new_quosure(fn_call, quo_env)
+  }
+}
+
+expr_substitute <- function(expr, old, new) {
+  expr <- duplicate(expr)
+  switch(typeof(expr),
+    language = node_walk_replace(node_cdr(expr), old, new),
+    symbol = if (identical(expr, old)) return(new)
+  )
+  expr
+}
+node_walk_replace <- function(node, old, new) {
+  while (!is_null(node)) {
+    switch(typeof(node_car(node)),
+      language = if (!is_call(node_car(node), c("~", "function")) || is_call(node_car(node), "~", n = 2)) node_walk_replace(node_cdar(node), old, new),
+      symbol = if (identical(node_car(node), old)) node_poke_car(node, new)
+    )
+    node <- node_cdr(node)
   }
 }
