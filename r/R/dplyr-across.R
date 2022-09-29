@@ -176,6 +176,7 @@ as_across_fn_call <- function(fn, var, quo_env) {
 
 expr_substitute <- function(expr, old, new) {
   expr <- duplicate(expr)
+
   switch(typeof(expr),
     language = node_walk_replace(node_cdr(expr), old, new),
     symbol = if (identical(expr, old)) return(new)
@@ -183,7 +184,8 @@ expr_substitute <- function(expr, old, new) {
   expr
 }
 node_walk_replace <- function(node, old, new) {
-  while (!is_null(node)) {
+
+  while (!rlang::is_null(node)) {
     switch(typeof(node_car(node)),
       language = if (!is_call(node_car(node), c("~", "function")) || is_call(node_car(node), "~", n = 2)) node_walk_replace(node_cdar(node), old, new),
       symbol = if (identical(node_car(node), old)) node_poke_car(node, new)
