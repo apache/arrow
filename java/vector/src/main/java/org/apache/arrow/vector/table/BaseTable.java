@@ -17,7 +17,6 @@
 
 package org.apache.arrow.vector.table;
 
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -270,20 +269,11 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns an immutable Row object holding a reference to this table. The default character
-   * encoding used by the cursor to decode Strings will be StandardCharsets.UTF_8.
+   * encoding used by the cursor to decode Strings will be StandardCharsets.UTF_8 as this is the only charset
+   * supported in Arrow format.
    */
-  public Row immutableCursor() {
+  public Row immutableRow() {
     return new Row(this);
-  }
-
-  /**
-   * Returns an immutable Row object holding a reference to this table.
-   *
-   * @param defaultCharset The default character encoding used by the cursor to decode Strings. It
-   *     can be overridden for individual vectors in the get() method
-   */
-  public Row immutableCursor(Charset defaultCharset) {
-    return new Row(this, defaultCharset);
   }
 
   /**

@@ -2,6 +2,8 @@
 
 **NOTE**: The API is experimental and subject to change.
 
+**NOTE**: Major limitations in this release are listed at the end of the document.
+
 *Table* is a new immutable tabular data structure based on FieldVectors. A mutable version (*MutableTable*) is expected in a subsequent release. This document describes the Table API and identifies limitations in the current release. 
 
 ---
@@ -20,7 +22,7 @@ VectorSchemaRoot provides a thin wrapper on the FieldVectors that hold its data.
 
 The rules aren't enforced by the API so the programmer is responsible for ensuring that they are followed. Failure to do so could lead to runtime exceptions. 
 
-_Table_, on the other hand, is actually immutable. The underlying vectors are not exposed. When a Table is created from existing vectors, their memory is transferred to new vectors, so subsequent changes to the original vectors can't impact the new table's values.
+_Table_, on the other hand, is immutable. The underlying vectors are not exposed. When a Table is created from existing vectors, their memory is transferred to new vectors, so subsequent changes to the original vectors can't impact the new table's values.
 
 ## What's in a Table?
 
@@ -279,27 +281,11 @@ The exception to this naming scheme is for complex vector types (List, Map, Sche
 
 #### Reading VarChars and LargeVarChars
 
-Strings in arrow are represented as byte arrays, encoded with a particular Charset object. There are two ways to handle Charset in the getters. One uses the default Charset; the other takes a charset as an argument to the getter:
+Strings in arrow are represented as byte arrays, encoded with the UTF-8 charset as this is the only character set supported in the Arrow format.
 
 ```Java
-String v1 = row.get("first_name");  // uses the default encoding for the table
-
-String v2 = row.get("first_name", StandardCharsets.US_ASCII); // specifies the encoding
+String v1 = row.getVarChar("first_name");       // uses the default encoding (UTF-8)
 ```
-
-What the default coding *is* will depend on how the Row was constructed. If you use:
-
-```Java
-Row r = table.immutableRow(); 
-```
-
-Then the default encoding is set as StandardCharsets.UTF_8.  However, you can also provide a default charset when you create the row. 
-
-```java
-Row r = table.immutableRow(StandardCharsets.US_ASCII); 
-```
-
-Now US_ASCII will be used whenever you get a String value without specifying a Charset in the getter.  
 
 ## Table API: Converting a Table to a VectorSchemaRoot
 
@@ -311,11 +297,11 @@ VectorSchemaRoot root = myTable.toVectorSchemaRoot();
 
 Buffers are transferred to the VectorSchemaRoot and the Table is cleared.
 
-## Table API: Working with the Streaming API and the C-Data interface
+## Table API: Working with the C-Data interface
 
 The ability to work with native code is required for many Arrow features. This section describes how tables can be be exported and imported.
 
-### Exporting Tables to native code using the C-Data interface
+### Exporting Tables to native code
 
 This works by converting the data to a VectorSchemaRoot and using the existing facilities for transferring the data. This would not generally be ideal because conversion to a VectorSchemaRoot breaks the immutability guarantees. Using the static utility methods defined in the class org.apache.arrow.c.Data` avoids this concern because the vector schema root used is not expored.  See the example code below:
 
@@ -323,16 +309,20 @@ This works by converting the data to a VectorSchemaRoot and using the existing f
 Data.exportTable(bufferAllocator, table, dictionaryProvider, outArrowArray);
 ```
 
+### Importing Tables from native code
+
 ***Current limitation: Data imported from native code using the C-Data-interface cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.*** 
 
-### Exporting Tables to native code using the Streaming API
+## Table API: Working with the C-Stream interface
 
-***Current limitation: Streaming API is not currently supported.***
-
-
-
-***Current limitation: Data imported from native code using the Streaming API cannot be used in a table, because the current implementation of CDataReferenceManager does not support the transfer operation.*** 
+***Current limitation: Streaming API is not currently supported. Support is planned for a future release.***
 
 ## Implementation notes
 
-The current version does not support ChunkedArrays or any form of row-group. Support for ChunkedArrows or row groups will be considered for a future release.
+The following are the major limitations of v. 10.0.0 release:
+
+1. No support ChunkedArrays or any form of row-group. Support for ChunkedArrows or row groups will be considered for a future release.
+2. No support for native interface using the C-Stream API. Support for the streaming API will be delivered with or after  Item 1. 
+3. No ability to use Tables with data imported from native code using the C-Data API.  Support for ths feature is gated on PR#13248 (https://github.com/apache/arrow/pull/13248).
+4. No support for creating tables directly from Java POJOs. All data held by a table must be imported via a VectorSchemaRoot.
+5. No support for mutable tables.

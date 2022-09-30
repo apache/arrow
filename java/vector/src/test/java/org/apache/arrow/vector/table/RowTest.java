@@ -70,8 +70,8 @@ class RowTest {
   void constructor() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor(StandardCharsets.US_ASCII);
-      assertEquals(StandardCharsets.US_ASCII, c.getDefaultCharacterSet());
+      Row c = t.immutableRow();
+      assertEquals(StandardCharsets.UTF_8, c.getDefaultCharacterSet());
     }
   }
 
@@ -79,7 +79,7 @@ class RowTest {
   void at() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       assertEquals(c.getRowNumber(), -1);
       c.setPosition(1);
       assertEquals(c.getRowNumber(), 1);
@@ -90,7 +90,7 @@ class RowTest {
   void getIntByVectorIndex() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(1);
       assertEquals(2, c.getInt(0));
     }
@@ -100,7 +100,7 @@ class RowTest {
   void getIntByVectorName() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(1);
       assertEquals(2, c.getInt(INT_VECTOR_NAME_1));
     }
@@ -110,7 +110,7 @@ class RowTest {
   void hasNext() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       assertTrue(c.hasNext());
       c.setPosition(1);
       assertFalse(c.hasNext());
@@ -121,7 +121,7 @@ class RowTest {
   void next() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(0);
       c.next();
       assertEquals(1, c.getRowNumber());
@@ -132,7 +132,7 @@ class RowTest {
   void isNull() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(1);
       assertFalse(c.isNull(0));
     }
@@ -142,7 +142,7 @@ class RowTest {
   void isNullByFieldName() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(1);
       assertFalse(c.isNull(INT_VECTOR_NAME_1));
     }
@@ -152,7 +152,7 @@ class RowTest {
   void fixedWidthVectorTest() {
     List<FieldVector> vectorList = fixedWidthVectors(allocator, 2);
     try (Table t = new Table(vectorList)) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       c.setPosition(1);
       assertFalse(c.isNull("bigInt_vector"));
       assertEquals(c.getInt("int_vector"), c.getInt(0));
@@ -231,7 +231,7 @@ class RowTest {
     try (UnionVector unionVector = simpleUnionVector(allocator);
         VectorSchemaRoot vsr = VectorSchemaRoot.of(unionVector);
         Table table = new Table(vsr)) {
-      Row c = table.immutableCursor();
+      Row c = table.immutableRow();
       c.setPosition(0);
       Object object0 = c.getUnion(UNION_VECTOR_NAME);
       c.setPosition(1);
@@ -248,7 +248,7 @@ class RowTest {
     try (DenseUnionVector unionVector = simpleDenseUnionVector(allocator);
         VectorSchemaRoot vsr = VectorSchemaRoot.of(unionVector);
         Table table = new Table(vsr)) {
-      Row c = table.immutableCursor();
+      Row c = table.immutableRow();
       c.setPosition(0);
       Object object0 = c.getDenseUnion(UNION_VECTOR_NAME);
       c.setPosition(1);

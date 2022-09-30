@@ -54,7 +54,7 @@ class TableTest {
   void of() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = Table.of(vectorList.toArray(new FieldVector[2]))) {
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       assertEquals(2, t.getRowCount());
       assertEquals(2, t.getVectorCount());
       IntVector intVector1 = (IntVector) vectorList.get(0);
@@ -80,7 +80,7 @@ class TableTest {
     try (Table t = new Table(vectorList, 2)) {
       assertEquals(2, t.getRowCount());
       assertEquals(2, t.getVectorCount());
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       IntVector intVector1 = (IntVector) vectorList.get(0);
       c.setPosition(0);
 
@@ -198,7 +198,7 @@ class TableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (VectorSchemaRoot vsr = new VectorSchemaRoot(vectorList)) {
       Table t = new Table(vsr);
-      Row c = t.immutableCursor();
+      Row c = t.immutableRow();
       assertEquals(2, t.rowCount);
       assertEquals(0, vsr.getRowCount()); // memory is copied for slice, not transferred
       IntVector intVector1 = (IntVector) vectorList.get(0);

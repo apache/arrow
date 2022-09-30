@@ -182,7 +182,7 @@ class BaseTableTest {
   void immutableCursor() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
-      assertNotNull(t.immutableCursor());
+      assertNotNull(t.immutableRow());
     }
   }
 

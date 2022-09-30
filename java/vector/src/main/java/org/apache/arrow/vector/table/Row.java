@@ -18,7 +18,6 @@
 package org.apache.arrow.vector.table;
 
 import java.math.BigDecimal;
-import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -123,17 +122,6 @@ public class Row extends BaseRow implements Iterator<Row> {
    */
   public Row(BaseTable table) {
     super(table);
-  }
-
-  /**
-   * Constructs a newCursor backed by the given table.
-   *
-   * @param table the table that this Row object represents
-   * @param charset the standard charset for decoding bytes into strings. Note: This can be
-   *     overridden for individual columns
-   */
-  public Row(BaseTable table, Charset charset) {
-    super(table, charset);
   }
 
   /**
@@ -1649,19 +1637,6 @@ public class Row extends BaseRow implements Iterator<Row> {
   }
 
   /**
-   * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
-   * if it has a different type
-   *
-   * @param vectorName the name of the FieldVector holding the value
-   * @param charset the charset to use for decoding the bytes
-   */
-  public String getVarChar(String vectorName, Charset charset) {
-    VarCharVector vector = (VarCharVector) table.getVector(vectorName);
-    return new String(vector.get(rowNumber), charset);
-  }
-
-  /**
    * Returns a String from the column with the given index at the current row. An
    * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
@@ -1671,19 +1646,6 @@ public class Row extends BaseRow implements Iterator<Row> {
   public String getVarChar(int columnIndex) {
     VarCharVector vector = (VarCharVector) table.getVector(columnIndex);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
-  }
-
-  /**
-   * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
-   * IllegalArgumentException is thrown if it has a different type
-   *
-   * @param columnIndex the index of the FieldVector holding the value
-   * @param charset the charset to use for decoding the bytes
-   */
-  public String getVarChar(int columnIndex, Charset charset) {
-    VarCharVector vector = (VarCharVector) table.getVector(columnIndex);
-    return new String(vector.get(rowNumber), charset);
   }
 
   /**
@@ -1700,19 +1662,6 @@ public class Row extends BaseRow implements Iterator<Row> {
   }
 
   /**
-   * Returns a String from the column of the given name at the current row. An IllegalStateException
-   * is thrown if the column is not present in the Row and an IllegalArgumentException is thrown
-   * if it has a different type
-   *
-   * @param vectorName the name of the FieldVector holding the value
-   * @param charset the charset to use for decoding the bytes
-   */
-  public String getLargeVarChar(String vectorName, Charset charset) {
-    LargeVarCharVector vector = (LargeVarCharVector) table.getVector(vectorName);
-    return new String(vector.get(rowNumber), charset);
-  }
-
-  /**
    * Returns a String from the column with the given index at the current row. An
    * IllegalStateException is thrown if the column is not present in the Row and an
    * IllegalArgumentException is thrown if it has a different type
@@ -1720,19 +1669,6 @@ public class Row extends BaseRow implements Iterator<Row> {
   public String getLargeVarChar(int columnIndex) {
     LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnIndex);
     return new String(vector.get(rowNumber), getDefaultCharacterSet());
-  }
-
-  /**
-   * Returns a String from the column with the given index at the current row. An
-   * IllegalStateException is thrown if the column is not present in the Row and an
-   * IllegalArgumentException is thrown if it has a different type
-   *
-   * @param columnIndex the index of the FieldVector holding the value
-   * @param charset the charset to use for decoding the bytes
-   */
-  public String getLargeVarChar(int columnIndex, Charset charset) {
-    LargeVarCharVector vector = (LargeVarCharVector) table.getVector(columnIndex);
-    return new String(vector.get(rowNumber), charset);
   }
 
   // TODO: Implement getters for

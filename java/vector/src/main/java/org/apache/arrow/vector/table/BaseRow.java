@@ -35,10 +35,9 @@ public abstract class BaseRow {
   protected int rowNumber = -1;
 
   /**
-   * Returns the standard character set to use for decoding strings. Can be overridden for
-   * individual columns by providing the {@link Charset} as an argument in the getter.
+   * Returns the standard character set to use for decoding strings. The Arrow format only supports UTF-8.
    */
-  private Charset defaultCharacterSet = StandardCharsets.UTF_8;
+  private final Charset defaultCharacterSet = StandardCharsets.UTF_8;
 
   /**
    * Constructs a new BaseRow backed by the given table.
@@ -47,18 +46,6 @@ public abstract class BaseRow {
    */
   public BaseRow(BaseTable table) {
     this.table = table;
-  }
-
-  /**
-   * Constructs a new BaseRow backed by the given table.
-   *
-   * @param table the table that this cursor represents
-   * @param charset the standard charset for decoding bytes into strings. Note: This can be
-   *     overridden for individual columns.
-   */
-  public BaseRow(BaseTable table, Charset charset) {
-    this.table = table;
-    this.defaultCharacterSet = charset;
   }
 
   /**
