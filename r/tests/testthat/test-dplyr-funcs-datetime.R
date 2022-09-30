@@ -3172,9 +3172,12 @@ check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
 
 test_that("date round/floor/ceil works for units of 1 day or less", {
   test_df %>% check_date_rounding("1 millisecond", lubridate_unit = ".001 second")
-  test_df %>% check_date_rounding("1 day")
   test_df %>% check_date_rounding("1 second")
   test_df %>% check_date_rounding("1 hour")
+
+  skip("floor_date(as.Date(NA), '1 day') is no longer NA on latest R-devel")
+  # Possibly https://github.com/wch/r-source/commit/4f70ce0d79eeda7464cf97448e515275cbef754b
+  test_df %>% check_date_rounding("1 day")
 })
 
 test_that("timestamp round/floor/ceil works for units of 1 day or less", {
