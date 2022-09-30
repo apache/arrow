@@ -292,7 +292,8 @@ on:
   install.packages(
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
-    verbose = TRUE
+    verbose = TRUE,
+    INSTALL_opts = "--build"
   )
 
   library(arrow)
