@@ -114,13 +114,13 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
-                           const ArrayDataVector& output_data_vecs) {
+                           const ArrayDataVector& output_data_vecs) const {
   return Evaluate(batch, nullptr, output_data_vecs);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const SelectionVector* selection_vector,
-                           const ArrayDataVector& output_data_vecs) {
+                           const ArrayDataVector& output_data_vecs) const {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
 
   if (output_data_vecs.size() != output_fields_.size()) {
@@ -149,13 +149,13 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
-                           arrow::ArrayVector* output) {
+                           arrow::ArrayVector* output) const {
   return Evaluate(batch, nullptr, pool, output);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const SelectionVector* selection_vector,
-                           arrow::MemoryPool* pool, arrow::ArrayVector* output) {
+                           arrow::MemoryPool* pool, arrow::ArrayVector* output) const {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
   ARROW_RETURN_IF(output == nullptr, Status::Invalid("Output must be non-null."));
   ARROW_RETURN_IF(pool == nullptr, Status::Invalid("Memory pool must be non-null."));
@@ -185,7 +185,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
 
 // TODO : handle complex vectors (list/map/..)
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
-                                 arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
+                                 arrow::MemoryPool* pool,
+                                 ArrayDataPtr* array_data) const {
   arrow::Status astatus;
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
@@ -227,7 +228,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   return Status::OK();
 }
 
-Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
+Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) const {
   ARROW_RETURN_IF(!batch.schema()->Equals(*schema_),
                   Status::Invalid("Schema in RecordBatch must match schema in Make()"));
   ARROW_RETURN_IF(batch.num_rows() == 0,
@@ -238,7 +239,7 @@ Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
 
 Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                                             const arrow::Field& field,
-                                            int64_t num_records) {
+                                            int64_t num_records) const {
   ARROW_RETURN_IF(array_data.buffers.size() < 2,
                   Status::Invalid("ArrayData must have at least 2 buffers"));
 

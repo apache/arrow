@@ -99,7 +99,6 @@ groups:
   integration:
     - test-*dask*
     - test-*hdfs*
-    - test-*kartothek*
     - test-*pandas*
     - test-*spark*
     # - test-*turbodbc*
@@ -205,12 +204,11 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      # ARROW-17395: Enable this again when grpc is updated.
-      # -e ARROW_CONAN_WITH_FLIGHT_RPC=True
       flags: >-
         -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_BROTLI=True
         -e ARROW_CONAN_WITH_BZ2=True
+        -e ARROW_CONAN_WITH_FLIGHT_RPC=True
         -e ARROW_CONAN_WITH_GLOG=True
         -e ARROW_CONAN_WITH_JEMALLOC=True
         -e ARROW_CONAN_WITH_JSON=True
@@ -1546,18 +1544,6 @@ tasks:
 #       flags: --no-leaf-cache
 #       image: conda-python-turbodbc
 # {% endfor %}
-
-{% for kartothek_version in ["latest", "master"] %}
-  test-conda-python-3.7-kartothek-{{ kartothek_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.7
-        KARTOTHEK: "{{ kartothek_version }}"
-      flags: --no-leaf-cache
-      image: conda-python-kartothek
-{% endfor %}
 
 {% for hdfs_version in ["2.9.2", "3.2.1"] %}
   test-conda-python-3.7-hdfs-{{ hdfs_version }}:

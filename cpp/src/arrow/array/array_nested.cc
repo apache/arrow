@@ -17,6 +17,7 @@
 
 #include "arrow/array/array_nested.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -33,7 +34,6 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
@@ -583,7 +583,7 @@ const ArrayVector& StructArray::fields() const {
 }
 
 const std::shared_ptr<Array>& StructArray::field(int i) const {
-  std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
+  std::shared_ptr<Array> result = std::atomic_load(&boxed_fields_[i]);
   if (!result) {
     std::shared_ptr<ArrayData> field_data;
     if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
@@ -592,7 +592,7 @@ const std::shared_ptr<Array>& StructArray::field(int i) const {
       field_data = data_->child_data[i];
     }
     std::shared_ptr<Array> result = MakeArray(field_data);
-    internal::atomic_store(&boxed_fields_[i], result);
+    std::atomic_store(&boxed_fields_[i], result);
     return boxed_fields_[i];
   }
   return boxed_fields_[i];
@@ -847,7 +847,7 @@ std::shared_ptr<Array> UnionArray::field(int i) const {
       static_cast<decltype(boxed_fields_)::size_type>(i) >= boxed_fields_.size()) {
     return nullptr;
   }
-  std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
+  std::shared_ptr<Array> result = std::atomic_load(&boxed_fields_[i]);
   if (!result) {
     std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();
     if (mode() == UnionMode::SPARSE) {
@@ -859,7 +859,7 @@ std::shared_ptr<Array> UnionArray::field(int i) const {
       }
     }
     result = MakeArray(child_data);
-    internal::atomic_store(&boxed_fields_[i], result);
+    std::atomic_store(&boxed_fields_[i], result);
   }
   return result;
 }
