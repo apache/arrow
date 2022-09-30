@@ -23,7 +23,7 @@ expand_across <- function(.data, quos_in) {
     quo_expr <- quo_get_expr(quo_in[[1]])
     quo_env <- quo_get_env(quo_in[[1]])
 
-    if (is_call(quo_expr, "across") | is_call(quo_expr, "if_any") | is_call(quo_expr, "if_all")) {
+    if (is_call(quo_expr, c("across", "if_any", "if_all"))) {
       new_quos <- list()
 
       across_call <- match.call(
