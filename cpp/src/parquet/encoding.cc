@@ -1146,8 +1146,7 @@ int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   return max_values;
 }
 
-class PlainBooleanDecoder : public DecoderImpl,
-                            virtual public TypedDecoder<BooleanType> {
+class PlainBooleanDecoder : public DecoderImpl, virtual public TypedDecoder<BooleanType> {
  public:
   explicit PlainBooleanDecoder(const ColumnDescriptor* descr);
   void SetData(int num_values, const uint8_t* data, int len) override;

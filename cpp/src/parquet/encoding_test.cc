@@ -74,7 +74,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
 
   decoder->SetData(nvalues, encode_buffer->data(),
                    static_cast<int>(encode_buffer->size()));
- int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
+  int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {

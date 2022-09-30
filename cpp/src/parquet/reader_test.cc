@@ -139,11 +139,10 @@ class TestBooleanRLE : public ::testing::Test {
 };
 
 TEST_F(TestBooleanRLE, TestBooleanScanner) {
+  int nvalues = 68;
+  int validation_values = 16;
 
-int nvalues = 68;
-int validation_values = 16;
-
-auto group = reader_->RowGroup(0);
+  auto group = reader_->RowGroup(0);
 
   // column 0, id
   auto scanner = std::make_shared<BoolScanner>(group->Column(0));
@@ -152,8 +151,12 @@ auto group = reader_->RowGroup(0);
   bool is_null = false;
 
   // For this file, 3rd and 16th index value is null
-  std::vector<bool> expected_null = {false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, true};
-  std::vector<bool> expected_value  = {true, false, false, true, true, false, false, true,  true, true, false, false, true, true, false, false};
+  std::vector<bool> expected_null = {false, false, true,  false, false, false,
+                                     false, false, false, false, false, false,
+                                     false, false, false, true};
+  std::vector<bool> expected_value = {true,  false, false, true, true,  false,
+                                      false, true,  true,  true, false, false,
+                                      true,  true,  false, false};
 
   // Assert sizes are same
   ASSERT_EQ(validation_values, expected_null.size());
@@ -172,10 +175,10 @@ auto group = reader_->RowGroup(0);
   }
 
   // Loop through rest of the values to assert data exists
-  for (int i = validation_values; i < nvalues;i++) {
+  for (int i = validation_values; i < nvalues; i++) {
     ASSERT_TRUE(scanner->HasNext());
     ASSERT_TRUE(scanner->NextValue(&val, &is_null));
-}
+  }
 
   // Attempt to read past end of column
   ASSERT_FALSE(scanner->HasNext());
@@ -220,19 +223,21 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
       col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
   ASSERT_EQ(batch_size, levels_read);
 
-  // Since two value's are null value, expect batches read to be num_nulls less than indicated
-  // batch_size
+  // Since two value's are null value, expect batches read to be num_nulls less than
+  // indicated batch_size
   ASSERT_EQ(batch_size - num_nulls, curr_batch_read);
 
   // 3rd index is null value
-  ASSERT_THAT(def_levels, testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1));
+  ASSERT_THAT(def_levels,
+              testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1));
 
   // Validate inserted data is as expected
   ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1));
 
   // Loop through rest of the values and assert batch_size read
-  for (int i = batch_size; i< nvalues ;i = i + batch_size) {
-    levels_read = col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+  for (int i = batch_size; i < nvalues; i = i + batch_size) {
+    levels_read =
+        col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
     ASSERT_EQ(batch_size, levels_read);
   }
 
