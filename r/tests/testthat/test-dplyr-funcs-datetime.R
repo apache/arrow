@@ -456,6 +456,12 @@ test_that("strftime", {
 test_that("format_ISO8601", {
   # https://issues.apache.org/jira/projects/ARROW/issues/ARROW-15266
   skip_if_not_available("re2")
+  # A change in R altered the behavior of lubridate::format_ISO8601:
+  # https://github.com/wch/r-source/commit/f6fd993f8a2f799a56dbecbd8238f155191fc31b
+  # Fixed in lubridate here:
+  # https://github.com/tidyverse/lubridate/pull/1068
+  skip_if_not(packageVersion("lubridate") > "1.8")
+
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
 
   compare_dplyr_binding(
