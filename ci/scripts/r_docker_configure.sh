@@ -72,6 +72,12 @@ fi
 if [[ -n "$DEVTOOLSET_VERSION" ]]; then
   $PACKAGE_MANAGER install -y centos-release-scl
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
+  
+  # Only add make var if not set
+  if ! grep -Fq "CXX17=" ~/.R/Makevars &> /dev/null; then
+    mkdir -p ~/.R
+    echo "CXX17=g++ -std=g++17 -g -O2 -fpic" >> ~/.R/Makevars 
+  fi
 fi
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
