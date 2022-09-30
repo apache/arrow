@@ -32,11 +32,11 @@
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <dep.guava.version>30.1.1-jre</dep.guava.version>
-    <dep.netty-bom.version>4.1.78.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.47.0</dep.grpc-bom.version>
-    <dep.protobuf-bom.version>3.21.2</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.13.2.20220328</dep.jackson-bom.version>
+    <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
+    <dep.netty-bom.version>4.1.82.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.49.1</dep.grpc-bom.version>
+    <dep.protobuf-bom.version>3.21.6</dep.protobuf-bom.version>
+    <dep.jackson-bom.version>2.13.4</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
@@ -303,11 +303,6 @@
             <version>8.19</version>
           </dependency>
           <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>${dep.guava.version}</version>
-          </dependency>
-          <dependency>
               <groupId>org.slf4j</groupId>
               <artifactId>jcl-over-slf4j</artifactId>
               <version>1.7.5</version>
@@ -536,11 +531,6 @@
         <version>${dep.fbs.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>${dep.guava.version}</version>
-      </dependency>
-      <dependency>
         <groupId>com.google.code.findbugs</groupId>
         <artifactId>jsr305</artifactId>
         <version>3.0.2</version>
@@ -576,6 +566,13 @@
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
         <version>${dep.jackson-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava-bom</artifactId>
+        <version>${dep.guava-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
