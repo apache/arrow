@@ -4,7 +4,7 @@
 
 **NOTE**: Major limitations in this release are listed at the end of the document.
 
-*Table* is a new immutable tabular data structure based on FieldVectors. A mutable version (*MutableTable*) is expected in a subsequent release. This document describes the Table API and identifies limitations in the current release. 
+*Table* is a new immutable tabular data structure based on FieldVectors. A mutable version (*MutableTable*) is expected in a subsequent release. This document describes the Table API. 
 
 ---
 
