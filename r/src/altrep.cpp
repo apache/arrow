@@ -213,9 +213,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
 
-      // we no longer need the original array (keeping it alive uses more
+      // we no longer need the original ChunkedArray (keeping it alive uses more
       // memory than is required, since our methods can now use the
       // materialized array)
+      R_set_altrep_data1(alt, R_NilValue);
 
       UNPROTECT(1);
     }
@@ -399,7 +400,13 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
 
-  static R_xlen_t Length(SEXP alt) { return GetChunkedArray(alt)->length(); }
+  static R_xlen_t Length(SEXP alt) {
+    if (IsMaterialized(alt)) {
+      return Rf_xlength(Representation(alt));
+    } else {
+      return GetChunkedArray(alt)->length();
+    }
+  }
 
   // redefining because data2 is a paired list with the representation as the
   // first node: the CAR
@@ -499,7 +506,9 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       // store as data2, this is now considered materialized
       SetRepresentation(alt, copy);
-      MARK_NOT_MUTABLE(copy);
+
+      // remove the ChunkedArray reference
+      R_set_altrep_data1(alt, R_NilValue);
 
       UNPROTECT(1);
     }
@@ -865,6 +874,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     // only set to data2 if all the values have been converted
     SetRepresentation(alt, data2);
     UNPROTECT(1);  // data2
+
+    // remove reference to chunked array
+    R_set_altrep_data1(alt, R_NilValue);
 
     return data2;
   }
