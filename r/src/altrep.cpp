@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/array.h>
+#include <arrow/chunk_resolver.h>
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/bitmap_reader.h>
@@ -83,36 +84,20 @@ class ArrowAltrepData {
  public:
   std::shared_ptr<ChunkedArray> chunked_array;
   explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : chunked_array(chunked_array) {}
+      : chunked_array(chunked_array), resolver_(chunked_array->chunks()) {}
+
+  arrow::internal::ChunkLocation locate(int64_t index) {
+    return resolver_.Resolve(index);
+  }
+
+ private:
+  arrow::internal::ChunkResolver resolver_;
 };
 
 // the ChunkedArray that is being wrapped by the altrep object
 const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
   return external_pointer<ArrowAltrepData>(R_altrep_data1(alt))->chunked_array;
 }
-
-struct ArrayResolve {
-  ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
-    // TODO: This could use a ChunkedArrayResolver to do a binary search; however
-    // this would require some refactoring since we don't have an
-    for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
-      std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
-      auto chunk_size = chunk->length();
-      if (i < chunk_size) {
-        index_ = i;
-        array_ = chunk;
-        position_ = idx_chunk;
-        break;
-      }
-
-      i -= chunk_size;
-    }
-  }
-
-  std::shared_ptr<Array> array_;
-  int64_t index_ = 0;
-  int64_t position_ = 0;
-};
 
 // base class for all altrep vectors
 //
@@ -273,9 +258,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       return reinterpret_cast<c_type*>(DATAPTR(Representation(alt)))[i];
     }
 
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
+    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto resolve = altrep_data->locate(i);
+    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
                             : array->data()->template GetValues<c_type>(1)[j];
@@ -550,9 +536,11 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       return INTEGER_ELT(Representation(alt), i);
     }
 
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
+    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto resolve = altrep_data->locate(i);
+
+    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
       const auto& indices =
@@ -560,7 +548,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       if (WasUnified(alt)) {
         const auto* transpose_data = reinterpret_cast<const int32_t*>(
-            GetArrayTransposed(alt, resolve.position_)->data());
+            GetArrayTransposed(alt, resolve.chunk_index)->data());
 
         switch (indices->type_id()) {
           case Type::UINT8:
@@ -827,12 +815,10 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       return STRING_ELT(Representation(alt), i);
     }
 
-    // TODO: this probably slow for an array with a lot of chunks
-    // consider a binary search or a cache of the last array range since
-    // it's likely that i will be nearby in a lot of cases
-    ArrayResolve resolve(GetChunkedArray(alt), i);
-    auto array = resolve.array_;
-    auto j = resolve.index_;
+    auto altrep_data = external_pointer<ArrowAltrepData>(R_altrep_data1(alt));
+    auto resolve = altrep_data->locate(i);
+    auto array = altrep_data->chunked_array->chunk(resolve.chunk_index);
+    auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;
     RStringViewer& r_string_viewer = string_viewer();
