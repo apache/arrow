@@ -19,7 +19,7 @@
 set -ex
 
 : ${R_BIN:=R}
-
+: ${ARROW_REVDEP_WORKERS:=1)}
 source_dir=${1}/r
 
 # cpp building dependencies
@@ -101,7 +101,7 @@ SCRIPT="
     revdepcheck::revdep_check(
     quiet = FALSE,
     timeout = as.difftime(120, units = 'mins'),
-    num_workers = 1,
+    num_workers = $ARROW_REVDEP_WORKERS,
     env = c(
         ARROW_R_DEV = '$ARROW_R_DEV',
         revdepcheck::revdep_env_vars()

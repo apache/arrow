@@ -1385,6 +1385,7 @@ services:
         tz: ${TZ}
     shm_size: *shm-size
     environment:
+      ARROW_REVDEP_WORKERS:
       ARROW_R_DEV: "true"
     volumes: *ubuntu-volumes
     command: >
