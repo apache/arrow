@@ -23,7 +23,7 @@ expand_across <- function(.data, quos_in) {
     quo_expr <- quo_get_expr(quo_in[[1]])
     quo_env <- quo_get_env(quo_in[[1]])
 
-    if (is_call(quo_expr, "across")) {
+    if (is_call(quo_expr, "across") | is_call(quo_expr, "if_any") | is_call(quo_expr, "if_all")) {
       new_quos <- list()
 
       across_call <- match.call(
@@ -60,7 +60,37 @@ expand_across <- function(.data, quos_in) {
     }
   }
 
+  if (is_call(quo_expr, "if_any")) {
+    quos_out <- list(reduce(quos_out, combine_if, op = "|"))
+  }
+
+  if (is_call(quo_expr, "if_all")) {
+    quos_out <- list(reduce(quos_out, combine_if, op = "&"))
+  }
+
   quos_out
+}
+
+# takes multiple expressions and combines them with & or |
+combine_if <- function(lhs, rhs, op){
+
+  expr_text <- paste(
+    expr_text(quo_get_expr(lhs)),
+    expr_text(quo_get_expr(rhs)),
+    sep = paste0(" ", op, " ")
+  )
+
+  expr <- parse_expr(expr_text)
+  quo(!!expr)
+
+}
+
+if_any <- function(.cols = everything(), .fns = NULL, ..., .names = NULL) {
+
+}
+
+if_all <- function(.cols = everything(), .fns = NULL, ..., .names = NULL) {
+
 }
 
 # given a named list of functions and column names, create a list of new quosures
