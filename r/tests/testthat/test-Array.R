@@ -1175,9 +1175,22 @@ test_that("as_arrow_array() default method errors", {
 test_that("as_arrow_array() works for blob::blob()", {
   skip_if_not_installed("blob")
 
+  # empty
+  expect_r6_class(as_arrow_array(blob::blob()), "Array")
   expect_equal(
-    as_arrow_array(blob::blob(as.raw(1:5))),
-    as_arrow_array(list(as.raw(1:5)), type = binary())
+    as_arrow_array(blob::blob()),
+    as_arrow_array(list(), type = binary())
+  )
+
+  # all null
+  expect_equal(
+    as_arrow_array(blob::blob(NULL, NULL)),
+    as_arrow_array(list(NULL, NULL), type = binary())
+  )
+
+  expect_equal(
+    as_arrow_array(blob::blob(as.raw(1:5), NULL)),
+    as_arrow_array(list(as.raw(1:5), NULL), type = binary())
   )
 
   expect_equal(
@@ -1191,9 +1204,22 @@ test_that("as_arrow_array() works for blob::blob()", {
 })
 
 test_that("as_arrow_array() works for vctrs::list_of()", {
+  # empty
+  expect_r6_class(as_arrow_array(vctrs::list_of(.ptype = integer())), "Array")
   expect_equal(
-    as_arrow_array(vctrs::list_of(1:5, .ptype = integer())),
-    as_arrow_array(list(1:5), type = list_of(int32()))
+    as_arrow_array(vctrs::list_of(.ptype = integer())),
+    as_arrow_array(list(), type = list_of(int32()))
+  )
+
+  # all NULL
+  expect_equal(
+    as_arrow_array(vctrs::list_of(NULL, NULL, .ptype = integer())),
+    as_arrow_array(list(NULL, NULL), type = list_of(int32()))
+  )
+
+  expect_equal(
+    as_arrow_array(vctrs::list_of(1:5, NULL, .ptype = integer())),
+    as_arrow_array(list(1:5, NULL), type = list_of(int32()))
   )
 
   expect_equal(
