@@ -75,26 +75,19 @@
       <activation>
         <jdk>[11,]</jdk>
       </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-              <compilerArgs combine.children="append">
-                <arg>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>
-              </compilerArgs>
-            </configuration>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <argLine>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</argLine>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
+<!--      <build>-->
+<!--        <plugins>-->
+<!--          <plugin>-->
+<!--            <groupId>org.apache.maven.plugins</groupId>-->
+<!--            <artifactId>maven-compiler-plugin</artifactId>-->
+<!--            <configuration>-->
+<!--              <compilerArgs combine.children="append">-->
+<!--                <arg>&#45;&#45;patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>-->
+<!--              </compilerArgs>-->
+<!--            </configuration>-->
+<!--          </plugin>-->
+<!--        </plugins>-->
+<!--      </build>-->
     </profile>
   </profiles>
 
