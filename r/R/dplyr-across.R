@@ -58,22 +58,21 @@ expand_across <- function(.data, quos_in) {
     } else {
       quos_out <- append(quos_out, quo_in)
     }
-  }
 
-  if (is_call(quo_expr, "if_any")) {
-    quos_out <- append(list(), reduce(quos_out, combine_if, op = "|", envir = quo_get_env(quos_out[[1]])))
-  }
+    if (is_call(quo_expr, "if_any")) {
+      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "|", envir = quo_get_env(quos_out[[1]])))
+    }
 
-  if (is_call(quo_expr, "if_all")) {
-    quos_out <- append(list(), reduce(quos_out, combine_if, op = "&", envir = quo_get_env(quos_out[[1]])))
+    if (is_call(quo_expr, "if_all")) {
+      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "&", envir = quo_get_env(quos_out[[1]])))
+    }
   }
 
   new_quosures(quos_out)
 }
 
 # takes multiple expressions and combines them with & or |
-combine_if <- function(lhs, rhs, op, envir){
-
+combine_if <- function(lhs, rhs, op, envir) {
   expr_text <- paste(
     expr_text(quo_get_expr(lhs)),
     expr_text(quo_get_expr(rhs)),
@@ -83,7 +82,6 @@ combine_if <- function(lhs, rhs, op, envir){
   expr <- parse_expr(expr_text)
 
   new_quosure(expr, envir)
-
 }
 
 if_any <- function(.cols = everything(), .fns = NULL, ..., .names = NULL) {
