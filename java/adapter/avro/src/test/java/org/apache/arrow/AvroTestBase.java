@@ -46,19 +46,28 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 public class AvroTestBase {
 
   public Path tmp;
-
   protected AvroToArrowConfig config;
 
   @BeforeEach
-  void prepare() throws Exception {
-    this.tmp = Files.createTempDirectory("avro");
+  void createTempDirectory() throws Exception {
+    this.tmp = Files.createTempDirectory("avro" );
+  }
+
+  @BeforeEach
+  void setUp() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
+  }
+
+  @AfterEach
+  void deleteTempDirectory() {
+    this.tmp.toFile().deleteOnExit();
   }
 
   protected Schema getSchema(String schemaName) throws Exception {

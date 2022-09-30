@@ -35,6 +35,7 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +46,11 @@ public class TestWriteReadAvroRecord {
   @BeforeEach
   void setUp() throws Exception {
     tmp = Files.createTempDirectory("avro");
+  }
+
+  @AfterEach
+  void cleanUp() {
+    tmp.toFile().deleteOnExit();
   }
 
   @Test

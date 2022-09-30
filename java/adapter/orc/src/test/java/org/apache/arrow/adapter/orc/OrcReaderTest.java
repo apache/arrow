@@ -40,6 +40,7 @@ import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,11 @@ public class OrcReaderTest {
   @BeforeEach
   void setUp() throws Exception {
     testFolder = Files.createTempDirectory("avro").toFile();
+  }
+
+  @AfterEach
+  void cleanUp() {
+    testFolder.deleteOnExit();
   }
 
   @Test
