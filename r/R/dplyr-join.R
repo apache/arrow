@@ -38,7 +38,8 @@ do_join <- function(x,
     type = JoinType[[join_type]],
     right_data = y,
     by = by,
-    suffix = suffix
+    suffix = suffix,
+    keep = keep
   )
   collapse.arrow_dplyr_query(x)
 }

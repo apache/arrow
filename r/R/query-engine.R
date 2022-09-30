@@ -155,7 +155,12 @@ ExecPlan <- R6Class("ExecPlan",
         if (!is.null(.data$join)) {
           right_node <- self$Build(.data$join$right_data)
           left_output <- names(.data)
-          right_output <- setdiff(names(.data$join$right_data), .data$join$by)
+          right_output <- if (.data$join$keep || .data$join$type == JoinType$FULL_OUTER) {
+            names(.data$join$right_data)
+          } else {
+            setdiff(names(.data$join$right_data), .data$join$by)
+          }
+          
           node <- node$Join(
             type = .data$join$type,
             right_node = right_node,
@@ -165,6 +170,9 @@ ExecPlan <- R6Class("ExecPlan",
             left_suffix = .data$join$suffix[[1]],
             right_suffix = .data$join$suffix[[2]]
           )
+          if (.data$join$type == JoinType$FULL_OUTER && !.data$join$keep) {
+            node <- node$Project(post_join_projection(names(.data), .data$join))
+          }
         }
 
         if (!is.null(.data$union_all)) {
@@ -383,4 +391,70 @@ needs_projection <- function(projection, schema) {
   !all(nzchar(field_names)) || # Any of the Expressions are not FieldRefs
     !identical(field_names, names(projection)) || # Any fields are renamed
     !identical(field_names, names(schema)) # The fields are reordered
+}
+
+test_join <- list(
+  type = JoinType$FULL_OUTER,
+  right_data = arrow_table(x = 1, y = 2, z = "x"),
+  by = c("x", "y"),
+  suffix = c(".x", ".y"),
+  keep = FALSE
+)
+post_join_projection(c("value", "x", "y", "z"), test_join)
+
+#' Create projection needed to coalesce join keys after a full outer join
+#'
+#' @example
+#' test_join <- list(
+#'   type = JoinType$FULL_OUTER,
+#'   right_data = arrow_table(x = 1, y = 2, z = "x"),
+#'   by = c("x", 'y'),
+#'   suffix = c(".x", ".y"),
+#'   keep = FALSE
+#' )
+#' post_join_projection(c("value", "x", "y", "z"), test_join)
+post_join_projection <- function(left_names, join_config) {
+  # Need to coalesce the key columns
+  right_names <- names(join_config$right_data)
+  coalesce_targets <- data.frame(
+    left_index = match(join_config$by, left_names),
+    right_index = match(join_config$by, right_names)
+  )
+  # Right names as output by the join
+  right_names_input <- ifelse(
+    right_names %in% left_names,
+    paste0(right_names, join_config$suffix[[2]]),
+    right_names)
+
+  left_exprs <- vector("list", length(left_names))
+  for (i in seq_along(left_names)) {
+    name <- left_names[i]
+    # Name as outputted by the join
+    name_input <- if (name %in% right_names) {
+      paste0(name, join_config$suffix[[1]])
+    } else {
+      name
+    }
+
+    if (i %in% coalesce_targets$left_index) {
+      target_i <- match(i, coalesce_targets$left_index)
+      left_exprs[[i]] <- Expression$create(
+        "coalesce",
+        Expression$field_ref(name_input),
+        Expression$field_ref(right_names_input[coalesce_targets[target_i, 2]])
+      )
+      # We can drop the suffix that was added
+      names(left_exprs)[i] <- name
+    } else {
+      left_exprs[[i]] <- Expression$field_ref(name_input)
+      names(left_exprs)[i] <- name_input
+    }
+  }
+
+  # Exclude join keys from right side now
+  right_names_input <- right_names_input[!(right_names %in% join_config$by)]
+  right_exprs <- lapply(right_names_input, Expression$field_ref)
+  names(right_exprs) <- right_names_input
+
+  c(left_exprs, right_exprs)
 }
