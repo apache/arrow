@@ -338,5 +338,5 @@ The following are the major limitations of v. 10.0.0 release:
 1. No support ChunkedArrays or any form of row-group. Support for ChunkedArrows or row groups will be considered for a future release.
 2. No support for native interface using the C-Stream API. Support for the streaming API will be delivered with or after  Item 1. 
 3. No ability to use Tables with data imported from native code using the C-Data API.  Support for ths feature is gated on PR#13248 (https://github.com/apache/arrow/pull/13248).
-4. No support for creating tables directly from Java POJOs. All data held by a table must be imported via a VectorSchemaRoot.
+4. No support for creating tables directly from Java POJOs. All data held by a table must be imported via a VectorSchemaRoot, or from collections or arrays of FieldVectors.
 5. No support for mutable tables.

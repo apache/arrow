@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -78,6 +79,34 @@ class TableTest {
   void constructor() {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList, 2)) {
+      assertEquals(2, t.getRowCount());
+      assertEquals(2, t.getVectorCount());
+      Row c = t.immutableRow();
+      IntVector intVector1 = (IntVector) vectorList.get(0);
+      c.setPosition(0);
+
+      // Now test changes to the first vector
+      // first Table value is 1
+      assertEquals(1, c.getInt(INT_VECTOR_NAME_1));
+
+      // original vector is updated to set first value to 44
+      intVector1.setSafe(0, 44);
+      assertEquals(44, intVector1.get(0));
+      assertEquals(44, ((IntVector) vectorList.get(0)).get(0));
+
+      // first Table value is still 1 for the zeroth vector
+      assertEquals(1, c.getInt(INT_VECTOR_NAME_1));
+    }
+  }
+
+  /**
+   * Tests construction with an iterable that's not a list (there is a specialty constructor for Lists)
+   */
+  @Test
+  void constructor2() {
+    List<FieldVector> vectorList = twoIntColumns(allocator);
+    Iterable<FieldVector> iterable = new HashSet<>(vectorList);
+    try (Table t = new Table(iterable)) {
       assertEquals(2, t.getRowCount());
       assertEquals(2, t.getVectorCount());
       Row c = t.immutableRow();

@@ -83,16 +83,6 @@ public class Table extends BaseTable implements Iterable<Row> {
     super(fieldVectors, rowCount, provider);
   }
 
-  /*
-   */
-  /** Constructs a new instance containing the children of parent but not the parent itself. */
-  /*
-
-      public Table(FieldVector parent) {
-          this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getValueCount());
-      }
-  */
-
   /**
    * Constructs a new instance containing the data from the argument. Vectors are shared between the
    * Table and VectorSchemaRoot. Direct modification of those vectors is unsafe and should be
