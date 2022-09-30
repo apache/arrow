@@ -28,6 +28,7 @@ brew "git"
 brew "glog"
 brew "googletest"
 brew "grpc"
+# pin LLVM version on MacOS to 14 ARROW-17902
 brew "llvm@14"
 brew "llvm@12"
 brew "lz4"
