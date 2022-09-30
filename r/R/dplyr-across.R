@@ -106,9 +106,10 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
 
     # function calls with package base::round
     (is.call(fns)  && fns[[1]] == as.name("::")) ||
+      # purrr-style formulae
+      is_formula(fns) ||
       # any other length 1 function calls
       (length(fns) == 1 && (is.function(fns) || is_formula(fns) || is.name(fns) || is_call(fns, "function")))
-
   }
 
   # apply `.names` smart default
