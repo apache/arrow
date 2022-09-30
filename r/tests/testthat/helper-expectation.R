@@ -323,5 +323,5 @@ split_vector_as_list <- function(vec) {
 }
 
 expect_across_equal <- function(across_expr, expected, tbl) {
-  expect_identical(expand_across(as_adq(tbl), across_expr), as.list(expected))
+  expect_identical(expand_across(as_adq(tbl), across_expr), new_quosures(expected))
 }
