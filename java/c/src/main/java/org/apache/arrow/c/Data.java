@@ -125,6 +125,22 @@ public final class Data {
    *
    * @param allocator Buffer allocator for allocating C data interface fields
    * @param table     Table to export
+   * @param out       C struct where to export the record batch
+   */
+  public static void exportTable(BufferAllocator allocator, Table table, ArrowArray out) {
+    exportTable(allocator, table, table.getDictionaryProvider(), out, null);
+  }
+
+  /**
+   * Export the current contents of a Java Table using the C data
+   * interface format.
+   * <p>
+   * The table is exported as if it were a struct array. The
+   * resulting ArrowArray struct keeps the record batch data and buffers alive
+   * until its release callback is called by the consumer.
+   *
+   * @param allocator Buffer allocator for allocating C data interface fields
+   * @param table     Table to export
    * @param provider  Dictionary provider for dictionary encoded vectors
    *                  (optional)
    * @param out       C struct where to export the record batch
