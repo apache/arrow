@@ -29,8 +29,6 @@
 
 #include "arrow/api.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/schema.h"
@@ -42,7 +40,6 @@ namespace parquet {
 using schema::NodePtr;
 using testing::ElementsAre;
 using parquet::internal::BinaryRecordReader;
-using ::arrow::util::string_view;
 
 namespace test {
 
@@ -1167,7 +1164,7 @@ TEST(RecordReaderTest, SkipByteArray) {
   // Our values above are not spaced, however, the RecordReader will
   // read spaced for nullable values.
   // Create spaced expected values.
-  std::vector<string_view> expected_values;
+  std::vector<std::string_view> expected_values;
   size_t values_index = 0;
   for (int i = 0; i < 90; ++i) {
     if (def_levels[i] == 0) {
