@@ -126,8 +126,6 @@ archery linking check-dependencies \
   --allow libncurses \
   --allow libplasma_java \
   --allow libz \
-  --allow libz3 \
-  --allow libzstd \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
   libarrow_orc_jni.dylib \
