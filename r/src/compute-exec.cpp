@@ -405,7 +405,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   }
   // dplyr::semi_join => LEFT_SEMI; dplyr::anti_join => LEFT_ANTI
   // So ignoring RIGHT_SEMI and RIGHT_ANTI here.
-  if (join_type != compute::JoinType::LEFT_SEMI && join_type != compute::JoinType::LEFT_ANTI) {
+  if (join_type != compute::JoinType::LEFT_SEMI &&
+      join_type != compute::JoinType::LEFT_ANTI) {
     // Don't include out_refs in semi/anti join
     for (auto&& name : right_output) {
       right_out_refs.emplace_back(std::move(name));

@@ -28,8 +28,6 @@ do_join <- function(x,
                     na_matches,
                     join_type) {
   # TODO: handle `copy` arg: ignore?
-  # TODO: handle `suffix` arg: Arrow does prefix
-  # TODO: handle `keep` arg: "Should the join keys from both ‘x’ and ‘y’ be preserved in the output?"
   # TODO: handle `na_matches` arg
   x <- as_adq(x)
   y <- as_adq(y)

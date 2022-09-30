@@ -160,7 +160,7 @@ ExecPlan <- R6Class("ExecPlan",
           } else {
             setdiff(names(.data$join$right_data), .data$join$by)
           }
-          
+
           node <- node$Join(
             type = .data$join$type,
             right_node = right_node,
@@ -393,15 +393,6 @@ needs_projection <- function(projection, schema) {
     !identical(field_names, names(schema)) # The fields are reordered
 }
 
-test_join <- list(
-  type = JoinType$FULL_OUTER,
-  right_data = arrow_table(x = 1, y = 2, z = "x"),
-  by = c("x", "y"),
-  suffix = c(".x", ".y"),
-  keep = FALSE
-)
-post_join_projection(c("value", "x", "y", "z"), test_join)
-
 #' Create projection needed to coalesce join keys after a full outer join
 #'
 #' @example
@@ -424,7 +415,8 @@ post_join_projection <- function(left_names, join_config) {
   right_names_input <- ifelse(
     right_names %in% left_names,
     paste0(right_names, join_config$suffix[[2]]),
-    right_names)
+    right_names
+  )
 
   left_exprs <- vector("list", length(left_names))
   for (i in seq_along(left_names)) {

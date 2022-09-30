@@ -141,21 +141,25 @@ test_that("Error handling", {
 # TODO: casting: int and float columns?
 
 test_that("right_join", {
-  compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        right_join(to_join, by = "some_grouping", keep = keep) %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("inner_join", {
-  compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping") %>%
-      collect(),
-    left
-  )
+  for (keep in c(TRUE, FALSE)) {
+    compare_dplyr_binding(
+      .input %>%
+        inner_join(to_join, by = "some_grouping") %>%
+        collect(),
+      left
+    )
+  }
 })
 
 test_that("full_join", {
