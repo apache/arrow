@@ -43,8 +43,8 @@ namespace util {
 ///
 /// By default the scheduler will submit the task (execute the synchronous part) as
 /// soon as it is added, assuming the underlying thread pool hasn't terminated or the
-/// scheduler hasn't aborted.  In this mode the scheduler is simply acting as
-/// a task group, keeping track of the ongoing work.
+/// scheduler hasn't aborted.  In this mode, the scheduler is simply acting as
+/// a task group (keeping track of the ongoing work).
 ///
 /// This can be used to provide structured concurrency for asynchronous development.
 /// A task group created at a high level can be distributed amongst low level components
@@ -54,7 +54,7 @@ namespace util {
 /// A task scheduler must eventually be ended when all tasks have been added.  Once the
 /// scheduler has been ended it is an error to add further tasks.  Note, it is not an
 /// error to add additional tasks after a scheduler has aborted (though these tasks
-/// will be ignored and never submitted).  The scheduler has a futuer which will complete
+/// will be ignored and never submitted).  The scheduler has a future which will complete
 /// once the scheduler has been ended AND all remaining tasks have finished executing.
 /// Ending a scheduler will NOT cause the scheduler to flush existing tasks.
 ///

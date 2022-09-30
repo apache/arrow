@@ -118,22 +118,13 @@
       }
     },
     {
-      "name": "features-python",
-      "inherits": "features-main",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_PYTHON": "ON"
-      }
-    },
-    {
       "name": "features-maximal",
       "inherits": [
         "features-main",
         "features-cuda",
         "features-filesystems",
         "features-flight",
-        "features-gandiva",
-        "features-python"
+        "features-gandiva"
       ],
       "hidden": true,
       "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
@@ -195,12 +186,6 @@
       "cacheVariables": {}
     },
     {
-      "name": "ninja-debug-python",
-      "inherits": ["base-debug", "features-python"],
-      "displayName": "Debug build with tests and Python support",
-      "cacheVariables": {}
-    },
-    {
       "name": "ninja-debug-maximal",
       "inherits": ["base-debug", "features-maximal"],
       "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
@@ -241,12 +226,6 @@
       "name": "ninja-release-gandiva",
       "inherits": ["base-release", "features-gandiva"],
       "displayName": "Release build with Gandiva",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-python",
-      "inherits": ["base-release", "features-python"],
-      "displayName": "Release build with Python support",
       "cacheVariables": {}
     },
     {

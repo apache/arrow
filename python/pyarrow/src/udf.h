@@ -41,6 +41,7 @@ struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
   std::shared_ptr<DataType> output_type;
 };
 
+/// \brief A context passed as the first argument of scalar UDF functions.
 struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   MemoryPool* pool;
   int64_t batch_length;

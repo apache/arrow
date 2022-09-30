@@ -329,9 +329,9 @@ class DatasetWriterDirectoryQueue {
     };
     util::AsyncTaskScheduler* file_scheduler =
         scheduler_->MakeSubScheduler(std::move(file_finish_task), throttle_view);
-    if (init_future_.is_valid()) {
-      file_scheduler->AddSimpleTask(
-          [init_future = init_future_]() { return init_future; });
+    if (init_task_) {
+      file_scheduler->AddSimpleTask(init_task_);
+      init_task_ = {};
     }
     file_queue_view->Start(file_scheduler, filename);
     return file_queue_view;
@@ -343,28 +343,21 @@ class DatasetWriterDirectoryQueue {
     if (directory_.empty() || !write_options_.create_dir) {
       return;
     }
-    init_future_ = Future<>::Make();
     auto create_dir_cb = [this] {
-      return DeferNotOk(
-          write_options_.filesystem->io_context().executor()->Submit([this]() {
-            ARROW_RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
-            init_future_.MarkFinished();
-            return Status::OK();
-          }));
+      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
     };
-    std::function<Future<>()> init_task;
     if (write_options_.existing_data_behavior ==
         ExistingDataBehavior::kDeleteMatchingPartitions) {
-      init_task = [this, create_dir_cb] {
+      init_task_ = [this, create_dir_cb] {
         return write_options_.filesystem
             ->DeleteDirContentsAsync(directory_,
                                      /*missing_dir_ok=*/true)
             .Then(create_dir_cb);
       };
     } else {
-      init_task = [create_dir_cb] { return create_dir_cb(); };
+      init_task_ = [create_dir_cb] { return create_dir_cb(); };
     }
-    scheduler_->AddSimpleTask(std::move(init_task));
   }
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue>> Make(
@@ -395,7 +388,7 @@ class DatasetWriterDirectoryQueue {
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
   DatasetWriterState* writer_state_;
-  Future<> init_future_;
+  std::function<Future<>()> init_task_;
   std::string current_filename_;
   DatasetWriterFileQueue* latest_open_file_ = nullptr;
   uint64_t rows_written_ = 0;

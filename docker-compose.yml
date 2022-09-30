@@ -115,7 +115,6 @@ x-hierarchy:
         - conda-python-hdfs
         - conda-python-java-integration
         - conda-python-jpype
-        - conda-python-kartothek
         - conda-python-spark
         - conda-python-turbodbc
   - conda-verify-rc
@@ -1208,37 +1207,6 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
-
-  conda-python-kartothek:
-    # Possible $KARTOTHEK parameters:
-    #  - `latest`: latest release
-    #  - `master`: git master branch, use `docker-compose run --no-cache`
-    #  - `<version>`: specific version available under github releases
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-kartothek
-    #   docker-compose run --rm conda-python-kartothek
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-kartothek.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        kartothek: ${KARTOTHEK}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
 
   ################################## R ########################################
 
