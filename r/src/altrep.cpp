@@ -79,15 +79,22 @@ void DeletePointer(std::shared_ptr<T>* ptr) {
 template <typename T>
 using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
+class ArrowAltrepData {
+ public:
+  std::shared_ptr<ChunkedArray> chunked_array;
+  explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : chunked_array(chunked_array) {}
+};
+
 // the ChunkedArray that is being wrapped by the altrep object
 const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
-  return *Pointer<ChunkedArray>(R_altrep_data1(alt));
+  return external_pointer<ArrowAltrepData>(R_altrep_data1(alt))->chunked_array;
 }
 
 struct ArrayResolve {
   ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
-    // TODO: should probably use a binary search? Likely only matters in
-    // chunked arrays where there are many chunks. Maybe Arrow has this already?
+    // TODO: This could use a ChunkedArrayResolver to do a binary search; however
+    // this would require some refactoring since we don't have an
     for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
       std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
       auto chunk_size = chunk->length();
@@ -120,7 +127,7 @@ struct AltrepVectorBase {
   static SEXP Make(const std::shared_ptr<ChunkedArray>& chunked_array) {
     SEXP alt = R_new_altrep(
         Impl::class_t,
-        Pointer<ChunkedArray>(new std::shared_ptr<ChunkedArray>(chunked_array)),
+        external_pointer<ArrowAltrepData>(new ArrowAltrepData(chunked_array)),
         R_NilValue);
     MARK_NOT_MUTABLE(alt);
 
@@ -471,7 +478,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     // the chunked array as data1
     SEXP data1 =
-        PROTECT(Pointer<ChunkedArray>(new std::shared_ptr<ChunkedArray>(chunked_array)));
+        PROTECT(external_pointer<ArrowAltrepData>(new ArrowAltrepData(chunked_array)));
 
     // a pairlist with the representation in the first node
     SEXP data2 = PROTECT(Rf_list2(R_NilValue,  // representation, empty at first
