@@ -215,9 +215,8 @@ test_that("expand_across correctly expands quosures", {
 })
 
 test_that("purrr-style lambda functions are supported", {
-
   expect_across_equal(
-    quos(across(c(dbl, dbl2), ~round(.x, digits = 0))),
+    quos(across(c(dbl, dbl2), ~ round(.x, digits = 0))),
     quos(
       dbl = round(dbl, digits = 0),
       dbl2 = round(dbl2, digits = 0)
@@ -226,7 +225,7 @@ test_that("purrr-style lambda functions are supported", {
   )
 
   expect_across_equal(
-    quos(across(c(dbl, dbl2), c(~round(.x, digits = 0), ~.*2))),
+    quos(across(c(dbl, dbl2), c(~ round(.x, digits = 0), ~ . * 2))),
     quos(
       dbl_1 = round(dbl, digits = 0),
       dbl_2 = dbl * 2,
@@ -235,5 +234,4 @@ test_that("purrr-style lambda functions are supported", {
     ),
     example_data
   )
-
 })

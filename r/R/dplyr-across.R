@@ -162,7 +162,6 @@ across_glue_mask <- function(.col, .fn, .caller_env) {
 
 # Substitutes instances of `.` and `.x` with the variable in question
 as_across_fn_call <- function(fn, var, quo_env) {
-
   if (is_formula(fn, lhs = FALSE)) {
     expr <- f_rhs(fn)
     expr <- expr_substitute(expr, quote(.), sym(var))
@@ -179,12 +178,13 @@ expr_substitute <- function(expr, old, new) {
 
   switch(typeof(expr),
     language = node_walk_replace(node_cdr(expr), old, new),
-    symbol = if (identical(expr, old)) return(new)
+    symbol = if (identical(expr, old)) {
+      return(new)
+    }
   )
   expr
 }
 node_walk_replace <- function(node, old, new) {
-
   while (!rlang::is_null(node)) {
     switch(typeof(node_car(node)),
       language = if (!is_call(node_car(node), c("~", "function")) || is_call(node_car(node), "~", n = 2)) node_walk_replace(node_cdar(node), old, new),
