@@ -38,6 +38,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -230,6 +231,42 @@ class BaseTableTest {
       assertNotNull(v);
       assertEquals(0, v.get(0));
       assertEquals(1, v.get(1));
+    }
+  }
+
+  @Test
+  void testDecode() {
+    List<FieldVector> vectorList = intPlusVarcharColumns(allocator);
+    VarCharVector original = (VarCharVector) vectorList.get(1);
+
+    VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+    dictionaryVector.allocateNew(2);
+    dictionaryVector.set(0, "one".getBytes());
+    dictionaryVector.set(1, "two".getBytes());
+    dictionaryVector.setValueCount(2);
+    Dictionary dictionary =
+        new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
+    IntVector encoded = (IntVector) encoder.encode(original);
+    vectorList.remove(original);
+    vectorList.add(encoded);
+    DictionaryProvider provider = getDictionary();
+
+    try (Table t = new Table(vectorList, vectorList.get(0).getValueCount(), provider)) {
+      VarCharVector v = (VarCharVector) t.decode(encoded.getName(), 1L);
+      assertNotNull(v);
+      assertEquals("one", new String(v.get(0)));
+      assertEquals("two", new String(v.get(1)));
+    }
+  }
+
+  @Test
+  void getProvider() {
+    List<FieldVector> vectorList = intPlusVarcharColumns(allocator);
+    DictionaryProvider provider = getDictionary();
+    try (Table t = new Table(vectorList, vectorList.get(0).getValueCount(), provider)) {
+      assertEquals(provider, t.getDictionaryProvider());
     }
   }
 

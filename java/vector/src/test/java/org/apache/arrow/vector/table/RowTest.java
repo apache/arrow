@@ -212,7 +212,6 @@ class RowTest {
     try (StructVector structVector = simpleStructVector(allocator);
         VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(structVector);
         Table table = new Table(vectorSchemaRoot)) {
-      System.out.println(table.contentToTSVString());
       for (Row c : table) {
         @SuppressWarnings("unchecked")
         JsonStringHashMap<String, ?> struct =
@@ -281,6 +280,19 @@ class RowTest {
         }
         i++;
       }
+    }
+  }
+
+  @Test
+  void resetPosition() {
+    try (ListVector listVector = simpleListVector(allocator);
+        VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(listVector);
+        Table table = new Table(vectorSchemaRoot)) {
+      Row row = table.immutableRow();
+      row.next();
+      assertEquals(0, row.rowNumber);
+      row.resetPosition();
+      assertEquals(-1, row.rowNumber);
     }
   }
 }

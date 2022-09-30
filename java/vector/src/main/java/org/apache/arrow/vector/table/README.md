@@ -192,6 +192,14 @@ The difference is that when you *construct* a new table, the buffers are transfe
 
 Slices will not be supported in MutableTables. 
 
+## Table API: Using FieldReaders
+
+You can get a FieldReader for any vector in the Table using either the Field, vector index, or vector name. The signatures are the same as in VectorSchemaRoot.
+
+```java
+FieldReader nameReader = table.getReader("user_name");
+```
+
 ## Table API: Row operations
 
 Row-based access is supported using a Row object. Row provides *get()* methods by both vector name and vector position, but no *set()* operations. It is important to recognize that it's NOT a reified row, but rather operates like a cursor where the data from numerous logical rows in the Table can be viewed (one row at a time) using the same Row instance. See "Getting around" below for information about how to navigate through the table.
@@ -307,6 +315,12 @@ This works by converting the data to a VectorSchemaRoot and using the existing f
 
 ```java
 Data.exportTable(bufferAllocator, table, dictionaryProvider, outArrowArray);
+```
+
+If the table contains dictionary-encoded vectors, it should have been created with a dictionary provider to support encode and decode operations. In that case, the provider argument can be ommitted and the table's provider attribute will be used:
+
+```java
+Data.exportTable(bufferAllocator, table, outArrowArray);
 ```
 
 ### Importing Tables from native code
