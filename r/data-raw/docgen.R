@@ -130,8 +130,6 @@ docs <- arrow:::.cache$docs
 docs[["dplyr::across"]] <- c(
   # TODO(ARROW-17387): do filter
   "not yet supported inside `filter()`;",
-  # TODO(ARROW-17366): do ~
-  "purrr-style lambda functions",
   # TODO(ARROW-17384): implement where
   "and use of `where()` selection helper not yet supported"
 )
