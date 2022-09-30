@@ -17,13 +17,12 @@
 
 package io.netty.buffer;
 
-import static org.apache.arrow.memory.util.AssertionUtil.ASSERT_ENABLED;
-
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 
 import io.netty.util.internal.OutOfDirectMemoryError;
@@ -183,7 +182,7 @@ public class PooledByteBufAllocatorL {
             fail();
           }
 
-          if (!ASSERT_ENABLED) {
+          if (!AssertionUtil.ASSERT_ENABLED) {
             return new UnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf);
           }
 
