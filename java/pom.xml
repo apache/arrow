@@ -28,8 +28,8 @@
   <url>https://arrow.apache.org/</url>
 
   <properties>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+<!--    <maven.compiler.source>11</maven.compiler.source>-->
+<!--    <maven.compiler.target>11</maven.compiler.target>-->
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
@@ -152,6 +152,7 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
+            <exclude>**/*.idea/**</exclude>
             <exclude>**/flight.properties</exclude>
           </excludes>
         </configuration>
@@ -203,37 +204,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.10.1</version>
-        <executions>
-          <execution>
-            <id>default-compile</id>
-            <configuration>
-              <release>11</release>
-            </configuration>
-          </execution>
-          <execution>
-            <id>default-testCompile</id>
-            <configuration>
-              <release>11</release>
-            </configuration>
-          </execution>
-          <execution>
-            <id>base-compile</id>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-            <configuration>
-              <source>8</source>
-              <target>8</target>
-              <excludes>
-                <exclude>module-info.java</exclude>
-              </excludes>
-              <maxmem>2048m</maxmem>
-              <useIncrementalCompilation>false</useIncrementalCompilation>
-              <fork>true</fork>
-            </configuration>
-          </execution>
-        </executions>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <maxmem>2048m</maxmem>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
+          <fork>true</fork>
+        </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -814,6 +791,31 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
+            <executions>
+              <execution>
+                <id>default-compile</id>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+              <execution>
+                <id>base-compile</id>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
@@ -859,6 +861,33 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
+            <executions>
+              <execution>
+                <id>default-compile</id>
+                <configuration>
+                  <release>11</release>
+                </configuration>
+              </execution>
+              <execution>
+                <id>default-testCompile</id>
+                <configuration>
+                  <release>11</release>
+                </configuration>
+              </execution>
+              <execution>
+                <id>base-compile</id>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>8</source>
+                  <target>8</target>
+                  <excludes>
+                    <exclude>module-info.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>

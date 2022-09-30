@@ -69,27 +69,36 @@
         </plugins>
       </build>
     </profile>
-  </profiles>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerArgs combine.children="append">
-            <arg>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <argLine>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</argLine>
-        </configuration>
-      </plugin>
 
-    </plugins>
-  </build>
+    <profile>
+      <id>memory-jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <compilerArgs combine.children="append">
+<!--                <arg>&#45;&#45;patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>-->
+                <arg>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-10.0.0-SNAPSHOT.jar</arg>
+              </compilerArgs>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+<!--              <argLine>&#45;&#45;patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</argLine>-->
+              <argLine>--patch-module=io.netty.buffer=/Users/dsusanibar/voltron/jiraarrow/fork/arrow/java/memory/memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-10.0.0-SNAPSHOT.jar</argLine>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 
 </project>
