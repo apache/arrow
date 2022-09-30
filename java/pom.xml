@@ -28,12 +28,10 @@
   <url>https://arrow.apache.org/</url>
 
   <properties>
-<!--    <maven.compiler.source>11</maven.compiler.source>-->
-<!--    <maven.compiler.target>11</maven.compiler.target>-->
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
-    <dep.slf4j.version>1.7.36</dep.slf4j.version>
+    <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.82.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.49.1</dep.grpc-bom.version>
@@ -43,7 +41,7 @@
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
     <arrow.vector.classifier />
-    <forkCount>1</forkCount><!--FIXME! To be reviewed. Value more than "0" produce: NoClassDefFound Could not initialize class org.apache.arrow.memory.RootAllocator-->
+    <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.13.1</error_prone_core.version>
@@ -152,7 +150,6 @@
             <exclude>**/client/build/**</exclude>
             <exclude>**/*.tbl</exclude>
             <exclude>**/*.iml</exclude>
-            <exclude>**/*.idea/**</exclude>
             <exclude>**/flight.properties</exclude>
           </excludes>
         </configuration>
@@ -334,32 +331,30 @@
           <format>html</format>
           <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
           <linkXRef>false</linkXRef>
-          <excludes>**/module-info.java</excludes>
         </configuration>
       </plugin>
-<!--      <plugin>-->
-<!--        <groupId>org.apache.maven.plugins</groupId>-->
-<!--        <artifactId>maven-dependency-plugin</artifactId>-->
-<!--        <executions>-->
-<!--          <execution>-->
-<!--            <id>analyze</id>-->
-<!--            <phase>verify</phase>-->
-<!--            <goals>-->
-<!--              <goal>analyze-only</goal>-->
-<!--            </goals>-->
-<!--            <configuration>-->
-<!--              <ignoreNonCompile>true</ignoreNonCompile>-->
-<!--              <failOnWarning>true</failOnWarning>-->
-<!--              <ignoredDependencies>-->
-<!--                &lt;!&ndash; source annotations (not kept in compiled code) &ndash;&gt;-->
-<!--                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>-->
-<!--                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>-->
-<!--                <ignoredDependency>sun.misc.Unsafe</ignoredDependency>-->
-<!--              </ignoredDependencies>-->
-<!--            </configuration>-->
-<!--          </execution>-->
-<!--        </executions>-->
-<!--      </plugin>-->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <ignoreNonCompile>true</ignoreNonCompile>
+              <failOnWarning>true</failOnWarning>
+              <ignoredDependencies>
+                <!-- source annotations (not kept in compiled code) -->
+                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
+                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -791,31 +786,6 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
-            <executions>
-              <execution>
-                <id>default-compile</id>
-                <configuration>
-                  <source>8</source>
-                  <target>8</target>
-                  <excludes>
-                    <exclude>module-info.java</exclude>
-                  </excludes>
-                </configuration>
-              </execution>
-              <execution>
-                <id>base-compile</id>
-                <goals>
-                  <goal>compile</goal>
-                </goals>
-                <configuration>
-                  <source>8</source>
-                  <target>8</target>
-                  <excludes>
-                    <exclude>module-info.java</exclude>
-                  </excludes>
-                </configuration>
-              </execution>
-            </executions>
           </plugin>
         </plugins>
       </build>
@@ -837,7 +807,6 @@
             <configuration>
               <source>8</source>
               <target>8</target>
-<!--              <release>8</release>-->
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
@@ -861,33 +830,6 @@
                 </path>
               </annotationProcessorPaths>
             </configuration>
-            <executions>
-              <execution>
-                <id>default-compile</id>
-                <configuration>
-                  <release>11</release>
-                </configuration>
-              </execution>
-              <execution>
-                <id>default-testCompile</id>
-                <configuration>
-                  <release>11</release>
-                </configuration>
-              </execution>
-              <execution>
-                <id>base-compile</id>
-                <goals>
-                  <goal>compile</goal>
-                </goals>
-                <configuration>
-                  <source>8</source>
-                  <target>8</target>
-                  <excludes>
-                    <exclude>module-info.java</exclude>
-                  </excludes>
-                </configuration>
-              </execution>
-            </executions>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>

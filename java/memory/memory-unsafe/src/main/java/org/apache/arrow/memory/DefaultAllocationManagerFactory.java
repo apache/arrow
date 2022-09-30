@@ -17,28 +17,21 @@
 
 package org.apache.arrow.memory;
 
-
 /**
- * Child allocator class. Only slightly different from the {@see RootAllocator},
- * in that these can't be created directly, but must be obtained from
- * {@see BufferAllocator#newChildAllocator(AllocatorOwner, long, long, int)}.
+ * The default Allocation Manager Factory for a module.
  *
- * <p>Child allocators can only be created by the root, or other children, so
- * this class is package private.</p>
  */
-class ChildAllocator extends BaseAllocator {
+public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
-  /**
-   * Constructor.
-   *
-   * @param parentAllocator parent allocator -- the one creating this child
-   * @param name            the name of this child allocator
-   * @param config          configuration of this child allocator
-   */
-  ChildAllocator(
-          BaseAllocator parentAllocator,
-          String name,
-          Config config) {
-    super(parentAllocator, name, config);
+  public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager.FACTORY;
+
+  @Override
+  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+    return FACTORY.create(accountingAllocator, size);
+  }
+
+  @Override
+  public ArrowBuf empty() {
+    return UnsafeAllocationManager.FACTORY.empty();
   }
 }

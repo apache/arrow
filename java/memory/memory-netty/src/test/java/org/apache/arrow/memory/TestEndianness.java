@@ -17,28 +17,35 @@
 
 package org.apache.arrow.memory;
 
+import static org.junit.Assert.assertEquals;
 
-/**
- * Child allocator class. Only slightly different from the {@see RootAllocator},
- * in that these can't be created directly, but must be obtained from
- * {@see BufferAllocator#newChildAllocator(AllocatorOwner, long, long, int)}.
- *
- * <p>Child allocators can only be created by the root, or other children, so
- * this class is package private.</p>
- */
-class ChildAllocator extends BaseAllocator {
+import java.nio.ByteOrder;
 
-  /**
-   * Constructor.
-   *
-   * @param parentAllocator parent allocator -- the one creating this child
-   * @param name            the name of this child allocator
-   * @param config          configuration of this child allocator
-   */
-  ChildAllocator(
-          BaseAllocator parentAllocator,
-          String name,
-          Config config) {
-    super(parentAllocator, name, config);
+import org.junit.Test;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.NettyArrowBuf;
+
+public class TestEndianness {
+
+  @Test
+  public void testNativeEndian() {
+    final BufferAllocator a = new RootAllocator(10000);
+    final ByteBuf b = NettyArrowBuf.unwrapBuffer(a.buffer(4));
+    b.setInt(0, 35);
+    if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+      assertEquals(b.getByte(0), 35);
+      assertEquals(b.getByte(1), 0);
+      assertEquals(b.getByte(2), 0);
+      assertEquals(b.getByte(3), 0);
+    } else {
+      assertEquals(b.getByte(0), 0);
+      assertEquals(b.getByte(1), 0);
+      assertEquals(b.getByte(2), 0);
+      assertEquals(b.getByte(3), 35);
+    }
+    b.release();
+    a.close();
   }
+
 }

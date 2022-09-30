@@ -17,28 +17,25 @@
 
 package org.apache.arrow.memory;
 
+import static org.junit.Assert.assertEquals;
+
+import org.junit.Test;
 
 /**
- * Child allocator class. Only slightly different from the {@see RootAllocator},
- * in that these can't be created directly, but must be obtained from
- * {@see BufferAllocator#newChildAllocator(AllocatorOwner, long, long, int)}.
- *
- * <p>Child allocators can only be created by the root, or other children, so
- * this class is package private.</p>
+ * Test cases for {@link AllocationManager}.
  */
-class ChildAllocator extends BaseAllocator {
+public class TestAllocationManagerUnsafe {
 
-  /**
-   * Constructor.
-   *
-   * @param parentAllocator parent allocator -- the one creating this child
-   * @param name            the name of this child allocator
-   * @param config          configuration of this child allocator
-   */
-  ChildAllocator(
-          BaseAllocator parentAllocator,
-          String name,
-          Config config) {
-    super(parentAllocator, name, config);
+  @Test
+  public void testAllocationManagerType() {
+
+    // test unsafe allocation manager type
+    System.setProperty(
+        DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_PROPERTY_NAME, "Unsafe");
+    DefaultAllocationManagerOption.AllocationManagerType mgrType =
+        DefaultAllocationManagerOption.getDefaultAllocationManagerType();
+
+    assertEquals(DefaultAllocationManagerOption.AllocationManagerType.Unsafe, mgrType);
+
   }
 }

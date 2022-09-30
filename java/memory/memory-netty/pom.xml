@@ -28,9 +28,8 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory-netty-buffer-patch</artifactId>
-      <version>${project.version}</version>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-buffer</artifactId>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -69,27 +68,5 @@
         </plugins>
       </build>
     </profile>
-
-    <profile>
-      <id>memory-jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
-      </activation>
-<!--      <build>-->
-<!--        <plugins>-->
-<!--          <plugin>-->
-<!--            <groupId>org.apache.maven.plugins</groupId>-->
-<!--            <artifactId>maven-compiler-plugin</artifactId>-->
-<!--            <configuration>-->
-<!--              <compilerArgs combine.children="append">-->
-<!--                <arg>&#45;&#45;patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>-->
-<!--              </compilerArgs>-->
-<!--            </configuration>-->
-<!--          </plugin>-->
-<!--        </plugins>-->
-<!--      </build>-->
-    </profile>
   </profiles>
-
-
 </project>
