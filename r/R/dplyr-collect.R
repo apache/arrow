@@ -24,8 +24,8 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     # n = 4 because we want the error to show up as being from collect()
     # and not handle_csv_read_error()
     error = function(e, call = caller_env(n = 4)) {
-      handle_csv_read_error(e, x$.data$schema, call)
       handle_augmented_field_misuse(e, call)
+      handle_csv_read_error(e, x$.data$schema, call)
       abort(conditionMessage(e), call = call)
     }
   )
