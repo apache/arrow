@@ -52,6 +52,14 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
+import org.apache.arrow.vector.holders.NullableTimeMicroHolder;
+import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
+import org.apache.arrow.vector.holders.NullableTimeSecHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -250,10 +258,60 @@ class RowTest {
       assertEquals(c.getTimeMicro("timeMicro_vector"), c.getTimeMicro(12));
       assertEquals(c.getTimeNano("timeNano_vector"), c.getTimeNano(13));
 
+      // time tests using Nullable Holders
+      NullableTimeSecHolder timeSecHolder = new NullableTimeSecHolder();
+      NullableTimeMilliHolder timeMilliHolder = new NullableTimeMilliHolder();
+      NullableTimeMicroHolder timeMicroHolder = new NullableTimeMicroHolder();
+      NullableTimeNanoHolder timeNanoHolder = new NullableTimeNanoHolder();
+      // fill the holders using vector index and test
+      c.getTimeSec(10, timeSecHolder);
+      c.getTimeMilli(11, timeMilliHolder);
+      c.getTimeMicro(12, timeMicroHolder);
+      c.getTimeNano(13, timeNanoHolder);
+      assertEquals(c.getTimeSec("timeSec_vector"), timeSecHolder.value);
+      assertEquals(c.getTimeMilli("timeMilli_vector"), timeMilliHolder.value);
+      assertEquals(c.getTimeMicro("timeMicro_vector"), timeMicroHolder.value);
+      assertEquals(c.getTimeNano("timeNano_vector"), timeNanoHolder.value);
+
+      // refill the holders using vector name and retest
+      c.getTimeSec("timeSec_vector", timeSecHolder);
+      c.getTimeMilli("timeMilli_vector", timeMilliHolder);
+      c.getTimeMicro("timeMicro_vector", timeMicroHolder);
+      c.getTimeNano("timeNano_vector", timeNanoHolder);
+      assertEquals(c.getTimeSec("timeSec_vector"), timeSecHolder.value);
+      assertEquals(c.getTimeMilli("timeMilli_vector"), timeMilliHolder.value);
+      assertEquals(c.getTimeMicro("timeMicro_vector"), timeMicroHolder.value);
+      assertEquals(c.getTimeNano("timeNano_vector"), timeNanoHolder.value);
+
       assertEquals(c.getTimeStampSec("timeStampSec_vector"), c.getTimeStampSec(14));
       assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), c.getTimeStampMilli(15));
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), c.getTimeStampMicro(16));
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), c.getTimeStampNano(17));
+
+      // time stamp tests using Nullable Holders
+      NullableTimeStampSecHolder timeStampSecHolder = new NullableTimeStampSecHolder();
+      NullableTimeStampMilliHolder timeStampMilliHolder = new NullableTimeStampMilliHolder();
+      NullableTimeStampMicroHolder timeStampMicroHolder = new NullableTimeStampMicroHolder();
+      NullableTimeStampNanoHolder timeStampNanoHolder = new NullableTimeStampNanoHolder();
+      // fill the holders using vector index and test
+      c.getTimeStampSec(14, timeStampSecHolder);
+      c.getTimeStampMilli(15, timeStampMilliHolder);
+      c.getTimeStampMicro(16, timeStampMicroHolder);
+      c.getTimeStampNano(17, timeStampNanoHolder);
+      assertEquals(c.getTimeStampSec("timeStampSec_vector"), timeStampSecHolder.value);
+      assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), timeStampMilliHolder.value);
+      assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
+      assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
+
+      // refill the holders using vector name and retest
+      c.getTimeStampSec("timeStampSec_vector", timeStampSecHolder);
+      c.getTimeStampMilli("timeStampMilli_vector", timeStampMilliHolder);
+      c.getTimeStampMicro("timeStampMicro_vector", timeStampMicroHolder);
+      c.getTimeStampNano("timeStampNano_vector", timeStampNanoHolder);
+      assertEquals(c.getTimeStampSec("timeStampSec_vector"), timeStampSecHolder.value);
+      assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), timeStampMilliHolder.value);
+      assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
+      assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
     }
   }
 
