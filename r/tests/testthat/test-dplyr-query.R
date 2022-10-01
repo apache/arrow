@@ -579,3 +579,16 @@ test_that("needs_projection unit tests", {
     tab %>% relocate(lgl)
   ))
 })
+
+test_that("compute() on a grouped query returns a Table with groups in metadata", {
+  tab1 <- tbl %>%
+      arrow_table() %>%
+      group_by(int) %>%
+      compute()
+  expect_r6_class(tab1, "Table")
+  expect_equal(
+    as.data.frame(tab1),
+    tbl %>%
+      group_by(int)
+  )
+})
