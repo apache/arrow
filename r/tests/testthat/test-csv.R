@@ -610,3 +610,15 @@ test_that("read_csv_arrow() can read sub-second timestamps with col_types T sett
   expected <- as.POSIXct(tbl$time, tz = "UTC")
   expect_equal(df$time, expected, ignore_attr = "tzone")
 })
+
+test_that("read_csv_arrow() can't read timestamps with time zone, with the col_types T setting (ARROW-15602)", {
+  tbl <- tibble::tibble(time = c("1970-01-01T12:00:00+12:00"))
+  csv_file <- tempfile()
+  on.exit(unlink(csv_file))
+  write.csv(tbl, csv_file, row.names = FALSE)
+
+  expect_error(
+    read_csv_arrow(csv_file, col_types = "T", col_names = "time", skip = 1),
+    "CSV conversion error to timestamp\\[ns\\]: expected no zone offset in"
+  )
+})
