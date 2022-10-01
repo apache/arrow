@@ -217,7 +217,8 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
   const int16_t num_nulls = 2;
   int16_t def_levels[batch_size];
   int16_t rep_levels[batch_size];
-  bool values[batch_size - num_nulls];
+  bool values[batch_size];
+  std::fill_n(values, batch_size, false);
 
   auto levels_read =
       col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
@@ -232,7 +233,7 @@ TEST_F(TestBooleanRLE, TestBatchRead) {
               testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1));
 
   // Validate inserted data is as expected
-  ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1));
+  ASSERT_THAT(values, testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0 ,0));
 
   // Loop through rest of the values and assert batch_size read
   for (int i = batch_size; i < nvalues; i = i + batch_size) {
