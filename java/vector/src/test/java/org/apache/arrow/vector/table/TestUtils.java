@@ -112,12 +112,25 @@ public class TestUtils {
     return vectorList;
   }
 
+  /**
+   * Returns a list of fixed-width vectors for testing. It includes
+   * <ol>
+   *   <li>all integral and floating point types</li>
+   *   <li>all basic times and timestamps (second, milli, micro, nano</li>
+   * </ol>
+   *
+   * The vector names are based on their type name (e.g. BigIntVector is called "bigInt_vector"
+   */
   static List<FieldVector> fixedWidthVectors(BufferAllocator allocator, int rowCount) {
     List<FieldVector> vectors = new ArrayList<>();
     numericVectors(vectors, allocator, rowCount);
     return simpleTemporalVectors(vectors, allocator, rowCount);
   }
 
+  /**
+   * Returns a list of all integral and floating point vectors.
+   * The vector names are based on their type name (e.g. BigIntVector is called "bigInt_vector"
+   */
   static List<FieldVector> numericVectors(
       List<FieldVector> vectors, BufferAllocator allocator, int rowCount) {
     vectors.add(new IntVector("int_vector", allocator));

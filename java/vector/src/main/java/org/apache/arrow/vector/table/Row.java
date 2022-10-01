@@ -128,7 +128,7 @@ public class Row extends BaseRow implements Iterator<Row> {
    * Resets the current row to -1 and returns this object.
    */
   @Override
-  Row resetPosition() {
+  public Row resetPosition() {
     return (Row) super.resetPosition();
   }
 
