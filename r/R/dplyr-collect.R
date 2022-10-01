@@ -70,7 +70,6 @@ restore_dplyr_features <- function(df, query) {
       )
     } else {
       # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df <- as_arrow_table(df)
       df$metadata$r$attributes$.group_vars <- query$group_by_vars
     }
   }
