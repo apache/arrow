@@ -22,13 +22,20 @@ import static org.apache.arrow.vector.table.TestUtils.INT_LIST_VECTOR_NAME;
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.STRUCT_VECTOR_NAME;
 import static org.apache.arrow.vector.table.TestUtils.UNION_VECTOR_NAME;
+import static org.apache.arrow.vector.table.TestUtils.VARBINARY_VECTOR_NAME_1;
+import static org.apache.arrow.vector.table.TestUtils.VARCHAR_VECTOR_NAME_1;
 import static org.apache.arrow.vector.table.TestUtils.fixedWidthVectors;
+import static org.apache.arrow.vector.table.TestUtils.intPlusLargeVarBinaryColumns;
+import static org.apache.arrow.vector.table.TestUtils.intPlusLargeVarcharColumns;
+import static org.apache.arrow.vector.table.TestUtils.intPlusVarBinaryColumns;
+import static org.apache.arrow.vector.table.TestUtils.intPlusVarcharColumns;
 import static org.apache.arrow.vector.table.TestUtils.simpleDenseUnionVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleListVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleMapVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleStructVector;
 import static org.apache.arrow.vector.table.TestUtils.simpleUnionVector;
 import static org.apache.arrow.vector.table.TestUtils.twoIntColumns;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -312,6 +319,50 @@ class RowTest {
       assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), timeStampMilliHolder.value);
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
+    }
+  }
+
+  @Test
+  void getVarChar() {
+    List<FieldVector> vectorList = intPlusVarcharColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(c.getVarChar(1), "two");
+      assertEquals(c.getVarChar(1), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+    }
+  }
+
+  @Test
+  void getVarBinary() {
+    List<FieldVector> vectorList = intPlusVarBinaryColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertArrayEquals(c.getVarBinary(1), "two".getBytes());
+      assertArrayEquals(c.getVarBinary(1), c.getVarBinary(VARBINARY_VECTOR_NAME_1));
+    }
+  }
+
+  @Test
+  void getLargeVarBinary() {
+    List<FieldVector> vectorList = intPlusLargeVarBinaryColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertArrayEquals(c.getLargeVarBinary(1), "two".getBytes());
+      assertArrayEquals(c.getLargeVarBinary(1), c.getLargeVarBinary(VARBINARY_VECTOR_NAME_1));
+    }
+  }
+
+  @Test
+  void getLargeVarChar() {
+    List<FieldVector> vectorList = intPlusLargeVarcharColumns(allocator);
+    try (Table t = new Table(vectorList)) {
+      Row c = t.immutableRow();
+      c.setPosition(1);
+      assertEquals(c.getLargeVarChar(1), "two");
+      assertEquals(c.getLargeVarChar(1), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
     }
   }
 

@@ -30,6 +30,8 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.GenerateSampleData;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -44,6 +46,7 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -64,6 +67,7 @@ public class TestUtils {
   public static final String INT_VECTOR_NAME = "intCol";
   public static final String INT_VECTOR_NAME_1 = "intCol1";
   public static final String VARCHAR_VECTOR_NAME_1 = "varcharCol1";
+  public static final String VARBINARY_VECTOR_NAME_1 = "varbinaryCol1";
   public static final String INT_VECTOR_NAME_2 = "intCol2";
   public static final String INT_LIST_VECTOR_NAME = "int list vector";
   public static final String BIGINT_INT_MAP_VECTOR_NAME = "bigint-int map vector";
@@ -76,11 +80,7 @@ public class TestUtils {
    */
   static List<FieldVector> twoIntColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
-    IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
-    v1.allocateNew(2);
-    v1.set(0, 1);
-    v1.set(1, 2);
-    v1.setValueCount(2);
+    IntVector v1 = getSimpleIntVector(allocator);
     IntVector v2 = new IntVector(INT_VECTOR_NAME_2, allocator);
     v2.allocateNew(2);
     v2.set(0, 3);
@@ -97,11 +97,7 @@ public class TestUtils {
    */
   static List<FieldVector> intPlusVarcharColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
-    IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
-    v1.allocateNew(2);
-    v1.set(0, 1);
-    v1.set(1, 2);
-    v1.setValueCount(2);
+    IntVector v1 = getSimpleIntVector(allocator);
     VarCharVector v2 = new VarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
     v2.set(0, "one".getBytes());
@@ -110,6 +106,68 @@ public class TestUtils {
     vectorList.add(v1);
     vectorList.add(v2);
     return vectorList;
+  }
+
+  /**
+   * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
+   * vector is an IntVector and the second is a LargeVarCharVector. Each vector has two values set.
+   */
+  static List<FieldVector> intPlusLargeVarcharColumns(BufferAllocator allocator) {
+    List<FieldVector> vectorList = new ArrayList<>();
+    IntVector v1 = getSimpleIntVector(allocator);
+    LargeVarCharVector v2 = new LargeVarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
+    v2.allocateNew(2);
+    v2.set(0, "one".getBytes());
+    v2.set(1, "two".getBytes());
+    v2.setValueCount(2);
+    vectorList.add(v1);
+    vectorList.add(v2);
+    return vectorList;
+  }
+
+  /**
+   * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
+   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set.
+   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   */
+  static List<FieldVector> intPlusVarBinaryColumns(BufferAllocator allocator) {
+    List<FieldVector> vectorList = new ArrayList<>();
+    IntVector v1 = getSimpleIntVector(allocator);
+    VarBinaryVector v2 = new VarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
+    v2.allocateNew(2);
+    v2.set(0, "one".getBytes());
+    v2.set(1, "two".getBytes());
+    v2.setValueCount(2);
+    vectorList.add(v1);
+    vectorList.add(v2);
+    return vectorList;
+  }
+
+  /**
+   * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
+   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set.
+   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   */
+  static List<FieldVector> intPlusLargeVarBinaryColumns(BufferAllocator allocator) {
+    List<FieldVector> vectorList = new ArrayList<>();
+    IntVector v1 = getSimpleIntVector(allocator);
+    LargeVarBinaryVector v2 = new LargeVarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
+    v2.allocateNew(2);
+    v2.set(0, "one".getBytes());
+    v2.set(1, "two".getBytes());
+    v2.setValueCount(2);
+    vectorList.add(v1);
+    vectorList.add(v2);
+    return vectorList;
+  }
+
+  private static IntVector getSimpleIntVector(BufferAllocator allocator) {
+    IntVector v1 = new IntVector(INT_VECTOR_NAME_1, allocator);
+    v1.allocateNew(2);
+    v1.set(0, 1);
+    v1.set(1, 2);
+    v1.setValueCount(2);
+    return v1;
   }
 
   /**
