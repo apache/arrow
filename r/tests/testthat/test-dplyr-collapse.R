@@ -276,3 +276,17 @@ test_that("collapse doesn't unnecessarily add ProjectNodes", {
   )
   expect_length(grep("ProjectNode", plan), 1)
 })
+
+test_that("compute", {
+  tab1 <- tbl %>%
+      arrow_table() %>%
+      group_by(int) %>%
+      compute()
+  expect_true(inherits(tab1, "Table"))
+  expect_equal(
+    as.data.frame(tab1),
+    tbl %>%
+      group_by(int) %>%
+      collect()
+  )
+})
