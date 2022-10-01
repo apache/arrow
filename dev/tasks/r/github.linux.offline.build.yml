@@ -67,13 +67,20 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt install libcurl4-openssl-dev libssl-dev
+          sudo apt install -y \
+            libbrotli-dev \
+            libcurl4-openssl-dev \
+            libidn2-dev \
+            libkrb5-dev \
+            libldap-dev \
+            libnghttp2-dev \
+            libpsl-dev \
+            librtmp-dev \
+            libssh-dev \
+            libssh2-1-dev \
+            libssl-dev \
+            libzstd-dev
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
-      - name: Prepare PKG_CONFIG_PATH for Homebrew
-        run: |
-          # zstd is installed by Homebrew on GitHub Actions.
-          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
-            >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
