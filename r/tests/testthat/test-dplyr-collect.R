@@ -282,7 +282,7 @@ test_that("compute", {
       arrow_table() %>%
       group_by(int) %>%
       compute()
-  expect_true(inherits(tab1, "Table"))
+  expect_r6_class(tab1, "Table")
   expect_equal(
     as.data.frame(tab1),
     tbl %>%
